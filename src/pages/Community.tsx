@@ -1,0 +1,275 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Navbar } from '@/components/Navbar';
+import { supabase } from '@/integrations/supabase/client';
+import { SEOHead } from '@/components/SEOHead';
+import { Plus, Loader2, ArrowLeft, ChevronRight } from 'lucide-react';
+import { CommunityPostCard } from '@/components/CommunityPostCard';
+import { CreatePostDialog } from '@/components/CreatePostDialog';
+import { useToast } from '@/hooks/use-toast';
+import { useSearchParams } from 'react-router-dom';
+import {
+  COMMUNITY_CATEGORY_ORDER,
+  COMMUNITY_CATEGORIES,
+  isCommunityCategoryId,
+  type CommunityCategoryId,
+} from '@/lib/communityCategories';
+import { cn } from '@/lib/utils';
+
+const Community = () => {
+  const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const catParam = searchParams.get('cat');
+  const activeCategory: CommunityCategoryId | null = isCommunityCategoryId(catParam) ? catParam : null;
+
+  const [user, setUser] = useState<any>(null);
+  const [currentUserType, setCurrentUserType] = useState<string | null>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, any>>({});
+  const [studentProfiles, setStudentProfiles] = useState<Record<string, any>>({});
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const loadPosts = useCallback(async (category: CommunityCategoryId) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user || null;
+    setUser(currentUser);
+
+    const { data: postsData } = await supabase
+      .from('community_posts')
+      .select('*')
+      .eq('category', category)
+      .order('created_at', { ascending: false });
+
+    const allPosts = postsData || [];
+    setPosts(allPosts);
+
+    const userIds = [...new Set(allPosts.map((p: any) => p.user_id))];
+    if (userIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url, user_type')
+        .in('user_id', userIds);
+      const profileMap: Record<string, any> = {};
+      (profs || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+      setProfiles(profileMap);
+
+      const { data: sprofs } = await supabase
+        .from('student_profiles')
+        .select('user_id, skills, hourly_rate, is_available, university')
+        .in('user_id', userIds);
+      const spMap: Record<string, any> = {};
+      (sprofs || []).forEach((p: any) => { spMap[p.user_id] = p; });
+      setStudentProfiles(spMap);
+    } else {
+      setProfiles({});
+      setStudentProfiles({});
+    }
+
+    if (currentUser) {
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      setCurrentUserType(myProfile?.user_type || null);
+
+      const { data: likes } = await supabase
+        .from('community_post_likes')
+        .select('post_id')
+        .eq('user_id', currentUser.id);
+      setLikedPostIds(new Set((likes || []).map((l: any) => l.post_id)));
+
+      const { data: adminCheck } = await supabase.rpc('has_role', { _user_id: currentUser.id, _role: 'admin' });
+      setIsAdmin(!!adminCheck);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!activeCategory) {
+      setLoading(false);
+      setPosts([]);
+      setProfiles({});
+      setStudentProfiles({});
+      (async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+        if (session?.user) {
+          const { data: myProfile } = await supabase
+            .from('profiles')
+            .select('user_type')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          setCurrentUserType(myProfile?.user_type || null);
+          const { data: adminCheck } = await supabase.rpc('has_role', { _user_id: session.user.id, _role: 'admin' });
+          setIsAdmin(!!adminCheck);
+        } else {
+          setCurrentUserType(null);
+          setIsAdmin(false);
+        }
+      })();
+      return;
+    }
+
+    setLoading(true);
+    loadPosts(activeCategory);
+  }, [activeCategory, loadPosts]);
+
+  const handleLikeToggle = (postId: string, liked: boolean) => {
+    setLikedPostIds(prev => {
+      const next = new Set(prev);
+      liked ? next.add(postId) : next.delete(postId);
+      return next;
+    });
+    setPosts(prev => prev.map(p =>
+      p.id === postId ? { ...p, likes_count: p.likes_count + (liked ? 1 : -1) } : p
+    ));
+  };
+
+  const handleDelete = async (postId: string) => {
+    const { error } = await supabase.from('community_posts').delete().eq('id', postId);
+    if (error) {
+      toast({ title: 'Failed to delete', variant: 'destructive' });
+    } else {
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      toast({ title: 'Post deleted' });
+    }
+  };
+
+  const isStudent = currentUserType === 'student';
+
+  const goToCategory = (id: CommunityCategoryId) => {
+    setSearchParams({ cat: id }, { replace: false });
+  };
+
+  const goToHub = () => {
+    setSearchParams({}, { replace: false });
+  };
+
+  const boardTitle = activeCategory ? COMMUNITY_CATEGORIES[activeCategory].label : 'Community';
+  const boardDescription = activeCategory
+    ? COMMUNITY_CATEGORIES[activeCategory].description
+    : 'Choose a board to see freelancers offering work in that space.';
+
+  return (
+    <div className="relative min-h-screen overflow-x-hidden bg-background pb-24 md:pb-12">
+      <div
+        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-30%,hsl(var(--foreground)/0.06),transparent_55%)] dark:bg-[radial-gradient(ellipse_100%_70%_at_50%_-25%,hsl(var(--primary)/0.08),transparent_50%)]"
+        aria-hidden
+      />
+      <SEOHead
+        title={activeCategory ? `${boardTitle} – Community · VANO` : 'Community – VANO'}
+        description="Browse freelancer listings by specialty — videography, websites, or social media."
+      />
+      <Navbar />
+      <div className="relative mx-auto max-w-xl px-4 pt-20 sm:max-w-2xl sm:pt-24 md:max-w-2xl md:px-8 lg:max-w-[42rem]">
+        <header className="mb-9 sm:mb-11">
+          {activeCategory && (
+            <button
+              type="button"
+              onClick={goToHub}
+              className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+              All boards
+            </button>
+          )}
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Talent board</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-[2rem] sm:leading-tight">
+            {boardTitle}
+          </h1>
+          <p className="mt-3 max-w-md text-[15px] leading-relaxed text-muted-foreground sm:max-w-lg sm:text-base">
+            {boardDescription}
+          </p>
+        </header>
+
+        {!activeCategory ? (
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <p className="text-sm text-muted-foreground">Where do you want to look?</p>
+            {COMMUNITY_CATEGORY_ORDER.map((id) => {
+              const item = COMMUNITY_CATEGORIES[id];
+              const Icon = item.icon;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => goToCategory(id)}
+                  className={cn(
+                    'group flex w-full items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all',
+                    'hover:border-foreground/20 hover:shadow-md active:scale-[0.99]',
+                    'sm:p-5'
+                  )}
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground sm:h-14 sm:w-14">
+                    <Icon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold text-foreground sm:text-lg">{item.label}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
+              );
+            })}
+          </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="rounded-2xl border border-foreground/10 bg-card/80 px-6 py-16 text-center shadow-sm backdrop-blur-[2px]">
+            <p className="font-medium text-foreground">Nothing in {boardTitle} yet</p>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+              {isStudent
+                ? 'Be the first to list your services in this board.'
+                : 'Check back soon, or browse another board.'}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6 sm:gap-7">
+            {posts.map(post => (
+              <CommunityPostCard
+                key={post.id}
+                post={post}
+                profile={profiles[post.user_id] || null}
+                studentProfile={studentProfiles[post.user_id] || null}
+                currentUserId={user?.id || null}
+                currentUserType={currentUserType}
+                isLiked={likedPostIds.has(post.id)}
+                isAdmin={isAdmin}
+                onLikeToggle={handleLikeToggle}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isStudent && activeCategory && (
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="fixed z-40 flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-all hover:scale-[1.03] hover:shadow-xl max-md:bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] md:bottom-8 right-4 md:right-8"
+          aria-label="Create community post"
+        >
+          <Plus size={24} strokeWidth={2} />
+        </button>
+      )}
+
+      {user && activeCategory && (
+        <CreatePostDialog
+          open={showCreate}
+          onOpenChange={setShowCreate}
+          onPostCreated={() => loadPosts(activeCategory)}
+          userId={user.id}
+          category={activeCategory}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Community;

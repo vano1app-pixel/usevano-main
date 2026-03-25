@@ -1,0 +1,21 @@
+project_id = "amoolfvfumgjcxjlqyac"
+
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.check-achievements]
+    verify_jwt = false
+  [functions.notify-matched-students]
+    verify_jwt = false
+  [functions.smart-match-jobs]
+    verify_jwt = false
+  [functions.ai-cover-letter]
+    verify_jwt = false
+  [functions.ai-job-description]
+    verify_jwt = false
+  [functions.ai-profile-coach]
+    verify_jwt = false
+  [functions.ai-pricing-advisor]
+    verify_jwt = false
+  [functions.ai-review-summary]
+    verify_jwt = false
