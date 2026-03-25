@@ -1,6 +1,7 @@
 import React from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, Trophy } from 'lucide-react';
+import { Heart, MapPin } from 'lucide-react';
+import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
@@ -14,6 +15,10 @@ interface StudentProfile {
   hourly_rate: number;
   is_available: boolean;
   avatar_url: string;
+  banner_url?: string | null;
+  service_area?: string | null;
+  typical_budget_min?: number | null;
+  typical_budget_max?: number | null;
 }
 
 interface StudentCardProps {

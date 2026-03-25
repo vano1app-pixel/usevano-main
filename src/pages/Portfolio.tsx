@@ -5,7 +5,7 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, ExternalLink, Share2, ArrowUpRight } from 'lucide-react';
+import { Award, MessageCircle, ExternalLink, Share2, ArrowUpRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { FreelancerPublicHeader } from '@/components/FreelancerPublicHeader';
@@ -210,7 +210,7 @@ const Portfolio = () => {
 
         {/* Achievements */}
         {achievements.length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-6 mb-6">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><Award size={16} className="text-primary" /> Achievements</h2>
             <div className="flex flex-wrap gap-2">
               {achievements.map((a) => (
@@ -224,17 +224,18 @@ const Portfolio = () => {
 
         {/* Portfolio */}
         {portfolioItems.length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-6 mb-6">
-            <h2 className="text-sm font-semibold mb-4">Portfolio</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Gallery</p>
+            <h2 className="mt-1 text-base font-semibold">Portfolio</h2>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {portfolioItems.map((item) => (
-                <div key={item.id} className="border border-border rounded-xl overflow-hidden">
+                <div key={item.id} className="overflow-hidden rounded-xl border border-border/90 shadow-sm transition-shadow hover:shadow-md">
                   {item.image_url && (
-                    <img src={item.image_url} alt={item.title} className="w-full h-48 object-cover" />
+                    <img src={item.image_url} alt={item.title} className="h-48 w-full object-cover" />
                   )}
                   <div className="p-4">
-                    <h3 className="font-semibold text-sm">{item.title}</h3>
-                    {item.description && <p className="text-xs text-muted-foreground mt-1">{item.description}</p>}
+                    <h3 className="text-sm font-semibold">{item.title}</h3>
+                    {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
                   </div>
                 </div>
               ))}
@@ -243,7 +244,7 @@ const Portfolio = () => {
         )}
 
         {/* Reviews */}
-        <div className="mt-6">
+        <div>
           <ReviewList reviews={reviews} />
         </div>
       </div>
