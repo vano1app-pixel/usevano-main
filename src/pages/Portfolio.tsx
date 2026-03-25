@@ -5,9 +5,10 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, ExternalLink, MapPin, Share2 } from 'lucide-react';
+import { Star, Award, MessageCircle, ExternalLink, Share2, ArrowUpRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
+import { FreelancerPublicHeader } from '@/components/FreelancerPublicHeader';
 
 const Portfolio = () => {
   const { userId } = useParams();
@@ -109,47 +110,41 @@ const Portfolio = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title={`${profile.display_name || 'Freelancer'} – Portfolio – VANO`} description={student.bio?.substring(0, 160) || 'Freelancer portfolio on VANO'} />
       <Navbar />
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        {/* Hero card */}
-        <div className="bg-card border border-border rounded-2xl p-6 md:p-8 mb-6">
-          <div className="flex flex-col sm:flex-row items-start gap-5">
-            {student.avatar_url ? (
-              <img src={student.avatar_url} alt={profile.display_name} className="w-24 h-24 rounded-2xl object-cover shrink-0" />
-            ) : (
-              <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-4xl shrink-0">
-                {(profile.display_name || 'F')[0].toUpperCase()}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-1 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-bold">{profile.display_name || 'Freelancer'}</h1>
-                {student.is_available && (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">Available</span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
-                {student.hourly_rate > 0 && <span className="font-semibold text-primary text-base">€{student.hourly_rate}/hr</span>}
-                {avgRating && (
-                  <span className="flex items-center gap-1"><Star size={14} className="text-yellow-500 fill-yellow-500" /> {avgRating} ({reviews.length})</span>
-                )}
-                <span>{completedGigs} gigs completed</span>
-              </div>
-              {student.bio && <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{student.bio}</p>}
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3 mt-6">
-            {user && user.id !== userId && !(currentUserType === 'student' && profile?.user_type === 'business') && (
-              <button onClick={handleMessage} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2">
-                <MessageCircle size={16} /> Message
+      <div className="mx-auto max-w-4xl space-y-5 px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
+        <FreelancerPublicHeader
+          displayName={profile.display_name || 'Freelancer'}
+          bannerUrl={student.banner_url}
+          avatarUrl={student.avatar_url}
+          isAvailable={student.is_available}
+          serviceArea={student.service_area}
+          hourlyRate={student.hourly_rate}
+          typicalBudgetMin={student.typical_budget_min}
+          typicalBudgetMax={student.typical_budget_max}
+          avgRating={avgRating || undefined}
+          reviewCount={reviews.length}
+          bio={student.bio || undefined}
+          footnote={completedGigs > 0 ? `${completedGigs} gig${completedGigs === 1 ? '' : 's'} completed on VANO` : null}
+          actionRow={
+            <>
+              {user && user.id !== userId && !(currentUserType === 'student' && profile?.user_type === 'business') && (
+                <button
+                  type="button"
+                  onClick={handleMessage}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[9rem] sm:px-6"
+                >
+                  <MessageCircle size={18} strokeWidth={2} /> Message
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleShare}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary/30 py-3 text-sm font-semibold transition-colors hover:bg-secondary/50 sm:w-auto sm:px-6"
+              >
+                <Share2 size={18} strokeWidth={2} /> Share page
               </button>
-            )}
-            <button onClick={handleShare} className="px-4 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors flex items-center gap-2">
-              <Share2 size={16} /> Share
-            </button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Stats bar */}
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -176,36 +171,40 @@ const Portfolio = () => {
         )}
 
         {(tiktokPublic || onlineWorkLinks.length > 0) && (
-          <div className="bg-card border border-border rounded-2xl p-6 mb-6">
-            <h2 className="text-sm font-semibold mb-3">TikTok &amp; work online</h2>
-            <ul className="flex flex-col gap-2">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Work online</p>
+            <h2 className="mt-1 text-base font-semibold">Links &amp; social</h2>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {tiktokPublic && (
-                <li>
-                  <a
-                    href={tiktokPublic}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                  >
-                    <ExternalLink size={14} className="shrink-0" />
+                <a
+                  href={tiktokPublic}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40"
+                >
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                    <ExternalLink size={16} className="shrink-0 text-primary" />
                     TikTok
-                  </a>
-                </li>
+                  </span>
+                  <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                </a>
               )}
               {onlineWorkLinks.map((link) => (
-                <li key={link.url}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                  >
-                    <ExternalLink size={14} className="shrink-0" />
-                    {link.label}
-                  </a>
-                </li>
+                <a
+                  key={link.url}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40"
+                >
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                    <ExternalLink size={16} className="shrink-0 text-primary" />
+                    <span className="truncate">{link.label || 'Past work'}</span>
+                  </span>
+                  <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                </a>
               ))}
-            </ul>
+            </div>
           </div>
         )}
 
