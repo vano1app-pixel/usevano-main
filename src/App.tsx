@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
@@ -12,7 +12,6 @@ import JobDetail from "./pages/JobDetail";
 import PostJob from "./pages/PostJob";
 import BrowseStudents from "./pages/BrowseStudents";
 import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard";
 import Messages from "./pages/Messages";
 import StudentProfilePage from "./pages/StudentProfile";
 import Auth from "./pages/Auth";
@@ -37,7 +36,7 @@ const App = () => (
       <Route path="/students" element={<BrowseStudents />} />
       <Route path="/students/:id" element={<StudentProfilePage />} />
       <Route path="/profile" element={<Profile />} />
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/dashboard" element={<Navigate to="/profile" replace />} />
       <Route path="/messages" element={<Messages />} />
       <Route path="/auth" element={<Auth />} />
       

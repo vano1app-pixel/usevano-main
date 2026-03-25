@@ -30,6 +30,9 @@ const Community = () => {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [portfolioByUser, setPortfolioByUser] = useState<
+    Record<string, { id: string; image_url: string | null; title: string }[]>
+  >({});
 
   const loadPosts = useCallback(async (category: CommunityCategoryId) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -57,14 +60,33 @@ const Community = () => {
 
       const { data: sprofs } = await supabase
         .from('student_profiles')
-        .select('user_id, skills, hourly_rate, is_available, university')
+        .select('user_id, skills, hourly_rate, is_available, university, tiktok_url, work_links')
         .in('user_id', userIds);
       const spMap: Record<string, any> = {};
       (sprofs || []).forEach((p: any) => { spMap[p.user_id] = p; });
       setStudentProfiles(spMap);
+
+      const { data: pitems } = await supabase
+        .from('portfolio_items')
+        .select('user_id, id, image_url, title, created_at')
+        .in('user_id', userIds);
+      const grouped: Record<string, { id: string; image_url: string | null; title: string; created_at: string | null }[]> = {};
+      for (const row of pitems || []) {
+        if (!grouped[row.user_id]) grouped[row.user_id] = [];
+        grouped[row.user_id].push(row);
+      }
+      const trimmed: Record<string, { id: string; image_url: string | null; title: string }[]> = {};
+      for (const uid of Object.keys(grouped)) {
+        const sorted = [...grouped[uid]].sort(
+          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+        trimmed[uid] = sorted.slice(0, 6).map(({ id, image_url, title }) => ({ id, image_url, title }));
+      }
+      setPortfolioByUser(trimmed);
     } else {
       setProfiles({});
       setStudentProfiles({});
+      setPortfolioByUser({});
     }
 
     if (currentUser) {
@@ -94,6 +116,7 @@ const Community = () => {
       setPosts([]);
       setProfiles({});
       setStudentProfiles({});
+      setPortfolioByUser({});
       (async () => {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user || null);
@@ -236,6 +259,7 @@ const Community = () => {
                 post={post}
                 profile={profiles[post.user_id] || null}
                 studentProfile={studentProfiles[post.user_id] || null}
+                portfolioPreview={portfolioByUser[post.user_id] || []}
                 currentUserId={user?.id || null}
                 currentUserType={currentUserType}
                 isLiked={likedPostIds.has(post.id)}

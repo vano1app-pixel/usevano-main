@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Heart, MessageCircle, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Trash2, ExternalLink, Images, UserRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatCommunityBudget } from '@/lib/communityBudget';
+import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { cn } from '@/lib/utils';
 
 interface PostProfile {
@@ -19,7 +21,11 @@ interface StudentProfileLite {
   hourly_rate: number | null;
   is_available: boolean | null;
   university: string | null;
+  tiktok_url?: string | null;
+  work_links?: unknown;
 }
+
+export type PortfolioPreviewItem = { id: string; image_url: string | null; title: string };
 
 interface CommunityPostCardProps {
   post: {
@@ -42,6 +48,7 @@ interface CommunityPostCardProps {
   isAdmin: boolean;
   onLikeToggle: (postId: string, liked: boolean) => void;
   onDelete: (postId: string) => void;
+  portfolioPreview?: PortfolioPreviewItem[];
 }
 
 function bannerGradient(userId: string): string {
@@ -73,10 +80,12 @@ export const CommunityPostCard = ({
   isAdmin,
   onLikeToggle,
   onDelete,
+  portfolioPreview = [],
 }: CommunityPostCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [likeLoading, setLikeLoading] = useState(false);
+  const [freelancerOpen, setFreelancerOpen] = useState(false);
   const avatar = profile?.avatar_url;
   const name = profile?.display_name || 'Freelancer';
   const skills = (studentProfile?.skills || []).filter(Boolean).slice(0, 10);
@@ -112,7 +121,7 @@ export const CommunityPostCard = ({
     }
   };
 
-  const openChat = async () => {
+  const openChat = () => {
     if (!currentUserId) {
       navigate('/auth');
       return;
@@ -127,6 +136,12 @@ export const CommunityPostCard = ({
     const draft = `Hi! I saw your listing on Community — "${snippet}". I'd like to chat.`;
     navigate(`/messages?with=${post.user_id}&draft=${encodeURIComponent(draft)}`);
   };
+
+  const workLinks = useMemo(
+    () => parseWorkLinksJson(studentProfile?.work_links),
+    [studentProfile?.work_links]
+  );
+  const tiktokUrl = studentProfile?.tiktok_url?.trim() || null;
 
   const openProfile = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -286,7 +301,7 @@ export const CommunityPostCard = ({
         </div>
 
         {/* Actions */}
-        <div className="mt-5 flex flex-col gap-3 border-t border-foreground/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-3 border-t border-foreground/10 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3 sm:gap-y-2">
           <button
             type="button"
             onClick={handleLike}
@@ -302,20 +317,131 @@ export const CommunityPostCard = ({
           </button>
 
           {currentUserId !== post.user_id ? (
-            <Button
-              type="button"
-              size="lg"
-              className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]"
-              onClick={openChat}
-            >
-              <MessageCircle size={18} strokeWidth={2} />
-              Message
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-12 w-full rounded-xl border-foreground/15 text-[15px] font-semibold sm:h-11 sm:w-auto sm:min-w-[10.5rem]"
+                onClick={() => setFreelancerOpen(true)}
+              >
+                <UserRound size={18} strokeWidth={2} />
+                Profile &amp; work
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]"
+                onClick={openChat}
+              >
+                <MessageCircle size={18} strokeWidth={2} />
+                Message
+              </Button>
+            </div>
           ) : (
             <p className="text-center text-[13px] text-muted-foreground sm:text-right">Your listing — how it looks to others</p>
           )}
         </div>
       </div>
+
+      <Dialog open={freelancerOpen} onOpenChange={setFreelancerOpen}>
+        <DialogContent className="max-h-[min(90dvh,36rem)] gap-0 overflow-y-auto p-0 sm:max-w-lg">
+          <div className="border-b border-border bg-muted/30 px-6 py-5">
+            <DialogHeader className="space-y-1 text-left">
+              <DialogTitle className="text-xl">{name}</DialogTitle>
+              <DialogDescription className="text-[13px] leading-relaxed">
+                Listing: <span className="font-medium text-foreground/90">{post.title}</span>
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="space-y-5 px-6 py-5">
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Portfolio on VANO</p>
+              {portfolioPreview.length > 0 ? (
+                <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {portfolioPreview.map((item) => (
+                    <div
+                      key={item.id}
+                      className="w-[7.5rem] shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+                    >
+                      {item.image_url ? (
+                        <img src={item.image_url} alt="" className="h-20 w-full object-cover" />
+                      ) : (
+                        <div className="flex h-20 w-full items-center justify-center bg-muted">
+                          <Images size={22} className="text-muted-foreground" />
+                        </div>
+                      )}
+                      <p className="line-clamp-2 p-2 text-[11px] font-medium leading-snug text-foreground">{item.title}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No portfolio pieces uploaded yet — ask them to share samples in chat.</p>
+              )}
+            </div>
+
+            {(tiktokUrl || workLinks.length > 0) && (
+              <div>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Elsewhere online</p>
+                <ul className="flex flex-col gap-2">
+                  {tiktokUrl && (
+                    <li>
+                      <a
+                        href={tiktokUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium transition-colors hover:bg-muted/50"
+                      >
+                        <ExternalLink size={16} className="shrink-0 text-primary" />
+                        TikTok
+                      </a>
+                    </li>
+                  )}
+                  {workLinks.map((link) => (
+                    <li key={link.url}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-3 text-sm transition-colors hover:bg-muted/50"
+                      >
+                        <span className="min-w-0 truncate font-medium">{link.label}</span>
+                        <ExternalLink size={16} className="shrink-0 text-muted-foreground" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 rounded-xl font-semibold"
+                onClick={() => {
+                  setFreelancerOpen(false);
+                  navigate(`/students/${post.user_id}`);
+                }}
+              >
+                Full profile
+              </Button>
+              <Button
+                type="button"
+                className="h-11 flex-1 rounded-xl font-semibold"
+                onClick={() => {
+                  setFreelancerOpen(false);
+                  openChat();
+                }}
+              >
+                <MessageCircle size={18} strokeWidth={2} />
+                Send message
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 };

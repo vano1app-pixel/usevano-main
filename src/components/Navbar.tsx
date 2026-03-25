@@ -44,7 +44,6 @@ export const Navbar: React.FC = () => {
   ];
 
   const authNavItems = [
-    { label: 'Dashboard', href: '/dashboard' },
     { label: 'Messages', href: '/messages' },
     { label: 'Profile', href: '/profile' },
   ];

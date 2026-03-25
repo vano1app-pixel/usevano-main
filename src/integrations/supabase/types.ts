@@ -663,10 +663,12 @@ export type Database = {
           phone: string | null
           skills: string[] | null
           student_verified: boolean
+          tiktok_url: string | null
           university: string | null
           updated_at: string
           user_id: string
           verified_email: string | null
+          work_links: Json
         }
         Insert: {
           avatar_url?: string | null
@@ -679,10 +681,12 @@ export type Database = {
           phone?: string | null
           skills?: string[] | null
           student_verified?: boolean
+          tiktok_url?: string | null
           university?: string | null
           updated_at?: string
           user_id: string
           verified_email?: string | null
+          work_links?: Json
         }
         Update: {
           avatar_url?: string | null
@@ -695,10 +699,12 @@ export type Database = {
           phone?: string | null
           skills?: string[] | null
           student_verified?: boolean
+          tiktok_url?: string | null
           university?: string | null
           updated_at?: string
           user_id?: string
           verified_email?: string | null
+          work_links?: Json
         }
         Relationships: []
       }

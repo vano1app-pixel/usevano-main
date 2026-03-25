@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Wifi, Building2, Bookmark, BookmarkCheck, Flame } from 'lucide-react';
+import { MapPin, Clock, Bookmark, BookmarkCheck, Flame } from 'lucide-react';
 import { TagBadge } from './TagBadge';
 import { format, differenceInHours, parseISO } from 'date-fns';
 import { formatJobScheduleLine } from '@/lib/jobSchedule';
@@ -116,12 +116,6 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
             <Clock size={14} className="mt-0.5 shrink-0 opacity-80" />
             <span>{formatJobScheduleLine(job)}</span>
           </div>
-          {job.work_type && (
-            <div className="flex items-center gap-1.5">
-              {job.work_type === 'remote' ? <Wifi size={14} /> : <Building2 size={14} />}
-              <span className="capitalize">{job.work_type}</span>
-            </div>
-          )}
         </div>
 
         {job.tags?.length > 0 && (

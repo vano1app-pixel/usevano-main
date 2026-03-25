@@ -404,7 +404,7 @@ const Admin = () => {
                     {adminUserIds.has(u.user_id) && <ModBadge size="sm" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {u.user_type === 'student' ? '🎓 Student' : u.user_type === 'business' ? '🏢 Business' : 'No type'} · Joined {format(new Date(u.created_at), 'MMM d, yyyy')}
+                    {u.user_type === 'student' ? '🎓 Freelancer' : u.user_type === 'business' ? '🏢 Account' : 'No type'} · Joined {format(new Date(u.created_at), 'MMM d, yyyy')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

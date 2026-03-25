@@ -54,7 +54,7 @@ serve(async (req) => {
 
     // Fetch open jobs not already applied to
     const appliedJobIds = (recentApps || []).map((a: any) => a.job_id);
-    let jobQuery = supabase.from('jobs').select('id, title, description, location, hourly_rate, shift_date, tags, work_type').eq('status', 'open').order('created_at', { ascending: false }).limit(50);
+    let jobQuery = supabase.from('jobs').select('id, title, description, location, hourly_rate, fixed_price, payment_type, shift_date, tags, work_type').eq('status', 'open').order('created_at', { ascending: false }).limit(50);
 
     const { data: openJobs } = await jobQuery;
     const availableJobs = (openJobs || []).filter((j: any) => !appliedJobIds.includes(j.id));
@@ -83,6 +83,8 @@ serve(async (req) => {
       description: j.description?.slice(0, 100),
       location: j.location,
       hourly_rate: j.hourly_rate,
+      fixed_price: j.fixed_price,
+      payment_type: j.payment_type,
       shift_date: j.shift_date,
       tags: j.tags,
       work_type: j.work_type,
@@ -99,7 +101,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a job matching assistant. Given a student profile and available jobs, return the top 6 best matching jobs ranked by relevance. Consider skills overlap, pay preferences, work type, and tags."
+            content: "You are a job matching assistant. Given a student profile and available jobs, return the top 6 best matching jobs ranked by relevance. Consider skills overlap, pay preferences (jobs may be fixed-price projects or legacy hourly), work type, and tags."
           },
           {
             role: "user",
@@ -171,6 +173,8 @@ serve(async (req) => {
           title: job.title,
           location: job.location,
           hourly_rate: job.hourly_rate,
+          fixed_price: job.fixed_price,
+          payment_type: job.payment_type,
           shift_date: job.shift_date,
           tags: job.tags || [],
           match_score: Math.min(100, Math.max(0, Math.round(m.match_score))),

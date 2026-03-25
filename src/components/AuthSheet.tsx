@@ -236,7 +236,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                             : 'border-border text-foreground/60 hover:border-primary/30'
                         }`}
                       >
-                        🏢 Business
+                        Account
                       </button>
                     </div>
                   </div>

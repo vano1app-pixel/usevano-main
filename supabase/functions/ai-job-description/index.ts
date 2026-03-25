@@ -12,16 +12,16 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
-    const { title, tags, location, workType } = await req.json();
+    const { title, location } = await req.json();
 
-    const prompt = `Generate a job listing for VANO, a freelance gig marketplace in Galway, Ireland.
+    const prompt = `Generate a gig listing for VANO, a freelance marketplace in Galway, Ireland.
 
-Title: "${title}"
-Tags: ${(tags || []).join(', ') || 'None yet'}
-Location: "${location || 'Not specified'}"
-Work Type: "${workType || 'on-site'}"
+This is a fixed-price PROJECT (one total budget, work completed by a deadline) — not an hourly shift gig.
 
-Return a polished description, a suggested hourly rate range, and up to 3 suggested tags.`;
+Title: "${title || 'Not specified'}"
+Location / area: "${location || 'Not specified'}"
+
+Return a polished description and a single suggested total project budget in EUR (realistic for student freelancers).`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -39,15 +39,14 @@ Return a polished description, a suggested hourly rate range, and up to 3 sugges
           type: "function",
           function: {
             name: "generate_job_listing",
-            description: "Return a polished job description with suggested rate and tags.",
+            description: "Return a polished project gig description and suggested total budget.",
             parameters: {
               type: "object",
               properties: {
-                description: { type: "string", description: "A professional 3-5 sentence job description" },
-                suggestedRate: { type: "number", description: "Suggested hourly rate in EUR" },
-                suggestedTags: { type: "array", items: { type: "string" }, description: "Up to 3 suggested category tags" },
+                description: { type: "string", description: "A professional 3-5 sentence description: deliverables, expectations, and what done looks like" },
+                suggestedTotalBudget: { type: "number", description: "Suggested total project budget in EUR (one payment for the whole job)" },
               },
-              required: ["description", "suggestedRate", "suggestedTags"],
+              required: ["description", "suggestedTotalBudget"],
               additionalProperties: false,
             },
           },
@@ -72,15 +71,15 @@ Return a polished description, a suggested hourly rate range, and up to 3 sugges
       });
     }
 
-    // Fallback: try to parse from content
     const content = data.choices?.[0]?.message?.content || '';
-    return new Response(JSON.stringify({ description: content, suggestedRate: 13, suggestedTags: [] }), {
+    return new Response(JSON.stringify({ description: content, suggestedTotalBudget: 200 }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error("ai-job-description error:", err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Unknown error' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error('ai-job-description error:', err);
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

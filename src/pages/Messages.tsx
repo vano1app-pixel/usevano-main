@@ -2,10 +2,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Bot, Sparkles, Loader2, User } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Loader2, Mail, Phone, Instagram } from 'lucide-react';
 import { format } from 'date-fns';
-import ReactMarkdown from 'react-markdown';
+import {
+  TEAM_CONTACT_EMAIL,
+  TEAM_INSTAGRAM_HANDLE,
+  TEAM_INSTAGRAM_URL,
+  TEAM_PHONE_DISPLAY,
+  teamMailtoHref,
+  teamTelHref,
+} from '@/lib/contact';
 
 interface Conversation {
   id: string;
@@ -25,11 +33,6 @@ interface Message {
   read: boolean;
   created_at: string;
   image_url?: string | null;
-}
-
-interface AiMessage {
-  role: 'user' | 'assistant';
-  content: string;
 }
 
 // Typing indicator component
@@ -66,10 +69,6 @@ const playNotificationSound = () => {
   } catch {}
 };
 
-const AI_CONVO_ID = '__vano_ai_assistant__';
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vano-assistant`;
-
 const Messages = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,21 +84,14 @@ const Messages = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // AI assistant state
-  const [aiMessages, setAiMessages] = useState<AiMessage[]>([]);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiInput, setAiInput] = useState('');
-  const aiEndRef = useRef<HTMLDivElement>(null);
-
-  const isAiChat = selectedConvo === AI_CONVO_ID;
+  const [contactTeamOpen, setContactTeamOpen] = useState(false);
 
   useEffect(() => {
     loadUser();
   }, []);
 
   useEffect(() => {
-    if (selectedConvo && selectedConvo !== AI_CONVO_ID) {
+    if (selectedConvo) {
       loadMessages(selectedConvo);
       markAsRead(selectedConvo);
     }
@@ -109,13 +101,9 @@ const Messages = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  useEffect(() => {
-    aiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [aiMessages]);
-
   // Realtime: new messages + read receipt updates
   useEffect(() => {
-    if (!selectedConvo || !user || selectedConvo === AI_CONVO_ID) return;
+    if (!selectedConvo || !user) return;
     const channel = supabase
       .channel(`messages-${selectedConvo}`)
       .on('postgres_changes', {
@@ -351,108 +339,6 @@ const Messages = () => {
     sendTypingEvent();
   };
 
-  // AI chat streaming
-  const sendAiMessage = async () => {
-    const input = aiInput.trim();
-    if (!input || aiLoading) return;
-
-    const userMsg: AiMessage = { role: 'user', content: input };
-    const updatedMessages = [...aiMessages, userMsg];
-    setAiMessages(updatedMessages);
-    setAiInput('');
-    setAiLoading(true);
-
-    let assistantContent = '';
-
-    try {
-      const resp = await fetch(CHAT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: updatedMessages }),
-      });
-
-      if (!resp.ok || !resp.body) {
-        const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to get response');
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = '';
-
-      // Add empty assistant message
-      setAiMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              const finalContent = assistantContent;
-              setAiMessages(prev => {
-                const copy = [...prev];
-                copy[copy.length - 1] = { role: 'assistant', content: finalContent };
-                return copy;
-              });
-            }
-          } catch {
-            textBuffer = line + '\n' + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Final flush
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split('\n')) {
-          if (!raw) continue;
-          if (raw.endsWith('\r')) raw = raw.slice(0, -1);
-          if (raw.startsWith(':') || raw.trim() === '') continue;
-          if (!raw.startsWith('data: ')) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              const finalContent = assistantContent;
-              setAiMessages(prev => {
-                const copy = [...prev];
-                copy[copy.length - 1] = { role: 'assistant', content: finalContent };
-                return copy;
-              });
-            }
-          } catch { /* ignore */ }
-        }
-      }
-    } catch (err: any) {
-      setAiMessages(prev => [...prev.filter(m => m.role !== 'assistant' || m.content), { role: 'assistant', content: `Sorry, I couldn't respond right now. ${err.message || ''}` }]);
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
 
   const selectedConversation = conversations.find((c) => c.id === selectedConvo);
@@ -469,21 +355,73 @@ const Messages = () => {
               <h2 className="font-semibold text-lg flex items-center gap-2"><MessageCircle size={20} /> Messages</h2>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {/* AI Assistant entry — always at top */}
               <button
-                onClick={() => setSelectedConvo(AI_CONVO_ID)}
-                className={`w-full text-left px-4 py-3 border-b border-border hover:bg-secondary/50 transition-colors ${selectedConvo === AI_CONVO_ID ? 'bg-secondary' : ''}`}
+                type="button"
+                onClick={() => setContactTeamOpen(true)}
+                className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-secondary/50"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Sparkles size={16} className="text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm">VANO Assistant</p>
-                    <p className="text-xs text-muted-foreground truncate">AI-powered help & tips</p>
-                  </div>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Mail size={16} className="text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Contact team</p>
+                  <p className="truncate text-xs text-muted-foreground">Email, phone &amp; Instagram</p>
                 </div>
               </button>
+
+              <Dialog open={contactTeamOpen} onOpenChange={setContactTeamOpen}>
+                <DialogContent className="max-h-[min(90dvh,32rem)] overflow-y-auto sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Contact team</DialogTitle>
+                    <DialogDescription>
+                      Choose how you’d like to reach us — we’ll get back to you as soon as we can.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-3 pt-2">
+                    <a
+                      href={teamMailtoHref}
+                      onClick={() => setContactTeamOpen(false)}
+                      className="flex items-start gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Mail size={20} className="text-primary" />
+                      </span>
+                      <div className="min-w-0 pt-0.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</p>
+                        <p className="mt-1 break-all text-base font-medium text-foreground">{TEAM_CONTACT_EMAIL}</p>
+                      </div>
+                    </a>
+                    <a
+                      href={teamTelHref}
+                      onClick={() => setContactTeamOpen(false)}
+                      className="flex items-start gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Phone size={20} className="text-primary" />
+                      </span>
+                      <div className="min-w-0 pt-0.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone</p>
+                        <p className="mt-1 text-base font-medium text-foreground">{TEAM_PHONE_DISPLAY}</p>
+                      </div>
+                    </a>
+                    <a
+                      href={TEAM_INSTAGRAM_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setContactTeamOpen(false)}
+                      className="flex items-start gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Instagram size={20} className="text-primary" />
+                      </span>
+                      <div className="min-w-0 pt-0.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Instagram</p>
+                        <p className="mt-1 text-base font-medium text-foreground">@{TEAM_INSTAGRAM_HANDLE}</p>
+                      </div>
+                    </a>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               {conversations.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-12 px-4">No conversations yet. Message someone from a job or a Community listing.</p>
@@ -507,91 +445,7 @@ const Messages = () => {
 
           {/* Chat area */}
           <div className={`flex-1 flex flex-col ${!selectedConvo ? 'hidden md:flex' : 'flex'}`}>
-            {isAiChat ? (
-              <>
-                {/* AI chat header */}
-                <div className="p-4 border-b border-border flex items-center gap-3">
-                  <button onClick={() => setSelectedConvo(null)} className="md:hidden text-muted-foreground hover:text-foreground text-sm">← Back</button>
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Sparkles size={16} className="text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm">VANO Assistant</p>
-                    <p className="text-xs text-muted-foreground">AI-powered help</p>
-                  </div>
-                </div>
-
-                {/* AI messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {aiMessages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-12">
-                      <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Bot size={28} className="text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">Hi! I'm the VANO Assistant 👋</p>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                          Ask me anything about how VANO works, tips for getting gigs, writing better applications, or managing your profile.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2 justify-center">
-                        {['How do I get more gigs?', 'How does job matching work?', 'Tips for my profile'].map((q) => (
-                          <button
-                            key={q}
-                            onClick={() => { setAiInput(q); }}
-                            className="text-xs px-3 py-1.5 rounded-full border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-muted-foreground"
-                          >
-                            {q}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {aiMessages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
-                        msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-br-md'
-                          : 'bg-secondary text-secondary-foreground rounded-bl-md'
-                      }`}>
-                        {msg.role === 'assistant' ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
-                            <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
-                          </div>
-                        ) : (
-                          <p>{msg.content}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  {aiLoading && aiMessages[aiMessages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
-                  <div ref={aiEndRef} />
-                </div>
-
-                {/* AI input */}
-                <div className="p-4 border-t border-border">
-                  <div className="flex gap-2">
-                    <input
-                      value={aiInput}
-                      onChange={(e) => setAiInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }}
-                      placeholder="Ask VANO Assistant..."
-                      disabled={aiLoading}
-                      className="flex-1 border border-input rounded-xl px-4 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                    />
-                    <button
-                      onClick={sendAiMessage}
-                      disabled={aiLoading || !aiInput.trim()}
-                      className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
-                    >
-                      {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : selectedConvo ? (
+            {selectedConvo ? (
               <>
                 <div className="p-4 border-b border-border flex items-center gap-3">
                   <button onClick={() => setSelectedConvo(null)} className="md:hidden text-muted-foreground hover:text-foreground text-sm">← Back</button>

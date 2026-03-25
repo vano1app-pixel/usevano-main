@@ -33,7 +33,7 @@ const CompleteProfile = () => {
 
       // If profile is already complete, redirect away
       if (profile?.display_name && profile.display_name.trim() && profile?.avatar_url && profile.avatar_url.trim()) {
-        navigate('/dashboard', { replace: true });
+        navigate('/profile', { replace: true });
         return;
       }
 
@@ -67,7 +67,7 @@ const CompleteProfile = () => {
       }
 
       toast({ title: 'Profile complete! 🎉' });
-      navigate('/dashboard', { replace: true });
+      navigate('/profile', { replace: true });
     } catch (error: any) {
       toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
@@ -114,7 +114,7 @@ const CompleteProfile = () => {
 
             <div>
               <label className="block text-sm font-medium mb-1.5">
-                {userType === 'business' ? 'Business Name' : 'Your Name'}
+                {userType === 'business' ? 'Name' : 'Your Name'}
               </label>
               <input
                 type="text"
@@ -122,7 +122,7 @@ const CompleteProfile = () => {
                 onChange={(e) => setDisplayName(e.target.value)}
                 required
                 className={inputClass}
-                placeholder={userType === 'business' ? 'Acme Ltd' : 'John Doe'}
+                placeholder={userType === 'business' ? 'How you’d like to appear' : 'John Doe'}
                 autoFocus
               />
             </div>

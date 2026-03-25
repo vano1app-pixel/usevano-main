@@ -11,11 +11,12 @@ import { AIProfileCoach } from '@/components/AIProfileCoach';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Phone, Euro, CheckCircle, ExternalLink, Briefcase, GraduationCap, Trash2, CreditCard, Eye, EyeOff, Lightbulb, Loader2 } from 'lucide-react';
+import { Phone, Euro, CheckCircle, ExternalLink, Briefcase, GraduationCap, Trash2, CreditCard, Eye, EyeOff, Lightbulb, Loader2, Plus } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 
 const COMMON_SKILLS = ['Web Design', 'Marketing', 'Graphic Design', 'Writing', 'Tutoring', 'Gardening', 'Cleaning', 'Photography', 'Video Editing', 'Social Media', 'Odd Jobs', 'Events', 'Delivery', 'Admin'];
 
@@ -52,6 +53,8 @@ const Profile = () => {
   const [reviewCount, setReviewCount] = useState(0);
   const [studentPricingAdvice, setStudentPricingAdvice] = useState<{ suggestedMin: number; suggestedMax: number; reasoning: string } | null>(null);
   const [loadingStudentPrice, setLoadingStudentPrice] = useState(false);
+  const [tiktokUrl, setTiktokUrl] = useState('');
+  const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -84,12 +87,13 @@ const Profile = () => {
 
     if (prof?.user_type === 'business') {
       setBio(prof?.bio || '');
-      setWorkDescription(prof?.work_description || '');
+      setWorkDescription('');
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
     }
 
     if (prof?.user_type === 'student') {
+      setWorkDescription(prof?.work_description || '');
       const { data: sp } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
       if (sp) {
         setStudentProfile(sp);
@@ -101,6 +105,13 @@ const Profile = () => {
         setUniversity((sp as any).university || '');
         setPaymentDetails((sp as any).payment_details || '');
         if (sp.avatar_url) setAvatarUrl(sp.avatar_url);
+        setTiktokUrl(sp.tiktok_url || '');
+        const parsed = parseWorkLinksJson(sp.work_links);
+        setWorkLinks(
+          parsed.length > 0
+            ? parsed.map((p) => ({ url: p.url, label: p.label }))
+            : [{ url: '', label: '' }]
+        );
       }
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
@@ -136,13 +147,26 @@ const Profile = () => {
 
     if (profile?.user_type === 'business') {
       profileUpdate.bio = bio;
+      profileUpdate.work_description = '';
+    } else if (profile?.user_type === 'student') {
       profileUpdate.work_description = workDescription;
     }
 
     await supabase.from('profiles').update(profileUpdate).eq('user_id', user.id);
 
     if (profile?.user_type === 'student') {
-      const studentData = { bio, skills, hourly_rate: parseFloat(hourlyRate) || 0, phone, is_available: isAvailable, avatar_url: avatarUrl, payment_details: paymentDetails, university };
+      const studentData = {
+        bio,
+        skills,
+        hourly_rate: parseFloat(hourlyRate) || 0,
+        phone,
+        is_available: isAvailable,
+        avatar_url: avatarUrl,
+        payment_details: paymentDetails,
+        university,
+        tiktok_url: normalizeTikTokUrl(tiktokUrl),
+        work_links: workLinksToJson(workLinks) as any,
+      };
       if (studentProfile) {
         await supabase.from('student_profiles').update(studentData as any).eq('user_id', user.id);
       } else {
@@ -178,6 +202,19 @@ const Profile = () => {
       setSkills([...skills, customSkill.trim()]);
       setCustomSkill('');
     }
+  };
+
+  const addWorkLinkRow = () => {
+    if (workLinks.length >= 12) return;
+    setWorkLinks((prev) => [...prev, { url: '', label: '' }]);
+  };
+
+  const updateWorkLink = (index: number, field: 'url' | 'label', value: string) => {
+    setWorkLinks((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const removeWorkLink = (index: number) => {
+    setWorkLinks((prev) => (prev.length <= 1 ? [{ url: '', label: '' }] : prev.filter((_, i) => i !== index)));
   };
 
   if (loading) return (
@@ -218,8 +255,8 @@ const Profile = () => {
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
                 <Briefcase className="text-primary" size={28} />
               </div>
-              <h3 className="font-semibold text-lg mb-1">Business</h3>
-              <p className="text-sm text-muted-foreground">Post gigs, find talent, and grow your business</p>
+              <h3 className="font-semibold text-lg mb-1">Account</h3>
+              <p className="text-sm text-muted-foreground">Hire freelancers — add location and details when you post each gig</p>
             </button>
           </div>
         </div>
@@ -238,7 +275,9 @@ const Profile = () => {
             {user && <ModBadgeIfAdmin userId={user.id} />}
           </h1>
           <p className="text-muted-foreground">
-            {profile?.user_type === 'student' ? 'Manage your freelancer profile — visible to businesses' : 'Manage your business profile — visible to freelancers'}
+            {profile?.user_type === 'student'
+              ? 'Your freelancer profile — visible to people hiring on VANO'
+              : 'Your account — a short intro is enough; set location when you post a gig'}
           </p>
         </div>
 
@@ -258,41 +297,44 @@ const Profile = () => {
             />
             <div className="flex-1">
               <label className="block text-sm font-medium mb-1.5">
-                {profile?.user_type === 'business' ? 'Business Name' : 'Display Name'}
+                {profile?.user_type === 'business' ? 'Name' : 'Display Name'}
               </label>
-              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder={profile?.user_type === 'business' ? 'Your business name' : 'Your name'} />
+              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder={profile?.user_type === 'business' ? 'How you’d like to appear' : 'Your name'} />
             </div>
           </div>
 
-          {/* Bio — always visible */}
+          {/* About me / bio */}
           <div>
             <label className="block text-sm font-medium mb-1.5">
-              {profile?.user_type === 'business' ? 'About Your Business' : 'Bio'}
+              {profile?.user_type === 'business' ? 'About me' : 'Bio'}
             </label>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              className={`${inputClass} min-h-[100px] resize-none`}
-              placeholder={profile?.user_type === 'business'
-                ? 'Tell freelancers about your business, what you do, and what kind of work you typically need help with...'
-                : 'Tell businesses about yourself, your experience, and what makes you a great hire...'}
-            />
-          </div>
-
-          {/* Work Description — always visible */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              {profile?.user_type === 'business' ? 'Work Description / Services' : 'Work Experience'}
-            </label>
-            <textarea
-              value={workDescription}
-              onChange={(e) => setWorkDescription(e.target.value)}
               className={`${inputClass} min-h-[120px] resize-none`}
               placeholder={profile?.user_type === 'business'
-                ? 'Describe the kind of work you\'ve carried out, past projects, or services you offer...'
-                : 'Describe your past work, projects completed, or relevant experience...'}
+                ? 'A quick intro is enough — who you are and what you usually hire help for. You’ll add the exact location on each gig when you post it.'
+                : 'Tell people hiring on VANO about yourself, your experience, and what makes you a great hire...'}
             />
+            {profile?.user_type === 'business' && (
+              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.
+              </p>
+            )}
           </div>
+
+          {/* Work experience — freelancers only (saved on your profile record) */}
+          {profile?.user_type === 'student' && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Work experience</label>
+              <textarea
+                value={workDescription}
+                onChange={(e) => setWorkDescription(e.target.value)}
+                className={`${inputClass} min-h-[120px] resize-none`}
+                placeholder="Past projects, clients, or relevant experience…"
+              />
+            </div>
+          )}
 
           {/* Student-specific fields */}
           {profile?.user_type === 'student' && (
@@ -351,6 +393,59 @@ const Profile = () => {
                 <input value={university} onChange={(e) => setUniversity(e.target.value)} className={inputClass} placeholder="e.g. Trinity College Dublin" />
               </div>
 
+              <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">TikTok</label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Optional. Paste your profile link or @username — shown on Community and your public profile.
+                  </p>
+                  <input
+                    value={tiktokUrl}
+                    onChange={(e) => setTiktokUrl(e.target.value)}
+                    className={inputClass}
+                    placeholder="https://www.tiktok.com/@you or @you"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Links to past work</label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Websites, Behance, case studies, Google Drive — add a short label and URL (up to 12).
+                  </p>
+                  <div className="space-y-2">
+                    {workLinks.map((row, i) => (
+                      <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                          value={row.label}
+                          onChange={(e) => updateWorkLink(i, 'label', e.target.value)}
+                          className={inputClass}
+                          placeholder="Label (e.g. Agency site)"
+                        />
+                        <input
+                          value={row.url}
+                          onChange={(e) => updateWorkLink(i, 'url', e.target.value)}
+                          className={inputClass}
+                          placeholder="https://…"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeWorkLink(i)}
+                          className="shrink-0 rounded-xl border border-border px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive sm:py-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addWorkLinkRow}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                  >
+                    <Plus size={14} /> Add link
+                  </button>
+                </div>
+              </div>
+
               {/* Skills */}
               <div>
                 <label className="block text-sm font-medium mb-2">Skills</label>
@@ -376,7 +471,7 @@ const Profile = () => {
                   <CheckCircle size={16} className={isAvailable ? 'text-primary' : 'text-muted-foreground'} />
                   <div>
                     <p className="text-sm font-medium">Available for work</p>
-                    <p className="text-xs text-muted-foreground">Show up in business search results</p>
+                    <p className="text-xs text-muted-foreground">Show up when clients browse freelancers</p>
                   </div>
                 </div>
                 <button
@@ -395,7 +490,7 @@ const Profile = () => {
                   <p className="text-sm font-medium">Payment Details</p>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Your Revolut tag or IBAN — only shared with businesses after you both confirm a gig agreement.
+                  Your Revolut tag or IBAN — only shared with clients after you both confirm a gig agreement.
                 </p>
                 <div className="relative">
                   <input

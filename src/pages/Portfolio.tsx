@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Star, Award, MessageCircle, ExternalLink, MapPin, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { parseWorkLinksJson } from '@/lib/socialLinks';
 
 const Portfolio = () => {
   const { userId } = useParams();
@@ -101,6 +102,9 @@ const Portfolio = () => {
     'twenty_shifts': '💎', 'five_star': '🌟', 'reliable': '✅',
   };
 
+  const onlineWorkLinks = parseWorkLinksJson(student?.work_links);
+  const tiktokPublic = student?.tiktok_url?.trim() || '';
+
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title={`${profile.display_name || 'Freelancer'} – Portfolio – VANO`} description={student.bio?.substring(0, 160) || 'Freelancer portfolio on VANO'} />
@@ -168,6 +172,40 @@ const Portfolio = () => {
             <div className="flex flex-wrap gap-2">
               {student.skills.map((skill: string) => <TagBadge key={skill} tag={skill} />)}
             </div>
+          </div>
+        )}
+
+        {(tiktokPublic || onlineWorkLinks.length > 0) && (
+          <div className="bg-card border border-border rounded-2xl p-6 mb-6">
+            <h2 className="text-sm font-semibold mb-3">TikTok &amp; work online</h2>
+            <ul className="flex flex-col gap-2">
+              {tiktokPublic && (
+                <li>
+                  <a
+                    href={tiktokPublic}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                  >
+                    <ExternalLink size={14} className="shrink-0" />
+                    TikTok
+                  </a>
+                </li>
+              )}
+              {onlineWorkLinks.map((link) => (
+                <li key={link.url}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                  >
+                    <ExternalLink size={14} className="shrink-0" />
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

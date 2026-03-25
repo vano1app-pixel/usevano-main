@@ -7,7 +7,7 @@ import { ReviewForm } from '@/components/ReviewForm';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { MapPin, Clock, ArrowLeft, MessageCircle, Wifi, Building2, Flame, Sparkles, Loader2 } from 'lucide-react';
+import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Sparkles, Loader2 } from 'lucide-react';
 import { formatJobScheduleDetail } from '@/lib/jobSchedule';
 import { useToast } from '@/hooks/use-toast';
 
@@ -182,12 +182,8 @@ const JobDetail = () => {
           </div>
 
           <div className="flex flex-col gap-2 mb-6 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2"><MapPin size={16} /> {job.location || 'Remote'}</div>
+            <div className="flex items-center gap-2"><MapPin size={16} /> {job.location || 'Location TBC'}</div>
             <div className="flex items-center gap-2"><Clock size={16} /> {formatJobScheduleDetail(job)}</div>
-            <div className="flex items-center gap-2">
-              {job.work_type === 'remote' ? <Wifi size={16} /> : <Building2 size={16} />}
-              <span className="capitalize">{job.work_type || 'on-site'}</span>
-            </div>
           </div>
 
           {job.tags?.length > 0 && (

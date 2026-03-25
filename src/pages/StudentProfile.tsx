@@ -5,10 +5,11 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, Briefcase, MapPin, Sparkles } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, MapPin, Sparkles, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { parseWorkLinksJson } from '@/lib/socialLinks';
 
 const StudentProfile = () => {
   const { id } = useParams();
@@ -119,7 +120,7 @@ const StudentProfile = () => {
 
   const isBusiness = profile.user_type === 'business';
   const avatarUrl = isBusiness ? profile.avatar_url : (student?.avatar_url || profile.avatar_url);
-  const displayName = profile.display_name || (isBusiness ? 'Business' : 'Freelancer');
+  const displayName = profile.display_name || (isBusiness ? 'Client' : 'Freelancer');
   const bioText = isBusiness ? profile.bio : student?.bio;
   const workDesc = profile.work_description;
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
@@ -128,6 +129,9 @@ const StudentProfile = () => {
     'first_shift': '🎉', 'five_shifts': '⭐', 'ten_shifts': '🔥',
     'twenty_shifts': '💎', 'five_star': '🌟', 'reliable': '✅',
   };
+
+  const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
+  const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -149,7 +153,7 @@ const StudentProfile = () => {
                 <h1 className="text-xl sm:text-2xl font-bold">{displayName}</h1>
                 {profileIsAdmin && <ModBadge />}
                 <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground">
-                  {isBusiness ? 'Business' : 'Freelancer'}
+                  {isBusiness ? 'Account' : 'Freelancer'}
                 </span>
                 {!isBusiness && student?.is_available && (
                   <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">Available</span>
@@ -179,18 +183,52 @@ const StudentProfile = () => {
             )}
           </div>
 
-          {/* About */}
-          {bioText && (
-            <div className="mb-5">
-              <h2 className="text-sm font-semibold mb-2">About</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">{bioText}</p>
+          {!isBusiness && (tiktokPublic || onlineWorkLinks.length > 0) && (
+            <div className="mb-6 rounded-xl border border-border bg-secondary/20 p-4">
+              <h2 className="text-sm font-semibold mb-3">TikTok &amp; past work online</h2>
+              <ul className="flex flex-col gap-2">
+                {tiktokPublic && (
+                  <li>
+                    <a
+                      href={tiktokPublic}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                    >
+                      <ExternalLink size={14} className="shrink-0" />
+                      TikTok profile
+                    </a>
+                  </li>
+                )}
+                {onlineWorkLinks.map((link) => (
+                  <li key={link.url}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                    >
+                      <ExternalLink size={14} className="shrink-0" />
+                      <span className="min-w-0">{link.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {/* Work Description */}
-          {workDesc && (
+          {/* About me / about */}
+          {bioText && (
             <div className="mb-5">
-              <h2 className="text-sm font-semibold mb-2">{isBusiness ? 'Services & Work' : 'Work Experience'}</h2>
+              <h2 className="text-sm font-semibold mb-2">{isBusiness ? 'About me' : 'About'}</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{bioText}</p>
+            </div>
+          )}
+
+          {/* Work experience — freelancers only (account profiles use About me + gig locations) */}
+          {workDesc && !isBusiness && (
+            <div className="mb-5">
+              <h2 className="text-sm font-semibold mb-2">Work experience</h2>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{workDesc}</p>
             </div>
           )}
