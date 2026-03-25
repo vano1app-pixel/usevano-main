@@ -13,7 +13,7 @@ const NotFound = () => {
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <SEOHead 
         title="404 - Page Not Found"
-        description="The page you're looking for doesn't exist. Return to discover events and community calendars."
+        description="The page you're looking for doesn't exist. Return to the VANO home page."
       />
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">404</h1>

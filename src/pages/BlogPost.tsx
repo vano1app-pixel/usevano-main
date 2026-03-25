@@ -48,7 +48,7 @@ const features = [
   {
     icon: Users,
     title: 'Community Networking Page',
-    description: 'A dedicated space to connect with fellow freelancers, discover top talent on the leaderboard, and build relationships beyond individual gigs.',
+    description: 'A dedicated space to connect with fellow freelancers, browse talent and the community board, and build relationships beyond individual gigs.',
     tag: 'Community',
   },
   {

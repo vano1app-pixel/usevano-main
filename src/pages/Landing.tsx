@@ -535,7 +535,6 @@ const Landing = () => {
                   <button onClick={() => navigate('/jobs')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse gigs</button>
                   <button onClick={() => navigate('/community')} className="text-left text-foreground/70 hover:text-primary transition-colors">Community</button>
                   <button onClick={() => navigate('/post-job')} className="text-left text-foreground/70 hover:text-primary transition-colors">Post a gig</button>
-                  <button onClick={() => navigate('/leaderboard')} className="text-left text-foreground/70 hover:text-primary transition-colors">Leaderboard</button>
                 </div>
               </div>
               <div>
