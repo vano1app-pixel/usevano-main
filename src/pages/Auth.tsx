@@ -31,7 +31,7 @@ const Auth = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/dashboard');
+      if (session) navigate('/profile');
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -70,7 +70,7 @@ const Auth = () => {
           password,
           options: {
             data: { display_name: displayName || email.split('@')[0] },
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: `${window.location.origin}/profile`,
           },
         });
         if (error) throw error;
@@ -303,7 +303,7 @@ const Auth = () => {
             {isLogin ? 'Welcome back' : 'Create your account'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isLogin ? 'Sign in to manage your shifts' : 'Get started — it\'s free'}
+            {isLogin ? 'Sign in to VANO' : 'Get started with VANO'}
           </p>
         </div>
 
@@ -324,8 +324,8 @@ const Auth = () => {
                       }`}
                     >
                       <GraduationCap size={24} />
-                      <span className="text-sm font-medium">Student</span>
-                      <span className="text-xs opacity-70">Looking for shifts</span>
+                      <span className="text-sm font-medium">Freelancer</span>
+                      <span className="text-xs opacity-70">Find gigs</span>
                     </button>
                     <button
                       type="button"
@@ -337,8 +337,8 @@ const Auth = () => {
                       }`}
                     >
                       <Briefcase size={24} />
-                      <span className="text-sm font-medium">Business</span>
-                      <span className="text-xs opacity-70">Posting shifts</span>
+                      <span className="text-sm font-medium">Account</span>
+                      <span className="text-xs opacity-70">Hire &amp; post gigs</span>
                     </button>
                   </div>
                 </div>
@@ -349,7 +349,7 @@ const Auth = () => {
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder={userType === 'business' ? 'Business name' : 'Your name'}
+                    placeholder={userType === 'business' ? 'Your name or team' : 'Your name'}
                     className={inputClass}
                   />
                 </div>

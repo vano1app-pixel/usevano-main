@@ -72,7 +72,7 @@ const Landing = () => {
               🎉 VANO v1.0 is here — See what's new <ArrowRight size={12} />
             </button>
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/60 border border-border text-muted-foreground text-[11px] font-medium">
-              <MapPin size={11} /> Made for Galway · 100% Free
+              <MapPin size={11} /> Made for Galway · Local gigs
             </span>
           </motion.div>
           <motion.h1
@@ -88,7 +88,7 @@ const Landing = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-base sm:text-lg text-muted-foreground max-w-lg mx-auto mb-8 sm:mb-10 leading-relaxed"
           >
-            The fastest way to find freelancers and gigs in Galway. Post a job, get matched, done — no fees, no fuss.
+            The fastest way to find freelancers and gigs in Galway. Post a job, get matched, and get it done — simple and local.
           </motion.p>
           <motion.div
             variants={fadeUp}
@@ -162,9 +162,9 @@ const Landing = () => {
             className="flex items-center justify-center gap-6 sm:gap-8 mt-12 sm:mt-16 text-sm text-muted-foreground"
           >
             {[
-              { value: '€0', label: 'Platform fees' },
+              { value: 'Local', label: 'Galway-first' },
               { value: '<5 min', label: 'Avg. hire time' },
-              { value: '100%', label: 'Local talent' },
+              { value: '100%', label: 'Community' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
@@ -241,7 +241,7 @@ const Landing = () => {
             variants={staggerContainer}
           >
             {[
-              { icon: Shield, title: 'No fees, ever', desc: 'We don\'t take a cut. Every euro goes directly to the freelancer.' },
+              { icon: Shield, title: 'Trust & reviews', desc: 'Build a reputation with completed gigs, ratings, and a visible portfolio.' },
               { icon: MapPin, title: 'Hyperlocal', desc: 'Find talent and gigs right in your city. On-site or remote — your call.' },
               { icon: Clock, title: 'Hire in minutes', desc: 'No week-long bidding wars. Post a gig, get applicants, pick someone — done.' },
               { icon: Star, title: 'Reputation matters', desc: 'Verified reviews, photo proof, leaderboards — quality you can trust.' },
@@ -291,25 +291,24 @@ const Landing = () => {
                 <span className="text-muted-foreground font-medium">Fiverr</span>
               </div>
               {[
-                { feature: 'Platform fees', vanoText: '€0', fiverrText: '20% cut' },
                 { feature: 'Hiring speed', vanoText: 'Minutes', fiverrText: 'Days' },
                 { feature: 'Local & on-site' },
                 { feature: 'Physical gigs' },
                 { feature: 'Instant start' },
                 { feature: 'Community-driven' },
-              ].map((row, i) => (
+              ].map((row, i, arr) => (
                 <React.Fragment key={i}>
-                  <div className={`px-5 py-3.5 text-foreground font-medium ${i < 5 ? 'border-b border-border/50' : ''}`}>
+                  <div className={`px-5 py-3.5 text-foreground font-medium ${i < arr.length - 1 ? 'border-b border-border/50' : ''}`}>
                     {row.feature}
                   </div>
-                  <div className={`px-5 py-3.5 flex items-center justify-center ${i < 5 ? 'border-b border-border/50' : ''}`}>
+                  <div className={`px-5 py-3.5 flex items-center justify-center ${i < arr.length - 1 ? 'border-b border-border/50' : ''}`}>
                     {row.vanoText ? (
                       <span className="text-xs font-medium text-primary">{row.vanoText}</span>
                     ) : (
                       <Check size={16} className="text-primary" />
                     )}
                   </div>
-                  <div className={`px-5 py-3.5 flex items-center justify-center ${i < 5 ? 'border-b border-border/50' : ''}`}>
+                  <div className={`px-5 py-3.5 flex items-center justify-center ${i < arr.length - 1 ? 'border-b border-border/50' : ''}`}>
                     {row.fiverrText ? (
                       <span className="text-xs text-muted-foreground">{row.fiverrText}</span>
                     ) : (
@@ -347,7 +346,7 @@ const Landing = () => {
                   onClick={() => navigate('/auth')}
                   className="w-full sm:w-auto px-8 py-3.5 bg-primary-foreground text-primary rounded-xl font-medium text-sm hover:bg-primary-foreground/90 transition-colors"
                 >
-                  Create Free Account
+                  Create account
                 </button>
                 <button
                   onClick={() => navigate('/students')}
@@ -377,7 +376,7 @@ const Landing = () => {
                 <span className="text-lg font-bold text-foreground">VANO</span>
               </div>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                Connecting businesses with freelancers for gigs across Galway. Fast, simple, no fees.
+                Connecting businesses with freelancers for gigs across Galway. Fast and simple.
               </p>
             </div>
 

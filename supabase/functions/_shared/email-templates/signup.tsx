@@ -38,7 +38,7 @@ export const SignupEmail = ({
         <Img src={LOGO_URL} alt="VANO" width="48" height="48" style={logo} />
         <Heading style={h1}>Welcome to VANO 👋</Heading>
         <Text style={text}>
-          You're one step away from finding local gigs and talent in Galway — no fees, no fuss.
+          You're one step away from finding local gigs and talent in Galway.
         </Text>
         <Text style={text}>
           Confirm your email (
