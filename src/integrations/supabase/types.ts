@@ -654,6 +654,7 @@ export type Database = {
       student_profiles: {
         Row: {
           avatar_url: string | null
+          banner_url: string | null
           bio: string | null
           created_at: string
           hourly_rate: number | null
@@ -661,9 +662,12 @@ export type Database = {
           is_available: boolean | null
           payment_details: string | null
           phone: string | null
+          service_area: string | null
           skills: string[] | null
           student_verified: boolean
           tiktok_url: string | null
+          typical_budget_max: number | null
+          typical_budget_min: number | null
           university: string | null
           updated_at: string
           user_id: string
@@ -672,6 +676,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          banner_url?: string | null
           bio?: string | null
           created_at?: string
           hourly_rate?: number | null
@@ -679,9 +684,12 @@ export type Database = {
           is_available?: boolean | null
           payment_details?: string | null
           phone?: string | null
+          service_area?: string | null
           skills?: string[] | null
           student_verified?: boolean
           tiktok_url?: string | null
+          typical_budget_max?: number | null
+          typical_budget_min?: number | null
           university?: string | null
           updated_at?: string
           user_id: string
@@ -690,6 +698,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          banner_url?: string | null
           bio?: string | null
           created_at?: string
           hourly_rate?: number | null
@@ -697,9 +706,12 @@ export type Database = {
           is_available?: boolean | null
           payment_details?: string | null
           phone?: string | null
+          service_area?: string | null
           skills?: string[] | null
           student_verified?: boolean
           tiktok_url?: string | null
+          typical_budget_max?: number | null
+          typical_budget_min?: number | null
           university?: string | null
           updated_at?: string
           user_id?: string

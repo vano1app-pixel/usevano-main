@@ -5,11 +5,12 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, Briefcase, MapPin, Sparkles, ExternalLink } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, Sparkles, ExternalLink, ArrowUpRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
+import { FreelancerPublicHeader } from '@/components/FreelancerPublicHeader';
 
 const StudentProfile = () => {
   const { id } = useParams();
@@ -133,142 +134,215 @@ const StudentProfile = () => {
   const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
   const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
 
+  const freelancerActions = (
+    <>
+      {user && user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
+        <button
+          type="button"
+          onClick={handleMessage}
+          className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+        >
+          <MessageCircle size={18} strokeWidth={2} /> Message
+        </button>
+      )}
+      {!isBusiness && (
+        <button
+          type="button"
+          onClick={() => navigate(`/portfolio/${id}`)}
+          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
+        >
+          Full portfolio
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title={`${displayName} – VANO`} description={bioText?.substring(0, 160) || `${displayName} on VANO`} />
       <Navbar />
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        {/* Profile header card */}
-        <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
-          <div className="flex items-start gap-5 mb-5">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0" />
-            ) : (
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-3xl sm:text-4xl shrink-0">
-                {displayName[0].toUpperCase()}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-1 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-bold">{displayName}</h1>
-                {profileIsAdmin && <ModBadge />}
-                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground">
-                  {isBusiness ? 'Account' : 'Freelancer'}
-                </span>
-                {!isBusiness && student?.is_available && (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">Available</span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
-                <span className="flex items-center gap-1"><MapPin size={14} /> Galway, Ireland</span>
-                {!isBusiness && student?.hourly_rate > 0 && <span className="font-semibold text-primary">€{student.hourly_rate}/hr</span>}
-                {avgRating && (
-                  <span className="flex items-center gap-1"><Star size={14} className="text-yellow-500 fill-yellow-500" /> {avgRating} ({reviews.length})</span>
-                )}
+      <div className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 space-y-5">
+        {isBusiness ? (
+          <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm">
+            <div className="flex items-start gap-5 mb-5">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0" />
+              ) : (
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-3xl sm:text-4xl shrink-0">
+                  {displayName[0].toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-1 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-bold">{displayName}</h1>
+                  {profileIsAdmin && <ModBadge />}
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground">Account</span>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
+                  {avgRating && (
+                    <span className="flex items-center gap-1">
+                      <Star size={14} className="text-yellow-500 fill-yellow-500" /> {avgRating} ({reviews.length})
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3 mb-6">
-            {user && user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
-              <button onClick={handleMessage} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2">
-                <MessageCircle size={16} /> Message
-              </button>
+            <div className="flex gap-3 mb-6">
+              {user && user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
+                <button
+                  type="button"
+                  onClick={handleMessage}
+                  className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={16} /> Message
+                </button>
+              )}
+            </div>
+            {bioText && (
+              <div className="mb-5">
+                <h2 className="text-sm font-semibold mb-2">About me</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{bioText}</p>
+              </div>
             )}
-            {!isBusiness && (
-              <button onClick={() => navigate(`/portfolio/${id}`)} className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                View Full Portfolio
-              </button>
+            {achievements.length > 0 && (
+              <div className="mb-5">
+                <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Award size={16} className="text-primary" /> Achievements
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {achievements.map((a) => (
+                    <span key={a.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary rounded-xl text-sm font-medium">
+                      {badgeIcons[a.badge_key] || '🏅'} {a.badge_label}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
+        ) : student ? (
+          <>
+            <FreelancerPublicHeader
+              displayName={displayName}
+              nameAccessory={
+                <>
+                  {profileIsAdmin && <ModBadge />}
+                  <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-secondary-foreground ring-1 ring-border/80">
+                    Freelancer
+                  </span>
+                </>
+              }
+              bannerUrl={student.banner_url}
+              avatarUrl={avatarUrl}
+              isAvailable={student.is_available}
+              serviceArea={student.service_area}
+              hourlyRate={student.hourly_rate}
+              typicalBudgetMin={student.typical_budget_min}
+              typicalBudgetMax={student.typical_budget_max}
+              avgRating={avgRating || undefined}
+              reviewCount={reviews.length}
+              actionRow={freelancerActions}
+            />
 
-          {!isBusiness && (tiktokPublic || onlineWorkLinks.length > 0) && (
-            <div className="mb-6 rounded-xl border border-border bg-secondary/20 p-4">
-              <h2 className="text-sm font-semibold mb-3">TikTok &amp; past work online</h2>
-              <ul className="flex flex-col gap-2">
-                {tiktokPublic && (
-                  <li>
+            {(tiktokPublic || onlineWorkLinks.length > 0) && (
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Work online</p>
+                <h2 className="mt-1 text-base font-semibold text-foreground">Links &amp; social proof</h2>
+                <p className="mt-1 text-xs text-muted-foreground">TikTok, reels, sites, and case studies they chose to highlight.</p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {tiktokPublic && (
                     <a
                       href={tiktokPublic}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                      className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40"
                     >
-                      <ExternalLink size={14} className="shrink-0" />
-                      TikTok profile
+                      <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                        <ExternalLink size={16} className="shrink-0 text-primary" />
+                        <span className="truncate">TikTok</span>
+                      </span>
+                      <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                     </a>
-                  </li>
-                )}
-                {onlineWorkLinks.map((link) => (
-                  <li key={link.url}>
+                  )}
+                  {onlineWorkLinks.map((link) => (
                     <a
+                      key={link.url}
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                      className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40"
                     >
-                      <ExternalLink size={14} className="shrink-0" />
-                      <span className="min-w-0">{link.label}</span>
+                      <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                        <ExternalLink size={16} className="shrink-0 text-primary" />
+                        <span className="truncate">{link.label || 'Past work'}</span>
+                      </span>
+                      <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                     </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* About me / about */}
-          {bioText && (
-            <div className="mb-5">
-              <h2 className="text-sm font-semibold mb-2">{isBusiness ? 'About me' : 'About'}</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{bioText}</p>
-            </div>
-          )}
-
-          {/* Work experience — freelancers only (account profiles use About me + gig locations) */}
-          {workDesc && !isBusiness && (
-            <div className="mb-5">
-              <h2 className="text-sm font-semibold mb-2">Work experience</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{workDesc}</p>
-            </div>
-          )}
-
-          {/* Skills (freelancers) */}
-          {!isBusiness && student?.skills?.length > 0 && (
-            <div className="mb-5">
-              <h2 className="text-sm font-semibold mb-2">Skills</h2>
-              <div className="flex flex-wrap gap-2">
-                {student.skills.map((skill: string) => <TagBadge key={skill} tag={skill} />)}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Achievements */}
-          {achievements.length > 0 && (
-            <div className="mb-5">
-              <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><Award size={16} className="text-primary" /> Achievements</h2>
-              <div className="flex flex-wrap gap-2">
-                {achievements.map((a) => (
-                  <span key={a.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary rounded-xl text-sm font-medium">
-                    {badgeIcons[a.badge_key] || '🏅'} {a.badge_label}
-                  </span>
-                ))}
-              </div>
+            <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-5">
+              {bioText && (
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">About</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{bioText}</p>
+                </div>
+              )}
+              {workDesc && (
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">Work experience</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{workDesc}</p>
+                </div>
+              )}
+              {student?.skills?.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground mb-2">Skills</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {student.skills.map((skill: string) => (
+                      <TagBadge key={skill} tag={skill} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {achievements.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold mb-3 flex items-center gap-2 text-foreground">
+                    <Award size={16} className="text-primary" /> Achievements
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {achievements.map((a) => (
+                      <span
+                        key={a.id}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-secondary/40 px-3 py-1.5 text-sm font-medium"
+                      >
+                        {badgeIcons[a.badge_key] || '🏅'} {a.badge_label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+            <p className="text-sm font-medium text-foreground">Freelancer profile isn&apos;t finished yet.</p>
+            <p className="mt-1 text-xs text-muted-foreground">They may still be completing their VANO setup.</p>
+          </div>
+        )}
 
         {/* Portfolio items */}
         {portfolioItems.length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-6 mt-4">
-            <h2 className="text-sm font-semibold mb-4">Portfolio</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Gallery</p>
+            <h2 className="mt-1 text-base font-semibold text-foreground">Portfolio</h2>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {portfolioItems.map((item) => (
-                <div key={item.id} className="border border-border rounded-xl overflow-hidden">
-                  {item.image_url && <img src={item.image_url} alt={item.title} className="w-full h-40 object-cover" />}
-                  <div className="p-3">
-                    <h3 className="font-semibold text-sm">{item.title}</h3>
-                    {item.description && <p className="text-xs text-muted-foreground mt-1">{item.description}</p>}
+                <div key={item.id} className="overflow-hidden rounded-xl border border-border/90 shadow-sm transition-shadow hover:shadow-md">
+                  {item.image_url && <img src={item.image_url} alt={item.title} className="h-44 w-full object-cover" />}
+                  <div className="p-4">
+                    <h3 className="text-sm font-semibold">{item.title}</h3>
+                    {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
                   </div>
                 </div>
               ))}
@@ -278,7 +352,7 @@ const StudentProfile = () => {
 
         {/* Previous work / gigs */}
         {completedJobs.length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-6 mt-4">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Briefcase size={16} className="text-primary" />
               {isBusiness ? 'Gigs Posted' : 'Gigs Completed'}
@@ -312,7 +386,7 @@ const StudentProfile = () => {
 
         {/* Reviews */}
         {reviews.length > 0 && (
-          <div className="mt-4">
+          <div>
             {aiSummary && (
               <div className="flex items-center gap-2 mb-3 px-1">
                 <Sparkles size={14} className="text-primary shrink-0" />

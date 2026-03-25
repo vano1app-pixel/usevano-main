@@ -4,8 +4,10 @@ import { StudentCard } from '@/components/StudentCard';
 import { TagBadge } from '@/components/TagBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Search } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 import { useTopStudents } from '@/hooks/useTopStudents';
+import { Button } from '@/components/ui/button';
+import { Link, useNavigate } from 'react-router-dom';
 
 const SKILL_TAGS = ['Barista', 'Retail', 'Events', 'Hospitality', 'Cleaning', 'Delivery', 'Admin', 'Kitchen'];
 
@@ -69,20 +71,44 @@ const BrowseStudents = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <SEOHead title="Browse Students – VANO" description="Find students with the skills you need in Galway." />
+      <SEOHead title="Find talent – VANO" description="Browse freelancers and students with the skills you need in Galway." />
       <Navbar />
       <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Browse Students</h1>
-        <p className="text-muted-foreground mb-8">Find students with the skills you need</p>
+        <header className="mb-6 border-l-[3px] border-foreground pl-4 sm:mb-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Talent</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Find the right freelancer</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-[15px]">
+            Search by name or bio, filter by common skills, and open profiles to see portfolios and how to connect.
+          </p>
+        </header>
+
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Have a project in mind?</p>
+            <p className="text-xs text-muted-foreground sm:text-sm">Post a gig with a fixed budget and deadline — freelancers apply from here.</p>
+          </div>
+          {user ? (
+            <Button size="lg" className="h-11 w-full shrink-0 rounded-xl font-semibold sm:w-auto sm:min-w-[11rem]" asChild>
+              <Link to="/post-job" className="inline-flex items-center justify-center gap-2">
+                <Plus size={18} strokeWidth={2.5} className="opacity-90" />
+                Post a gig
+              </Link>
+            </Button>
+          ) : (
+            <Button size="lg" variant="secondary" className="h-11 w-full shrink-0 rounded-xl font-semibold sm:w-auto" onClick={() => navigate('/auth')}>
+              Sign in to post
+            </Button>
+          )}
+        </div>
 
         <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or bio..."
-            className="w-full pl-10 pr-4 py-3 border border-input rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Search by name, bio, or keywords…"
+            className="w-full pl-10 pr-4 py-3.5 border border-input rounded-2xl bg-card text-sm shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           />
         </div>
 

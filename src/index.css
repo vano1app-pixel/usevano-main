@@ -13,25 +13,27 @@
    */
   :root {
     --background: 210 28% 97%;
-    --foreground: 222 20% 11%;
+    /* Near-black body copy — stronger than soft gray UI defaults */
+    --foreground: 222 47% 6%;
 
     --card: 210 40% 99%;
-    --card-foreground: 222 20% 11%;
+    --card-foreground: 222 47% 6%;
 
     --popover: 210 40% 99%;
-    --popover-foreground: 222 20% 11%;
+    --popover-foreground: 222 47% 6%;
 
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 24% 94%;
-    --secondary-foreground: 222 20% 11%;
+    --secondary-foreground: 222 47% 6%;
 
     --muted: 210 22% 94%;
-    --muted-foreground: 220 12% 42%;
+    /* Secondary labels: charcoal, not pale gray (primary blue unchanged) */
+    --muted-foreground: 222 22% 28%;
 
     --accent: 210 26% 93%;
-    --accent-foreground: 222 20% 11%;
+    --accent-foreground: 222 47% 6%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -47,11 +49,11 @@
     --glass-shadow: 217 91% 60% / 0.08;
 
     --sidebar-background: 210 28% 97%;
-    --sidebar-foreground: 222 18% 20%;
+    --sidebar-foreground: 222 35% 10%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 214 32% 96%;
-    --sidebar-accent-foreground: 220 20% 10%;
+    --sidebar-accent-foreground: 222 40% 8%;
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 217 91% 60%;
   }
@@ -73,7 +75,8 @@
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    /* Dark mode: secondary text a bit richer, less “washed” */
+    --muted-foreground: 215 16% 58%;
 
     --accent: 217 33% 17%;
     --accent-foreground: 210 40% 98%;

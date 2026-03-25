@@ -5,6 +5,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { TagBadge } from '@/components/TagBadge';
 import { AvatarUpload } from '@/components/AvatarUpload';
+import { BannerUpload } from '@/components/BannerUpload';
 import { GigPreferences } from '@/components/GigPreferences';
 import { NotificationPreferences } from '@/components/NotificationPreferences';
 import { AIProfileCoach } from '@/components/AIProfileCoach';
@@ -55,6 +56,10 @@ const Profile = () => {
   const [loadingStudentPrice, setLoadingStudentPrice] = useState(false);
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
+  const [bannerUrl, setBannerUrl] = useState('');
+  const [serviceArea, setServiceArea] = useState('');
+  const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
+  const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -106,6 +111,18 @@ const Profile = () => {
         setPaymentDetails((sp as any).payment_details || '');
         if (sp.avatar_url) setAvatarUrl(sp.avatar_url);
         setTiktokUrl(sp.tiktok_url || '');
+        setBannerUrl((sp as any).banner_url || '');
+        setServiceArea((sp as any).service_area || '');
+        setTypicalBudgetMin(
+          (sp as any).typical_budget_min != null && (sp as any).typical_budget_min > 0
+            ? String((sp as any).typical_budget_min)
+            : '',
+        );
+        setTypicalBudgetMax(
+          (sp as any).typical_budget_max != null && (sp as any).typical_budget_max > 0
+            ? String((sp as any).typical_budget_max)
+            : '',
+        );
         const parsed = parseWorkLinksJson(sp.work_links);
         setWorkLinks(
           parsed.length > 0
@@ -162,6 +179,10 @@ const Profile = () => {
         phone,
         is_available: isAvailable,
         avatar_url: avatarUrl,
+        banner_url: bannerUrl || null,
+        service_area: serviceArea.trim() || null,
+        typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null,
+        typical_budget_max: parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null,
         payment_details: paymentDetails,
         university,
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
@@ -303,6 +324,17 @@ const Profile = () => {
             </div>
           </div>
 
+          {profile?.user_type === 'student' && user && (
+            <BannerUpload
+              userId={user.id}
+              currentUrl={bannerUrl}
+              onUploaded={(url) => {
+                setBannerUrl(url);
+                setStudentProfile((prev: any) => (prev ? { ...prev, banner_url: url } : prev));
+              }}
+            />
+          )}
+
           {/* About me / bio */}
           <div>
             <label className="block text-sm font-medium mb-1.5">
@@ -339,11 +371,53 @@ const Profile = () => {
           {/* Student-specific fields */}
           {profile?.user_type === 'student' && (
             <>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Service area</label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Where you&apos;re based or willing to work — e.g. <span className="font-medium text-foreground/80">Galway city</span>,{' '}
+                  <span className="font-medium text-foreground/80">Within 30km of Galway</span>, or{' '}
+                  <span className="font-medium text-foreground/80">Remote</span>.
+                </p>
+                <input
+                  value={serviceArea}
+                  onChange={(e) => setServiceArea(e.target.value)}
+                  className={inputClass}
+                  placeholder="e.g. Galway city · Remote OK"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Typical project budget (€)</label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    For fixed-price work like sites or one-off deliverables — e.g. 200–500. Leave blank if you only use hourly.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={typicalBudgetMin}
+                      onChange={(e) => setTypicalBudgetMin(e.target.value)}
+                      className={inputClass}
+                      placeholder="Min"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={typicalBudgetMax}
+                      onChange={(e) => setTypicalBudgetMax(e.target.value)}
+                      className={inputClass}
+                      placeholder="Max"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-sm font-medium flex items-center gap-1.5">
-                        <Euro size={14} className="text-primary" /> Hourly Rate (€)
+                        <Euro size={14} className="text-primary" /> Hourly rate (€)
                       </label>
                       <button
                         type="button"
@@ -369,7 +443,8 @@ const Profile = () => {
                         {loadingStudentPrice ? 'Thinking...' : '💡 Suggest rate'}
                       </button>
                     </div>
-                    <input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} className={inputClass} placeholder="12.50" />
+                    <input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} className={inputClass} placeholder="25" />
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">Strong for video, social, shoots, or ongoing support.</p>
                     {studentPricingAdvice && (
                       <div className="mt-2 p-2.5 bg-primary/5 border border-primary/15 rounded-lg">
                         <p className="text-xs font-medium text-primary">€{studentPricingAdvice.suggestedMin} – €{studentPricingAdvice.suggestedMax}/hr</p>
