@@ -11,11 +11,11 @@ interface SEOHeadProps {
 export const SEOHead = ({ 
   title, 
   description, 
-  keywords = 'events, discover events, event management, community events',
+  keywords = 'VANO, Galway, freelancers, gigs, local jobs, hire students, community',
   image = '/placeholder.svg',
   url = window.location.href
 }: SEOHeadProps) => {
-  const fullTitle = `${title} | EventHub`;
+  const fullTitle = `${title} | VANO`;
   
   return (
     <Helmet>
