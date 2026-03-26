@@ -13,6 +13,8 @@ import {
 } from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
 import { cn } from '@/lib/utils';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { AUTH_EMAIL_REDIRECT } from '@/lib/authConstants';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -23,6 +25,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otp, setOtp] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
@@ -44,9 +47,7 @@ const Auth = () => {
 
   useEffect(() => {
     void redirectIfAlreadySignedIn();
-    // Email confirmation links load /auth with tokens in the hash; detectSessionInUrl resolves
-    // the session asynchronously. A one-time getSession on mount often runs before that, so we
-    // re-run when auth state updates (INITIAL_SESSION / SIGNED_IN).
+    // Recovery / OAuth may still set session from URL; re-check when auth state changes.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) void redirectIfAlreadySignedIn();
     });
@@ -98,7 +99,7 @@ const Auth = () => {
           password,
           options: {
             data: { display_name: displayName.trim() || email.split('@')[0], user_type: userType },
-            emailRedirectTo: `${window.location.origin}/auth`,
+            emailRedirectTo: AUTH_EMAIL_REDIRECT,
           },
         });
         if (error) throw error;
@@ -135,8 +136,15 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) await ensureProfileAfterSignUp(user.id);
 
-      toast({ title: 'Account ready!', description: 'Add a photo and name on the next screen.' });
-      navigate('/complete-profile', { replace: true });
+      const nextPath = user ? await getPostAuthPath(user.id) : '/complete-profile';
+      const isBusiness = userType === 'business';
+      toast({
+        title: 'You’re verified!',
+        description: isBusiness
+          ? 'Welcome — taking you to your dashboard.'
+          : 'Next, add your name and photo to finish your profile.',
+      });
+      navigate(nextPath, { replace: true });
     } catch (error: unknown) {
       toast({
         title: 'Verification failed',
@@ -145,6 +153,24 @@ const Auth = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendSignupCode = async () => {
+    if (!email.trim()) return;
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
+      if (error) throw error;
+      toast({ title: 'Code sent', description: 'Check your inbox for a new 6-digit code.' });
+    } catch (error: unknown) {
+      toast({
+        title: 'Could not resend',
+        description: getUserFriendlyError(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -196,26 +222,36 @@ const Auth = () => {
           </div>
 
           <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
-            <form onSubmit={handleVerifyOtp} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Verification code</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className={`${inputClass} text-center text-2xl tracking-[0.5em] font-mono`}
-                  autoFocus
-                  disabled={loading}
-                />
+            <form onSubmit={handleVerifyOtp} className="space-y-6">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-center text-foreground">Enter the 6-digit code</label>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={(value) => setOtp(value.replace(/\D/g, ''))}
+                    disabled={loading}
+                    containerClassName="gap-2 sm:gap-3"
+                  >
+                    <InputOTPGroup className="gap-1.5 sm:gap-2">
+                      <InputOTPSlot index={0} className="h-12 w-10 sm:h-14 sm:w-11 text-lg rounded-lg" />
+                      <InputOTPSlot index={1} className="h-12 w-10 sm:h-14 sm:w-11 text-lg rounded-lg" />
+                      <InputOTPSlot index={2} className="h-12 w-10 sm:h-14 sm:w-11 text-lg rounded-lg" />
+                      <InputOTPSlot index={3} className="h-12 w-10 sm:h-14 sm:w-11 text-lg rounded-lg" />
+                      <InputOTPSlot index={4} className="h-12 w-10 sm:h-14 sm:w-11 text-lg rounded-lg" />
+                      <InputOTPSlot index={5} className="h-12 w-10 sm:h-14 sm:w-11 text-lg rounded-lg" />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  No link to click — enter the code from your email here.
+                </p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || otp.length < 6}
-                className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center gap-2 min-h-[48px]"
               >
                 {loading ? (
                   <>
@@ -228,15 +264,28 @@ const Auth = () => {
               </button>
             </form>
 
-            <div className="mt-5 pt-5 border-t border-border text-center">
+            <div className="mt-5 pt-5 border-t border-border space-y-3 text-center">
               <button
                 type="button"
-                disabled={loading}
-                onClick={() => setPendingVerification(false)}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                disabled={resendLoading || loading}
+                onClick={() => void handleResendSignupCode()}
+                className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
               >
-                ← Back to create account
+                {resendLoading ? 'Sending…' : 'Resend code'}
               </button>
+              <div>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setOtp('');
+                    setPendingVerification(false);
+                  }}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                >
+                  ← Back to create account
+                </button>
+              </div>
             </div>
           </div>
         </div>

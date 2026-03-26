@@ -11,7 +11,9 @@ import {
   FREELANCER_STUDENT_EMAIL_ERROR,
 } from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
+import { AUTH_EMAIL_REDIRECT } from '@/lib/authConstants';
 import { cn } from '@/lib/utils';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 interface AuthSheetProps {
   isOpen: boolean;
@@ -30,6 +32,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otp, setOtp] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const { toast } = useToast();
@@ -81,7 +84,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth`,
+            emailRedirectTo: AUTH_EMAIL_REDIRECT,
             data: { user_type: userType },
           },
         });
@@ -95,7 +98,10 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
         }
 
         setPendingVerification(true);
-        toast({ title: 'Check your email', description: `We sent a 6-digit code to ${email}.` });
+        toast({
+        title: 'Check your email',
+        description: `We sent a 6-digit code to ${email}. Enter it here — no link required.`,
+      });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -135,13 +141,32 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
           await supabase.from('student_profiles').upsert({ user_id: user.id }, { onConflict: 'user_id' });
         }
       }
-      toast({ title: "You're in!", description: 'Add your photo on the next screen.' });
+      const nextPath = user ? await getPostAuthPath(user.id) : '/complete-profile';
+      const isBusiness = userType === 'business';
+      toast({
+        title: "You're in!",
+        description: isBusiness ? 'Welcome — opening your dashboard.' : 'Next: add your name and photo.',
+      });
       onClose();
-      navigate('/complete-profile', { replace: true });
+      navigate(nextPath, { replace: true });
     } catch (error: unknown) {
       toast({ title: 'Verification failed', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendSignupCode = async () => {
+    if (!email.trim()) return;
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
+      if (error) throw error;
+      toast({ title: 'Code sent', description: 'Check your inbox for a new 6-digit code.' });
+    } catch (error: unknown) {
+      toast({ title: 'Could not resend', description: getUserFriendlyError(error), variant: 'destructive' });
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -210,18 +235,33 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                   </p>
                 </div>
 
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="• • • • • •"
-                    className={`${inputClass} text-center text-2xl tracking-[0.4em] font-mono`}
-                    autoFocus
-                    disabled={loading}
-                  />
+                <form onSubmit={handleVerifyOtp} className="space-y-5">
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                      6-digit code
+                    </p>
+                    <div className="flex justify-center">
+                      <InputOTP
+                        maxLength={6}
+                        value={otp}
+                        onChange={(value) => setOtp(value.replace(/\D/g, ''))}
+                        disabled={loading}
+                        containerClassName="gap-2"
+                      >
+                        <InputOTPGroup className="gap-1.5">
+                          <InputOTPSlot index={0} className="h-11 w-9 text-base rounded-lg" />
+                          <InputOTPSlot index={1} className="h-11 w-9 text-base rounded-lg" />
+                          <InputOTPSlot index={2} className="h-11 w-9 text-base rounded-lg" />
+                          <InputOTPSlot index={3} className="h-11 w-9 text-base rounded-lg" />
+                          <InputOTPSlot index={4} className="h-11 w-9 text-base rounded-lg" />
+                          <InputOTPSlot index={5} className="h-11 w-9 text-base rounded-lg" />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                    <p className="text-[11px] text-center text-muted-foreground leading-snug px-1">
+                      Enter the code from your email — verification happens here, no redirect link.
+                    </p>
+                  </div>
                   <button
                     type="submit"
                     disabled={loading || otp.length < 6}
@@ -238,15 +278,28 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                   </button>
                 </form>
 
-                <div className="text-center">
+                <div className="space-y-3 text-center">
                   <button
                     type="button"
-                    disabled={loading}
-                    onClick={() => setPendingVerification(false)}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                    disabled={resendLoading || loading}
+                    onClick={() => void handleResendSignupCode()}
+                    className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
                   >
-                    ← Back
+                    {resendLoading ? 'Sending…' : 'Resend code'}
                   </button>
+                  <div>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => {
+                        setOtp('');
+                        setPendingVerification(false);
+                      }}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                    >
+                      ← Back
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : forgotPassword ? (

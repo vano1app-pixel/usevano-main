@@ -63,18 +63,24 @@ Optional: `VITE_GOOGLE_MAPS_API_KEY`, `VITE_TEAM_CONTACT_EMAIL`.
 
 Copy `.env.example` to `.env.local` for local development.
 
-### 2. Supabase Auth URLs (production: vanojobs.com)
+### 2. Supabase Auth (production: vanojobs.com)
 
-Supabase → **Authentication** → **URL configuration**:
+**URL configuration** — Supabase → **Authentication** → **URL configuration**:
 
-- **Site URL:** `https://vanojobs.com` (use your Vercel URL only while testing, e.g. `https://your-app.vercel.app`)
+- **Site URL:** `https://vanojobs.com` (use your Vercel URL while testing, e.g. `https://your-app.vercel.app`)
 - **Redirect URLs:** include at least:  
+  `https://vanojobs.com`  
   `https://vanojobs.com/**`  
   `https://www.vanojobs.com/**` (if you use `www`)  
-  `https://*.vercel.app/**` (optional, for preview deployments)  
+  `https://*.vercel.app/**` (optional, preview deployments)  
   `http://localhost:8080/**` (local dev)
 
-The app uses `window.location.origin` for sign-up and password-reset links, so the host users open **must** appear in this list or auth redirects will fail.
+**Email sign-up (6-digit OTP)** — Supabase → **Authentication** → **Providers** → **Email**:
+
+- Enable **Confirm email** (or your project’s equivalent) and use **email OTP** / 6-digit codes for verification so users complete sign-up **in the app** (no magic-link dependency).
+- The client calls `verifyOtp` with `type: 'signup'` and uses `AUTH_EMAIL_REDIRECT` (`VITE_AUTH_EMAIL_REDIRECT_URL` or default `https://vanojobs.com`) as `emailRedirectTo` for any email action that still references a URL.
+
+Password reset still uses a link to `/reset-password`; those hosts must remain in **Redirect URLs**.
 
 ### 3. Edge Functions
 
