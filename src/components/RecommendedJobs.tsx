@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, MapPin, Euro, Calendar, Loader2 } from 'lucide-react';
+import { Star, MapPin, Euro, Calendar, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 
@@ -46,7 +46,7 @@ export const RecommendedJobs: React.FC<{ userId: string }> = ({ userId }) => {
     return (
       <div className="bg-card border border-border rounded-2xl p-6">
         <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-          <Sparkles size={18} className="text-primary" /> Recommended for You
+          <Star size={18} className="text-primary" /> Recommended for You
         </h3>
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 size={20} className="animate-spin mr-2" /> Finding your best matches...
@@ -59,7 +59,7 @@ export const RecommendedJobs: React.FC<{ userId: string }> = ({ userId }) => {
     return (
       <div className="bg-card border border-border rounded-2xl p-6">
         <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-          <Sparkles size={18} className="text-primary" /> Recommended for You
+          <Star size={18} className="text-primary" /> Recommended for You
         </h3>
         <p className="text-sm text-muted-foreground text-center py-6">
           {error || 'No matching gigs right now. Check back soon!'}
@@ -71,7 +71,7 @@ export const RecommendedJobs: React.FC<{ userId: string }> = ({ userId }) => {
   return (
     <div className="bg-card border border-border rounded-2xl p-4 sm:p-6">
       <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-        <Sparkles size={18} className="text-primary" /> Recommended for You
+        <Star size={18} className="text-primary" /> Recommended for You
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {jobs.slice(0, 6).map((job, idx) => (

@@ -124,7 +124,7 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
 
       if (error) throw error;
 
-      toast({ title: 'Post published! 🎉' });
+      toast({ title: 'Post published' });
       setTitle('');
       setDescription('');
       setRateUnit('hourly');

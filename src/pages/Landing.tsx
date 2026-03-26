@@ -8,7 +8,6 @@ import {
   Briefcase,
   ArrowRight,
   Check,
-  X,
   Clock,
   Shield,
   MapPin,
@@ -16,6 +15,9 @@ import {
   Search,
   MessageCircle,
   MessageSquare,
+  Megaphone,
+  Linkedin,
+  CircleUser,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
@@ -54,13 +56,7 @@ const Landing = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0 relative">
-      {/* Subtle noise overlay */}
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.035]" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        backgroundRepeat: 'repeat',
-        backgroundSize: '128px 128px',
-      }} />
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="VANO – Connect Galway Businesses with Students"
         description="We connect Galway businesses with freelancers for local gigs. Simple, fast, local."
@@ -69,24 +65,22 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-24 sm:pt-16 md:pt-28 pb-16 sm:pb-20 md:pb-28 px-4 md:px-8 overflow-hidden">
-        {/* Glass decorative shapes */}
-        <div className="absolute -top-20 -left-24 w-72 h-72 rounded-full bg-primary/[0.04] border border-primary/[0.06] blur-2xl animate-[float_22s_ease-in-out_infinite]" />
-        <div className="absolute top-16 right-[-60px] w-40 h-56 rounded-2xl bg-primary/[0.03] border border-primary/[0.05] rotate-12 blur-xl animate-[float_26s_ease-in-out_infinite_reverse]" />
-        <div className="absolute bottom-8 left-[10%] w-20 h-20 bg-primary/[0.04] border border-primary/[0.06] rotate-45 rounded-lg blur-lg animate-[float_18s_ease-in-out_infinite]" />
-        <div className="absolute top-1/2 right-[15%] w-10 h-10 rounded-full bg-primary/[0.05] border border-primary/[0.07] blur-md animate-[float_20s_ease-in-out_infinite_reverse]" />
+      <section className="relative pt-24 sm:pt-16 md:pt-28 pb-14 sm:pb-18 md:pb-24 px-4 md:px-8">
         <motion.div
-          className="max-w-3xl mx-auto text-center relative z-10"
+          className="max-w-3xl mx-auto text-center"
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
         >
           <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center gap-3 mb-6 sm:mb-8">
             <button
+              type="button"
               onClick={() => navigate('/blog/vano-v1')}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/15 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
             >
-              🎉 VANO v1.0 is here — See what's new <ArrowRight size={12} />
+              <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
+              What&apos;s new in v1.0
+              <ArrowRight size={12} className="opacity-70" />
             </button>
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/60 border border-border text-muted-foreground text-[11px] font-medium">
               <MapPin size={11} /> Made for Galway · Local gigs
@@ -145,7 +139,7 @@ const Landing = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/students')}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-all shadow-[0_2px_16px_hsl(var(--primary)/0.25)] hover:shadow-[0_4px_24px_hsl(var(--primary)/0.35)] flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                 >
                   <Users size={18} />
                   Find talent
@@ -173,7 +167,7 @@ const Landing = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/auth?mode=signup')}
-                    className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-all shadow-[0_2px_16px_hsl(var(--primary)/0.25)] hover:shadow-[0_4px_24px_hsl(var(--primary)/0.35)] flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                   >
                     Get started
                     <ArrowRight size={16} />
@@ -209,35 +203,9 @@ const Landing = () => {
             )}
           </motion.div>
 
-          {/* Stats + trust chips */}
-          <motion.div
-            variants={fadeUp}
-            transition={{ duration: 0.6, delay: 0.45 }}
-            className="mt-12 sm:mt-16 space-y-6"
-          >
-            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm text-muted-foreground">
-              {[
-                { value: 'Local', label: 'Galway-first' },
-                { value: '<5 min', label: 'To post a gig' },
-                { value: '100%', label: 'Community' },
-              ].map((stat) => (
-                <div key={stat.label} className="text-center px-2">
-                  <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-[11px] sm:text-xs mt-0.5">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {['Fixed-price gigs', 'In-app messaging', 'Portfolios & reviews', 'Community board'].map((chip) => (
-                <span
-                  key={chip}
-                  className="rounded-full border border-border/80 bg-card px-3 py-1.5 text-[11px] font-medium text-muted-foreground shadow-sm"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          </motion.div>
+          <p className="mt-10 text-center text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
+            Fixed-price gigs · In-app messaging · Portfolios &amp; reviews · Community board · Built for Galway
+          </p>
         </motion.div>
       </section>
 
@@ -269,7 +237,7 @@ const Landing = () => {
             variants={staggerContainer}
           >
             {[
-              { num: '01', phase: 'Discover', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers, portfolios, and community listings. Filter by skills and shortlist who matches your style.' },
+              { num: '01', phase: 'Discover', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers, portfolios, and community listings. Search by name, bio, or skills.' },
               { num: '02', phase: 'Scope', icon: Briefcase, title: 'Post or apply', desc: 'Hirers post gigs with budget and due date. Freelancers apply with a message — align on deliverables before you start.' },
               { num: '03', phase: 'Connect', icon: MessageCircle, title: 'Chat on VANO', desc: 'Keep project conversation in one thread. No need to scatter details across different apps.' },
               { num: '04', phase: 'Deliver', icon: Check, title: 'Complete & review', desc: 'Finish the work, then build reputation through reviews and completed gigs on your profile.' },
@@ -338,63 +306,6 @@ const Landing = () => {
             ))}
           </motion.div>
         </div>
-      </section>
-
-      {/* VANO vs Fiverr */}
-      <section className="py-16 md:py-24 px-4 md:px-8">
-        <motion.div
-          className="max-w-2xl mx-auto"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          variants={staggerContainer}
-        >
-          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-medium text-primary uppercase tracking-widest text-center mb-3">Comparison</motion.p>
-          <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold text-center mb-3">VANO vs Fiverr</motion.h2>
-          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-10">Built for local gigs, not global bidding wars.</motion.p>
-          <motion.div
-            variants={scaleIn}
-            transition={{ duration: 0.5, delay: 0.15 }}
-            className="bg-card border border-border rounded-2xl overflow-hidden"
-          >
-            <div className="grid grid-cols-[1fr_auto_auto] text-sm">
-              <div className="px-5 py-4 border-b border-border" />
-              <div className="px-5 py-4 border-b border-border text-center min-w-[80px]">
-                <span className="text-primary font-bold">VANO</span>
-              </div>
-              <div className="px-5 py-4 border-b border-border text-center min-w-[80px]">
-                <span className="text-muted-foreground font-medium">Fiverr</span>
-              </div>
-              {[
-                { feature: 'Hiring speed', vanoText: 'Minutes', fiverrText: 'Days' },
-                { feature: 'Local & on-site' },
-                { feature: 'Physical gigs' },
-                { feature: 'Instant start' },
-                { feature: 'Community-driven' },
-              ].map((row, i, arr) => (
-                <React.Fragment key={i}>
-                  <div className={`px-5 py-3.5 text-foreground font-medium ${i < arr.length - 1 ? 'border-b border-border/50' : ''}`}>
-                    {row.feature}
-                  </div>
-                  <div className={`px-5 py-3.5 flex items-center justify-center ${i < arr.length - 1 ? 'border-b border-border/50' : ''}`}>
-                    {row.vanoText ? (
-                      <span className="text-xs font-medium text-primary">{row.vanoText}</span>
-                    ) : (
-                      <Check size={16} className="text-primary" />
-                    )}
-                  </div>
-                  <div className={`px-5 py-3.5 flex items-center justify-center ${i < arr.length - 1 ? 'border-b border-border/50' : ''}`}>
-                    {row.fiverrText ? (
-                      <span className="text-xs text-muted-foreground">{row.fiverrText}</span>
-                    ) : (
-                      <X size={16} className="text-muted-foreground/40" />
-                    )}
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-          </motion.div>
-        </motion.div>
       </section>
 
       {/* FAQ */}
@@ -479,15 +390,10 @@ const Landing = () => {
           variants={scaleIn}
           transition={{ duration: 0.55 }}
         >
-          <div className="bg-primary rounded-3xl p-8 sm:p-12 text-center relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'repeat',
-              backgroundSize: '128px 128px',
-            }} />
-            <div className="relative z-10">
+          <div className="bg-primary rounded-2xl p-8 sm:p-12 text-center">
+            <div>
               <h2 className="text-2xl sm:text-3xl font-bold text-primary-foreground mb-3">Ready to get started?</h2>
-              <p className="text-primary-foreground/70 mb-8 text-sm sm:text-base">Join Galway's growing community of freelancers and businesses.</p>
+              <p className="text-primary-foreground/80 mb-8 text-sm sm:text-base">Join freelancers and businesses using VANO in Galway.</p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   onClick={() => navigate('/auth')}
@@ -546,7 +452,7 @@ const Landing = () => {
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-foreground/70 hover:text-primary transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                    <Linkedin className="h-3.5 w-3.5" strokeWidth={2} />
                     LinkedIn
                   </a>
                   <a
@@ -555,8 +461,8 @@ const Landing = () => {
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-foreground/70 hover:text-primary transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                    Contact the Developer
+                    <CircleUser className="h-3.5 w-3.5" strokeWidth={2} />
+                    Contact
                   </a>
                 </div>
               </div>
@@ -565,7 +471,7 @@ const Landing = () => {
 
           <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
             <span>© {new Date().getFullYear()} VANO. All rights reserved.</span>
-            <span>Made in Galway 🇮🇪</span>
+            <span>Made in Galway, Ireland</span>
           </div>
         </div>
       </motion.footer>

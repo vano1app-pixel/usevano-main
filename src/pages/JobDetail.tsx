@@ -7,7 +7,7 @@ import { ReviewForm } from '@/components/ReviewForm';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Sparkles, Loader2 } from 'lucide-react';
+import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, PenLine, Loader2 } from 'lucide-react';
 import { formatJobScheduleDetail } from '@/lib/jobSchedule';
 import { useToast } from '@/hooks/use-toast';
 
@@ -238,8 +238,8 @@ const JobDetail = () => {
                   disabled={generatingCover}
                   className="text-xs font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
-                  {generatingCover ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                  {generatingCover ? 'Writing...' : '✨ Write with AI'}
+                  {generatingCover ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />}
+                  {generatingCover ? 'Writing…' : 'Draft message'}
                 </button>
               </div>
               <textarea

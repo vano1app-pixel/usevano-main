@@ -23,7 +23,7 @@ import {
   ChevronLeft,
   ImagePlus,
   Loader2,
-  Sparkles,
+  ClipboardList,
   X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -353,7 +353,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           {step === 0 && (
             <div className="space-y-4">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
-                <Sparkles className="h-5 w-5" strokeWidth={2} />
+                <ClipboardList className="h-5 w-5" strokeWidth={2} />
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
                 You&apos;ll fill in your banner, pitch, links, and rates. At the end we{' '}

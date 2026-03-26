@@ -66,7 +66,7 @@ const CompleteProfile = () => {
         await supabase.from('student_profiles').update({ avatar_url: avatarUrl }).eq('user_id', userId!);
       }
 
-      toast({ title: 'Profile complete! 🎉' });
+      toast({ title: 'Profile complete' });
       navigate('/profile', { replace: true });
     } catch (error: any) {
       toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });

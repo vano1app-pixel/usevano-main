@@ -6,7 +6,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Sparkles, Loader2 } from 'lucide-react';
+import { RefreshCw, PenLine, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PostJob = () => {
@@ -200,8 +200,8 @@ const PostJob = () => {
                   disabled={generatingDesc}
                   className="flex items-center gap-1 text-xs font-medium text-foreground/80 underline-offset-4 hover:underline disabled:opacity-50"
                 >
-                  {generatingDesc ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                  {generatingDesc ? '…' : 'Draft with AI'}
+                  {generatingDesc ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />}
+                  {generatingDesc ? '…' : 'Suggest description'}
                 </button>
               </div>
               <textarea

@@ -5,7 +5,7 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, Briefcase, Sparkles, ExternalLink, ArrowUpRight } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, FileText, ExternalLink, ArrowUpRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
@@ -389,7 +389,7 @@ const StudentProfile = () => {
           <div>
             {aiSummary && (
               <div className="flex items-center gap-2 mb-3 px-1">
-                <Sparkles size={14} className="text-primary shrink-0" />
+                <FileText size={14} className="text-primary shrink-0" />
                 <p className="text-sm font-medium text-muted-foreground italic">"{aiSummary}"</p>
               </div>
             )}

@@ -12,7 +12,7 @@ export const SEOHead = ({
   title, 
   description, 
   keywords = 'VANO, Galway, freelancers, gigs, local jobs, hire students, community',
-  image = '/placeholder.svg',
+  image = '/og.svg',
   url = window.location.href
 }: SEOHeadProps) => {
   const fullTitle = `${title} | VANO`;

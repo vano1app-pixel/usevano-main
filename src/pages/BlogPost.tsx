@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Sparkles, LayoutDashboard, Trophy, MessageCircle, Shield, Users, Calendar, Briefcase, Image, CheckCheck, Bell, Send } from 'lucide-react';
+import { ArrowLeft, Target, LayoutDashboard, Trophy, MessageCircle, Shield, Users, Calendar, Briefcase, Image, CheckCheck, Bell, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -16,10 +16,10 @@ const fadeUp = {
 
 const features = [
   {
-    icon: Sparkles,
-    title: 'AI-Powered Smart Job Matching',
-    description: 'No more endless scrolling. Our AI engine analyzes your skills, preferences, and work history to surface the gigs that actually fit you — ranked by match score so you apply to the right ones first.',
-    tag: 'AI',
+    icon: Target,
+    title: 'Better gig matching',
+    description: 'See roles that line up with your skills and preferences first — less noise, clearer choices when you browse open work.',
+    tag: 'Matching',
   },
   {
     icon: LayoutDashboard,
