@@ -3,16 +3,14 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
-import { TagBadge } from '@/components/TagBadge';
 import { AvatarUpload } from '@/components/AvatarUpload';
-import { BannerUpload } from '@/components/BannerUpload';
 import { GigPreferences } from '@/components/GigPreferences';
 import { NotificationPreferences } from '@/components/NotificationPreferences';
 import { AIProfileCoach } from '@/components/AIProfileCoach';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Phone, Euro, CheckCircle, ExternalLink, Briefcase, GraduationCap, Trash2, CreditCard, Eye, EyeOff, Lightbulb, Loader2, Plus } from 'lucide-react';
+import { Phone, CheckCircle, ExternalLink, Briefcase, GraduationCap, Trash2, CreditCard, Eye, EyeOff } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
@@ -20,8 +18,6 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
 import { Button } from '@/components/ui/button';
-
-const COMMON_SKILLS = ['Web Design', 'Marketing', 'Graphic Design', 'Writing', 'Tutoring', 'Gardening', 'Cleaning', 'Photography', 'Video Editing', 'Social Media', 'Odd Jobs', 'Events', 'Delivery', 'Admin'];
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -54,8 +50,6 @@ const Profile = () => {
   const [deletingGig, setDeletingGig] = useState<string | null>(null);
   const [portfolioCount, setPortfolioCount] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
-  const [studentPricingAdvice, setStudentPricingAdvice] = useState<{ suggestedMin: number; suggestedMax: number; reasoning: string } | null>(null);
-  const [loadingStudentPrice, setLoadingStudentPrice] = useState(false);
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [bannerUrl, setBannerUrl] = useState('');
@@ -233,26 +227,6 @@ const Profile = () => {
     setDeletingGig(null);
   };
 
-  const addCustomSkill = () => {
-    if (customSkill.trim() && !skills.includes(customSkill.trim())) {
-      setSkills([...skills, customSkill.trim()]);
-      setCustomSkill('');
-    }
-  };
-
-  const addWorkLinkRow = () => {
-    if (workLinks.length >= 12) return;
-    setWorkLinks((prev) => [...prev, { url: '', label: '' }]);
-  };
-
-  const updateWorkLink = (index: number, field: 'url' | 'label', value: string) => {
-    setWorkLinks((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
-  };
-
-  const removeWorkLink = (index: number) => {
-    setWorkLinks((prev) => (prev.length <= 1 ? [{ url: '', label: '' }] : prev.filter((_, i) => i !== index)));
-  };
-
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
@@ -304,37 +278,36 @@ const Profile = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title="My Profile – VANO" description="Manage your VANO profile." />
       <Navbar />
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-1 flex items-center gap-3">
+      <div className="mx-auto max-w-lg px-4 pt-20 sm:max-w-xl sm:px-5 sm:pt-24 md:max-w-2xl md:px-8 pb-12 sm:pb-16">
+        <div className="mb-5 sm:mb-7">
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl mb-1 flex flex-wrap items-center gap-2 sm:gap-3">
             My Profile
             {user && <ModBadgeIfAdmin userId={user.id} />}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground sm:text-base">
             {profile?.user_type === 'student'
-              ? 'Your freelancer profile — visible to people hiring on VANO'
+              ? 'Photo, bio, and contact — listing details are set when you join Community.'
               : 'Your account — a short intro is enough; set location when you post a gig'}
           </p>
         </div>
 
         {profile?.user_type === 'student' && user && (
           <>
-            <div className="mb-6 rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.08] via-card to-card p-5 shadow-sm sm:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
-                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-                    List yourself on the talent board
+            <div className="mb-5 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:mb-6 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0 text-center sm:text-left">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary sm:text-[11px]">Community</p>
+                  <h2 className="mt-1 text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                    Get listed on the talent board
                   </h2>
-                  <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
-                    Step-by-step: choose your board, add your banner and links, write your pitch, set rates — then publish.
-                    Same flow as polished marketplaces (think Foxpop-style clarity).
+                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                    Banner, links, rates, and skills — all in one guided flow.
                   </p>
                 </div>
                 <Button
                   type="button"
                   size="lg"
-                  className="h-12 shrink-0 rounded-xl px-6 font-semibold shadow-md"
+                  className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold shadow-md sm:h-12 sm:w-auto sm:min-w-[9.5rem]"
                   onClick={() => setListCommunityOpen(true)}
                 >
                   Get listed
@@ -354,9 +327,12 @@ const Profile = () => {
           </>
         )}
 
-        <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6">
+        <div className="space-y-5 rounded-xl border border-border bg-card p-4 sm:space-y-6 sm:rounded-2xl sm:p-5 md:p-7">
+          {profile?.user_type === 'student' && (
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your profile</p>
+          )}
           {/* Avatar + Name — always visible */}
-          <div className="flex items-start gap-5">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
             <AvatarUpload
               userId={user.id}
               currentUrl={avatarUrl}
@@ -368,24 +344,13 @@ const Profile = () => {
                 }
               }}
             />
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1.5">
-                {profile?.user_type === 'business' ? 'Name' : 'Display Name'}
+            <div className="w-full min-w-0 flex-1 sm:pt-0">
+              <label className="mb-1.5 block text-sm font-medium">
+                {profile?.user_type === 'business' ? 'Name' : 'Display name'}
               </label>
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder={profile?.user_type === 'business' ? 'How you’d like to appear' : 'Your name'} />
             </div>
           </div>
-
-          {profile?.user_type === 'student' && user && (
-            <BannerUpload
-              userId={user.id}
-              currentUrl={bannerUrl}
-              onUploaded={(url) => {
-                setBannerUrl(url);
-                setStudentProfile((prev: any) => (prev ? { ...prev, banner_url: url } : prev));
-              }}
-            />
-          )}
 
           {/* About me / bio */}
           <div>
