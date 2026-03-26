@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { StudentCard } from '@/components/StudentCard';
-import { TagBadge } from '@/components/TagBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Search, Plus } from 'lucide-react';
@@ -9,14 +8,11 @@ import { useTopStudents } from '@/hooks/useTopStudents';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 
-const SKILL_TAGS = ['Barista', 'Retail', 'Events', 'Hospitality', 'Cleaning', 'Delivery', 'Admin', 'Kitchen'];
-
 const BrowseStudents = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [user, setUser] = useState<any>(null);
   const [favouriteIds, setFavouriteIds] = useState<Set<string>>(new Set());
   const { topStudents } = useTopStudents();
@@ -58,15 +54,16 @@ const BrowseStudents = () => {
     return profiles.find((p) => p.user_id === userId)?.display_name || 'Student';
   };
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
-  };
-
   const filtered = students.filter((s) => {
     const name = getDisplayName(s.user_id).toLowerCase();
-    const matchesSearch = !search || name.includes(search.toLowerCase()) || s.bio?.toLowerCase().includes(search.toLowerCase());
-    const matchesTags = selectedTags.length === 0 || selectedTags.some((t) => s.skills?.map((sk: string) => sk.toLowerCase()).includes(t.toLowerCase()));
-    return matchesSearch && matchesTags;
+    const skillText = (s.skills || []).join(' ').toLowerCase();
+    const q = search.toLowerCase();
+    return (
+      !search ||
+      name.includes(q) ||
+      s.bio?.toLowerCase().includes(q) ||
+      skillText.includes(q)
+    );
   });
 
   return (
@@ -78,7 +75,7 @@ const BrowseStudents = () => {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Talent</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Find the right freelancer</h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-[15px]">
-            Search by name or bio, filter by common skills, and open profiles to see portfolios and how to connect.
+            Search by name, bio, or any skill keyword — open profiles to see portfolios and how to connect.
           </p>
         </header>
 
@@ -110,12 +107,6 @@ const BrowseStudents = () => {
             placeholder="Search by name, bio, or keywords…"
             className="w-full pl-10 pr-4 py-3.5 border border-input rounded-2xl bg-card text-sm shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           />
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-8">
-          {SKILL_TAGS.map((tag) => (
-            <TagBadge key={tag} tag={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
-          ))}
         </div>
 
         {loading ? (
