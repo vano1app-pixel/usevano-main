@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { createPortal } from 'react-dom';
-import { X, ShieldCheck } from 'lucide-react';
+import { X, ShieldCheck, GraduationCap, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -251,7 +251,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                             : 'border-border text-foreground/60 hover:border-primary/30'
                         }`}
                       >
-                        🎓 Student
+                        <span className="inline-flex items-center gap-1.5"><GraduationCap size={16} /> Freelancer</span>
                       </button>
                       <button
                         type="button"
@@ -262,7 +262,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                             : 'border-border text-foreground/60 hover:border-primary/30'
                         }`}
                       >
-                        Account
+                        <span className="inline-flex items-center gap-1.5"><Building2 size={16} /> Client</span>
                       </button>
                     </div>
                   </div>
@@ -280,7 +280,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                     placeholder={isSignUp && userType === 'student' ? 'you@college.ie' : 'your@email.com'}
                   />
                   {isSignUp && userType === 'student' && (
-                    <p className="text-xs text-muted-foreground mt-1.5">🎓 {STUDENT_EMAIL_HINT}</p>
+                    <p className="text-xs text-muted-foreground mt-1.5">{STUDENT_EMAIL_HINT}</p>
                   )}
                 </div>
 
