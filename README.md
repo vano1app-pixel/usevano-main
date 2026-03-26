@@ -136,16 +136,18 @@ Optional: `VITE_GOOGLE_MAPS_API_KEY`, `VITE_TEAM_CONTACT_EMAIL`.
 
 Copy `.env.example` to `.env.local` for local development.
 
-### 2. Supabase Auth URLs
+### 2. Supabase Auth URLs (production: vanojobs.com)
 
 Supabase → **Authentication** → **URL configuration**:
 
-- **Site URL:** `https://your-app.vercel.app` (or your custom domain)
-- **Redirect URLs:** add  
-  `https://your-app.vercel.app/**`  
-  `http://localhost:8080/**` (or your local dev URL)
+- **Site URL:** `https://vanojobs.com` (use your Vercel URL only while testing, e.g. `https://your-app.vercel.app`)
+- **Redirect URLs:** include at least:  
+  `https://vanojobs.com/**`  
+  `https://www.vanojobs.com/**` (if you use `www`)  
+  `https://*.vercel.app/**` (optional, for preview deployments)  
+  `http://localhost:8080/**` (local dev)
 
-Without this, login/email links can redirect to the wrong host.
+The app uses `window.location.origin` for sign-up and password-reset links, so the host users open **must** appear in this list or auth redirects will fail.
 
 ### 3. Edge Functions (“backend” on Supabase)
 

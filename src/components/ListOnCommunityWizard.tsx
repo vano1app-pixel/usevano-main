@@ -306,7 +306,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(92dvh,44rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full">
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
