@@ -74,7 +74,8 @@ serve(async (req) => {
 
     const notifyFrom = Deno.env.get("LISTING_NOTIFY_EMAIL")?.trim() || "vano1app@gmail.com";
     const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
-    const siteUrl = Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com";
+    const rawSite = Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com";
+    const siteUrl = rawSite.replace(/^https?:\/\/www\.vanojobs\.com/i, "https://vanojobs.com").replace(/\/+$/, "");
     const from = Deno.env.get("RESEND_FROM")?.trim() || "VANO <onboarding@resend.dev>";
 
     const subject =

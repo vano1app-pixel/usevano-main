@@ -1,6 +1,12 @@
 /** Production hostname — all public URLs and auth redirects should resolve here (see VITE_SITE_URL). */
 export const SITE_ORIGIN_DEFAULT = 'https://vanojobs.com';
 
+/** Force apex `vanojobs.com` so OAuth / redirects match Supabase URL config when env or DNS uses `www`. */
+function normalizeVanojobsOrigin(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return trimmed.replace(/^https?:\/\/www\.vanojobs\.com/i, SITE_ORIGIN_DEFAULT);
+}
+
 /**
  * Canonical public origin for the app: password-reset links, OG URLs, canonical tags.
  * - Set `VITE_SITE_URL` (or `VITE_AUTH_EMAIL_REDIRECT_URL`) to `https://vanojobs.com` in Vercel/production.
@@ -10,12 +16,15 @@ export function getSiteOrigin(): string {
   const fromEnv =
     (import.meta.env.VITE_SITE_URL as string | undefined)?.trim().replace(/\/+$/, '') ||
     (import.meta.env.VITE_AUTH_EMAIL_REDIRECT_URL as string | undefined)?.trim().replace(/\/+$/, '');
-  if (fromEnv) return fromEnv;
+  if (fromEnv) return normalizeVanojobsOrigin(fromEnv);
 
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
       return origin;
+    }
+    if (hostname === 'www.vanojobs.com' || hostname === 'vanojobs.com') {
+      return SITE_ORIGIN_DEFAULT;
     }
   }
 
