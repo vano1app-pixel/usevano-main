@@ -89,4 +89,8 @@ export function isStudentEmail(email: string): boolean {
 
 /** Human-readable hint shown to users */
 export const STUDENT_EMAIL_HINT =
-  'Use your university email (e.g. .edu, .ac.uk, or Irish college email like @ucdconnect.ie, @universityofgalway.ie, @student.atu.ie, @tudublin.ie)';
+  'Use your university email (e.g. .ac.ie, .atu.ie, .edu, .ac.uk, or an Irish college address like @ucdconnect.ie, @universityofgalway.ie).';
+
+/** Shown when a freelancer tries to sign up with a non-student email */
+export const FREELANCER_STUDENT_EMAIL_ERROR =
+  'Please use your student email to sign up as a freelancer.';

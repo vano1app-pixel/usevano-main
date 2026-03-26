@@ -6,6 +6,7 @@ import { format, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useGooglePlacesAutocomplete } from '@/hooks/useGooglePlacesAutocomplete';
 import { supabase } from '@/integrations/supabase/client';
+import { isEmailVerified } from '@/lib/authSession';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { User } from '@supabase/supabase-js';
@@ -242,7 +243,10 @@ const EditEvent = () => {
       // Upload new image if changed
       if (imageFile) {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('Not authenticated');
+        if (!session || !isEmailVerified(session)) {
+          toast.error('Please verify your email to update this event.');
+          return;
+        }
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `${session.user.id}/${fileName}`;

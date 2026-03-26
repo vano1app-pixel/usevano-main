@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { isEmailVerified } from '@/lib/authSession';
 
 /**
  * Redirects logged-in users to /complete-profile if they're missing
@@ -22,6 +23,12 @@ export function useProfileCompletion() {
     const check = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setComplete(true); return; }
+
+      if (!isEmailVerified(session)) {
+        navigate('/auth', { replace: true });
+        setComplete(false);
+        return;
+      }
 
       const { data: profile } = await supabase
         .from('profiles')

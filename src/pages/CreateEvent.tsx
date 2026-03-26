@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { User } from '@supabase/supabase-js';
 import { AuthSheet } from '@/components/AuthSheet';
+import { isEmailVerified } from '@/lib/authSession';
 import { SEOHead } from '@/components/SEOHead';
 import { z } from 'zod';
 
@@ -148,7 +149,10 @@ const CreateEvent = () => {
     try {
       // Upload image to storage
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      if (!session || !isEmailVerified(session)) {
+        toast.error('Please verify your email before creating an event.');
+        return;
+      }
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${session.user.id}/${fileName}`;
