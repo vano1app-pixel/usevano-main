@@ -8,14 +8,21 @@ export function isEmailVerified(session: Session | null): boolean {
   return Boolean(session.user.email_confirmed_at);
 }
 
-export async function getPostAuthPath(userId: string): Promise<'/profile' | '/complete-profile'> {
+/**
+ * Where to send a signed-in user: profile when complete; otherwise business → dashboard, freelancer → complete-profile.
+ */
+export async function getPostAuthPath(
+  userId: string,
+): Promise<'/profile' | '/complete-profile' | '/dashboard'> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, avatar_url')
+    .select('display_name, avatar_url, user_type')
     .eq('user_id', userId)
     .maybeSingle();
   const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
-  return done ? '/profile' : '/complete-profile';
+  if (done) return '/profile';
+  if (profile?.user_type === 'business') return '/dashboard';
+  return '/complete-profile';
 }
 
 /**
