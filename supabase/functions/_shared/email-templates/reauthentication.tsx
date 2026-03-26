@@ -26,8 +26,8 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
     <Body style={main}>
       <Container style={container}>
         <Img src={LOGO_URL} alt="VANO" width="48" height="48" style={logo} />
-        <Heading style={h1}>Verification code</Heading>
-        <Text style={text}>Here's your code to confirm your identity:</Text>
+        <Heading style={h1}>Your VANO verification code</Heading>
+        <Text style={text}>Use this code to sign in to VANO:</Text>
         <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
           This code expires shortly. If you didn't request it, just ignore this email.

@@ -20,38 +20,68 @@ interface SignupEmailProps {
   siteUrl: string
   recipient: string
   confirmationUrl: string
+  /** Present for email OTP signup — show code with VANO branding instead of Supabase default mail */
+  token?: string
 }
 
 const LOGO_URL = 'https://amoolfvfumgjcxjlqyac.supabase.co/storage/v1/object/public/email-assets/logo.png'
+
+const codeStyle = {
+  fontFamily: 'Courier, monospace',
+  fontSize: '28px',
+  fontWeight: 'bold' as const,
+  color: 'hsl(217, 91%, 60%)',
+  letterSpacing: '0.15em',
+  margin: '0 0 24px',
+}
 
 export const SignupEmail = ({
   siteName,
   siteUrl,
   recipient,
   confirmationUrl,
+  token,
 }: SignupEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Welcome to VANO — confirm your email to get started</Preview>
+    <Preview>
+      Welcome to {siteName} — confirm your email to get started
+    </Preview>
     <Body style={main}>
       <Container style={container}>
         <Img src={LOGO_URL} alt="VANO" width="48" height="48" style={logo} />
-        <Heading style={h1}>Welcome to VANO 👋</Heading>
+        <Heading style={h1}>Welcome to {siteName} 👋</Heading>
         <Text style={text}>
           You're one step away from finding local gigs and talent in Galway.
         </Text>
-        <Text style={text}>
-          Confirm your email (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) to get started:
-        </Text>
+        {token ? (
+          <>
+            <Text style={text}>
+              Enter this code on {siteName} to verify{' '}
+              <Link href={`mailto:${recipient}`} style={link}>
+                {recipient}
+              </Link>
+              :
+            </Text>
+            <Text style={codeStyle}>{token}</Text>
+          </>
+        ) : (
+          <Text style={text}>
+            Confirm your email (
+            <Link href={`mailto:${recipient}`} style={link}>
+              {recipient}
+            </Link>
+            ) to get started:
+          </Text>
+        )}
         <Button style={button} href={confirmationUrl}>
-          Get Started
+          {token ? `Open ${siteName}` : 'Get Started'}
         </Button>
         <Text style={footer}>
-          Didn't sign up for VANO? Just ignore this email — no action needed.
+          Didn't sign up for {siteName}? Just ignore this email — no action needed.{' '}
+          <Link href={siteUrl} style={link}>
+            {siteName}
+          </Link>
         </Text>
       </Container>
     </Body>

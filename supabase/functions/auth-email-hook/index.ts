@@ -16,12 +16,12 @@ const corsHeaders = {
 }
 
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email',
-  invite: "You've been invited",
-  magiclink: 'Your login link',
-  recovery: 'Reset your password',
-  email_change: 'Confirm your new email',
-  reauthentication: 'Your verification code',
+  signup: 'VANO — Confirm your email',
+  invite: "VANO — You're invited",
+  magiclink: 'VANO — Your login link',
+  recovery: 'VANO — Reset your password',
+  email_change: 'VANO — Confirm your new email',
+  reauthentication: 'VANO — Your verification code',
 }
 
 // Template mapping
@@ -34,8 +34,8 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
   reauthentication: ReauthenticationEmail,
 }
 
-// Configuration
-const SITE_NAME = "usevano"
+// Configuration — display name in the From: header (must match your sending domain setup)
+const SITE_NAME = 'VANO'
 const SENDER_DOMAIN = "notify.vanojobs.com"
 const ROOT_DOMAIN = "vanojobs.com"
 const FROM_DOMAIN = "vanojobs.com" // Domain shown in From address (may be root or sender subdomain)
