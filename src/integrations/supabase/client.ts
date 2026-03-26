@@ -11,13 +11,14 @@ const url = getSupabaseUrl();
 const key = getSupabaseAnonKey();
 
 /**
- * Auth email:
- * - Supabase Dashboard → Authentication → Providers → Email: enable **Email OTP** (6-digit code) for sign-in/sign-up.
- *   Prefer OTP-only confirmation so users verify in-app instead of magic links.
- * - URL configuration: set **Site URL** to `https://vanojobs.com` and add the same under **Redirect URLs**
- *   (plus `http://localhost:8080/**` for local dev). `signUp` uses `emailRedirectTo` from `VITE_AUTH_EMAIL_REDIRECT_URL`
- *   (defaults to production) for any fallback email actions.
- * - Optional: “Send Email” hook → `auth-email-hook` Edge Function for branded mail.
+ * Auth email (OTP sign-up):
+ * - Providers → Email: **Enable email confirmations**, set **Email OTP** / expiry as needed.
+ * - Email Templates → **Confirm signup**: body must include `{{ .Token }}` (OTP), not only `{{ .ConfirmationURL }}`,
+ *   or confirmation emails will not show a code.
+ * - URL configuration: **Site URL** `https://vanojobs.com` + **Redirect URLs** for `/reset-password` and OAuth.
+ * - `signUp` passes `emailRedirectTo: undefined` so Supabase does not treat confirmation as magic-link-only.
+ * - Free tier: ~3 auth emails/hour — rate limits look like silent failures; check Auth logs.
+ * - If a custom **Send Email** hook is enabled, it must succeed or disable it to use Supabase’s mailer.
  */
 export const supabase = createClient<Database>(url, key, {
   auth: {

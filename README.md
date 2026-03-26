@@ -75,10 +75,25 @@ Copy `.env.example` to `.env.local` for local development.
   `https://*.vercel.app/**` (optional, preview deployments)  
   `http://localhost:8080/**` (local dev)
 
-**Email sign-up (6-digit OTP)** — Supabase → **Authentication** → **Providers** → **Email**:
+**Email sign-up (6-digit OTP)** — configure all of the following or confirmation mail may not send or may lack a code:
 
-- Enable **Confirm email** (or your project’s equivalent) and use **email OTP** / 6-digit codes for verification so users complete sign-up **in the app** (no magic-link dependency).
-- The client calls `verifyOtp` with `type: 'signup'` and uses `AUTH_EMAIL_REDIRECT` (`VITE_AUTH_EMAIL_REDIRECT_URL` or default `https://vanojobs.com`) as `emailRedirectTo` for any email action that still references a URL.
+1. **Providers → Email**
+   - Turn **Confirm email** / **Enable email confirmations** on.
+   - Enable **Email OTP** (wording varies by Supabase version) and set **Email OTP expiry** (e.g. 3600 seconds).
+
+2. **Email Templates → Confirm signup**
+   - For OTP, the template body must include **`{{ .Token }}`** (the 6-digit code). If it only uses **`{{ .ConfirmationURL }}`**, users on an OTP flow get a link-oriented email and may see no usable code.
+   - You can include both token and link if needed.
+
+3. **Client**
+   - `signUp` uses `options.emailRedirectTo: undefined` so confirmation is not forced down a magic-link-only path.
+   - After sign-up, open the browser **console**: logs show `[auth] signUp response` with `data` / `error` (session tokens redacted). Use this to see Supabase errors (e.g. rate limit, validation).
+
+4. **Rate limits (free tier)**
+   - Auth emails are capped (on the order of **~3 emails per hour** per project on free tier). Hitting the limit looks like “no email” — wait or upgrade; check **Authentication → Logs** in the dashboard.
+
+5. **Custom “Send Email” hook**
+   - If **Authentication → Hooks** sends mail through a custom Edge Function, that hook must return success. A failing hook (wrong payload, missing secrets) means **no email**. For debugging, temporarily disable the hook and use Supabase’s built-in mailer.
 
 Password reset still uses a link to `/reset-password`; those hosts must remain in **Redirect URLs**.
 

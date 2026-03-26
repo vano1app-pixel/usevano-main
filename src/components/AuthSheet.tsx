@@ -11,7 +11,7 @@ import {
   FREELANCER_STUDENT_EMAIL_ERROR,
 } from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
-import { AUTH_EMAIL_REDIRECT } from '@/lib/authConstants';
+import { logSignUpResponse } from '@/lib/logSignUpResponse';
 import { cn } from '@/lib/utils';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
@@ -80,14 +80,16 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
           return;
         }
 
-        const { data, error } = await supabase.auth.signUp({
+        const signUpResult = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: AUTH_EMAIL_REDIRECT,
             data: { user_type: userType },
+            emailRedirectTo: undefined,
           },
         });
+        logSignUpResponse(signUpResult);
+        const { data, error } = signUpResult;
         if (error) throw error;
 
         if (data.user) {

@@ -14,7 +14,7 @@ import {
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
 import { cn } from '@/lib/utils';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { AUTH_EMAIL_REDIRECT } from '@/lib/authConstants';
+import { logSignUpResponse } from '@/lib/logSignUpResponse';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -94,14 +94,16 @@ const Auth = () => {
           setLoading(false);
           return;
         }
-        const { error } = await supabase.auth.signUp({
+        const signUpResult = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: { display_name: displayName.trim() || email.split('@')[0], user_type: userType },
-            emailRedirectTo: AUTH_EMAIL_REDIRECT,
+            emailRedirectTo: undefined,
           },
         });
+        logSignUpResponse(signUpResult);
+        const { error } = signUpResult;
         if (error) throw error;
 
         setPendingVerification(true);
