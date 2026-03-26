@@ -41,6 +41,7 @@ const Community = () => {
       .from('community_posts')
       .select('*')
       .eq('category', category)
+      .eq('moderation_status', 'approved')
       .order('created_at', { ascending: false });
 
     const allPosts = postsData || [];

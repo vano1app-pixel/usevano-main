@@ -265,6 +265,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         typical_budget_max: tbMax,
         skills,
         hourly_rate,
+        community_board_status: 'pending',
       };
       if (syncBio) {
         studentPatch.bio = description.trim();

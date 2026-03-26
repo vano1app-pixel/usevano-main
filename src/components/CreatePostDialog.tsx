@@ -111,20 +111,35 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
         }
       }
 
-      const { error } = await supabase.from('community_posts').insert({
-        user_id: userId,
-        category,
-        title: title.trim(),
-        description: description.trim(),
-        image_url,
-        rate_min,
-        rate_max,
-        rate_unit,
-      });
+      const { data: inserted, error } = await supabase
+        .from('community_posts')
+        .insert({
+          user_id: userId,
+          category,
+          title: title.trim(),
+          description: description.trim(),
+          image_url,
+          rate_min,
+          rate_max,
+          rate_unit,
+          moderation_status: 'pending',
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      toast({ title: 'Post published' });
+      if (inserted?.id) {
+        const { error: fnErr } = await supabase.functions.invoke('notify-community-listing-request', {
+          body: { post_id: inserted.id },
+        });
+        if (fnErr) console.warn('Community notify:', fnErr.message);
+      }
+
+      toast({
+        title: 'Submitted for review',
+        description: 'The team will email you when your listing is live on Community.',
+      });
       setTitle('');
       setDescription('');
       setRateUnit('hourly');

@@ -36,42 +36,131 @@ serve(async (req) => {
       });
     }
 
-    const { request_id } = await req.json() as { request_id?: string };
-    if (!request_id) {
-      return new Response(JSON.stringify({ error: "request_id required" }), {
+    const body = await req.json() as { request_id?: string; post_id?: string };
+    const requestId = body.request_id?.trim();
+    const postId = body.post_id?.trim();
+
+    if ((!requestId && !postId) || (requestId && postId)) {
+      return new Response(JSON.stringify({ error: "Provide exactly one of request_id or post_id" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const { data: row, error: rowErr } = await admin
-      .from("community_listing_requests")
-      .select("id, user_id, applicant_email, category, title, description, status, created_at")
-      .eq("id", request_id)
-      .maybeSingle();
-
-    if (rowErr || !row || row.user_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Request not found" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const notifyTo = Deno.env.get("LISTING_NOTIFY_EMAIL")?.trim() || "vano1app@gmail.com";
     const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
     const siteUrl = Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com";
 
-    const text =
-      `New Community listing request (pending your approval)\n\n` +
-      `Request ID: ${row.id}\n` +
-      `User ID: ${row.user_id}\n` +
-      `Email: ${row.applicant_email || "(not provided)"}\n` +
-      `Category: ${row.category}\n` +
-      `Title: ${row.title}\n\n` +
-      `Description:\n${row.description}\n\n` +
-      `Open Mod Dashboard → Community requests to approve or reject.\n` +
-      `${siteUrl}/admin\n`;
+    let subject = "[VANO] Community review";
+    let text = "";
+
+    if (requestId) {
+      const { data: row, error: rowErr } = await admin
+        .from("community_listing_requests")
+        .select("id, user_id, applicant_email, category, title, description, status, created_at, image_url, rate_min, rate_max, rate_unit")
+        .eq("id", requestId)
+        .maybeSingle();
+
+      if (rowErr || !row || row.user_id !== user.id) {
+        return new Response(JSON.stringify({ error: "Request not found" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("display_name, bio, user_type")
+        .eq("user_id", row.user_id)
+        .maybeSingle();
+
+      const { data: sp } = await admin
+        .from("student_profiles")
+        .select("university, skills, hourly_rate, service_area, bio, tiktok_url, banner_url, typical_budget_min, typical_budget_max")
+        .eq("user_id", row.user_id)
+        .maybeSingle();
+
+      const skills = Array.isArray(sp?.skills) ? (sp!.skills as string[]).join(", ") : "";
+      text =
+        `New freelancer Community listing (wizard) — pending approval\n\n` +
+        `=== Listing ===\n` +
+        `Request ID: ${row.id}\n` +
+        `Status: ${row.status}\n` +
+        `Category: ${row.category}\n` +
+        `Title: ${row.title}\n` +
+        `Applicant email: ${row.applicant_email || user.email || "(n/a)"}\n` +
+        `Rates: ${row.rate_min ?? "?"}–${row.rate_max ?? "?"} (${row.rate_unit || "n/a"})\n` +
+        `Image: ${row.image_url || "(none)"}\n\n` +
+        `Description:\n${row.description}\n\n` +
+        `=== Profile snapshot ===\n` +
+        `Display name: ${prof?.display_name ?? "(n/a)"}\n` +
+        `User type: ${prof?.user_type ?? "(n/a)"}\n` +
+        `Profile bio: ${prof?.bio ?? "(n/a)"}\n` +
+        `University: ${sp?.university ?? "(n/a)"}\n` +
+        `Skills: ${skills || "(n/a)"}\n` +
+        `Hourly rate: ${sp?.hourly_rate ?? "(n/a)"}\n` +
+        `Service area: ${sp?.service_area ?? "(n/a)"}\n` +
+        `Student bio: ${sp?.bio ?? "(n/a)"}\n` +
+        `TikTok: ${sp?.tiktok_url ?? "(n/a)"}\n` +
+        `Banner: ${sp?.banner_url ?? "(n/a)"}\n` +
+        `Typical budget: ${sp?.typical_budget_min ?? "?"}–${sp?.typical_budget_max ?? "?"}\n\n` +
+        `Approve in Dashboard → Table editor → community_listing_requests, or Mod → ${siteUrl}/admin\n` +
+        `User ID: ${row.user_id}\n`;
+
+      subject = `[VANO] Listing review (wizard) — ${row.title.slice(0, 50)}`;
+    } else {
+      const { data: post, error: postErr } = await admin
+        .from("community_posts")
+        .select("id, user_id, category, title, description, image_url, rate_min, rate_max, rate_unit, moderation_status, created_at")
+        .eq("id", postId!)
+        .maybeSingle();
+
+      if (postErr || !post || post.user_id !== user.id) {
+        return new Response(JSON.stringify({ error: "Post not found" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("display_name, bio, user_type")
+        .eq("user_id", post.user_id)
+        .maybeSingle();
+
+      const { data: sp } = await admin
+        .from("student_profiles")
+        .select("university, skills, hourly_rate, service_area, bio, tiktok_url, banner_url")
+        .eq("user_id", post.user_id)
+        .maybeSingle();
+
+      const skills = Array.isArray(sp?.skills) ? (sp!.skills as string[]).join(", ") : "";
+      text =
+        `New Community post (quick create) — pending approval\n\n` +
+        `=== Post ===\n` +
+        `Post ID: ${post.id}\n` +
+        `Moderation: ${post.moderation_status}\n` +
+        `Category: ${post.category}\n` +
+        `Title: ${post.title}\n` +
+        `Rates: ${post.rate_min ?? "?"}–${post.rate_max ?? "?"} (${post.rate_unit || "n/a"})\n` +
+        `Image: ${post.image_url || "(none)"}\n\n` +
+        `Description:\n${post.description}\n\n` +
+        `=== Profile snapshot ===\n` +
+        `Email: ${user.email || "(n/a)"}\n` +
+        `Display name: ${prof?.display_name ?? "(n/a)"}\n` +
+        `University: ${sp?.university ?? "(n/a)"}\n` +
+        `Skills: ${skills || "(n/a)"}\n` +
+        `Hourly rate: ${sp?.hourly_rate ?? "(n/a)"}\n` +
+        `Service area: ${sp?.service_area ?? "(n/a)"}\n` +
+        `Banner: ${sp?.banner_url ?? "(n/a)"}\n\n` +
+        `Set community_posts.moderation_status to 'approved' in Supabase Table Editor to go live.\n` +
+        `${siteUrl}/community\n` +
+        `User ID: ${post.user_id}\n`;
+
+      subject = `[VANO] Post review — ${post.title.slice(0, 50)}`;
+    }
 
     if (resendKey) {
       const from = Deno.env.get("RESEND_FROM")?.trim() || "VANO <onboarding@resend.dev>";
@@ -84,7 +173,7 @@ serve(async (req) => {
         body: JSON.stringify({
           from,
           to: [notifyTo],
-          subject: `[VANO] Community listing to review — ${row.title.slice(0, 60)}`,
+          subject,
           text,
         }),
       });

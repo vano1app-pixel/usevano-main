@@ -102,6 +102,7 @@ export type Database = {
           id: string
           image_url: string | null
           likes_count: number
+          moderation_status: string
           rate_max: number | null
           rate_min: number | null
           rate_unit: string | null
@@ -115,6 +116,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           likes_count?: number
+          moderation_status?: string
           rate_max?: number | null
           rate_min?: number | null
           rate_unit?: string | null
@@ -128,6 +130,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           likes_count?: number
+          moderation_status?: string
           rate_max?: number | null
           rate_min?: number | null
           rate_unit?: string | null
@@ -707,6 +710,7 @@ export type Database = {
           avatar_url: string | null
           banner_url: string | null
           bio: string | null
+          community_board_status: string | null
           created_at: string
           hourly_rate: number | null
           id: string
@@ -729,6 +733,7 @@ export type Database = {
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
+          community_board_status?: string | null
           created_at?: string
           hourly_rate?: number | null
           id?: string
@@ -751,6 +756,7 @@ export type Database = {
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
+          community_board_status?: string | null
           created_at?: string
           hourly_rate?: number | null
           id?: string
