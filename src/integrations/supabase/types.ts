@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      community_listing_requests: {
+        Row: {
+          applicant_email: string | null
+          category: string
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          rate_max: number | null
+          rate_min: number | null
+          rate_unit: string | null
+          reviewer_note: string | null
+          reviewed_at: string | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          applicant_email?: string | null
+          category: string
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          rate_max?: number | null
+          rate_min?: number | null
+          rate_unit?: string | null
+          reviewer_note?: string | null
+          reviewed_at?: string | null
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          applicant_email?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          rate_max?: number | null
+          rate_min?: number | null
+          rate_unit?: string | null
+          reviewer_note?: string | null
+          reviewed_at?: string | null
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       community_post_likes: {
         Row: {
           created_at: string
@@ -746,12 +797,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_community_listing_request: {
+        Args: { _request_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      reject_community_listing_request: {
+        Args: { _note?: string; _request_id: string }
+        Returns: undefined
       }
     }
     Enums: {

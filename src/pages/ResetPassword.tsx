@@ -16,16 +16,29 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user has an active session (set by OTP verification)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setReady(true);
-      } else {
-        // No session — redirect to auth
-        toast({ title: 'Session expired', description: 'Please request a new reset code.', variant: 'destructive' });
+    let cancelled = false;
+    (async () => {
+      // Recovery links (PKCE / hash) can populate session shortly after load
+      for (let i = 0; i < 12; i++) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          if (!cancelled) setReady(true);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      if (!cancelled) {
+        toast({
+          title: 'Link expired or invalid',
+          description: 'Request a new reset link from the log in page.',
+          variant: 'destructive',
+        });
         navigate('/auth');
       }
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [navigate, toast]);
 
   const handleReset = async (e: React.FormEvent) => {

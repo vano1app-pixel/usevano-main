@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { X, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { isStudentEmail, STUDENT_EMAIL_HINT } from '@/lib/studentEmailValidator';
 
 interface AuthSheetProps {
@@ -12,6 +13,7 @@ interface AuthSheetProps {
 }
 
 export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,6 +62,16 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
         if (error) throw error;
         toast({ title: 'Welcome back!', description: 'You have successfully signed in.' });
         onClose();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('display_name, avatar_url')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
+          navigate(done ? '/profile' : '/complete-profile', { replace: true });
+        }
       }
     } catch (error: any) {
       toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
@@ -74,8 +86,22 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     try {
       const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'signup' });
       if (error) throw error;
-      toast({ title: 'Email verified!', description: 'Welcome to VANO 🎉' });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const name = user.email?.split('@')[0] || 'User';
+        const { data: row } = await supabase.from('profiles').select('user_id').eq('user_id', user.id).maybeSingle();
+        if (row) {
+          await supabase.from('profiles').update({ user_type: userType, display_name: name }).eq('user_id', user.id);
+        } else {
+          await supabase.from('profiles').insert({ user_id: user.id, display_name: name, user_type: userType });
+        }
+        if (userType === 'student') {
+          await supabase.from('student_profiles').upsert({ user_id: user.id }, { onConflict: 'user_id' });
+        }
+      }
+      toast({ title: 'Email verified!', description: 'Add your photo on the next screen.' });
       onClose();
+      navigate('/complete-profile', { replace: true });
     } catch (error: any) {
       toast({ title: 'Verification failed', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {

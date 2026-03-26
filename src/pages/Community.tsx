@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Plus, Loader2, ArrowLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ArrowLeft, ChevronRight } from 'lucide-react';
 import { CommunityPostCard } from '@/components/CommunityPostCard';
-import { CreatePostDialog } from '@/components/CreatePostDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -28,7 +27,6 @@ const Community = () => {
   const [studentProfiles, setStudentProfiles] = useState<Record<string, any>>({});
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [portfolioByUser, setPortfolioByUser] = useState<
     Record<string, { id: string; image_url: string | null; title: string }[]>
@@ -207,6 +205,18 @@ const Community = () => {
           <p className="mt-3 max-w-md text-[15px] leading-relaxed text-muted-foreground sm:max-w-lg sm:text-base">
             {boardDescription}
           </p>
+          {activeCategory && currentUserType === 'student' && (
+            <p className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground/90">
+              <span className="font-medium text-foreground">Freelancers:</span> list yourself from{' '}
+              <strong>Profile → Get listed</strong>. Your card is reviewed before it appears here. Hiring accounts cannot
+              post on this board.
+            </p>
+          )}
+          {activeCategory && currentUserType === 'business' && (
+            <p className="mt-4 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+              This board is for freelancer listings only. Post gigs from <strong>Post a gig</strong> to hire talent.
+            </p>
+          )}
         </header>
 
         {!activeCategory ? (
@@ -272,26 +282,6 @@ const Community = () => {
         )}
       </div>
 
-      {isStudent && activeCategory && (
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="fixed z-40 flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-all hover:scale-[1.03] hover:shadow-xl max-md:bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] md:bottom-8 right-4 md:right-8"
-          aria-label="Create community post"
-        >
-          <Plus size={24} strokeWidth={2} />
-        </button>
-      )}
-
-      {user && activeCategory && (
-        <CreatePostDialog
-          open={showCreate}
-          onOpenChange={setShowCreate}
-          onPostCreated={() => loadPosts(activeCategory)}
-          userId={user.id}
-          category={activeCategory}
-        />
-      )}
     </div>
   );
 };

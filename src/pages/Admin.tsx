@@ -8,7 +8,7 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { format } from 'date-fns';
 import {
   Shield, ShieldCheck, ShieldOff, Users, Briefcase, Calendar, Trash2, Search,
-  ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare,
+  ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 
@@ -73,6 +73,7 @@ const Admin = () => {
   const [gigs, setGigs] = useState<JobRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackRow[]>([]);
+  const [listingRequests, setListingRequests] = useState<ListingRequestRow[]>([]);
 
   // Admin user IDs
   const [adminUserIds, setAdminUserIds] = useState<Set<string>>(new Set());
@@ -150,6 +151,34 @@ const Admin = () => {
     setEvents(data || []);
   }, [page]);
 
+  const fetchListingRequests = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('community_listing_requests')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (error) {
+      console.error(error);
+      setListingRequests([]);
+      return;
+    }
+    const rows = data || [];
+    if (rows.length > 0) {
+      const ids = [...new Set(rows.map((r) => r.user_id))];
+      const { data: profs } = await supabase.from('profiles').select('user_id, display_name').in('user_id', ids);
+      const map = new Map((profs || []).map((p) => [p.user_id, p.display_name as string | null]));
+      setListingRequests(
+        rows.map((r) => ({
+          ...r,
+          requester_name: map.get(r.user_id) || undefined,
+        })),
+      );
+    } else {
+      setListingRequests([]);
+    }
+  }, [page]);
+
   const fetchFeedback = useCallback(async () => {
     const { data } = await supabase
       .from('feedback')
@@ -186,7 +215,8 @@ const Admin = () => {
     if (tab === 'gigs') fetchGigs();
     if (tab === 'events') fetchEvents();
     if (tab === 'feedback') fetchFeedback();
-  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback]);
+    if (tab === 'listings') fetchListingRequests();
+  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests]);
 
   // ── Actions ──
   const toggleAdmin = async (userId: string) => {
@@ -309,6 +339,12 @@ const Admin = () => {
     f.message.toLowerCase().includes(q) ||
     (f.sender_name || '').toLowerCase().includes(q)
   );
+  const filteredListings = listingRequests.filter((r) =>
+    r.title.toLowerCase().includes(q) ||
+    r.category.toLowerCase().includes(q) ||
+    (r.requester_name || '').toLowerCase().includes(q) ||
+    (r.applicant_email || '').toLowerCase().includes(q)
+  );
 
   // ── Render ──
 
@@ -328,6 +364,7 @@ const Admin = () => {
     { key: 'users', label: 'Users', icon: <Users size={16} />, count: filteredUsers.length },
     { key: 'gigs', label: 'Gigs', icon: <Briefcase size={16} />, count: filteredGigs.length },
     { key: 'events', label: 'Events', icon: <Calendar size={16} />, count: filteredEvents.length },
+    { key: 'listings', label: 'Community', icon: <ClipboardList size={16} />, count: filteredListings.length },
     { key: 'feedback', label: 'Feedback', icon: <MessageSquare size={16} />, count: filteredFeedbacks.length },
   ];
 
@@ -344,7 +381,7 @@ const Admin = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Mod Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Manage users, gigs &amp; events</p>
+            <p className="text-sm text-muted-foreground">Users, gigs, Community listing requests &amp; more</p>
           </div>
         </div>
 
@@ -509,6 +546,45 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ── Community listing requests ── */}
+        {tab === 'listings' && (
+          <div className="space-y-2">
+            {filteredListings.length === 0 && (
+              <p className="text-center text-muted-foreground py-12 text-sm">No pending listing requests</p>
+            )}
+            {filteredListings.map((r) => (
+              <div key={r.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-sm">{r.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {r.category} · {r.requester_name || 'Unknown'} · {r.applicant_email || 'no email'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{format(new Date(r.created_at), 'MMM d, yyyy · h:mm a')}</p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => approveListingRequest(r.id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rejectListingRequest(r.id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-muted"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{r.description}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ── Feedback tab ── */}
         {tab === 'feedback' && (
           <div className="space-y-2">
@@ -561,6 +637,7 @@ const Admin = () => {
               (tab === 'users' && filteredUsers.length < PAGE_SIZE) ||
               (tab === 'gigs' && filteredGigs.length < PAGE_SIZE) ||
               (tab === 'events' && filteredEvents.length < PAGE_SIZE) ||
+              (tab === 'listings' && filteredListings.length < PAGE_SIZE) ||
               (tab === 'feedback' && filteredFeedbacks.length < PAGE_SIZE)
             }
             className="p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-40 transition-colors"

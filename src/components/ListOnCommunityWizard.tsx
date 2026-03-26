@@ -76,8 +76,8 @@ interface ListOnCommunityWizardProps {
   onOpenChange: (open: boolean) => void;
   userId: string;
   initial: ListOnCommunityInitial;
-  /** Called after a successful publish so the parent can refresh state and optionally deep-link to the board. */
-  onPublished: (category: CommunityCategoryId) => void;
+  /** Called after the listing is submitted for mod review (not live until approved). */
+  onSubmittedForReview: (category: CommunityCategoryId) => void;
 }
 
 export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
@@ -85,7 +85,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   onOpenChange,
   userId,
   initial,
-  onPublished,
+  onSubmittedForReview,
 }) => {
   const { toast } = useToast();
   const [step, setStep] = useState(0);
@@ -281,21 +281,41 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       const { error: spErr } = await supabase.from('student_profiles').update(studentPatch).eq('user_id', userId);
       if (spErr) throw spErr;
 
-      const { error: postErr } = await supabase.from('community_posts').insert({
-        user_id: userId,
-        category,
-        title: title.trim(),
-        description: description.trim(),
-        image_url,
-        rate_min,
-        rate_max,
-        rate_unit: rate_unit_out,
-      });
-      if (postErr) throw postErr;
+      const { data: udata } = await supabase.auth.getUser();
+      const applicantEmail = udata.user?.email ?? null;
 
-      toast({ title: "You're listed!", description: 'Opening your board…' });
+      const { data: insertedReq, error: reqErr } = await supabase
+        .from('community_listing_requests')
+        .insert({
+          user_id: userId,
+          applicant_email: applicantEmail,
+          category,
+          title: title.trim(),
+          description: description.trim(),
+          image_url,
+          rate_min,
+          rate_max,
+          rate_unit: rate_unit_out,
+          status: 'pending',
+        })
+        .select('id')
+        .single();
+      if (reqErr) throw reqErr;
+
+      if (insertedReq?.id) {
+        const { error: fnErr } = await supabase.functions.invoke('notify-community-listing-request', {
+          body: { request_id: insertedReq.id },
+        });
+        if (fnErr) console.warn('Listing notify:', fnErr.message);
+      }
+
+      toast({
+        title: 'Submitted for review',
+        description:
+          'The team will check your listing and email you when it is live on Community. This usually takes a short time.',
+      });
       onOpenChange(false);
-      onPublished(category);
+      onSubmittedForReview(category);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Could not publish', description: msg, variant: 'destructive' });
@@ -336,9 +356,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Sparkles className="h-5 w-5" strokeWidth={2} />
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Clients browse VANO Community by specialty — videography, websites, and social. This short flow saves
-                your profile details <span className="font-medium text-foreground">and</span> publishes your listing in
-                one go — clear steps, no guesswork.
+                You&apos;ll fill in your banner, pitch, links, and rates. At the end we{' '}
+                <span className="font-medium text-foreground">send your listing to the VANO team</span> for a quick
+                review. Once approved, it appears on the Community board — usually within a day or two.
               </p>
               <ul className="space-y-2 text-sm text-foreground/90">
                 <li className="flex gap-2">
@@ -351,7 +371,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Rates, service area, and skills
+                  Rates, service area, and skills — then submit for review
                 </li>
               </ul>
             </div>
@@ -637,8 +657,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <p className="line-clamp-4 text-muted-foreground">{description || '—'}</p>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
-                We&apos;ll update your profile (banner, links, area, skills, rates) and publish this post. You can post
-                again on another board anytime.
+                We&apos;ll save your profile details (banner, links, area, skills, rates) and{' '}
+                <span className="font-medium text-foreground">send this listing to the team for approval</span>. It
+                won&apos;t appear on Community until a moderator approves it. You&apos;ll get an email when it&apos;s
+                live.
               </div>
             </div>
           )}
@@ -684,7 +706,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   Publishing…
                 </>
               ) : (
-                'Publish listing'
+                'Submit for review'
               )}
             </Button>
           )}
