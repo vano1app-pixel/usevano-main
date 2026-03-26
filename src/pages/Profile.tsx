@@ -360,10 +360,10 @@ const Profile = () => {
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              className={`${inputClass} min-h-[120px] resize-none`}
+              className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
               placeholder={profile?.user_type === 'business'
                 ? 'A quick intro is enough — who you are and what you usually hire help for. You’ll add the exact location on each gig when you post it.'
-                : 'Tell people hiring on VANO about yourself, your experience, and what makes you a great hire...'}
+                : 'Short intro for your public profile. Your Community listing can update this if you choose.'}
             />
             {profile?.user_type === 'business' && (
               <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -379,182 +379,28 @@ const Profile = () => {
               <textarea
                 value={workDescription}
                 onChange={(e) => setWorkDescription(e.target.value)}
-                className={`${inputClass} min-h-[120px] resize-none`}
+                className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
                 placeholder="Past projects, clients, or relevant experience…"
               />
             </div>
           )}
 
-          {/* Student-specific fields */}
+          {/* Freelancer: contact & availability (listing fields live in Get listed flow) */}
           {profile?.user_type === 'student' && (
             <>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Service area</label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Where you&apos;re based or willing to work — e.g. <span className="font-medium text-foreground/80">Galway city</span>,{' '}
-                  <span className="font-medium text-foreground/80">Within 30km of Galway</span>, or{' '}
-                  <span className="font-medium text-foreground/80">Remote</span>.
-                </p>
-                <input
-                  value={serviceArea}
-                  onChange={(e) => setServiceArea(e.target.value)}
-                  className={inputClass}
-                  placeholder="e.g. Galway city · Remote OK"
-                />
-              </div>
-
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Typical project budget (€)</label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    For fixed-price work like sites or one-off deliverables — e.g. 200–500. Leave blank if you only use hourly.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={typicalBudgetMin}
-                      onChange={(e) => setTypicalBudgetMin(e.target.value)}
-                      className={inputClass}
-                      placeholder="Min"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      value={typicalBudgetMax}
-                      onChange={(e) => setTypicalBudgetMax(e.target.value)}
-                      className={inputClass}
-                      placeholder="Max"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-sm font-medium flex items-center gap-1.5">
-                        <Euro size={14} className="text-primary" /> Hourly rate (€)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setLoadingStudentPrice(true);
-                          setStudentPricingAdvice(null);
-                          try {
-                            const { data, error } = await supabase.functions.invoke('ai-pricing-advisor', {
-                              body: { skills, context: 'student' },
-                            });
-                            if (error) throw error;
-                            if (data?.suggestedMin) setStudentPricingAdvice(data);
-                          } catch (err: any) {
-                            toast({ title: 'Error', description: err?.message || 'Failed to get suggestion', variant: 'destructive' });
-                          } finally {
-                            setLoadingStudentPrice(false);
-                          }
-                        }}
-                        disabled={loadingStudentPrice}
-                        className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-50"
-                      >
-                        {loadingStudentPrice ? <Loader2 size={10} className="animate-spin" /> : <Lightbulb size={10} />}
-                        {loadingStudentPrice ? 'Thinking...' : '💡 Suggest rate'}
-                      </button>
-                    </div>
-                    <input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} className={inputClass} placeholder="25" />
-                    <p className="mt-1.5 text-[11px] text-muted-foreground">Strong for video, social, shoots, or ongoing support.</p>
-                    {studentPricingAdvice && (
-                      <div className="mt-2 p-2.5 bg-primary/5 border border-primary/15 rounded-lg">
-                        <p className="text-xs font-medium text-primary">€{studentPricingAdvice.suggestedMin} – €{studentPricingAdvice.suggestedMax}/hr</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{studentPricingAdvice.reasoning}</p>
-                      </div>
-                    )}
-                  </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
                     <Phone size={14} className="text-primary" /> Phone
                   </label>
                   <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} placeholder="086 123 4567" />
                 </div>
-              </div>
-
-              {/* University */}
-              <div>
-                <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
-                  <GraduationCap size={14} className="text-primary" /> University
-                </label>
-                <input value={university} onChange={(e) => setUniversity(e.target.value)} className={inputClass} placeholder="e.g. Trinity College Dublin" />
-              </div>
-
-              <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">TikTok</label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Optional. Paste your profile link or @username — shown on Community and your public profile.
-                  </p>
-                  <input
-                    value={tiktokUrl}
-                    onChange={(e) => setTiktokUrl(e.target.value)}
-                    className={inputClass}
-                    placeholder="https://www.tiktok.com/@you or @you"
-                  />
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+                    <GraduationCap size={14} className="text-primary" /> University
+                  </label>
+                  <input value={university} onChange={(e) => setUniversity(e.target.value)} className={inputClass} placeholder="e.g. University of Galway" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Links to past work</label>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Websites, Behance, case studies, Google Drive — add a short label and URL (up to 12).
-                  </p>
-                  <div className="space-y-2">
-                    {workLinks.map((row, i) => (
-                      <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <input
-                          value={row.label}
-                          onChange={(e) => updateWorkLink(i, 'label', e.target.value)}
-                          className={inputClass}
-                          placeholder="Label (e.g. Agency site)"
-                        />
-                        <input
-                          value={row.url}
-                          onChange={(e) => updateWorkLink(i, 'url', e.target.value)}
-                          className={inputClass}
-                          placeholder="https://…"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeWorkLink(i)}
-                          className="shrink-0 rounded-xl border border-border px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive sm:py-2"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addWorkLinkRow}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                  >
-                    <Plus size={14} /> Add link
-                  </button>
-                </div>
-              </div>
-
-              {/* Skills */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Skills</label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {COMMON_SKILLS.map((skill) => (
-                    <TagBadge key={skill} tag={skill} selected={skills.includes(skill)} onClick={() => toggleSkill(skill)} />
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input value={customSkill} onChange={(e) => setCustomSkill(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomSkill(); } }} className={inputClass} placeholder="Add custom skill..." />
-                  <button type="button" onClick={addCustomSkill} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-xl text-sm font-medium shrink-0 hover:bg-secondary/80 transition-colors">Add</button>
-                </div>
-                {skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {skills.map((s) => <TagBadge key={s} tag={s} selected removable onRemove={() => setSkills(skills.filter((sk) => sk !== s))} />)}
-                  </div>
-                )}
               </div>
 
               {/* Availability */}
