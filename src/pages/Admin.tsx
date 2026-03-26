@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,7 @@ import {
   ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
+import { isEmailVerified } from '@/lib/authSession';
 
 // ── Types ──
 
@@ -54,7 +55,19 @@ interface FeedbackRow {
   sender_avatar?: string;
 }
 
-type Tab = 'users' | 'gigs' | 'events' | 'feedback';
+interface ListingRequestRow {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  category: string;
+  applicant_email: string | null;
+  status: string;
+  created_at: string;
+  requester_name?: string;
+}
+
+type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings';
 const PAGE_SIZE = 20;
 
 // ── Component ──
@@ -86,6 +99,7 @@ const Admin = () => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate('/auth'); return; }
+      if (!isEmailVerified(session)) { navigate('/auth'); return; }
 
       const { data: isAdmin } = await supabase
         .rpc('has_role', { _user_id: session.user.id, _role: 'admin' });
@@ -360,7 +374,7 @@ const Admin = () => {
 
   const inputClass = "w-full border border-input rounded-xl px-4 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
-  const tabs: { key: Tab; label: string; icon: React.ReactNode; count: number }[] = [
+  const tabs: { key: Tab; label: string; icon: ReactNode; count: number }[] = [
     { key: 'users', label: 'Users', icon: <Users size={16} />, count: filteredUsers.length },
     { key: 'gigs', label: 'Gigs', icon: <Briefcase size={16} />, count: filteredGigs.length },
     { key: 'events', label: 'Events', icon: <Calendar size={16} />, count: filteredEvents.length },

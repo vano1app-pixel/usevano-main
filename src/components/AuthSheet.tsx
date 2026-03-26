@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { createPortal } from 'react-dom';
-import { X, ShieldCheck, GraduationCap, Building2 } from 'lucide-react';
+import { X, ShieldCheck, GraduationCap, Building2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { isStudentEmail, STUDENT_EMAIL_HINT } from '@/lib/studentEmailValidator';
+import {
+  isStudentEmail,
+  STUDENT_EMAIL_HINT,
+  FREELANCER_STUDENT_EMAIL_ERROR,
+} from '@/lib/studentEmailValidator';
+import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
+import { cn } from '@/lib/utils';
 
 interface AuthSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const inputClass =
+  'w-full bg-background border border-input text-foreground rounded-xl px-4 py-3.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0 transition-shadow';
 
 export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -25,15 +34,45 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const [resetSent, setResetSent] = useState(false);
   const { toast } = useToast();
 
+  // Logged-in + verified users should never stay on this sheet
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const redirectIfReady = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !isEmailVerified(session)) return;
+      const path = await getPostAuthPath(session.user.id);
+      onClose();
+      navigate(path, { replace: true });
+    };
+
+    void redirectIfReady();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && isEmailVerified(session)) {
+        void (async () => {
+          const path = await getPostAuthPath(session.user.id);
+          onClose();
+          navigate(path, { replace: true });
+        })();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isOpen, navigate, onClose]);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       if (isSignUp) {
-        // Validate student email
         if (userType === 'student' && !isStudentEmail(email)) {
-          toast({ title: 'Invalid student email', description: STUDENT_EMAIL_HINT, variant: 'destructive' });
+          toast({
+            title: 'Student email required',
+            description: `${FREELANCER_STUDENT_EMAIL_ERROR} ${STUDENT_EMAIL_HINT}`,
+            variant: 'destructive',
+          });
           setLoading(false);
           return;
         }
@@ -43,8 +82,8 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth`,
-            data: { user_type: userType }
-          }
+            data: { user_type: userType },
+          },
         });
         if (error) throw error;
 
@@ -56,25 +95,22 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
         }
 
         setPendingVerification(true);
-        toast({ title: 'Verification code sent!', description: `Check ${email} for a 6-digit code.` });
+        toast({ title: 'Check your email', description: `We sent a 6-digit code to ${email}.` });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast({ title: 'Welcome back!', description: 'You have successfully signed in.' });
+        toast({ title: 'Welcome back!', description: 'Signed in successfully.' });
         onClose();
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('display_name, avatar_url')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-          const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
-          navigate(done ? '/profile' : '/complete-profile', { replace: true });
+        if (session && isEmailVerified(session)) {
+          const path = await getPostAuthPath(session.user.id);
+          navigate(path, { replace: true });
+        } else if (session) {
+          navigate('/auth', { replace: true });
         }
       }
-    } catch (error: any) {
-      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Something went wrong', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -99,10 +135,10 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
           await supabase.from('student_profiles').upsert({ user_id: user.id }, { onConflict: 'user_id' });
         }
       }
-      toast({ title: 'Email verified!', description: 'Add your photo on the next screen.' });
+      toast({ title: "You're in!", description: 'Add your photo on the next screen.' });
       onClose();
       navigate('/complete-profile', { replace: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({ title: 'Verification failed', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -112,7 +148,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      toast({ title: 'Enter your email first', variant: 'destructive' });
+      toast({ title: 'Enter your email', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -122,9 +158,9 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
       });
       if (error) throw error;
       setResetSent(true);
-      toast({ title: 'Reset link sent!', description: `Check ${email} for a password reset link.` });
-    } catch (error: any) {
-      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+      toast({ title: 'Email sent', description: `Check ${email} for a reset link.` });
+    } catch (error: unknown) {
+      toast({ title: 'Couldn’t send email', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -134,204 +170,312 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
 
   return createPortal(
     <>
-      <div className="fixed inset-0 bg-black/50 z-[1000]" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-full sm:max-w-md bg-background z-[1001] shadow-2xl animate-in slide-in-from-right duration-300 overflow-y-auto">
-        <button onClick={onClose} className="absolute top-4 right-4 sm:top-6 sm:right-6 text-foreground/50 hover:text-foreground transition-colors z-10">
-          <X size={24} />
-        </button>
+      <div
+        className="fixed inset-0 bg-black/50 z-[1000] backdrop-blur-[2px]"
+        onClick={loading ? undefined : onClose}
+        aria-hidden
+      />
+      <div className="fixed inset-0 z-[1001] flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
+        <div
+          className={cn(
+            'pointer-events-auto w-full sm:max-w-[420px] max-h-[92dvh] overflow-y-auto',
+            'bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl',
+            'safe-area-bottom',
+          )}
+        >
+          <div className="sticky top-0 flex items-center justify-between px-4 pt-4 pb-2 sm:px-6 sm:pt-5 bg-card/95 backdrop-blur-sm border-b border-border/60 z-10">
+            <p className="text-sm font-semibold tracking-tight text-foreground">VANO</p>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
+              aria-label="Close"
+            >
+              <X size={22} />
+            </button>
+          </div>
 
-        <div className="flex flex-col h-full px-5 sm:px-8 pt-16 sm:pt-20 pb-6 sm:pb-8">
-          {pendingVerification ? (
-            <>
-              <div className="text-center mb-6">
-                <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
-                  <ShieldCheck className="text-primary" size={28} />
+          <div className="px-4 pb-8 pt-4 sm:px-6 sm:pb-8 sm:pt-5">
+            {pendingVerification ? (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <ShieldCheck className="text-primary" size={26} />
+                  </div>
+                  <h2 className="text-lg font-semibold text-foreground">Enter your code</h2>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    We emailed a 6-digit code to{' '}
+                    <span className="font-medium text-foreground">{email}</span>
+                  </p>
                 </div>
-                <h2 className="text-2xl font-bold text-foreground">Check your inbox</h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Enter the 6-digit code sent to<br />
-                  <span className="font-medium text-foreground">{email}</span>
-                </p>
+
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="• • • • • •"
+                    className={`${inputClass} text-center text-2xl tracking-[0.4em] font-mono`}
+                    autoFocus
+                    disabled={loading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || otp.length < 6}
+                    className="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-primary text-primary-foreground font-medium text-[15px] hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="animate-spin" size={18} />
+                        Verifying…
+                      </>
+                    ) : (
+                      'Verify & continue'
+                    )}
+                  </button>
+                </form>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => setPendingVerification(false)}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    ← Back
+                  </button>
+                </div>
               </div>
+            ) : forgotPassword ? (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {resetSent ? 'Check your inbox' : 'Reset password'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    {resetSent
+                      ? `We sent a link to ${email}`
+                      : 'We’ll email you a link to set a new password.'}
+                  </p>
+                </div>
 
-              <form onSubmit={handleVerifyOtp} className="flex flex-col gap-5">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className="w-full bg-background border border-input text-foreground rounded-lg px-4 py-3 text-2xl text-center tracking-[0.5em] font-mono focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  disabled={loading || otp.length < 6}
-                  className="w-full bg-primary text-primary-foreground font-medium py-3 rounded-lg text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Verifying...' : 'Verify Email'}
-                </button>
-              </form>
+                {!resetSent ? (
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className={inputClass}
+                        placeholder="you@example.com"
+                        autoFocus
+                        disabled={loading}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-primary text-primary-foreground font-medium text-[15px] hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="animate-spin" size={18} />
+                          Sending…
+                        </>
+                      ) : (
+                        'Send link'
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center leading-relaxed">
+                    Open the email and follow the link. Then return here to log in.
+                  </p>
+                )}
 
-              <div className="mt-6 text-center">
-                <button onClick={() => setPendingVerification(false)} className="text-muted-foreground hover:text-primary transition-colors text-sm">
-                  ← Back to sign up
-                </button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setForgotPassword(false);
+                      setResetSent(false);
+                    }}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    ← Back to sign in
+                  </button>
+                </div>
               </div>
-            </>
-          ) : forgotPassword ? (
-            <>
-              <h2 className="text-3xl font-bold text-foreground mb-1">
-                {resetSent ? 'Check your email' : 'Forgot password?'}
-              </h2>
-              <p className="text-muted-foreground text-sm mb-8">
-                {resetSent
-                  ? `We sent a reset link to ${email}`
-                  : 'Enter your email and we\'ll send a reset link'}
-              </p>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {isSignUp ? 'Create account' : 'Welcome back'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    {isSignUp
+                      ? 'Choose how you’ll use VANO, then enter your details.'
+                      : 'Sign in with your email and password.'}
+                  </p>
+                </div>
 
-              {!resetSent ? (
-                <form onSubmit={handleForgotPassword} className="flex flex-col gap-5">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                <form onSubmit={handleAuth} className="space-y-5">
+                  {isSignUp && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account type</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setUserType('student')}
+                          disabled={loading}
+                          className={cn(
+                            'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[88px] flex flex-col gap-1',
+                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            userType === 'student'
+                              ? 'border-emerald-500/70 bg-emerald-500/[0.07] shadow-sm'
+                              : 'border-border bg-muted/30 hover:border-emerald-500/25',
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                            <GraduationCap className="text-emerald-600 shrink-0" size={18} />
+                            Freelancer
+                          </span>
+                          <span className="text-xs text-muted-foreground leading-snug">
+                            Student email required (.ac.ie, .atu.ie, etc.)
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUserType('business')}
+                          disabled={loading}
+                          className={cn(
+                            'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[88px] flex flex-col gap-1',
+                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            userType === 'business'
+                              ? 'border-sky-500/70 bg-sky-500/[0.07] shadow-sm'
+                              : 'border-border bg-muted/30 hover:border-sky-500/25',
+                          )}
+                        >
+                          <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                            <Building2 className="text-sky-600 shrink-0" size={18} />
+                            Business
+                          </span>
+                          <span className="text-xs text-muted-foreground leading-snug">
+                            Post gigs & hire students — any email
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="sheet-email" className="text-sm font-medium text-foreground">
+                      Email
+                    </label>
                     <input
+                      id="sheet-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full bg-background border border-input text-foreground rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                      placeholder="your@email.com"
-                      autoFocus
+                      disabled={loading}
+                      className={inputClass}
+                      placeholder={isSignUp && userType === 'student' ? 'you@university.ie' : 'you@example.com'}
+                      autoComplete="email"
+                    />
+                    {isSignUp && userType === 'student' && (
+                      <p className="text-xs text-muted-foreground leading-relaxed">{STUDENT_EMAIL_HINT}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="sheet-password" className="text-sm font-medium text-foreground">
+                      Password
+                    </label>
+                    <input
+                      id="sheet-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      disabled={loading}
+                      className={inputClass}
+                      placeholder="At least 6 characters"
+                      autoComplete={isSignUp ? 'new-password' : 'current-password'}
                     />
                   </div>
+
+                  {!isSignUp && (
+                    <div className="flex justify-end -mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setForgotPassword(true)}
+                        disabled={loading}
+                        className="text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-primary text-primary-foreground font-medium py-3 rounded-lg text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-primary text-primary-foreground font-medium text-[15px] hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    {loading ? 'Sending...' : 'Send Reset Link'}
+                    {loading ? (
+                      <>
+                        <Loader2 className="animate-spin" size={18} />
+                        Please wait…
+                      </>
+                    ) : isSignUp ? (
+                      'Create account'
+                    ) : (
+                      'Sign in'
+                    )}
                   </button>
                 </form>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center">
-                  Click the link in the email to set a new password. Check spam if you don't see it.
-                </p>
-              )}
 
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => { setForgotPassword(false); setResetSent(false); }}
-                  className="text-muted-foreground hover:text-primary transition-colors text-sm"
-                >
-                  ← Back to sign in
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h2 className="text-3xl font-bold text-foreground mb-1">
-                {isSignUp ? 'Create Account' : 'Welcome Back'}
-              </h2>
-              <p className="text-muted-foreground text-sm mb-8">
-                {isSignUp ? 'Join VANO to find shifts or hire students' : 'Sign in to your account'}
-              </p>
-
-              <form onSubmit={handleAuth} className="flex flex-col gap-5">
-                {isSignUp && (
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">I am a</label>
-                    <div className="grid grid-cols-2 gap-3">
+                <p className="text-center text-sm text-muted-foreground">
+                  {isSignUp ? (
+                    <>
+                      Already have an account?{' '}
                       <button
                         type="button"
-                        onClick={() => setUserType('student')}
-                        className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
-                          userType === 'student'
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border text-foreground/60 hover:border-primary/30'
-                        }`}
+                        disabled={loading}
+                        onClick={() => setIsSignUp(false)}
+                        className="font-medium text-primary hover:underline disabled:opacity-50"
                       >
-                        <span className="inline-flex items-center gap-1.5"><GraduationCap size={16} /> Freelancer</span>
+                        Sign in
                       </button>
+                    </>
+                  ) : (
+                    <>
+                      New to VANO?{' '}
                       <button
                         type="button"
-                        onClick={() => setUserType('business')}
-                        className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
-                          userType === 'business'
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border text-foreground/60 hover:border-primary/30'
-                        }`}
+                        disabled={loading}
+                        onClick={() => setIsSignUp(true)}
+                        className="font-medium text-primary hover:underline disabled:opacity-50"
                       >
-                        <span className="inline-flex items-center gap-1.5"><Building2 size={16} /> Client</span>
+                        Create an account
                       </button>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">Email</label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full bg-background border border-input text-foreground rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                    placeholder={isSignUp && userType === 'student' ? 'you@college.ie' : 'your@email.com'}
-                  />
-                  {isSignUp && userType === 'student' && (
-                    <p className="text-xs text-muted-foreground mt-1.5">{STUDENT_EMAIL_HINT}</p>
+                    </>
                   )}
-                </div>
-
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">Password</label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full bg-background border border-input text-foreground rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                    placeholder="••••••••"
-                  />
-                </div>
-
-                {!isSignUp && (
-                  <div className="text-right -mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setForgotPassword(true)}
-                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-primary text-primary-foreground font-medium py-3 rounded-lg text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
-                </button>
-              </form>
-
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => setIsSignUp(!isSignUp)}
-                  className="text-muted-foreground hover:text-primary transition-colors text-sm"
-                >
-                  {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
-                </button>
+                </p>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </>,
-    document.body
+    document.body,
   );
 };

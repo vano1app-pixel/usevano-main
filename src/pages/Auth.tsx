@@ -5,8 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
-import { Briefcase, GraduationCap, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { isStudentEmail, STUDENT_EMAIL_HINT } from '@/lib/studentEmailValidator';
+import { Briefcase, GraduationCap, ShieldCheck, ArrowLeft, Loader2 } from 'lucide-react';
+import {
+  isStudentEmail,
+  STUDENT_EMAIL_HINT,
+  FREELANCER_STUDENT_EMAIL_ERROR,
+} from '@/lib/studentEmailValidator';
+import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
+import { cn } from '@/lib/utils';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -25,14 +31,9 @@ const Auth = () => {
 
   const redirectIfAlreadySignedIn = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('display_name, avatar_url')
-      .eq('user_id', session.user.id)
-      .maybeSingle();
-    const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
-    navigate(done ? '/profile' : '/complete-profile', { replace: true });
+    if (!session || !isEmailVerified(session)) return;
+    const path = await getPostAuthPath(session.user.id);
+    navigate(path, { replace: true });
   }, [navigate]);
 
   useEffect(() => {
@@ -84,7 +85,11 @@ const Auth = () => {
         await redirectIfAlreadySignedIn();
       } else {
         if (userType === 'student' && !isStudentEmail(email)) {
-          toast({ title: 'Use your college email', description: STUDENT_EMAIL_HINT, variant: 'destructive' });
+          toast({
+            title: 'Student email required',
+            description: FREELANCER_STUDENT_EMAIL_ERROR + ' ' + STUDENT_EMAIL_HINT,
+            variant: 'destructive',
+          });
           setLoading(false);
           return;
         }
@@ -203,23 +208,32 @@ const Auth = () => {
                   placeholder="000000"
                   className={`${inputClass} text-center text-2xl tracking-[0.5em] font-mono`}
                   autoFocus
+                  disabled={loading}
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading || otp.length < 6}
-                className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center gap-2"
               >
-                {loading ? 'Verifying...' : 'Verify & continue'}
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    Verifying…
+                  </>
+                ) : (
+                  'Verify & continue'
+                )}
               </button>
             </form>
 
             <div className="mt-5 pt-5 border-t border-border text-center">
               <button
                 type="button"
+                disabled={loading}
                 onClick={() => setPendingVerification(false)}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
               >
                 ← Back to create account
               </button>
@@ -268,14 +282,22 @@ const Auth = () => {
                     placeholder="you@example.com"
                     className={inputClass}
                     autoFocus
+                    disabled={loading}
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
                 >
-                  {loading ? 'Sending...' : 'Send reset link'}
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} />
+                      Sending…
+                    </>
+                  ) : (
+                    'Send reset link'
+                  )}
                 </button>
               </form>
             ) : (
@@ -328,11 +350,12 @@ const Auth = () => {
         <div className="flex rounded-xl border border-border bg-muted/40 p-1 mb-6">
           <button
             type="button"
+            disabled={loading}
             onClick={() => {
               setIsLogin(true);
               navigate('/auth?mode=login', { replace: true });
             }}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+            className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
               isLogin ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -340,11 +363,12 @@ const Auth = () => {
           </button>
           <button
             type="button"
+            disabled={loading}
             onClick={() => {
               setIsLogin(false);
               navigate('/auth?mode=signup', { replace: true });
             }}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+            className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
               !isLogin ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -357,46 +381,57 @@ const Auth = () => {
             {!isLogin && (
               <>
                 <div>
-                  <label className="block text-sm font-medium mb-2">I want to…</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Account type</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => setUserType('student')}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      className={cn(
+                        'flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left min-h-[100px]',
                         userType === 'student'
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-border text-muted-foreground hover:border-primary/30'
-                      }`}
+                          ? 'border-emerald-500/70 bg-emerald-500/[0.07] shadow-sm'
+                          : 'border-border text-muted-foreground hover:border-emerald-500/25',
+                      )}
                     >
-                      <GraduationCap size={24} />
-                      <span className="text-sm font-medium">Work as a freelancer</span>
-                      <span className="text-[11px] opacity-80 text-center leading-tight">College email required</span>
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <GraduationCap className="text-emerald-600 shrink-0" size={22} />
+                        Freelancer
+                      </span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">
+                        Student email (.ac.ie, .atu.ie, …)
+                      </span>
                     </button>
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => setUserType('business')}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      className={cn(
+                        'flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left min-h-[100px]',
                         userType === 'business'
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-border text-muted-foreground hover:border-primary/30'
-                      }`}
+                          ? 'border-sky-500/70 bg-sky-500/[0.07] shadow-sm'
+                          : 'border-border text-muted-foreground hover:border-sky-500/25',
+                      )}
                     >
-                      <Briefcase size={24} />
-                      <span className="text-sm font-medium">Hire & post gigs</span>
-                      <span className="text-[11px] opacity-80 text-center leading-tight">Any email</span>
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <Briefcase className="text-sky-600 shrink-0" size={22} />
+                        Business
+                      </span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">Post gigs — any email</span>
                     </button>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-1.5">Display name</label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder={userType === 'business' ? 'Your name or company' : 'Your name'}
-                    className={inputClass}
-                  />
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder={userType === 'business' ? 'Your name or company' : 'Your name'}
+                  className={inputClass}
+                  disabled={loading}
+                />
                   {userType === 'student' && (
                     <p className="text-xs text-muted-foreground mt-1.5">{STUDENT_EMAIL_HINT}</p>
                   )}
@@ -414,6 +449,7 @@ const Auth = () => {
                 autoComplete="email"
                 placeholder={!isLogin && userType === 'student' ? 'you@university.ie' : 'you@example.com'}
                 className={inputClass}
+                disabled={loading}
               />
             </div>
 
@@ -428,6 +464,7 @@ const Auth = () => {
                 placeholder="At least 6 characters"
                 minLength={6}
                 className={inputClass}
+                disabled={loading}
               />
             </div>
 
@@ -446,9 +483,18 @@ const Auth = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center gap-2 min-h-[48px]"
             >
-              {loading ? 'Please wait…' : isLogin ? 'Log in' : 'Create account'}
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />
+                  Please wait…
+                </>
+              ) : isLogin ? (
+                'Log in'
+              ) : (
+                'Create account'
+              )}
             </button>
           </form>
 

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { guardVerifiedSession } from '@/lib/authSession';
 import logo from '@/assets/logo.png';
 import { UserCircle } from 'lucide-react';
 
@@ -21,7 +22,7 @@ const CompleteProfile = () => {
   useEffect(() => {
     const check = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { navigate('/auth'); return; }
+      if (!guardVerifiedSession(session, navigate)) return;
 
       setUserId(session.user.id);
 

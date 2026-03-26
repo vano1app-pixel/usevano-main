@@ -10,6 +10,10 @@ assertSupabaseEnvForBuild();
 const url = getSupabaseUrl();
 const key = getSupabaseAnonKey();
 
+/**
+ * Auth email templates: enable “Send Email” hook in Supabase Dashboard → Authentication → Hooks
+ * and point it to your deployed `auth-email-hook` Edge Function URL for branded (VANO) mail.
+ */
 export const supabase = createClient<Database>(url, key, {
   auth: {
     storage: localStorage,

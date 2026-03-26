@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, PenLine, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { guardVerifiedSession, isEmailVerified } from '@/lib/authSession';
 
 const PostJob = () => {
   const navigate = useNavigate();
@@ -88,9 +89,10 @@ const PostJob = () => {
 
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({ title: 'Please sign in', variant: 'destructive' });
+    if (!session || !isEmailVerified(session)) {
+      toast({ title: 'Please sign in', description: 'Verify your email to post a gig.', variant: 'destructive' });
       setLoading(false);
+      navigate('/auth');
       return;
     }
 

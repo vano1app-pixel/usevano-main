@@ -11,6 +11,7 @@ import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { guardVerifiedSession } from '@/lib/authSession';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,7 @@ const Profile = () => {
 
   const loadProfile = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { navigate('/auth'); return; }
+    if (!guardVerifiedSession(session, navigate)) return;
     setUser(session.user);
 
     let { data: prof } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
