@@ -311,140 +311,58 @@ const Profile = () => {
         )}
 
         <div className="space-y-5 rounded-xl border border-border bg-card p-4 sm:space-y-6 sm:rounded-2xl sm:p-5 md:p-7">
-          {profile?.user_type === 'student' && (
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your profile</p>
-          )}
-          {/* Avatar + Name — always visible */}
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-            <AvatarUpload
-              userId={user.id}
-              currentUrl={avatarUrl}
-              table={profile?.user_type === 'student' ? 'student_profiles' : 'profiles'}
-              onUploaded={(url) => {
-                setAvatarUrl(url);
-                if (profile?.user_type === 'student') {
-                  setStudentProfile((prev: any) => prev ? { ...prev, avatar_url: url } : prev);
-                }
-              }}
-            />
-            <div className="w-full min-w-0 flex-1 sm:pt-0">
-              <label className="mb-1.5 block text-sm font-medium">
-                {profile?.user_type === 'business' ? 'Name' : 'Display name'}
-              </label>
-              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder={profile?.user_type === 'business' ? 'How you’d like to appear' : 'Your name'} />
-            </div>
-          </div>
-
-          {/* About me / bio */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              {profile?.user_type === 'business' ? 'About me' : 'Bio'}
-            </label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
-              placeholder={profile?.user_type === 'business'
-                ? 'A quick intro is enough — who you are and what you usually hire help for. You’ll add the exact location on each gig when you post it.'
-                : 'Short intro for your public profile. Your Community listing can update this if you choose.'}
-            />
-            {profile?.user_type === 'business' && (
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.
-              </p>
-            )}
-          </div>
-
-          {/* Work experience — freelancers only (saved on your profile record) */}
-          {profile?.user_type === 'student' && (
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Work experience</label>
-              <textarea
-                value={workDescription}
-                onChange={(e) => setWorkDescription(e.target.value)}
-                className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
-                placeholder="Past projects, clients, or relevant experience…"
-              />
-            </div>
-          )}
-
-          {/* Freelancer: contact & availability (listing fields live in Get listed flow) */}
-          {profile?.user_type === 'student' && (
+          {/* Freelancer: photo + display name only (listing lives in Get listed) */}
+          {profile?.user_type === 'student' ? (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
-                    <Phone size={14} className="text-primary" /> Phone
-                  </label>
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} placeholder="086 123 4567" />
-                </div>
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
-                    <GraduationCap size={14} className="text-primary" /> University
-                  </label>
-                  <input value={university} onChange={(e) => setUniversity(e.target.value)} className={inputClass} placeholder="e.g. University of Galway" />
-                </div>
-              </div>
-
-              {/* Availability */}
-              <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/30">
-                <div className="flex items-center gap-2">
-                  <CheckCircle size={16} className={isAvailable ? 'text-primary' : 'text-muted-foreground'} />
-                  <div>
-                    <p className="text-sm font-medium">Available for work</p>
-                    <p className="text-xs text-muted-foreground">Show up when clients browse freelancers</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsAvailable(!isAvailable)}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${isAvailable ? 'bg-primary' : 'bg-muted'}`}
-                >
-                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isAvailable ? 'left-6' : 'left-0.5'}`} />
-                </button>
-              </div>
-
-              {/* Payment Details */}
-              <div className="p-4 rounded-xl border border-border bg-secondary/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <CreditCard size={16} className="text-primary" />
-                  <p className="text-sm font-medium">Payment Details</p>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Your Revolut tag or IBAN — only shared with clients after you both confirm a gig agreement.
-                </p>
-                <div className="relative">
-                  <input
-                    type={showPayment ? 'text' : 'password'}
-                    value={paymentDetails}
-                    onChange={(e) => setPaymentDetails(e.target.value)}
-                    className={inputClass}
-                    placeholder="e.g. @yourtag or IE29AIBK..."
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPayment(!showPayment)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPayment ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <AvatarUpload
+                  userId={user.id}
+                  currentUrl={avatarUrl}
+                  table="student_profiles"
+                  onUploaded={(url) => {
+                    setAvatarUrl(url);
+                    setStudentProfile((prev: any) => prev ? { ...prev, avatar_url: url } : prev);
+                  }}
+                />
+                <div className="w-full min-w-0 flex-1 sm:pt-0">
+                  <label className="mb-1.5 block text-sm font-medium">Display name</label>
+                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="Your name" />
                 </div>
               </div>
+              <button onClick={handleSave} disabled={saving} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save Profile'}
+              </button>
             </>
-          )}
-
-          <button onClick={handleSave} disabled={saving} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
-            {saving ? 'Saving...' : 'Save Profile'}
-          </button>
-
-          {/* View public portfolio link */}
-          {profile?.user_type === 'student' && (
-            <button
-              onClick={() => navigate(`/portfolio/${user.id}`)}
-              className="w-full py-2.5 border border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors flex items-center justify-center gap-2"
-            >
-              <ExternalLink size={14} /> View Public Portfolio
-            </button>
+          ) : (
+            <>
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <AvatarUpload
+                  userId={user.id}
+                  currentUrl={avatarUrl}
+                  table="profiles"
+                  onUploaded={(url) => setAvatarUrl(url)}
+                />
+                <div className="w-full min-w-0 flex-1 sm:pt-0">
+                  <label className="mb-1.5 block text-sm font-medium">Name</label>
+                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="How you’d like to appear" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">About me</label>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
+                  placeholder="A quick intro is enough — who you are and what you usually hire help for. You’ll add the exact location on each gig when you post it."
+                />
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                  No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.
+                </p>
+              </div>
+              <button onClick={handleSave} disabled={saving} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save Profile'}
+              </button>
+            </>
           )}
         </div>
 
@@ -488,23 +406,6 @@ const Profile = () => {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Portfolio & Preferences for freelancers */}
-        {profile?.user_type === 'student' && user && (
-          <div className="space-y-6 mt-6">
-            <AIProfileCoach
-              bio={bio}
-              skills={skills}
-              hourlyRate={hourlyRate}
-              university={university}
-              hasPortfolio={portfolioCount > 0}
-              reviewCount={reviewCount}
-            />
-            <PortfolioManager userId={user.id} />
-            <GigPreferences userId={user.id} />
-            <NotificationPreferences />
           </div>
         )}
 
