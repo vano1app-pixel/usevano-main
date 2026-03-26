@@ -67,7 +67,13 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
       <div className="flex items-center gap-3 border-b border-foreground/5 bg-muted/30 px-4 py-3">
         <div className="relative shrink-0">
           {poster?.avatar_url ? (
-            <img src={poster.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-background" />
+            <img
+              src={poster.avatar_url}
+              alt=""
+              className="h-11 w-11 rounded-full object-cover ring-2 ring-background"
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold text-foreground ring-2 ring-background">
               {posterInitial}

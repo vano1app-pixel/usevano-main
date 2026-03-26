@@ -166,6 +166,8 @@ export const CommunityPostCard = ({
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
               style={{ objectPosition: 'center 35%' }}
+              loading="lazy"
+              decoding="async"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-card" />
           </>
@@ -178,6 +180,8 @@ export const CommunityPostCard = ({
                   alt=""
                   className="h-full w-full scale-125 object-cover opacity-40 blur-2xl"
                   aria-hidden
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
             ) : null}
@@ -214,6 +218,8 @@ export const CommunityPostCard = ({
                       src={avatar}
                       alt=""
                       className="h-[4.5rem] w-[4.5rem] rounded-full object-cover sm:h-24 sm:w-24"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-muted text-xl font-semibold text-foreground sm:h-24 sm:w-24 sm:text-2xl">
@@ -366,7 +372,13 @@ export const CommunityPostCard = ({
                       className="w-[7.5rem] shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
                     >
                       {item.image_url ? (
-                        <img src={item.image_url} alt="" className="h-20 w-full object-cover" />
+                        <img
+                          src={item.image_url}
+                          alt=""
+                          className="h-20 w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       ) : (
                         <div className="flex h-20 w-full items-center justify-center bg-muted">
                           <Images size={22} className="text-muted-foreground" />

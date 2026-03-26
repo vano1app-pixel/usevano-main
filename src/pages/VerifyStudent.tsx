@@ -42,6 +42,11 @@ const VerifyStudent = () => {
 
     setLoading(true);
     try {
+      /**
+       * Sends the 6-digit code via Supabase email-change confirmation. Same Auth user id as Google OAuth is preserved.
+       * `signInWithOtp({ options: { shouldCreateUser: false } })` is not used here: it only sends if that address already
+       * exists as a separate Auth user, so it does not attach a new student inbox to an existing OAuth account.
+       */
       const { error } = await supabase.auth.updateUser({ email: trimmed });
       if (error) throw error;
       setPendingEmail(trimmed);

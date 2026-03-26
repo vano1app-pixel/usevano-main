@@ -13,7 +13,9 @@ import { format } from 'date-fns';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
+import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { Button } from '@/components/ui/button';
+import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -109,7 +111,7 @@ const Profile = () => {
       if (sp) {
         setStudentProfile(sp);
         setBio(sp.bio || '');
-        setSkills(sp.skills || []);
+        setSkills(normalizeFreelancerSkills(sp.skills));
         setHourlyRate(sp.hourly_rate?.toString() || '');
         setPhone(sp.phone || '');
         setIsAvailable(sp.is_available);
@@ -182,7 +184,7 @@ const Profile = () => {
     if (profile?.user_type === 'student') {
       const studentData = {
         bio,
-        skills,
+        skills: normalizeFreelancerSkills(skills),
         hourly_rate: parseFloat(hourlyRate) || 0,
         phone,
         is_available: isAvailable,
@@ -430,9 +432,12 @@ const Profile = () => {
         )}
 
         {/* Email info */}
-        <p className="text-xs text-muted-foreground mt-4 text-center">
-          Signed in as {user?.email}
-        </p>
+        <div className="mt-6 flex flex-col items-center gap-2 text-center">
+          <RequestFeatureLink className="text-xs" />
+          <p className="text-xs text-muted-foreground">
+            Signed in as {user?.email}
+          </p>
+        </div>
       </div>
     </div>
   );

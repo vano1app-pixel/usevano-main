@@ -129,6 +129,17 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
 
       if (error) throw error;
 
+      const { data: spRow } = await supabase.from('student_profiles').select('user_id').eq('user_id', userId).maybeSingle();
+      if (spRow) {
+        await supabase.from('student_profiles').update({ community_board_status: 'pending' }).eq('user_id', userId);
+      } else {
+        await supabase.from('student_profiles').insert({
+          user_id: userId,
+          community_board_status: 'pending',
+          work_links: [],
+        });
+      }
+
       if (inserted?.id) {
         const { error: fnErr } = await supabase.functions.invoke('notify-community-listing-request', {
           body: { post_id: inserted.id },

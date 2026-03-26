@@ -52,7 +52,7 @@ export const NotificationBell: React.FC = () => {
   const handleClick = (notification: any) => {
     if (notification.job_id) {
       navigate(`/jobs/${notification.job_id}`);
-    } else if (notification.title?.includes('v1.0')) {
+    } else if (notification.title?.includes('v1.0') || notification.title?.includes('v1.5')) {
       navigate('/blog/vano-v1');
     }
     setOpen(false);

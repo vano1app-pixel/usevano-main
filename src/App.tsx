@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -5,8 +6,10 @@ import { Routes, Route } from "react-router-dom";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
+import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
+import { RequireStudentVerifiedForFreelancers } from "@/components/RequireStudentVerifiedForFreelancers";
 import Landing from "./pages/Landing";
 import BrowseJobs from "./pages/BrowseJobs";
 import JobDetail from "./pages/JobDetail";
@@ -25,6 +28,14 @@ import CompleteProfile from "./pages/CompleteProfile";
 import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
+import VerifyStudent from "./pages/VerifyStudent";
+import WhatsNew from "./pages/WhatsNew";
+
+const VerifiedSessionWithStudentCheck = ({ children }: { children: ReactNode }) => (
+  <RequireVerifiedSession>
+    <RequireStudentVerifiedForFreelancers>{children}</RequireStudentVerifiedForFreelancers>
+  </RequireVerifiedSession>
+);
 
 const App = () => (
   <TooltipProvider>
@@ -37,9 +48,9 @@ const App = () => (
       <Route
         path="/post-job"
         element={
-          <RequireVerifiedSession>
+          <VerifiedSessionWithStudentCheck>
             <PostJob />
-          </RequireVerifiedSession>
+          </VerifiedSessionWithStudentCheck>
         }
       />
       <Route path="/students" element={<BrowseStudents />} />
@@ -80,12 +91,22 @@ const App = () => (
       />
 
       <Route path="/reset-password" element={<ResetPassword />} />
+
+      <Route
+        path="/verify-student"
+        element={
+          <RequireVerifiedSession>
+            <VerifyStudent />
+          </RequireVerifiedSession>
+        }
+      />
+
       <Route
         path="/complete-profile"
         element={
-          <RequireVerifiedSession>
+          <VerifiedSessionWithStudentCheck>
             <CompleteProfile />
-          </RequireVerifiedSession>
+          </VerifiedSessionWithStudentCheck>
         }
       />
       <Route path="/community" element={<Community />} />
@@ -100,13 +121,14 @@ const App = () => (
       
       <Route path="/portfolio/:userId" element={<Portfolio />} />
       <Route path="/blog/vano-v1" element={<BlogPost />} />
+      <Route path="/whats-new" element={<WhatsNew />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
     <MobileBottomNav />
     <PWAInstallBanner />
     <PushNotificationPrompt />
-    
+    <PwaUpdateToast />
   </TooltipProvider>
 );
 

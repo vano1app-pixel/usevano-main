@@ -50,7 +50,13 @@ export const StudentCard: React.FC<StudentCardProps> = ({ student, displayName, 
     >
       {student.banner_url ? (
         <div className="h-16 w-full overflow-hidden sm:h-[4.5rem]">
-          <img src={student.banner_url} alt="" className="h-full w-full object-cover" />
+          <img
+            src={student.banner_url}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
       ) : (
         <div className="h-14 w-full bg-gradient-to-r from-primary/20 via-primary/10 to-muted sm:h-16" />
@@ -61,6 +67,8 @@ export const StudentCard: React.FC<StudentCardProps> = ({ student, displayName, 
             src={student.avatar_url}
             alt={displayName || 'Student'}
             className="-mt-8 h-14 w-14 shrink-0 rounded-xl border-2 border-card object-cover shadow-md ring-1 ring-border/60 sm:-mt-9 sm:h-16 sm:w-16"
+            loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="-mt-8 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 border-card bg-primary/12 text-lg font-bold text-primary shadow-md ring-1 ring-border/60 sm:-mt-9 sm:h-16 sm:w-16 sm:text-xl">

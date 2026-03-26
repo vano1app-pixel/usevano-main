@@ -11,6 +11,10 @@ import {
   ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
+import {
+  AdminListingReviewModal,
+  type ListingRequestRow,
+} from '@/components/AdminListingReviewModal';
 
 // ── Types ──
 
@@ -54,18 +58,6 @@ interface FeedbackRow {
   sender_avatar?: string;
 }
 
-interface ListingRequestRow {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string;
-  category: string;
-  applicant_email: string | null;
-  status: string;
-  created_at: string;
-  requester_name?: string;
-}
-
 type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings';
 const PAGE_SIZE = 20;
 
@@ -86,6 +78,20 @@ const Admin = () => {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackRow[]>([]);
   const [listingRequests, setListingRequests] = useState<ListingRequestRow[]>([]);
+  const [reviewRequest, setReviewRequest] = useState<ListingRequestRow | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+
+  const adminPagePassword = import.meta.env.VITE_ADMIN_PAGE_PASSWORD as string | undefined;
+  const needsAdminPassword = Boolean(adminPagePassword && adminPagePassword.length > 0);
+  const [passwordGateOk, setPasswordGateOk] = useState(() => {
+    if (!needsAdminPassword) return true;
+    try {
+      return sessionStorage.getItem('vano_admin_gate') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [passwordInput, setPasswordInput] = useState('');
 
   // Admin user IDs
   const [adminUserIds, setAdminUserIds] = useState<Set<string>>(new Set());
@@ -373,6 +379,58 @@ const Admin = () => {
 
   if (!authed) return null;
 
+  const unlockAdminGate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === adminPagePassword) {
+      try {
+        sessionStorage.setItem('vano_admin_gate', '1');
+      } catch {
+        /* ignore */
+      }
+      setPasswordGateOk(true);
+      setPasswordInput('');
+      toast({ title: 'Unlocked', description: 'Admin tools are available for this browser session.' });
+    } else {
+      toast({ title: 'Wrong password', variant: 'destructive' });
+    }
+  };
+
+  if (needsAdminPassword && !passwordGateOk) {
+    return (
+      <div className="min-h-screen bg-background pb-16 md:pb-0">
+        <SEOHead title="Admin – VANO" description="Restricted" />
+        <Navbar />
+        <div className="max-w-sm mx-auto px-4 pt-28 pb-12">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="text-primary" size={22} />
+              <h1 className="text-lg font-semibold">Admin access</h1>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Enter the admin password to open the dashboard. You must also be a VANO moderator account.
+            </p>
+            <form onSubmit={unlockAdminGate} className="space-y-3">
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full border border-input rounded-xl px-4 py-2.5 text-sm bg-background"
+                placeholder="Password"
+                autoComplete="current-password"
+              />
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
+              >
+                Continue
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const inputClass = "w-full border border-input rounded-xl px-4 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
   const tabs: { key: Tab; label: string; icon: ReactNode; count: number }[] = [
@@ -564,6 +622,15 @@ const Admin = () => {
         {/* ── Community listing requests ── */}
         {tab === 'listings' && (
           <div className="space-y-2">
+            <AdminListingReviewModal
+              request={reviewRequest}
+              open={reviewOpen}
+              onOpenChange={(o) => {
+                setReviewOpen(o);
+                if (!o) setReviewRequest(null);
+              }}
+              onApproved={() => void fetchListingRequests()}
+            />
             {filteredListings.length === 0 && (
               <p className="text-center text-muted-foreground py-12 text-sm">No pending listing requests</p>
             )}
@@ -577,24 +644,18 @@ const Admin = () => {
                     </p>
                     <p className="text-xs text-muted-foreground">{format(new Date(r.created_at), 'MMM d, yyyy · h:mm a')}</p>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => approveListingRequest(r.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => rejectListingRequest(r.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-muted"
-                    >
-                      Reject
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewRequest(r);
+                      setReviewOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
+                  >
+                    Review &amp; approve
+                  </button>
                 </div>
-                <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{r.description}</p>
+                <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap line-clamp-4">{r.description}</p>
               </div>
             ))}
           </div>

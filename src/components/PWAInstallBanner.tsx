@@ -7,43 +7,59 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+function isStandaloneDisplay(): boolean {
+  if (typeof window === 'undefined') return true;
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return nav.standalone === true;
+}
+
 export const PWAInstallBanner: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [iosReady, setIosReady] = useState(false);
 
   useEffect(() => {
-    // Don't show if already installed or dismissed recently
+    if (isStandaloneDisplay()) return;
+
     const dismissed = localStorage.getItem('pwa-banner-dismissed');
     if (dismissed) {
       const dismissedAt = parseInt(dismissed, 10);
-      if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return; // 7 days
+      if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return;
     }
 
-    // Check if already in standalone mode
-    if (window.matchMedia('(display-mode: standalone)').matches) return;
-
-    // Detect iOS
     const ua = navigator.userAgent;
-    const isiOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    setIsIOS(isiOS);
+    const isiOSDevice = /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream;
+    setIsIOS(isiOSDevice);
 
-    if (isiOS) {
-      // Show iOS instructions after a short delay
-      const timer = setTimeout(() => setShowBanner(true), 3000);
-      return () => clearTimeout(timer);
+    // iOS Safari: no beforeinstallprompt — show Add to Home Screen hint after a short delay
+    if (isiOSDevice) {
+      const timer = window.setTimeout(() => setIosReady(true), 2000);
+      return () => window.clearTimeout(timer);
     }
 
-    // Android/Chrome: listen for beforeinstallprompt
+    // Chromium (Chrome, Edge, Android, desktop): deferred install prompt
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setTimeout(() => setShowBanner(true), 2000);
+      window.setTimeout(() => setShowBanner(true), 800);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  // iOS path: show when ready; Chromium path: show when we got the event (handled in listener)
+  useEffect(() => {
+    if (isStandaloneDisplay()) return;
+    const dismissed = localStorage.getItem('pwa-banner-dismissed');
+    if (dismissed) {
+      const dismissedAt = parseInt(dismissed, 10);
+      if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return;
+    }
+    if (isIOS && iosReady) setShowBanner(true);
+  }, [isIOS, iosReady]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -60,50 +76,57 @@ export const PWAInstallBanner: React.FC = () => {
     localStorage.setItem('pwa-banner-dismissed', Date.now().toString());
   };
 
+  const canUseNativeInstall = Boolean(deferredPrompt) && !isIOS;
+
   return (
     <AnimatePresence>
       {showBanner && (
         <motion.div
-          initial={{ y: 100, opacity: 0 }}
+          initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed bottom-16 left-3 right-3 z-[2500] md:hidden"
+          exit={{ y: 24, opacity: 0 }}
+          transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+          className="pointer-events-auto fixed left-3 right-3 z-[2500] max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 md:left-1/2 md:right-auto md:w-full md:max-w-md md:-translate-x-1/2"
         >
-          <div className="bg-card border border-border rounded-2xl p-4 shadow-xl shadow-black/10">
-            <button
-              onClick={handleDismiss}
-              className="absolute top-3 right-3 p-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                {isIOS ? <Share size={20} className="text-primary" /> : <Download size={20} className="text-primary" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Install VANO</p>
-                {isIOS ? (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Tap <Share size={12} className="inline -mt-0.5" /> then <span className="font-medium text-foreground">"Add to Home Screen"</span>
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Get the full app experience — fast, offline-ready, no app store needed.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {!isIOS && deferredPrompt && (
+          <div className="relative rounded-2xl border border-border bg-card/95 p-4 shadow-lg shadow-black/10 backdrop-blur-md">
               <button
-                onClick={handleInstall}
-                className="w-full mt-3 py-2.5 text-sm font-semibold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+                type="button"
+                onClick={handleDismiss}
+                className="absolute right-3 top-3 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Dismiss"
               >
-                Install App
+                <X size={16} />
               </button>
-            )}
+
+              <div className="flex items-start gap-3 pr-7">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  {isIOS ? <Share size={20} className="text-primary" /> : <Download size={20} className="text-primary" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Install VANO App</p>
+                  {isIOS ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Tap{' '}
+                      <Share size={12} className="inline -mt-0.5 align-middle" /> then{' '}
+                      <span className="font-medium text-foreground">&quot;Add to Home Screen&quot;</span> to install.
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Add VANO to your home screen or desktop for quick access and an app-like experience.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {canUseNativeInstall && (
+                <button
+                  type="button"
+                  onClick={handleInstall}
+                  className="mt-3 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Install VANO App
+                </button>
+              )}
           </div>
         </motion.div>
       )}

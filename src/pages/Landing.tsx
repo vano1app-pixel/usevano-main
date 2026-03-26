@@ -23,6 +23,8 @@ import {
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { APP_VERSION_LABEL } from '@/lib/appVersion';
+import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -95,11 +97,11 @@ const Landing = () => {
           <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center gap-3 mb-6 sm:mb-8">
             <button
               type="button"
-              onClick={() => navigate('/blog/vano-v1')}
+              onClick={() => navigate('/whats-new')}
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
             >
               <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
-              What&apos;s new in v1.0
+              What&apos;s new in {APP_VERSION_LABEL}
               <ArrowRight size={12} className="opacity-70" />
             </button>
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/60 border border-border text-muted-foreground text-[11px] font-medium">
@@ -117,9 +119,16 @@ const Landing = () => {
           <motion.p
             variants={fadeUp}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed"
+            className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-2 leading-relaxed"
           >
             Find the right freelancer for your project — browse portfolios, post a gig with budget and deadline, and chat in one place. Start with what you need.
+          </motion.p>
+          <motion.p
+            variants={fadeUp}
+            transition={{ duration: 0.6, delay: 0.24 }}
+            className="text-sm sm:text-[15px] text-primary/90 font-medium max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed"
+          >
+            Now with Google sign in — plus student-verified freelancers and a moderated Community board.
           </motion.p>
 
           {/* Category-style search entry */}
@@ -445,7 +454,7 @@ const Landing = () => {
           <div className="flex flex-col md:flex-row items-start justify-between gap-8 mb-8">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
-                <img src={logo} alt="VANO" className="h-7 w-7 rounded-lg" />
+                <img src={logo} alt="VANO" className="h-7 w-7 rounded-lg" loading="lazy" decoding="async" />
                 <span className="text-lg font-bold text-foreground">VANO</span>
               </div>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
@@ -490,8 +499,22 @@ const Landing = () => {
           </div>
 
           <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>© {new Date().getFullYear()} VANO. All rights reserved.</span>
-            <span>Made in Galway, Ireland</span>
+            <span>
+              © {new Date().getFullYear()} VANO · {APP_VERSION_LABEL}
+            </span>
+            <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <button type="button" onClick={() => navigate('/whats-new')} className="hover:text-primary transition-colors">
+                Release notes
+              </button>
+              <span aria-hidden className="hidden sm:inline">
+                ·
+              </span>
+              <RequestFeatureLink className="text-xs" />
+              <span aria-hidden className="hidden sm:inline">
+                ·
+              </span>
+              <span>Made in Galway, Ireland</span>
+            </span>
           </div>
         </div>
       </motion.footer>

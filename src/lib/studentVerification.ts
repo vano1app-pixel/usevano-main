@@ -34,19 +34,3 @@ export async function ensureAutoStudentVerificationFromEmail(session: Session): 
   await supabase.from('profiles').update({ student_email: email }).eq('user_id', session.user.id);
   return true;
 }
-
-export async function isFreelancerStudentVerified(userId: string): Promise<boolean> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('user_type')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (profile?.user_type !== 'student') return true;
-
-  const { data: sp } = await supabase
-    .from('student_profiles')
-    .select('student_verified')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return !!sp?.student_verified;
-}

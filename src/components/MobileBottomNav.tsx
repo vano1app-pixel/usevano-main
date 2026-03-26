@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, Briefcase, Users, MessageCircle, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 
 const NAV_ITEMS = [
   { label: 'Home', icon: Home, href: '/' },
@@ -96,7 +97,12 @@ export const MobileBottomNav: React.FC = () => {
                   active ? 'font-semibold text-primary' : 'font-medium text-foreground/58',
                 )}
               >
-                {label}
+                <span className="inline-flex items-center justify-center gap-0.5">
+                  {label}
+                  {href === '/community' ? (
+                    <NewFeatureBadge className="scale-90" />
+                  ) : null}
+                </span>
               </span>
             </button>
           );

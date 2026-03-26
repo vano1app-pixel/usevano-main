@@ -101,8 +101,15 @@ export const FREELANCER_STUDENT_EMAIL_ERROR =
 export function isStrictInstitutionVerificationEmail(email: string): boolean {
   const domain = email.split('@')[1]?.toLowerCase();
   if (!domain) return false;
-  return domain.endsWith('.ac.ie') || domain.endsWith('.atu.ie') || domain.endsWith('.lit.ie');
+  // Root domains like atu.ie / lit.ie are valid institutional hosts; subdomains use *.atu.ie etc.
+  return (
+    domain.endsWith('.ac.ie') ||
+    domain === 'atu.ie' ||
+    domain.endsWith('.atu.ie') ||
+    domain === 'lit.ie' ||
+    domain.endsWith('.lit.ie')
+  );
 }
 
 export const STRICT_INSTITUTION_EMAIL_HINT =
-  'Use an address ending in .ac.ie, .atu.ie, or .lit.ie (your college email).';
+  'Use your college email (.ac.ie, @atu.ie, @lit.ie, or a subdomain like @student.atu.ie).';

@@ -4,7 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { TagBadge } from '@/components/TagBadge';
 import { Bell, Euro, Briefcase } from 'lucide-react';
 
-const PREF_TAGS = ['Web Design', 'Marketing', 'Graphic Design', 'Writing', 'Tutoring', 'Gardening', 'Cleaning', 'Photography', 'Video Editing', 'Social Media', 'Odd Jobs', 'Events', 'Delivery', 'Admin'];
+import { FREELANCER_SKILL_OPTIONS } from '@/lib/freelancerSkills';
+
+const PREF_TAGS = [...FREELANCER_SKILL_OPTIONS];
 
 interface GigPreferencesProps {
   userId: string;

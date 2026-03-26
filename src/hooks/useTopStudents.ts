@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { FREELANCER_SKILL_CATEGORIES } from '@/lib/freelancerSkills';
 
-const CATEGORIES = ['All', 'Web Design', 'Marketing', 'Photography', 'Tutoring', 'Events', 'Graphic Design', 'Writing', 'Cleaning'];
+const CATEGORIES = [...FREELANCER_SKILL_CATEGORIES];
 
 export interface TopStudentInfo {
   rank: number; // 0, 1, or 2

@@ -49,7 +49,8 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    const notifyTo = Deno.env.get("LISTING_NOTIFY_EMAIL")?.trim() || "vano1app@gmail.com";
+    /** Inbox for Community listing reviews (override with LISTING_NOTIFY_EMAIL secret). */
+    const notifyTo = (Deno.env.get("LISTING_NOTIFY_EMAIL")?.trim() || "vano1app@gmail.com");
     const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
     const siteUrl = Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com";
 
@@ -72,41 +73,74 @@ serve(async (req) => {
 
       const { data: prof } = await admin
         .from("profiles")
-        .select("display_name, bio, user_type")
+        .select("display_name, bio, user_type, student_email, work_description")
         .eq("user_id", row.user_id)
         .maybeSingle();
 
       const { data: sp } = await admin
         .from("student_profiles")
-        .select("university, skills, hourly_rate, service_area, bio, tiktok_url, banner_url, typical_budget_min, typical_budget_max")
+        .select(
+          "university, skills, hourly_rate, service_area, bio, tiktok_url, banner_url, typical_budget_min, typical_budget_max, work_links, verified_email, student_verified, community_board_status, phone, payment_details, is_available",
+        )
         .eq("user_id", row.user_id)
         .maybeSingle();
 
       const skills = Array.isArray(sp?.skills) ? (sp!.skills as string[]).join(", ") : "";
+      let workLinksText = "(n/a)";
+      try {
+        const wl = sp?.work_links;
+        if (Array.isArray(wl) && wl.length > 0) {
+          workLinksText = wl
+            .map((w: { url?: string; label?: string }) => `${w.label || ""}: ${w.url || ""}`.trim())
+            .filter(Boolean)
+            .join("\n  ");
+        } else if (typeof wl === "string" && wl.length > 0) {
+          workLinksText = wl;
+        }
+      } catch {
+        workLinksText = String(sp?.work_links ?? "(n/a)");
+      }
+
+      const studentEmailLine =
+        prof?.student_email?.trim() ||
+        sp?.verified_email?.trim() ||
+        row.applicant_email?.trim() ||
+        user.email ||
+        "(n/a)";
+
       text =
         `New freelancer Community listing (wizard) — pending approval\n\n` +
         `=== Listing ===\n` +
         `Request ID: ${row.id}\n` +
-        `Status: ${row.status}\n` +
+        `Request status: ${row.status}\n` +
+        `Community board (profile) status: ${sp?.community_board_status ?? "(n/a)"}\n` +
         `Category: ${row.category}\n` +
         `Title: ${row.title}\n` +
-        `Applicant email: ${row.applicant_email || user.email || "(n/a)"}\n` +
+        `Auth email: ${user.email ?? "(n/a)"}\n` +
+        `Student / verified email (profile): ${studentEmailLine}\n` +
+        `Student email verified (student_profiles): ${sp?.student_verified === true ? "yes" : "no"}\n` +
         `Rates: ${row.rate_min ?? "?"}–${row.rate_max ?? "?"} (${row.rate_unit || "n/a"})\n` +
         `Image: ${row.image_url || "(none)"}\n\n` +
         `Description:\n${row.description}\n\n` +
         `=== Profile snapshot ===\n` +
         `Display name: ${prof?.display_name ?? "(n/a)"}\n` +
         `User type: ${prof?.user_type ?? "(n/a)"}\n` +
-        `Profile bio: ${prof?.bio ?? "(n/a)"}\n` +
+        `Profile bio (profiles.bio): ${prof?.bio ?? "(n/a)"}\n` +
+        `Work description (profiles): ${prof?.work_description ?? "(n/a)"}\n` +
         `University: ${sp?.university ?? "(n/a)"}\n` +
         `Skills: ${skills || "(n/a)"}\n` +
         `Hourly rate: ${sp?.hourly_rate ?? "(n/a)"}\n` +
         `Service area: ${sp?.service_area ?? "(n/a)"}\n` +
-        `Student bio: ${sp?.bio ?? "(n/a)"}\n` +
+        `Student bio (student_profiles.bio): ${sp?.bio ?? "(n/a)"}\n` +
+        `Phone: ${sp?.phone ?? "(n/a)"}\n` +
+        `Available: ${sp?.is_available === false ? "no" : "yes"}\n` +
+        `Payment details (if any): ${sp?.payment_details ?? "(n/a)"}\n` +
         `TikTok: ${sp?.tiktok_url ?? "(n/a)"}\n` +
+        `Work links:\n  ${workLinksText}\n` +
         `Banner: ${sp?.banner_url ?? "(n/a)"}\n` +
         `Typical budget: ${sp?.typical_budget_min ?? "?"}–${sp?.typical_budget_max ?? "?"}\n\n` +
-        `Approve in Dashboard → Table editor → community_listing_requests, or Mod → ${siteUrl}/admin\n` +
+        `Approve: run approve_community_listing_request(request_id) in SQL, or Table editor → community_listing_requests / community_posts.\n` +
+        `Admin UI: ${siteUrl}/admin\n` +
         `User ID: ${row.user_id}\n`;
 
       subject = `[VANO] Listing review (wizard) — ${row.title.slice(0, 50)}`;
@@ -126,41 +160,80 @@ serve(async (req) => {
 
       const { data: prof } = await admin
         .from("profiles")
-        .select("display_name, bio, user_type")
+        .select("display_name, bio, user_type, student_email, work_description")
         .eq("user_id", post.user_id)
         .maybeSingle();
 
       const { data: sp } = await admin
         .from("student_profiles")
-        .select("university, skills, hourly_rate, service_area, bio, tiktok_url, banner_url")
+        .select(
+          "university, skills, hourly_rate, service_area, bio, tiktok_url, banner_url, work_links, verified_email, student_verified, community_board_status, phone, payment_details, typical_budget_min, typical_budget_max, is_available",
+        )
         .eq("user_id", post.user_id)
         .maybeSingle();
 
       const skills = Array.isArray(sp?.skills) ? (sp!.skills as string[]).join(", ") : "";
+      let workLinksText = "(n/a)";
+      try {
+        const wl = sp?.work_links;
+        if (Array.isArray(wl) && wl.length > 0) {
+          workLinksText = wl
+            .map((w: { url?: string; label?: string }) => `${w.label || ""}: ${w.url || ""}`.trim())
+            .filter(Boolean)
+            .join("\n  ");
+        } else if (typeof wl === "string" && wl.length > 0) {
+          workLinksText = wl;
+        }
+      } catch {
+        workLinksText = String(sp?.work_links ?? "(n/a)");
+      }
+
+      const studentEmailLine =
+        prof?.student_email?.trim() ||
+        sp?.verified_email?.trim() ||
+        user.email ||
+        "(n/a)";
+
       text =
         `New Community post (quick create) — pending approval\n\n` +
         `=== Post ===\n` +
         `Post ID: ${post.id}\n` +
         `Moderation: ${post.moderation_status}\n` +
+        `Community board (profile) status: ${sp?.community_board_status ?? "(n/a)"}\n` +
         `Category: ${post.category}\n` +
         `Title: ${post.title}\n` +
         `Rates: ${post.rate_min ?? "?"}–${post.rate_max ?? "?"} (${post.rate_unit || "n/a"})\n` +
         `Image: ${post.image_url || "(none)"}\n\n` +
         `Description:\n${post.description}\n\n` +
         `=== Profile snapshot ===\n` +
-        `Email: ${user.email || "(n/a)"}\n` +
+        `Auth email: ${user.email || "(n/a)"}\n` +
+        `Student / verified email: ${studentEmailLine}\n` +
+        `Student verified: ${sp?.student_verified === true ? "yes" : "no"}\n` +
         `Display name: ${prof?.display_name ?? "(n/a)"}\n` +
+        `User type: ${prof?.user_type ?? "(n/a)"}\n` +
+        `Profile bio: ${prof?.bio ?? "(n/a)"}\n` +
+        `Work description: ${prof?.work_description ?? "(n/a)"}\n` +
         `University: ${sp?.university ?? "(n/a)"}\n` +
         `Skills: ${skills || "(n/a)"}\n` +
         `Hourly rate: ${sp?.hourly_rate ?? "(n/a)"}\n` +
         `Service area: ${sp?.service_area ?? "(n/a)"}\n` +
-        `Banner: ${sp?.banner_url ?? "(n/a)"}\n\n` +
-        `Set community_posts.moderation_status to 'approved' in Supabase Table Editor to go live.\n` +
+        `Student bio: ${sp?.bio ?? "(n/a)"}\n` +
+        `Phone: ${sp?.phone ?? "(n/a)"}\n` +
+        `Available: ${sp?.is_available === false ? "no" : "yes"}\n` +
+        `Payment details: ${sp?.payment_details ?? "(n/a)"}\n` +
+        `TikTok: ${sp?.tiktok_url ?? "(n/a)"}\n` +
+        `Work links:\n  ${workLinksText}\n` +
+        `Banner: ${sp?.banner_url ?? "(n/a)"}\n` +
+        `Typical budget: ${sp?.typical_budget_min ?? "?"}–${sp?.typical_budget_max ?? "?"}\n\n` +
+        `Set community_posts.moderation_status to 'approved' in Supabase to go live; optionally set student_profiles.community_board_status to 'approved'.\n` +
         `${siteUrl}/community\n` +
         `User ID: ${post.user_id}\n`;
 
       subject = `[VANO] Post review — ${post.title.slice(0, 50)}`;
     }
+
+    let emailed = false;
+    let emailError: string | null = null;
 
     if (resendKey) {
       const from = Deno.env.get("RESEND_FROM")?.trim() || "VANO <onboarding@resend.dev>";
@@ -177,17 +250,35 @@ serve(async (req) => {
           text,
         }),
       });
-      if (!res.ok) {
+      if (res.ok) {
+        emailed = true;
+      } else {
         const errText = await res.text();
-        console.error("Resend error:", res.status, errText);
+        emailError = `Resend ${res.status}: ${errText}`;
+        console.error("notify-community-listing-request:", emailError);
       }
     } else {
-      console.warn("notify-community-listing-request: RESEND_API_KEY not set; email skipped. Body:\n", text);
+      console.warn(
+        "notify-community-listing-request: RESEND_API_KEY not set; email skipped. Set RESEND_API_KEY + LISTING_NOTIFY_EMAIL (e.g. vano1app@gmail.com) on the function. Payload preview logged above.",
+      );
     }
 
-    return new Response(JSON.stringify({ ok: true, emailed: !!resendKey }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        emailed,
+        notifyTo,
+        emailError,
+        hint: !resendKey
+          ? "Configure RESEND_API_KEY in Supabase Edge secrets; delivery goes to LISTING_NOTIFY_EMAIL (inbox can be Gmail)."
+          : emailed
+          ? undefined
+          : emailError,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: (e as Error).message }), {

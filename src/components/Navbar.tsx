@@ -8,6 +8,8 @@ import { AuthSheet } from './AuthSheet';
 import { NotificationBell } from './NotificationBell';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import logo from '@/assets/logo.png';
+import { APP_VERSION_LABEL } from '@/lib/appVersion';
+import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 
 export const Navbar: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -38,9 +40,9 @@ export const Navbar: React.FC = () => {
   }, [user, pendingRoute, navigate]);
 
   const navItems = [
-    { label: 'Browse Gigs', href: '/jobs', requiresAuth: false },
-    { label: 'Post a Gig', href: '/post-job', requiresAuth: true },
-    { label: 'Community', href: '/community', requiresAuth: false },
+    { label: 'Browse Gigs', href: '/jobs', requiresAuth: false, isNew: false },
+    { label: 'Post a Gig', href: '/post-job', requiresAuth: true, isNew: false },
+    { label: 'Community', href: '/community', requiresAuth: false, isNew: true },
   ];
 
   const authNavItems = [
@@ -81,11 +83,18 @@ export const Navbar: React.FC = () => {
               <button
                 key={item.href}
                 onClick={() => handleNavClick(item.href, item.requiresAuth)}
-                className="px-4 py-2 text-sm font-medium text-foreground/70 hover:text-primary transition-colors rounded-lg hover:bg-primary/5"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground/70 hover:text-primary transition-colors rounded-lg hover:bg-primary/5"
               >
                 {item.label}
+                {item.isNew ? <NewFeatureBadge /> : null}
               </button>
             ))}
+            <Link
+              to="/whats-new"
+              className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/80"
+            >
+              What&apos;s new
+            </Link>
             {user && authNavItems.map((item) => (
               <Link
                 key={item.href}
@@ -135,11 +144,19 @@ export const Navbar: React.FC = () => {
               <button
                 key={item.href}
                 onClick={() => { handleNavClick(item.href, item.requiresAuth); setIsMobileMenuOpen(false); }}
-                className="block w-full text-left px-3 py-2.5 text-sm font-medium text-foreground/70 hover:text-primary active:bg-primary/5 rounded-lg transition-colors"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-foreground/70 hover:text-primary active:bg-primary/5 rounded-lg transition-colors"
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.isNew ? <NewFeatureBadge /> : null}
               </button>
             ))}
+            <Link
+              to="/whats-new"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="block px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              What&apos;s new
+            </Link>
             {user && authNavItems.map((item) => (
               <Link
                 key={item.href}

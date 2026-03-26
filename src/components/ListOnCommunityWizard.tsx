@@ -33,21 +33,11 @@ import {
   COMMUNITY_CATEGORIES,
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
+import { FREELANCER_SKILL_OPTIONS, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
-
-const COMMON_SKILLS = [
-  'Web Design',
-  'Marketing',
-  'Graphic Design',
-  'Writing',
-  'Photography',
-  'Video Editing',
-  'Social Media',
-  'Events',
-  'Admin',
-];
+import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 
 const STEP_LABELS = [
   'Start',
@@ -135,7 +125,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setProfileHourly(initial.hourlyRate || '');
     setTypicalBudgetMin(initial.typicalBudgetMin || '');
     setTypicalBudgetMax(initial.typicalBudgetMax || '');
-    setSkills([...initial.skills]);
+    setSkills(normalizeFreelancerSkills(initial.skills));
   }, [open, initial]);
 
   const totalSteps = STEP_LABELS.length;
@@ -207,12 +197,35 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     if (!category || !title.trim()) return;
     setSubmitting(true);
     try {
+      const { data: profileRow, error: profileErr } = await supabase
+        .from('profiles')
+        .select('user_id, user_type')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (profileErr) {
+        logSupabaseError('ListOnCommunityWizard: load profile', profileErr);
+        throw profileErr;
+      }
+      if (!profileRow) {
+        throw new Error(
+          'Your profile row is missing. Open Profile, save your details, then try listing again.',
+        );
+      }
+      if (profileRow.user_type === 'business') {
+        throw new Error(
+          'Only freelancer (student) accounts can submit a Community listing. Your account is set as a business.',
+        );
+      }
+
       let uploadedBanner: string | null = null;
       if (bannerFile) {
         const ext = bannerFile.name.split('.').pop() || 'jpg';
         const path = `${userId}/banner.${ext}`;
         const { error: upErr } = await supabase.storage.from('avatars').upload(path, bannerFile, { upsert: true });
-        if (upErr) throw upErr;
+        if (upErr) {
+          logSupabaseError('ListOnCommunityWizard: avatars upload', upErr);
+          throw upErr;
+        }
         const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
         uploadedBanner = `${pub.publicUrl}?t=${Date.now()}`;
       }
@@ -222,7 +235,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         const ext = listingFile.name.split('.').pop();
         const path = `${userId}/${Date.now()}.${ext}`;
         const { error: liErr } = await supabase.storage.from('community-images').upload(path, listingFile);
-        if (liErr) throw liErr;
+        if (liErr) {
+          logSupabaseError('ListOnCommunityWizard: community-images upload', liErr);
+          throw liErr;
+        }
         const { data: pub } = supabase.storage.from('community-images').getPublicUrl(path);
         image_url = pub.publicUrl;
       }
@@ -279,11 +295,30 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         if (keep) studentPatch.banner_url = keep;
       }
 
-      const { error: spErr } = await supabase.from('student_profiles').update(studentPatch).eq('user_id', userId);
-      if (spErr) throw spErr;
+      const { error: spErr } = await supabase
+        .from('student_profiles')
+        .upsert({ user_id: userId, ...studentPatch }, { onConflict: 'user_id' });
+      if (spErr) {
+        logSupabaseError('ListOnCommunityWizard: student_profiles upsert', spErr);
+        throw spErr;
+      }
 
       const { data: udata } = await supabase.auth.getUser();
-      const applicantEmail = udata.user?.email ?? null;
+      const { data: profEmailRow } = await supabase
+        .from('profiles')
+        .select('student_email')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const { data: spEmailRow } = await supabase
+        .from('student_profiles')
+        .select('verified_email')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const applicantEmail =
+        profEmailRow?.student_email?.trim() ||
+        spEmailRow?.verified_email?.trim() ||
+        udata.user?.email ||
+        null;
 
       const { data: insertedReq, error: reqErr } = await supabase
         .from('community_listing_requests')
@@ -301,13 +336,21 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         })
         .select('id')
         .single();
-      if (reqErr) throw reqErr;
+      if (reqErr) {
+        logSupabaseError('ListOnCommunityWizard: community_listing_requests insert', reqErr);
+        throw reqErr;
+      }
 
       if (insertedReq?.id) {
-        const { error: fnErr } = await supabase.functions.invoke('notify-community-listing-request', {
+        const { data: notifyData, error: fnErr } = await supabase.functions.invoke('notify-community-listing-request', {
           body: { request_id: insertedReq.id },
         });
-        if (fnErr) console.warn('Listing notify:', fnErr.message);
+        if (fnErr) {
+          logSupabaseError('ListOnCommunityWizard: notify-community-listing-request', fnErr);
+          console.warn('Listing notify failed (submission still saved):', fnErr.message);
+        } else if (notifyData && typeof notifyData === 'object' && 'emailed' in notifyData && !(notifyData as { emailed?: boolean }).emailed) {
+          console.warn('[VANO] Listing saved but notify did not send email (check RESEND_API_KEY on Edge function).', notifyData);
+        }
       }
 
       toast({
@@ -318,7 +361,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       onOpenChange(false);
       onSubmittedForReview(category);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      logSupabaseError('ListOnCommunityWizard: publish', err);
+      const msg = getSupabaseErrorMessage(err);
       toast({ title: 'Could not publish', description: msg, variant: 'destructive' });
     } finally {
       setSubmitting(false);
@@ -637,7 +681,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Label className="text-sm font-medium">Skills on your profile</Label>
                 <p className="mt-1 text-xs text-muted-foreground">Tap to toggle — shown on Community cards.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {COMMON_SKILLS.map((s) => (
+                  {FREELANCER_SKILL_OPTIONS.map((s) => (
                     <TagBadge key={s} tag={s} selected={skills.includes(s)} onClick={() => toggleSkill(s)} />
                   ))}
                 </div>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Loader2, ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CommunityPostCard } from '@/components/CommunityPostCard';
 import { useToast } from '@/hooks/use-toast';
-import { useSearchParams } from 'react-router-dom';
 import {
   COMMUNITY_CATEGORY_ORDER,
   COMMUNITY_CATEGORIES,
@@ -13,8 +14,10 @@ import {
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
 import { cn } from '@/lib/utils';
+import { ensureAutoStudentVerificationFromEmail } from '@/lib/studentVerification';
 
 const Community = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const catParam = searchParams.get('cat');
@@ -45,7 +48,6 @@ const Community = () => {
       .order('created_at', { ascending: false });
 
     const allPosts = postsData || [];
-    setPosts(allPosts);
 
     const userIds = [...new Set(allPosts.map((p: any) => p.user_id))];
     if (userIds.length > 0) {
@@ -59,7 +61,9 @@ const Community = () => {
 
       const { data: sprofs } = await supabase
         .from('student_profiles')
-        .select('user_id, skills, hourly_rate, is_available, university, tiktok_url, work_links')
+        .select(
+          'user_id, skills, hourly_rate, is_available, university, tiktok_url, work_links, student_verified, community_board_status',
+        )
         .in('user_id', userIds);
       const spMap: Record<string, any> = {};
       (sprofs || []).forEach((p: any) => { spMap[p.user_id] = p; });
@@ -82,10 +86,21 @@ const Community = () => {
         trimmed[uid] = sorted.slice(0, 6).map(({ id, image_url, title }) => ({ id, image_url, title }));
       }
       setPortfolioByUser(trimmed);
+
+      const visiblePosts = allPosts.filter((p: { user_id: string }) => {
+        const prof = profileMap[p.user_id];
+        if (!prof || prof.user_type !== 'student') return true;
+        const sp = spMap[p.user_id];
+        if (!sp?.student_verified) return false;
+        if (sp.community_board_status === 'rejected') return false;
+        return true;
+      });
+      setPosts(visiblePosts);
     } else {
       setProfiles({});
       setStudentProfiles({});
       setPortfolioByUser({});
+      setPosts([]);
     }
 
     if (currentUser) {
@@ -108,6 +123,29 @@ const Community = () => {
 
     setLoading(false);
   }, []);
+
+  /** Logged-in freelancers must verify a student email before using the app (including Community). */
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      await ensureAutoStudentVerificationFromEmail(session);
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      if (prof?.user_type !== 'student') return;
+      const { data: sp } = await supabase
+        .from('student_profiles')
+        .select('student_verified')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      if (sp?.student_verified) return;
+      navigate('/verify-student', { replace: true });
+    })();
+  }, [user, navigate]);
 
   useEffect(() => {
     if (!activeCategory) {
@@ -141,9 +179,10 @@ const Community = () => {
   }, [activeCategory, loadPosts]);
 
   const handleLikeToggle = (postId: string, liked: boolean) => {
-    setLikedPostIds(prev => {
+    setLikedPostIds((prev) => {
       const next = new Set(prev);
-      liked ? next.add(postId) : next.delete(postId);
+      if (liked) next.add(postId);
+      else next.delete(postId);
       return next;
     });
     setPosts(prev => prev.map(p =>
@@ -250,8 +289,26 @@ const Community = () => {
             })}
           </div>
         ) : loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+          <div className="flex flex-col gap-6 sm:gap-7" aria-busy aria-label="Loading listings">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
+              >
+                <Skeleton className="h-28 w-full rounded-none sm:h-32" />
+                <div className="space-y-3 p-4 sm:p-5">
+                  <div className="flex gap-4">
+                    <Skeleton className="h-16 w-16 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2 pt-1">
+                      <Skeleton className="h-4 w-40 max-w-[55%]" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-[88%]" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : posts.length === 0 ? (
           <div className="rounded-2xl border border-foreground/10 bg-card/80 px-6 py-16 text-center shadow-sm backdrop-blur-[2px]">

@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Target, LayoutDashboard, Trophy, MessageCircle, Shield, Users, Calendar, Briefcase, Image, CheckCheck, Bell, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
@@ -86,30 +85,15 @@ const features = [
 const BlogPost = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [author, setAuthor] = useState<{ display_name: string | null; avatar_url: string | null; bio: string | null } | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    // Fetch author profile (first admin user)
-    const fetchAuthor = async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('display_name, avatar_url, bio')
-        .eq('user_id', 'dd292e07-bb5a-40ff-ac64-5e3f57a5c444')
-        .single();
-
-      if (profile) setAuthor(profile);
-    };
-    fetchAuthor();
-  }, []);
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="VANO v1.0 — What's New"
-        description="Introducing VANO v1.0: AI job matching, application tracker, achievements, enhanced chat, and more. See everything that's new."
-        keywords="vano, v1.0, changelog, update, features, galway, freelance"
+        title="VANO v1.5 — What's New"
+        description="Introducing VANO v1.5: smoother UI, Google sign-in, verified Community listings, and faster performance."
+        keywords="vano, v1.5, changelog, update, features, galway, freelance"
       />
       <Navbar />
 
@@ -132,13 +116,13 @@ const BlogPost = () => {
           transition={{ duration: 0.5 }}
         >
           <Badge className="mb-4 bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
-            v1.0 Release
+            v1.5 Release
           </Badge>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-tight mb-4 leading-tight">
-            Introducing VANO v1.0
+            Introducing VANO v1.5
           </h1>
           <p className="text-lg text-muted-foreground mb-2">
-            The biggest update yet — AI-powered matching, visual application tracking, achievements, enhanced chat, and a lot more.
+            Smoother UI everywhere, Google sign-in, a moderated Community board with verified student profiles, and faster loading across the app.
           </p>
           <div className="flex items-center gap-3 text-sm text-muted-foreground mb-10">
             <time>March 8, 2026</time>
@@ -157,7 +141,7 @@ const BlogPost = () => {
         >
           <div className="bg-primary/5 border border-primary/10 rounded-2xl p-6 mb-8">
             <p className="text-foreground leading-relaxed m-0">
-              Since we launched VANO, our mission has been simple: <strong>make it effortless for Galway businesses and freelancers to find each other</strong>. With v1.0, we're delivering on that promise with intelligent matching, better communication tools, and features that reward the best talent in the community.
+              Since we launched VANO, our mission has been simple: <strong>make it effortless for Galway businesses and freelancers to find each other</strong>. With v1.5 we focus on polish and trust: a smoother interface on every screen, optional Google login, Community listings that only show verified freelancers after review, and performance improvements so the app loads faster on real devices.
             </p>
           </div>
         </motion.div>
@@ -214,18 +198,10 @@ const BlogPost = () => {
           transition={{ duration: 0.5 }}
           className="mt-12 border-t border-border pt-8"
         >
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">Written by</p>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-14 w-14">
-              <AvatarImage src={author?.avatar_url || ''} alt={author?.display_name || 'Author'} />
-              <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
-                {(author?.display_name || 'M')[0].toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-semibold text-foreground">{author?.display_name || 'Manoj'}</p>
-              <p className="text-sm text-muted-foreground">{author?.bio || 'Founder & Developer at VANO'}</p>
-            </div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">From the team</p>
+          <div>
+            <p className="font-semibold text-foreground">VANO Team</p>
+            <p className="text-sm text-muted-foreground">Product &amp; community at VANO</p>
           </div>
         </motion.div>
 
@@ -292,7 +268,7 @@ const BlogPost = () => {
             onClick={() => navigate('/jobs')}
             className="px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-all shadow-[0_2px_16px_hsl(var(--primary)/0.25)]"
           >
-            Start exploring VANO v1.0 →
+            Start exploring VANO v1.5 →
           </button>
         </motion.div>
       </article>

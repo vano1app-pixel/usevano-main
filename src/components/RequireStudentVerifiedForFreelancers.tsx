@@ -53,11 +53,6 @@ export function RequireStudentVerifiedForFreelancers({ children }: { children: R
         return;
       }
 
-      if (location.pathname === '/verify-student') {
-        setReady(true);
-        return;
-      }
-
       navigate('/verify-student', { replace: true, state: { from: location.pathname } });
     })();
 
