@@ -1,3 +1,7 @@
+/**
+ * Service worker for vite-plugin-pwa (`injectManifest` in vite.config.ts).
+ * This file must exist at src/sw.ts; the build injects the precache manifest here.
+ */
 /// <reference lib="webworker" />
 import { precacheAndRoute } from 'workbox-precaching';
 

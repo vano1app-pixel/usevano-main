@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
+      // Requires src/sw.ts (workbox precache + push handlers)
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
