@@ -338,7 +338,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Clients browse VANO Community by specialty — videography, websites, and social. This short flow saves
                 your profile details <span className="font-medium text-foreground">and</span> publishes your listing in
-                one go (Foxpop-style: clear steps, no guesswork).
+                one go — clear steps, no guesswork.
               </p>
               <ul className="space-y-2 text-sm text-foreground/90">
                 <li className="flex gap-2">

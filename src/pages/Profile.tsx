@@ -41,7 +41,6 @@ const Profile = () => {
   const [phone, setPhone] = useState('');
   const [isAvailable, setIsAvailable] = useState(true);
   const [university, setUniversity] = useState('');
-  const [customSkill, setCustomSkill] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [paymentDetails, setPaymentDetails] = useState('');
   const [showPayment, setShowPayment] = useState(false);
@@ -205,10 +204,6 @@ const Profile = () => {
     }
     toast({ title: 'Profile saved!' });
     setSaving(false);
-  };
-
-  const toggleSkill = (skill: string) => {
-    setSkills((prev) => prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]);
   };
 
   const deleteGig = async (jobId: string) => {

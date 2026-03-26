@@ -108,7 +108,7 @@ const Landing = () => {
             Find the right freelancer for your project — browse portfolios, post a gig with budget and deadline, and chat in one place. Start with what you need.
           </motion.p>
 
-          {/* Category-style search (Foxpop-style entry point) */}
+          {/* Category-style search entry */}
           <motion.div
             variants={fadeUp}
             transition={{ duration: 0.5, delay: 0.22 }}
@@ -209,7 +209,7 @@ const Landing = () => {
             )}
           </motion.div>
 
-          {/* Stats + trust chips (Foxpop-style strip) */}
+          {/* Stats + trust chips */}
           <motion.div
             variants={fadeUp}
             transition={{ duration: 0.6, delay: 0.45 }}

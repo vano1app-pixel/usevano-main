@@ -53,7 +53,7 @@ export const BannerUpload: React.FC<BannerUploadProps> = ({ userId, currentUrl, 
     <div className="space-y-2">
       <label className="block text-sm font-medium">Profile banner</label>
       <p className="text-xs text-muted-foreground">
-        Wide image for the top of your public profile — like a LinkedIn or Foxpop-style cover (max 4MB).
+        Wide image for the top of your public profile — like a cover photo on a professional profile (max 4MB).
       </p>
       <button
         type="button"

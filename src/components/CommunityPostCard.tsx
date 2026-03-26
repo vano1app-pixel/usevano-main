@@ -250,7 +250,7 @@ export const CommunityPostCard = ({
             </div>
           </div>
 
-          {/* Budget block — Foxpop-adjacent: clear money signal */}
+          {/* Budget block — clear money signal */}
           <div
             className={cn(
               'shrink-0 rounded-xl border px-4 py-3 sm:max-w-[13rem] sm:text-right',
