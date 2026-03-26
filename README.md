@@ -68,10 +68,9 @@ Copy `.env.example` to `.env.local` for local development.
 **URL configuration** — Supabase → **Authentication** → **URL configuration**:
 
 - **Site URL:** `https://vanojobs.com` (use your Vercel URL while testing, e.g. `https://your-app.vercel.app`)
-- **Redirect URLs:** include at least:  
+- **Redirect URLs:** include at least (use the apex host; Vercel redirects `www.vanojobs.com` → `https://vanojobs.com`):  
   `https://vanojobs.com`  
   `https://vanojobs.com/**`  
-  `https://www.vanojobs.com/**` (if you use `www`)  
   `https://*.vercel.app/**` (optional, preview deployments)  
   `http://localhost:8080/**` (local dev)
 

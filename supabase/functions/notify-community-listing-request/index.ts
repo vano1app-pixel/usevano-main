@@ -52,7 +52,8 @@ serve(async (req) => {
     /** Inbox for Community listing reviews (override with LISTING_NOTIFY_EMAIL secret). */
     const notifyTo = (Deno.env.get("LISTING_NOTIFY_EMAIL")?.trim() || "vano1app@gmail.com");
     const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
-    const siteUrl = Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com";
+    const rawSite = Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com";
+    const siteUrl = rawSite.replace(/^https?:\/\/www\.vanojobs\.com/i, "https://vanojobs.com").replace(/\/+$/, "");
 
     let subject = "[VANO] Community review";
     let text = "";
