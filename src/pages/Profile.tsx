@@ -4,13 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
-import { GigPreferences } from '@/components/GigPreferences';
-import { NotificationPreferences } from '@/components/NotificationPreferences';
-import { AIProfileCoach } from '@/components/AIProfileCoach';
-import { PortfolioManager } from '@/components/PortfolioManager';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Phone, CheckCircle, ExternalLink, Briefcase, GraduationCap, Trash2, CreditCard, Eye, EyeOff } from 'lucide-react';
+import { Briefcase, GraduationCap, Trash2 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
@@ -43,12 +39,9 @@ const Profile = () => {
   const [university, setUniversity] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [paymentDetails, setPaymentDetails] = useState('');
-  const [showPayment, setShowPayment] = useState(false);
   const [choosingType, setChoosingType] = useState(false);
   const [myGigs, setMyGigs] = useState<any[]>([]);
   const [deletingGig, setDeletingGig] = useState<string | null>(null);
-  const [portfolioCount, setPortfolioCount] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [bannerUrl, setBannerUrl] = useState('');
@@ -140,11 +133,6 @@ const Profile = () => {
       }
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
-      // Load portfolio & review counts for AI coach
-      const { count: pCount } = await supabase.from('portfolio_items').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id);
-      setPortfolioCount(pCount || 0);
-      const { count: rCount } = await supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('reviewee_id', session.user.id);
-      setReviewCount(rCount || 0);
     }
     setLoading(false);
   };
@@ -281,7 +269,7 @@ const Profile = () => {
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
             {profile?.user_type === 'student'
-              ? 'Photo, bio, and contact — listing details are set when you join Community.'
+              ? 'Your name and photo here — everything for the talent board is in Get listed.'
               : 'Your account — a short intro is enough; set location when you post a gig'}
           </p>
         </div>
