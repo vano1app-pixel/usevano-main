@@ -94,3 +94,15 @@ export const STUDENT_EMAIL_HINT =
 /** Shown when a freelancer tries to sign up with a non-student email */
 export const FREELANCER_STUDENT_EMAIL_ERROR =
   'Please use your student email to sign up as a freelancer.';
+
+/**
+ * Domains allowed for the /verify-student OTP flow (institutional addresses only).
+ */
+export function isStrictInstitutionVerificationEmail(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) return false;
+  return domain.endsWith('.ac.ie') || domain.endsWith('.atu.ie') || domain.endsWith('.lit.ie');
+}
+
+export const STRICT_INSTITUTION_EMAIL_HINT =
+  'Use an address ending in .ac.ie, .atu.ie, or .lit.ie (your college email).';
