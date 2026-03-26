@@ -43,6 +43,13 @@ const Auth = () => {
 
   useEffect(() => {
     void redirectIfAlreadySignedIn();
+    // Email confirmation links load /auth with tokens in the hash; detectSessionInUrl resolves
+    // the session asynchronously. A one-time getSession on mount often runs before that, so we
+    // re-run when auth state updates (INITIAL_SESSION / SIGNED_IN).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) void redirectIfAlreadySignedIn();
+    });
+    return () => subscription.unsubscribe();
   }, [redirectIfAlreadySignedIn]);
 
   const ensureProfileAfterSignUp = async (userId: string) => {
