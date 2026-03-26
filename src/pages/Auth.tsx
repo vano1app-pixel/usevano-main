@@ -12,9 +12,14 @@ import {
   FREELANCER_STUDENT_EMAIL_ERROR,
 } from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
+import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { logSignUpResponse } from '@/lib/logSignUpResponse';
+import { getGoogleOAuthRedirectUrl, getSiteOrigin } from '@/lib/siteUrl';
+import { AuthMethodDivider, GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { verifySignupOrEmailOtp } from '@/lib/verifyEmailOtp';
+import { clearOtpContext, OTP_STORAGE, persistOtpContext } from '@/lib/authOtpStorage';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -24,6 +29,8 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
+  /** Which form the user came from before the OTP step (survives intent; back button label). */
+  const [verificationFlow, setVerificationFlow] = useState<'login' | 'signup'>('login');
   const [otp, setOtp] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
@@ -32,7 +39,29 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleOAuthIntent(isLogin ? null : userType);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: getGoogleOAuthRedirectUrl(),
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      });
+      if (error) throw error;
+    } catch (error: unknown) {
+      clearGoogleOAuthIntent();
+      toast({
+        title: 'Google sign-in failed',
+        description: getUserFriendlyError(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
   const redirectIfAlreadySignedIn = useCallback(async () => {
+    if (hasGoogleOAuthPending()) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !isEmailVerified(session)) return;
     const path = await getPostAuthPath(session.user.id);
@@ -45,30 +74,63 @@ const Auth = () => {
     else if (mode === 'login') setIsLogin(true);
   }, []);
 
+  /** Restore OTP step after refresh (no session until code is entered) */
+  useEffect(() => {
+    try {
+      const em = sessionStorage.getItem(OTP_STORAGE.email);
+      if (!em) return;
+      setEmail(em);
+      const flow = sessionStorage.getItem(OTP_STORAGE.flow);
+      if (flow === 'signup' || flow === 'login') {
+        setVerificationFlow(flow);
+        setPendingVerification(true);
+        setIsLogin(flow === 'login');
+      }
+      const ut = sessionStorage.getItem(OTP_STORAGE.userType);
+      if (ut === 'business' || ut === 'student') setUserType(ut);
+      const dn = sessionStorage.getItem(OTP_STORAGE.displayName);
+      if (dn) setDisplayName(dn);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     void redirectIfAlreadySignedIn();
-    // Recovery / OAuth may still set session from URL; re-check when auth state changes.
+    const delayed = window.setTimeout(() => void redirectIfAlreadySignedIn(), 700);
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) void redirectIfAlreadySignedIn();
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      window.clearTimeout(delayed);
+      subscription.unsubscribe();
+    };
   }, [redirectIfAlreadySignedIn]);
 
+  /** Returning users or redirects from protected routes: session exists but email not confirmed → OTP step */
+  useEffect(() => {
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && !isEmailVerified(session)) {
+        const em = session.user.email ?? '';
+        setEmail(em);
+        setVerificationFlow('login');
+        setPendingVerification(true);
+        persistOtpContext({ email: em, flow: 'login' });
+      }
+    })();
+  }, []);
+
   const ensureProfileAfterSignUp = async (userId: string) => {
-    const name = displayName.trim() || email.split('@')[0] || 'User';
     const { data: existing } = await supabase.from('profiles').select('user_id').eq('user_id', userId).maybeSingle();
-    if (existing) {
-      await supabase
-        .from('profiles')
-        .update({ user_type: userType, display_name: name })
-        .eq('user_id', userId);
-    } else {
-      await supabase.from('profiles').insert({
-        user_id: userId,
-        display_name: name,
-        user_type: userType,
-      });
-    }
+    if (existing) return;
+
+    const name = displayName.trim() || email.split('@')[0] || 'User';
+    await supabase.from('profiles').insert({
+      user_id: userId,
+      display_name: name,
+      user_type: userType,
+    });
     if (userType === 'student') {
       await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
     }
@@ -79,9 +141,34 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      clearGoogleOAuthIntent();
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          const em = error.message?.toLowerCase() ?? '';
+          if (em.includes('email not confirmed') || em.includes('email_not_confirmed')) {
+            setVerificationFlow('login');
+            setPendingVerification(true);
+            persistOtpContext({ email, flow: 'login' });
+            toast({
+              title: 'Verify your email',
+              description: 'Enter the 6-digit code we sent you.',
+            });
+            return;
+          }
+          throw error;
+        }
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (s && !isEmailVerified(s)) {
+          setVerificationFlow('login');
+          setPendingVerification(true);
+          persistOtpContext({ email, flow: 'login' });
+          toast({
+            title: 'Verify your email',
+            description: 'Enter the 6-digit code from your email.',
+          });
+          return;
+        }
         toast({ title: 'Welcome back!', description: 'Signed in successfully.' });
         await redirectIfAlreadySignedIn();
       } else {
@@ -106,10 +193,17 @@ const Auth = () => {
         const { error } = signUpResult;
         if (error) throw error;
 
+        setVerificationFlow('signup');
         setPendingVerification(true);
+        persistOtpContext({
+          email,
+          flow: 'signup',
+          userType,
+          displayName: displayName.trim() || email.split('@')[0] || 'User',
+        });
         toast({
           title: 'Check your email',
-          description: `We sent a 6-digit code to ${email}. Enter it below to finish creating your account.`,
+          description: `We sent a 6-digit code only to ${email} (check spam). Enter it below — do not use the link in the email if you want to stay on this page.`,
         });
       }
     } catch (error: unknown) {
@@ -128,18 +222,24 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
+      const { error: verifyErr } = await verifySignupOrEmailOtp(supabase, {
+        email: email.trim(),
         token: otp,
-        type: 'signup',
       });
-      if (error) throw error;
+      if (verifyErr) throw verifyErr;
+
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s) await supabase.auth.refreshSession();
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) await ensureProfileAfterSignUp(user.id);
 
       const nextPath = user ? await getPostAuthPath(user.id) : '/complete-profile';
-      const isBusiness = userType === 'business';
+      const { data: prof } = user
+        ? await supabase.from('profiles').select('user_type').eq('user_id', user.id).maybeSingle()
+        : { data: null };
+      const isBusiness = prof?.user_type === 'business';
+      clearOtpContext();
       toast({
         title: 'You’re verified!',
         description: isBusiness
@@ -185,7 +285,7 @@ const Auth = () => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${getSiteOrigin()}/reset-password`,
       });
       if (error) throw error;
       setResetSent(true);
@@ -234,6 +334,7 @@ const Auth = () => {
                     onChange={(value) => setOtp(value.replace(/\D/g, ''))}
                     disabled={loading}
                     containerClassName="gap-2 sm:gap-3"
+                    autoComplete="one-time-code"
                   >
                     <InputOTPGroup className="gap-1.5 sm:gap-2">
                       <InputOTPSlot index={0} className="h-12 w-10 sm:h-14 sm:w-11 text-lg rounded-lg" />
@@ -281,11 +382,13 @@ const Auth = () => {
                   disabled={loading}
                   onClick={() => {
                     setOtp('');
+                    clearOtpContext();
                     setPendingVerification(false);
+                    setIsLogin(verificationFlow === 'login');
                   }}
                   className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
                 >
-                  ← Back to create account
+                  {verificationFlow === 'login' ? '← Back to log in' : '← Back to create account'}
                 </button>
               </div>
             </div>
@@ -326,6 +429,7 @@ const Auth = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1.5">Email</label>
                   <input
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -333,6 +437,7 @@ const Auth = () => {
                     placeholder="you@example.com"
                     className={inputClass}
                     autoFocus
+                    autoComplete="email"
                     disabled={loading}
                   />
                 </div>
@@ -393,8 +498,8 @@ const Auth = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
             {isLogin
-              ? 'Use the email and password you signed up with.'
-              : 'Freelancers need a valid college email. Hiring accounts can use any email.'}
+              ? 'Continue with Google (recommended) or sign in with email.'
+              : 'Pick your role, then use Google or email. Freelancers: use your college email for email sign-up.'}
           </p>
         </div>
 
@@ -428,10 +533,10 @@ const Auth = () => {
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <>
-                <div>
+          {!forgotPassword && !pendingVerification && (
+            <>
+              {!isLogin && (
+                <div className="mb-5">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Account type</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
@@ -472,9 +577,16 @@ const Auth = () => {
                     </button>
                   </div>
                 </div>
+              )}
+              <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+              <AuthMethodDivider />
+            </>
+          )}
 
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">Display name</label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Display name</label>
                 <input
                   type="text"
                   value={displayName}
@@ -483,16 +595,16 @@ const Auth = () => {
                   className={inputClass}
                   disabled={loading}
                 />
-                  {userType === 'student' && (
-                    <p className="text-xs text-muted-foreground mt-1.5">{STUDENT_EMAIL_HINT}</p>
-                  )}
-                </div>
-              </>
+                {userType === 'student' && (
+                  <p className="text-xs text-muted-foreground mt-1.5">{STUDENT_EMAIL_HINT}</p>
+                )}
+              </div>
             )}
 
             <div>
               <label className="block text-sm font-medium mb-1.5">Email</label>
               <input
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -507,6 +619,7 @@ const Auth = () => {
             <div>
               <label className="block text-sm font-medium mb-1.5">Password</label>
               <input
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -534,7 +647,7 @@ const Auth = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center gap-2 min-h-[48px]"
+              className="w-full py-3.5 rounded-xl font-medium text-sm border border-border bg-muted/80 text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center gap-2 min-h-[48px]"
             >
               {loading ? (
                 <>
@@ -542,9 +655,9 @@ const Auth = () => {
                   Please wait…
                 </>
               ) : isLogin ? (
-                'Log in'
+                'Sign in with email'
               ) : (
-                'Create account'
+                'Create account with email'
               )}
             </button>
           </form>

@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { getUserFriendlyError } from '@/lib/errorMessages';
-import { guardVerifiedSession } from '@/lib/authSession';
 import logo from '@/assets/logo.png';
 import { UserCircle } from 'lucide-react';
 
@@ -22,7 +21,10 @@ const CompleteProfile = () => {
   useEffect(() => {
     const check = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!guardVerifiedSession(session, navigate)) return;
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
 
       setUserId(session.user.id);
 
@@ -31,6 +33,11 @@ const CompleteProfile = () => {
         .select('display_name, avatar_url, user_type')
         .eq('user_id', session.user.id)
         .maybeSingle();
+
+      if (!profile?.user_type?.trim()) {
+        navigate('/choose-account-type', { replace: true });
+        return;
+      }
 
       // If profile is already complete, redirect away
       if (profile?.display_name && profile.display_name.trim() && profile?.avatar_url && profile.avatar_url.trim()) {

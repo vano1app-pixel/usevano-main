@@ -95,6 +95,9 @@ Copy `.env.example` to `.env.local` for local development.
 5. **Custom “Send Email” hook**
    - If **Authentication → Hooks** sends mail through a custom Edge Function, that hook must return success. A failing hook (wrong payload, missing secrets) means **no email**. For debugging, temporarily disable the hook and use Supabase’s built-in mailer.
 
+6. **SMTP (optional; use your own mail server for OTP and auth mail)**  
+   In Supabase → **Project Settings** → **Authentication** (or **Auth**), open **SMTP** and enable custom SMTP. For Gmail: **Host** `smtp.gmail.com`, **Port** `587`, enable TLS, **User** your mailbox (e.g. `vano1app@gmail.com`), **Password** a [Google App Password](https://support.google.com/accounts/answer/185833) (requires 2FA on the Google account — not your normal login password). This is configured only in the Supabase dashboard, not in this repo.
+
 Password reset still uses a link to `/reset-password`; those hosts must remain in **Redirect URLs**.
 
 ### 3. Edge Functions

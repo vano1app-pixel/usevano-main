@@ -15,7 +15,6 @@ import {
   teamTelHref,
 } from '@/lib/contact';
 import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
-import { guardVerifiedSession } from '@/lib/authSession';
 
 interface Conversation {
   id: string;
@@ -192,7 +191,10 @@ const Messages = () => {
 
   const loadUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!guardVerifiedSession(session, navigate)) return;
+    if (!session) {
+      navigate('/auth');
+      return;
+    }
     setUser(session.user);
     await loadConversations(session.user.id);
     setLoading(false);

@@ -11,7 +11,16 @@ import {
   FREELANCER_STUDENT_EMAIL_ERROR,
 } from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
+import {
+  clearGoogleOAuthIntent,
+  hasGoogleOAuthPending,
+  setGoogleOAuthIntent,
+} from '@/lib/googleOAuth';
 import { logSignUpResponse } from '@/lib/logSignUpResponse';
+import { getGoogleOAuthRedirectUrl, getSiteOrigin } from '@/lib/siteUrl';
+import { clearOtpContext, OTP_STORAGE, persistOtpContext } from '@/lib/authOtpStorage';
+import { verifySignupOrEmailOtp } from '@/lib/verifyEmailOtp';
+import { AuthMethodDivider, GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { cn } from '@/lib/utils';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
@@ -42,6 +51,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return;
 
     const redirectIfReady = async () => {
+      if (hasGoogleOAuthPending()) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !isEmailVerified(session)) return;
       const path = await getPostAuthPath(session.user.id);
@@ -50,6 +60,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     };
 
     void redirectIfReady();
+    const delayed = window.setTimeout(() => void redirectIfReady(), 700);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session && isEmailVerified(session)) {
@@ -61,14 +72,67 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      window.clearTimeout(delayed);
+      subscription.unsubscribe();
+    };
   }, [isOpen, navigate, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const em = sessionStorage.getItem(OTP_STORAGE.email);
+      if (em) {
+        setEmail(em);
+        const flow = sessionStorage.getItem(OTP_STORAGE.flow);
+        if (flow === 'signup' || flow === 'login') {
+          setPendingVerification(true);
+          setIsSignUp(flow === 'signup');
+        }
+        const ut = sessionStorage.getItem(OTP_STORAGE.userType);
+        if (ut === 'business' || ut === 'student') setUserType(ut);
+      }
+    } catch {
+      /* ignore */
+    }
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && !isEmailVerified(session)) {
+        const addr = session.user.email ?? '';
+        setEmail(addr);
+        setPendingVerification(true);
+        persistOtpContext({ email: addr, flow: 'login' });
+      }
+    })();
+  }, [isOpen]);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleOAuthIntent(isSignUp ? userType : null);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: getGoogleOAuthRedirectUrl(),
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      });
+      if (error) throw error;
+    } catch (error: unknown) {
+      clearGoogleOAuthIntent();
+      toast({
+        title: 'Google sign-in failed',
+        description: getUserFriendlyError(error),
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      clearGoogleOAuthIntent();
       if (isSignUp) {
         if (userType === 'student' && !isStudentEmail(email)) {
           toast({
@@ -93,28 +157,54 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
         if (error) throw error;
 
         if (data.user) {
-          await supabase.from('profiles').update({ user_type: userType }).eq('user_id', data.user.id);
+          await supabase.from('profiles').upsert(
+            {
+              user_id: data.user.id,
+              user_type: userType,
+              display_name: email.split('@')[0] || 'User',
+            },
+            { onConflict: 'user_id' },
+          );
           if (userType === 'student') {
-            await supabase.from('student_profiles').insert({ user_id: data.user.id });
+            await supabase.from('student_profiles').upsert({ user_id: data.user.id }, { onConflict: 'user_id' });
           }
         }
 
         setPendingVerification(true);
+        persistOtpContext({
+          email,
+          flow: 'signup',
+          userType,
+          displayName: email.split('@')[0] || 'User',
+        });
         toast({
-        title: 'Check your email',
-        description: `We sent a 6-digit code to ${email}. Enter it here — no link required.`,
-      });
+          title: 'Check your email',
+          description: `Code sent only to ${email} (check spam). Type it below — ignore the link in the email if you want to stay here.`,
+        });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          const em = error.message?.toLowerCase() ?? '';
+          if (em.includes('email not confirmed') || em.includes('email_not_confirmed')) {
+            setPendingVerification(true);
+            persistOtpContext({ email, flow: 'login' });
+            toast({ title: 'Verify your email', description: 'Enter the 6-digit code from your email.' });
+            return;
+          }
+          throw error;
+        }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && !isEmailVerified(session)) {
+          setPendingVerification(true);
+          persistOtpContext({ email, flow: 'login' });
+          toast({ title: 'Verify your email', description: 'Enter the 6-digit code from your email.' });
+          return;
+        }
         toast({ title: 'Welcome back!', description: 'Signed in successfully.' });
         onClose();
-        const { data: { session } } = await supabase.auth.getSession();
         if (session && isEmailVerified(session)) {
           const path = await getPostAuthPath(session.user.id);
           navigate(path, { replace: true });
-        } else if (session) {
-          navigate('/auth', { replace: true });
         }
       }
     } catch (error: unknown) {
@@ -128,23 +218,38 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'signup' });
-      if (error) throw error;
+      const { error: verifyErr } = await verifySignupOrEmailOtp(supabase, {
+        email: email.trim(),
+        token: otp,
+      });
+      if (verifyErr) throw verifyErr;
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s) await supabase.auth.refreshSession();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const name = user.email?.split('@')[0] || 'User';
-        const { data: row } = await supabase.from('profiles').select('user_id').eq('user_id', user.id).maybeSingle();
+        const { data: row } = await supabase.from('profiles').select('user_id, user_type').eq('user_id', user.id).maybeSingle();
+        const metaType = (user.user_metadata?.user_type as string | undefined) || userType;
+        const resolvedType = row?.user_type || (metaType === 'business' ? 'business' : 'student');
         if (row) {
-          await supabase.from('profiles').update({ user_type: userType, display_name: name }).eq('user_id', user.id);
+          await supabase.from('profiles').update({ display_name: name }).eq('user_id', user.id);
         } else {
-          await supabase.from('profiles').insert({ user_id: user.id, display_name: name, user_type: userType });
+          await supabase.from('profiles').insert({
+            user_id: user.id,
+            display_name: name,
+            user_type: resolvedType,
+          });
         }
-        if (userType === 'student') {
+        if (resolvedType === 'student') {
           await supabase.from('student_profiles').upsert({ user_id: user.id }, { onConflict: 'user_id' });
         }
       }
       const nextPath = user ? await getPostAuthPath(user.id) : '/complete-profile';
-      const isBusiness = userType === 'business';
+      const { data: prof } = user
+        ? await supabase.from('profiles').select('user_type').eq('user_id', user.id).maybeSingle()
+        : { data: null };
+      const isBusiness = prof?.user_type === 'business';
+      clearOtpContext();
       toast({
         title: "You're in!",
         description: isBusiness ? 'Welcome — opening your dashboard.' : 'Next: add your name and photo.',
@@ -181,7 +286,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${getSiteOrigin()}/reset-password`,
       });
       if (error) throw error;
       setResetSent(true);
@@ -249,6 +354,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                         onChange={(value) => setOtp(value.replace(/\D/g, ''))}
                         disabled={loading}
                         containerClassName="gap-2"
+                        autoComplete="one-time-code"
                       >
                         <InputOTPGroup className="gap-1.5">
                           <InputOTPSlot index={0} className="h-11 w-9 text-base rounded-lg" />
@@ -295,6 +401,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                       disabled={loading}
                       onClick={() => {
                         setOtp('');
+                        clearOtpContext();
                         setPendingVerification(false);
                       }}
                       className="text-sm text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
@@ -375,66 +482,70 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
                     {isSignUp
-                      ? 'Choose how you’ll use VANO, then enter your details.'
-                      : 'Sign in with your email and password.'}
+                      ? 'Pick Freelancer or Business, then continue with Google (fastest) or email.'
+                      : 'Continue with Google, or use email and password below.'}
                   </p>
                 </div>
 
-                <form onSubmit={handleAuth} className="space-y-5">
-                  {isSignUp && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account type</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setUserType('student')}
-                          disabled={loading}
-                          className={cn(
-                            'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[88px] flex flex-col gap-1',
-                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            userType === 'student'
-                              ? 'border-emerald-500/70 bg-emerald-500/[0.07] shadow-sm'
-                              : 'border-border bg-muted/30 hover:border-emerald-500/25',
-                          )}
-                        >
-                          <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                            <GraduationCap className="text-emerald-600 shrink-0" size={18} />
-                            Freelancer
-                          </span>
-                          <span className="text-xs text-muted-foreground leading-snug">
-                            Student email required (.ac.ie, .atu.ie, etc.)
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setUserType('business')}
-                          disabled={loading}
-                          className={cn(
-                            'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[88px] flex flex-col gap-1',
-                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            userType === 'business'
-                              ? 'border-sky-500/70 bg-sky-500/[0.07] shadow-sm'
-                              : 'border-border bg-muted/30 hover:border-sky-500/25',
-                          )}
-                        >
-                          <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                            <Building2 className="text-sky-600 shrink-0" size={18} />
-                            Business
-                          </span>
-                          <span className="text-xs text-muted-foreground leading-snug">
-                            Post gigs & hire students — any email
-                          </span>
-                        </button>
-                      </div>
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account type</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setUserType('student')}
+                        disabled={loading}
+                        className={cn(
+                          'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[88px] flex flex-col gap-1',
+                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          userType === 'student'
+                            ? 'border-emerald-500/70 bg-emerald-500/[0.07] shadow-sm'
+                            : 'border-border bg-muted/30 hover:border-emerald-500/25',
+                        )}
+                      >
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <GraduationCap className="text-emerald-600 shrink-0" size={18} />
+                          Freelancer
+                        </span>
+                        <span className="text-xs text-muted-foreground leading-snug">
+                          Student email required (.ac.ie, .atu.ie, etc.)
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserType('business')}
+                        disabled={loading}
+                        className={cn(
+                          'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[88px] flex flex-col gap-1',
+                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          userType === 'business'
+                            ? 'border-sky-500/70 bg-sky-500/[0.07] shadow-sm'
+                            : 'border-border bg-muted/30 hover:border-sky-500/25',
+                        )}
+                      >
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <Building2 className="text-sky-600 shrink-0" size={18} />
+                          Business
+                        </span>
+                        <span className="text-xs text-muted-foreground leading-snug">
+                          Post gigs & hire students — any email
+                        </span>
+                      </button>
                     </div>
-                  )}
+                  </div>
+                )}
 
+                <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+                <AuthMethodDivider />
+
+                <form onSubmit={handleAuth} className="space-y-5">
                   <div className="space-y-1.5">
                     <label htmlFor="sheet-email" className="text-sm font-medium text-foreground">
                       Email
                     </label>
                     <input
                       id="sheet-email"
+                      name="email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -455,6 +566,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                     </label>
                     <input
                       id="sheet-password"
+                      name="password"
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -483,7 +595,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-primary text-primary-foreground font-medium text-[15px] hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="w-full flex items-center justify-center gap-2 min-h-[48px] rounded-xl border border-border bg-muted/80 text-foreground font-medium text-[15px] hover:bg-muted transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {loading ? (
                       <>
@@ -491,9 +603,9 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                         Please wait…
                       </>
                     ) : isSignUp ? (
-                      'Create account'
+                      'Create account with email'
                     ) : (
-                      'Sign in'
+                      'Sign in with email'
                     )}
                   </button>
                 </form>

@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, PenLine, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { guardVerifiedSession, isEmailVerified } from '@/lib/authSession';
+import { isEmailVerified } from '@/lib/authSession';
 
 const PostJob = () => {
   const navigate = useNavigate();

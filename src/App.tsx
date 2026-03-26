@@ -1,11 +1,12 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 
+import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import Landing from "./pages/Landing";
 import BrowseJobs from "./pages/BrowseJobs";
 import JobDetail from "./pages/JobDetail";
@@ -21,6 +22,7 @@ import Portfolio from "./pages/Portfolio";
 
 import ResetPassword from "./pages/ResetPassword";
 import CompleteProfile from "./pages/CompleteProfile";
+import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
 
@@ -32,18 +34,69 @@ const App = () => (
       <Route path="/" element={<Landing />} />
       <Route path="/jobs" element={<BrowseJobs />} />
       <Route path="/jobs/:id" element={<JobDetail />} />
-      <Route path="/post-job" element={<PostJob />} />
+      <Route
+        path="/post-job"
+        element={
+          <RequireVerifiedSession>
+            <PostJob />
+          </RequireVerifiedSession>
+        }
+      />
       <Route path="/students" element={<BrowseStudents />} />
       <Route path="/students/:id" element={<StudentProfilePage />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/dashboard" element={<Navigate to="/profile" replace />} />
-      <Route path="/messages" element={<Messages />} />
+      <Route
+        path="/profile"
+        element={
+          <RequireVerifiedSession>
+            <Profile />
+          </RequireVerifiedSession>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <RequireVerifiedSession>
+            <Profile />
+          </RequireVerifiedSession>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <RequireVerifiedSession>
+            <Messages />
+          </RequireVerifiedSession>
+        }
+      />
       <Route path="/auth" element={<Auth />} />
-      
+
+      <Route
+        path="/choose-account-type"
+        element={
+          <RequireVerifiedSession>
+            <ChooseAccountType />
+          </RequireVerifiedSession>
+        }
+      />
+
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/complete-profile" element={<CompleteProfile />} />
+      <Route
+        path="/complete-profile"
+        element={
+          <RequireVerifiedSession>
+            <CompleteProfile />
+          </RequireVerifiedSession>
+        }
+      />
       <Route path="/community" element={<Community />} />
-      <Route path="/admin" element={<Admin />} />
+      <Route
+        path="/admin"
+        element={
+          <RequireVerifiedSession>
+            <Admin />
+          </RequireVerifiedSession>
+        }
+      />
       
       <Route path="/portfolio/:userId" element={<Portfolio />} />
       <Route path="/blog/vano-v1" element={<BlogPost />} />

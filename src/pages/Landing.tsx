@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
+import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
 import {
   Briefcase,
   ArrowRight,
@@ -41,6 +42,7 @@ const scaleIn = {
 const Landing = () => {
   const navigate = useNavigate();
   const howRef = React.useRef<HTMLElement>(null);
+  const oauthHandledRef = useRef(false);
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
 
   const scrollToHow = () => {
@@ -54,6 +56,24 @@ const Landing = () => {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  /** Google OAuth returns to site root (`redirectTo`); finish profile + route once session is ready. */
+  React.useEffect(() => {
+    const finish = async () => {
+      if (oauthHandledRef.current) return;
+      const done = await tryFinishGoogleOAuthRedirect(navigate);
+      if (done) oauthHandledRef.current = true;
+    };
+    void finish();
+    const t = window.setTimeout(() => void finish(), 400);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void finish();
+    });
+    return () => {
+      window.clearTimeout(t);
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">

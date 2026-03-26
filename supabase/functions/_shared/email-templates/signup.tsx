@@ -24,7 +24,7 @@ interface SignupEmailProps {
   token?: string
 }
 
-const LOGO_URL = 'https://amoolfvfumgjcxjlqyac.supabase.co/storage/v1/object/public/email-assets/logo.png'
+const LOGO_URL = 'https://puomfwjtpvqedwxjxogh.supabase.co/storage/v1/object/public/email-assets/logo.png'
 
 const codeStyle = {
   fontFamily: 'Courier, monospace',

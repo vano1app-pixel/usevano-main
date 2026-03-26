@@ -11,6 +11,12 @@ const url = getSupabaseUrl();
 const key = getSupabaseAnonKey();
 
 /**
+ * Google OAuth:
+ * - Enable **Google** under Supabase → **Authentication** → **Providers** → **Google**.
+ * - Paste **Client ID** and **Client secret** from Google Cloud Console (OAuth 2.0 Web client); they are not stored in this repo.
+ * - Add authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback` (shown in Supabase).
+ * - Add your site URL (root) to **Redirect URLs** (e.g. `https://vanojobs.com`) — must match `getGoogleOAuthRedirectUrl()` / `VITE_SITE_URL`.
+ *
  * Auth email (OTP sign-up):
  * - Providers → Email: **Enable email confirmations**, set **Email OTP** / expiry as needed.
  * - Email Templates → **Confirm signup**: body must include `{{ .Token }}` (OTP), not only `{{ .ConfirmationURL }}`,

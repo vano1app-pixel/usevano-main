@@ -11,7 +11,6 @@ import {
   ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
-import { isEmailVerified } from '@/lib/authSession';
 
 // ── Types ──
 
@@ -98,8 +97,10 @@ const Admin = () => {
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { navigate('/auth'); return; }
-      if (!isEmailVerified(session)) { navigate('/auth'); return; }
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
 
       const { data: isAdmin } = await supabase
         .rpc('has_role', { _user_id: session.user.id, _role: 'admin' });

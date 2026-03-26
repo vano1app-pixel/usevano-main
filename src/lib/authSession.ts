@@ -13,16 +13,34 @@ export function isEmailVerified(session: Session | null): boolean {
  */
 export async function getPostAuthPath(
   userId: string,
-): Promise<'/profile' | '/complete-profile' | '/dashboard'> {
+): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/dashboard'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
     .eq('user_id', userId)
     .maybeSingle();
+  if (!profile?.user_type?.trim()) return '/choose-account-type';
   const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
   if (done) return '/profile';
   if (profile?.user_type === 'business') return '/dashboard';
   return '/complete-profile';
+}
+
+/**
+ * After Google OAuth (and account-type choice): no user_type → picker; else incomplete → /complete-profile; complete → /dashboard.
+ */
+export async function getPostGoogleAuthPath(
+  userId: string,
+): Promise<'/choose-account-type' | '/complete-profile' | '/dashboard'> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name, avatar_url, user_type')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!profile?.user_type?.trim()) return '/choose-account-type';
+  const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
+  if (!done) return '/complete-profile';
+  return '/dashboard';
 }
 
 /**

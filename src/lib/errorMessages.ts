@@ -16,10 +16,21 @@ export function getUserFriendlyError(error: unknown): string {
 
   // Auth-specific messages (safe to surface)
   if (msg.includes('invalid login credentials')) return 'Invalid email or password.';
-  if (msg.includes('email not confirmed')) return 'Please verify your email before signing in.';
+  if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) {
+    return 'Please verify your email. Enter the code we sent you, or request a new one from the sign-in screen.';
+  }
   if (msg.includes('user already registered')) return 'An account with this email already exists. Try signing in instead.';
-  if (msg.includes('invalid otp') || msg.includes('token has expired')) return 'Invalid or expired verification code. Request a new one.';
-  if (msg.includes('rate limit') || msg.includes('too many requests')) return 'Too many attempts. Wait a minute and try again.';
+  if (msg.includes('invalid otp') || msg.includes('token has expired') || msg.includes('otp expired')) {
+    return 'Invalid or expired verification code. Request a new code and try again.';
+  }
+  if (
+    msg.includes('rate limit') ||
+    msg.includes('too many requests') ||
+    msg.includes('over_email_send_rate_limit') ||
+    msg.includes('email rate limit')
+  ) {
+    return 'Too many emails or attempts. Wait a few minutes and try again (free-tier projects have hourly limits).';
+  }
   if (msg.includes('network') || msg.includes('fetch')) return 'Connection problem. Check your internet and try again.';
   if (msg.includes('jwt') || msg.includes('session')) return 'Your session expired. Please sign in again.';
   if (msg.includes('password') && msg.includes('length')) return 'Password must be at least 6 characters.';
