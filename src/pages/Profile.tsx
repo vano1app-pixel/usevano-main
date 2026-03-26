@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
@@ -18,6 +18,8 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
+import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
+import { Button } from '@/components/ui/button';
 
 const COMMON_SKILLS = ['Web Design', 'Marketing', 'Graphic Design', 'Writing', 'Tutoring', 'Gardening', 'Cleaning', 'Photography', 'Video Editing', 'Social Media', 'Odd Jobs', 'Events', 'Delivery', 'Admin'];
 
@@ -60,6 +62,19 @@ const Profile = () => {
   const [serviceArea, setServiceArea] = useState('');
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
+  const [listCommunityOpen, setListCommunityOpen] = useState(false);
+
+  const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
+    bannerUrl,
+    tiktokUrl,
+    workLinks,
+    skills,
+    serviceArea,
+    typicalBudgetMin,
+    typicalBudgetMax,
+    hourlyRate,
+    bio,
+  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -301,6 +316,43 @@ const Profile = () => {
               : 'Your account — a short intro is enough; set location when you post a gig'}
           </p>
         </div>
+
+        {profile?.user_type === 'student' && user && (
+          <>
+            <div className="mb-6 rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.08] via-card to-card p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+                    List yourself on the talent board
+                  </h2>
+                  <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
+                    Step-by-step: choose your board, add your banner and links, write your pitch, set rates — then publish.
+                    Same flow as polished marketplaces (think Foxpop-style clarity).
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="h-12 shrink-0 rounded-xl px-6 font-semibold shadow-md"
+                  onClick={() => setListCommunityOpen(true)}
+                >
+                  Get listed
+                </Button>
+              </div>
+            </div>
+            <ListOnCommunityWizard
+              open={listCommunityOpen}
+              onOpenChange={setListCommunityOpen}
+              userId={user.id}
+              initial={listOnCommunityInitial}
+              onPublished={(cat) => {
+                void loadProfile();
+                navigate(`/community?cat=${cat}`);
+              }}
+            />
+          </>
+        )}
 
         <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6">
           {/* Avatar + Name — always visible */}

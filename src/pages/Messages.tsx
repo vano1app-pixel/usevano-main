@@ -14,6 +14,7 @@ import {
   teamMailtoHref,
   teamTelHref,
 } from '@/lib/contact';
+import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
 
 interface Conversation {
   id: string;
@@ -295,18 +296,20 @@ const Messages = () => {
       const recipientId = convo.participant_1 === user.id ? convo.participant_2 : convo.participant_1;
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        fetch(`https://${projectId}.supabase.co/functions/v1/notify-new-message`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            recipient_id: recipientId,
-            message_preview: insertData.content,
-          }),
-        }).catch(() => {}); // Fire and forget
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || getSupabaseProjectRef();
+        if (projectId) {
+          fetch(`https://${projectId}.supabase.co/functions/v1/notify-new-message`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              recipient_id: recipientId,
+              message_preview: insertData.content,
+            }),
+          }).catch(() => {}); // Fire and forget
+        }
       }
     }
 

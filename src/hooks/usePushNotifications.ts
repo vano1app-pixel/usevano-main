@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -39,7 +40,8 @@ export const usePushNotifications = () => {
 
   const fetchVapidKey = async (): Promise<string | null> => {
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || getSupabaseProjectRef();
+      if (!projectId) return null;
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/get-vapid-key`,
         { headers: { 'Content-Type': 'application/json' } }

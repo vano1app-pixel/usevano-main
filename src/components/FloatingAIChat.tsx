@@ -4,10 +4,9 @@ import logo from '@/assets/logo.png';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import { useToast } from '@/hooks/use-toast';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/supabaseEnv';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vano-assistant`;
 
 export const FloatingAIChat: React.FC = () => {
   const { toast } = useToast();
@@ -41,11 +40,12 @@ export const FloatingAIChat: React.FC = () => {
     let assistantSoFar = '';
 
     try {
-      const resp = await fetch(CHAT_URL, {
+      const chatUrl = `${getSupabaseUrl()}/functions/v1/vano-assistant`;
+      const resp = await fetch(chatUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${getSupabaseAnonKey()}`,
         },
         body: JSON.stringify({ messages: newMessages }),
       });

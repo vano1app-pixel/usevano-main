@@ -116,9 +116,62 @@ This project uses Google Maps Places API for location autocomplete. To enable th
 
 **Optional but recommended:** Restrict your API key to only work with the Places API and your domain for security.
 
+## Deploy on Vercel + Supabase
+
+This app is a **Vite SPA**. The database, auth, storage, and **Edge Functions** live in **Supabase** — not on Vercel. Vercel only hosts the static frontend.
+
+### 1. Environment variables (Vercel)
+
+In [Vercel](https://vercel.com) → your project → **Settings** → **Environment Variables**, add for **Production** (and Preview if you use it):
+
+| Name | Value |
+|------|--------|
+| `VITE_SUPABASE_URL` | Supabase → **Project Settings** → **API** → **Project URL** (no trailing slash) |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Same page → **Publishable key** (or **anon** key — same JWT) |
+
+Optional: `VITE_SUPABASE_ANON_KEY` — only if you prefer that name (same value as publishable).  
+Optional: `VITE_GOOGLE_MAPS_API_KEY`, `VITE_TEAM_CONTACT_EMAIL`.
+
+**Important:** `VITE_*` variables are baked in at **build time**. After changing them in Vercel, trigger a **new deployment** (Redeploy).
+
+Copy `.env.example` to `.env.local` for local development.
+
+### 2. Supabase Auth URLs
+
+Supabase → **Authentication** → **URL configuration**:
+
+- **Site URL:** `https://your-app.vercel.app` (or your custom domain)
+- **Redirect URLs:** add  
+  `https://your-app.vercel.app/**`  
+  `http://localhost:8080/**` (or your local dev URL)
+
+Without this, login/email links can redirect to the wrong host.
+
+### 3. Edge Functions (“backend” on Supabase)
+
+Features like AI helpers, notifications, and `vano-assistant` call **`supabase.functions.invoke`** or `https://<ref>.supabase.co/functions/v1/...`.
+
+Those functions must be **deployed in Supabase**, not Vercel:
+
+```bash
+# from repo root, with Supabase CLI logged in
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push          # apply migrations
+supabase functions deploy # deploy all, or name each function
+```
+
+Set function secrets in the Supabase dashboard (**Edge Functions** → secrets) if your functions need API keys (e.g. OpenAI).
+
+### 4. Vercel project settings
+
+- **Framework preset:** Vite  
+- **Build command:** `npm run build`  
+- **Output directory:** `dist`  
+- `vercel.json` already SPA-rewrites all routes to `/` for client-side routing.
+
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/f1ba0c74-af75-4389-a8ae-60baf80911b5) and click on Share -> Publish.
+Simply open [Lovable](https://lovable.dev/projects/f1ba0c74-af75-4389-a8ae-60baf80911b5) and click on Share -> Publish, or use **Vercel** with the checklist above.
 
 ## Can I connect a custom domain to my Lovable project?
 
