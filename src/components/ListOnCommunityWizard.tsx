@@ -41,9 +41,9 @@ import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 
 const STEP_LABELS = [
   'Start',
-  'Board',
-  'Cover',
-  'Listing',
+  'Category',
+  'Photos',
+  'Your pitch',
   'Links',
   'Rates',
   'Publish',
@@ -368,22 +368,21 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <ClipboardList className="h-5 w-5" strokeWidth={2} />
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                You&apos;ll fill in your banner, pitch, links, and rates. At the end we{' '}
-                <span className="font-medium text-foreground">send your listing to the VANO team</span> for a quick
-                review. Once approved, it appears on the Community board — usually within a day or two.
+                Fill in a few details and your listing goes{' '}
+                <span className="font-medium text-foreground">live on the Community board straight away</span>.
               </p>
               <ul className="space-y-2 text-sm text-foreground/90">
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Profile banner & optional hero image for your card
+                  Profile banner &amp; optional photo for your card
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Headline, description, TikTok & work links
+                  Headline, description, and links to your work
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Rates, service area, and skills — then submit for review
+                  Rates, location, and skills
                 </li>
               </ul>
             </div>
@@ -510,8 +509,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 bg-muted/20 p-3">
                 <Checkbox checked={syncBio} onCheckedChange={(v) => setSyncBio(!!v)} className="mt-0.5" />
                 <span className="text-sm leading-snug text-muted-foreground">
-                  <span className="font-medium text-foreground">Also save as my profile bio</span> — keeps Browse &amp;
-                  portfolio in sync with this pitch.
+                  <span className="font-medium text-foreground">Also save as my profile bio</span> — keeps your public profile in sync.
                 </span>
               </label>
             </div>
@@ -668,10 +666,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <p className="line-clamp-4 text-muted-foreground">{description || '—'}</p>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
-                We&apos;ll save your profile details (banner, links, area, skills, rates) and{' '}
-                <span className="font-medium text-foreground">send this listing to the team for approval</span>. It
-                won&apos;t appear on Community until a moderator approves it. You&apos;ll get an email when it&apos;s
-                live.
+                We&apos;ll save your profile details (banner, links, location, skills, rates) and{' '}
+                <span className="font-medium text-foreground">publish your listing immediately</span>. It will be visible on the Community board right away.
               </div>
             </div>
           )}
@@ -717,7 +713,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   Publishing…
                 </>
               ) : (
-                'Submit for review'
+                'Go live'
               )}
             </Button>
           )}

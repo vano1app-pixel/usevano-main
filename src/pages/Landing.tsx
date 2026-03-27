@@ -128,7 +128,7 @@ const Landing = () => {
             transition={{ duration: 0.6, delay: 0.24 }}
             className="text-sm sm:text-[15px] text-primary/90 font-medium max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed"
           >
-            Now with Google sign in — plus student-verified freelancers and a moderated Community board.
+            Sign in with Google — post gigs, hire freelancers, and get listed on the Community board.
           </motion.p>
 
           {/* Category-style search entry */}

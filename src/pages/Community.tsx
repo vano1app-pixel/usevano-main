@@ -341,8 +341,7 @@ const Community = () => {
           {activeCategory && currentUserType === 'student' && (
             <p className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground/90">
               <span className="font-medium text-foreground">Freelancers:</span> list yourself from{' '}
-              <strong>Profile → Get listed</strong>. Your card is reviewed before it appears here. Hiring accounts cannot
-              post on this board.
+              <strong>Profile → Get listed</strong> — your card goes live straight away.
             </p>
           )}
           {activeCategory && currentUserType === 'business' && (
