@@ -342,9 +342,9 @@ export const CommunityPostCard = ({
 
             {/* Decorative orbs for visual richness */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full opacity-20 blur-3xl" style={{ background: banner.orb1 }} />
-              <div className="absolute -left-6 bottom-0 h-32 w-32 rounded-full opacity-15 blur-2xl" style={{ background: banner.orb2 }} />
-              <div className="absolute right-1/3 top-4 h-20 w-20 rounded-full opacity-10 blur-xl" style={{ background: banner.orb3 }} />
+              <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full opacity-35 blur-2xl" style={{ background: banner.orb1 }} />
+              <div className="absolute -left-8 bottom-2 h-40 w-40 rounded-full opacity-28 blur-2xl" style={{ background: banner.orb2 }} />
+              <div className="absolute right-1/3 top-6 h-28 w-28 rounded-full opacity-20 blur-xl" style={{ background: banner.orb3 }} />
             </div>
 
             {/* Cinematic fade to card at bottom */}
