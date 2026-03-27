@@ -16,22 +16,19 @@ import {
 import { cn } from '@/lib/utils';
 
 
-const ATU_AVATAR = (initials: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=F47920&color=fff&bold=true&size=256&rounded=false`;
-
 const DEMO_POSTS: Record<CommunityCategoryId, {
-  post: { id: string; user_id: string; title: string; description: string; image_url: null; likes_count: number; created_at: string; rate_min: number; rate_max: number; rate_unit: string };
+  post: { id: string; user_id: string; title: string; description: string; image_url: string | null; likes_count: number; created_at: string; rate_min: number; rate_max: number; rate_unit: string };
   profile: { display_name: string; avatar_url: string; user_type: string };
   studentProfile: { skills: string[]; hourly_rate: number; is_available: boolean; university: string; tiktok_url: string | null; work_links: { url: string; label: string }[] };
-  portfolioPreview: { id: string; image_url: null; title: string }[];
+  portfolioPreview: { id: string; image_url: string | null; title: string }[];
 }> = {
   videographer: {
     post: {
       id: 'demo-video',
       user_id: 'demo-video-user',
       title: 'Wedding, event & promo filming — Galway & Connacht',
-      description: `Hi, I'm Cian — a final-year Media Production student at ATU Galway. I specialise in weddings, corporate events, brand promos, and short-form content for social.\n\nKit: Sony A7 IV with a set of prime lenses, DJI RS 3 gimbal, and a DJI Mini 4 Pro drone. I shoot LOG and colour grade in DaVinci Resolve for a clean, cinematic look.\n\nTurnaround is 5–7 working days for a full edit. I include one round of revision and deliver in any format you need. Happy to travel within Connacht — fuel costs apply outside Galway city.\n\nDrop me a message with your date and what you have in mind — I'll come back to you within a few hours.`,
-      image_url: null,
+      description: `Hi, I'm Cian — a final-year Media Production student at ATU Galway. I specialise in weddings, corporate events, brand promos, and short-form content for social.\n\nKit: Sony A7 IV with prime lenses, DJI RS 3 gimbal, and a DJI Mini 4 Pro drone. I shoot LOG and colour grade in DaVinci Resolve for a clean, cinematic look.\n\nTurnaround is 5–7 working days. I include one round of revision and deliver in any format. Happy to travel within Connacht.`,
+      image_url: 'https://images.unsplash.com/photo-1574717024453-354056adf689?auto=format&fit=crop&w=900&q=80',
       likes_count: 47,
       created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
       rate_min: 150,
@@ -40,7 +37,7 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
     },
     profile: {
       display_name: 'Cian Murphy',
-      avatar_url: ATU_AVATAR('Cian Murphy'),
+      avatar_url: 'https://randomuser.me/api/portraits/men/32.jpg',
       user_type: 'student',
     },
     studentProfile: {
@@ -57,12 +54,12 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       ],
     },
     portfolioPreview: [
-      { id: 'p1', image_url: null, title: 'Galway wedding highlight film — 2025' },
-      { id: 'p2', image_url: null, title: 'ATU Grad Ball 2025 recap' },
-      { id: 'p3', image_url: null, title: 'Brand promo — local restaurant' },
-      { id: 'p4', image_url: null, title: 'Drone reel — Connemara landscape' },
-      { id: 'p5', image_url: null, title: 'Corporate event — Galway Chamber' },
-      { id: 'p6', image_url: null, title: 'TikTok content pack — fashion brand' },
+      { id: 'p1', image_url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=300&q=80', title: 'Galway wedding highlight film — 2025' },
+      { id: 'p2', image_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=300&q=80', title: 'ATU Grad Ball 2025 recap' },
+      { id: 'p3', image_url: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=300&q=80', title: 'Brand promo — local restaurant' },
+      { id: 'p4', image_url: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=300&q=80', title: 'Drone reel — Connemara landscape' },
+      { id: 'p5', image_url: 'https://images.unsplash.com/photo-1568992687947-868a62a9f521?auto=format&fit=crop&w=300&q=80', title: 'Corporate event — Galway Chamber' },
+      { id: 'p6', image_url: 'https://images.unsplash.com/photo-1611162616475-46b635cb6868?auto=format&fit=crop&w=300&q=80', title: 'TikTok content pack — fashion brand' },
     ],
   },
   websites: {
@@ -70,8 +67,8 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       id: 'demo-web',
       user_id: 'demo-web-user',
       title: 'Custom websites & web apps — fast, clean, mobile-first',
-      description: `Hey, I'm Aoife — a final-year Software Development student at ATU Galway. I build polished, fast websites and web apps for small businesses, freelancers, and startups.\n\nI work mainly in React and Next.js with Tailwind CSS for styling, and I'm comfortable with Supabase, Stripe, and CMS integrations. Whether you need a landing page, a full e-commerce store, or a complete redesign of an existing site, I can handle it start to finish — design mockup in Figma through to live deployment.\n\nTypical project budgets range from €400 for a clean landing page up to €2,000+ for a full multi-page site with integrations. Free 30-minute discovery call before we start — no obligation.\n\nCheck my portfolio and GitHub below to see recent work.`,
-      image_url: null,
+      description: `Hey, I'm Aoife — a final-year Software Development student at ATU Galway. I build polished websites and web apps for small businesses, freelancers, and startups.\n\nI work in React and Next.js with Tailwind CSS, and I'm comfortable with Supabase, Stripe, and CMS integrations. From Figma mockup to live deployment — start to finish.\n\nFree 30-minute discovery call before we start. Check my portfolio and GitHub below.`,
+      image_url: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80',
       likes_count: 63,
       created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
       rate_min: 400,
@@ -80,7 +77,7 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
     },
     profile: {
       display_name: 'Aoife Walsh',
-      avatar_url: ATU_AVATAR('Aoife Walsh'),
+      avatar_url: 'https://randomuser.me/api/portraits/women/44.jpg',
       user_type: 'student',
     },
     studentProfile: {
@@ -97,12 +94,12 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       ],
     },
     portfolioPreview: [
-      { id: 'p4', image_url: null, title: 'Restaurant booking site — Next.js' },
-      { id: 'p5', image_url: null, title: 'Fitness coach landing page' },
-      { id: 'p6', image_url: null, title: 'E-commerce — Galway gift shop (Shopify)' },
-      { id: 'p7', image_url: null, title: 'SaaS dashboard UI — Figma to code' },
-      { id: 'p8', image_url: null, title: 'Salon booking app — React + Supabase' },
-      { id: 'p9', image_url: null, title: 'Personal brand site — freelance photographer' },
+      { id: 'p4', image_url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=300&q=80', title: 'Restaurant booking site — Next.js' },
+      { id: 'p5', image_url: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=300&q=80', title: 'Fitness coach landing page' },
+      { id: 'p6', image_url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=300&q=80', title: 'E-commerce — Galway gift shop (Shopify)' },
+      { id: 'p7', image_url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=300&q=80', title: 'SaaS dashboard UI — Figma to code' },
+      { id: 'p8', image_url: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=300&q=80', title: 'Salon booking app — React + Supabase' },
+      { id: 'p9', image_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', title: 'Personal brand site — freelance photographer' },
     ],
   },
   social_media: {
@@ -110,8 +107,8 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       id: 'demo-social',
       user_id: 'demo-social-user',
       title: 'Social media management & content creation — Instagram, TikTok & LinkedIn',
-      description: `I'm Darragh — a final-year Marketing student at ATU with 2+ years managing social accounts for local businesses across Galway.\n\nI handle the full process: strategy, content calendar, shooting, editing, posting, and monthly analytics reports. I work across Instagram, TikTok, and LinkedIn — I can manage one or all three.\n\nMonthly packages are available for ongoing management. I also offer one-off content days if you just need a bank of photos and videos shot and edited ready to post. Content days usually result in 15–25 pieces of content depending on scope.\n\nRecent results: grew a Galway café from 800 to 4,200 followers in 4 months. Built a local gym's TikTok from zero to 12k views per reel average in 6 weeks.\n\nMessage me with your industry and goals — happy to have a quick call first.`,
-      image_url: null,
+      description: `I'm Darragh — a final-year Marketing student at ATU with 2+ years managing social accounts for local businesses across Galway.\n\nI handle the full process: strategy, content calendar, shooting, editing, posting, and monthly analytics reports.\n\nRecent results: grew a Galway café from 800 to 4,200 followers in 4 months. Built a local gym's TikTok from zero to 12k views per reel in 6 weeks.`,
+      image_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=900&q=80',
       likes_count: 58,
       created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
       rate_min: 250,
@@ -120,7 +117,7 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
     },
     profile: {
       display_name: 'Darragh Ryan',
-      avatar_url: ATU_AVATAR('Darragh Ryan'),
+      avatar_url: 'https://randomuser.me/api/portraits/men/22.jpg',
       user_type: 'student',
     },
     studentProfile: {
@@ -136,11 +133,11 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       ],
     },
     portfolioPreview: [
-      { id: 'p7', image_url: null, title: 'Galway café — 800 → 4,200 followers' },
-      { id: 'p8', image_url: null, title: 'Gym TikTok — 12k avg views/reel' },
-      { id: 'p9', image_url: null, title: 'Monthly content pack — fashion brand' },
-      { id: 'p10', image_url: null, title: 'LinkedIn strategy — B2B consultancy' },
-      { id: 'p11', image_url: null, title: 'Instagram launch — new restaurant' },
+      { id: 'p7', image_url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=300&q=80', title: 'Galway café — 800 → 4,200 followers' },
+      { id: 'p8', image_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=300&q=80', title: 'Gym TikTok — 12k avg views/reel' },
+      { id: 'p9', image_url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=300&q=80', title: 'Monthly content pack — fashion brand' },
+      { id: 'p10', image_url: 'https://images.unsplash.com/photo-1553484771-047a44eee27a?auto=format&fit=crop&w=300&q=80', title: 'LinkedIn strategy — B2B consultancy' },
+      { id: 'p11', image_url: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=300&q=80', title: 'Instagram launch — new restaurant' },
     ],
   },
 };
