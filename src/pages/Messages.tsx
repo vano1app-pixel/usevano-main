@@ -380,7 +380,7 @@ const Messages = () => {
                   <DialogHeader>
                     <DialogTitle>Contact team</DialogTitle>
                     <DialogDescription>
-                      Choose how you’d like to reach us — we’ll get back to you as soon as we can.
+                      Choose how you'd like to reach us — we'll get back to you as soon as we can.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="flex flex-col gap-3 pt-2">

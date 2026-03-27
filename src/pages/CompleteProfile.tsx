@@ -130,7 +130,7 @@ const CompleteProfile = () => {
                 onChange={(e) => setDisplayName(e.target.value)}
                 required
                 className={inputClass}
-                placeholder={userType === 'business' ? 'How you’d like to appear' : 'John Doe'}
+                placeholder={userType === 'business' ? "How you'd like to appear" : 'John Doe'}
                 autoFocus
               />
             </div>

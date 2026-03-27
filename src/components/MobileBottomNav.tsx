@@ -69,7 +69,7 @@ export const MobileBottomNav: React.FC = () => {
               onClick={() => handleNav(href)}
               className={cn(
                 'flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-1 rounded-xl px-1 pb-1 pt-0.5 transition-[color,transform] active:scale-[0.96]',
-                active ? 'text-primary' : 'text-foreground/62',
+                active ? 'text-primary' : 'text-foreground/80',
               )}
             >
               <span
@@ -77,13 +77,13 @@ export const MobileBottomNav: React.FC = () => {
                   'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-[background-color,box-shadow,color]',
                   active
                     ? 'bg-primary/13 text-primary shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.55)]'
-                    : 'text-foreground/70',
+                    : 'text-foreground/85',
                 )}
               >
                 <Icon
                   size={active ? 22 : 20}
                   strokeWidth={active ? 2.5 : 2.15}
-                  className={cn(!active && 'opacity-[0.92]')}
+                  className={undefined}
                 />
                 {href === '/messages' && unreadCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full border-2 border-card bg-primary px-0.5 text-[9px] font-bold leading-none text-primary-foreground shadow-sm">
@@ -94,7 +94,7 @@ export const MobileBottomNav: React.FC = () => {
               <span
                 className={cn(
                   'max-w-[4.25rem] truncate text-[10px] leading-tight tracking-tight',
-                  active ? 'font-semibold text-primary' : 'font-medium text-foreground/58',
+                  active ? 'font-semibold text-primary' : 'font-medium text-foreground/75',
                 )}
               >
                 <span className="inline-flex items-center justify-center gap-0.5">

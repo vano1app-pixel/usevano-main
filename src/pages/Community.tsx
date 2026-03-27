@@ -14,7 +14,7 @@ import {
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
 import { cn } from '@/lib/utils';
-import { ensureAutoStudentVerificationFromEmail } from '@/lib/studentVerification';
+
 
 const ATU_AVATAR = 'https://ui-avatars.com/api/?background=F47920&color=fff&bold=true&size=256';
 
@@ -239,28 +239,6 @@ const Community = () => {
     setLoading(false);
   }, []);
 
-  /** Logged-in freelancers must verify a student email before using the app (including Community). */
-  useEffect(() => {
-    if (!user) return;
-    void (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      await ensureAutoStudentVerificationFromEmail(session);
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('user_type')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      if (prof?.user_type !== 'student') return;
-      const { data: sp } = await supabase
-        .from('student_profiles')
-        .select('student_verified')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      if (sp?.student_verified) return;
-      navigate('/verify-student', { replace: true });
-    })();
-  }, [user, navigate]);
 
   useEffect(() => {
     if (!activeCategory) {

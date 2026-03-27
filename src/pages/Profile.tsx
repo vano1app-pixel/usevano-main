@@ -311,7 +311,7 @@ const Profile = () => {
                 />
                 <div className="w-full min-w-0 flex-1 sm:pt-0">
                   <label className="mb-1.5 block text-sm font-medium">Name</label>
-                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="How you’d like to appear" />
+                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="How you'd like to appear" />
                 </div>
               </div>
               <div>
@@ -320,7 +320,7 @@ const Profile = () => {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
-                  placeholder="A quick intro is enough — who you are and what you usually hire help for. You’ll add the exact location on each gig when you post it."
+                  placeholder="A quick intro is enough — who you are and what you usually hire help for. You'll add the exact location on each gig when you post it."
                 />
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
                   No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.
