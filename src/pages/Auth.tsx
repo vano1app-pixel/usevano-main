@@ -501,7 +501,7 @@ const Auth = () => {
           <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
             {isLogin
               ? 'Continue with Google (recommended) or sign in with email.'
-              : 'Pick your role, then use Google or email. Freelancers: use your college email for email sign-up.'}
+              : 'Pick your role, then continue with Google or email.'}
           </p>
         </div>
 
@@ -557,7 +557,7 @@ const Auth = () => {
                         Freelancer
                       </span>
                       <span className="text-[11px] text-muted-foreground leading-tight">
-                        Student email (.ac.ie, .atu.ie, …)
+                        Offer services &amp; join the community
                       </span>
                     </button>
                     <button

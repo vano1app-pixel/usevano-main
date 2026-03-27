@@ -510,7 +510,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                           Freelancer
                         </span>
                         <span className="text-xs text-muted-foreground leading-snug">
-                          Student email required (.ac.ie, .atu.ie, etc.)
+                          Offer services &amp; join the community
                         </span>
                       </button>
                       <button
