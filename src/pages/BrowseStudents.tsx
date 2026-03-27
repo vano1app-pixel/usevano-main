@@ -136,7 +136,29 @@ const BrowseStudents = () => {
         </div>
 
         {loading ? (
-          <p className="text-center text-muted-foreground py-12">Loading freelancers...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy aria-label="Loading freelancers">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm animate-pulse">
+                <div className="h-16 w-full bg-muted sm:h-[4.5rem]" />
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-14 w-14 shrink-0 rounded-full bg-muted ring-2 ring-background -mt-8" />
+                    <div className="flex-1 space-y-2 pt-1">
+                      <div className="h-4 w-32 rounded-md bg-muted" />
+                      <div className="h-3 w-24 rounded-md bg-muted" />
+                    </div>
+                  </div>
+                  <div className="h-3 w-full rounded-md bg-muted" />
+                  <div className="h-3 w-4/5 rounded-md bg-muted" />
+                  <div className="flex gap-2 pt-1">
+                    <div className="h-6 w-14 rounded-md bg-muted" />
+                    <div className="h-6 w-18 rounded-md bg-muted" />
+                    <div className="h-6 w-16 rounded-md bg-muted" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : fetchError ? (
           <p className="text-center text-muted-foreground py-12">Could not load freelancers — please refresh and try again.</p>
         ) : filtered.length === 0 ? (

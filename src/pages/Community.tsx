@@ -16,84 +16,93 @@ import {
 import { cn } from '@/lib/utils';
 
 
-const ATU_AVATAR = 'https://ui-avatars.com/api/?background=F47920&color=fff&bold=true&size=256';
+const ATU_AVATAR = (initials: string) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=F47920&color=fff&bold=true&size=256&rounded=false`;
 
 const DEMO_POSTS: Record<CommunityCategoryId, {
   post: { id: string; user_id: string; title: string; description: string; image_url: null; likes_count: number; created_at: string; rate_min: number; rate_max: number; rate_unit: string };
   profile: { display_name: string; avatar_url: string; user_type: string };
-  studentProfile: { skills: string[]; hourly_rate: number; is_available: boolean; university: string; tiktok_url: string; work_links: { url: string; label: string }[] };
+  studentProfile: { skills: string[]; hourly_rate: number; is_available: boolean; university: string; tiktok_url: string | null; work_links: { url: string; label: string }[] };
   portfolioPreview: { id: string; image_url: null; title: string }[];
 }> = {
   videographer: {
     post: {
       id: 'demo-video',
       user_id: 'demo-video-user',
-      title: 'Wedding, event & reel filming — Galway & surrounding areas',
-      description: `Hi, I'm Cian — a final-year media production student at ATU Galway. I film and edit weddings, corporate events, promo videos, and short-form reels.\n\nI use a Sony A7IV with prime lenses and a DJI Mini 4 Pro drone. Turnaround is 5–7 days for full edits. Happy to travel within Connacht.\n\nDrop me a message and I'll send over my full showreel.`,
+      title: 'Wedding, event & promo filming — Galway & Connacht',
+      description: `Hi, I'm Cian — a final-year Media Production student at ATU Galway. I specialise in weddings, corporate events, brand promos, and short-form content for social.\n\nKit: Sony A7 IV with a set of prime lenses, DJI RS 3 gimbal, and a DJI Mini 4 Pro drone. I shoot LOG and colour grade in DaVinci Resolve for a clean, cinematic look.\n\nTurnaround is 5–7 working days for a full edit. I include one round of revision and deliver in any format you need. Happy to travel within Connacht — fuel costs apply outside Galway city.\n\nDrop me a message with your date and what you have in mind — I'll come back to you within a few hours.`,
       image_url: null,
-      likes_count: 14,
+      likes_count: 47,
       created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-      rate_min: 120,
-      rate_max: 350,
+      rate_min: 150,
+      rate_max: 450,
       rate_unit: 'day',
     },
     profile: {
       display_name: 'Cian Murphy',
-      avatar_url: `${ATU_AVATAR}&name=CM`,
+      avatar_url: ATU_AVATAR('Cian Murphy'),
       user_type: 'student',
     },
     studentProfile: {
-      skills: ['Video Editing', 'Drone Filming', 'Wedding Films', 'Event Coverage', 'Reels', 'Premiere Pro', 'DaVinci Resolve', 'Colour Grading'],
-      hourly_rate: 35,
+      skills: ['Video Editing', 'Drone Filming', 'Wedding Films', 'Event Coverage', 'Short-form Reels', 'Premiere Pro', 'DaVinci Resolve', 'Colour Grading', 'Corporate Video', 'Instagram Reels'],
+      hourly_rate: 45,
       is_available: true,
       university: 'ATU',
       tiktok_url: 'https://www.tiktok.com/@cianmurphy.film',
       work_links: [
-        { url: 'https://cianmurphy.ie', label: 'Portfolio site' },
-        { url: 'https://instagram.com/cianmurphy.film', label: 'Instagram' },
+        { url: 'https://cianmurphy.ie', label: 'Portfolio — cianmurphy.ie' },
         { url: 'https://vimeo.com/cianmurphy', label: 'Vimeo showreel' },
+        { url: 'https://instagram.com/cianmurphy.film', label: 'Instagram' },
+        { url: 'https://youtube.com/@cianmurphyfilm', label: 'YouTube channel' },
       ],
     },
     portfolioPreview: [
-      { id: 'p1', image_url: null, title: 'Galway wedding highlight reel' },
-      { id: 'p2', image_url: null, title: 'ATU Grad Ball 2025' },
-      { id: 'p3', image_url: null, title: 'Promo video — local café' },
+      { id: 'p1', image_url: null, title: 'Galway wedding highlight film — 2025' },
+      { id: 'p2', image_url: null, title: 'ATU Grad Ball 2025 recap' },
+      { id: 'p3', image_url: null, title: 'Brand promo — local restaurant' },
+      { id: 'p4', image_url: null, title: 'Drone reel — Connemara landscape' },
+      { id: 'p5', image_url: null, title: 'Corporate event — Galway Chamber' },
+      { id: 'p6', image_url: null, title: 'TikTok content pack — fashion brand' },
     ],
   },
   websites: {
     post: {
       id: 'demo-web',
       user_id: 'demo-web-user',
-      title: 'Custom websites & landing pages — fast, mobile-first builds',
-      description: `Hey, I'm Aoife — a software development student at ATU. I build clean, fast websites for small businesses, freelancers, and startups.\n\nI work in React / Next.js and can handle everything from a simple landing page to a full e-commerce store. I also do redesigns if you already have a site that needs freshening up.\n\nFree 30-min consultation before we start. Check out my portfolio below.`,
+      title: 'Custom websites & web apps — fast, clean, mobile-first',
+      description: `Hey, I'm Aoife — a final-year Software Development student at ATU Galway. I build polished, fast websites and web apps for small businesses, freelancers, and startups.\n\nI work mainly in React and Next.js with Tailwind CSS for styling, and I'm comfortable with Supabase, Stripe, and CMS integrations. Whether you need a landing page, a full e-commerce store, or a complete redesign of an existing site, I can handle it start to finish — design mockup in Figma through to live deployment.\n\nTypical project budgets range from €400 for a clean landing page up to €2,000+ for a full multi-page site with integrations. Free 30-minute discovery call before we start — no obligation.\n\nCheck my portfolio and GitHub below to see recent work.`,
       image_url: null,
-      likes_count: 22,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-      rate_min: 300,
-      rate_max: 1200,
+      likes_count: 63,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
+      rate_min: 400,
+      rate_max: 2000,
       rate_unit: 'project',
     },
     profile: {
       display_name: 'Aoife Walsh',
-      avatar_url: `${ATU_AVATAR}&name=AW`,
+      avatar_url: ATU_AVATAR('Aoife Walsh'),
       user_type: 'student',
     },
     studentProfile: {
-      skills: ['React', 'Next.js', 'Tailwind CSS', 'Figma', 'TypeScript', 'SEO', 'Shopify', 'UI/UX Design'],
-      hourly_rate: 40,
+      skills: ['React', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Figma', 'UI/UX Design', 'Supabase', 'Shopify', 'SEO', 'Framer Motion'],
+      hourly_rate: 45,
       is_available: true,
       university: 'ATU',
       tiktok_url: null,
       work_links: [
-        { url: 'https://aoifewalsh.dev', label: 'Portfolio' },
+        { url: 'https://aoifewalsh.dev', label: 'Portfolio — aoifewalsh.dev' },
         { url: 'https://github.com/aoifewalsh', label: 'GitHub' },
         { url: 'https://dribbble.com/aoifewalsh', label: 'Dribbble designs' },
+        { url: 'https://linkedin.com/in/aoife-walsh-dev', label: 'LinkedIn' },
       ],
     },
     portfolioPreview: [
-      { id: 'p4', image_url: null, title: 'Restaurant booking site' },
+      { id: 'p4', image_url: null, title: 'Restaurant booking site — Next.js' },
       { id: 'p5', image_url: null, title: 'Fitness coach landing page' },
-      { id: 'p6', image_url: null, title: 'E-commerce — Galway gift shop' },
+      { id: 'p6', image_url: null, title: 'E-commerce — Galway gift shop (Shopify)' },
+      { id: 'p7', image_url: null, title: 'SaaS dashboard UI — Figma to code' },
+      { id: 'p8', image_url: null, title: 'Salon booking app — React + Supabase' },
+      { id: 'p9', image_url: null, title: 'Personal brand site — freelance photographer' },
     ],
   },
   social_media: {
@@ -101,33 +110,37 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       id: 'demo-social',
       user_id: 'demo-social-user',
       title: 'Social media management & content creation — Instagram, TikTok & LinkedIn',
-      description: `I'm Darragh — a marketing student at ATU with 2 years running social accounts for local businesses. I handle content planning, shooting, editing, posting, and monthly analytics reports.\n\nI can manage Instagram, TikTok, or LinkedIn — or all three. Packages start from a set number of posts per week. I also do one-off content days if you just need a bank of content shot and edited.\n\nCheck my own pages to see what I produce.`,
+      description: `I'm Darragh — a final-year Marketing student at ATU with 2+ years managing social accounts for local businesses across Galway.\n\nI handle the full process: strategy, content calendar, shooting, editing, posting, and monthly analytics reports. I work across Instagram, TikTok, and LinkedIn — I can manage one or all three.\n\nMonthly packages are available for ongoing management. I also offer one-off content days if you just need a bank of photos and videos shot and edited ready to post. Content days usually result in 15–25 pieces of content depending on scope.\n\nRecent results: grew a Galway café from 800 to 4,200 followers in 4 months. Built a local gym's TikTok from zero to 12k views per reel average in 6 weeks.\n\nMessage me with your industry and goals — happy to have a quick call first.`,
       image_url: null,
-      likes_count: 31,
+      likes_count: 58,
       created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
-      rate_min: 200,
-      rate_max: 600,
-      rate_unit: 'month',
+      rate_min: 250,
+      rate_max: 700,
+      rate_unit: 'project',
     },
     profile: {
       display_name: 'Darragh Ryan',
-      avatar_url: `${ATU_AVATAR}&name=DR`,
+      avatar_url: ATU_AVATAR('Darragh Ryan'),
       user_type: 'student',
     },
     studentProfile: {
-      skills: ['Instagram', 'TikTok', 'Content Strategy', 'Reels Editing', 'Copywriting', 'Analytics', 'CapCut', 'Canva'],
-      hourly_rate: 30,
+      skills: ['Instagram', 'TikTok', 'LinkedIn', 'Content Strategy', 'Reels Editing', 'Copywriting', 'Analytics & Reporting', 'CapCut', 'Canva', 'Content Planning'],
+      hourly_rate: 35,
       is_available: true,
       university: 'ATU',
       tiktok_url: 'https://www.tiktok.com/@darraghryan.social',
       work_links: [
-        { url: 'https://instagram.com/darraghryan.social', label: 'Instagram' },
+        { url: 'https://instagram.com/darraghryan.social', label: 'Instagram — @darraghryan.social' },
         { url: 'https://linkedin.com/in/darraghryan', label: 'LinkedIn' },
+        { url: 'https://darraghryan.ie', label: 'Portfolio — darraghryan.ie' },
       ],
     },
     portfolioPreview: [
-      { id: 'p7', image_url: null, title: 'Galway café — 3× follower growth' },
-      { id: 'p8', image_url: null, title: 'Gym reels package' },
+      { id: 'p7', image_url: null, title: 'Galway café — 800 → 4,200 followers' },
+      { id: 'p8', image_url: null, title: 'Gym TikTok — 12k avg views/reel' },
+      { id: 'p9', image_url: null, title: 'Monthly content pack — fashion brand' },
+      { id: 'p10', image_url: null, title: 'LinkedIn strategy — B2B consultancy' },
+      { id: 'p11', image_url: null, title: 'Instagram launch — new restaurant' },
     ],
   },
 };

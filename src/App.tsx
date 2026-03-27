@@ -9,6 +9,7 @@ import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
 import Landing from "./pages/Landing";
 import BrowseJobs from "./pages/BrowseJobs";
@@ -31,6 +32,7 @@ import WhatsNew from "./pages/WhatsNew";
 
 const App = () => (
   <TooltipProvider>
+    <ScrollToTop />
     <RedirectToAccountTypeIfNeeded />
     <Toaster />
     <Sonner />

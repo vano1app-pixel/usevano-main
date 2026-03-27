@@ -115,6 +115,7 @@ export const CommunityPostCard = ({
   const { toast } = useToast();
   const [likeLoading, setLikeLoading] = useState(false);
   const [freelancerOpen, setFreelancerOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const avatar = profile?.avatar_url;
   const name = profile?.display_name || 'Freelancer';
   const skills = (studentProfile?.skills || []).filter(Boolean).slice(0, 10);
@@ -223,7 +224,7 @@ export const CommunityPostCard = ({
         {canDelete && (
           <button
             type="button"
-            onClick={() => onDelete(post.id)}
+            onClick={() => setDeleteConfirmOpen(true)}
             className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/50"
             aria-label="Delete post"
           >
@@ -382,6 +383,25 @@ export const CommunityPostCard = ({
           )}
         </div>
       </div>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete listing?</DialogTitle>
+            <DialogDescription>This will permanently remove your listing from the Community board. You can always create a new one.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              className="flex-1 rounded-xl"
+              onClick={() => { setDeleteConfirmOpen(false); onDelete(post.id); }}
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={freelancerOpen} onOpenChange={setFreelancerOpen}>
         <DialogContent className="max-h-[min(90dvh,36rem)] gap-0 overflow-y-auto p-0 sm:max-w-lg">

@@ -323,22 +323,29 @@ const StudentProfile = () => {
         )}
 
         {/* Portfolio items */}
-        {portfolioItems.length > 0 && (
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Gallery</p>
-            <h2 className="mt-1 text-base font-semibold text-foreground">Portfolio</h2>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {portfolioItems.map((item) => (
-                <div key={item.id} className="overflow-hidden rounded-xl border border-border/90 shadow-sm transition-shadow hover:shadow-md">
-                  {item.image_url && <img src={item.image_url} alt={item.title} className="h-44 w-full object-cover" />}
-                  <div className="p-4">
-                    <h3 className="text-sm font-semibold">{item.title}</h3>
-                    {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
+        {!isBusiness && (
+          portfolioItems.length > 0 ? (
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Gallery</p>
+              <h2 className="mt-1 text-base font-semibold text-foreground">Portfolio</h2>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {portfolioItems.map((item) => (
+                  <div key={item.id} className="overflow-hidden rounded-xl border border-border/90 shadow-sm transition-shadow hover:shadow-md">
+                    {item.image_url && <img src={item.image_url} alt={item.title} className="h-44 w-full object-cover" />}
+                    <div className="p-4">
+                      <h3 className="text-sm font-semibold">{item.title}</h3>
+                      {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+              <p className="text-sm font-medium text-foreground">No portfolio items yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">Ask them to share samples of their work in chat.</p>
+            </div>
+          )
         )}
 
         {/* Previous work / gigs */}

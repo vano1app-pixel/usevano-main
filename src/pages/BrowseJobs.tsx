@@ -166,7 +166,33 @@ const BrowseJobs = () => {
 
         {/* Results */}
         {loading ? (
-          <p className="text-center text-muted-foreground py-12">Loading gigs...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy aria-label="Loading gigs">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
+                <div className="flex items-center gap-3 border-b border-foreground/5 bg-muted/30 px-4 py-3">
+                  <div className="h-11 w-11 shrink-0 rounded-full bg-muted" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-28 rounded-md bg-muted" />
+                    <div className="h-2.5 w-20 rounded-md bg-muted" />
+                  </div>
+                  <div className="h-7 w-7 shrink-0 rounded-lg bg-muted" />
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex justify-between gap-4">
+                    <div className="h-5 w-2/3 rounded-md bg-muted" />
+                    <div className="h-5 w-16 shrink-0 rounded-md bg-muted" />
+                  </div>
+                  <div className="h-3.5 w-1/2 rounded-md bg-muted" />
+                  <div className="h-3.5 w-2/3 rounded-md bg-muted" />
+                  <div className="flex gap-2 pt-1">
+                    <div className="h-6 w-16 rounded-md bg-muted" />
+                    <div className="h-6 w-12 rounded-md bg-muted" />
+                    <div className="h-6 w-20 rounded-md bg-muted" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : fetchError ? (
           <p className="text-center text-muted-foreground py-12">Could not load gigs — please refresh and try again.</p>
         ) : filtered.length === 0 ? (

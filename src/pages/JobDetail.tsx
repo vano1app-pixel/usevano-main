@@ -7,7 +7,9 @@ import { ReviewForm } from '@/components/ReviewForm';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { MapPin, Clock, ArrowLeft, MessageCircle, Flame } from 'lucide-react';
+import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Trash2, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatJobScheduleDetail } from '@/lib/jobSchedule';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,6 +25,8 @@ const JobDetail = () => {
   const [user, setUser] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [closingGig, setClosingGig] = useState(false);
 
   const [poster, setPoster] = useState<{ display_name: string | null; avatar_url: string | null } | null>(null);
 
@@ -126,6 +130,30 @@ const JobDetail = () => {
     }
   };
 
+  const handleCloseGig = async () => {
+    if (!job) return;
+    setClosingGig(true);
+    const { error } = await supabase.from('jobs').update({ status: 'closed' }).eq('id', job.id);
+    if (error) {
+      toast({ title: 'Could not close gig', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
+      setJob({ ...job, status: 'closed' });
+      toast({ title: 'Gig closed', description: 'It is no longer visible to applicants.' });
+    }
+    setClosingGig(false);
+  };
+
+  const handleDeleteGig = async () => {
+    if (!job) return;
+    const { error } = await supabase.from('jobs').delete().eq('id', job.id);
+    if (error) {
+      toast({ title: 'Could not delete gig', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
+      toast({ title: 'Gig deleted' });
+      navigate('/jobs');
+    }
+  };
+
   // Determine if shift is in the past (for review eligibility)
   const isShiftPast = job ? new Date(job.shift_date) < new Date() : false;
   const canReview = user && isShiftPast && !hasReviewed && job && user.id !== job.posted_by;
@@ -199,6 +227,39 @@ const JobDetail = () => {
             </div>
           )}
 
+          {/* Poster controls */}
+          {user?.id === job.posted_by && (
+            <div className="mb-6 flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row">
+              <p className="flex-1 text-xs text-muted-foreground self-center">This is your gig.</p>
+              {job.status === 'open' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg gap-1.5"
+                  disabled={closingGig}
+                  onClick={handleCloseGig}
+                >
+                  <XCircle size={15} />
+                  {closingGig ? 'Closing…' : 'Close gig'}
+                </Button>
+              )}
+              {job.status === 'closed' && (
+                <span className="text-xs font-medium text-muted-foreground self-center">Gig is closed</span>
+              )}
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="rounded-lg gap-1.5"
+                onClick={() => setDeleteConfirmOpen(true)}
+              >
+                <Trash2 size={15} />
+                Delete gig
+              </Button>
+            </div>
+          )}
+
           {/* Message poster button */}
           {user && user.id !== job.posted_by && (
             <button
@@ -250,6 +311,19 @@ const JobDetail = () => {
           <ReviewList reviews={reviews} />
         </div>
       </div>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete this gig?</DialogTitle>
+            <DialogDescription>This permanently removes the gig and all its applications. This cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" className="flex-1 rounded-xl" onClick={() => { setDeleteConfirmOpen(false); handleDeleteGig(); }}>Delete</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
