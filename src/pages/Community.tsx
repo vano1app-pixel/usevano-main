@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CommunityPostCard } from '@/components/CommunityPostCard';
+import { CommunityPostCard, type SimilarPost } from '@/components/CommunityPostCard';
 import { useToast } from '@/hooks/use-toast';
 import {
   COMMUNITY_CATEGORY_ORDER,
@@ -449,21 +449,32 @@ const Community = () => {
           </div>
         ) : (
           <div className="flex flex-col gap-6 sm:gap-7">
-            {posts.map(post => (
-              <CommunityPostCard
-                key={post.id}
-                post={post}
-                profile={profiles[post.user_id] || null}
-                studentProfile={studentProfiles[post.user_id] || null}
-                portfolioPreview={portfolioByUser[post.user_id] || []}
-                currentUserId={user?.id || null}
-                currentUserType={currentUserType}
-                isLiked={likedPostIds.has(post.id)}
-                isAdmin={isAdmin}
-                onLikeToggle={handleLikeToggle}
-                onDelete={handleDelete}
-              />
-            ))}
+            {posts.map(post => {
+              const similar: SimilarPost[] = posts
+                .filter(p => p.id !== post.id)
+                .slice(0, 4)
+                .map(p => ({
+                  post: { id: p.id, user_id: p.user_id, title: p.title, rate_min: p.rate_min, rate_max: p.rate_max, rate_unit: p.rate_unit },
+                  profile: profiles[p.user_id] || null,
+                  studentProfile: studentProfiles[p.user_id] || null,
+                }));
+              return (
+                <CommunityPostCard
+                  key={post.id}
+                  post={post}
+                  profile={profiles[post.user_id] || null}
+                  studentProfile={studentProfiles[post.user_id] || null}
+                  portfolioPreview={portfolioByUser[post.user_id] || []}
+                  similarPosts={similar}
+                  currentUserId={user?.id || null}
+                  currentUserType={currentUserType}
+                  isLiked={likedPostIds.has(post.id)}
+                  isAdmin={isAdmin}
+                  onLikeToggle={handleLikeToggle}
+                  onDelete={handleDelete}
+                />
+              );
+            })}
           </div>
         )}
       </div>
