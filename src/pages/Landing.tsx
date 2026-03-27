@@ -111,7 +111,7 @@ const Landing = () => {
           <motion.h1
             variants={fadeUp}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.08]"
+            className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.08]"
           >
             Local talent,<br />
             <span className="text-primary">instantly matched.</span>
@@ -484,15 +484,14 @@ const Landing = () => {
                     <Linkedin className="h-3.5 w-3.5" strokeWidth={2} />
                     LinkedIn
                   </a>
-                  <a
-                    href="https://www.linkedin.com/in/manoj07ar/"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => navigate('/auth')}
                     className="flex items-center gap-2 text-foreground/70 hover:text-primary transition-colors"
                   >
                     <CircleUser className="h-3.5 w-3.5" strokeWidth={2} />
                     Contact
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
