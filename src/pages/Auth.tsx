@@ -20,6 +20,7 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [studentNumber, setStudentNumber] = useState('');
   const [userType, setUserType] = useState<'student' | 'business'>('student');
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -127,7 +128,10 @@ const Auth = () => {
       user_type: userType,
     });
     if (userType === 'student') {
-      await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      await supabase.from('student_profiles').upsert(
+        { user_id: userId, student_number: studentNumber.trim() || null },
+        { onConflict: 'user_id' },
+      );
     }
   };
 
@@ -589,6 +593,19 @@ const Auth = () => {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={userType === 'business' ? 'Your name or company' : 'Your name'}
+                  className={inputClass}
+                  disabled={loading}
+                />
+              </div>
+            )}
+            {!isLogin && userType === 'student' && (
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Student number</label>
+                <input
+                  type="text"
+                  value={studentNumber}
+                  onChange={(e) => setStudentNumber(e.target.value)}
+                  placeholder="e.g. G00123456"
                   className={inputClass}
                   disabled={loading}
                 />

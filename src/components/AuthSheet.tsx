@@ -33,6 +33,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [userType, setUserType] = useState<'student' | 'business'>('student');
+  const [studentNumber, setStudentNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otp, setOtp] = useState('');
@@ -151,7 +152,10 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
             { onConflict: 'user_id' },
           );
           if (userType === 'student') {
-            await supabase.from('student_profiles').upsert({ user_id: data.user.id }, { onConflict: 'user_id' });
+            await supabase.from('student_profiles').upsert(
+              { user_id: data.user.id, student_number: studentNumber.trim() || null },
+              { onConflict: 'user_id' },
+            );
           }
         }
 
@@ -553,6 +557,23 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                       autoComplete="email"
                     />
                   </div>
+
+                  {isSignUp && userType === 'student' && (
+                    <div className="space-y-1.5">
+                      <label htmlFor="sheet-student-number" className="text-sm font-medium text-foreground">
+                        Student number
+                      </label>
+                      <input
+                        id="sheet-student-number"
+                        type="text"
+                        value={studentNumber}
+                        onChange={(e) => setStudentNumber(e.target.value)}
+                        disabled={loading}
+                        className={inputClass}
+                        placeholder="e.g. G00123456"
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <label htmlFor="sheet-password" className="text-sm font-medium text-foreground">
