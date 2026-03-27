@@ -208,17 +208,29 @@ export const CommunityPostCard = ({
               </div>
             )}
 
-            {/* Delete button */}
-            {canDelete && (
+            {/* Like + delete — top right */}
+            <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55"
-                aria-label="Delete post"
+                onClick={(e) => { e.stopPropagation(); handleLike(); }}
+                disabled={likeLoading}
+                className={cn('flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-[12px] font-semibold backdrop-blur-sm transition-colors hover:bg-black/55', isLiked ? 'text-red-400' : 'text-white/90')}
+                aria-label={isLiked ? 'Unlike' : 'Like'}
               >
-                <Trash2 size={16} strokeWidth={2} />
+                <Heart size={14} className={isLiked ? 'fill-current' : ''} strokeWidth={2} />
+                {post.likes_count > 0 && <span className="tabular-nums">{post.likes_count}</span>}
               </button>
-            )}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55"
+                  aria-label="Delete post"
+                >
+                  <Trash2 size={16} strokeWidth={2} />
+                </button>
+              )}
+            </div>
 
             {/* Identity row overlaid at bottom of image */}
             <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3 sm:px-5">
@@ -279,19 +291,9 @@ export const CommunityPostCard = ({
               )}
             </div>
 
-            <div className="mt-5 flex flex-col gap-3 border-t border-foreground/10 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3 sm:gap-y-2">
-              <button
-                type="button"
-                onClick={handleLike}
-                disabled={likeLoading}
-                className={cn('inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-medium transition-colors', isLiked ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground hover:text-red-600 dark:hover:text-red-400')}
-                aria-label={isLiked ? 'Unlike' : 'Like'}
-              >
-                <Heart size={18} className={isLiked ? 'fill-current' : ''} strokeWidth={2} />
-                {post.likes_count > 0 ? <span className="tabular-nums">{post.likes_count}</span> : null}
-              </button>
+            <div className="mt-5 border-t border-foreground/10 pt-4">
               {currentUserId !== post.user_id ? (
-                <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                   <Button type="button" variant="outline" size="lg" className="h-12 w-full rounded-xl border-foreground/15 text-[15px] font-semibold sm:h-11 sm:w-auto sm:min-w-[10.5rem]" onClick={() => setFreelancerOpen(true)}>
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
@@ -326,17 +328,29 @@ export const CommunityPostCard = ({
               </div>
             )}
 
-            {/* Delete button — top right */}
-            {canDelete && (
+            {/* Like + delete — top right */}
+            <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55"
-                aria-label="Delete post"
+                onClick={(e) => { e.stopPropagation(); handleLike(); }}
+                disabled={likeLoading}
+                className={cn('flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-[12px] font-semibold backdrop-blur-sm transition-colors hover:bg-black/55', isLiked ? 'text-red-400' : 'text-white/90')}
+                aria-label={isLiked ? 'Unlike' : 'Like'}
               >
-                <Trash2 size={16} strokeWidth={2} />
+                <Heart size={14} className={isLiked ? 'fill-current' : ''} strokeWidth={2} />
+                {post.likes_count > 0 && <span className="tabular-nums">{post.likes_count}</span>}
               </button>
-            )}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55"
+                  aria-label="Delete post"
+                >
+                  <Trash2 size={16} strokeWidth={2} />
+                </button>
+              )}
+            </div>
 
             {/* Identity row pinned to bottom of banner */}
             <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3 sm:px-5">
@@ -395,19 +409,9 @@ export const CommunityPostCard = ({
               )}
             </div>
 
-            <div className="mt-5 flex flex-col gap-3 border-t border-foreground/10 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3 sm:gap-y-2">
-              <button
-                type="button"
-                onClick={handleLike}
-                disabled={likeLoading}
-                className={cn('inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-medium transition-colors', isLiked ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground hover:text-red-600 dark:hover:text-red-400')}
-                aria-label={isLiked ? 'Unlike' : 'Like'}
-              >
-                <Heart size={18} className={isLiked ? 'fill-current' : ''} strokeWidth={2} />
-                {post.likes_count > 0 ? <span className="tabular-nums">{post.likes_count}</span> : null}
-              </button>
+            <div className="mt-5 border-t border-foreground/10 pt-4">
               {currentUserId !== post.user_id ? (
-                <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                   <Button type="button" variant="outline" size="lg" className="h-12 w-full rounded-xl border-foreground/15 text-[15px] font-semibold sm:h-11 sm:w-auto sm:min-w-[10.5rem]" onClick={() => setFreelancerOpen(true)}>
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
