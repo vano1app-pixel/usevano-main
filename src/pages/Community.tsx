@@ -178,7 +178,7 @@ const Community = () => {
       const { data: sprofs } = await supabase
         .from('student_profiles')
         .select(
-          'user_id, skills, hourly_rate, is_available, university, tiktok_url, work_links, student_verified, community_board_status',
+          'user_id, skills, hourly_rate, is_available, university, tiktok_url, work_links, community_board_status',
         )
         .in('user_id', userIds);
       const spMap: Record<string, any> = {};
