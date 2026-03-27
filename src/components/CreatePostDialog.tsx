@@ -122,7 +122,7 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
           rate_min,
           rate_max,
           rate_unit,
-          moderation_status: 'pending',
+          moderation_status: 'approved',
         })
         .select('id')
         .single();
@@ -131,11 +131,11 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
 
       const { data: spRow } = await supabase.from('student_profiles').select('user_id').eq('user_id', userId).maybeSingle();
       if (spRow) {
-        await supabase.from('student_profiles').update({ community_board_status: 'pending' }).eq('user_id', userId);
+        await supabase.from('student_profiles').update({ community_board_status: 'approved' }).eq('user_id', userId);
       } else {
         await supabase.from('student_profiles').insert({
           user_id: userId,
-          community_board_status: 'pending',
+          community_board_status: 'approved',
           work_links: [],
         });
       }
@@ -148,8 +148,8 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
       }
 
       toast({
-        title: 'Submitted for review',
-        description: 'The team will email you when your listing is live on Community.',
+        title: "You're live!",
+        description: 'Your listing is now visible on the Community board.',
       });
       setTitle('');
       setDescription('');
