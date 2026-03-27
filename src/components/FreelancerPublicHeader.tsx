@@ -48,14 +48,15 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
           <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
         ) : (
           <div
-            className="h-full w-full bg-gradient-to-br from-primary/[0.22] via-primary/[0.08] to-muted"
+            className="h-full w-full"
             style={{
-              backgroundImage: `radial-gradient(ellipse 90% 80% at 20% 20%, hsl(var(--primary) / 0.18), transparent 55%),
-                radial-gradient(ellipse 70% 60% at 90% 80%, hsl(var(--primary) / 0.1), transparent 50%)`,
+              background: `linear-gradient(135deg, hsl(var(--primary) / 0.28) 0%, hsl(var(--primary) / 0.08) 50%, hsl(var(--muted)) 100%)`,
+              backgroundImage: `radial-gradient(ellipse 90% 80% at 15% 20%, hsl(var(--primary) / 0.22), transparent 55%),
+                radial-gradient(ellipse 60% 60% at 85% 75%, hsl(262 50% 55% / 0.14), transparent 50%)`,
             }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/15 to-transparent" />
       </div>
 
       <div className="relative z-[1] px-4 pb-5 pt-0 sm:px-6 sm:pb-6">
@@ -65,10 +66,10 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
               <img
                 src={avatarUrl}
                 alt={displayName}
-                className="h-24 w-24 rounded-2xl border-4 border-card object-cover shadow-md ring-1 ring-border/80 sm:h-28 sm:w-28"
+                className="h-24 w-24 rounded-full border-4 border-card object-cover shadow-lg ring-1 ring-border/60 sm:h-28 sm:w-28"
               />
             ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-card bg-primary/12 text-3xl font-bold text-primary shadow-md ring-1 ring-border/80 sm:h-28 sm:w-28 sm:text-4xl">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-card bg-primary/12 text-3xl font-bold text-primary shadow-lg ring-1 ring-border/60 sm:h-28 sm:w-28 sm:text-4xl">
                 {displayName[0]?.toUpperCase() || '?'}
               </div>
             )}
@@ -79,37 +80,45 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
               <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl md:text-3xl">{displayName}</h1>
               {nameAccessory}
               {isAvailable && (
-                <span className="rounded-full bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/20">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/12 px-3 py-1 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   Available
                 </span>
               )}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/90 bg-secondary/40 px-3 py-1 text-xs font-medium text-foreground">
-                <MapPin size={13} className="shrink-0 text-primary" />
+              {/* Location — blue */}
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-400">
+                <MapPin size={14} className="shrink-0 text-blue-500" />
                 {locationLine}
               </span>
+
+              {/* Hourly rate — green */}
               {showHourly && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/90 bg-secondary/40 px-3 py-1 text-xs font-medium text-foreground">
-                  <Clock size={13} className="shrink-0 text-primary" />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  <Clock size={14} className="shrink-0 text-emerald-500" />
                   €{Number(hourlyRate).toLocaleString('en-IE', { maximumFractionDigits: 2 })}/hr
-                  <span className="text-muted-foreground">· hourly</span>
+                  <span className="opacity-60">· hourly</span>
                 </span>
               )}
+
+              {/* Typical project budget — amber */}
               {budgetLabel && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/90 bg-secondary/40 px-3 py-1 text-xs font-medium text-foreground">
-                  <Wallet size={13} className="shrink-0 text-primary" />
-                  <span className="text-muted-foreground">Typical project</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <Wallet size={14} className="shrink-0 text-amber-500" />
+                  <span className="opacity-70">Typical project</span>
                   {budgetLabel}
                 </span>
               )}
+
+              {/* Rating — amber with filled star */}
               {avgRating && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/90 bg-secondary/40 px-3 py-1 text-xs font-medium text-foreground">
-                  <Star size={13} className="shrink-0 fill-amber-400 text-amber-500" />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <Star size={14} className="shrink-0 fill-amber-400 text-amber-400" />
                   {avgRating}
                   {reviewCount != null && reviewCount > 0 && (
-                    <span className="text-muted-foreground">({reviewCount})</span>
+                    <span className="opacity-60">({reviewCount})</span>
                   )}
                 </span>
               )}

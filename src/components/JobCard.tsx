@@ -120,7 +120,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
           <h3 className="text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-foreground/90">
             {job.title}
           </h3>
-          <span className="shrink-0 text-base font-semibold tabular-nums text-foreground sm:text-right">
+          <span className="shrink-0 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400 sm:text-right">
             {rateLabel}
           </span>
         </div>
