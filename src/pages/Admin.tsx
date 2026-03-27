@@ -28,6 +28,12 @@ interface ProfileRow {
   bio: string | null;
 }
 
+interface StudentDataRow {
+  user_id: string;
+  student_number: string | null;
+  university: string | null;
+}
+
 interface JobRow {
   id: string;
   title: string;
@@ -97,6 +103,10 @@ const Admin = () => {
   // Admin user IDs
   const [adminUserIds, setAdminUserIds] = useState<Set<string>>(new Set());
 
+  // Student data (number + university)
+  const [studentDataMap, setStudentDataMap] = useState<Record<string, StudentDataRow>>({});
+  const [showNoStudentNumber, setShowNoStudentNumber] = useState(false);
+
   // Pagination
   const [page, setPage] = useState(0);
 
@@ -136,7 +146,21 @@ const Admin = () => {
       .select('user_id, display_name, avatar_url, user_type, created_at, bio')
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-    setUsers(data || []);
+    const rows = data || [];
+    setUsers(rows);
+
+    const studentIds = rows.filter((u) => u.user_type === 'student').map((u) => u.user_id);
+    if (studentIds.length > 0) {
+      const { data: spData } = await supabase
+        .from('student_profiles')
+        .select('user_id, student_number, university')
+        .in('user_id', studentIds);
+      const map: Record<string, StudentDataRow> = {};
+      (spData || []).forEach((sp) => { map[sp.user_id] = sp; });
+      setStudentDataMap(map);
+    } else {
+      setStudentDataMap({});
+    }
   }, [page]);
 
   const fetchGigs = useCallback(async () => {
@@ -341,10 +365,16 @@ const Admin = () => {
 
   // ── Filter ──
   const q = search.toLowerCase();
-  const filteredUsers = users.filter((u) =>
-    (u.display_name || '').toLowerCase().includes(q) ||
-    (u.user_type || '').toLowerCase().includes(q)
-  );
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch = (u.display_name || '').toLowerCase().includes(q) || (u.user_type || '').toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+    if (showNoStudentNumber) {
+      if (u.user_type !== 'student') return false;
+      const sp = studentDataMap[u.user_id];
+      if (sp?.student_number?.trim()) return false;
+    }
+    return true;
+  });
   const filteredGigs = gigs.filter((g) =>
     g.title.toLowerCase().includes(q) ||
     g.location.toLowerCase().includes(q) ||
@@ -492,11 +522,30 @@ const Admin = () => {
         {/* ── Users tab ── */}
         {tab === 'users' && (
           <div className="space-y-2">
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setShowNoStudentNumber((v) => !v)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                  showNoStudentNumber
+                    ? 'bg-destructive/10 border-destructive/30 text-destructive'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {showNoStudentNumber ? '✕ Clear filter' : '⚠ No student number'}
+              </button>
+              {showNoStudentNumber && (
+                <span className="text-xs text-muted-foreground">{filteredUsers.length} account{filteredUsers.length !== 1 ? 's' : ''} flagged</span>
+              )}
+            </div>
             {filteredUsers.length === 0 && (
               <p className="text-center text-muted-foreground py-12 text-sm">No users found</p>
             )}
-            {filteredUsers.map((u) => (
-              <div key={u.user_id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+            {filteredUsers.map((u) => {
+              const sp = studentDataMap[u.user_id];
+              const missingStudentNumber = u.user_type === 'student' && !sp?.student_number?.trim();
+              return (
+              <div key={u.user_id} className={`bg-card border rounded-xl p-4 flex items-center gap-4 ${missingStudentNumber ? 'border-destructive/30' : 'border-border'}`}>
                 <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
                   {u.avatar_url ? (
                     <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -514,6 +563,14 @@ const Admin = () => {
                   <p className="text-xs text-muted-foreground">
                     {u.user_type === 'student' ? '🎓 Freelancer' : u.user_type === 'business' ? '🏢 Account' : 'No type'} · Joined {format(new Date(u.created_at), 'MMM d, yyyy')}
                   </p>
+                  {u.user_type === 'student' && (
+                    <p className="text-xs mt-0.5">
+                      {sp?.student_number?.trim()
+                        ? <span className="text-emerald-600">#{sp.student_number}{sp?.university ? ` · ${sp.university}` : ''}</span>
+                        : <span className="text-destructive font-medium">⚠ No student number</span>
+                      }
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -543,7 +600,8 @@ const Admin = () => {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
