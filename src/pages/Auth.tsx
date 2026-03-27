@@ -224,24 +224,24 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) await ensureProfileAfterSignUp(user.id);
 
-      const nextPath = user ? await getPostAuthPath(user.id) : ‘/complete-profile’;
+      const nextPath = user ? await getPostAuthPath(user.id) : '/complete-profile';
       const { data: prof } = user
-        ? await supabase.from(‘profiles’).select(‘user_type’).eq(‘user_id’, user.id).maybeSingle()
+        ? await supabase.from('profiles').select('user_type').eq('user_id', user.id).maybeSingle()
         : { data: null };
-      const isBusiness = prof?.user_type === ‘business’;
+      const isBusiness = prof?.user_type === 'business';
       clearOtpContext();
       toast({
-        title: ‘You’re verified!’,
+        title: "You're verified!",
         description: isBusiness
-          ? ‘Welcome — taking you to your dashboard.’
-          : ‘Next, add your name and photo to finish your profile.’,
+          ? 'Welcome — taking you to your dashboard.'
+          : 'Next, add your name and photo to finish your profile.',
       });
       navigate(nextPath, { replace: true });
     } catch (error: unknown) {
       toast({
-        title: ‘Verification failed’,
+        title: 'Verification failed',
         description: getUserFriendlyError(error),
-        variant: ‘destructive’,
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -293,7 +293,7 @@ const Auth = () => {
       setResetSent(true);
       toast({
         title: 'Email sent',
-        description: 'Open the link in the email to set a new password. Check spam if you don’t see it.',
+        description: "Open the link in the email to set a new password. Check spam if you don't see it.",
       });
     } catch (error: unknown) {
       toast({
@@ -420,7 +420,7 @@ const Auth = () => {
                   password.
                 </>
               ) : (
-                'Enter the email you use for VANO and we’ll send you a secure link.'
+                "Enter the email you use for VANO and we'll send you a secure link."
               )}
             </p>
           </div>

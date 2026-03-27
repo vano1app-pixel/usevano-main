@@ -294,7 +294,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
       setResetSent(true);
       toast({ title: 'Email sent', description: `Check ${email} for a reset link.` });
     } catch (error: unknown) {
-      toast({ title: 'Couldn’t send email', description: getUserFriendlyError(error), variant: 'destructive' });
+      toast({ title: "Couldn't send email", description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -422,7 +422,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
                     {resetSent
                       ? `We sent a link to ${email}`
-                      : 'We’ll email you a link to set a new password.'}
+                      : "We'll email you a link to set a new password."}
                   </p>
                 </div>
 
