@@ -79,7 +79,7 @@ const PostJob = () => {
         return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
       }
     } catch (err) {
-      console.warn('Geocoding failed:', err);
+      if (import.meta.env.DEV) console.warn('Geocoding failed:', err);
     }
     return null;
   };
@@ -90,13 +90,16 @@ const PostJob = () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !isEmailVerified(session)) {
-      toast({ title: 'Please sign in', description: 'Verify your email to post a gig.', variant: 'destructive' });
+      toast({ title: 'Please sign in', description: 'You need to be signed in to post a gig.', variant: 'destructive' });
       setLoading(false);
       navigate('/auth');
       return;
     }
 
     const coords = await geocodeLocation(form.location);
+    if (form.location.trim() && !coords) {
+      toast({ title: 'Location not found', description: 'We could not map that location — the gig will still be posted but won\'t appear on the map.', variant: 'destructive' });
+    }
 
     const { data: jobData, error } = await supabase.from('jobs').insert({
       posted_by: session.user.id,
@@ -179,7 +182,7 @@ const PostJob = () => {
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 className={cn(inputClass, 'min-h-[120px] resize-y')}
-                placeholder="Deliverables, files or access you will provide, and what “done” looks like."
+                placeholder=”What needs to be delivered, any files or assets you will share, and what done looks like.”
               />
             </div>
           </div>

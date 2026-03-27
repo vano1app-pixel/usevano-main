@@ -6,15 +6,19 @@ import { SEOHead } from '@/components/SEOHead';
 import { Search, Plus } from 'lucide-react';
 import { useTopStudents } from '@/hooks/useTopStudents';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { Link, useNavigate } from 'react-router-dom';
 
 const BrowseStudents = () => {
+  const { toast } = useToast();
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [search, setSearch] = useState('');
   const [user, setUser] = useState<any>(null);
   const [favouriteIds, setFavouriteIds] = useState<Set<string>>(new Set());
+  const [togglingFavIds, setTogglingFavIds] = useState<Set<string>>(new Set());
   const { topStudents } = useTopStudents();
 
   useEffect(() => {
@@ -32,21 +36,43 @@ const BrowseStudents = () => {
   };
 
   const fetchStudents = async () => {
-    const { data: studentData } = await supabase.from('student_profiles').select('*').eq('is_available', true);
-    const { data: profileData } = await supabase.from('profiles').select('user_id, display_name');
+    const { data: studentData, error: studentErr } = await supabase.from('student_profiles').select('*').eq('is_available', true);
+    const { data: profileData, error: profileErr } = await supabase.from('profiles').select('user_id, display_name');
+    if (studentErr || profileErr) {
+      setFetchError(true);
+      setLoading(false);
+      return;
+    }
     setStudents(studentData || []);
     setProfiles(profileData || []);
     setLoading(false);
   };
 
   const toggleFavourite = async (studentUserId: string) => {
-    if (!user) return;
-    if (favouriteIds.has(studentUserId)) {
-      await supabase.from('favourite_students').delete().eq('business_user_id', user.id).eq('student_user_id', studentUserId);
-      setFavouriteIds((prev) => { const next = new Set(prev); next.delete(studentUserId); return next; });
-    } else {
-      await supabase.from('favourite_students').insert({ business_user_id: user.id, student_user_id: studentUserId } as any);
-      setFavouriteIds((prev) => new Set(prev).add(studentUserId));
+    if (!user || togglingFavIds.has(studentUserId)) return;
+    setTogglingFavIds((prev) => new Set(prev).add(studentUserId));
+    const wasFav = favouriteIds.has(studentUserId);
+    // optimistic update
+    setFavouriteIds((prev) => {
+      const next = new Set(prev);
+      if (wasFav) next.delete(studentUserId); else next.add(studentUserId);
+      return next;
+    });
+    try {
+      const { error } = wasFav
+        ? await supabase.from('favourite_students').delete().eq('business_user_id', user.id).eq('student_user_id', studentUserId)
+        : await supabase.from('favourite_students').insert({ business_user_id: user.id, student_user_id: studentUserId } as any);
+      if (error) {
+        // rollback
+        setFavouriteIds((prev) => {
+          const next = new Set(prev);
+          if (wasFav) next.add(studentUserId); else next.delete(studentUserId);
+          return next;
+        });
+        toast({ title: 'Could not save', description: 'Please try again.', variant: 'destructive' });
+      }
+    } finally {
+      setTogglingFavIds((prev) => { const next = new Set(prev); next.delete(studentUserId); return next; });
     }
   };
 
@@ -110,9 +136,13 @@ const BrowseStudents = () => {
         </div>
 
         {loading ? (
-          <p className="text-center text-muted-foreground py-12">Loading students...</p>
+          <p className="text-center text-muted-foreground py-12">Loading freelancers...</p>
+        ) : fetchError ? (
+          <p className="text-center text-muted-foreground py-12">Could not load freelancers — please refresh and try again.</p>
         ) : filtered.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12">No students found.</p>
+          <p className="text-center text-muted-foreground py-12">
+            {search ? 'No freelancers match that search.' : 'No freelancers available yet — check back soon.'}
+          </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filtered.map((student) => (

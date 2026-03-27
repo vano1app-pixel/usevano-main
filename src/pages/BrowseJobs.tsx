@@ -6,16 +6,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Search, Map, List, Plus } from 'lucide-react';
 import { JobsMap } from '@/components/JobsMap';
+import { useToast } from '@/hooks/use-toast';
 import { useNavigate, Link } from 'react-router-dom';
 
 const BrowseJobs = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [user, setUser] = useState<any>(null);
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
+  const [togglingJobIds, setTogglingJobIds] = useState<Set<string>>(new Set());
   const [postersByUserId, setPostersByUserId] = useState<Record<string, JobPosterPreview>>({});
 
   useEffect(() => {
@@ -38,8 +42,13 @@ const BrowseJobs = () => {
       .select('*')
       .eq('status', 'open')
       .order('created_at', { ascending: false });
-    if (!error && data?.length) {
-      setJobs(data);
+    if (error) {
+      setFetchError(true);
+      setLoading(false);
+      return;
+    }
+    setJobs(data || []);
+    if (data?.length) {
       const ids = [...new Set(data.map((j: any) => j.posted_by))];
       const { data: profs } = await supabase
         .from('profiles')
@@ -50,21 +59,35 @@ const BrowseJobs = () => {
         map[p.user_id] = { display_name: p.display_name, avatar_url: p.avatar_url };
       });
       setPostersByUserId(map);
-    } else {
-      setJobs(data || []);
-      setPostersByUserId({});
     }
     setLoading(false);
   };
 
-  const toggleSave = async (jobId: string) => {
-    if (!user) return;
-    if (savedJobIds.has(jobId)) {
-      await supabase.from('saved_jobs').delete().eq('user_id', user.id).eq('job_id', jobId);
-      setSavedJobIds((prev) => { const next = new Set(prev); next.delete(jobId); return next; });
-    } else {
-      await supabase.from('saved_jobs').insert({ user_id: user.id, job_id: jobId } as any);
-      setSavedJobIds((prev) => new Set(prev).add(jobId));
+  const toggleSave = async (jobId: string): Promise<void> => {
+    if (!user || togglingJobIds.has(jobId)) return;
+    setTogglingJobIds((prev) => new Set(prev).add(jobId));
+    const wasSaved = savedJobIds.has(jobId);
+    // optimistic update
+    setSavedJobIds((prev) => {
+      const next = new Set(prev);
+      if (wasSaved) next.delete(jobId); else next.add(jobId);
+      return next;
+    });
+    try {
+      const { error } = wasSaved
+        ? await supabase.from('saved_jobs').delete().eq('user_id', user.id).eq('job_id', jobId)
+        : await supabase.from('saved_jobs').insert({ user_id: user.id, job_id: jobId } as any);
+      if (error) {
+        // rollback
+        setSavedJobIds((prev) => {
+          const next = new Set(prev);
+          if (wasSaved) next.add(jobId); else next.delete(jobId);
+          return next;
+        });
+        toast({ title: 'Could not save', description: 'Please try again.', variant: 'destructive' });
+      }
+    } finally {
+      setTogglingJobIds((prev) => { const next = new Set(prev); next.delete(jobId); return next; });
     }
   };
 
@@ -143,9 +166,13 @@ const BrowseJobs = () => {
 
         {/* Results */}
         {loading ? (
-          <p className="text-center text-muted-foreground py-12">Loading jobs...</p>
+          <p className="text-center text-muted-foreground py-12">Loading gigs...</p>
+        ) : fetchError ? (
+          <p className="text-center text-muted-foreground py-12">Could not load gigs — please refresh and try again.</p>
         ) : filtered.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12">No gigs found. Try another search.</p>
+          <p className="text-center text-muted-foreground py-12">
+            {search ? 'No gigs match that search.' : 'No gigs posted yet — check back soon.'}
+          </p>
         ) : viewMode === 'map' ? (
           <JobsMap jobs={filtered} />
         ) : (

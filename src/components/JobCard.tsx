@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Bookmark, BookmarkCheck, Flame } from 'lucide-react';
+import { MapPin, Clock, Bookmark, BookmarkCheck, Flame, Loader2 } from 'lucide-react';
 import { TagBadge } from './TagBadge';
 import { format, differenceInHours, parseISO } from 'date-fns';
 import { formatJobScheduleLine } from '@/lib/jobSchedule';
@@ -32,12 +32,13 @@ interface JobCardProps {
   job: Job;
   poster?: JobPosterPreview | null;
   isSaved?: boolean;
-  onToggleSave?: (jobId: string) => void;
+  onToggleSave?: (jobId: string) => Promise<void>;
   showSave?: boolean;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggleSave, showSave }) => {
   const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
 
   const shiftDate = parseISO(job.shift_date);
   const hoursUntil = differenceInHours(shiftDate, new Date());
@@ -87,11 +88,22 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
         {showSave && onToggleSave && (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleSave(job.id); }}
-            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+            disabled={saving}
+            onClick={async (e) => {
+              e.stopPropagation();
+              setSaving(true);
+              await onToggleSave(job.id);
+              setSaving(false);
+            }}
+            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
             title={isSaved ? 'Remove save' : 'Save gig'}
           >
-            {isSaved ? <BookmarkCheck size={18} className="text-foreground" /> : <Bookmark size={18} />}
+            {saving
+              ? <Loader2 size={18} className="animate-spin" />
+              : isSaved
+                ? <BookmarkCheck size={18} className="text-foreground" />
+                : <Bookmark size={18} />
+            }
           </button>
         )}
       </div>
