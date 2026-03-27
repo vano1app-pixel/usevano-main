@@ -347,9 +347,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         });
         if (fnErr) {
           logSupabaseError('ListOnCommunityWizard: notify-community-listing-request', fnErr);
-          console.warn('Listing notify failed (submission still saved):', fnErr.message);
+          console.warn(
+            '[VANO] Listing notify Edge Function failed (submission still saved).',
+            'Check RESEND_API_KEY (and RESEND_FROM / LISTING_NOTIFY_EMAIL) in Supabase → Edge Functions → notify-community-listing-request secrets.',
+            fnErr.message,
+          );
         } else if (notifyData && typeof notifyData === 'object' && 'emailed' in notifyData && !(notifyData as { emailed?: boolean }).emailed) {
-          console.warn('[VANO] Listing saved but notify did not send email (check RESEND_API_KEY on Edge function).', notifyData);
+          console.warn(
+            '[VANO] Listing saved but email was not sent. Set RESEND_API_KEY (and verify RESEND_FROM) on notify-community-listing-request.',
+            notifyData,
+          );
         }
       }
 

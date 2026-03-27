@@ -9,6 +9,7 @@ import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
+import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
 import { RequireStudentVerifiedForFreelancers } from "@/components/RequireStudentVerifiedForFreelancers";
 import Landing from "./pages/Landing";
 import BrowseJobs from "./pages/BrowseJobs";
@@ -39,6 +40,7 @@ const VerifiedSessionWithStudentCheck = ({ children }: { children: ReactNode }) 
 
 const App = () => (
   <TooltipProvider>
+    <RedirectToAccountTypeIfNeeded />
     <Toaster />
     <Sonner />
     <Routes>

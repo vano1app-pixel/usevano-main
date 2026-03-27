@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { AuthSheet } from './AuthSheet';
 import { NotificationBell } from './NotificationBell';
-import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { isAdminOwnerEmail } from '@/lib/adminOwner';
 import logo from '@/assets/logo.png';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { NewFeatureBadge } from '@/components/NewFeatureBadge';
@@ -19,7 +19,7 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
-  const isAdmin = useIsAdmin(user?.id);
+  const showAdminLink = isAdminOwnerEmail(user?.email);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -104,7 +104,7 @@ export const Navbar: React.FC = () => {
                 {item.label}
               </Link>
             ))}
-            {user && isAdmin && (
+            {user && showAdminLink && (
               <Link
                 to="/admin"
                 className="px-4 py-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors rounded-lg hover:bg-destructive/5"
@@ -167,7 +167,7 @@ export const Navbar: React.FC = () => {
                 {item.label}
               </Link>
             ))}
-            {user && isAdmin && (
+            {user && showAdminLink && (
               <Link
                 to="/admin"
                 onClick={() => setIsMobileMenuOpen(false)}

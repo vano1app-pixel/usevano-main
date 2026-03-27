@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, GraduationCap, Trash2 } from 'lucide-react';
+import { Briefcase, Trash2 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
@@ -41,7 +41,6 @@ const Profile = () => {
   const [university, setUniversity] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [paymentDetails, setPaymentDetails] = useState('');
-  const [choosingType, setChoosingType] = useState(false);
   const [myGigs, setMyGigs] = useState<any[]>([]);
   const [deletingGig, setDeletingGig] = useState<string | null>(null);
   const [tiktokUrl, setTiktokUrl] = useState('');
@@ -90,9 +89,8 @@ const Profile = () => {
     setDisplayName(prof?.display_name || '');
     setAvatarUrl(prof?.avatar_url || '');
 
-    // If no user_type set, show type chooser
     if (!prof?.user_type) {
-      setChoosingType(true);
+      navigate('/choose-account-type', { replace: true });
       setLoading(false);
       return;
     }
@@ -149,23 +147,6 @@ const Profile = () => {
       setPendingListingRequest((pendingCount ?? 0) > 0);
     }
     setLoading(false);
-  };
-
-  const selectUserType = async (type: 'student' | 'business') => {
-    await supabase.from('profiles').update({ user_type: type }).eq('user_id', user.id);
-    setProfile((prev: any) => ({ ...prev, user_type: type }));
-    setChoosingType(false);
-
-    if (type === 'student') {
-      const { data: sp } = await supabase.from('student_profiles').select('*').eq('user_id', user.id).maybeSingle();
-      if (!sp) {
-        await supabase.from('student_profiles').insert({ user_id: user.id });
-        const { data: newSp } = await supabase.from('student_profiles').select('*').eq('user_id', user.id).maybeSingle();
-        setStudentProfile(newSp);
-      } else {
-        setStudentProfile(sp);
-      }
-    }
   };
 
   const handleSave = async () => {
@@ -234,42 +215,6 @@ const Profile = () => {
   );
 
   const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
-
-  // User type selection screen
-  if (choosingType) {
-    return (
-      <div className="min-h-screen bg-background pb-16 md:pb-0">
-        <SEOHead title="Choose Account Type – VANO" description="Select your account type on VANO." />
-        <Navbar />
-        <div className="max-w-lg mx-auto px-4 pt-24 pb-16">
-          <h1 className="text-2xl font-bold mb-2 text-center">Welcome to VANO</h1>
-          <p className="text-muted-foreground text-center mb-8">How will you use VANO?</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              onClick={() => selectUserType('student')}
-              className="bg-card border-2 border-border rounded-2xl p-6 text-center hover:border-primary transition-colors group"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
-                <GraduationCap className="text-primary" size={28} />
-              </div>
-              <h3 className="font-semibold text-lg mb-1">Freelancer</h3>
-              <p className="text-sm text-muted-foreground">Find gigs, build your portfolio, and get hired</p>
-            </button>
-            <button
-              onClick={() => selectUserType('business')}
-              className="bg-card border-2 border-border rounded-2xl p-6 text-center hover:border-primary transition-colors group"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
-                <Briefcase className="text-primary" size={28} />
-              </div>
-              <h3 className="font-semibold text-lg mb-1">Account</h3>
-              <p className="text-sm text-muted-foreground">Hire freelancers — add location and details when you post each gig</p>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">

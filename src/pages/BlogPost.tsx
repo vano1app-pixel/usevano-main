@@ -215,7 +215,7 @@ const BlogPost = () => {
           className="mt-12 bg-card border border-border rounded-2xl p-6"
         >
           <h2 className="text-lg font-bold text-foreground mb-2">Share your feedback</h2>
-          <p className="text-sm text-muted-foreground mb-4">Let us know what you think about VANO v1.0 — we read every message.</p>
+          <p className="text-sm text-muted-foreground mb-4">Let us know what you think about VANO v1.5 — we read every message.</p>
           <form
             onSubmit={async (e) => {
               e.preventDefault();

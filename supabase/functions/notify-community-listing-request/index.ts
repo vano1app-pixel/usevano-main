@@ -256,11 +256,14 @@ serve(async (req) => {
       } else {
         const errText = await res.text();
         emailError = `Resend ${res.status}: ${errText}`;
-        console.error("notify-community-listing-request:", emailError);
+        console.warn(
+          "[VANO] RESEND_API_KEY is set but Resend rejected the listing notify email — check RESEND_FROM domain verification and API key.",
+          emailError,
+        );
       }
     } else {
       console.warn(
-        "notify-community-listing-request: RESEND_API_KEY not set; email skipped. Set RESEND_API_KEY + LISTING_NOTIFY_EMAIL (e.g. vano1app@gmail.com) on the function. Payload preview logged above.",
+        "[VANO] RESEND_API_KEY is missing — listing notify email was skipped. Set RESEND_API_KEY + LISTING_NOTIFY_EMAIL in Supabase → Edge Functions → notify-community-listing-request secrets.",
       );
     }
 
