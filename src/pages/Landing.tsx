@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
@@ -19,12 +19,17 @@ import {
   Megaphone,
   Linkedin,
   CircleUser,
+  Clapperboard,
+  Globe,
+  Share2,
+  PlusCircle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
+import { RequestFeatureModal } from '@/components/RequestFeatureModal';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -46,6 +51,7 @@ const Landing = () => {
   const howRef = React.useRef<HTMLElement>(null);
   const oauthHandledRef = useRef(false);
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   const scrollToHow = () => {
     howRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -80,9 +86,9 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="VANO – Connect Galway Businesses with Students"
-        description="We connect Galway businesses with freelancers for local gigs. Simple, fast, local."
-        keywords="galway, freelance, gigs, jobs, web design, marketing, odd jobs, local"
+        title="VANO – Hire Student Freelancers in Galway"
+        description="VANO connects Galway businesses with student freelancers for websites, video, social media and more. Post a gig, browse portfolios, chat and hire — all in one place."
+        keywords="galway freelancers, student jobs galway, hire students galway, web design galway, videographer galway, social media galway, local freelance, gigs galway"
       />
       <Navbar />
 
@@ -337,8 +343,78 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* FAQ */}
+      {/* Community Boards */}
       <section className="py-16 md:py-24 px-4 md:px-8 bg-muted/25">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-80px" }}
+            variants={staggerContainer}
+            className="text-center mb-10"
+          >
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-semibold text-primary uppercase tracking-[0.2em] mb-3">
+              Community boards
+            </motion.p>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="font-serif text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-3">
+              Browse freelancers by skill
+            </motion.h2>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Each board is moderated — only verified students with approved profiles appear. More categories coming soon.
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-60px" }}
+            variants={staggerContainer}
+          >
+            {[
+              { icon: Globe, label: 'Websites', desc: 'Design, build, landing pages, and web fixes.', color: 'text-sky-600', bg: 'bg-sky-500/10' },
+              { icon: Share2, label: 'Social Media', desc: 'Content, strategy, community management, and growth.', color: 'text-pink-600', bg: 'bg-pink-500/10' },
+              { icon: Clapperboard, label: 'Videographer', desc: 'Filming, editing, reels, events, and production.', color: 'text-violet-600', bg: 'bg-violet-500/10' },
+            ].map((board, i) => (
+              <motion.button
+                key={board.label}
+                type="button"
+                onClick={() => navigate('/community')}
+                variants={fadeUp}
+                transition={{ duration: 0.45, delay: i * 0.08 }}
+                className="text-left bg-card border border-border rounded-2xl p-5 hover:border-primary/25 hover:shadow-md transition-all group"
+              >
+                <div className={`w-10 h-10 rounded-xl ${board.bg} flex items-center justify-center mb-4`}>
+                  <board.icon className={board.color} size={20} />
+                </div>
+                <h3 className="text-sm font-semibold mb-1 text-foreground">{board.label}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{board.desc}</p>
+              </motion.button>
+            ))}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="flex justify-center"
+          >
+            <button
+              type="button"
+              onClick={() => setSuggestOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+            >
+              <PlusCircle size={15} />
+              Don't see your skill? Suggest a new category
+            </button>
+          </motion.div>
+        </div>
+        <RequestFeatureModal open={suggestOpen} onOpenChange={setSuggestOpen} />
+      </section>
+
+      {/* FAQ */}
+      <section className="py-16 md:py-24 px-4 md:px-8 bg-background">
         <div className="max-w-2xl mx-auto">
           <motion.div
             initial="hidden"
