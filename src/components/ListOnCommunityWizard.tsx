@@ -66,7 +66,7 @@ interface ListOnCommunityWizardProps {
   onOpenChange: (open: boolean) => void;
   userId: string;
   initial: ListOnCommunityInitial;
-  /** Called after the listing is submitted for mod review (not live until approved). */
+  /** Called after the listing goes live. */
   onSubmittedForReview: (category: CommunityCategoryId) => void;
 }
 

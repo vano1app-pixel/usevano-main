@@ -235,7 +235,7 @@ const Profile = () => {
                     Get listed on the talent board
                   </h2>
                   <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                    Freelancers only — complete the steps, then we review and publish your card.
+                    Fill in a few details and your listing goes live straight away.
                   </p>
                 </div>
                 <Button
