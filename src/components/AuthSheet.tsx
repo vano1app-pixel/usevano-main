@@ -5,11 +5,6 @@ import { X, ShieldCheck, GraduationCap, Building2, Loader2 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import {
-  isStudentEmail,
-  STUDENT_EMAIL_HINT,
-  FREELANCER_STUDENT_EMAIL_ERROR,
-} from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
 import {
   clearGoogleOAuthIntent,
@@ -134,16 +129,6 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     try {
       clearGoogleOAuthIntent();
       if (isSignUp) {
-        if (userType === 'student' && !isStudentEmail(email)) {
-          toast({
-            title: 'Student email required',
-            description: `${FREELANCER_STUDENT_EMAIL_ERROR} ${STUDENT_EMAIL_HINT}`,
-            variant: 'destructive',
-          });
-          setLoading(false);
-          return;
-        }
-
         const signUpResult = await supabase.auth.signUp({
           email,
           password,
@@ -214,8 +199,8 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doVerifyOtp = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       const { error: verifyErr } = await verifySignupOrEmailOtp(supabase, {
@@ -262,6 +247,18 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    void doVerifyOtp();
+  };
+
+  useEffect(() => {
+    if (pendingVerification && otp.length === 6 && !loading) {
+      void doVerifyOtp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
 
   const handleResendSignupCode = async () => {
     if (!email.trim()) return;
@@ -552,12 +549,9 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                       required
                       disabled={loading}
                       className={inputClass}
-                      placeholder={isSignUp && userType === 'student' ? 'you@university.ie' : 'you@example.com'}
+                      placeholder="you@example.com"
                       autoComplete="email"
                     />
-                    {isSignUp && userType === 'student' && (
-                      <p className="text-xs text-muted-foreground leading-relaxed">{STUDENT_EMAIL_HINT}</p>
-                    )}
                   </div>
 
                   <div className="space-y-1.5">

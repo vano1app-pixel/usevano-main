@@ -6,11 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
 import { Briefcase, GraduationCap, ShieldCheck, ArrowLeft, Loader2 } from 'lucide-react';
-import {
-  isStudentEmail,
-  STUDENT_EMAIL_HINT,
-  FREELANCER_STUDENT_EMAIL_ERROR,
-} from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
 import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
@@ -172,15 +167,6 @@ const Auth = () => {
         toast({ title: 'Welcome back!', description: 'Signed in successfully.' });
         await redirectIfAlreadySignedIn();
       } else {
-        if (userType === 'student' && !isStudentEmail(email)) {
-          toast({
-            title: 'Student email required',
-            description: FREELANCER_STUDENT_EMAIL_ERROR + ' ' + STUDENT_EMAIL_HINT,
-            variant: 'destructive',
-          });
-          setLoading(false);
-          return;
-        }
         const signUpResult = await supabase.auth.signUp({
           email,
           password,
@@ -217,10 +203,9 @@ const Auth = () => {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doVerifyOtp = async () => {
+    if (loading) return;
     setLoading(true);
-
     try {
       const { error: verifyErr } = await verifySignupOrEmailOtp(supabase, {
         email: email.trim(),
@@ -234,29 +219,41 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) await ensureProfileAfterSignUp(user.id);
 
-      const nextPath = user ? await getPostAuthPath(user.id) : '/complete-profile';
+      const nextPath = user ? await getPostAuthPath(user.id) : ‘/complete-profile’;
       const { data: prof } = user
-        ? await supabase.from('profiles').select('user_type').eq('user_id', user.id).maybeSingle()
+        ? await supabase.from(‘profiles’).select(‘user_type’).eq(‘user_id’, user.id).maybeSingle()
         : { data: null };
-      const isBusiness = prof?.user_type === 'business';
+      const isBusiness = prof?.user_type === ‘business’;
       clearOtpContext();
       toast({
-        title: 'You’re verified!',
+        title: ‘You’re verified!’,
         description: isBusiness
-          ? 'Welcome — taking you to your dashboard.'
-          : 'Next, add your name and photo to finish your profile.',
+          ? ‘Welcome — taking you to your dashboard.’
+          : ‘Next, add your name and photo to finish your profile.’,
       });
       navigate(nextPath, { replace: true });
     } catch (error: unknown) {
       toast({
-        title: 'Verification failed',
+        title: ‘Verification failed’,
         description: getUserFriendlyError(error),
-        variant: 'destructive',
+        variant: ‘destructive’,
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    void doVerifyOtp();
+  };
+
+  useEffect(() => {
+    if (pendingVerification && otp.length === 6 && !loading) {
+      void doVerifyOtp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
 
   const handleResendSignupCode = async () => {
     if (!email.trim()) return;
@@ -595,9 +592,6 @@ const Auth = () => {
                   className={inputClass}
                   disabled={loading}
                 />
-                {userType === 'student' && (
-                  <p className="text-xs text-muted-foreground mt-1.5">{STUDENT_EMAIL_HINT}</p>
-                )}
               </div>
             )}
 
@@ -610,7 +604,7 @@ const Auth = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                placeholder={!isLogin && userType === 'student' ? 'you@university.ie' : 'you@example.com'}
+                placeholder="you@example.com"
                 className={inputClass}
                 disabled={loading}
               />
