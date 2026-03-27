@@ -24,6 +24,21 @@ const UNI_COLORS: Record<string, string> = {
   MU: '#CC0000',
 };
 
+const UNI_LABELS: Record<string, string> = {
+  ATU: 'ATU',
+  UGalway: 'University of Galway',
+  UCD: 'UCD',
+  TCD: 'Trinity',
+  DCU: 'DCU',
+  UCC: 'UCC',
+  UL: 'UL',
+  TUDublin: 'TU Dublin',
+  SETU: 'SETU',
+  MTU: 'MTU',
+  MU: 'Maynooth',
+  Other: 'Other',
+};
+
 interface PostProfile {
   display_name: string | null;
   avatar_url: string | null;
@@ -266,7 +281,7 @@ export const CommunityPostCard = ({
                   {studentProfile?.university ? (
                     <>
                       <span className="mx-1.5 text-foreground/25">·</span>
-                      <span className="truncate">{studentProfile.university}</span>
+                      <span className="truncate">{UNI_LABELS[studentProfile.university] ?? studentProfile.university}</span>
                     </>
                   ) : null}
                 </p>

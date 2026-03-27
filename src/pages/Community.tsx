@@ -207,8 +207,7 @@ const Community = () => {
         const prof = profileMap[p.user_id];
         if (!prof || prof.user_type !== 'student') return true;
         const sp = spMap[p.user_id];
-        if (!sp?.student_verified) return false;
-        if (sp.community_board_status === 'rejected') return false;
+        if (sp?.community_board_status === 'rejected') return false;
         return true;
       });
       setPosts(visiblePosts);
