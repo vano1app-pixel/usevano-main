@@ -7,7 +7,7 @@ import { ReviewForm } from '@/components/ReviewForm';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, PenLine, Loader2 } from 'lucide-react';
+import { MapPin, Clock, ArrowLeft, MessageCircle, Flame } from 'lucide-react';
 import { formatJobScheduleDetail } from '@/lib/jobSchedule';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,7 +23,7 @@ const JobDetail = () => {
   const [user, setUser] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hasReviewed, setHasReviewed] = useState(false);
-  const [generatingCover, setGeneratingCover] = useState(false);
+
   const [poster, setPoster] = useState<{ display_name: string | null; avatar_url: string | null } | null>(null);
 
   useEffect(() => {
@@ -216,31 +216,8 @@ const JobDetail = () => {
             </div>
           ) : user?.id !== job.posted_by ? (
             <div className="border-t border-border pt-6">
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 <h2 className="text-base font-semibold">Apply for this gig</h2>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setGeneratingCover(true);
-                    try {
-                      const { data: sp } = await supabase.from('student_profiles').select('bio, skills').eq('user_id', user.id).maybeSingle();
-                      const { data, error } = await supabase.functions.invoke('ai-cover-letter', {
-                        body: { jobTitle: job.title, jobDescription: job.description, jobTags: job.tags, studentSkills: sp?.skills, studentBio: sp?.bio },
-                      });
-                      if (error) throw error;
-                      if (data?.message) setMessage(data.message);
-                    } catch (err: any) {
-                      toast({ title: 'Error', description: err?.message || 'Failed to generate', variant: 'destructive' });
-                    } finally {
-                      setGeneratingCover(false);
-                    }
-                  }}
-                  disabled={generatingCover}
-                  className="text-xs font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-50"
-                >
-                  {generatingCover ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />}
-                  {generatingCover ? 'Writing…' : 'Draft message'}
-                </button>
               </div>
               <textarea
                 value={message}
