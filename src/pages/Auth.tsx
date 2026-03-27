@@ -6,11 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
 import { Briefcase, GraduationCap, ShieldCheck, ArrowLeft, Loader2 } from 'lucide-react';
-import {
-  isStudentEmail,
-  STUDENT_EMAIL_HINT,
-  FREELANCER_STUDENT_EMAIL_ERROR,
-} from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
 import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
@@ -25,6 +20,8 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [studentNumber, setStudentNumber] = useState('');
+  const [university, setUniversity] = useState('');
   const [userType, setUserType] = useState<'student' | 'business'>('student');
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -132,7 +129,10 @@ const Auth = () => {
       user_type: userType,
     });
     if (userType === 'student') {
-      await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      await supabase.from('student_profiles').upsert(
+        { user_id: userId, student_number: studentNumber.trim() || null, university: university || null },
+        { onConflict: 'user_id' },
+      );
     }
   };
 
@@ -172,15 +172,6 @@ const Auth = () => {
         toast({ title: 'Welcome back!', description: 'Signed in successfully.' });
         await redirectIfAlreadySignedIn();
       } else {
-        if (userType === 'student' && !isStudentEmail(email)) {
-          toast({
-            title: 'Student email required',
-            description: FREELANCER_STUDENT_EMAIL_ERROR + ' ' + STUDENT_EMAIL_HINT,
-            variant: 'destructive',
-          });
-          setLoading(false);
-          return;
-        }
         const signUpResult = await supabase.auth.signUp({
           email,
           password,
@@ -217,10 +208,9 @@ const Auth = () => {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doVerifyOtp = async () => {
+    if (loading) return;
     setLoading(true);
-
     try {
       const { error: verifyErr } = await verifySignupOrEmailOtp(supabase, {
         email: email.trim(),
@@ -234,29 +224,41 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) await ensureProfileAfterSignUp(user.id);
 
-      const nextPath = user ? await getPostAuthPath(user.id) : '/complete-profile';
+      const nextPath = user ? await getPostAuthPath(user.id) : ‘/complete-profile’;
       const { data: prof } = user
-        ? await supabase.from('profiles').select('user_type').eq('user_id', user.id).maybeSingle()
+        ? await supabase.from(‘profiles’).select(‘user_type’).eq(‘user_id’, user.id).maybeSingle()
         : { data: null };
-      const isBusiness = prof?.user_type === 'business';
+      const isBusiness = prof?.user_type === ‘business’;
       clearOtpContext();
       toast({
-        title: 'You’re verified!',
+        title: ‘You’re verified!’,
         description: isBusiness
-          ? 'Welcome — taking you to your dashboard.'
-          : 'Next, add your name and photo to finish your profile.',
+          ? ‘Welcome — taking you to your dashboard.’
+          : ‘Next, add your name and photo to finish your profile.’,
       });
       navigate(nextPath, { replace: true });
     } catch (error: unknown) {
       toast({
-        title: 'Verification failed',
+        title: ‘Verification failed’,
         description: getUserFriendlyError(error),
-        variant: 'destructive',
+        variant: ‘destructive’,
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    void doVerifyOtp();
+  };
+
+  useEffect(() => {
+    if (pendingVerification && otp.length === 6 && !loading) {
+      void doVerifyOtp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
 
   const handleResendSignupCode = async () => {
     if (!email.trim()) return;
@@ -595,10 +597,45 @@ const Auth = () => {
                   className={inputClass}
                   disabled={loading}
                 />
-                {userType === 'student' && (
-                  <p className="text-xs text-muted-foreground mt-1.5">{STUDENT_EMAIL_HINT}</p>
-                )}
               </div>
+            )}
+            {!isLogin && userType === 'student' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Student number <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={studentNumber}
+                    onChange={(e) => setStudentNumber(e.target.value)}
+                    placeholder="e.g. G00123456"
+                    className={inputClass}
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">University <span className="text-muted-foreground font-normal">(optional — unlocks your uni colour on your profile)</span></label>
+                  <select
+                    value={university}
+                    onChange={(e) => setUniversity(e.target.value)}
+                    className={inputClass}
+                    disabled={loading}
+                  >
+                    <option value="">Select your university…</option>
+                    <option value="ATU">ATU – Atlantic Technological University</option>
+                    <option value="UGalway">University of Galway</option>
+                    <option value="UCD">UCD – University College Dublin</option>
+                    <option value="TCD">Trinity College Dublin</option>
+                    <option value="DCU">DCU – Dublin City University</option>
+                    <option value="UCC">UCC – University College Cork</option>
+                    <option value="UL">UL – University of Limerick</option>
+                    <option value="TUDublin">TU Dublin</option>
+                    <option value="SETU">SETU – South East Technological University</option>
+                    <option value="MTU">MTU – Munster Technological University</option>
+                    <option value="MU">Maynooth University</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </>
             )}
 
             <div>
@@ -610,7 +647,7 @@ const Auth = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                placeholder={!isLogin && userType === 'student' ? 'you@university.ie' : 'you@example.com'}
+                placeholder="you@example.com"
                 className={inputClass}
                 disabled={loading}
               />

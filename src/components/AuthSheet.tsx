@@ -5,11 +5,6 @@ import { X, ShieldCheck, GraduationCap, Building2, Loader2 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import {
-  isStudentEmail,
-  STUDENT_EMAIL_HINT,
-  FREELANCER_STUDENT_EMAIL_ERROR,
-} from '@/lib/studentEmailValidator';
 import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
 import {
   clearGoogleOAuthIntent,
@@ -38,6 +33,8 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [userType, setUserType] = useState<'student' | 'business'>('student');
+  const [studentNumber, setStudentNumber] = useState('');
+  const [university, setUniversity] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otp, setOtp] = useState('');
@@ -134,16 +131,6 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     try {
       clearGoogleOAuthIntent();
       if (isSignUp) {
-        if (userType === 'student' && !isStudentEmail(email)) {
-          toast({
-            title: 'Student email required',
-            description: `${FREELANCER_STUDENT_EMAIL_ERROR} ${STUDENT_EMAIL_HINT}`,
-            variant: 'destructive',
-          });
-          setLoading(false);
-          return;
-        }
-
         const signUpResult = await supabase.auth.signUp({
           email,
           password,
@@ -166,7 +153,10 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
             { onConflict: 'user_id' },
           );
           if (userType === 'student') {
-            await supabase.from('student_profiles').upsert({ user_id: data.user.id }, { onConflict: 'user_id' });
+            await supabase.from('student_profiles').upsert(
+              { user_id: data.user.id, student_number: studentNumber.trim() || null, university: university || null },
+              { onConflict: 'user_id' },
+            );
           }
         }
 
@@ -214,8 +204,8 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doVerifyOtp = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       const { error: verifyErr } = await verifySignupOrEmailOtp(supabase, {
@@ -262,6 +252,18 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    void doVerifyOtp();
+  };
+
+  useEffect(() => {
+    if (pendingVerification && otp.length === 6 && !loading) {
+      void doVerifyOtp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
 
   const handleResendSignupCode = async () => {
     if (!email.trim()) return;
@@ -552,13 +554,55 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                       required
                       disabled={loading}
                       className={inputClass}
-                      placeholder={isSignUp && userType === 'student' ? 'you@university.ie' : 'you@example.com'}
+                      placeholder="you@example.com"
                       autoComplete="email"
                     />
-                    {isSignUp && userType === 'student' && (
-                      <p className="text-xs text-muted-foreground leading-relaxed">{STUDENT_EMAIL_HINT}</p>
-                    )}
                   </div>
+
+                  {isSignUp && userType === 'student' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label htmlFor="sheet-student-number" className="text-sm font-medium text-foreground">
+                          Student number <span className="text-muted-foreground font-normal">(optional)</span>
+                        </label>
+                        <input
+                          id="sheet-student-number"
+                          type="text"
+                          value={studentNumber}
+                          onChange={(e) => setStudentNumber(e.target.value)}
+                          disabled={loading}
+                          className={inputClass}
+                          placeholder="e.g. G00123456"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="sheet-university" className="text-sm font-medium text-foreground">
+                          University <span className="text-muted-foreground font-normal">(optional — unlocks your uni colour on your profile)</span>
+                        </label>
+                        <select
+                          id="sheet-university"
+                          value={university}
+                          onChange={(e) => setUniversity(e.target.value)}
+                          disabled={loading}
+                          className={inputClass}
+                        >
+                          <option value="">Select your university…</option>
+                          <option value="ATU">ATU – Atlantic Technological University</option>
+                          <option value="UGalway">University of Galway</option>
+                          <option value="UCD">UCD – University College Dublin</option>
+                          <option value="TCD">Trinity College Dublin</option>
+                          <option value="DCU">DCU – Dublin City University</option>
+                          <option value="UCC">UCC – University College Cork</option>
+                          <option value="UL">UL – University of Limerick</option>
+                          <option value="TUDublin">TU Dublin</option>
+                          <option value="SETU">SETU – South East Technological University</option>
+                          <option value="MTU">MTU – Munster Technological University</option>
+                          <option value="MU">Maynooth University</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-1.5">
                     <label htmlFor="sheet-password" className="text-sm font-medium text-foreground">
