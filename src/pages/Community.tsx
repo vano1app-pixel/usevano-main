@@ -16,6 +16,122 @@ import {
 import { cn } from '@/lib/utils';
 import { ensureAutoStudentVerificationFromEmail } from '@/lib/studentVerification';
 
+const ATU_AVATAR = 'https://ui-avatars.com/api/?background=F47920&color=fff&bold=true&size=256';
+
+const DEMO_POSTS: Record<CommunityCategoryId, {
+  post: { id: string; user_id: string; title: string; description: string; image_url: null; likes_count: number; created_at: string; rate_min: number; rate_max: number; rate_unit: string };
+  profile: { display_name: string; avatar_url: string; user_type: string };
+  studentProfile: { skills: string[]; hourly_rate: number; is_available: boolean; university: string; tiktok_url: string; work_links: { url: string; label: string }[] };
+  portfolioPreview: { id: string; image_url: null; title: string }[];
+}> = {
+  videographer: {
+    post: {
+      id: 'demo-video',
+      user_id: 'demo-video-user',
+      title: 'Wedding, event & reel filming — Galway & surrounding areas',
+      description: `Hi, I'm Cian — a final-year media production student at ATU Galway. I film and edit weddings, corporate events, promo videos, and short-form reels.\n\nI use a Sony A7IV with prime lenses and a DJI Mini 4 Pro drone. Turnaround is 5–7 days for full edits. Happy to travel within Connacht.\n\nDrop me a message and I'll send over my full showreel.`,
+      image_url: null,
+      likes_count: 14,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
+      rate_min: 120,
+      rate_max: 350,
+      rate_unit: 'day',
+    },
+    profile: {
+      display_name: 'Cian Murphy',
+      avatar_url: `${ATU_AVATAR}&name=CM`,
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['Video Editing', 'Drone Filming', 'Wedding Films', 'Event Coverage', 'Reels', 'Premiere Pro', 'DaVinci Resolve', 'Colour Grading'],
+      hourly_rate: 35,
+      is_available: true,
+      university: 'ATU',
+      tiktok_url: 'https://www.tiktok.com/@cianmurphy.film',
+      work_links: [
+        { url: 'https://cianmurphy.ie', label: 'Portfolio site' },
+        { url: 'https://instagram.com/cianmurphy.film', label: 'Instagram' },
+        { url: 'https://vimeo.com/cianmurphy', label: 'Vimeo showreel' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'p1', image_url: null, title: 'Galway wedding highlight reel' },
+      { id: 'p2', image_url: null, title: 'ATU Grad Ball 2025' },
+      { id: 'p3', image_url: null, title: 'Promo video — local café' },
+    ],
+  },
+  websites: {
+    post: {
+      id: 'demo-web',
+      user_id: 'demo-web-user',
+      title: 'Custom websites & landing pages — fast, mobile-first builds',
+      description: `Hey, I'm Aoife — a software development student at ATU. I build clean, fast websites for small businesses, freelancers, and startups.\n\nI work in React / Next.js and can handle everything from a simple landing page to a full e-commerce store. I also do redesigns if you already have a site that needs freshening up.\n\nFree 30-min consultation before we start. Check out my portfolio below.`,
+      image_url: null,
+      likes_count: 22,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
+      rate_min: 300,
+      rate_max: 1200,
+      rate_unit: 'project',
+    },
+    profile: {
+      display_name: 'Aoife Walsh',
+      avatar_url: `${ATU_AVATAR}&name=AW`,
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['React', 'Next.js', 'Tailwind CSS', 'Figma', 'TypeScript', 'SEO', 'Shopify', 'UI/UX Design'],
+      hourly_rate: 40,
+      is_available: true,
+      university: 'ATU',
+      tiktok_url: null,
+      work_links: [
+        { url: 'https://aoifewalsh.dev', label: 'Portfolio' },
+        { url: 'https://github.com/aoifewalsh', label: 'GitHub' },
+        { url: 'https://dribbble.com/aoifewalsh', label: 'Dribbble designs' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'p4', image_url: null, title: 'Restaurant booking site' },
+      { id: 'p5', image_url: null, title: 'Fitness coach landing page' },
+      { id: 'p6', image_url: null, title: 'E-commerce — Galway gift shop' },
+    ],
+  },
+  social_media: {
+    post: {
+      id: 'demo-social',
+      user_id: 'demo-social-user',
+      title: 'Social media management & content creation — Instagram, TikTok & LinkedIn',
+      description: `I'm Darragh — a marketing student at ATU with 2 years running social accounts for local businesses. I handle content planning, shooting, editing, posting, and monthly analytics reports.\n\nI can manage Instagram, TikTok, or LinkedIn — or all three. Packages start from a set number of posts per week. I also do one-off content days if you just need a bank of content shot and edited.\n\nCheck my own pages to see what I produce.`,
+      image_url: null,
+      likes_count: 31,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
+      rate_min: 200,
+      rate_max: 600,
+      rate_unit: 'month',
+    },
+    profile: {
+      display_name: 'Darragh Ryan',
+      avatar_url: `${ATU_AVATAR}&name=DR`,
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['Instagram', 'TikTok', 'Content Strategy', 'Reels Editing', 'Copywriting', 'Analytics', 'CapCut', 'Canva'],
+      hourly_rate: 30,
+      is_available: true,
+      university: 'ATU',
+      tiktok_url: 'https://www.tiktok.com/@darraghryan.social',
+      work_links: [
+        { url: 'https://instagram.com/darraghryan.social', label: 'Instagram' },
+        { url: 'https://linkedin.com/in/darraghryan', label: 'LinkedIn' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'p7', image_url: null, title: 'Galway café — 3× follower growth' },
+      { id: 'p8', image_url: null, title: 'Gym reels package' },
+    ],
+  },
+};
+
 const Community = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -311,13 +427,36 @@ const Community = () => {
             ))}
           </div>
         ) : posts.length === 0 ? (
-          <div className="rounded-2xl border border-foreground/10 bg-card/80 px-6 py-16 text-center shadow-sm backdrop-blur-[2px]">
-            <p className="font-medium text-foreground">Nothing in {boardTitle} yet</p>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              {isStudent
-                ? 'Be the first to list your services in this board.'
-                : 'Check back soon, or browse another board.'}
-            </p>
+          <div className="flex flex-col gap-6 sm:gap-7">
+            <div className="rounded-2xl border border-foreground/10 bg-card/80 px-5 py-4 text-center shadow-sm backdrop-blur-[2px]">
+              <p className="text-sm font-medium text-foreground">No listings here yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isStudent ? 'Be the first — here\'s what a completed profile looks like:' : 'Check back soon. Here\'s an example of what freelancers look like:'}
+              </p>
+            </div>
+            {activeCategory && DEMO_POSTS[activeCategory] && (() => {
+              const demo = DEMO_POSTS[activeCategory];
+              return (
+                <div className="relative">
+                  <div className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary/30 z-10" />
+                  <div className="absolute -top-3 left-4 z-20">
+                    <span className="rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">Example profile</span>
+                  </div>
+                  <CommunityPostCard
+                    post={demo.post}
+                    profile={demo.profile}
+                    studentProfile={demo.studentProfile}
+                    portfolioPreview={demo.portfolioPreview}
+                    currentUserId={null}
+                    currentUserType={null}
+                    isLiked={false}
+                    isAdmin={false}
+                    onLikeToggle={() => {}}
+                    onDelete={() => {}}
+                  />
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="flex flex-col gap-6 sm:gap-7">
