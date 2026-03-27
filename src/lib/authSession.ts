@@ -47,7 +47,7 @@ export async function getPostAuthPath(
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/verify-student' | '/complete-profile' | '/profile'> {
+): Promise<'/choose-account-type' | '/verify-student' | '/complete-profile' | '/profile' | '/dashboard'> {
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.user?.id === userId) {
     await ensureAutoStudentVerificationFromEmail(session);
@@ -70,8 +70,9 @@ export async function getPostGoogleAuthPath(
   }
 
   const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
-  if (!done) return '/complete-profile';
-  return '/profile';
+  if (done) return '/profile';
+  if (profile?.user_type === 'business') return '/dashboard';
+  return '/complete-profile';
 }
 
 /**
