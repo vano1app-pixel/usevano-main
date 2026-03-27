@@ -21,6 +21,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [studentNumber, setStudentNumber] = useState('');
+  const [university, setUniversity] = useState('');
   const [userType, setUserType] = useState<'student' | 'business'>('student');
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -129,7 +130,7 @@ const Auth = () => {
     });
     if (userType === 'student') {
       await supabase.from('student_profiles').upsert(
-        { user_id: userId, student_number: studentNumber.trim() || null },
+        { user_id: userId, student_number: studentNumber.trim() || null, university: university || null },
         { onConflict: 'user_id' },
       );
     }
@@ -599,17 +600,42 @@ const Auth = () => {
               </div>
             )}
             {!isLogin && userType === 'student' && (
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Student number</label>
-                <input
-                  type="text"
-                  value={studentNumber}
-                  onChange={(e) => setStudentNumber(e.target.value)}
-                  placeholder="e.g. G00123456"
-                  className={inputClass}
-                  disabled={loading}
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Student number <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={studentNumber}
+                    onChange={(e) => setStudentNumber(e.target.value)}
+                    placeholder="e.g. G00123456"
+                    className={inputClass}
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">University <span className="text-muted-foreground font-normal">(optional — unlocks your uni colour on your profile)</span></label>
+                  <select
+                    value={university}
+                    onChange={(e) => setUniversity(e.target.value)}
+                    className={inputClass}
+                    disabled={loading}
+                  >
+                    <option value="">Select your university…</option>
+                    <option value="ATU">ATU – Atlantic Technological University</option>
+                    <option value="UGalway">University of Galway</option>
+                    <option value="UCD">UCD – University College Dublin</option>
+                    <option value="TCD">Trinity College Dublin</option>
+                    <option value="DCU">DCU – Dublin City University</option>
+                    <option value="UCC">UCC – University College Cork</option>
+                    <option value="UL">UL – University of Limerick</option>
+                    <option value="TUDublin">TU Dublin</option>
+                    <option value="SETU">SETU – South East Technological University</option>
+                    <option value="MTU">MTU – Munster Technological University</option>
+                    <option value="MU">Maynooth University</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </>
             )}
 
             <div>

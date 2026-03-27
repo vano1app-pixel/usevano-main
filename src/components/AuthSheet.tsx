@@ -34,6 +34,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const [password, setPassword] = useState('');
   const [userType, setUserType] = useState<'student' | 'business'>('student');
   const [studentNumber, setStudentNumber] = useState('');
+  const [university, setUniversity] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otp, setOtp] = useState('');
@@ -153,7 +154,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
           );
           if (userType === 'student') {
             await supabase.from('student_profiles').upsert(
-              { user_id: data.user.id, student_number: studentNumber.trim() || null },
+              { user_id: data.user.id, student_number: studentNumber.trim() || null, university: university || null },
               { onConflict: 'user_id' },
             );
           }
@@ -559,20 +560,48 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   {isSignUp && userType === 'student' && (
-                    <div className="space-y-1.5">
-                      <label htmlFor="sheet-student-number" className="text-sm font-medium text-foreground">
-                        Student number
-                      </label>
-                      <input
-                        id="sheet-student-number"
-                        type="text"
-                        value={studentNumber}
-                        onChange={(e) => setStudentNumber(e.target.value)}
-                        disabled={loading}
-                        className={inputClass}
-                        placeholder="e.g. G00123456"
-                      />
-                    </div>
+                    <>
+                      <div className="space-y-1.5">
+                        <label htmlFor="sheet-student-number" className="text-sm font-medium text-foreground">
+                          Student number <span className="text-muted-foreground font-normal">(optional)</span>
+                        </label>
+                        <input
+                          id="sheet-student-number"
+                          type="text"
+                          value={studentNumber}
+                          onChange={(e) => setStudentNumber(e.target.value)}
+                          disabled={loading}
+                          className={inputClass}
+                          placeholder="e.g. G00123456"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="sheet-university" className="text-sm font-medium text-foreground">
+                          University <span className="text-muted-foreground font-normal">(optional — unlocks your uni colour on your profile)</span>
+                        </label>
+                        <select
+                          id="sheet-university"
+                          value={university}
+                          onChange={(e) => setUniversity(e.target.value)}
+                          disabled={loading}
+                          className={inputClass}
+                        >
+                          <option value="">Select your university…</option>
+                          <option value="ATU">ATU – Atlantic Technological University</option>
+                          <option value="UGalway">University of Galway</option>
+                          <option value="UCD">UCD – University College Dublin</option>
+                          <option value="TCD">Trinity College Dublin</option>
+                          <option value="DCU">DCU – Dublin City University</option>
+                          <option value="UCC">UCC – University College Cork</option>
+                          <option value="UL">UL – University of Limerick</option>
+                          <option value="TUDublin">TU Dublin</option>
+                          <option value="SETU">SETU – South East Technological University</option>
+                          <option value="MTU">MTU – Munster Technological University</option>
+                          <option value="MU">Maynooth University</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </>
                   )}
 
                   <div className="space-y-1.5">

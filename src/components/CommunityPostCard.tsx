@@ -10,6 +10,20 @@ import { formatCommunityBudget } from '@/lib/communityBudget';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { cn } from '@/lib/utils';
 
+const UNI_COLORS: Record<string, string> = {
+  ATU: '#F47920',
+  UGalway: '#6D0026',
+  UCD: '#003B71',
+  TCD: '#006272',
+  DCU: '#CD1927',
+  UCC: '#C8102E',
+  UL: '#003087',
+  TUDublin: '#EA1D24',
+  SETU: '#003478',
+  MTU: '#C8102E',
+  MU: '#CC0000',
+};
+
 interface PostProfile {
   display_name: string | null;
   avatar_url: string | null;
@@ -89,6 +103,7 @@ export const CommunityPostCard = ({
   const avatar = profile?.avatar_url;
   const name = profile?.display_name || 'Freelancer';
   const skills = (studentProfile?.skills || []).filter(Boolean).slice(0, 10);
+  const uniColor = studentProfile?.university ? (UNI_COLORS[studentProfile.university] ?? null) : null;
 
   const budget = formatCommunityBudget(
     post.rate_min,
@@ -212,7 +227,10 @@ export const CommunityPostCard = ({
               className="group/avatar shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card rounded-full"
             >
               <div className="relative -mt-10 sm:-mt-11">
-                <div className="rounded-full bg-card p-1 shadow-md ring-1 ring-foreground/10">
+                <div
+                  className={cn('rounded-full bg-card p-1 shadow-md', !uniColor && 'ring-1 ring-foreground/10')}
+                  style={uniColor ? { boxShadow: `0 0 0 3px ${uniColor}` } : undefined}
+                >
                   {avatar ? (
                     <img
                       src={avatar}
