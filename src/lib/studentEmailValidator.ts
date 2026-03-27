@@ -96,20 +96,12 @@ export const FREELANCER_STUDENT_EMAIL_ERROR =
   'Please use your student email to sign up as a freelancer.';
 
 /**
- * Domains allowed on /verify-student (institutional addresses only; no inbox verification).
+ * Domains allowed on /verify-student — same rules as isStudentEmail so no user is
+ * accepted at sign-up then blocked at verification.
  */
 export function isStrictInstitutionVerificationEmail(email: string): boolean {
-  const domain = email.split('@')[1]?.toLowerCase();
-  if (!domain) return false;
-  // Root domains like atu.ie / lit.ie are valid institutional hosts; subdomains use *.atu.ie etc.
-  return (
-    domain.endsWith('.ac.ie') ||
-    domain === 'atu.ie' ||
-    domain.endsWith('.atu.ie') ||
-    domain === 'lit.ie' ||
-    domain.endsWith('.lit.ie')
-  );
+  return isStudentEmail(email);
 }
 
 export const STRICT_INSTITUTION_EMAIL_HINT =
-  'Must end with .ac.ie, .atu.ie, or .lit.ie (e.g. name@university.ac.ie, name@student.atu.ie).';
+  'Use your college email (e.g. @ucdconnect.ie, @universityofgalway.ie, @student.atu.ie, or any .ac.ie / .ac.uk / .edu address).';
