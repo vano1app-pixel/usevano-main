@@ -182,7 +182,7 @@ const PostJob = () => {
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 className={cn(inputClass, 'min-h-[120px] resize-y')}
-                placeholder=”What needs to be delivered, any files or assets you will share, and what done looks like.”
+                placeholder="What needs to be delivered, any files or assets you will share, and what done looks like."
               />
             </div>
           </div>
