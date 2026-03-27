@@ -308,72 +308,77 @@ export const CommunityPostCard = ({
       ) : (
         /* ── GRADIENT LAYOUT (no hero photo) ── */
         <>
-          <div className="relative h-[5.75rem] sm:h-32">
+          <div className="relative h-44 overflow-hidden sm:h-52">
+            {/* Blurred avatar glow behind gradient */}
             {avatar ? (
               <div className="absolute inset-0 overflow-hidden">
-                <img src={avatar} alt="" className="h-full w-full scale-125 object-cover opacity-40 blur-2xl" aria-hidden loading="lazy" decoding="async" />
+                <img src={avatar} alt="" className="h-full w-full scale-150 object-cover opacity-30 blur-3xl" aria-hidden loading="lazy" decoding="async" />
               </div>
             ) : null}
             <div className="absolute inset-0" style={{ background: bannerBg }} />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-card" />
+            {/* Cinematic fade to card at bottom */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/70" />
+
+            {/* Budget pill — top left */}
+            {budget.emphasis && (
+              <div className="absolute left-3 top-3 z-10 rounded-full border border-white/20 bg-black/45 px-3 py-1.5 backdrop-blur-sm">
+                <p className="text-[11px] font-semibold text-white">{budget.label}</p>
+              </div>
+            )}
+
+            {/* Delete button — top right */}
             {canDelete && (
               <button
                 type="button"
                 onClick={() => setDeleteConfirmOpen(true)}
-                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/50"
+                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55"
                 aria-label="Delete post"
               >
                 <Trash2 size={16} strokeWidth={2} />
               </button>
             )}
+
+            {/* Identity row pinned to bottom of banner */}
+            <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3 sm:px-5">
+              <button type="button" onClick={openProfile} className="relative shrink-0 focus:outline-none">
+                <div
+                  className="rounded-full bg-white/10 p-[3px] backdrop-blur-sm"
+                  style={uniColor ? { boxShadow: `0 0 0 2.5px ${uniColor}, 0 0 0 4px rgba(0,0,0,0.25)` } : { boxShadow: '0 0 0 2px rgba(255,255,255,0.35)' }}
+                >
+                  {avatar ? (
+                    <img src={avatar} alt="" className="h-12 w-12 rounded-full object-cover sm:h-[3.25rem] sm:w-[3.25rem]" loading="lazy" decoding="async" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-lg font-bold text-white sm:h-[3.25rem] sm:w-[3.25rem]">
+                      {name[0].toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                {studentProfile?.is_available && (
+                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white/70 bg-emerald-500 shadow-sm" title="Available" />
+                )}
+              </button>
+              <button type="button" onClick={openProfile} className="block pb-0.5 text-left">
+                <h2 className="text-base font-semibold leading-tight tracking-tight text-white sm:text-[1.05rem]">{name}</h2>
+                <p className="mt-0.5 text-[11px] text-white/65 sm:text-xs">
+                  Freelance
+                  {studentProfile?.university ? (
+                    <><span className="mx-1.5 text-white/30">·</span>{UNI_LABELS[studentProfile.university] ?? studentProfile.university}</>
+                  ) : null}
+                  <span className="mx-1.5 text-white/30">·</span>
+                  {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                </p>
+              </button>
+            </div>
           </div>
 
-          <div className="relative px-4 pb-4 pt-0 sm:px-6 sm:pb-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-              <div className="flex gap-4 sm:min-w-0 sm:flex-1">
-                <button type="button" onClick={openProfile} className="group/avatar shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card rounded-full">
-                  <div className="relative -mt-10 sm:-mt-11">
-                    <div
-                      className={cn('rounded-full bg-card p-1 shadow-md', !uniColor && 'ring-1 ring-foreground/10')}
-                      style={uniColor ? { boxShadow: `0 0 0 3px ${uniColor}` } : undefined}
-                    >
-                      {avatar ? (
-                        <img src={avatar} alt="" className="h-[4.5rem] w-[4.5rem] rounded-full object-cover sm:h-24 sm:w-24" loading="lazy" decoding="async" />
-                      ) : (
-                        <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-muted text-xl font-semibold text-foreground sm:h-24 sm:w-24 sm:text-2xl">
-                          {name[0].toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    {studentProfile?.is_available ? (
-                      <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-[3px] border-card bg-emerald-500 shadow-sm" title="Available" />
-                    ) : null}
-                  </div>
-                </button>
-                <div className="min-w-0 flex-1 pt-1 sm:pb-1 sm:pt-0">
-                  <button type="button" onClick={openProfile} className="block w-full text-left">
-                    <h2 className="truncate text-lg font-semibold leading-tight tracking-tight text-foreground sm:text-xl">{name}</h2>
-                    <p className="mt-1 text-xs text-muted-foreground sm:text-[13px]">
-                      <span className="text-foreground/70">Freelance</span>
-                      <span className="mx-1.5 text-foreground/25">·</span>
-                      {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                      {studentProfile?.university ? (
-                        <><span className="mx-1.5 text-foreground/25">·</span><span className="truncate">{UNI_LABELS[studentProfile.university] ?? studentProfile.university}</span></>
-                      ) : null}
-                    </p>
-                  </button>
-                </div>
-              </div>
-              <div className={cn('shrink-0 rounded-xl border px-4 py-3 sm:max-w-[13rem] sm:text-right', budget.emphasis ? 'border-foreground/12 bg-foreground/[0.03]' : 'border-foreground/8 bg-muted/40')}>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Budget</p>
-                <p className={cn('mt-1 font-semibold tabular-nums tracking-tight sm:text-lg', budget.emphasis ? 'text-foreground' : 'text-muted-foreground')}>{budget.label}</p>
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-3 border-t border-foreground/10 pt-5">
+          {/* Content below banner */}
+          <div className="px-4 pb-4 pt-4 sm:px-6 sm:pb-5">
+            <div className="space-y-3">
               <h3 className="text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg">{post.title}</h3>
               {post.description ? (
-                <p className="text-[14px] leading-relaxed text-muted-foreground whitespace-pre-line line-clamp-5 sm:line-clamp-none sm:text-[15px]">{post.description}</p>
+                <p className="text-[14px] leading-relaxed text-muted-foreground whitespace-pre-line line-clamp-3 sm:text-[15px]">
+                  {post.description}
+                </p>
               ) : null}
             </div>
 
