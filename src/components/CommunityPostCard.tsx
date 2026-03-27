@@ -87,7 +87,7 @@ interface CommunityPostCardProps {
   similarPosts?: SimilarPost[];
 }
 
-function bannerGradient(userId: string): string {
+function bannerGradient(userId: string): { bg: string; orb1: string; orb2: string; orb3: string } {
   let h = 2166136261;
   for (let i = 0; i < userId.length; i++) {
     h ^= userId.charCodeAt(i);
@@ -103,7 +103,25 @@ function bannerGradient(userId: string): string {
   ];
   const [baseH, sat] = hubs[u % hubs.length];
   const hue2 = (baseH + 18 + (u % 12)) % 360;
-  return `linear-gradient(145deg, hsl(${baseH} ${sat}% 34%) 0%, hsl(${hue2} ${Math.min(sat + 8, 52)}% 22%) 100%)`;
+  const hue3 = (baseH + 38 + (u % 20)) % 360;
+  return {
+    bg: `linear-gradient(145deg, hsl(${baseH} ${sat}% 34%) 0%, hsl(${hue2} ${Math.min(sat + 8, 52)}% 22%) 100%)`,
+    orb1: `hsl(${baseH} ${Math.min(sat + 15, 65)}% 65%)`,
+    orb2: `hsl(${hue2} ${Math.min(sat + 10, 60)}% 55%)`,
+    orb3: `hsl(${hue3} ${Math.min(sat + 5, 55)}% 70%)`,
+  };
+}
+
+function avatarGradient(userId: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < userId.length; i++) {
+    h ^= userId.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const u = h >>> 0;
+  const hubs = [[22, 60], [200, 55], [268, 52], [152, 50], [32, 58]];
+  const [baseH, sat] = hubs[u % hubs.length];
+  return `linear-gradient(135deg, hsl(${baseH} ${sat}% 52%) 0%, hsl(${(baseH + 28) % 360} ${sat}% 40%) 100%)`;
 }
 
 export const CommunityPostCard = ({
@@ -136,7 +154,8 @@ export const CommunityPostCard = ({
     studentProfile?.hourly_rate
   );
 
-  const bannerBg = useMemo(() => bannerGradient(post.user_id), [post.user_id]);
+  const banner = useMemo(() => bannerGradient(post.user_id), [post.user_id]);
+  const avatarBg = useMemo(() => avatarGradient(post.user_id), [post.user_id]);
   const hasListingImage = !!post.image_url;
 
   const handleLike = async () => {
@@ -242,7 +261,7 @@ export const CommunityPostCard = ({
                   {avatar ? (
                     <img src={avatar} alt="" className="h-12 w-12 rounded-full object-cover sm:h-[3.25rem] sm:w-[3.25rem]" loading="lazy" decoding="async" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-lg font-bold text-white sm:h-[3.25rem] sm:w-[3.25rem]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white sm:h-[3.25rem] sm:w-[3.25rem]" style={{ background: avatarBg }}>
                       {name[0].toUpperCase()}
                     </div>
                   )}
@@ -311,15 +330,25 @@ export const CommunityPostCard = ({
         /* ── GRADIENT LAYOUT (no hero photo) ── */
         <>
           <div className="relative h-44 overflow-hidden sm:h-52">
-            {/* Blurred avatar glow behind gradient */}
+            {/* Base gradient */}
+            <div className="absolute inset-0" style={{ background: banner.bg }} />
+
+            {/* Blurred avatar glow (if available) */}
             {avatar ? (
               <div className="absolute inset-0 overflow-hidden">
-                <img src={avatar} alt="" className="h-full w-full scale-150 object-cover opacity-30 blur-3xl" aria-hidden loading="lazy" decoding="async" />
+                <img src={avatar} alt="" className="h-full w-full scale-150 object-cover opacity-25 blur-3xl" aria-hidden loading="lazy" decoding="async" />
               </div>
             ) : null}
-            <div className="absolute inset-0" style={{ background: bannerBg }} />
+
+            {/* Decorative orbs for visual richness */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full opacity-20 blur-3xl" style={{ background: banner.orb1 }} />
+              <div className="absolute -left-6 bottom-0 h-32 w-32 rounded-full opacity-15 blur-2xl" style={{ background: banner.orb2 }} />
+              <div className="absolute right-1/3 top-4 h-20 w-20 rounded-full opacity-10 blur-xl" style={{ background: banner.orb3 }} />
+            </div>
+
             {/* Cinematic fade to card at bottom */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/70" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/72" />
 
             {/* Budget pill — top left */}
             {budget.emphasis && (
@@ -362,7 +391,7 @@ export const CommunityPostCard = ({
                   {avatar ? (
                     <img src={avatar} alt="" className="h-12 w-12 rounded-full object-cover sm:h-[3.25rem] sm:w-[3.25rem]" loading="lazy" decoding="async" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-lg font-bold text-white sm:h-[3.25rem] sm:w-[3.25rem]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white sm:h-[3.25rem] sm:w-[3.25rem]" style={{ background: avatarBg }}>
                       {name[0].toUpperCase()}
                     </div>
                   )}
