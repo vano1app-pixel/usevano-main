@@ -23,7 +23,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -36,13 +35,9 @@ serve(async (req) => {
       });
     }
 
-    const admin = createClient(supabaseUrl, serviceKey);
-    const { data: isAdmin } = await admin.rpc("has_role", {
-      _user_id: user.id,
-      _role: "admin",
-    });
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "Admin only" }), {
+    const ownerEmail = "vano1app@gmail.com";
+    if (user.email?.trim().toLowerCase() !== ownerEmail) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -111,14 +106,22 @@ serve(async (req) => {
       });
       if (!res.ok) {
         const errText = await res.text();
-        console.error("Resend error:", res.status, errText);
+        console.warn(
+          "[VANO] RESEND_API_KEY is set but Resend rejected the request — check RESEND_FROM domain verification and API key permissions.",
+          res.status,
+          errText,
+        );
         return new Response(JSON.stringify({ error: "Failed to send email" }), {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     } else {
-      console.warn("send-listing-decision-email: RESEND_API_KEY not set; email skipped.\n", text);
+      console.warn(
+        "[VANO] RESEND_API_KEY is missing or empty — listing decision email was NOT sent. " +
+          "Set RESEND_API_KEY (and verify RESEND_FROM) in Supabase → Edge Functions → send-listing-decision-email secrets.",
+        { preview: text.slice(0, 200) },
+      );
     }
 
     return new Response(JSON.stringify({ ok: true, emailed: !!resendKey }), {

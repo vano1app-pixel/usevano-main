@@ -27,30 +27,3 @@ export async function verifySignupOrEmailOtp(
 
   return { error: err1 };
 }
-
-/**
- * Confirms email change (OTP sent after `updateUser({ email })`).
- */
-export async function verifyEmailChangeOtp(
-  supabase: SupabaseClient,
-  params: { email: string; token: string },
-): Promise<{ error: AuthError | null }> {
-  const { email, token } = params;
-  const clean = token.replace(/\s/g, '');
-
-  const { error: err1 } = await supabase.auth.verifyOtp({
-    email,
-    token: clean,
-    type: 'email_change',
-  });
-  if (!err1) return { error: null };
-
-  const { error: err2 } = await supabase.auth.verifyOtp({
-    email,
-    token: clean,
-    type: 'email',
-  });
-  if (!err2) return { error: null };
-
-  return { error: err1 };
-}

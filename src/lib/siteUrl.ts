@@ -3,8 +3,10 @@ export const SITE_ORIGIN_DEFAULT = 'https://vanojobs.com';
 
 /** Force apex `vanojobs.com` so OAuth / redirects match Supabase URL config when env or DNS uses `www`. */
 function normalizeVanojobsOrigin(url: string): string {
-  const trimmed = url.trim().replace(/\/+$/, '');
-  return trimmed.replace(/^https?:\/\/www\.vanojobs\.com/i, SITE_ORIGIN_DEFAULT);
+  let u = url.trim().replace(/\/+$/, '');
+  u = u.replace(/^https?:\/\/www\.vanojobs\.com(?=\/|$)/i, SITE_ORIGIN_DEFAULT);
+  u = u.replace(/^http:\/\/vanojobs\.com(?=\/|$)/i, SITE_ORIGIN_DEFAULT);
+  return u;
 }
 
 /**

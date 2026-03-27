@@ -173,7 +173,12 @@ export function AdminListingReviewModal({ request, open, onOpenChange, onApprove
             listing_title: title.trim(),
           },
         });
-        if (mailErr) console.warn('notify email:', mailErr.message);
+        if (mailErr) {
+          console.warn(
+            '[VANO] send-listing-decision-email failed — check RESEND_API_KEY and RESEND_FROM on the Edge Function (Supabase dashboard).',
+            mailErr.message,
+          );
+        }
       }
 
       toast({ title: 'Listing approved', description: 'Community post created and applicant notified.' });
@@ -206,7 +211,12 @@ export function AdminListingReviewModal({ request, open, onOpenChange, onApprove
             note: rejectNote.trim() || null,
           },
         });
-        if (mailErr) console.warn('notify email:', mailErr.message);
+        if (mailErr) {
+          console.warn(
+            '[VANO] send-listing-decision-email failed — check RESEND_API_KEY and RESEND_FROM on the Edge Function (Supabase dashboard).',
+            mailErr.message,
+          );
+        }
       }
 
       toast({ title: 'Listing declined', description: 'Applicant email sent if configured.' });
