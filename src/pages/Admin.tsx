@@ -545,7 +545,7 @@ const Admin = () => {
               const sp = studentDataMap[u.user_id];
               const missingStudentNumber = u.user_type === 'student' && !sp?.student_number?.trim();
               return (
-              <div key={u.user_id} className={`bg-card border rounded-xl p-4 flex items-center gap-4 ${missingStudentNumber ? 'border-destructive/30' : 'border-border'}`}>
+              <div key={u.user_id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
                   {u.avatar_url ? (
                     <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
