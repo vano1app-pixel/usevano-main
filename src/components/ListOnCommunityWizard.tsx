@@ -41,9 +41,9 @@ import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 
 const STEP_LABELS = [
   'Start',
-  'Board',
-  'Cover',
-  'Listing',
+  'Category',
+  'Photos',
+  'Your pitch',
   'Links',
   'Rates',
   'Publish',
@@ -66,7 +66,7 @@ interface ListOnCommunityWizardProps {
   onOpenChange: (open: boolean) => void;
   userId: string;
   initial: ListOnCommunityInitial;
-  /** Called after the listing is submitted for mod review (not live until approved). */
+  /** Called after the listing goes live. */
   onSubmittedForReview: (category: CommunityCategoryId) => void;
 }
 
@@ -281,7 +281,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         typical_budget_max: tbMax,
         skills,
         hourly_rate,
-        community_board_status: 'pending',
+        community_board_status: 'approved',
       };
       if (syncBio) {
         studentPatch.bio = description.trim();
@@ -303,28 +303,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         throw spErr;
       }
 
-      const { data: udata } = await supabase.auth.getUser();
-      const { data: profEmailRow } = await supabase
-        .from('profiles')
-        .select('student_email')
-        .eq('user_id', userId)
-        .maybeSingle();
-      const { data: spEmailRow } = await supabase
-        .from('student_profiles')
-        .select('verified_email')
-        .eq('user_id', userId)
-        .maybeSingle();
-      const applicantEmail =
-        profEmailRow?.student_email?.trim() ||
-        spEmailRow?.verified_email?.trim() ||
-        udata.user?.email ||
-        null;
-
-      const { data: insertedReq, error: reqErr } = await supabase
-        .from('community_listing_requests')
+      const { error: postErr } = await supabase
+        .from('community_posts')
         .insert({
           user_id: userId,
-          applicant_email: applicantEmail,
           category,
           title: title.trim(),
           description: description.trim(),
@@ -332,38 +314,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           rate_min,
           rate_max,
           rate_unit: rate_unit_out,
-          status: 'pending',
-        })
-        .select('id')
-        .single();
-      if (reqErr) {
-        logSupabaseError('ListOnCommunityWizard: community_listing_requests insert', reqErr);
-        throw reqErr;
-      }
-
-      if (insertedReq?.id) {
-        const { data: notifyData, error: fnErr } = await supabase.functions.invoke('notify-community-listing-request', {
-          body: { request_id: insertedReq.id },
+          moderation_status: 'approved',
         });
-        if (fnErr) {
-          logSupabaseError('ListOnCommunityWizard: notify-community-listing-request', fnErr);
-          console.warn(
-            '[VANO] Listing notify Edge Function failed (submission still saved).',
-            'Check RESEND_API_KEY (and RESEND_FROM / LISTING_NOTIFY_EMAIL) in Supabase → Edge Functions → notify-community-listing-request secrets.',
-            fnErr.message,
-          );
-        } else if (notifyData && typeof notifyData === 'object' && 'emailed' in notifyData && !(notifyData as { emailed?: boolean }).emailed) {
-          console.warn(
-            '[VANO] Listing saved but email was not sent. Set RESEND_API_KEY (and verify RESEND_FROM) on notify-community-listing-request.',
-            notifyData,
-          );
-        }
+      if (postErr) {
+        logSupabaseError('ListOnCommunityWizard: community_posts insert', postErr);
+        throw postErr;
       }
 
       toast({
-        title: 'Submitted for review',
-        description:
-          'The team will check your listing and email you when it is live on Community. This usually takes a short time.',
+        title: "You're live!",
+        description: 'Your listing is now visible on the Community board.',
       });
       onOpenChange(false);
       onSubmittedForReview(category);
@@ -408,22 +368,21 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <ClipboardList className="h-5 w-5" strokeWidth={2} />
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                You&apos;ll fill in your banner, pitch, links, and rates. At the end we{' '}
-                <span className="font-medium text-foreground">send your listing to the VANO team</span> for a quick
-                review. Once approved, it appears on the Community board — usually within a day or two.
+                Fill in a few details and your listing goes{' '}
+                <span className="font-medium text-foreground">live on the Community board straight away</span>.
               </p>
               <ul className="space-y-2 text-sm text-foreground/90">
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Profile banner & optional hero image for your card
+                  Profile banner &amp; optional photo for your card
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Headline, description, TikTok & work links
+                  Headline, description, and links to your work
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Rates, service area, and skills — then submit for review
+                  Rates, location, and skills
                 </li>
               </ul>
             </div>
@@ -550,8 +509,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 bg-muted/20 p-3">
                 <Checkbox checked={syncBio} onCheckedChange={(v) => setSyncBio(!!v)} className="mt-0.5" />
                 <span className="text-sm leading-snug text-muted-foreground">
-                  <span className="font-medium text-foreground">Also save as my profile bio</span> — keeps Browse &amp;
-                  portfolio in sync with this pitch.
+                  <span className="font-medium text-foreground">Also save as my profile bio</span> — keeps your public profile in sync.
                 </span>
               </label>
             </div>
@@ -610,11 +568,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
           {step === 5 && (
             <div className="space-y-5">
-              <div className="rounded-xl border border-border bg-muted/25 p-4">
-                <p className="text-sm font-medium text-foreground">On your Community card</p>
-                <Label className="mt-3 text-xs text-muted-foreground">How do you price this listing?</Label>
+              <div>
+                <Label>Pricing type</Label>
                 <Select value={rateUnit} onValueChange={setRateUnit}>
-                  <SelectTrigger className="mt-1.5 h-11 bg-background">
+                  <SelectTrigger className="mt-1.5 h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -624,34 +581,34 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                     <SelectItem value="negotiable">Negotiable</SelectItem>
                   </SelectContent>
                 </Select>
-                {rateUnit !== 'negotiable' && (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">From (€)</Label>
-                      <Input
-                        className="mt-1 h-11"
-                        inputMode="decimal"
-                        placeholder="e.g. 25"
-                        value={rateMin}
-                        onChange={(e) => setRateMin(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                      <Input
-                        className="mt-1 h-11"
-                        inputMode="decimal"
-                        placeholder="Optional"
-                        value={rateMax}
-                        onChange={(e) => setRateMax(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
+              {rateUnit !== 'negotiable' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">From (€)</Label>
+                    <Input
+                      className="mt-1.5 h-11"
+                      inputMode="decimal"
+                      placeholder="e.g. 25"
+                      value={rateMin}
+                      onChange={(e) => setRateMin(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                    <Input
+                      className="mt-1.5 h-11"
+                      inputMode="decimal"
+                      placeholder="Optional"
+                      value={rateMax}
+                      onChange={(e) => setRateMax(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
               <div>
-                <Label>Profile hourly rate (€)</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Shown on your profile &amp; freelancer browse — use for video, social, ongoing work.</p>
+                <Label>Your hourly rate (€)</Label>
+                <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>
                 <Input
                   className="mt-1.5 h-11"
                   inputMode="decimal"
@@ -709,10 +666,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <p className="line-clamp-4 text-muted-foreground">{description || '—'}</p>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
-                We&apos;ll save your profile details (banner, links, area, skills, rates) and{' '}
-                <span className="font-medium text-foreground">send this listing to the team for approval</span>. It
-                won&apos;t appear on Community until a moderator approves it. You&apos;ll get an email when it&apos;s
-                live.
+                We&apos;ll save your profile details (banner, links, location, skills, rates) and{' '}
+                <span className="font-medium text-foreground">publish your listing immediately</span>. It will be visible on the Community board right away.
               </div>
             </div>
           )}
@@ -758,7 +713,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   Publishing…
                 </>
               ) : (
-                'Submit for review'
+                'Go live'
               )}
             </Button>
           )}

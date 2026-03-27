@@ -9,8 +9,8 @@ import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
-import { RequireStudentVerifiedForFreelancers } from "@/components/RequireStudentVerifiedForFreelancers";
 import Landing from "./pages/Landing";
 import BrowseJobs from "./pages/BrowseJobs";
 import JobDetail from "./pages/JobDetail";
@@ -24,22 +24,15 @@ import NotFound from "./pages/NotFound";
 import Community from "./pages/Community";
 import Portfolio from "./pages/Portfolio";
 
-import ResetPassword from "./pages/ResetPassword";
 import CompleteProfile from "./pages/CompleteProfile";
 import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
-import VerifyStudent from "./pages/VerifyStudent";
 import WhatsNew from "./pages/WhatsNew";
-
-const VerifiedSessionWithStudentCheck = ({ children }: { children: ReactNode }) => (
-  <RequireVerifiedSession>
-    <RequireStudentVerifiedForFreelancers>{children}</RequireStudentVerifiedForFreelancers>
-  </RequireVerifiedSession>
-);
 
 const App = () => (
   <TooltipProvider>
+    <ScrollToTop />
     <RedirectToAccountTypeIfNeeded />
     <Toaster />
     <Sonner />
@@ -50,9 +43,9 @@ const App = () => (
       <Route
         path="/post-job"
         element={
-          <VerifiedSessionWithStudentCheck>
+          <RequireVerifiedSession>
             <PostJob />
-          </VerifiedSessionWithStudentCheck>
+          </RequireVerifiedSession>
         }
       />
       <Route path="/students" element={<BrowseStudents />} />
@@ -82,7 +75,6 @@ const App = () => (
         }
       />
       <Route path="/auth" element={<Auth />} />
-
       <Route
         path="/choose-account-type"
         element={
@@ -91,24 +83,12 @@ const App = () => (
           </RequireVerifiedSession>
         }
       />
-
-      <Route path="/reset-password" element={<ResetPassword />} />
-
-      <Route
-        path="/verify-student"
-        element={
-          <RequireVerifiedSession>
-            <VerifyStudent />
-          </RequireVerifiedSession>
-        }
-      />
-
       <Route
         path="/complete-profile"
         element={
-          <VerifiedSessionWithStudentCheck>
+          <RequireVerifiedSession>
             <CompleteProfile />
-          </VerifiedSessionWithStudentCheck>
+          </RequireVerifiedSession>
         }
       />
       <Route path="/community" element={<Community />} />
@@ -120,7 +100,6 @@ const App = () => (
           </RequireVerifiedSession>
         }
       />
-      
       <Route path="/portfolio/:userId" element={<Portfolio />} />
       <Route path="/blog/vano-v1" element={<BlogPost />} />
       <Route path="/whats-new" element={<WhatsNew />} />

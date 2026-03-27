@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CommunityPostCard } from '@/components/CommunityPostCard';
+import { CommunityPostCard, type SimilarPost } from '@/components/CommunityPostCard';
 import { useToast } from '@/hooks/use-toast';
 import {
   COMMUNITY_CATEGORY_ORDER,
@@ -14,7 +14,136 @@ import {
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
 import { cn } from '@/lib/utils';
-import { ensureAutoStudentVerificationFromEmail } from '@/lib/studentVerification';
+
+
+const ATU_AVATAR = (initials: string) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=F47920&color=fff&bold=true&size=256&rounded=false`;
+
+const DEMO_POSTS: Record<CommunityCategoryId, {
+  post: { id: string; user_id: string; title: string; description: string; image_url: null; likes_count: number; created_at: string; rate_min: number; rate_max: number; rate_unit: string };
+  profile: { display_name: string; avatar_url: string; user_type: string };
+  studentProfile: { skills: string[]; hourly_rate: number; is_available: boolean; university: string; tiktok_url: string | null; work_links: { url: string; label: string }[] };
+  portfolioPreview: { id: string; image_url: null; title: string }[];
+}> = {
+  videographer: {
+    post: {
+      id: 'demo-video',
+      user_id: 'demo-video-user',
+      title: 'Wedding, event & promo filming — Galway & Connacht',
+      description: `Hi, I'm Cian — a final-year Media Production student at ATU Galway. I specialise in weddings, corporate events, brand promos, and short-form content for social.\n\nKit: Sony A7 IV with a set of prime lenses, DJI RS 3 gimbal, and a DJI Mini 4 Pro drone. I shoot LOG and colour grade in DaVinci Resolve for a clean, cinematic look.\n\nTurnaround is 5–7 working days for a full edit. I include one round of revision and deliver in any format you need. Happy to travel within Connacht — fuel costs apply outside Galway city.\n\nDrop me a message with your date and what you have in mind — I'll come back to you within a few hours.`,
+      image_url: null,
+      likes_count: 47,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
+      rate_min: 150,
+      rate_max: 450,
+      rate_unit: 'day',
+    },
+    profile: {
+      display_name: 'Cian Murphy',
+      avatar_url: ATU_AVATAR('Cian Murphy'),
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['Video Editing', 'Drone Filming', 'Wedding Films', 'Event Coverage', 'Short-form Reels', 'Premiere Pro', 'DaVinci Resolve', 'Colour Grading', 'Corporate Video', 'Instagram Reels'],
+      hourly_rate: 45,
+      is_available: true,
+      university: 'ATU',
+      tiktok_url: 'https://www.tiktok.com/@cianmurphy.film',
+      work_links: [
+        { url: 'https://cianmurphy.ie', label: 'Portfolio — cianmurphy.ie' },
+        { url: 'https://vimeo.com/cianmurphy', label: 'Vimeo showreel' },
+        { url: 'https://instagram.com/cianmurphy.film', label: 'Instagram' },
+        { url: 'https://youtube.com/@cianmurphyfilm', label: 'YouTube channel' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'p1', image_url: null, title: 'Galway wedding highlight film — 2025' },
+      { id: 'p2', image_url: null, title: 'ATU Grad Ball 2025 recap' },
+      { id: 'p3', image_url: null, title: 'Brand promo — local restaurant' },
+      { id: 'p4', image_url: null, title: 'Drone reel — Connemara landscape' },
+      { id: 'p5', image_url: null, title: 'Corporate event — Galway Chamber' },
+      { id: 'p6', image_url: null, title: 'TikTok content pack — fashion brand' },
+    ],
+  },
+  websites: {
+    post: {
+      id: 'demo-web',
+      user_id: 'demo-web-user',
+      title: 'Custom websites & web apps — fast, clean, mobile-first',
+      description: `Hey, I'm Aoife — a final-year Software Development student at ATU Galway. I build polished, fast websites and web apps for small businesses, freelancers, and startups.\n\nI work mainly in React and Next.js with Tailwind CSS for styling, and I'm comfortable with Supabase, Stripe, and CMS integrations. Whether you need a landing page, a full e-commerce store, or a complete redesign of an existing site, I can handle it start to finish — design mockup in Figma through to live deployment.\n\nTypical project budgets range from €400 for a clean landing page up to €2,000+ for a full multi-page site with integrations. Free 30-minute discovery call before we start — no obligation.\n\nCheck my portfolio and GitHub below to see recent work.`,
+      image_url: null,
+      likes_count: 63,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
+      rate_min: 400,
+      rate_max: 2000,
+      rate_unit: 'project',
+    },
+    profile: {
+      display_name: 'Aoife Walsh',
+      avatar_url: ATU_AVATAR('Aoife Walsh'),
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['React', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Figma', 'UI/UX Design', 'Supabase', 'Shopify', 'SEO', 'Framer Motion'],
+      hourly_rate: 45,
+      is_available: true,
+      university: 'ATU',
+      tiktok_url: null,
+      work_links: [
+        { url: 'https://aoifewalsh.dev', label: 'Portfolio — aoifewalsh.dev' },
+        { url: 'https://github.com/aoifewalsh', label: 'GitHub' },
+        { url: 'https://dribbble.com/aoifewalsh', label: 'Dribbble designs' },
+        { url: 'https://linkedin.com/in/aoife-walsh-dev', label: 'LinkedIn' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'p4', image_url: null, title: 'Restaurant booking site — Next.js' },
+      { id: 'p5', image_url: null, title: 'Fitness coach landing page' },
+      { id: 'p6', image_url: null, title: 'E-commerce — Galway gift shop (Shopify)' },
+      { id: 'p7', image_url: null, title: 'SaaS dashboard UI — Figma to code' },
+      { id: 'p8', image_url: null, title: 'Salon booking app — React + Supabase' },
+      { id: 'p9', image_url: null, title: 'Personal brand site — freelance photographer' },
+    ],
+  },
+  social_media: {
+    post: {
+      id: 'demo-social',
+      user_id: 'demo-social-user',
+      title: 'Social media management & content creation — Instagram, TikTok & LinkedIn',
+      description: `I'm Darragh — a final-year Marketing student at ATU with 2+ years managing social accounts for local businesses across Galway.\n\nI handle the full process: strategy, content calendar, shooting, editing, posting, and monthly analytics reports. I work across Instagram, TikTok, and LinkedIn — I can manage one or all three.\n\nMonthly packages are available for ongoing management. I also offer one-off content days if you just need a bank of photos and videos shot and edited ready to post. Content days usually result in 15–25 pieces of content depending on scope.\n\nRecent results: grew a Galway café from 800 to 4,200 followers in 4 months. Built a local gym's TikTok from zero to 12k views per reel average in 6 weeks.\n\nMessage me with your industry and goals — happy to have a quick call first.`,
+      image_url: null,
+      likes_count: 58,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
+      rate_min: 250,
+      rate_max: 700,
+      rate_unit: 'project',
+    },
+    profile: {
+      display_name: 'Darragh Ryan',
+      avatar_url: ATU_AVATAR('Darragh Ryan'),
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['Instagram', 'TikTok', 'LinkedIn', 'Content Strategy', 'Reels Editing', 'Copywriting', 'Analytics & Reporting', 'CapCut', 'Canva', 'Content Planning'],
+      hourly_rate: 35,
+      is_available: true,
+      university: 'ATU',
+      tiktok_url: 'https://www.tiktok.com/@darraghryan.social',
+      work_links: [
+        { url: 'https://instagram.com/darraghryan.social', label: 'Instagram — @darraghryan.social' },
+        { url: 'https://linkedin.com/in/darraghryan', label: 'LinkedIn' },
+        { url: 'https://darraghryan.ie', label: 'Portfolio — darraghryan.ie' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'p7', image_url: null, title: 'Galway café — 800 → 4,200 followers' },
+      { id: 'p8', image_url: null, title: 'Gym TikTok — 12k avg views/reel' },
+      { id: 'p9', image_url: null, title: 'Monthly content pack — fashion brand' },
+      { id: 'p10', image_url: null, title: 'LinkedIn strategy — B2B consultancy' },
+      { id: 'p11', image_url: null, title: 'Instagram launch — new restaurant' },
+    ],
+  },
+};
 
 const Community = () => {
   const navigate = useNavigate();
@@ -62,7 +191,7 @@ const Community = () => {
       const { data: sprofs } = await supabase
         .from('student_profiles')
         .select(
-          'user_id, skills, hourly_rate, is_available, university, tiktok_url, work_links, student_verified, community_board_status',
+          'user_id, skills, hourly_rate, is_available, university, tiktok_url, work_links, community_board_status',
         )
         .in('user_id', userIds);
       const spMap: Record<string, any> = {};
@@ -91,8 +220,7 @@ const Community = () => {
         const prof = profileMap[p.user_id];
         if (!prof || prof.user_type !== 'student') return true;
         const sp = spMap[p.user_id];
-        if (!sp?.student_verified) return false;
-        if (sp.community_board_status === 'rejected') return false;
+        if (sp?.community_board_status === 'rejected') return false;
         return true;
       });
       setPosts(visiblePosts);
@@ -124,28 +252,6 @@ const Community = () => {
     setLoading(false);
   }, []);
 
-  /** Logged-in freelancers must verify a student email before using the app (including Community). */
-  useEffect(() => {
-    if (!user) return;
-    void (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      await ensureAutoStudentVerificationFromEmail(session);
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('user_type')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      if (prof?.user_type !== 'student') return;
-      const { data: sp } = await supabase
-        .from('student_profiles')
-        .select('student_verified')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      if (sp?.student_verified) return;
-      navigate('/verify-student', { replace: true });
-    })();
-  }, [user, navigate]);
 
   useEffect(() => {
     if (!activeCategory) {
@@ -248,8 +354,7 @@ const Community = () => {
           {activeCategory && currentUserType === 'student' && (
             <p className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground/90">
               <span className="font-medium text-foreground">Freelancers:</span> list yourself from{' '}
-              <strong>Profile → Get listed</strong>. Your card is reviewed before it appears here. Hiring accounts cannot
-              post on this board.
+              <strong>Profile → Get listed</strong> — your card goes live straight away.
             </p>
           )}
           {activeCategory && currentUserType === 'business' && (
@@ -311,31 +416,65 @@ const Community = () => {
             ))}
           </div>
         ) : posts.length === 0 ? (
-          <div className="rounded-2xl border border-foreground/10 bg-card/80 px-6 py-16 text-center shadow-sm backdrop-blur-[2px]">
-            <p className="font-medium text-foreground">Nothing in {boardTitle} yet</p>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              {isStudent
-                ? 'Be the first to list your services in this board.'
-                : 'Check back soon, or browse another board.'}
-            </p>
+          <div className="flex flex-col gap-6 sm:gap-7">
+            <div className="rounded-2xl border border-foreground/10 bg-card/80 px-5 py-4 text-center shadow-sm backdrop-blur-[2px]">
+              <p className="text-sm font-medium text-foreground">No listings here yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isStudent ? 'Be the first — here\'s what a completed profile looks like:' : 'Check back soon. Here\'s an example of what freelancers look like:'}
+              </p>
+            </div>
+            {activeCategory && DEMO_POSTS[activeCategory] && (() => {
+              const demo = DEMO_POSTS[activeCategory];
+              return (
+                <div className="relative">
+                  <div className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary/30 z-10" />
+                  <div className="absolute -top-3 left-4 z-20">
+                    <span className="rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">Example profile</span>
+                  </div>
+                  <CommunityPostCard
+                    post={demo.post}
+                    profile={demo.profile}
+                    studentProfile={demo.studentProfile}
+                    portfolioPreview={demo.portfolioPreview}
+                    currentUserId={null}
+                    currentUserType={null}
+                    isLiked={false}
+                    isAdmin={false}
+                    onLikeToggle={() => {}}
+                    onDelete={() => {}}
+                  />
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="flex flex-col gap-6 sm:gap-7">
-            {posts.map(post => (
-              <CommunityPostCard
-                key={post.id}
-                post={post}
-                profile={profiles[post.user_id] || null}
-                studentProfile={studentProfiles[post.user_id] || null}
-                portfolioPreview={portfolioByUser[post.user_id] || []}
-                currentUserId={user?.id || null}
-                currentUserType={currentUserType}
-                isLiked={likedPostIds.has(post.id)}
-                isAdmin={isAdmin}
-                onLikeToggle={handleLikeToggle}
-                onDelete={handleDelete}
-              />
-            ))}
+            {posts.map(post => {
+              const similar: SimilarPost[] = posts
+                .filter(p => p.id !== post.id)
+                .slice(0, 4)
+                .map(p => ({
+                  post: { id: p.id, user_id: p.user_id, title: p.title, rate_min: p.rate_min, rate_max: p.rate_max, rate_unit: p.rate_unit },
+                  profile: profiles[p.user_id] || null,
+                  studentProfile: studentProfiles[p.user_id] || null,
+                }));
+              return (
+                <CommunityPostCard
+                  key={post.id}
+                  post={post}
+                  profile={profiles[post.user_id] || null}
+                  studentProfile={studentProfiles[post.user_id] || null}
+                  portfolioPreview={portfolioByUser[post.user_id] || []}
+                  similarPosts={similar}
+                  currentUserId={user?.id || null}
+                  currentUserType={currentUserType}
+                  isLiked={likedPostIds.has(post.id)}
+                  isAdmin={isAdmin}
+                  onLikeToggle={handleLikeToggle}
+                  onDelete={handleDelete}
+                />
+              );
+            })}
           </div>
         )}
       </div>

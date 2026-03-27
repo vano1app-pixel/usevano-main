@@ -30,7 +30,7 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
   const handleSubmit = async () => {
     const trimmed = message.trim();
     if (!trimmed) {
-      toast({ title: 'Write something', description: 'Tell us what you’d like to see.', variant: 'destructive' });
+      toast({ title: 'Write something', description: "Tell us what you'd like to see.", variant: 'destructive' });
       return;
     }
     setSending(true);
@@ -50,7 +50,7 @@ export function RequestFeatureModal({ open, onOpenChange }: RequestFeatureModalP
         message: trimmed,
       });
       if (error) throw error;
-      toast({ title: 'Thanks!', description: 'We’ve received your idea.' });
+      toast({ title: 'Thanks!', description: "We've received your idea." });
       setMessage('');
       onOpenChange(false);
     } catch (e: unknown) {

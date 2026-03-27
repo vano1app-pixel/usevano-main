@@ -3,8 +3,9 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Loader2, Mail, Phone, Instagram } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Loader2, Mail, Phone, Instagram, SquarePen, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   TEAM_CONTACT_EMAIL,
@@ -86,6 +87,10 @@ const Messages = () => {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [contactTeamOpen, setContactTeamOpen] = useState(false);
+  const [newConvoOpen, setNewConvoOpen] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userResults, setUserResults] = useState<{ user_id: string; display_name: string | null; avatar_url: string | null }[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -160,6 +165,44 @@ const Messages = () => {
       payload: { user_id: user.id },
     });
   }, [selectedConvo, user]);
+
+  const searchUsers = async (q: string) => {
+    if (!q.trim() || !user) { setUserResults([]); return; }
+    setSearchingUsers(true);
+    const { data } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, avatar_url')
+      .ilike('display_name', `%${q.trim()}%`)
+      .neq('user_id', user.id)
+      .limit(8);
+    setUserResults(data || []);
+    setSearchingUsers(false);
+  };
+
+  const startConvoWith = async (otherUserId: string) => {
+    if (!user) return;
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .or(`and(participant_1.eq.${user.id},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${user.id})`)
+      .limit(1);
+    let convoId = existing?.[0]?.id as string | undefined;
+    if (!convoId) {
+      const { data: ins } = await supabase
+        .from('conversations')
+        .insert({ participant_1: user.id, participant_2: otherUserId })
+        .select('id')
+        .single();
+      convoId = ins?.id;
+    }
+    if (convoId) {
+      setNewConvoOpen(false);
+      setUserSearch('');
+      setUserResults([]);
+      await loadConversations(user.id);
+      setSelectedConvo(convoId);
+    }
+  };
 
   const loadConversations = useCallback(async (userId: string) => {
     const { data: convos } = await supabase
@@ -357,9 +400,59 @@ const Messages = () => {
         <div className="flex h-[calc(100vh-4rem)] sm:h-[calc(100vh-6rem)] border-0 sm:border border-border sm:rounded-2xl overflow-hidden bg-card">
           {/* Conversation list */}
           <div className={`w-full md:w-80 border-r border-border flex flex-col shrink-0 ${selectedConvo ? 'hidden md:flex' : 'flex'}`}>
-            <div className="p-4 border-b border-border">
+            <div className="p-4 border-b border-border flex items-center justify-between gap-2">
               <h2 className="font-semibold text-lg flex items-center gap-2"><MessageCircle size={20} /> Messages</h2>
+              <button
+                type="button"
+                onClick={() => setNewConvoOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                title="New conversation"
+              >
+                <SquarePen size={17} />
+              </button>
             </div>
+
+            <Dialog open={newConvoOpen} onOpenChange={(o) => { setNewConvoOpen(o); if (!o) { setUserSearch(''); setUserResults([]); } }}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>New conversation</DialogTitle>
+                  <DialogDescription>Search for someone by name to start a chat.</DialogDescription>
+                </DialogHeader>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <input
+                    autoFocus
+                    value={userSearch}
+                    onChange={(e) => { setUserSearch(e.target.value); searchUsers(e.target.value); }}
+                    placeholder="Search by name…"
+                    className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="min-h-[4rem] space-y-1">
+                  {searchingUsers && <p className="py-4 text-center text-sm text-muted-foreground">Searching…</p>}
+                  {!searchingUsers && userSearch.trim() && userResults.length === 0 && (
+                    <p className="py-4 text-center text-sm text-muted-foreground">No users found.</p>
+                  )}
+                  {userResults.map((u) => (
+                    <button
+                      key={u.user_id}
+                      type="button"
+                      onClick={() => startConvoWith(u.user_id)}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-secondary"
+                    >
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                          {(u.display_name || '?')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-sm font-medium text-foreground">{u.display_name || 'User'}</span>
+                    </button>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
             <div className="flex-1 overflow-y-auto">
               <button
                 type="button"
@@ -380,7 +473,7 @@ const Messages = () => {
                   <DialogHeader>
                     <DialogTitle>Contact team</DialogTitle>
                     <DialogDescription>
-                      Choose how you’d like to reach us — we’ll get back to you as soon as we can.
+                      Choose how you'd like to reach us — we'll get back to you as soon as we can.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="flex flex-col gap-3 pt-2">

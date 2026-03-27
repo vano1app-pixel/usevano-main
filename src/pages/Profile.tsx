@@ -50,7 +50,6 @@ const Profile = () => {
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
-  const [pendingListingRequest, setPendingListingRequest] = useState(false);
 
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
     bannerUrl,
@@ -96,7 +95,6 @@ const Profile = () => {
     }
 
     if (prof?.user_type === 'business') {
-      setPendingListingRequest(false);
       setBio(prof?.bio || '');
       setWorkDescription('');
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
@@ -139,12 +137,6 @@ const Profile = () => {
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
 
-      const { count: pendingCount } = await supabase
-        .from('community_listing_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', session.user.id)
-        .eq('status', 'pending');
-      setPendingListingRequest((pendingCount ?? 0) > 0);
     }
     setLoading(false);
   };
@@ -228,22 +220,13 @@ const Profile = () => {
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
             {profile?.user_type === 'student'
-              ? 'Your name and photo here. Community listings are submitted for a quick team review before they go live.'
+              ? 'Your name and photo here.'
               : 'Your account — a short intro is enough; set location when you post a gig'}
           </p>
         </div>
 
         {profile?.user_type === 'student' && user && (
           <>
-            {pendingListingRequest && (
-              <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
-                <p className="font-medium text-amber-950 dark:text-amber-100">Listing under review</p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-950/80 dark:text-amber-100/85">
-                  You have a Community submission waiting for the team. You&apos;ll get an email when it&apos;s approved
-                  and visible on the board.
-                </p>
-              </div>
-            )}
             <div className="mb-5 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:mb-6 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0 text-center sm:text-left">
@@ -252,7 +235,7 @@ const Profile = () => {
                     Get listed on the talent board
                   </h2>
                   <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                    Freelancers only — complete the steps, then we review and publish your card.
+                    Fill in a few details and your listing goes live straight away.
                   </p>
                 </div>
                 <Button
@@ -311,7 +294,7 @@ const Profile = () => {
                 />
                 <div className="w-full min-w-0 flex-1 sm:pt-0">
                   <label className="mb-1.5 block text-sm font-medium">Name</label>
-                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="How you’d like to appear" />
+                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="How you'd like to appear" />
                 </div>
               </div>
               <div>
@@ -320,7 +303,7 @@ const Profile = () => {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
-                  placeholder="A quick intro is enough — who you are and what you usually hire help for. You’ll add the exact location on each gig when you post it."
+                  placeholder="A quick intro is enough — who you are and what you usually hire help for. You'll add the exact location on each gig when you post it."
                 />
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
                   No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.

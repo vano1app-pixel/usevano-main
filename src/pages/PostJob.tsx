@@ -6,7 +6,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, PenLine, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isEmailVerified } from '@/lib/authSession';
 
@@ -25,7 +25,7 @@ const PostJob = () => {
     shift_date: '',
     is_urgent: false,
   });
-  const [generatingDesc, setGeneratingDesc] = useState(false);
+
 
   useEffect(() => {
     const init = async () => {
@@ -79,7 +79,7 @@ const PostJob = () => {
         return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
       }
     } catch (err) {
-      console.warn('Geocoding failed:', err);
+      if (import.meta.env.DEV) console.warn('Geocoding failed:', err);
     }
     return null;
   };
@@ -90,13 +90,16 @@ const PostJob = () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !isEmailVerified(session)) {
-      toast({ title: 'Please sign in', description: 'Verify your email to post a gig.', variant: 'destructive' });
+      toast({ title: 'Please sign in', description: 'You need to be signed in to post a gig.', variant: 'destructive' });
       setLoading(false);
       navigate('/auth');
       return;
     }
 
     const coords = await geocodeLocation(form.location);
+    if (form.location.trim() && !coords) {
+      toast({ title: 'Location not found', description: 'We could not map that location — the gig will still be posted but won\'t appear on the map.', variant: 'destructive' });
+    }
 
     const { data: jobData, error } = await supabase.from('jobs').insert({
       posted_by: session.user.id,
@@ -172,45 +175,14 @@ const PostJob = () => {
               />
             </div>
             <div>
-              <div className="mb-1.5 flex items-center justify-between gap-2">
+              <div className="mb-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Description</label>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!form.title.trim()) {
-                      toast({ title: 'Enter a title first', variant: 'destructive' });
-                      return;
-                    }
-                    setGeneratingDesc(true);
-                    try {
-                      const { data, error } = await supabase.functions.invoke('ai-job-description', {
-                        body: { title: form.title, location: form.location },
-                      });
-                      if (error) throw error;
-                      if (data?.description) setForm((f) => ({ ...f, description: data.description }));
-                      const budget = data?.suggestedTotalBudget ?? data?.suggestedRate;
-                      if (typeof budget === 'number' && !form.fixed_price.trim()) {
-                        setForm((f) => ({ ...f, fixed_price: String(Math.max(0, Math.round(budget))) }));
-                      }
-                      toast({ title: 'Draft ready', description: 'Edit anything that does not match your scope.' });
-                    } catch (err: any) {
-                      toast({ title: 'Error', description: err?.message || 'Failed to generate', variant: 'destructive' });
-                    } finally {
-                      setGeneratingDesc(false);
-                    }
-                  }}
-                  disabled={generatingDesc}
-                  className="flex items-center gap-1 text-xs font-medium text-foreground/80 underline-offset-4 hover:underline disabled:opacity-50"
-                >
-                  {generatingDesc ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />}
-                  {generatingDesc ? '…' : 'Suggest description'}
-                </button>
               </div>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 className={cn(inputClass, 'min-h-[120px] resize-y')}
-                placeholder="Deliverables, files or access you will provide, and what “done” looks like."
+                placeholder="What needs to be delivered, any files or assets you will share, and what done looks like."
               />
             </div>
           </div>
