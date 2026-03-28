@@ -74,7 +74,7 @@ const PostJob = () => {
     const val = raw.trim().replace(/,+$/, '').trim();
     if (!val) return;
     const formatted = val.charAt(0).toUpperCase() + val.slice(1);
-    if (!tags.includes(formatted) && tags.length < 8) {
+    if (!tags.includes(formatted) && tags.length < 10) {
       setTags((prev) => [...prev, formatted]);
     }
     setTagInput('');
@@ -275,7 +275,7 @@ const PostJob = () => {
                   </button>
                 </span>
               ))}
-              {tags.length < 8 && (
+              {tags.length < 10 && (
                 <input
                   ref={tagInputRef}
                   value={tagInput}

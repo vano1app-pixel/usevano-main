@@ -126,6 +126,23 @@ export const CommunityPostCard = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const [spot, setSpot] = useState<{ x: number; y: number } | null>(null);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [quoteDesc, setQuoteDesc] = useState('');
+  const [quoteBudget, setQuoteBudget] = useState('');
+
+  const isProjectBased = post.rate_unit === 'project' || post.rate_unit === 'negotiable';
+
+  const sendQuoteRequest = () => {
+    if (!currentUserId) { navigate('/auth'); return; }
+    const lines = [`Hi! I'd like to request a quote for a web project.`, ``, `What I need: ${quoteDesc.trim()}`];
+    if (quoteBudget.trim()) lines.push(`My budget: €${quoteBudget.trim()}`);
+    lines.push(``, `Let me know if you're available!`);
+    const draft = lines.join('\n');
+    setQuoteOpen(false);
+    setQuoteDesc('');
+    setQuoteBudget('');
+    navigate(`/messages?with=${post.user_id}&draft=${encodeURIComponent(draft)}`);
+  };
   const avatar = profile?.avatar_url;
   const name = profile?.display_name || 'Freelancer';
   const skills = (studentProfile?.skills || []).filter(Boolean).slice(0, 10);
@@ -311,9 +328,15 @@ export const CommunityPostCard = ({
                   <Button type="button" variant="outline" size="lg" className="h-12 w-full rounded-xl border-foreground/15 text-[15px] font-semibold sm:h-11 sm:w-auto sm:min-w-[10.5rem]" onClick={() => setFreelancerOpen(true)}>
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
-                  <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
-                    <MessageCircle size={18} strokeWidth={2} />Message
-                  </Button>
+                  {isProjectBased ? (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
+                      <MessageCircle size={18} strokeWidth={2} />Request a quote
+                    </Button>
+                  ) : (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
+                      <MessageCircle size={18} strokeWidth={2} />Message
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <p className="text-center text-[13px] text-muted-foreground sm:text-right">Your listing — how it looks to others</p>
@@ -422,9 +445,15 @@ export const CommunityPostCard = ({
                   <Button type="button" variant="outline" size="lg" className="h-12 w-full rounded-xl border-foreground/15 text-[15px] font-semibold sm:h-11 sm:w-auto sm:min-w-[10.5rem]" onClick={() => setFreelancerOpen(true)}>
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
-                  <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
-                    <MessageCircle size={18} strokeWidth={2} />Message
-                  </Button>
+                  {isProjectBased ? (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
+                      <MessageCircle size={18} strokeWidth={2} />Request a quote
+                    </Button>
+                  ) : (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
+                      <MessageCircle size={18} strokeWidth={2} />Message
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <p className="text-center text-[13px] text-muted-foreground sm:text-right">Your listing — how it looks to others</p>
@@ -473,6 +502,47 @@ export const CommunityPostCard = ({
           </div>
         </div>
       )}
+
+      {/* ── QUOTE REQUEST DIALOG ── */}
+      <Dialog open={quoteOpen} onOpenChange={setQuoteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request a quote from {name}</DialogTitle>
+            <DialogDescription>Describe what you need and your budget — this gets sent as a message.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Describe your project <span className="text-destructive">*</span></label>
+              <textarea
+                value={quoteDesc}
+                onChange={(e) => setQuoteDesc(e.target.value)}
+                placeholder="e.g. A 5-page website for my café — home, menu, about, gallery, contact. Need it mobile-friendly and easy to update."
+                className="w-full min-h-[100px] resize-y rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Your budget (€) <span className="text-muted-foreground/60">optional</span></label>
+              <input
+                type="number"
+                min="0"
+                value={quoteBudget}
+                onChange={(e) => setQuoteBudget(e.target.value)}
+                placeholder="e.g. 500"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <Button
+              type="button"
+              size="lg"
+              className="w-full h-11 rounded-xl font-semibold"
+              disabled={!quoteDesc.trim()}
+              onClick={sendQuoteRequest}
+            >
+              Send quote request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── DIALOGS ── */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
