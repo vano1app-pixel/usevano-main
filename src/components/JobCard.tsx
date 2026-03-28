@@ -61,7 +61,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
       className={cn(
         'group cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-300',
         'hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md',
-        job.is_urgent && 'border-destructive/35 ring-1 ring-destructive/15'
+        job.is_urgent && 'border-destructive/30'
       )}
     >
       {/* Poster strip — marketplace-style identity */}

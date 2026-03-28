@@ -72,13 +72,13 @@ export const MobileBottomNav: React.FC = () => {
               <span
                 className={cn(
                   'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150',
-                  active ? 'bg-foreground' : 'bg-transparent',
+                  active ? 'bg-foreground/10' : 'bg-transparent',
                 )}
               >
                 <Icon
                   size={18}
-                  strokeWidth={active ? 2.4 : 2}
-                  className={active ? 'text-background' : 'text-foreground/70'}
+                  strokeWidth={active ? 2.2 : 1.8}
+                  className={active ? 'text-foreground' : 'text-foreground/50'}
                 />
                 {href === '/messages' && unreadCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full border-2 border-card bg-foreground px-0.5 text-[9px] font-bold leading-none text-background">
@@ -89,7 +89,7 @@ export const MobileBottomNav: React.FC = () => {
               <span
                 className={cn(
                   'text-[10px] leading-none tracking-tight',
-                  active ? 'font-semibold text-foreground' : 'font-medium text-foreground/55',
+                  active ? 'font-semibold text-foreground' : 'font-normal text-foreground/45',
                 )}
               >
                 <span className="inline-flex items-center gap-0.5">

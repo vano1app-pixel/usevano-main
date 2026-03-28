@@ -323,10 +323,6 @@ const Community = () => {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background pb-24 md:pb-12">
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-30%,hsl(var(--foreground)/0.06),transparent_55%)] dark:bg-[radial-gradient(ellipse_100%_70%_at_50%_-25%,hsl(var(--primary)/0.08),transparent_50%)]"
-        aria-hidden
-      />
       <SEOHead
         title={activeCategory ? `${boardTitle} – Community · VANO` : 'Community – VANO'}
         description="Browse freelancer listings by specialty — videography, websites, or social media."
@@ -344,7 +340,7 @@ const Community = () => {
               All boards
             </button>
           )}
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Talent board</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Talent board</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-[2rem] sm:leading-tight">
             {boardTitle}
           </h1>
@@ -427,9 +423,9 @@ const Community = () => {
               const demo = DEMO_POSTS[activeCategory];
               return (
                 <div className="relative">
-                  <div className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary/30 z-10" />
+                  <div className="pointer-events-none absolute -inset-px rounded-2xl ring-1 ring-foreground/12 z-10" />
                   <div className="absolute -top-3 left-4 z-20">
-                    <span className="rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">Example profile</span>
+                    <span className="rounded-full bg-muted border border-border px-3 py-0.5 text-[11px] font-medium text-muted-foreground">Example profile</span>
                   </div>
                   <CommunityPostCard
                     post={demo.post}
@@ -475,6 +471,29 @@ const Community = () => {
                 />
               );
             })}
+            {activeCategory && posts.length < 3 && DEMO_POSTS[activeCategory] && (() => {
+              const demo = DEMO_POSTS[activeCategory];
+              return (
+                <div className="relative">
+                  <div className="pointer-events-none absolute -inset-px rounded-2xl ring-1 ring-foreground/12 z-10" />
+                  <div className="absolute -top-3 left-4 z-20">
+                    <span className="rounded-full bg-muted border border-border px-3 py-0.5 text-[11px] font-medium text-muted-foreground">Example profile</span>
+                  </div>
+                  <CommunityPostCard
+                    post={demo.post}
+                    profile={demo.profile}
+                    studentProfile={demo.studentProfile}
+                    portfolioPreview={demo.portfolioPreview}
+                    currentUserId={null}
+                    currentUserType={null}
+                    isLiked={false}
+                    isAdmin={false}
+                    onLikeToggle={() => {}}
+                    onDelete={() => {}}
+                  />
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
