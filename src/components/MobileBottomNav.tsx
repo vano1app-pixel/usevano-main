@@ -74,7 +74,10 @@ export const MobileBottomNav: React.FC = () => {
   if (location.pathname === '/auth') return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[2000] md:hidden safe-area-bottom border-t border-border/40 bg-card/96 backdrop-blur-xl">
+    <>
+      {/* Gradient scrim — fades page content into the nav bar */}
+      <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-10 bg-gradient-to-t from-background to-transparent md:hidden" />
+      <nav className="fixed bottom-0 left-0 right-0 z-[2000] md:hidden safe-area-bottom border-t border-border/40 bg-card backdrop-blur-none">
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]">
         {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
@@ -120,5 +123,6 @@ export const MobileBottomNav: React.FC = () => {
         })}
       </div>
     </nav>
+    </>
   );
 };
