@@ -94,21 +94,21 @@ function bannerGradient(userId: string): { bg: string; orb1: string; orb2: strin
     h = Math.imul(h, 16777619);
   }
   const u = h >>> 0;
-  const hubs = [
-    [22, 45],
-    [200, 48],
-    [268, 42],
-    [152, 38],
-    [32, 44],
+  // Richer, more vivid palette — (hue, saturation, lightness-dark, lightness-mid)
+  const palettes = [
+    { h1: 248, h2: 270, s: 62, l1: 32, l2: 18 }, // indigo → deep violet
+    { h1: 195, h2: 220, s: 68, l1: 32, l2: 18 }, // teal → navy
+    { h1: 16,  h2: 340, s: 65, l1: 36, l2: 22 }, // amber → rose
+    { h1: 155, h2: 190, s: 58, l1: 30, l2: 18 }, // emerald → teal
+    { h1: 300, h2: 240, s: 55, l1: 30, l2: 18 }, // purple → indigo
   ];
-  const [baseH, sat] = hubs[u % hubs.length];
-  const hue2 = (baseH + 18 + (u % 12)) % 360;
-  const hue3 = (baseH + 38 + (u % 20)) % 360;
+  const p = palettes[u % palettes.length];
+  const hShift = (u >> 4) % 14;
   return {
-    bg: `linear-gradient(145deg, hsl(${baseH} ${sat}% 34%) 0%, hsl(${hue2} ${Math.min(sat + 8, 52)}% 22%) 100%)`,
-    orb1: `hsl(${baseH} ${Math.min(sat + 15, 65)}% 65%)`,
-    orb2: `hsl(${hue2} ${Math.min(sat + 10, 60)}% 55%)`,
-    orb3: `hsl(${hue3} ${Math.min(sat + 5, 55)}% 70%)`,
+    bg: `linear-gradient(145deg, hsl(${p.h1 + hShift} ${p.s}% ${p.l1}%) 0%, hsl(${p.h2} ${p.s - 4}% ${p.l2}%) 100%)`,
+    orb1: `hsl(${p.h1 + hShift} 80% 72%)`,
+    orb2: `hsl(${p.h2} 75% 65%)`,
+    orb3: `hsl(${(p.h1 + p.h2) >> 1} 85% 78%)`,
   };
 }
 
@@ -119,9 +119,12 @@ function avatarGradient(userId: string): string {
     h = Math.imul(h, 16777619);
   }
   const u = h >>> 0;
-  const hubs = [[22, 60], [200, 55], [268, 52], [152, 50], [32, 58]];
-  const [baseH, sat] = hubs[u % hubs.length];
-  return `linear-gradient(135deg, hsl(${baseH} ${sat}% 52%) 0%, hsl(${(baseH + 28) % 360} ${sat}% 40%) 100%)`;
+  const palettes = [
+    { h1: 248, h2: 270 }, { h1: 195, h2: 220 }, { h1: 16, h2: 340 },
+    { h1: 155, h2: 190 }, { h1: 300, h2: 240 },
+  ];
+  const p = palettes[u % palettes.length];
+  return `linear-gradient(135deg, hsl(${p.h1} 70% 55%) 0%, hsl(${p.h2} 65% 42%) 100%)`;
 }
 
 export const CommunityPostCard = ({
@@ -340,12 +343,17 @@ export const CommunityPostCard = ({
               </div>
             ) : null}
 
-            {/* Decorative orbs for visual richness */}
+            {/* Decorative orbs */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full opacity-35 blur-2xl" style={{ background: banner.orb1 }} />
-              <div className="absolute -left-8 bottom-2 h-40 w-40 rounded-full opacity-28 blur-2xl" style={{ background: banner.orb2 }} />
-              <div className="absolute right-1/3 top-6 h-28 w-28 rounded-full opacity-20 blur-xl" style={{ background: banner.orb3 }} />
+              <div className="absolute -right-8 -top-8 h-52 w-52 rounded-full blur-xl" style={{ background: banner.orb1, opacity: 0.5 }} />
+              <div className="absolute -left-6 bottom-0 h-36 w-36 rounded-full blur-xl" style={{ background: banner.orb2, opacity: 0.42 }} />
+              <div className="absolute left-1/2 top-2 h-24 w-24 -translate-x-1/2 rounded-full blur-lg" style={{ background: banner.orb3, opacity: 0.32 }} />
             </div>
+            {/* Subtle dot texture */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.06]"
+              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E\")" }}
+            />
 
             {/* Cinematic fade to card at bottom */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/72" />
