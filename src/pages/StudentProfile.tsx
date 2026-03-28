@@ -5,13 +5,15 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { FreelancerPublicHeader } from '@/components/FreelancerPublicHeader';
 import { cn } from '@/lib/utils';
+import { nameToSlug } from '@/lib/slugify';
+import { getSiteOrigin } from '@/lib/siteUrl';
 
 const StudentProfile = () => {
   const { id } = useParams();
@@ -27,6 +29,7 @@ const StudentProfile = () => {
   const [user, setUser] = useState<any>(null);
   const [currentUserType, setCurrentUserType] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'reviews'>('about');
+  const [copied, setCopied] = useState(false);
   const profileIsAdmin = useIsAdmin(id);
 
   useEffect(() => {
@@ -119,6 +122,22 @@ const StudentProfile = () => {
   const workDesc = profile.work_description;
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
 
+  // Shareable vanity URL
+  const profileSlug = nameToSlug(displayName);
+  const shareUrl = `${getSiteOrigin()}/u/${profileSlug}`;
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${displayName} on VANO`, url: shareUrl });
+        return;
+      } catch {}
+    }
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const badgeIcons: Record<string, string> = {
     'first_shift': '🎉', 'five_shifts': '⭐', 'ten_shifts': '🔥',
     'twenty_shifts': '💎', 'five_star': '🌟', 'reliable': '✅',
@@ -152,7 +171,25 @@ const StudentProfile = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <SEOHead title={`${displayName} – VANO`} description={bioText?.substring(0, 160) || `${displayName} on VANO`} />
+      <SEOHead
+        title={!isBusiness
+          ? `${displayName} — ${student?.skills?.[0] ?? 'Freelancer'} in Galway`
+          : `${displayName} — Hiring on VANO`}
+        description={(() => {
+          if (isBusiness) return bioText?.substring(0, 160) || `${displayName} is hiring on VANO — Galway's student freelancer platform.`;
+          const skills = (student?.skills || []).slice(0, 4).join(', ');
+          const rate = student?.hourly_rate ? `€${student.hourly_rate}/hr. ` : '';
+          const avail = student?.is_available ? 'Available now. ' : '';
+          return `${avail}${rate}${skills ? `Skills: ${skills}. ` : ''}${bioText ? bioText.substring(0, 100) : `Find ${displayName} on VANO, Galway's freelancer platform.`}`;
+        })()}
+        keywords={[
+          displayName,
+          ...(student?.skills || []).slice(0, 6),
+          'Galway', 'freelancer', 'VANO', student?.university || '',
+        ].filter(Boolean).join(', ')}
+        image={avatarUrl || undefined}
+        url={shareUrl}
+      />
       <Navbar />
       <div className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 space-y-5">
         {isBusiness ? (
@@ -222,6 +259,15 @@ const StudentProfile = () => {
                   <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-secondary-foreground ring-1 ring-border/80">
                     Freelancer
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    title="Copy profile link"
+                    className="ml-1 inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-semibold text-foreground/70 shadow-sm transition-colors hover:border-foreground/20 hover:text-foreground"
+                  >
+                    {copied ? <Check size={11} className="text-emerald-500" /> : <Share2 size={11} />}
+                    {copied ? 'Copied!' : 'Share'}
+                  </button>
                 </>
               }
               bannerUrl={student.banner_url}

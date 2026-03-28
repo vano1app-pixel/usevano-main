@@ -6,7 +6,9 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check } from 'lucide-react';
+import { nameToSlug } from '@/lib/slugify';
+import { getSiteOrigin } from '@/lib/siteUrl';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
@@ -50,6 +52,7 @@ const Profile = () => {
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
     bannerUrl,
@@ -288,6 +291,31 @@ const Profile = () => {
                 void loadProfile();
               }}
             />
+
+            {/* Shareable profile link */}
+            {displayName && (
+              <div className="mb-5 sm:mb-6">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your profile link</p>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+                  <Link2 size={14} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
+                    {getSiteOrigin()}/u/{nameToSlug(displayName)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(`${getSiteOrigin()}/u/${nameToSlug(displayName)}`);
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 2000);
+                    }}
+                    className="shrink-0 rounded-lg border border-border bg-background px-2.5 py-1 text-[12px] font-semibold text-foreground transition-colors hover:border-foreground/20 inline-flex items-center gap-1"
+                  >
+                    {linkCopied ? <><Check size={12} className="text-emerald-500" />Copied!</> : 'Copy'}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">Put this in your Instagram bio, TikTok, or WhatsApp status.</p>
+              </div>
+            )}
           </>
         )}
 

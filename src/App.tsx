@@ -29,6 +29,7 @@ import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
 import WhatsNew from "./pages/WhatsNew";
+import UserSlugRedirect from "./pages/UserSlugRedirect";
 
 const App = () => (
   <TooltipProvider>
@@ -101,6 +102,7 @@ const App = () => (
         }
       />
       <Route path="/portfolio/:userId" element={<Portfolio />} />
+      <Route path="/u/:slug" element={<UserSlugRedirect />} />
       <Route path="/blog/vano-v1" element={<BlogPost />} />
       <Route path="/whats-new" element={<WhatsNew />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
