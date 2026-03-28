@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2 } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
@@ -227,6 +227,37 @@ const Profile = () => {
 
         {profile?.user_type === 'student' && user && (
           <>
+            {/* Onboarding steps */}
+            {(() => {
+              const hasPhoto = !!avatarUrl;
+              const hasSkills = skills.length > 0;
+              const allDone = hasPhoto && hasSkills;
+              if (allDone) return null;
+              const steps = [
+                { done: hasPhoto, label: 'Add a profile photo', hint: 'Upload a clear photo below' },
+                { done: hasSkills, label: 'Add your skills', hint: 'In the Get listed wizard' },
+              ];
+              return (
+                <div className="mb-5 rounded-2xl border border-border bg-muted/30 p-4 sm:mb-6 sm:p-5">
+                  <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Get set up</p>
+                  <ul className="flex flex-col gap-2.5">
+                    {steps.map((step) => (
+                      <li key={step.label} className="flex items-start gap-3">
+                        {step.done
+                          ? <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-500" />
+                          : <Circle size={18} className="mt-0.5 shrink-0 text-foreground/25" />
+                        }
+                        <span className={step.done ? 'text-sm text-muted-foreground line-through' : 'text-sm text-foreground'}>
+                          {step.label}
+                          {!step.done && <span className="ml-1.5 text-xs text-muted-foreground">— {step.hint}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+
             <div className="mb-5 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:mb-6 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0 text-center sm:text-left">

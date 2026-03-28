@@ -489,7 +489,7 @@ const Community = () => {
                 />
               );
             })}
-            {activeCategory && (DEMO_POSTS[activeCategory] || []).map((demo) => (
+            {activeCategory && posts.length < 3 && (DEMO_POSTS[activeCategory] || []).map((demo) => (
               <div key={demo.post.id} className="relative">
                 <div className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary/30 z-10" />
                 <div className="absolute -top-3 left-4 z-20">

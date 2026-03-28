@@ -4,7 +4,7 @@ import { JobCard, JobPosterPreview } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Search, Map, List, Plus } from 'lucide-react';
+import { Search, Map, List, Plus, ArrowUpDown } from 'lucide-react';
 import { JobsMap } from '@/components/JobsMap';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, Link } from 'react-router-dom';
@@ -17,6 +17,7 @@ const BrowseJobs = () => {
   const [fetchError, setFetchError] = useState(false);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [sortBy, setSortBy] = useState<'newest' | 'budget_high' | 'budget_low' | 'soonest'>('newest');
   const [user, setUser] = useState<any>(null);
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [togglingJobIds, setTogglingJobIds] = useState<Set<string>>(new Set());
@@ -91,15 +92,32 @@ const BrowseJobs = () => {
     }
   };
 
-  const filtered = jobs.filter((job) => {
+  const filtered = React.useMemo(() => {
     const q = search.toLowerCase();
-    const matchesSearch =
+    const matches = jobs.filter((job) =>
       !search ||
       job.title.toLowerCase().includes(q) ||
       (job.location && job.location.toLowerCase().includes(q)) ||
-      (job.description && job.description.toLowerCase().includes(q));
-    return matchesSearch;
-  });
+      (job.description && job.description.toLowerCase().includes(q))
+    );
+    return [...matches].sort((a, b) => {
+      if (sortBy === 'budget_high') {
+        const aVal = a.payment_type === 'fixed' ? (a.fixed_price ?? 0) : (a.hourly_rate ?? 0);
+        const bVal = b.payment_type === 'fixed' ? (b.fixed_price ?? 0) : (b.hourly_rate ?? 0);
+        return bVal - aVal;
+      }
+      if (sortBy === 'budget_low') {
+        const aVal = a.payment_type === 'fixed' ? (a.fixed_price ?? 0) : (a.hourly_rate ?? 0);
+        const bVal = b.payment_type === 'fixed' ? (b.fixed_price ?? 0) : (b.hourly_rate ?? 0);
+        return aVal - bVal;
+      }
+      if (sortBy === 'soonest') {
+        return new Date(a.shift_date).getTime() - new Date(b.shift_date).getTime();
+      }
+      // newest
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [jobs, search, sortBy]);
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -145,7 +163,20 @@ const BrowseJobs = () => {
           />
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
+          <div className="flex items-center gap-2">
+            <ArrowUpDown size={15} className="text-muted-foreground shrink-0" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="text-sm border border-input rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+            >
+              <option value="newest">Newest first</option>
+              <option value="budget_high">Budget: High → Low</option>
+              <option value="budget_low">Budget: Low → High</option>
+              <option value="soonest">Due soonest</option>
+            </select>
+          </div>
           <div className="flex gap-1 border border-input rounded-lg p-0.5 self-end sm:self-auto">
             <button
               onClick={() => setViewMode('list')}

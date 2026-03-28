@@ -27,9 +27,25 @@ export const MobileBottomNav: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
       if (session?.user) loadUnread(session.user.id);
+      else setUnreadCount(0);
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Real-time: refresh unread count when messages arrive or are read
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('nav-unread')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+        loadUnread(user.id);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => {
+        loadUnread(user.id);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const loadUnread = async (userId: string) => {
     const { count } = await supabase

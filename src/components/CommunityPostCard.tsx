@@ -298,9 +298,9 @@ export const CommunityPostCard = ({
               ) : null}
             </div>
 
-            <div className="mt-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
-              {skills.length > 0 ? (
+            {skills.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
                 <ul className="flex flex-wrap gap-1.5">
                   {skills.map((skill) => (
                     <li key={`${post.id}-${skill}`} className="rounded-md border border-foreground/10 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">
@@ -308,10 +308,8 @@ export const CommunityPostCard = ({
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="text-[13px] italic text-muted-foreground/90">Skills not listed on profile yet</p>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="mt-5 border-t border-foreground/10 pt-4">
               {currentUserId !== post.user_id ? (
@@ -433,18 +431,16 @@ export const CommunityPostCard = ({
               ) : null}
             </div>
 
-            <div className="mt-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
-              {skills.length > 0 ? (
+            {skills.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
                 <ul className="flex flex-wrap gap-1.5">
                   {skills.map((skill) => (
                     <li key={`${post.id}-${skill}`} className="rounded-md border border-foreground/10 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">{skill}</li>
                   ))}
                 </ul>
-              ) : (
-                <p className="text-[13px] italic text-muted-foreground/90">Skills not listed on profile yet</p>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="mt-5 border-t border-foreground/10 pt-4">
               {currentUserId !== post.user_id ? (

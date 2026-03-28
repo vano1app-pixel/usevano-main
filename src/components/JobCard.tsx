@@ -146,6 +146,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
             )}
           </div>
         )}
+
+        <div className="mt-4 pt-3.5 border-t border-foreground/8">
+          <div className="flex items-center justify-end">
+            <span className="text-[13px] font-semibold text-primary group-hover:underline underline-offset-2">
+              View &amp; apply →
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
