@@ -18,6 +18,7 @@ import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { Button } from '@/components/ui/button';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
+import { cn } from '@/lib/utils';
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -230,33 +231,102 @@ const Profile = () => {
 
         {profile?.user_type === 'student' && user && (
           <>
-            {/* Onboarding steps */}
+            {/* Profile strength widget */}
             {(() => {
-              const hasPhoto = !!avatarUrl;
-              const hasSkills = skills.length > 0;
-              const allDone = hasPhoto && hasSkills;
-              if (allDone) return null;
               const steps = [
-                { done: hasPhoto, label: 'Add a profile photo', hint: 'Upload a clear photo below' },
-                { done: hasSkills, label: 'Add your skills', hint: 'In the Get listed wizard' },
+                {
+                  done: !!avatarUrl,
+                  label: 'Profile photo',
+                  why: 'Listings with a photo get far more clicks',
+                  action: 'Upload below',
+                },
+                {
+                  done: skills.length >= 2,
+                  label: 'Skills listed',
+                  why: 'Businesses search by skill — you won\'t show up without them',
+                  action: 'Add in Get listed',
+                },
+                {
+                  done: !!hourlyRate && Number(hourlyRate) > 0,
+                  label: 'Hourly rate set',
+                  why: 'People skip listings with no rate — they assume it\'s expensive',
+                  action: 'Set in Get listed',
+                },
+                {
+                  done: bio.trim().length >= 30,
+                  label: 'Bio written',
+                  why: 'A short intro builds trust before someone messages you',
+                  action: 'Write in Get listed',
+                },
+                {
+                  done: workLinks.some(l => l.url.trim().length > 0),
+                  label: 'Portfolio link added',
+                  why: 'Instagram, Behance, GitHub — link your actual work',
+                  action: 'Add in Get listed',
+                },
               ];
+              const doneCount = steps.filter(s => s.done).length;
+              const pct = Math.round((doneCount / steps.length) * 100);
+              const nextStep = steps.find(s => !s.done);
+              const allDone = doneCount === steps.length;
+
               return (
-                <div className="mb-5 rounded-2xl border border-border bg-muted/30 p-4 sm:mb-6 sm:p-5">
-                  <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Get set up</p>
-                  <ul className="flex flex-col gap-2.5">
+                <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mb-6">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile strength</p>
+                      <p className="mt-0.5 text-sm font-semibold text-foreground">
+                        {allDone ? '🎉 Fully set up — looking great!' : `${doneCount} of ${steps.length} steps done`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/students/${user.id}`)}
+                      className="shrink-0 rounded-xl border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-foreground/20 hover:text-foreground"
+                    >
+                      Preview →
+                    </button>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="mx-4 mb-3 h-2 overflow-hidden rounded-full bg-muted sm:mx-5">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+
+                  {/* Steps */}
+                  <ul className="divide-y divide-border/50">
                     {steps.map((step) => (
-                      <li key={step.label} className="flex items-start gap-3">
+                      <li key={step.label} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
                         {step.done
-                          ? <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-500" />
-                          : <Circle size={18} className="mt-0.5 shrink-0 text-foreground/25" />
+                          ? <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
+                          : <Circle size={16} className="shrink-0 text-foreground/20" />
                         }
-                        <span className={step.done ? 'text-sm text-muted-foreground line-through' : 'text-sm text-foreground'}>
+                        <span className={cn(
+                          'flex-1 text-sm',
+                          step.done ? 'text-muted-foreground line-through' : 'font-medium text-foreground'
+                        )}>
                           {step.label}
-                          {!step.done && <span className="ml-1.5 text-xs text-muted-foreground">— {step.hint}</span>}
                         </span>
+                        {!step.done && (
+                          <span className="shrink-0 text-[11px] text-muted-foreground">{step.action}</span>
+                        )}
                       </li>
                     ))}
                   </ul>
+
+                  {/* Next action tip */}
+                  {nextStep && (
+                    <div className="border-t border-border/50 bg-amber-50/60 px-4 py-3 dark:bg-amber-900/10 sm:px-5">
+                      <p className="text-[12px] text-amber-800 dark:text-amber-400">
+                        <span className="font-semibold">Next: {nextStep.label}.</span>{' '}
+                        {nextStep.why}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -323,6 +393,11 @@ const Profile = () => {
           {/* Freelancer: photo + display name only (listing lives in Get listed) */}
           {profile?.user_type === 'student' ? (
             <>
+              {!avatarUrl && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-[13px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-400">
+                  📸 Add a photo — listings with a real face get significantly more messages than ones with just an initial.
+                </div>
+              )}
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                 <AvatarUpload
                   userId={user.id}
