@@ -16,13 +16,15 @@ import {
 import { cn } from '@/lib/utils';
 
 
-const DEMO_POSTS: Record<CommunityCategoryId, {
+type DemoEntry = {
   post: { id: string; user_id: string; title: string; description: string; image_url: string | null; likes_count: number; created_at: string; rate_min: number; rate_max: number; rate_unit: string };
   profile: { display_name: string; avatar_url: string; user_type: string };
   studentProfile: { skills: string[]; hourly_rate: number; is_available: boolean; university: string; tiktok_url: string | null; work_links: { url: string; label: string }[] };
   portfolioPreview: { id: string; image_url: string | null; title: string }[];
-}> = {
-  videographer: {
+};
+
+const DEMO_POSTS: Record<CommunityCategoryId, DemoEntry[]> = {
+  videographer: [{
     post: {
       id: 'demo-video',
       user_id: 'demo-video-user',
@@ -61,8 +63,8 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       { id: 'p5', image_url: 'https://picsum.photos/seed/p-corp/300/200', title: 'Corporate event — Galway Chamber' },
       { id: 'p6', image_url: 'https://picsum.photos/seed/p-tiktok/300/200', title: 'TikTok content pack — fashion brand' },
     ],
-  },
-  websites: {
+  }],
+  websites: [{
     post: {
       id: 'demo-web',
       user_id: 'demo-web-user',
@@ -101,8 +103,47 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       { id: 'p8', image_url: 'https://picsum.photos/seed/p-salon/300/200', title: 'Salon booking app — React + Supabase' },
       { id: 'p9', image_url: 'https://picsum.photos/seed/p-brand/300/200', title: 'Personal brand site — freelance photographer' },
     ],
-  },
-  social_media: {
+  }, {
+    post: {
+      id: 'demo-web-2',
+      user_id: 'demo-web-user-2',
+      title: 'UI/UX design & Webflow/Framer sites — Galway',
+      description: `Hi, I'm Sinéad — a final-year Digital Media Design student at University of Galway. I design and build beautiful, conversion-focused websites for founders, coaches, and creative businesses.\n\nI work in Figma for wireframes and prototypes, then bring designs to life in Webflow or Framer — no code needed on your end. I also do brand identity work: logos, colour palettes, and style guides.\n\nI offer a free 20-minute discovery call. Let's build something you're proud of.`,
+      image_url: 'https://picsum.photos/seed/vano-sinead/900/500',
+      likes_count: 39,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
+      rate_min: 300,
+      rate_max: 1800,
+      rate_unit: 'project',
+    },
+    profile: {
+      display_name: 'Sinéad Ní Fhaoláin',
+      avatar_url: 'https://randomuser.me/api/portraits/women/29.jpg',
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['Figma', 'UI/UX Design', 'Webflow', 'Framer', 'Brand Identity', 'Logo Design', 'Wireframing', 'Prototyping', 'Adobe Illustrator', 'Accessibility'],
+      hourly_rate: 40,
+      is_available: true,
+      university: 'UGalway',
+      tiktok_url: null,
+      work_links: [
+        { url: 'https://sineaddesign.ie', label: 'Portfolio — sineaddesign.ie' },
+        { url: 'https://behance.net/sineadnifhaolain', label: 'Behance — case studies' },
+        { url: 'https://linkedin.com/in/sinead-nifhaolain', label: 'LinkedIn' },
+        { url: 'https://dribbble.com/sineadnif', label: 'Dribbble shots' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'sw1', image_url: 'https://picsum.photos/seed/sw-coach/300/200', title: 'Life coach website — Webflow' },
+      { id: 'sw2', image_url: 'https://picsum.photos/seed/sw-brand/300/200', title: 'Brand identity — Galway startup' },
+      { id: 'sw3', image_url: 'https://picsum.photos/seed/sw-app/300/200', title: 'Mobile app UI — fitness tracker' },
+      { id: 'sw4', image_url: 'https://picsum.photos/seed/sw-framer/300/200', title: 'Framer portfolio — creative agency' },
+      { id: 'sw5', image_url: 'https://picsum.photos/seed/sw-logo/300/200', title: 'Logo & style guide — café rebrand' },
+      { id: 'sw6', image_url: 'https://picsum.photos/seed/sw-event/300/200', title: 'Event landing page — NUIG society' },
+    ],
+  }],
+  social_media: [{
     post: {
       id: 'demo-social',
       user_id: 'demo-social-user',
@@ -139,7 +180,7 @@ const DEMO_POSTS: Record<CommunityCategoryId, {
       { id: 'p10', image_url: 'https://picsum.photos/seed/p-linkedin/300/200', title: 'LinkedIn strategy — B2B consultancy' },
       { id: 'p11', image_url: 'https://picsum.photos/seed/p-newrest/300/200', title: 'Instagram launch — new restaurant' },
     ],
-  },
+  }],
 };
 
 const Community = () => {
@@ -412,40 +453,16 @@ const Community = () => {
               </div>
             ))}
           </div>
-        ) : posts.length === 0 ? (
-          <div className="flex flex-col gap-6 sm:gap-7">
-            <div className="rounded-2xl border border-foreground/10 bg-card/80 px-5 py-4 text-center shadow-sm backdrop-blur-[2px]">
-              <p className="text-sm font-medium text-foreground">No listings here yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {isStudent ? 'Be the first — here\'s what a completed profile looks like:' : 'Check back soon. Here\'s an example of what freelancers look like:'}
-              </p>
-            </div>
-            {activeCategory && DEMO_POSTS[activeCategory] && (() => {
-              const demo = DEMO_POSTS[activeCategory];
-              return (
-                <div className="relative">
-                  <div className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary/30 z-10" />
-                  <div className="absolute -top-3 left-4 z-20">
-                    <span className="rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">Example profile</span>
-                  </div>
-                  <CommunityPostCard
-                    post={demo.post}
-                    profile={demo.profile}
-                    studentProfile={demo.studentProfile}
-                    portfolioPreview={demo.portfolioPreview}
-                    currentUserId={null}
-                    currentUserType={null}
-                    isLiked={false}
-                    isAdmin={false}
-                    onLikeToggle={() => {}}
-                    onDelete={() => {}}
-                  />
-                </div>
-              );
-            })()}
-          </div>
         ) : (
           <div className="flex flex-col gap-6 sm:gap-7">
+            {posts.length === 0 && (
+              <div className="rounded-2xl border border-foreground/10 bg-card/80 px-5 py-4 text-center shadow-sm backdrop-blur-[2px]">
+                <p className="text-sm font-medium text-foreground">No listings here yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {isStudent ? "Be the first — here's what a completed profile looks like:" : 'Check back soon. Here\'s an example of what freelancers look like:'}
+                </p>
+              </div>
+            )}
             {posts.map(post => {
               const similar: SimilarPost[] = posts
                 .filter(p => p.id !== post.id)
@@ -472,6 +489,26 @@ const Community = () => {
                 />
               );
             })}
+            {activeCategory && (DEMO_POSTS[activeCategory] || []).map((demo) => (
+              <div key={demo.post.id} className="relative">
+                <div className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary/30 z-10" />
+                <div className="absolute -top-3 left-4 z-20">
+                  <span className="rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">Example profile</span>
+                </div>
+                <CommunityPostCard
+                  post={demo.post}
+                  profile={demo.profile}
+                  studentProfile={demo.studentProfile}
+                  portfolioPreview={demo.portfolioPreview}
+                  currentUserId={null}
+                  currentUserType={null}
+                  isLiked={false}
+                  isAdmin={false}
+                  onLikeToggle={() => {}}
+                  onDelete={() => {}}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>
