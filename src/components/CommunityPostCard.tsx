@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { Heart, MessageCircle, Trash2, ExternalLink, Images, UserRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -124,6 +124,8 @@ export const CommunityPostCard = ({
   const [likeLoading, setLikeLoading] = useState(false);
   const [freelancerOpen, setFreelancerOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
+  const [spot, setSpot] = useState<{ x: number; y: number } | null>(null);
   const avatar = profile?.avatar_url;
   const name = profile?.display_name || 'Freelancer';
   const skills = (studentProfile?.skills || []).filter(Boolean).slice(0, 10);
@@ -181,11 +183,23 @@ export const CommunityPostCard = ({
 
   return (
     <article
+      ref={cardRef}
+      onMouseMove={(e) => {
+        const rect = cardRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setSpot({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+      }}
+      onMouseLeave={() => setSpot(null)}
       className={cn(
-        'overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]',
+        'relative overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]',
         'transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_1px_0_rgba(0,0,0,0.04),0_20px_40px_-16px_rgba(0,0,0,0.18)]'
       )}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-10 rounded-2xl transition-opacity duration-300"
+        style={{ background: spot ? `radial-gradient(circle at ${spot.x}% ${spot.y}%, hsl(var(--foreground)/0.05) 0%, transparent 60%)` : 'transparent' }}
+      />
       {/* ── IMAGE-FIRST LAYOUT (listing has a hero photo) ── */}
       {hasListingImage ? (
         <>
@@ -264,20 +278,22 @@ export const CommunityPostCard = ({
               ) : null}
             </div>
 
-            <div className="mt-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
-              {skills.length > 0 ? (
-                <ul className="flex flex-wrap gap-1.5">
-                  {skills.map((skill) => (
-                    <li key={`${post.id}-${skill}`} className="rounded-md border border-foreground/10 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">
+            {skills.length > 0 && (
+              <div className="mt-4">
+                <ul className="flex flex-wrap gap-1">
+                  {skills.slice(0, 5).map((skill) => (
+                    <li key={`${post.id}-${skill}`} className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75">
                       {skill}
                     </li>
                   ))}
+                  {skills.length > 5 && (
+                    <li className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+                      +{skills.length - 5}
+                    </li>
+                  )}
                 </ul>
-              ) : (
-                <p className="text-[13px] italic text-muted-foreground/90">Skills not listed on profile yet</p>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="mt-5 flex flex-col gap-3 border-t border-foreground/10 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3 sm:gap-y-2">
               <button
@@ -377,18 +393,18 @@ export const CommunityPostCard = ({
               ) : null}
             </div>
 
-            <div className="mt-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
-              {skills.length > 0 ? (
-                <ul className="flex flex-wrap gap-1.5">
-                  {skills.map((skill) => (
-                    <li key={`${post.id}-${skill}`} className="rounded-md border border-foreground/10 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">{skill}</li>
+            {skills.length > 0 && (
+              <div className="mt-4">
+                <ul className="flex flex-wrap gap-1">
+                  {skills.slice(0, 5).map((skill) => (
+                    <li key={`${post.id}-${skill}`} className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75">{skill}</li>
                   ))}
+                  {skills.length > 5 && (
+                    <li className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">+{skills.length - 5}</li>
+                  )}
                 </ul>
-              ) : (
-                <p className="text-[13px] italic text-muted-foreground/90">Skills not listed on profile yet</p>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="mt-5 flex flex-col gap-3 border-t border-foreground/10 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3 sm:gap-y-2">
               <button

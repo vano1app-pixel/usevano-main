@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Clock, Bookmark, BookmarkCheck, Flame, Loader2 } from 'lucide-react';
 import { TagBadge } from './TagBadge';
@@ -39,6 +39,8 @@ interface JobCardProps {
 export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggleSave, showSave }) => {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<{ x: number; y: number } | null>(null);
 
   const shiftDate = parseISO(job.shift_date);
   const hoursUntil = differenceInHours(shiftDate, new Date());
@@ -54,16 +56,28 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
 
   return (
     <div
+      ref={cardRef}
       role="button"
       tabIndex={0}
       onClick={() => navigate(`/jobs/${job.id}`)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/jobs/${job.id}`); } }}
+      onMouseMove={(e) => {
+        const rect = cardRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setSpot({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+      }}
+      onMouseLeave={() => setSpot(null)}
       className={cn(
-        'group cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-300',
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-300',
         'hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md',
         job.is_urgent && 'border-destructive/30'
       )}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-10 rounded-2xl transition-opacity duration-300"
+        style={{ background: spot ? `radial-gradient(circle at ${spot.x}% ${spot.y}%, hsl(var(--foreground)/0.055) 0%, transparent 65%)` : 'transparent' }}
+      />
       {/* Poster strip — marketplace-style identity */}
       <div className="flex items-center gap-3 border-b border-foreground/5 bg-muted/30 px-4 py-3">
         <div className="relative shrink-0">
