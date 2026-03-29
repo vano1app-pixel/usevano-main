@@ -259,7 +259,7 @@ const Landing = () => {
               </div>
               <button
                 type="button"
-                onClick={() => navigate('/students')}
+                onClick={() => navigate('/community')}
                 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0 pb-0.5"
               >
                 See all <ArrowRight size={14} />
@@ -268,11 +268,11 @@ const Landing = () => {
             <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {!studentsLoaded
                 ? [1, 2, 3, 4, 5, 6, 7].map((i) => (
-                    <div key={i} className="flex w-[7.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 animate-pulse">
-                      <div className="h-12 w-12 rounded-full bg-muted" />
-                      <div className="w-full space-y-1.5">
-                        <div className="mx-auto h-2.5 w-3/4 rounded-md bg-muted" />
-                        <div className="mx-auto h-2 w-1/2 rounded-md bg-muted" />
+                    <div key={i} className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
+                      <div className="h-[7rem] w-full bg-muted" />
+                      <div className="space-y-1.5 px-2.5 py-2.5">
+                        <div className="h-3 w-3/4 rounded-md bg-muted" />
+                        <div className="h-2.5 w-1/2 rounded-md bg-muted" />
                       </div>
                     </div>
                   ))
@@ -280,35 +280,40 @@ const Landing = () => {
                     <button
                       key={s.user_id}
                       type="button"
-                      onClick={() => navigate(`/students/${s.user_id}`)}
-                      className="flex w-[7.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 text-center transition-all hover:border-foreground/25 hover:shadow-sm active:scale-[0.97]"
+                      onClick={() => navigate('/community')}
+                      className="group relative flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.97]"
                     >
-                      <div className="relative">
+                      <div className="relative h-[7rem] w-full overflow-hidden bg-muted">
                         {s.avatar_url ? (
-                          <img src={s.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" loading="lazy" decoding="async" />
+                          <img src={s.avatar_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]" loading="lazy" decoding="async" />
                         ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-base font-semibold text-foreground">
+                          <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-foreground/20">
                             {(s.display_name || 'F')[0].toUpperCase()}
                           </div>
                         )}
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
+                        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/30 to-transparent" />
+                        <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
                       </div>
-                      <div className="w-full min-w-0">
-                        <p className="truncate text-[11px] font-semibold leading-snug text-foreground">{s.display_name}</p>
-                        {s.top_skill && <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{s.top_skill}</p>}
+                      <div className="px-2.5 py-2.5">
+                        <p className="truncate text-[12px] font-semibold leading-snug text-foreground">{s.display_name}</p>
+                        {s.top_skill && (
+                          <p className="pointer-events-none mt-0.5 truncate text-[11px] text-muted-foreground blur-[3px] select-none">{s.top_skill}</p>
+                        )}
                       </div>
                     </button>
                   ))}
               {studentsLoaded && featuredStudents.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => navigate('/students')}
-                  className="flex w-[7.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 px-3 py-4 text-center transition-all hover:border-foreground/30 hover:bg-muted/30"
+                  onClick={() => navigate('/community')}
+                  className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-dashed border-foreground/15 transition-all hover:border-foreground/30 hover:bg-muted/30"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <ArrowRight size={16} className="text-muted-foreground" />
+                  <div className="flex h-[7rem] w-full items-center justify-center bg-muted/30">
+                    <ArrowRight size={20} className="text-muted-foreground" />
                   </div>
-                  <p className="text-[11px] font-medium leading-snug text-muted-foreground">See all talent</p>
+                  <div className="px-2.5 py-2.5">
+                    <p className="text-[12px] font-medium text-muted-foreground">See all talent</p>
+                  </div>
                 </button>
               )}
             </div>
@@ -391,7 +396,7 @@ const Landing = () => {
             viewport={{ once: true, margin: "-60px" }}
             variants={staggerContainer}
           >
-            {/* Large card — spans 2 cols */}
+            {/* Hyperlocal — 2 cols row 1 */}
             <motion.div variants={fadeUp} transition={{ duration: 0.45 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7">
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/8">
                 <MapPin size={20} className="text-foreground" strokeWidth={2} />
@@ -400,14 +405,8 @@ const Landing = () => {
               <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
             </motion.div>
 
-            {/* Stat card */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.06 }} className="col-span-2 sm:col-span-1 rounded-2xl border border-foreground/10 bg-foreground text-background p-6">
-              <p className="text-4xl font-bold tracking-tight mb-1">Free.</p>
-              <p className="text-sm text-background/60 leading-snug">No commission, no fees — just connect.</p>
-            </motion.div>
-
-            {/* Speed card */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.1 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
+            {/* Speed — 1 col row 1 */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.06 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
                 <Clock size={18} className="text-foreground" strokeWidth={2} />
               </div>
@@ -415,8 +414,8 @@ const Landing = () => {
               <p className="text-xs text-muted-foreground leading-relaxed">Post a gig, get applicants, pick someone — done.</p>
             </motion.div>
 
-            {/* Chat card */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.14 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
+            {/* Chat — 1 col row 2 */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.1 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
                 <MessageSquare size={18} className="text-foreground" strokeWidth={2} />
               </div>
@@ -424,8 +423,8 @@ const Landing = () => {
               <p className="text-xs text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
             </motion.div>
 
-            {/* Trust card — full width */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.18 }} className="col-span-2 sm:col-span-3 rounded-2xl border border-foreground/10 bg-card p-5 flex items-center gap-5">
+            {/* Trust — 2 cols row 2 */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.14 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-5 flex items-center gap-5">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-foreground/8">
                 <Shield size={20} className="text-foreground" strokeWidth={2} />
               </div>
