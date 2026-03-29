@@ -184,6 +184,20 @@ const PostJob = () => {
           </div>
         )}
 
+        {/* Help banner */}
+        <a
+          href="tel:+35389981711"
+          className="mb-6 flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3.5 transition-colors hover:bg-primary/10 active:scale-[0.99]"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary text-lg">
+            📞
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">Not sure who you need?</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Call VANO and we'll find the right person for you — <span className="font-medium text-foreground">089 981 711</span></p>
+          </div>
+        </a>
+
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className={sectionClass}>
             <h2 className="text-sm font-semibold text-foreground">What do you need?</h2>
