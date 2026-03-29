@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -460,14 +459,6 @@ const Community = () => {
             </div>
             {activeCategory && (DEMO_POSTS[activeCategory] || []).map((demo) => (
               <div key={demo.post.id} className="relative">
-                <div className="pointer-events-none absolute -inset-[1px] overflow-hidden rounded-[17px] z-10">
-                  <motion.div
-                    className="absolute inset-[-100%] origin-center"
-                    style={{ background: 'conic-gradient(from 0deg, transparent 55%, hsl(var(--foreground)/0.35) 75%, hsl(var(--foreground)/0.5) 85%, hsl(var(--foreground)/0.35) 95%, transparent 100%)' }}
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
-                  />
-                </div>
                 <div className="absolute -top-3 left-4 z-20">
                   <span className="rounded-full bg-muted border border-border px-3 py-0.5 text-[11px] font-medium text-muted-foreground">Example profile</span>
                 </div>
@@ -524,14 +515,6 @@ const Community = () => {
             })}
             {activeCategory && posts.length < 3 && (DEMO_POSTS[activeCategory] || []).map((demo) => (
               <div key={demo.post.id} className="relative">
-                <div className="pointer-events-none absolute -inset-[1px] overflow-hidden rounded-[17px] z-10">
-                  <motion.div
-                    className="absolute inset-[-100%] origin-center"
-                    style={{ background: 'conic-gradient(from 0deg, transparent 55%, hsl(var(--foreground)/0.35) 75%, hsl(var(--foreground)/0.5) 85%, hsl(var(--foreground)/0.35) 95%, transparent 100%)' }}
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
-                  />
-                </div>
                 <div className="absolute -top-3 left-4 z-20">
                   <span className="rounded-full bg-muted border border-border px-3 py-0.5 text-[11px] font-medium text-muted-foreground">Example profile</span>
                 </div>
