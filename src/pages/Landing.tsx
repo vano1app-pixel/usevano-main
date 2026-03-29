@@ -306,7 +306,7 @@ const Landing = () => {
                     <button
                       key={s.user_id}
                       type="button"
-                      onClick={() => navigate('/community')}
+                      onClick={() => navigate(`/students/${s.user_id}`)}
                       className="group relative flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.97]"
                     >
                       <div className="relative h-[7rem] w-full overflow-hidden bg-muted">
