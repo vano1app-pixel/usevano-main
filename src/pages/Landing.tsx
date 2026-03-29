@@ -327,37 +327,25 @@ const Landing = () => {
                         <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
                       </div>
 
-                      {/* Info — 4 compact lines */}
-                      <div className="flex flex-col gap-1 px-2.5 py-2">
-                        {/* Line 1: Name */}
+                      {/* Info — fixed height, no overflow */}
+                      <div className="flex flex-col gap-1 px-2.5 py-2 h-[5.5rem] overflow-hidden">
                         <p className="truncate text-[12px] font-semibold leading-snug text-foreground">{s.display_name}</p>
-
-                        {/* Line 2: Skill badge */}
                         {s.top_skill && (
                           <span className="self-start rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary truncate max-w-full">
                             {s.top_skill}
                           </span>
                         )}
-
-                        {/* Line 3: Price */}
                         {s.hourly_rate > 0 && (
                           <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
                             €{s.hourly_rate}/hr
                           </span>
                         )}
-
-                        {/* Line 4: Bio snippet — 4 words clear, rest blurred */}
-                        {s.bio && (() => {
-                          const words = s.bio.trim().split(' ');
-                          const preview = words.slice(0, 4).join(' ');
-                          const rest = words.slice(4, 10).join(' ');
-                          return (
-                            <p className="text-[10px] leading-snug text-muted-foreground line-clamp-2">
-                              {preview}
-                              {rest && <span className="pointer-events-none select-none blur-[3px]"> {rest}</span>}
-                            </p>
-                          );
-                        })()}
+                        {s.bio && (
+                          <p className="truncate text-[10px] text-muted-foreground">
+                            {s.bio.trim().split(' ').slice(0, 4).join(' ')}
+                            <span className="pointer-events-none select-none blur-[3px]"> {s.bio.trim().split(' ').slice(4, 8).join(' ')}</span>
+                          </p>
+                        )}
                       </div>
                     </button>
                   ))}
