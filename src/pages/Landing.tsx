@@ -83,7 +83,7 @@ const Landing = () => {
           avatar_url: profMap[sp.user_id]?.avatar_url || null,
           top_skill: (sp.skills || [])[0] || null,
         }))
-        .filter((s: any) => s.display_name);
+        .filter((s: any) => s.display_name && !s.display_name.toUpperCase().startsWith('VANO'));
       setFeaturedStudents(combined);
       setStudentsLoaded(true);
     };
@@ -152,7 +152,7 @@ const Landing = () => {
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto md:mx-0 mb-8 leading-relaxed"
               >
-                Browse portfolios, post a gig with budget and deadline, and chat — all in one place. Built for Galway.
+                Fixed-price gigs, portfolios, and chat — all in one place. Built for Galway.
               </motion.p>
 
               {/* Search bar */}
@@ -185,11 +185,11 @@ const Landing = () => {
                   </div>
                 ) : session ? (
                   <>
-                    <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                      <Users size={18} />Find talent<ArrowRight size={16} />
+                    <button type="button" onClick={() => navigate('/post-job')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                      <Briefcase size={18} />Post a gig<ArrowRight size={16} />
                     </button>
-                    <button type="button" onClick={() => navigate('/post-job')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
-                      <Briefcase size={18} />Post a gig
+                    <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
+                      <Users size={18} />Browse talent
                     </button>
                     <button type="button" onClick={scrollToHow} className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                       How it works
@@ -200,9 +200,6 @@ const Landing = () => {
                     <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-center md:justify-start sm:flex-wrap">
                       <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
                         Get started<ArrowRight size={16} />
-                      </button>
-                      <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 transition-all flex items-center justify-center gap-2">
-                        <Users size={18} />Find talent
                       </button>
                       <button type="button" onClick={scrollToHow} className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         How it works
@@ -253,7 +250,7 @@ const Landing = () => {
 
       {/* Freelancer strip */}
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
-        <section className="pb-10 md:pb-14 overflow-hidden">
+        <section className="pb-4 md:pb-6 overflow-hidden">
           <div className="max-w-5xl mx-auto px-4 md:px-8">
             <div className="flex items-end justify-between mb-4">
               <div>
@@ -271,7 +268,7 @@ const Landing = () => {
             <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {!studentsLoaded
                 ? [1, 2, 3, 4, 5, 6, 7].map((i) => (
-                    <div key={i} className="flex w-[6.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 animate-pulse">
+                    <div key={i} className="flex w-[7.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 animate-pulse">
                       <div className="h-12 w-12 rounded-full bg-muted" />
                       <div className="w-full space-y-1.5">
                         <div className="mx-auto h-2.5 w-3/4 rounded-md bg-muted" />
@@ -284,7 +281,7 @@ const Landing = () => {
                       key={s.user_id}
                       type="button"
                       onClick={() => navigate(`/students/${s.user_id}`)}
-                      className="flex w-[6.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 text-center transition-all hover:border-foreground/25 hover:shadow-sm active:scale-[0.97]"
+                      className="flex w-[7.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 text-center transition-all hover:border-foreground/25 hover:shadow-sm active:scale-[0.97]"
                     >
                       <div className="relative">
                         {s.avatar_url ? (
@@ -306,7 +303,7 @@ const Landing = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/students')}
-                  className="flex w-[6.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 px-3 py-4 text-center transition-all hover:border-foreground/30 hover:bg-muted/30"
+                  className="flex w-[7.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 px-3 py-4 text-center transition-all hover:border-foreground/30 hover:bg-muted/30"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                     <ArrowRight size={16} className="text-muted-foreground" />
