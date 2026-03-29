@@ -128,6 +128,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setSkills(normalizeFreelancerSkills(initial.skills));
   }, [open, initial]);
 
+  // Websites = project-only pricing
+  useEffect(() => {
+    if (category === 'websites') setRateUnit('project');
+  }, [category]);
+
   const totalSteps = STEP_LABELS.length;
   const canNext = (): boolean => {
     switch (step) {
@@ -266,10 +271,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         }
       }
 
-      const tbMin =
-        typicalBudgetMin.trim() && parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null;
-      const tbMax =
-        typicalBudgetMax.trim() && parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null;
+      // For websites, use the project price range as the typical budget too
+      const tbMin = category === 'websites'
+        ? (rate_min ?? null)
+        : (typicalBudgetMin.trim() && parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null);
+      const tbMax = category === 'websites'
+        ? (rate_max ?? null)
+        : (typicalBudgetMax.trim() && parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null);
       const hourlyNum = parseFloat(profileHourly.replace(',', '.'));
       const hourly_rate = !Number.isNaN(hourlyNum) && hourlyNum > 0 ? hourlyNum : 0;
 
@@ -568,78 +576,56 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
           {step === 5 && (
             <div className="space-y-5">
-              <div>
-                <Label>Pricing type</Label>
-                <Select value={rateUnit} onValueChange={setRateUnit}>
-                  <SelectTrigger className="mt-1.5 h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hourly">Per hour</SelectItem>
-                    <SelectItem value="day">Per day</SelectItem>
-                    <SelectItem value="project">Per project (flat)</SelectItem>
-                    <SelectItem value="negotiable">Negotiable</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {rateUnit !== 'negotiable' && (
-                <div className="grid grid-cols-2 gap-3">
+              {category === 'websites' ? (
+                <>
+                  <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                    Websites are priced per project — set the range you typically charge below.
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">From (€)</Label>
+                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 200" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 2000" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
                   <div>
-                    <Label className="text-xs text-muted-foreground">From (€)</Label>
-                    <Input
-                      className="mt-1.5 h-11"
-                      inputMode="decimal"
-                      placeholder="e.g. 25"
-                      value={rateMin}
-                      onChange={(e) => setRateMin(e.target.value)}
-                    />
+                    <Label>Pricing type</Label>
+                    <Select value={rateUnit} onValueChange={setRateUnit}>
+                      <SelectTrigger className="mt-1.5 h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hourly">Per hour</SelectItem>
+                        <SelectItem value="day">Per day</SelectItem>
+                        <SelectItem value="project">Per project (flat)</SelectItem>
+                        <SelectItem value="negotiable">Negotiable</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  {rateUnit !== 'negotiable' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">From (€)</Label>
+                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 25" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
                   <div>
-                    <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                    <Input
-                      className="mt-1.5 h-11"
-                      inputMode="decimal"
-                      placeholder="Optional"
-                      value={rateMax}
-                      onChange={(e) => setRateMax(e.target.value)}
-                    />
+                    <Label>Your hourly rate (€)</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>
+                    <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 35" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
                   </div>
-                </div>
-              )}
-              <div>
-                <Label>Your hourly rate (€)</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>
-                <Input
-                  className="mt-1.5 h-11"
-                  inputMode="decimal"
-                  placeholder="e.g. 35"
-                  value={profileHourly}
-                  onChange={(e) => setProfileHourly(e.target.value)}
-                />
-              </div>
-              {category === 'websites' && (
-                <div className="rounded-xl border border-border bg-primary/5 p-4">
-                  <p className="text-sm font-medium text-foreground">Typical website / project budget (€)</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Saved on your profile for fixed-price style work.</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      placeholder="Min"
-                      value={typicalBudgetMin}
-                      onChange={(e) => setTypicalBudgetMin(e.target.value)}
-                      className="h-11"
-                    />
-                    <Input
-                      type="number"
-                      min={0}
-                      placeholder="Max"
-                      value={typicalBudgetMax}
-                      onChange={(e) => setTypicalBudgetMax(e.target.value)}
-                      className="h-11"
-                    />
-                  </div>
-                </div>
+                </>
               )}
               <div>
                 <Label className="text-sm font-medium">Skills on your profile</Label>

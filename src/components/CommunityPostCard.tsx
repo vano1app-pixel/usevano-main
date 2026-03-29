@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { Heart, MessageCircle, Trash2, ExternalLink, Images, UserRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -145,6 +145,25 @@ export const CommunityPostCard = ({
   const [likeLoading, setLikeLoading] = useState(false);
   const [freelancerOpen, setFreelancerOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
+  const [spot, setSpot] = useState<{ x: number; y: number } | null>(null);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [quoteDesc, setQuoteDesc] = useState('');
+  const [quoteBudget, setQuoteBudget] = useState('');
+
+  const isProjectBased = post.rate_unit === 'project' || post.rate_unit === 'negotiable';
+
+  const sendQuoteRequest = () => {
+    if (!currentUserId) { navigate('/auth'); return; }
+    const lines = [`Hi! I'd like to request a quote for a web project.`, ``, `What I need: ${quoteDesc.trim()}`];
+    if (quoteBudget.trim()) lines.push(`My budget: €${quoteBudget.trim()}`);
+    lines.push(``, `Let me know if you're available!`);
+    const draft = lines.join('\n');
+    setQuoteOpen(false);
+    setQuoteDesc('');
+    setQuoteBudget('');
+    navigate(`/messages?with=${post.user_id}&draft=${encodeURIComponent(draft)}`);
+  };
   const avatar = profile?.avatar_url;
   const name = profile?.display_name || 'Freelancer';
   const skills = (studentProfile?.skills || []).filter(Boolean).slice(0, 10);
@@ -203,11 +222,23 @@ export const CommunityPostCard = ({
 
   return (
     <article
+      ref={cardRef}
+      onMouseMove={(e) => {
+        const rect = cardRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setSpot({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+      }}
+      onMouseLeave={() => setSpot(null)}
       className={cn(
-        'overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]',
+        'relative overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]',
         'transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_1px_0_rgba(0,0,0,0.04),0_20px_40px_-16px_rgba(0,0,0,0.18)]'
       )}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-10 rounded-2xl transition-opacity duration-300"
+        style={{ background: spot ? `radial-gradient(circle at ${spot.x}% ${spot.y}%, hsl(var(--foreground)/0.05) 0%, transparent 60%)` : 'transparent' }}
+      />
       {/* ── IMAGE-FIRST LAYOUT (listing has a hero photo) ── */}
       {hasListingImage ? (
         <>
@@ -300,13 +331,17 @@ export const CommunityPostCard = ({
 
             {skills.length > 0 && (
               <div className="mt-4">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
-                <ul className="flex flex-wrap gap-1.5">
-                  {skills.map((skill) => (
-                    <li key={`${post.id}-${skill}`} className="rounded-md border border-foreground/10 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">
+                <ul className="flex flex-wrap gap-1">
+                  {skills.slice(0, 5).map((skill) => (
+                    <li key={`${post.id}-${skill}`} className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75">
                       {skill}
                     </li>
                   ))}
+                  {skills.length > 5 && (
+                    <li className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+                      +{skills.length - 5}
+                    </li>
+                  )}
                 </ul>
               </div>
             )}
@@ -317,9 +352,15 @@ export const CommunityPostCard = ({
                   <Button type="button" variant="outline" size="lg" className="h-12 w-full rounded-xl border-foreground/15 text-[15px] font-semibold sm:h-11 sm:w-auto sm:min-w-[10.5rem]" onClick={() => setFreelancerOpen(true)}>
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
-                  <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
-                    <MessageCircle size={18} strokeWidth={2} />Message
-                  </Button>
+                  {isProjectBased ? (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
+                      <MessageCircle size={18} strokeWidth={2} />Request a quote
+                    </Button>
+                  ) : (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
+                      <MessageCircle size={18} strokeWidth={2} />Message
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <p className="text-center text-[13px] text-muted-foreground sm:text-right">Your listing — how it looks to others</p>
@@ -433,11 +474,13 @@ export const CommunityPostCard = ({
 
             {skills.length > 0 && (
               <div className="mt-4">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
-                <ul className="flex flex-wrap gap-1.5">
-                  {skills.map((skill) => (
-                    <li key={`${post.id}-${skill}`} className="rounded-md border border-foreground/10 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">{skill}</li>
+                <ul className="flex flex-wrap gap-1">
+                  {skills.slice(0, 5).map((skill) => (
+                    <li key={`${post.id}-${skill}`} className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75">{skill}</li>
                   ))}
+                  {skills.length > 5 && (
+                    <li className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">+{skills.length - 5}</li>
+                  )}
                 </ul>
               </div>
             )}
@@ -448,9 +491,15 @@ export const CommunityPostCard = ({
                   <Button type="button" variant="outline" size="lg" className="h-12 w-full rounded-xl border-foreground/15 text-[15px] font-semibold sm:h-11 sm:w-auto sm:min-w-[10.5rem]" onClick={() => setFreelancerOpen(true)}>
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
-                  <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
-                    <MessageCircle size={18} strokeWidth={2} />Message
-                  </Button>
+                  {isProjectBased ? (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
+                      <MessageCircle size={18} strokeWidth={2} />Request a quote
+                    </Button>
+                  ) : (
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
+                      <MessageCircle size={18} strokeWidth={2} />Message
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <p className="text-center text-[13px] text-muted-foreground sm:text-right">Your listing — how it looks to others</p>
@@ -499,6 +548,47 @@ export const CommunityPostCard = ({
           </div>
         </div>
       )}
+
+      {/* ── QUOTE REQUEST DIALOG ── */}
+      <Dialog open={quoteOpen} onOpenChange={setQuoteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request a quote from {name}</DialogTitle>
+            <DialogDescription>Describe what you need and your budget — this gets sent as a message.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Describe your project <span className="text-destructive">*</span></label>
+              <textarea
+                value={quoteDesc}
+                onChange={(e) => setQuoteDesc(e.target.value)}
+                placeholder="e.g. A 5-page website for my café — home, menu, about, gallery, contact. Need it mobile-friendly and easy to update."
+                className="w-full min-h-[100px] resize-y rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Your budget (€) <span className="text-muted-foreground/60">optional</span></label>
+              <input
+                type="number"
+                min="0"
+                value={quoteBudget}
+                onChange={(e) => setQuoteBudget(e.target.value)}
+                placeholder="e.g. 500"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <Button
+              type="button"
+              size="lg"
+              className="w-full h-11 rounded-xl font-semibold"
+              disabled={!quoteDesc.trim()}
+              onClick={sendQuoteRequest}
+            >
+              Send quote request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── DIALOGS ── */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

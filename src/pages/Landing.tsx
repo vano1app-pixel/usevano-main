@@ -87,155 +87,137 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-24 sm:pt-16 md:pt-28 pb-14 sm:pb-18 md:pb-24 px-4 md:px-8">
-        <motion.div
-          className="max-w-3xl mx-auto text-center"
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer}
-        >
-          <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center gap-3 mb-6 sm:mb-8">
-            <button
-              type="button"
-              onClick={() => navigate('/whats-new')}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
+      <section className="relative pt-24 sm:pt-20 md:pt-32 pb-14 md:pb-24 px-4 md:px-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_13rem] gap-10 md:gap-16 items-start">
+            {/* Text column */}
+            <motion.div
+              className="text-center md:text-left"
+              initial="hidden"
+              animate="visible"
+              variants={staggerContainer}
             >
-              <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
-              What&apos;s new in {APP_VERSION_LABEL}
-              <ArrowRight size={12} className="opacity-70" />
-            </button>
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/60 border border-border text-muted-foreground text-[11px] font-medium">
-              <MapPin size={11} /> Made for Galway · Local gigs
-            </span>
-          </motion.div>
-          <motion.h1
-            variants={fadeUp}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.08]"
-          >
-            Local talent,<br />
-            <span className="text-primary">instantly matched.</span>
-          </motion.h1>
-          <motion.p
-            variants={fadeUp}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-2 leading-relaxed"
-          >
-            Find the right freelancer for your project — browse portfolios, post a gig with budget and deadline, and chat in one place. Start with what you need.
-          </motion.p>
-          <motion.p
-            variants={fadeUp}
-            transition={{ duration: 0.6, delay: 0.24 }}
-            className="text-sm sm:text-[15px] text-primary/90 font-medium max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed"
-          >
-            Sign in with Google — post gigs, hire freelancers, and get listed on the Community board.
-          </motion.p>
+              <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center md:items-start gap-2.5 mb-6 sm:mb-8">
+                <button
+                  type="button"
+                  onClick={() => navigate('/whats-new')}
+                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
+                >
+                  <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
+                  What&apos;s new in {APP_VERSION_LABEL}
+                  <ArrowRight size={12} className="opacity-70" />
+                </button>
+              </motion.div>
+              <motion.h1
+                variants={fadeUp}
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.25rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
+              >
+                Local talent,<br />
+                <span className="text-primary">instantly matched.</span>
+              </motion.h1>
+              <motion.p
+                variants={fadeUp}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto md:mx-0 mb-8 leading-relaxed"
+              >
+                Browse portfolios, post a gig with budget and deadline, and chat — all in one place. Built for Galway.
+              </motion.p>
 
-          {/* Category-style search entry */}
-          <motion.div
-            variants={fadeUp}
-            transition={{ duration: 0.5, delay: 0.22 }}
-            className="w-full max-w-xl mx-auto mb-6"
-          >
-            <button
-              type="button"
-              onClick={() => navigate('/students')}
-              className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-left shadow-sm transition-all hover:border-primary/25 hover:shadow-md"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Search size={18} strokeWidth={2.25} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Find talent</p>
-                <p className="truncate text-sm font-medium text-foreground">Search freelancers by skill, name, or bio…</p>
-              </div>
-              <ArrowRight size={18} className="shrink-0 text-muted-foreground" />
-            </button>
-          </motion.div>
-
-          <motion.div
-            variants={fadeUp}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-3 min-h-[3.25rem]"
-          >
-            {session === undefined ? (
-              <div className="flex w-full max-w-md justify-center gap-3 sm:max-w-none">
-                <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
-                <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
-              </div>
-            ) : session ? (
-              <>
+              {/* Search bar */}
+              <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.22 }} className="w-full max-w-xl mx-auto md:mx-0 mb-6">
                 <button
                   type="button"
                   onClick={() => navigate('/students')}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-left shadow-sm transition-all hover:border-primary/25 hover:shadow-md"
                 >
-                  <Users size={18} />
-                  Find talent
-                  <ArrowRight size={16} />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Search size={18} strokeWidth={2.25} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Find talent</p>
+                    <p className="truncate text-sm font-medium text-foreground">Search freelancers by skill, name, or bio…</p>
+                  </div>
+                  <ArrowRight size={18} className="shrink-0 text-muted-foreground" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/post-job')}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2"
-                >
-                  <Briefcase size={18} />
-                  Post a gig
-                </button>
-                <button
-                  type="button"
-                  onClick={scrollToHow}
-                  className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  How it works
-                </button>
-              </>
-            ) : (
-              <div className="flex w-full max-w-xl flex-col items-center gap-3 mx-auto">
-                <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-center sm:flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/auth?mode=signup')}
-                    className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-                  >
-                    Get started
-                    <ArrowRight size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/students')}
-                    className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Users size={18} />
-                    Find talent
-                  </button>
-                  <button
-                    type="button"
-                    onClick={scrollToHow}
-                    className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    How it works
-                  </button>
-                </div>
-                <p className="text-center text-xs text-muted-foreground leading-relaxed">
-                  On the next screen you can create an account, or{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/auth?mode=login')}
-                    className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
-                  >
-                    log in if you already have one
-                  </button>
-                  .
-                </p>
-              </div>
-            )}
-          </motion.div>
+              </motion.div>
 
-          <p className="mt-10 text-center text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
+              <motion.div
+                variants={fadeUp}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="flex flex-col sm:flex-row sm:flex-wrap items-center md:items-start justify-center md:justify-start gap-3 min-h-[3.25rem]"
+              >
+                {session === undefined ? (
+                  <div className="flex w-full max-w-md justify-center gap-3 sm:max-w-none">
+                    <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
+                    <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
+                  </div>
+                ) : session ? (
+                  <>
+                    <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                      <Users size={18} />Find talent<ArrowRight size={16} />
+                    </button>
+                    <button type="button" onClick={() => navigate('/post-job')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
+                      <Briefcase size={18} />Post a gig
+                    </button>
+                    <button type="button" onClick={scrollToHow} className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                      How it works
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex w-full max-w-xl flex-col items-center md:items-start gap-3 mx-auto md:mx-0">
+                    <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-center md:justify-start sm:flex-wrap">
+                      <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                        Get started<ArrowRight size={16} />
+                      </button>
+                      <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 transition-all flex items-center justify-center gap-2">
+                        <Users size={18} />Find talent
+                      </button>
+                      <button type="button" onClick={scrollToHow} className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                        How it works
+                      </button>
+                    </div>
+                    <p className="text-center md:text-left text-xs text-muted-foreground leading-relaxed">
+                      Already have an account?{' '}
+                      <button type="button" onClick={() => navigate('/auth?mode=login')} className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
+                        Log in
+                      </button>
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+
+            {/* Right column — stat cards, desktop only */}
+            <motion.div
+              className="hidden md:flex flex-col gap-3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              {[
+                { value: '€0', label: 'Free to sign up' },
+                { value: 'Galway', label: 'Hyper-local focus' },
+                { value: '1 min', label: 'To post a gig' },
+              ].map((s) => (
+                <div key={s.value} className="rounded-2xl border border-foreground/10 bg-card px-5 py-4 shadow-sm">
+                  <p className="text-2xl font-bold tracking-tight text-foreground">{s.value}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+
+          <motion.p
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="mt-10 text-center text-sm text-muted-foreground leading-relaxed"
+          >
             Fixed-price gigs · In-app messaging · Portfolios &amp; reviews · Community board · Built for Galway
-          </p>
-        </motion.div>
+          </motion.p>
+        </div>
       </section>
 
       {/* How it works — 4-phase journey */}
@@ -259,33 +241,34 @@ const Landing = () => {
             </motion.p>
           </motion.div>
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5"
+            className="max-w-2xl mx-auto"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-60px" }}
             variants={staggerContainer}
           >
             {[
-              { num: '01', phase: 'Discover', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers, portfolios, and community listings. Search by name, bio, or skills.' },
-              { num: '02', phase: 'Scope', icon: Briefcase, title: 'Post or apply', desc: 'Hirers post gigs with budget and due date. Freelancers apply with a message — align on deliverables before you start.' },
-              { num: '03', phase: 'Connect', icon: MessageCircle, title: 'Chat on VANO', desc: 'Keep project conversation in one thread. No need to scatter details across different apps.' },
-              { num: '04', phase: 'Deliver', icon: Check, title: 'Complete & review', desc: 'Finish the work, then build reputation through reviews and completed gigs on your profile.' },
-            ].map((step, i) => (
+              { num: '01', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers by skill, bio, or portfolio. Filter by availability and category.' },
+              { num: '02', icon: Briefcase, title: 'Post or apply', desc: 'Post a gig with a fixed budget and due date, or apply to one with a short message.' },
+              { num: '03', icon: MessageCircle, title: 'Chat on VANO', desc: 'Align on scope and deliverables in one thread — no scattering details across apps.' },
+              { num: '04', icon: Check, title: 'Complete & review', desc: 'Finish the work and build your reputation with completed gigs on your profile.' },
+            ].map((step, i, arr) => (
               <motion.div
                 key={i}
-                variants={scaleIn}
-                transition={{ duration: 0.45, delay: i * 0.08 }}
-                className="relative bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm hover:border-primary/20 hover:shadow-md transition-all group text-left"
+                variants={fadeUp}
+                transition={{ duration: 0.4, delay: i * 0.09 }}
+                className="relative flex gap-5 pb-0"
               >
-                <div className="flex items-start justify-between gap-2 mb-4">
-                  <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">{step.num}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{step.phase}</span>
+                <div className="flex flex-col items-center">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-foreground/15 bg-card text-[13px] font-bold text-foreground/60">
+                    {step.num}
+                  </div>
+                  {i < arr.length - 1 && <div className="my-1 w-px flex-1 bg-border" style={{ minHeight: '2.5rem' }} />}
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
-                  <step.icon className="text-primary" size={20} strokeWidth={2} />
+                <div className={i < arr.length - 1 ? 'pb-8 pt-1.5' : 'pt-1.5'}>
+                  <h3 className="text-base font-semibold text-foreground mb-1">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
                 </div>
-                <h3 className="text-base font-semibold mb-2 text-foreground">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -306,33 +289,55 @@ const Landing = () => {
             <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg mx-auto">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
           </motion.div>
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-60px" }}
             variants={staggerContainer}
           >
-            {[
-              { icon: Shield, title: 'Trust & reviews', desc: 'Build a reputation with completed gigs, ratings, and a visible portfolio.' },
-              { icon: MapPin, title: 'Hyperlocal', desc: 'Find talent and gigs in Galway — location is clear on every gig listing.' },
-              { icon: Clock, title: 'Hire in minutes', desc: 'No week-long bidding wars. Post a gig, get applicants, pick someone — done.' },
-              { icon: MessageSquare, title: 'Chat on platform', desc: 'Keep briefs and updates in VANO messages instead of juggling apps.' },
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                variants={fadeUp}
-                transition={{ duration: 0.45, delay: i * 0.08 }}
-                className="flex gap-4 p-5 rounded-2xl border border-border bg-card hover:border-primary/15 transition-all"
-              >
-                <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center shrink-0">
-                  <item.icon size={18} className="text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold mb-1">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-                </div>
-              </motion.div>
-            ))}
+            {/* Large card — spans 2 cols */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/8">
+                <MapPin size={20} className="text-foreground" strokeWidth={2} />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
+            </motion.div>
+
+            {/* Stat card */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.06 }} className="col-span-2 sm:col-span-1 rounded-2xl border border-foreground/10 bg-foreground text-background p-6">
+              <p className="text-4xl font-bold tracking-tight mb-1">Free.</p>
+              <p className="text-sm text-background/60 leading-snug">No commission, no fees — just connect.</p>
+            </motion.div>
+
+            {/* Speed card */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.1 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
+                <Clock size={18} className="text-foreground" strokeWidth={2} />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground mb-1">Hire in minutes</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">Post a gig, get applicants, pick someone — done.</p>
+            </motion.div>
+
+            {/* Chat card */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.14 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
+                <MessageSquare size={18} className="text-foreground" strokeWidth={2} />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground mb-1">Chat on platform</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
+            </motion.div>
+
+            {/* Trust card — full width */}
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.18 }} className="col-span-2 sm:col-span-3 rounded-2xl border border-foreground/10 bg-card p-5 flex items-center gap-5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-foreground/8">
+                <Shield size={20} className="text-foreground" strokeWidth={2} />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-0.5">Built on trust</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Profiles with portfolios, reviews, and verified gigs — so you know who you're dealing with before you hire.</p>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </section>
@@ -419,24 +424,25 @@ const Landing = () => {
           variants={scaleIn}
           transition={{ duration: 0.55 }}
         >
-          <div className="bg-primary rounded-2xl p-8 sm:p-12 text-center">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-primary-foreground mb-3">Ready to get started?</h2>
-              <p className="text-primary-foreground/80 mb-8 text-sm sm:text-base">Join freelancers and businesses using VANO in Galway.</p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  onClick={() => navigate('/auth')}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-primary-foreground text-primary rounded-xl font-medium text-sm hover:bg-primary-foreground/90 transition-colors"
-                >
-                  Create account
-                </button>
-                <button
-                  onClick={() => navigate('/students')}
-                  className="w-full sm:w-auto px-8 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary-foreground/10 transition-colors"
-                >
-                  Find talent
-                </button>
-              </div>
+          <div className="rounded-3xl bg-foreground px-8 py-12 sm:px-14 sm:py-16 text-center">
+            <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-background/40">Galway · Free · Local</p>
+            <h2 className="text-3xl sm:text-5xl font-bold text-background tracking-tight leading-tight mb-4">
+              Your next gig<br />starts here.
+            </h2>
+            <p className="text-background/55 mb-10 text-sm sm:text-base max-w-sm mx-auto leading-relaxed">Join freelancers and businesses already using VANO across Galway.</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => navigate('/auth')}
+                className="w-full sm:w-auto px-8 py-3.5 bg-background text-foreground rounded-xl font-semibold text-sm hover:bg-background/90 transition-colors"
+              >
+                Get started — it&apos;s free
+              </button>
+              <button
+                onClick={() => navigate('/students')}
+                className="w-full sm:w-auto px-8 py-3.5 border border-background/20 text-background rounded-xl font-medium text-sm hover:bg-background/8 transition-colors"
+              >
+                Browse talent
+              </button>
             </div>
           </div>
         </motion.div>

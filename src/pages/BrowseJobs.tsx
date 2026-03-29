@@ -124,8 +124,8 @@ const BrowseJobs = () => {
       <SEOHead title="Browse Gigs – VANO" description="Find freelance gigs in Galway." />
       <Navbar />
       <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        <header className="mb-6 border-l-[3px] border-foreground pl-4 sm:mb-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Gigs</p>
+        <header className="mb-6 sm:mb-8">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Gigs</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Browse work near you</h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-[15px]">
             Each gig is a fixed-price project with a due date — see budget and deadline on every card.

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -361,10 +362,6 @@ const Community = () => {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background pb-24 md:pb-12">
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-30%,hsl(var(--foreground)/0.06),transparent_55%)] dark:bg-[radial-gradient(ellipse_100%_70%_at_50%_-25%,hsl(var(--primary)/0.08),transparent_50%)]"
-        aria-hidden
-      />
       <SEOHead
         title={activeCategory ? `${boardTitle} – Community · VANO` : 'Community – VANO'}
         description="Browse freelancer listings by specialty — videography, websites, or social media."
@@ -382,7 +379,7 @@ const Community = () => {
               All boards
             </button>
           )}
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Talent board</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Talent board</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-[2rem] sm:leading-tight">
             {boardTitle}
           </h1>
@@ -453,6 +450,42 @@ const Community = () => {
               </div>
             ))}
           </div>
+        ) : posts.length === 0 ? (
+          <div className="flex flex-col gap-6 sm:gap-7">
+            <div className="rounded-2xl border border-foreground/10 bg-card/80 px-5 py-4 text-center shadow-sm backdrop-blur-[2px]">
+              <p className="text-sm font-medium text-foreground">No listings here yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isStudent ? 'Be the first — here\'s what a completed profile looks like:' : 'Check back soon. Here\'s an example of what freelancers look like:'}
+              </p>
+            </div>
+            {activeCategory && (DEMO_POSTS[activeCategory] || []).map((demo) => (
+              <div key={demo.post.id} className="relative">
+                <div className="pointer-events-none absolute -inset-[1px] overflow-hidden rounded-[17px] z-10">
+                  <motion.div
+                    className="absolute inset-[-100%] origin-center"
+                    style={{ background: 'conic-gradient(from 0deg, transparent 55%, hsl(var(--foreground)/0.35) 75%, hsl(var(--foreground)/0.5) 85%, hsl(var(--foreground)/0.35) 95%, transparent 100%)' }}
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
+                  />
+                </div>
+                <div className="absolute -top-3 left-4 z-20">
+                  <span className="rounded-full bg-muted border border-border px-3 py-0.5 text-[11px] font-medium text-muted-foreground">Example profile</span>
+                </div>
+                <CommunityPostCard
+                  post={demo.post}
+                  profile={demo.profile}
+                  studentProfile={demo.studentProfile}
+                  portfolioPreview={demo.portfolioPreview}
+                  currentUserId={null}
+                  currentUserType={null}
+                  isLiked={false}
+                  isAdmin={false}
+                  onLikeToggle={() => {}}
+                  onDelete={() => {}}
+                />
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col gap-6 sm:gap-7">
             {posts.length === 0 && (
@@ -491,9 +524,16 @@ const Community = () => {
             })}
             {activeCategory && posts.length < 3 && (DEMO_POSTS[activeCategory] || []).map((demo) => (
               <div key={demo.post.id} className="relative">
-                <div className="pointer-events-none absolute -inset-px rounded-2xl ring-2 ring-primary/30 z-10" />
+                <div className="pointer-events-none absolute -inset-[1px] overflow-hidden rounded-[17px] z-10">
+                  <motion.div
+                    className="absolute inset-[-100%] origin-center"
+                    style={{ background: 'conic-gradient(from 0deg, transparent 55%, hsl(var(--foreground)/0.35) 75%, hsl(var(--foreground)/0.5) 85%, hsl(var(--foreground)/0.35) 95%, transparent 100%)' }}
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
+                  />
+                </div>
                 <div className="absolute -top-3 left-4 z-20">
-                  <span className="rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">Example profile</span>
+                  <span className="rounded-full bg-muted border border-border px-3 py-0.5 text-[11px] font-medium text-muted-foreground">Example profile</span>
                 </div>
                 <CommunityPostCard
                   post={demo.post}

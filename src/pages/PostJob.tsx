@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +6,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isEmailVerified } from '@/lib/authSession';
 
@@ -17,6 +17,9 @@ const PostJob = () => {
   const rehireStudentId = searchParams.get('rehire');
   const [loading, setLoading] = useState(false);
   const [rehireStudentName, setRehireStudentName] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const tagInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -67,6 +70,26 @@ const PostJob = () => {
     init();
   }, [rehireStudentId, navigate]);
 
+  const addTag = (raw: string) => {
+    const val = raw.trim().replace(/,+$/, '').trim();
+    if (!val) return;
+    const formatted = val.charAt(0).toUpperCase() + val.slice(1);
+    if (!tags.includes(formatted) && tags.length < 10) {
+      setTags((prev) => [...prev, formatted]);
+    }
+    setTagInput('');
+  };
+
+  const removeTag = (tag: string) => setTags((prev) => prev.filter((t) => t !== tag));
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); }
+    if (e.key === ',') { e.preventDefault(); addTag(tagInput); }
+    if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+      setTags((prev) => prev.slice(0, -1));
+    }
+  };
+
   const geocodeLocation = async (location: string): Promise<{ lat: number; lon: number } | null> => {
     if (!location.trim()) return null;
     try {
@@ -109,7 +132,7 @@ const PostJob = () => {
       hourly_rate: 0,
       fixed_price: parseFloat(form.fixed_price) || 0,
       payment_type: 'fixed',
-      tags: [],
+      tags,
       shift_date: form.shift_date,
       shift_start: null,
       shift_end: null,
@@ -140,8 +163,8 @@ const PostJob = () => {
       <SEOHead title="Post a Gig – VANO" description="Post a project gig with a fixed budget and deadline." />
       <Navbar />
       <div className="mx-auto max-w-2xl px-4 pt-20 sm:px-6 sm:pt-24 md:px-8">
-        <header className="mb-8 border-l-[3px] border-foreground pl-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Hiring</p>
+        <header className="mb-8">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Hiring</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
             {rehireStudentId ? 'Rehire a freelancer' : 'Post a gig'}
           </h1>
@@ -234,6 +257,35 @@ const PostJob = () => {
                 required
                 className={inputClass}
               />
+            </div>
+          </div>
+
+          <div className={sectionClass}>
+            <h2 className="text-sm font-semibold text-foreground">Tags <span className="font-normal text-muted-foreground">(optional)</span></h2>
+            <p className="-mt-1 text-xs text-muted-foreground leading-relaxed">Type a skill or keyword and press Enter or comma to add. Up to 8 tags.</p>
+            <div
+              className="flex min-h-[44px] flex-wrap gap-1.5 cursor-text rounded-xl border border-input bg-background px-3 py-2"
+              onClick={() => tagInputRef.current?.focus()}
+            >
+              {tags.map((tag) => (
+                <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-foreground/8 px-2 py-0.5 text-[12px] font-medium text-foreground">
+                  {tag}
+                  <button type="button" onClick={(e) => { e.stopPropagation(); removeTag(tag); }} className="text-muted-foreground hover:text-foreground">
+                    <X size={11} strokeWidth={2.5} />
+                  </button>
+                </span>
+              ))}
+              {tags.length < 10 && (
+                <input
+                  ref={tagInputRef}
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  onBlur={() => addTag(tagInput)}
+                  placeholder={tags.length === 0 ? 'e.g. Logo Design, Video, React…' : ''}
+                  className="min-w-[120px] flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                />
+              )}
             </div>
           </div>
 
