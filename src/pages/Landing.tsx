@@ -173,6 +173,20 @@ const Landing = () => {
                 </button>
               </motion.div>
 
+              {/* Stat chips — mobile only */}
+              <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="flex gap-2 mb-6 md:hidden">
+                {[
+                  { value: '€0', label: 'Free to join' },
+                  { value: 'Galway', label: 'Hyper-local' },
+                  { value: '1 min', label: 'Post a gig' },
+                ].map((s) => (
+                  <div key={s.value} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-foreground/10 bg-card px-3 py-1.5 shadow-sm">
+                    <p className="text-sm font-bold text-foreground">{s.value}</p>
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </motion.div>
+
               <motion.div
                 variants={fadeUp}
                 transition={{ duration: 0.6, delay: 0.3 }}
