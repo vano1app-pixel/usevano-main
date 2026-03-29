@@ -217,7 +217,7 @@ const Landing = () => {
                       <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
                         Get started — it's free<ArrowRight size={16} />
                       </button>
-                      <button type="button" onClick={() => navigate('/post-job')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
+                      <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
                         <Briefcase size={16} />Post a gig in 60 sec
                       </button>
                     </div>

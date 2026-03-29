@@ -316,6 +316,8 @@ const Community = () => {
       setProfiles({});
       setStudentProfiles({});
       setPortfolioByUser({});
+      setReviewsByUser({});
+      setLikedPostIds(new Set());
       (async () => {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user || null);

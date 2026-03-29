@@ -326,12 +326,12 @@ export const CommunityPostCard = ({
             {(reviewInfo || studentProfile?.is_available) && (
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {reviewInfo && reviewInfo.count > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/80 dark:bg-amber-900/30 border border-amber-200/70 dark:border-amber-700/40 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
                     ★ {reviewInfo.avg} · {reviewInfo.count} {reviewInfo.count === 1 ? 'review' : 'reviews'}
                   </span>
                 )}
                 {studentProfile?.is_available && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 border border-emerald-200/70 dark:border-emerald-700/40 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     Available now
                   </span>
@@ -485,12 +485,12 @@ export const CommunityPostCard = ({
             {(reviewInfo || studentProfile?.is_available) && (
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {reviewInfo && reviewInfo.count > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/80 dark:bg-amber-900/30 border border-amber-200/70 dark:border-amber-700/40 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
                     ★ {reviewInfo.avg} · {reviewInfo.count} {reviewInfo.count === 1 ? 'review' : 'reviews'}
                   </span>
                 )}
                 {studentProfile?.is_available && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 border border-emerald-200/70 dark:border-emerald-700/40 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     Available now
                   </span>
