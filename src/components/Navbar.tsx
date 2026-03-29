@@ -130,6 +130,14 @@ export const Navbar: React.FC = () => {
 
           {/* Mobile right side — no hamburger, just action */}
           <div className="md:hidden flex items-center gap-2">
+            {user && showAdminLink && (
+              <Link
+                to="/admin"
+                className="px-3 py-1.5 text-xs font-semibold text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors"
+              >
+                Admin
+              </Link>
+            )}
             {user ? (
               <NotificationBell />
             ) : (
