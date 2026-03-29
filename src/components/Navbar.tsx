@@ -40,7 +40,7 @@ export const Navbar: React.FC = () => {
   const navItems = [
     { label: 'Browse Gigs', href: '/jobs', requiresAuth: false, isNew: false },
     { label: 'Post a Gig', href: '/post-job', requiresAuth: true, isNew: false },
-    { label: 'Community', href: '/community', requiresAuth: false, isNew: true },
+    { label: 'Talent Board', href: '/community', requiresAuth: false, isNew: true },
   ];
 
   const authNavItems = [

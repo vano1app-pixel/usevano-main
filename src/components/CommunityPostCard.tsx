@@ -85,6 +85,7 @@ interface CommunityPostCardProps {
   onDelete: (postId: string) => void;
   portfolioPreview?: PortfolioPreviewItem[];
   similarPosts?: SimilarPost[];
+  reviewInfo?: { count: number; avg: number } | null;
 }
 
 function bannerGradient(userId: string): { bg: string; orb1: string; orb2: string; orb3: string } {
@@ -139,6 +140,7 @@ export const CommunityPostCard = ({
   onDelete,
   portfolioPreview = [],
   similarPosts = [],
+  reviewInfo = null,
 }: CommunityPostCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -320,6 +322,22 @@ export const CommunityPostCard = ({
 
           {/* Content — no duplicate identity row */}
           <div className="px-4 pb-4 pt-4 sm:px-6 sm:pb-5">
+            {/* Trust bar */}
+            {(reviewInfo || studentProfile?.is_available) && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {reviewInfo && reviewInfo.count > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                    ★ {reviewInfo.avg} · {reviewInfo.count} {reviewInfo.count === 1 ? 'review' : 'reviews'}
+                  </span>
+                )}
+                {studentProfile?.is_available && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Available now
+                  </span>
+                )}
+              </div>
+            )}
             <div className="space-y-3">
               <h3 className="text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg">{post.title}</h3>
               {post.description ? (
@@ -463,6 +481,22 @@ export const CommunityPostCard = ({
 
           {/* Content below banner */}
           <div className="px-4 pb-4 pt-4 sm:px-6 sm:pb-5">
+            {/* Trust bar */}
+            {(reviewInfo || studentProfile?.is_available) && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {reviewInfo && reviewInfo.count > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                    ★ {reviewInfo.avg} · {reviewInfo.count} {reviewInfo.count === 1 ? 'review' : 'reviews'}
+                  </span>
+                )}
+                {studentProfile?.is_available && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Available now
+                  </span>
+                )}
+              </div>
+            )}
             <div className="space-y-3">
               <h3 className="text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg">{post.title}</h3>
               {post.description ? (

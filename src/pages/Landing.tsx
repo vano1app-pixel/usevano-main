@@ -19,6 +19,8 @@ import {
   Megaphone,
   Linkedin,
   CircleUser,
+  Monitor,
+  Video,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
@@ -213,12 +215,15 @@ const Landing = () => {
                   <div className="flex w-full max-w-xl flex-col items-center md:items-start gap-3 mx-auto md:mx-0">
                     <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-center md:justify-start sm:flex-wrap">
                       <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                        Get started<ArrowRight size={16} />
+                        Get started — it's free<ArrowRight size={16} />
                       </button>
-                      <button type="button" onClick={scrollToHow} className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                        How it works
+                      <button type="button" onClick={() => navigate('/post-job')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
+                        <Briefcase size={16} />Post a gig in 60 sec
                       </button>
                     </div>
+                    <button type="button" onClick={scrollToHow} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                      How it works ↓
+                    </button>
                     <p className="text-center md:text-left text-xs text-muted-foreground leading-relaxed">
                       Already have an account?{' '}
                       <button type="button" onClick={() => navigate('/auth?mode=login')} className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
@@ -259,6 +264,35 @@ const Landing = () => {
           >
             Fixed-price gigs · In-app messaging · Portfolios &amp; reviews · Community board · Built for Galway
           </motion.p>
+        </div>
+      </section>
+
+      {/* What do you need? */}
+      <section className="pb-6 px-4 md:px-8">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-3">What do you need?</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Web & Apps', sub: 'Websites, e-commerce', icon: Monitor, cat: 'websites' },
+              { label: 'Video & Photo', sub: 'Filming, editing', icon: Video, cat: 'videographer' },
+              { label: 'Social Media', sub: 'Content, campaigns', icon: Megaphone, cat: 'social_media' },
+            ].map((item) => (
+              <button
+                key={item.cat}
+                type="button"
+                onClick={() => navigate(`/community?cat=${item.cat}`)}
+                className="group flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
+                  <item.icon size={18} className="text-foreground group-hover:text-primary transition-colors" strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{item.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

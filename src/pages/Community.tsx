@@ -201,6 +201,7 @@ const Community = () => {
   const [portfolioByUser, setPortfolioByUser] = useState<
     Record<string, { id: string; image_url: string | null; title: string }[]>
   >({});
+  const [reviewsByUser, setReviewsByUser] = useState<Record<string, { count: number; avg: number }>>({});
 
   const loadPosts = useCallback(async (category: CommunityCategoryId) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -254,6 +255,22 @@ const Community = () => {
       }
       setPortfolioByUser(trimmed);
 
+      const { data: revData } = await supabase
+        .from('reviews')
+        .select('reviewee_id, rating')
+        .in('reviewee_id', userIds);
+      const revMap: Record<string, { count: number; avg: number; total: number }> = {};
+      for (const r of revData || []) {
+        if (!revMap[r.reviewee_id]) revMap[r.reviewee_id] = { count: 0, avg: 0, total: 0 };
+        revMap[r.reviewee_id].count++;
+        revMap[r.reviewee_id].total += r.rating;
+      }
+      const finalRevMap: Record<string, { count: number; avg: number }> = {};
+      for (const uid of Object.keys(revMap)) {
+        finalRevMap[uid] = { count: revMap[uid].count, avg: Math.round((revMap[uid].total / revMap[uid].count) * 10) / 10 };
+      }
+      setReviewsByUser(finalRevMap);
+
       const visiblePosts = allPosts.filter((p: { user_id: string }) => {
         const prof = profileMap[p.user_id];
         if (!prof || prof.user_type !== 'student') return true;
@@ -266,6 +283,7 @@ const Community = () => {
       setProfiles({});
       setStudentProfiles({});
       setPortfolioByUser({});
+      setReviewsByUser({});
       setPosts([]);
     }
 
@@ -504,6 +522,7 @@ const Community = () => {
                   studentProfile={studentProfiles[post.user_id] || null}
                   portfolioPreview={portfolioByUser[post.user_id] || []}
                   similarPosts={similar}
+                  reviewInfo={reviewsByUser[post.user_id] || null}
                   currentUserId={user?.id || null}
                   currentUserType={currentUserType}
                   isLiked={likedPostIds.has(post.id)}
