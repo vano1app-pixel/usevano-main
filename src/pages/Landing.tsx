@@ -251,9 +251,9 @@ const Landing = () => {
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-3">What do you need?</p>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Web & Apps', sub: 'Websites, e-commerce', icon: Monitor, cat: 'websites' },
-              { label: 'Video & Photo', sub: 'Filming, editing', icon: Video, cat: 'videographer' },
-              { label: 'Social Media', sub: 'Content, campaigns', icon: Megaphone, cat: 'social_media' },
+              { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites' },
+              { label: 'Video & Photography', sub: 'Weddings, events & reels', icon: Video, cat: 'videographer' },
+              { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media' },
             ].map((item) => (
               <button
                 key={item.cat}
