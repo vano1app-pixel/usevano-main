@@ -60,7 +60,7 @@ const Landing = () => {
     const fetchFeatured = async () => {
       const { data: sprofs } = await supabase
         .from('student_profiles')
-        .select('user_id, skills, is_available')
+        .select('user_id, skills, is_available, bio, hourly_rate, typical_budget_min, typical_budget_max')
         .eq('is_available', true)
         .limit(20);
       if (!sprofs?.length) { setStudentsLoaded(true); return; }
@@ -77,6 +77,11 @@ const Landing = () => {
           display_name: profMap[sp.user_id]?.display_name || null,
           avatar_url: profMap[sp.user_id]?.avatar_url || null,
           top_skill: (sp.skills || [])[0] || null,
+          skills: sp.skills || [],
+          bio: sp.bio || null,
+          hourly_rate: sp.hourly_rate || null,
+          typical_budget_min: sp.typical_budget_min || null,
+          typical_budget_max: sp.typical_budget_max || null,
         }))
         .filter((s: any) => s.display_name && !s.display_name.toUpperCase().startsWith('VANO'));
       setFeaturedStudents(combined);
@@ -306,24 +311,71 @@ const Landing = () => {
                     <button
                       key={s.user_id}
                       type="button"
-                      onClick={() => navigate('/community')}
-                      className="group relative flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.97]"
+                      onClick={() => navigate(`/students/${s.user_id}`)}
+                      className="group relative flex w-[13rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.97] text-left"
                     >
-                      <div className="relative h-[7rem] w-full overflow-hidden bg-muted">
+                      {/* Avatar */}
+                      <div className="relative h-[8rem] w-full overflow-hidden bg-muted">
                         {s.avatar_url ? (
                           <img src={s.avatar_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]" loading="lazy" decoding="async" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-foreground/20">
+                          <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-foreground/20">
                             {(s.display_name || 'F')[0].toUpperCase()}
                           </div>
                         )}
-                        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/30 to-transparent" />
-                        <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
+                        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/40 to-transparent" />
+                        <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
                       </div>
-                      <div className="px-2.5 py-2.5">
-                        <p className="truncate text-[12px] font-semibold leading-snug text-foreground">{s.display_name}</p>
+
+                      {/* Info */}
+                      <div className="flex flex-col gap-1.5 px-3 py-2.5">
+                        {/* Name + skill badge */}
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="truncate text-[13px] font-semibold leading-snug text-foreground">{s.display_name}</p>
+                        </div>
                         {s.top_skill && (
-                          <p className="pointer-events-none mt-0.5 truncate text-[11px] text-muted-foreground blur-[3px] select-none">{s.top_skill}</p>
+                          <span className="self-start rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                            {s.top_skill}
+                          </span>
+                        )}
+
+                        {/* Price row — rate visible, budget range blurred */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {s.hourly_rate > 0 && (
+                            <span className="rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                              €{s.hourly_rate}/hr
+                            </span>
+                          )}
+                          {s.typical_budget_min > 0 && (
+                            <span className="pointer-events-none select-none text-[11px] font-medium text-muted-foreground blur-[3px]">
+                              €{s.typical_budget_min}–{s.typical_budget_max ?? '?'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Bio — first sentence visible, rest blurred */}
+                        {s.bio && (() => {
+                          const words = s.bio.trim().split(' ');
+                          const preview = words.slice(0, 6).join(' ');
+                          const rest = words.slice(6).join(' ');
+                          return (
+                            <div className="text-[11px] leading-relaxed text-muted-foreground">
+                              <span>{preview}</span>
+                              {rest && (
+                                <span className="pointer-events-none select-none blur-[3.5px]"> {rest}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Skills (extra ones blurred) */}
+                        {s.skills.length > 1 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground/70">{s.skills[1]}</span>
+                            {s.skills[2] && (
+                              <span className="pointer-events-none select-none rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground/70 blur-[3px]">{s.skills[2]}</span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </button>
