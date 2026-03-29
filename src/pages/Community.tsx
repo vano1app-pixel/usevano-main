@@ -3,7 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CommunityPostCard, type SimilarPost } from '@/components/CommunityPostCard';
 import { useToast } from '@/hooks/use-toast';
@@ -419,33 +419,30 @@ const Community = () => {
         </header>
 
         {!activeCategory ? (
-          <div className="flex flex-col gap-3 sm:gap-4">
-            <p className="text-sm text-muted-foreground">Where do you want to look?</p>
-            {COMMUNITY_CATEGORY_ORDER.map((id) => {
-              const item = COMMUNITY_CATEGORIES[id];
-              const Icon = item.icon;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => goToCategory(id)}
-                  className={cn(
-                    'group flex w-full items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all',
-                    'hover:border-foreground/20 hover:shadow-md active:scale-[0.99]',
-                    'sm:p-5'
-                  )}
-                >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground sm:h-14 sm:w-14">
-                    <Icon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-foreground sm:text-lg">{item.label}</p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </button>
-              );
-            })}
+          <div className="flex flex-col gap-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What are you looking for?</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {COMMUNITY_CATEGORY_ORDER.map((id) => {
+                const item = COMMUNITY_CATEGORIES[id];
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => goToCategory(id)}
+                    className="group flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
+                      <Icon className="h-5 w-5 text-foreground transition-colors group-hover:text-primary" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{item.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : loading ? (
           <div className="flex flex-col gap-6 sm:gap-7" aria-busy aria-label="Loading listings">

@@ -8,13 +8,11 @@ import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
 import {
   Briefcase,
   ArrowRight,
-  Check,
   Clock,
   Shield,
   MapPin,
   Users,
   Search,
-  MessageCircle,
   MessageSquare,
   Megaphone,
   Linkedin,
@@ -45,15 +43,10 @@ const scaleIn = {
 
 const Landing = () => {
   const navigate = useNavigate();
-  const howRef = React.useRef<HTMLElement>(null);
   const oauthHandledRef = useRef(false);
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
-
-  const scrollToHow = () => {
-    howRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
@@ -207,9 +200,6 @@ const Landing = () => {
                     <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
                       <Users size={18} />Browse talent
                     </button>
-                    <button type="button" onClick={scrollToHow} className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                      How it works
-                    </button>
                   </>
                 ) : (
                   <div className="flex w-full max-w-xl flex-col items-center md:items-start gap-3 mx-auto md:mx-0">
@@ -221,9 +211,6 @@ const Landing = () => {
                         <Briefcase size={16} />Post a gig in 60 sec
                       </button>
                     </div>
-                    <button type="button" onClick={scrollToHow} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                      How it works ↓
-                    </button>
                     <p className="text-center md:text-left text-xs text-muted-foreground leading-relaxed">
                       Already have an account?{' '}
                       <button type="button" onClick={() => navigate('/auth?mode=login')} className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
@@ -255,15 +242,6 @@ const Landing = () => {
             </motion.div>
           </div>
 
-          <motion.p
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="mt-10 text-center text-sm text-muted-foreground leading-relaxed"
-          >
-            Fixed-price gigs · In-app messaging · Portfolios &amp; reviews · Community board · Built for Galway
-          </motion.p>
         </div>
       </section>
 
@@ -368,61 +346,6 @@ const Landing = () => {
           </div>
         </section>
       )}
-
-      {/* How it works — 4-phase journey */}
-      <section ref={howRef} id="how-it-works" className="scroll-mt-24 bg-muted/30 py-16 md:py-24 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={staggerContainer}
-            className="text-center mb-10 md:mb-14"
-          >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-3">
-              How it works
-            </motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-4">
-              From first browse to final delivery
-            </motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
-              Discovery, clear scope on each gig, messaging, and reviews — designed for real freelance projects in Galway.
-            </motion.p>
-          </motion.div>
-          <motion.div
-            className="max-w-2xl mx-auto"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-60px" }}
-            variants={staggerContainer}
-          >
-            {[
-              { num: '01', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers by skill, bio, or portfolio. Filter by availability and category.' },
-              { num: '02', icon: Briefcase, title: 'Post or apply', desc: 'Post a gig with a fixed budget and due date, or apply to one with a short message.' },
-              { num: '03', icon: MessageCircle, title: 'Chat on VANO', desc: 'Align on scope and deliverables in one thread — no scattering details across apps.' },
-              { num: '04', icon: Check, title: 'Complete & review', desc: 'Finish the work and build your reputation with completed gigs on your profile.' },
-            ].map((step, i, arr) => (
-              <motion.div
-                key={i}
-                variants={fadeUp}
-                transition={{ duration: 0.4, delay: i * 0.09 }}
-                className="relative flex gap-5 pb-0"
-              >
-                <div className="flex flex-col items-center">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-foreground/15 bg-card text-[13px] font-bold text-foreground/60">
-                    {step.num}
-                  </div>
-                  {i < arr.length - 1 && <div className="my-1 w-px flex-1 bg-border" style={{ minHeight: '2.5rem' }} />}
-                </div>
-                <div className={i < arr.length - 1 ? 'pb-8 pt-1.5' : 'pt-1.5'}>
-                  <h3 className="text-base font-semibold text-foreground mb-1">{step.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
 
       {/* Why VANO */}
       <section className="py-16 md:py-24 px-4 md:px-8">

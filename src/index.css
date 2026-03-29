@@ -12,49 +12,49 @@
    * For a pixel match to @vano.app posts, drop your background + text hex into a converter and replace the HSL values below.
    */
   :root {
-    --background: 210 28% 97%;
+    --background: 38 28% 95.5%;
     /* Near-black body copy — stronger than soft gray UI defaults */
-    --foreground: 222 47% 6%;
+    --foreground: 25 30% 8%;
 
-    --card: 210 40% 99%;
-    --card-foreground: 222 47% 6%;
+    --card: 38 20% 98.5%;
+    --card-foreground: 25 30% 8%;
 
-    --popover: 210 40% 99%;
-    --popover-foreground: 222 47% 6%;
+    --popover: 38 20% 98.5%;
+    --popover-foreground: 25 30% 8%;
 
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 24% 94%;
-    --secondary-foreground: 222 47% 6%;
+    --secondary: 38 12% 93%;
+    --secondary-foreground: 25 30% 8%;
 
-    --muted: 210 22% 94%;
-    /* Secondary labels: charcoal, not pale gray (primary blue unchanged) */
-    --muted-foreground: 222 22% 28%;
+    --muted: 38 12% 93%;
+    /* Secondary labels: warm charcoal */
+    --muted-foreground: 30 10% 35%;
 
-    --accent: 210 26% 93%;
-    --accent-foreground: 222 47% 6%;
+    --accent: 38 12% 92%;
+    --accent-foreground: 25 30% 8%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 18% 89%;
-    --input: 210 18% 89%;
+    --border: 38 8% 87%;
+    --input: 38 8% 87%;
     --ring: 221 83% 53%;
 
     --radius: 0.75rem;
 
-    --glass-bg: 0 0% 100% / 0.6;
-    --glass-border: 0 0% 100% / 0.3;
+    --glass-bg: 38 20% 100% / 0.6;
+    --glass-border: 38 20% 100% / 0.3;
     --glass-shadow: 221 83% 53% / 0.08;
 
-    --sidebar-background: 210 28% 97%;
-    --sidebar-foreground: 222 35% 10%;
+    --sidebar-background: 38 28% 95.5%;
+    --sidebar-foreground: 25 30% 8%;
     --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 32% 96%;
-    --sidebar-accent-foreground: 222 40% 8%;
-    --sidebar-border: 214 32% 91%;
+    --sidebar-accent: 38 12% 93%;
+    --sidebar-accent-foreground: 25 30% 8%;
+    --sidebar-border: 38 8% 87%;
     --sidebar-ring: 221 83% 53%;
   }
 
@@ -112,19 +112,9 @@
     @apply bg-background text-foreground font-sans antialiased text-[15px] leading-relaxed;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
-    background-image:
-      radial-gradient(ellipse 80% 60% at 10% 0%, hsl(221 83% 53% / 0.06) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 90% 20%, hsl(221 83% 53% / 0.04) 0%, transparent 50%),
-      radial-gradient(ellipse 70% 40% at 50% 100%, hsl(221 83% 53% / 0.05) 0%, transparent 50%);
     min-height: 100vh;
   }
 
-  .dark body {
-    background-image:
-      radial-gradient(ellipse 80% 60% at 10% 0%, hsl(221 83% 53% / 0.1) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 90% 20%, hsl(221 83% 53% / 0.07) 0%, transparent 50%),
-      radial-gradient(ellipse 70% 40% at 50% 100%, hsl(221 83% 53% / 0.08) 0%, transparent 50%);
-  }
 }
 
 /* Hide scrollbar for filter rows */
