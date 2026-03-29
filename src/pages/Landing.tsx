@@ -46,6 +46,8 @@ const Landing = () => {
   const howRef = React.useRef<HTMLElement>(null);
   const oauthHandledRef = useRef(false);
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
+  const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
+  const [studentsLoaded, setStudentsLoaded] = React.useState(false);
 
   const scrollToHow = () => {
     howRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -57,6 +59,35 @@ const Landing = () => {
       setSession(nextSession);
     });
     return () => subscription.unsubscribe();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchFeatured = async () => {
+      const { data: sprofs } = await supabase
+        .from('student_profiles')
+        .select('user_id, skills, is_available')
+        .eq('is_available', true)
+        .limit(20);
+      if (!sprofs?.length) { setStudentsLoaded(true); return; }
+      const uids = sprofs.map((s: any) => s.user_id);
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', uids);
+      const profMap: Record<string, any> = {};
+      (profs || []).forEach((p: any) => { profMap[p.user_id] = p; });
+      const combined = sprofs
+        .map((sp: any) => ({
+          user_id: sp.user_id,
+          display_name: profMap[sp.user_id]?.display_name || null,
+          avatar_url: profMap[sp.user_id]?.avatar_url || null,
+          top_skill: (sp.skills || [])[0] || null,
+        }))
+        .filter((s: any) => s.display_name);
+      setFeaturedStudents(combined);
+      setStudentsLoaded(true);
+    };
+    fetchFeatured();
   }, []);
 
   /** Google OAuth returns to site root (`redirectTo`); finish profile + route once session is ready. */
@@ -114,7 +145,7 @@ const Landing = () => {
                 className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.25rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
               >
                 Local talent,<br />
-                <span className="text-primary">instantly matched.</span>
+                <span className="italic font-semibold">instantly available.</span>
               </motion.h1>
               <motion.p
                 variants={fadeUp}
@@ -220,6 +251,74 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Freelancer strip */}
+      {(studentsLoaded ? featuredStudents.length > 0 : true) && (
+        <section className="pb-10 md:pb-14 overflow-hidden">
+          <div className="max-w-5xl mx-auto px-4 md:px-8">
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">On VANO now</p>
+                <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-foreground">Freelancers available today</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/students')}
+                className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0 pb-0.5"
+              >
+                See all <ArrowRight size={14} />
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {!studentsLoaded
+                ? [1, 2, 3, 4, 5, 6, 7].map((i) => (
+                    <div key={i} className="flex w-[6.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 animate-pulse">
+                      <div className="h-12 w-12 rounded-full bg-muted" />
+                      <div className="w-full space-y-1.5">
+                        <div className="mx-auto h-2.5 w-3/4 rounded-md bg-muted" />
+                        <div className="mx-auto h-2 w-1/2 rounded-md bg-muted" />
+                      </div>
+                    </div>
+                  ))
+                : featuredStudents.map((s) => (
+                    <button
+                      key={s.user_id}
+                      type="button"
+                      onClick={() => navigate(`/students/${s.user_id}`)}
+                      className="flex w-[6.5rem] shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-foreground/10 bg-card px-3 py-4 text-center transition-all hover:border-foreground/25 hover:shadow-sm active:scale-[0.97]"
+                    >
+                      <div className="relative">
+                        {s.avatar_url ? (
+                          <img src={s.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" loading="lazy" decoding="async" />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-base font-semibold text-foreground">
+                            {(s.display_name || 'F')[0].toUpperCase()}
+                          </div>
+                        )}
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
+                      </div>
+                      <div className="w-full min-w-0">
+                        <p className="truncate text-[11px] font-semibold leading-snug text-foreground">{s.display_name}</p>
+                        {s.top_skill && <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{s.top_skill}</p>}
+                      </div>
+                    </button>
+                  ))}
+              {studentsLoaded && featuredStudents.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/students')}
+                  className="flex w-[6.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 px-3 py-4 text-center transition-all hover:border-foreground/30 hover:bg-muted/30"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <ArrowRight size={16} className="text-muted-foreground" />
+                  </div>
+                  <p className="text-[11px] font-medium leading-snug text-muted-foreground">See all talent</p>
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* How it works — 4-phase journey */}
       <section ref={howRef} id="how-it-works" className="scroll-mt-24 bg-muted/30 py-16 md:py-24 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
@@ -230,8 +329,8 @@ const Landing = () => {
             variants={staggerContainer}
             className="text-center mb-10 md:mb-14"
           >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-semibold text-primary uppercase tracking-[0.2em] mb-3">
-              End-to-end workflow
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-3">
+              How it works
             </motion.p>
             <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-4">
               From first browse to final delivery
@@ -284,7 +383,7 @@ const Landing = () => {
             viewport={{ once: true, margin: "-80px" }}
             variants={staggerContainer}
           >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-medium text-primary uppercase tracking-widest text-center mb-3">Why VANO</motion.p>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] text-center mb-3">Why VANO</motion.p>
             <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold text-center mb-4">Built different, on purpose</motion.h2>
             <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg mx-auto">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
           </motion.div>
@@ -352,7 +451,7 @@ const Landing = () => {
             variants={staggerContainer}
             className="text-center mb-10"
           >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-semibold text-primary uppercase tracking-[0.2em] mb-3">
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-3">
               FAQ
             </motion.p>
             <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
