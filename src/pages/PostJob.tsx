@@ -184,19 +184,35 @@ const PostJob = () => {
           </div>
         )}
 
-        {/* Help banner */}
-        <a
-          href="tel:+35389981711"
-          className="mb-6 flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3.5 transition-colors hover:bg-primary/10 active:scale-[0.99]"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary text-lg">
-            📞
+        {/* Get help from VANO */}
+        <div className="mb-6 rounded-2xl border border-foreground/10 bg-card shadow-sm overflow-hidden">
+          <div className="bg-foreground px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-background/50">Free service</p>
+            <p className="text-base font-bold text-background mt-0.5">Not sure who you need?</p>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground">Not sure who you need?</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Call VANO and we'll find the right person for you — <span className="font-medium text-foreground">089 981 711</span></p>
+          <div className="px-4 py-3.5 space-y-3">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Let VANO do the matching — tell us what you need and we'll personally recommend the right freelancer for your project.
+            </p>
+            <div className="flex gap-2">
+              <a
+                href="tel:+35389981711"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 active:scale-[0.98]"
+              >
+                📞 Call us
+              </a>
+              <a
+                href="https://wa.me/35389981711"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-foreground/15 bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted active:scale-[0.98]"
+              >
+                💬 WhatsApp
+              </a>
+            </div>
+            <p className="text-center text-[11px] text-muted-foreground">089 981 711 · Free, no commitment</p>
           </div>
-        </a>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className={sectionClass}>
