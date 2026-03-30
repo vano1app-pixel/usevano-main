@@ -47,6 +47,25 @@ const Landing = () => {
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
+  const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
+
+  const catKeywords: Record<string, string[]> = {
+    websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
+    videographer: ['video', 'photo', 'film', 'camera', 'edit', 'photography', 'videography', 'reel', 'wedding'],
+    social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
+  };
+
+  const filteredStudents = React.useMemo(() => {
+    if (!activeCategory) return featuredStudents;
+    const kws = catKeywords[activeCategory] || [];
+    return featuredStudents.filter((s) =>
+      (s.skills as string[]).some((sk) => kws.some((kw) => sk.toLowerCase().includes(kw)))
+    );
+  }, [featuredStudents, activeCategory]);
+
+  const dayIndex = Math.floor(Date.now() / 86400000);
+  const featured = filteredStudents.length > 0 ? filteredStudents[dayIndex % filteredStudents.length] : null;
+  const stripStudents = filteredStudents.filter((s) => s.user_id !== featured?.user_id);
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
@@ -60,7 +79,7 @@ const Landing = () => {
     const fetchFeatured = async () => {
       const { data: sprofs } = await supabase
         .from('student_profiles')
-        .select('user_id, skills, is_available, bio, hourly_rate, typical_budget_min, typical_budget_max')
+        .select('user_id, skills, is_available, bio, hourly_rate, typical_budget_min, typical_budget_max, created_at')
         .eq('is_available', true)
         .limit(20);
       if (!sprofs?.length) { setStudentsLoaded(true); return; }
@@ -82,6 +101,7 @@ const Landing = () => {
           hourly_rate: sp.hourly_rate || null,
           typical_budget_min: sp.typical_budget_min || null,
           typical_budget_max: sp.typical_budget_max || null,
+          created_at: sp.created_at || null,
         }))
         .filter((s: any) => s.display_name && !s.display_name.toUpperCase().startsWith('VANO'));
       setFeaturedStudents(combined);
@@ -259,27 +279,34 @@ const Landing = () => {
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites' },
               { label: 'Video & Photography', sub: 'Weddings, events & reels', icon: Video, cat: 'videographer' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media' },
-            ].map((item) => (
-              <button
-                key={item.cat}
-                type="button"
-                onClick={() => navigate(`/community?cat=${item.cat}`)}
-                className="group flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
-                  <item.icon size={18} className="text-foreground group-hover:text-primary transition-colors" strokeWidth={2} />
-                </div>
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{item.sub}</p>
-                </div>
-              </button>
-            ))}
+            ].map((item) => {
+              const isActive = activeCategory === item.cat;
+              return (
+                <button
+                  key={item.cat}
+                  type="button"
+                  onClick={() => setActiveCategory(isActive ? null : item.cat)}
+                  className={`group flex flex-col items-start gap-3 rounded-2xl border p-4 text-left shadow-sm transition-all active:scale-[0.98] ${
+                    isActive
+                      ? 'border-primary bg-primary/5 shadow-md'
+                      : 'border-foreground/10 bg-card hover:border-foreground/20 hover:shadow-md'
+                  }`}
+                >
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${isActive ? 'bg-primary/15' : 'bg-foreground/8 group-hover:bg-primary/10'}`}>
+                    <item.icon size={18} className={`transition-colors ${isActive ? 'text-primary' : 'text-foreground group-hover:text-primary'}`} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{item.sub}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* Freelancer strip */}
+      {/* Freelancer section */}
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
         <section className="pb-4 md:pb-6 overflow-hidden">
           <div className="max-w-5xl mx-auto px-4 md:px-8">
@@ -296,74 +323,137 @@ const Landing = () => {
                 See all <ArrowRight size={14} />
               </button>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {!studentsLoaded
-                ? [1, 2, 3, 4, 5, 6, 7].map((i) => (
-                    <div key={i} className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
-                      <div className="h-[7rem] w-full bg-muted" />
-                      <div className="space-y-1.5 px-2.5 py-2.5">
-                        <div className="h-3 w-3/4 rounded-md bg-muted" />
-                        <div className="h-2.5 w-1/2 rounded-md bg-muted" />
-                      </div>
-                    </div>
-                  ))
-                : featuredStudents.map((s) => (
-                    <button
-                      key={s.user_id}
-                      type="button"
-                      onClick={() => navigate(`/students/${s.user_id}`)}
-                      className="group relative flex w-[10rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.97] text-left"
-                    >
-                      {/* Avatar */}
-                      <div className="relative h-[7rem] w-full overflow-hidden bg-muted">
-                        {s.avatar_url ? (
-                          <img src={s.avatar_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]" loading="lazy" decoding="async" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-foreground/20">
-                            {(s.display_name || 'F')[0].toUpperCase()}
-                          </div>
-                        )}
-                        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/30 to-transparent" />
-                        <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
-                      </div>
 
-                      {/* Info — fixed height, no overflow */}
-                      <div className="flex flex-col gap-1 px-2.5 py-2 h-[5.5rem] overflow-hidden">
-                        <p className="truncate text-[12px] font-semibold leading-snug text-foreground">{s.display_name}</p>
-                        {s.top_skill && (
-                          <span className="self-start rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary truncate max-w-full">
-                            {s.top_skill}
-                          </span>
-                        )}
-                        {s.hourly_rate > 0 && (
-                          <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                            €{s.hourly_rate}/hr
-                          </span>
-                        )}
-                        {s.bio && (
-                          <p className="truncate text-[10px] text-muted-foreground">
-                            {s.bio.trim().split(' ').slice(0, 4).join(' ')}
-                            <span className="pointer-events-none select-none blur-[3px]"> {s.bio.trim().split(' ').slice(4, 8).join(' ')}</span>
-                          </p>
-                        )}
+            {/* Featured freelancer of the day — full-width hero card */}
+            {!studentsLoaded && (
+              <div className="mb-4 flex gap-4 rounded-2xl border border-foreground/10 bg-card p-4 animate-pulse">
+                <div className="h-20 w-20 shrink-0 rounded-xl bg-muted" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-3 w-1/3 rounded bg-muted" />
+                  <div className="h-3.5 w-1/2 rounded bg-muted" />
+                  <div className="h-3 w-3/4 rounded bg-muted" />
+                </div>
+              </div>
+            )}
+            {studentsLoaded && featured && (
+              <button
+                type="button"
+                onClick={() => navigate(`/students/${featured.user_id}`)}
+                className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
+              >
+                {/* Avatar */}
+                <div className="relative h-20 w-20 shrink-0 rounded-xl overflow-hidden bg-muted">
+                  {featured.avatar_url ? (
+                    <img src={featured.avatar_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-foreground/20">
+                      {(featured.display_name || 'F')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className="absolute right-1.5 bottom-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Featured today</span>
+                  <p className="text-[14px] font-semibold text-foreground truncate mt-0.5">{featured.display_name}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {featured.top_skill && (
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                        {featured.top_skill}
+                      </span>
+                    )}
+                    {featured.hourly_rate > 0 && (
+                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">€{featured.hourly_rate}/hr</span>
+                    )}
+                  </div>
+                  {featured.bio && (
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      {featured.bio.trim().split(' ').slice(0, 6).join(' ')}
+                      <span className="pointer-events-none select-none blur-[3px]"> {featured.bio.trim().split(' ').slice(6, 12).join(' ')}</span>
+                    </p>
+                  )}
+                </div>
+                <ArrowRight size={16} className="shrink-0 text-muted-foreground" />
+              </button>
+            )}
+
+            {/* Scroll strip — remaining freelancers */}
+            {(studentsLoaded ? stripStudents.length > 0 : true) && (
+              <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {!studentsLoaded
+                  ? [1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
+                        <div className="h-[7rem] w-full bg-muted" />
+                        <div className="space-y-1.5 px-2.5 py-2.5">
+                          <div className="h-3 w-3/4 rounded-md bg-muted" />
+                          <div className="h-2.5 w-1/2 rounded-md bg-muted" />
+                        </div>
                       </div>
-                    </button>
-                  ))}
-              {studentsLoaded && featuredStudents.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/community')}
-                  className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-dashed border-foreground/15 transition-all hover:border-foreground/30 hover:bg-muted/30"
-                >
-                  <div className="flex h-[7rem] w-full items-center justify-center bg-muted/30">
-                    <ArrowRight size={20} className="text-muted-foreground" />
-                  </div>
-                  <div className="px-2.5 py-2.5">
-                    <p className="text-[12px] font-medium text-muted-foreground">See all talent</p>
-                  </div>
-                </button>
-              )}
-            </div>
+                    ))
+                  : stripStudents.map((s) => {
+                      const isNew = s.created_at && (Date.now() - new Date(s.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+                      return (
+                        <button
+                          key={s.user_id}
+                          type="button"
+                          onClick={() => navigate(`/students/${s.user_id}`)}
+                          className="group relative flex w-[10rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.97] text-left"
+                        >
+                          <div className="relative h-[7rem] w-full overflow-hidden bg-muted">
+                            {s.avatar_url ? (
+                              <img src={s.avatar_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]" loading="lazy" decoding="async" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-foreground/20">
+                                {(s.display_name || 'F')[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/30 to-transparent" />
+                            <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
+                            {isNew && (
+                              <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+                                New
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-1 px-2.5 py-2 h-[5.5rem] overflow-hidden">
+                            <p className="truncate text-[12px] font-semibold leading-snug text-foreground">{s.display_name}</p>
+                            {s.top_skill && (
+                              <span className="self-start rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary truncate max-w-full">
+                                {s.top_skill}
+                              </span>
+                            )}
+                            {s.hourly_rate > 0 && (
+                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">€{s.hourly_rate}/hr</span>
+                            )}
+                            {s.bio && (
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {s.bio.trim().split(' ').slice(0, 4).join(' ')}
+                                <span className="pointer-events-none select-none blur-[3px]"> {s.bio.trim().split(' ').slice(4, 8).join(' ')}</span>
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                {studentsLoaded && featuredStudents.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/community')}
+                    className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-dashed border-foreground/15 transition-all hover:border-foreground/30 hover:bg-muted/30"
+                  >
+                    <div className="flex h-[7rem] w-full items-center justify-center bg-muted/30">
+                      <ArrowRight size={20} className="text-muted-foreground" />
+                    </div>
+                    <div className="px-2.5 py-2.5">
+                      <p className="text-[12px] font-medium text-muted-foreground">See all talent</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+            {studentsLoaded && filteredStudents.length === 0 && activeCategory && (
+              <p className="text-sm text-muted-foreground text-center py-4">No freelancers available for this category right now.</p>
+            )}
           </div>
         </section>
       )}

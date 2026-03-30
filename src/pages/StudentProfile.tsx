@@ -296,6 +296,31 @@ const StudentProfile = () => {
               ))}
             </div>
 
+            {/* Portfolio image strip — visible without tapping tab */}
+            {portfolioItems.some((i) => i.image_url) && (
+              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {portfolioItems.filter((i) => i.image_url).slice(0, 8).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveTab('portfolio')}
+                    title={item.title}
+                    className="relative h-24 w-24 shrink-0 rounded-xl overflow-hidden bg-muted transition-opacity hover:opacity-90 active:scale-[0.97]"
+                  >
+                    <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/portfolio/${id}`)}
+                  className="flex h-24 w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50"
+                >
+                  <ArrowRight size={16} />
+                  <span className="text-[10px] font-medium">All work</span>
+                </button>
+              </div>
+            )}
+
             {/* Tab switcher */}
             <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
               <div className="flex border-b border-border">
