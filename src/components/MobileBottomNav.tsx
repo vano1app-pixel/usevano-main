@@ -8,7 +8,7 @@ import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 const NAV_ITEMS = [
   { label: 'Home', icon: Home, href: '/' },
   { label: 'Gigs', icon: Briefcase, href: '/jobs' },
-  { label: 'Talent', icon: Users, href: '/community' },
+  { label: 'Talent', icon: Users, href: '/students' },
   { label: 'Messages', icon: MessageCircle, href: '/messages' },
   { label: 'Profile', icon: User, href: '/profile' },
 ];
@@ -77,7 +77,7 @@ export const MobileBottomNav: React.FC = () => {
     <>
       {/* Gradient scrim — fades page content into the nav bar */}
       <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-10 bg-gradient-to-t from-background to-transparent md:hidden" />
-      <nav className="fixed bottom-0 left-0 right-0 z-[2000] md:hidden safe-area-bottom border-t border-border/40 bg-card backdrop-blur-none">
+      <nav className="fixed bottom-0 left-0 right-0 z-[2000] md:hidden safe-area-bottom border-t border-border/40 bg-card/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]">
         {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
@@ -113,9 +113,7 @@ export const MobileBottomNav: React.FC = () => {
               >
                 <span className="inline-flex items-center gap-0.5">
                   {label}
-                  {href === '/community' ? (
-                    <NewFeatureBadge className="scale-90" />
-                  ) : null}
+                  {null}
                 </span>
               </span>
             </button>
