@@ -47,25 +47,9 @@ const Landing = () => {
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
-  const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
-
-  const catKeywords: Record<string, string[]> = {
-    websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
-    videographer: ['video', 'photo', 'film', 'camera', 'edit', 'photography', 'videography', 'reel', 'wedding'],
-    social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
-  };
-
-  const filteredStudents = React.useMemo(() => {
-    if (!activeCategory) return featuredStudents;
-    const kws = catKeywords[activeCategory] || [];
-    return featuredStudents.filter((s) =>
-      (s.skills as string[]).some((sk) => kws.some((kw) => sk.toLowerCase().includes(kw)))
-    );
-  }, [featuredStudents, activeCategory]);
-
   const dayIndex = Math.floor(Date.now() / 86400000);
-  const featured = filteredStudents.length > 0 ? filteredStudents[dayIndex % filteredStudents.length] : null;
-  const stripStudents = filteredStudents.filter((s) => s.user_id !== featured?.user_id);
+  const featured = featuredStudents.length > 0 ? featuredStudents[dayIndex % featuredStudents.length] : null;
+  const stripStudents = featuredStudents.filter((s) => s.user_id !== featured?.user_id);
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
@@ -279,29 +263,22 @@ const Landing = () => {
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites' },
               { label: 'Video & Photography', sub: 'Weddings, events & reels', icon: Video, cat: 'videographer' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media' },
-            ].map((item) => {
-              const isActive = activeCategory === item.cat;
-              return (
-                <button
-                  key={item.cat}
-                  type="button"
-                  onClick={() => setActiveCategory(isActive ? null : item.cat)}
-                  className={`group flex flex-col items-start gap-3 rounded-2xl border p-4 text-left shadow-sm transition-all active:scale-[0.98] ${
-                    isActive
-                      ? 'border-primary bg-primary/5 shadow-md'
-                      : 'border-foreground/10 bg-card hover:border-foreground/20 hover:shadow-md'
-                  }`}
-                >
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${isActive ? 'bg-primary/15' : 'bg-foreground/8 group-hover:bg-primary/10'}`}>
-                    <item.icon size={18} className={`transition-colors ${isActive ? 'text-primary' : 'text-foreground group-hover:text-primary'}`} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{item.sub}</p>
-                  </div>
-                </button>
-              );
-            })}
+            ].map((item) => (
+              <button
+                key={item.cat}
+                type="button"
+                onClick={() => navigate(`/community?cat=${item.cat}`)}
+                className="group flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
+                  <item.icon size={18} className="text-foreground group-hover:text-primary transition-colors" strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{item.sub}</p>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -450,9 +427,6 @@ const Landing = () => {
                   </button>
                 )}
               </div>
-            )}
-            {studentsLoaded && filteredStudents.length === 0 && activeCategory && (
-              <p className="text-sm text-muted-foreground text-center py-4">No freelancers available for this category right now.</p>
             )}
           </div>
         </section>
