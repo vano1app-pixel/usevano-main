@@ -64,17 +64,3 @@ export function GoogleSignInButton({
     </button>
   );
 }
-
-/** “Or use email” divider between OAuth and password fields */
-export function AuthMethodDivider() {
-  return (
-    <div className="relative my-5">
-      <div className="absolute inset-0 flex items-center" aria-hidden>
-        <span className="w-full border-t border-border" />
-      </div>
-      <div className="relative flex justify-center text-[11px] font-medium uppercase tracking-wide">
-        <span className="bg-card px-3 text-muted-foreground">or</span>
-      </div>
-    </div>
-  );
-}

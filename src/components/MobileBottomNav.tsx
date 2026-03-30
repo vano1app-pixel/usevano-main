@@ -7,8 +7,8 @@ import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 
 const NAV_ITEMS = [
   { label: 'Home', icon: Home, href: '/' },
+  { label: 'Talent', icon: Users, href: '/students' },
   { label: 'Gigs', icon: Briefcase, href: '/jobs' },
-  { label: 'Community', icon: Users, href: '/community' },
   { label: 'Messages', icon: MessageCircle, href: '/messages' },
   { label: 'Profile', icon: User, href: '/profile' },
 ];
@@ -27,9 +27,25 @@ export const MobileBottomNav: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
       if (session?.user) loadUnread(session.user.id);
+      else setUnreadCount(0);
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Real-time: refresh unread count when messages arrive or are read
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('nav-unread')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+        loadUnread(user.id);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => {
+        loadUnread(user.id);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const loadUnread = async (userId: string) => {
     const { count } = await supabase
@@ -58,7 +74,10 @@ export const MobileBottomNav: React.FC = () => {
   if (location.pathname === '/auth') return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[2000] md:hidden safe-area-bottom border-t border-border/80 bg-card/92 backdrop-blur-xl shadow-[0_-10px_40px_-12px_hsl(222_47%_6%/0.12)]">
+    <>
+      {/* Gradient scrim — fades page content into the nav bar */}
+      <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-10 bg-gradient-to-t from-background to-transparent md:hidden" />
+      <nav className="fixed bottom-0 left-0 right-0 z-[2000] md:hidden safe-area-bottom border-t border-border/40 bg-card/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]">
         {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
@@ -67,41 +86,34 @@ export const MobileBottomNav: React.FC = () => {
               key={href}
               type="button"
               onClick={() => handleNav(href)}
-              className={cn(
-                'flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-1 rounded-xl px-1 pb-1 pt-0.5 transition-[color,transform] active:scale-[0.96]',
-                active ? 'text-primary' : 'text-foreground/62',
-              )}
+              className="flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform active:scale-[0.94]"
             >
               <span
                 className={cn(
-                  'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-[background-color,box-shadow,color]',
-                  active
-                    ? 'bg-primary/13 text-primary shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.55)]'
-                    : 'text-foreground/70',
+                  'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150',
+                  active ? 'bg-foreground/10' : 'bg-transparent',
                 )}
               >
                 <Icon
-                  size={active ? 22 : 20}
-                  strokeWidth={active ? 2.5 : 2.15}
-                  className={cn(!active && 'opacity-[0.92]')}
+                  size={18}
+                  strokeWidth={active ? 2.2 : 1.8}
+                  className={active ? 'text-foreground' : 'text-foreground/50'}
                 />
                 {href === '/messages' && unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full border-2 border-card bg-primary px-0.5 text-[9px] font-bold leading-none text-primary-foreground shadow-sm">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full border-2 border-card bg-foreground px-0.5 text-[9px] font-bold leading-none text-background">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </span>
               <span
                 className={cn(
-                  'max-w-[4.25rem] truncate text-[10px] leading-tight tracking-tight',
-                  active ? 'font-semibold text-primary' : 'font-medium text-foreground/58',
+                  'text-[10px] leading-none tracking-tight',
+                  active ? 'font-semibold text-foreground' : 'font-normal text-foreground/45',
                 )}
               >
-                <span className="inline-flex items-center justify-center gap-0.5">
+                <span className="inline-flex items-center gap-0.5">
                   {label}
-                  {href === '/community' ? (
-                    <NewFeatureBadge className="scale-90" />
-                  ) : null}
+                  {null}
                 </span>
               </span>
             </button>
@@ -109,5 +121,6 @@ export const MobileBottomNav: React.FC = () => {
         })}
       </div>
     </nav>
+    </>
   );
 };

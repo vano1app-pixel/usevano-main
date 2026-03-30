@@ -6,15 +6,19 @@ import { SEOHead } from '@/components/SEOHead';
 import { Search, Plus } from 'lucide-react';
 import { useTopStudents } from '@/hooks/useTopStudents';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { Link, useNavigate } from 'react-router-dom';
 
 const BrowseStudents = () => {
+  const { toast } = useToast();
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [search, setSearch] = useState('');
   const [user, setUser] = useState<any>(null);
   const [favouriteIds, setFavouriteIds] = useState<Set<string>>(new Set());
+  const [togglingFavIds, setTogglingFavIds] = useState<Set<string>>(new Set());
   const { topStudents } = useTopStudents();
 
   useEffect(() => {
@@ -32,21 +36,43 @@ const BrowseStudents = () => {
   };
 
   const fetchStudents = async () => {
-    const { data: studentData } = await supabase.from('student_profiles').select('*').eq('is_available', true);
-    const { data: profileData } = await supabase.from('profiles').select('user_id, display_name');
+    const { data: studentData, error: studentErr } = await supabase.from('student_profiles').select('*').eq('is_available', true);
+    const { data: profileData, error: profileErr } = await supabase.from('profiles').select('user_id, display_name');
+    if (studentErr || profileErr) {
+      setFetchError(true);
+      setLoading(false);
+      return;
+    }
     setStudents(studentData || []);
     setProfiles(profileData || []);
     setLoading(false);
   };
 
   const toggleFavourite = async (studentUserId: string) => {
-    if (!user) return;
-    if (favouriteIds.has(studentUserId)) {
-      await supabase.from('favourite_students').delete().eq('business_user_id', user.id).eq('student_user_id', studentUserId);
-      setFavouriteIds((prev) => { const next = new Set(prev); next.delete(studentUserId); return next; });
-    } else {
-      await supabase.from('favourite_students').insert({ business_user_id: user.id, student_user_id: studentUserId } as any);
-      setFavouriteIds((prev) => new Set(prev).add(studentUserId));
+    if (!user || togglingFavIds.has(studentUserId)) return;
+    setTogglingFavIds((prev) => new Set(prev).add(studentUserId));
+    const wasFav = favouriteIds.has(studentUserId);
+    // optimistic update
+    setFavouriteIds((prev) => {
+      const next = new Set(prev);
+      if (wasFav) next.delete(studentUserId); else next.add(studentUserId);
+      return next;
+    });
+    try {
+      const { error } = wasFav
+        ? await supabase.from('favourite_students').delete().eq('business_user_id', user.id).eq('student_user_id', studentUserId)
+        : await supabase.from('favourite_students').insert({ business_user_id: user.id, student_user_id: studentUserId } as any);
+      if (error) {
+        // rollback
+        setFavouriteIds((prev) => {
+          const next = new Set(prev);
+          if (wasFav) next.add(studentUserId); else next.delete(studentUserId);
+          return next;
+        });
+        toast({ title: 'Could not save', description: 'Please try again.', variant: 'destructive' });
+      }
+    } finally {
+      setTogglingFavIds((prev) => { const next = new Set(prev); next.delete(studentUserId); return next; });
     }
   };
 
@@ -70,22 +96,46 @@ const BrowseStudents = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title="Find talent – VANO" description="Browse freelancers and students with the skills you need in Galway." />
       <Navbar />
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        <header className="mb-6 border-l-[3px] border-foreground pl-4 sm:mb-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Talent</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Find the right freelancer</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-[15px]">
-            Search by name, bio, or any skill keyword — open profiles to see portfolios and how to connect.
-          </p>
-        </header>
 
+      {/* Editorial hero header */}
+      <div className="bg-foreground pt-20 sm:pt-24 pb-8 px-4 md:px-8">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-background/50 mb-3">
+            VANO — Talent Board
+          </p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-background leading-[1.05] mb-3">
+            Hire local.<br className="sm:hidden" /> Hire smart.
+          </h1>
+          <p className="text-sm sm:text-base text-background/60 max-w-lg">
+            Galway's top student freelancers — available now, verified, and ready to work.
+          </p>
+          {/* Stats strip */}
+          {!loading && (
+            <div className="mt-5 flex gap-6">
+              <div>
+                <span className="text-xl font-bold text-background">{students.length}</span>
+                <span className="ml-1.5 text-xs text-background/50 uppercase tracking-wide">Available</span>
+              </div>
+              <div className="w-px bg-background/15" />
+              <div>
+                <span className="text-xl font-bold text-background">{[...new Set(students.flatMap((s) => s.skills || []))].length}</span>
+                <span className="ml-1.5 text-xs text-background/50 uppercase tracking-wide">Skills</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-8 pt-6 pb-12 sm:pb-16">
+
+        {/* Post a gig CTA */}
         <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Have a project in mind?</p>
-            <p className="text-xs text-muted-foreground sm:text-sm">Post a gig with a fixed budget and deadline — freelancers apply from here.</p>
+            <p className="text-sm font-semibold text-foreground">Have a project in mind?</p>
+            <p className="text-xs text-muted-foreground sm:text-sm">Post a gig — freelancers apply directly with their rates.</p>
           </div>
           {user ? (
-            <Button size="lg" className="h-11 w-full shrink-0 rounded-xl font-semibold sm:w-auto sm:min-w-[11rem]" asChild>
+            <Button size="lg" className="h-11 w-full shrink-0 rounded-xl font-semibold sm:w-auto sm:min-w-[10rem]" asChild>
               <Link to="/post-job" className="inline-flex items-center justify-center gap-2">
                 <Plus size={18} strokeWidth={2.5} className="opacity-90" />
                 Post a gig
@@ -98,21 +148,48 @@ const BrowseStudents = () => {
           )}
         </div>
 
+        {/* Search */}
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, bio, or keywords…"
+            placeholder="Search by name, skill, or keyword…"
             className="w-full pl-10 pr-4 py-3.5 border border-input rounded-2xl bg-card text-sm shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
           />
         </div>
 
         {loading ? (
-          <p className="text-center text-muted-foreground py-12">Loading students...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy aria-label="Loading freelancers">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm animate-pulse">
+                <div className="h-16 w-full bg-muted sm:h-[4.5rem]" />
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-14 w-14 shrink-0 rounded-full bg-muted ring-2 ring-background -mt-8" />
+                    <div className="flex-1 space-y-2 pt-1">
+                      <div className="h-4 w-32 rounded-md bg-muted" />
+                      <div className="h-3 w-24 rounded-md bg-muted" />
+                    </div>
+                  </div>
+                  <div className="h-3 w-full rounded-md bg-muted" />
+                  <div className="h-3 w-4/5 rounded-md bg-muted" />
+                  <div className="flex gap-2 pt-1">
+                    <div className="h-6 w-14 rounded-md bg-muted" />
+                    <div className="h-6 w-18 rounded-md bg-muted" />
+                    <div className="h-6 w-16 rounded-md bg-muted" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : fetchError ? (
+          <p className="text-center text-muted-foreground py-12">Could not load freelancers — please refresh and try again.</p>
         ) : filtered.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12">No students found.</p>
+          <p className="text-center text-muted-foreground py-12">
+            {search ? 'No freelancers match that search.' : 'No freelancers available yet — check back soon.'}
+          </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filtered.map((student) => (

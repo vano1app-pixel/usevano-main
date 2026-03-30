@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Menu, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { AuthSheet } from './AuthSheet';
@@ -14,7 +13,6 @@ import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 export const Navbar: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -42,7 +40,7 @@ export const Navbar: React.FC = () => {
   const navItems = [
     { label: 'Browse Gigs', href: '/jobs', requiresAuth: false, isNew: false },
     { label: 'Post a Gig', href: '/post-job', requiresAuth: true, isNew: false },
-    { label: 'Community', href: '/community', requiresAuth: false, isNew: true },
+    { label: 'Talent Board', href: '/community', requiresAuth: false, isNew: true },
   ];
 
   const authNavItems = [
@@ -130,69 +128,28 @@ export const Navbar: React.FC = () => {
             )}
           </div>
 
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 text-foreground"
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {isMobileMenuOpen && (
-          <div className="md:hidden bg-background/60 backdrop-blur-xl border-t border-border/30 pb-3 px-3 max-h-[70vh] overflow-y-auto">
-            {navItems.map((item) => (
-              <button
-                key={item.href}
-                onClick={() => { handleNavClick(item.href, item.requiresAuth); setIsMobileMenuOpen(false); }}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-foreground/70 hover:text-primary active:bg-primary/5 rounded-lg transition-colors"
-              >
-                <span>{item.label}</span>
-                {item.isNew ? <NewFeatureBadge /> : null}
-              </button>
-            ))}
-            <Link
-              to="/whats-new"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-            >
-              What&apos;s new
-            </Link>
-            {user && authNavItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-4 py-3 text-sm font-medium text-foreground/70 hover:text-primary"
-              >
-                {item.label}
-              </Link>
-            ))}
+          {/* Mobile right side — no hamburger, just action */}
+          <div className="md:hidden flex items-center gap-2">
             {user && showAdminLink && (
               <Link
                 to="/admin"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-4 py-3 text-sm font-medium text-destructive hover:text-destructive/80"
+                className="px-3 py-1.5 text-xs font-semibold text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors"
               >
                 Admin
               </Link>
             )}
             {user ? (
-              <button
-                onClick={async () => { await supabase.auth.signOut(); setIsMobileMenuOpen(false); }}
-                className="block w-full text-left px-4 py-3 text-sm font-medium text-foreground/70 hover:text-destructive"
-              >
-                Sign Out
-              </button>
+              <NotificationBell />
             ) : (
               <button
-                onClick={() => { setIsAuthOpen(true); setIsMobileMenuOpen(false); }}
-                className="block w-full text-left px-4 py-3 text-sm font-medium text-primary"
+                onClick={() => setIsAuthOpen(true)}
+                className="px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
-                Sign In
+                Sign in
               </button>
             )}
           </div>
-        )}
+        </div>
       </nav>
       <AuthSheet isOpen={isAuthOpen} onClose={() => { setIsAuthOpen(false); setPendingRoute(null); }} />
     </>

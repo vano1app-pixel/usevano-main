@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Bookmark, BookmarkCheck, Flame } from 'lucide-react';
+import { MapPin, Clock, Bookmark, BookmarkCheck, Flame, Loader2 } from 'lucide-react';
 import { TagBadge } from './TagBadge';
 import { format, differenceInHours, parseISO } from 'date-fns';
 import { formatJobScheduleLine } from '@/lib/jobSchedule';
@@ -32,12 +32,15 @@ interface JobCardProps {
   job: Job;
   poster?: JobPosterPreview | null;
   isSaved?: boolean;
-  onToggleSave?: (jobId: string) => void;
+  onToggleSave?: (jobId: string) => Promise<void>;
   showSave?: boolean;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggleSave, showSave }) => {
   const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<{ x: number; y: number } | null>(null);
 
   const shiftDate = parseISO(job.shift_date);
   const hoursUntil = differenceInHours(shiftDate, new Date());
@@ -53,16 +56,28 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
 
   return (
     <div
+      ref={cardRef}
       role="button"
       tabIndex={0}
       onClick={() => navigate(`/jobs/${job.id}`)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/jobs/${job.id}`); } }}
+      onMouseMove={(e) => {
+        const rect = cardRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setSpot({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+      }}
+      onMouseLeave={() => setSpot(null)}
       className={cn(
-        'group cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-300',
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-300',
         'hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md',
-        job.is_urgent && 'border-destructive/35 ring-1 ring-destructive/15'
+        job.is_urgent && 'border-destructive/30'
       )}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-10 rounded-2xl transition-opacity duration-300"
+        style={{ background: spot ? `radial-gradient(circle at ${spot.x}% ${spot.y}%, hsl(var(--foreground)/0.055) 0%, transparent 65%)` : 'transparent' }}
+      />
       {/* Poster strip — marketplace-style identity */}
       <div className="flex items-center gap-3 border-b border-foreground/5 bg-muted/30 px-4 py-3">
         <div className="relative shrink-0">
@@ -87,11 +102,22 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
         {showSave && onToggleSave && (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleSave(job.id); }}
-            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+            disabled={saving}
+            onClick={async (e) => {
+              e.stopPropagation();
+              setSaving(true);
+              await onToggleSave(job.id);
+              setSaving(false);
+            }}
+            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
             title={isSaved ? 'Remove save' : 'Save gig'}
           >
-            {isSaved ? <BookmarkCheck size={18} className="text-foreground" /> : <Bookmark size={18} />}
+            {saving
+              ? <Loader2 size={18} className="animate-spin" />
+              : isSaved
+                ? <BookmarkCheck size={18} className="text-foreground" />
+                : <Bookmark size={18} />
+            }
           </button>
         )}
       </div>
@@ -108,7 +134,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
           <h3 className="text-lg font-semibold leading-snug tracking-tight text-foreground group-hover:text-foreground/90">
             {job.title}
           </h3>
-          <span className="shrink-0 text-base font-semibold tabular-nums text-foreground sm:text-right">
+          <span className="shrink-0 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400 sm:text-right">
             {rateLabel}
           </span>
         </div>
@@ -134,6 +160,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
             )}
           </div>
         )}
+
+        <div className="mt-4 pt-3.5 border-t border-foreground/8">
+          <div className="flex items-center justify-end">
+            <span className="text-[13px] font-semibold text-primary group-hover:underline underline-offset-2">
+              View &amp; apply →
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

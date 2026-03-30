@@ -7,7 +7,6 @@ import { AvatarUpload } from '@/components/AvatarUpload';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
 import { UserCircle } from 'lucide-react';
-import { ensureAutoStudentVerificationFromEmail } from '@/lib/studentVerification';
 
 const CompleteProfile = () => {
   const [displayName, setDisplayName] = useState('');
@@ -38,19 +37,6 @@ const CompleteProfile = () => {
       if (!profile?.user_type?.trim()) {
         navigate('/choose-account-type', { replace: true });
         return;
-      }
-
-      await ensureAutoStudentVerificationFromEmail(session);
-      if (profile.user_type === 'student') {
-        const { data: sp } = await supabase
-          .from('student_profiles')
-          .select('student_verified')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        if (!sp?.student_verified) {
-          navigate('/verify-student', { replace: true });
-          return;
-        }
       }
 
       // If profile is already complete, redirect away
@@ -144,7 +130,7 @@ const CompleteProfile = () => {
                 onChange={(e) => setDisplayName(e.target.value)}
                 required
                 className={inputClass}
-                placeholder={userType === 'business' ? 'How you’d like to appear' : 'John Doe'}
+                placeholder={userType === 'business' ? "How you'd like to appear" : 'John Doe'}
                 autoFocus
               />
             </div>

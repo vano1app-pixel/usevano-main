@@ -6,7 +6,9 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2 } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check } from 'lucide-react';
+import { nameToSlug } from '@/lib/slugify';
+import { getSiteOrigin } from '@/lib/siteUrl';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { format } from 'date-fns';
@@ -16,6 +18,7 @@ import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { Button } from '@/components/ui/button';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
+import { cn } from '@/lib/utils';
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -50,7 +53,7 @@ const Profile = () => {
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
-  const [pendingListingRequest, setPendingListingRequest] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
     bannerUrl,
@@ -96,7 +99,6 @@ const Profile = () => {
     }
 
     if (prof?.user_type === 'business') {
-      setPendingListingRequest(false);
       setBio(prof?.bio || '');
       setWorkDescription('');
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
@@ -139,12 +141,6 @@ const Profile = () => {
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
 
-      const { count: pendingCount } = await supabase
-        .from('community_listing_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', session.user.id)
-        .eq('status', 'pending');
-      setPendingListingRequest((pendingCount ?? 0) > 0);
     }
     setLoading(false);
   };
@@ -228,22 +224,113 @@ const Profile = () => {
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
             {profile?.user_type === 'student'
-              ? 'Your name and photo here. Community listings are submitted for a quick team review before they go live.'
+              ? 'Your name and photo here.'
               : 'Your account — a short intro is enough; set location when you post a gig'}
           </p>
         </div>
 
         {profile?.user_type === 'student' && user && (
           <>
-            {pendingListingRequest && (
-              <div className="mb-4 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
-                <p className="font-medium text-amber-950 dark:text-amber-100">Listing under review</p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-950/80 dark:text-amber-100/85">
-                  You have a Community submission waiting for the team. You&apos;ll get an email when it&apos;s approved
-                  and visible on the board.
-                </p>
-              </div>
-            )}
+            {/* Profile strength widget */}
+            {(() => {
+              const steps = [
+                {
+                  done: !!avatarUrl,
+                  label: 'Profile photo',
+                  why: 'Listings with a photo get far more clicks',
+                  action: 'Upload below',
+                },
+                {
+                  done: skills.length >= 2,
+                  label: 'Skills listed',
+                  why: 'Businesses search by skill — you won\'t show up without them',
+                  action: 'Add in Get listed',
+                },
+                {
+                  done: !!hourlyRate && Number(hourlyRate) > 0,
+                  label: 'Hourly rate set',
+                  why: 'People skip listings with no rate — they assume it\'s expensive',
+                  action: 'Set in Get listed',
+                },
+                {
+                  done: bio.trim().length >= 30,
+                  label: 'Bio written',
+                  why: 'A short intro builds trust before someone messages you',
+                  action: 'Write in Get listed',
+                },
+                {
+                  done: workLinks.some(l => l.url.trim().length > 0),
+                  label: 'Portfolio link added',
+                  why: 'Instagram, Behance, GitHub — link your actual work',
+                  action: 'Add in Get listed',
+                },
+              ];
+              const doneCount = steps.filter(s => s.done).length;
+              const pct = Math.round((doneCount / steps.length) * 100);
+              const nextStep = steps.find(s => !s.done);
+              const allDone = doneCount === steps.length;
+
+              return (
+                <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mb-6">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile strength</p>
+                      <p className="mt-0.5 text-sm font-semibold text-foreground">
+                        {allDone ? '🎉 Fully set up — looking great!' : `${doneCount} of ${steps.length} steps done`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/students/${user.id}`)}
+                      className="shrink-0 rounded-xl border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-foreground/20 hover:text-foreground"
+                    >
+                      Preview →
+                    </button>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="mx-4 mb-3 h-2 overflow-hidden rounded-full bg-muted sm:mx-5">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+
+                  {/* Steps */}
+                  <ul className="divide-y divide-border/50">
+                    {steps.map((step) => (
+                      <li key={step.label} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
+                        {step.done
+                          ? <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
+                          : <Circle size={16} className="shrink-0 text-foreground/20" />
+                        }
+                        <span className={cn(
+                          'flex-1 text-sm',
+                          step.done ? 'text-muted-foreground line-through' : 'font-medium text-foreground'
+                        )}>
+                          {step.label}
+                        </span>
+                        {!step.done && (
+                          <span className="shrink-0 text-[11px] text-muted-foreground">{step.action}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* Next action tip */}
+                  {nextStep && (
+                    <div className="border-t border-border/50 bg-amber-50/60 px-4 py-3 dark:bg-amber-900/10 sm:px-5">
+                      <p className="text-[12px] text-amber-800 dark:text-amber-400">
+                        <span className="font-semibold">Next: {nextStep.label}.</span>{' '}
+                        {nextStep.why}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="mb-5 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:mb-6 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0 text-center sm:text-left">
@@ -252,7 +339,7 @@ const Profile = () => {
                     Get listed on the talent board
                   </h2>
                   <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                    Freelancers only — complete the steps, then we review and publish your card.
+                    Fill in a few details and your listing goes live straight away.
                   </p>
                 </div>
                 <Button
@@ -274,6 +361,31 @@ const Profile = () => {
                 void loadProfile();
               }}
             />
+
+            {/* Shareable profile link */}
+            {displayName && (
+              <div className="mb-5 sm:mb-6">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your profile link</p>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+                  <Link2 size={14} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
+                    {getSiteOrigin()}/u/{nameToSlug(displayName)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(`${getSiteOrigin()}/u/${nameToSlug(displayName)}`);
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 2000);
+                    }}
+                    className="shrink-0 rounded-lg border border-border bg-background px-2.5 py-1 text-[12px] font-semibold text-foreground transition-colors hover:border-foreground/20 inline-flex items-center gap-1"
+                  >
+                    {linkCopied ? <><Check size={12} className="text-emerald-500" />Copied!</> : 'Copy'}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">Put this in your Instagram bio, TikTok, or WhatsApp status.</p>
+              </div>
+            )}
           </>
         )}
 
@@ -281,6 +393,11 @@ const Profile = () => {
           {/* Freelancer: photo + display name only (listing lives in Get listed) */}
           {profile?.user_type === 'student' ? (
             <>
+              {!avatarUrl && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-[13px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-400">
+                  📸 Add a photo — listings with a real face get significantly more messages than ones with just an initial.
+                </div>
+              )}
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                 <AvatarUpload
                   userId={user.id}
@@ -311,7 +428,7 @@ const Profile = () => {
                 />
                 <div className="w-full min-w-0 flex-1 sm:pt-0">
                   <label className="mb-1.5 block text-sm font-medium">Name</label>
-                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="How you’d like to appear" />
+                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="How you'd like to appear" />
                 </div>
               </div>
               <div>
@@ -320,7 +437,7 @@ const Profile = () => {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   className={`${inputClass} min-h-[100px] resize-none sm:min-h-[120px]`}
-                  placeholder="A quick intro is enough — who you are and what you usually hire help for. You’ll add the exact location on each gig when you post it."
+                  placeholder="A quick intro is enough — who you are and what you usually hire help for. You'll add the exact location on each gig when you post it."
                 />
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
                   No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.

@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
-import { Loader2, Sparkles, ImageIcon, Wand2 } from 'lucide-react';
+import { Loader2, ImageIcon, Wand2 } from 'lucide-react';
 
 /** Curated wide images suitable for freelancer banner cards (Unsplash, free to use). */
 const STOCK_BANNER_URLS = [
@@ -52,7 +52,6 @@ export function AdminListingReviewModal({ request, open, onOpenChange, onApprove
   const [bannerUrl, setBannerUrl] = useState('');
   const [rejectNote, setRejectNote] = useState('');
   const [loading, setLoading] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState<string | null>(null);
 
@@ -88,27 +87,6 @@ export function AdminListingReviewModal({ request, open, onOpenChange, onApprove
     })();
   }, [open, request]);
 
-  const improveBio = async () => {
-    if (!bio.trim()) {
-      toast({ title: 'Nothing to improve', description: 'Add some bio text first.', variant: 'destructive' });
-      return;
-    }
-    setAiLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('improve-community-bio', {
-        body: { bio },
-      });
-      if (error) throw error;
-      const next = (data as { bio?: string })?.bio;
-      if (!next) throw new Error('No bio returned');
-      setBio(next);
-      toast({ title: 'Bio updated', description: 'Review the text before approving.' });
-    } catch (e: unknown) {
-      toast({ title: 'AI error', description: getUserFriendlyError(e), variant: 'destructive' });
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   const pickStockBanner = () => {
     const url = STOCK_BANNER_URLS[Math.floor(Math.random() * STOCK_BANNER_URLS.length)];
@@ -260,19 +238,8 @@ export function AdminListingReviewModal({ request, open, onOpenChange, onApprove
               />
             </div>
             <div>
-              <div className="flex items-center justify-between gap-2">
+              <div>
                 <Label htmlFor="adm-bio">Freelancer bio (student profile)</Label>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={aiLoading || actionLoading}
-                  onClick={() => void improveBio()}
-                  className="gap-1.5"
-                >
-                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Improve with AI
-                </Button>
               </div>
               <Textarea
                 id="adm-bio"
