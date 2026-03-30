@@ -25,6 +25,7 @@ import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
+import { LandingTalentPreview } from '@/components/LandingTalentPreview';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -237,6 +238,8 @@ const Landing = () => {
           </p>
         </motion.div>
       </section>
+
+      <LandingTalentPreview />
 
       {/* How it works — 4-phase journey */}
       <section ref={howRef} id="how-it-works" className="scroll-mt-24 bg-muted/30 py-16 md:py-24 px-4 md:px-8">
