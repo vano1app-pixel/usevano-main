@@ -353,23 +353,23 @@ const Landing = () => {
                   <span className="absolute right-1.5 bottom-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
                 </div>
                 {/* Info */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Featured today</span>
                   <p className="text-[14px] font-semibold text-foreground truncate mt-0.5">{featured.display_name}</p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <div className="flex items-center gap-2 mt-1">
                     {featured.top_skill && (
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary truncate">
                         {featured.top_skill}
                       </span>
                     )}
                     {featured.hourly_rate > 0 && (
-                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">€{featured.hourly_rate}/hr</span>
+                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">€{featured.hourly_rate}/hr</span>
                     )}
                   </div>
                   {featured.bio && (
-                    <p className="mt-1.5 text-[11px] text-muted-foreground">
-                      {featured.bio.trim().split(' ').slice(0, 6).join(' ')}
-                      <span className="pointer-events-none select-none blur-[3px]"> {featured.bio.trim().split(' ').slice(6, 12).join(' ')}</span>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground truncate">
+                      {featured.bio.trim().split(' ').slice(0, 5).join(' ')}
+                      <span className="pointer-events-none select-none blur-[3px]"> {featured.bio.trim().split(' ').slice(5, 9).join(' ')}</span>
                     </p>
                   )}
                 </div>
