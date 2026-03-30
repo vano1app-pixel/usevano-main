@@ -98,28 +98,28 @@ const BrowseStudents = () => {
       <Navbar />
 
       {/* Editorial hero header */}
-      <div className="bg-foreground pt-20 sm:pt-24 pb-8 px-4 md:px-8">
+      <div className="bg-primary pt-20 sm:pt-24 pb-8 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-background/50 mb-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary-foreground/50 mb-3">
             VANO — Talent Board
           </p>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-background leading-[1.05] mb-3">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-primary-foreground leading-[1.05] mb-3">
             Hire local.<br className="sm:hidden" /> Hire smart.
           </h1>
-          <p className="text-sm sm:text-base text-background/60 max-w-lg">
+          <p className="text-sm sm:text-base text-primary-foreground/60 max-w-lg">
             Galway's top student freelancers — available now, verified, and ready to work.
           </p>
           {/* Stats strip */}
           {!loading && (
             <div className="mt-5 flex gap-6">
               <div>
-                <span className="text-xl font-bold text-background">{students.length}</span>
-                <span className="ml-1.5 text-xs text-background/50 uppercase tracking-wide">Available</span>
+                <span className="text-xl font-bold text-primary-foreground">{students.length}</span>
+                <span className="ml-1.5 text-xs text-primary-foreground/50 uppercase tracking-wide">Available</span>
               </div>
               <div className="w-px bg-background/15" />
               <div>
-                <span className="text-xl font-bold text-background">{[...new Set(students.flatMap((s) => s.skills || []))].length}</span>
-                <span className="ml-1.5 text-xs text-background/50 uppercase tracking-wide">Skills</span>
+                <span className="text-xl font-bold text-primary-foreground">{[...new Set(students.flatMap((s) => s.skills || []))].length}</span>
+                <span className="ml-1.5 text-xs text-primary-foreground/50 uppercase tracking-wide">Skills</span>
               </div>
             </div>
           )}
