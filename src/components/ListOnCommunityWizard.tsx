@@ -182,13 +182,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
     setDraftReady(false);
     setStep(startAtStep ?? 0);
-    setCategory(null);
+
+    const ep = initial.existingPost ?? null;
+
+    // Pre-fill from existing post when editing; otherwise clear
+    setCategory(ep?.category ?? null);
     setBannerUrl(initial.bannerUrl || '');
     setBannerFile(null);
     setListingFile(null);
-    setListingPreview(null);
-    setTitle('');
-    setDescription('');
+    setListingPreview(ep?.image_url ?? null);
+    setTitle(ep?.title ?? '');
+    setDescription(ep?.description ?? '');
     setSyncBio(false);
     setTiktokUrl(initial.tiktokUrl || '');
     setWorkLinks(
@@ -197,16 +201,22 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         : [{ url: '', label: '' }],
     );
     setServiceArea(initial.serviceArea || '');
-    setRateUnit('hourly');
-    setRateMin('');
-    setRateMax('');
+    if (ep) {
+      setRateUnit(ep.rate_unit ?? 'hourly');
+      setRateMin(ep.rate_min != null ? String(ep.rate_min) : '');
+      setRateMax(ep.rate_max != null ? String(ep.rate_max) : '');
+    } else {
+      setRateUnit('hourly');
+      setRateMin('');
+      setRateMax('');
+    }
     setProfileHourly(initial.hourlyRate || '');
     setTypicalBudgetMin(initial.typicalBudgetMin || '');
     setTypicalBudgetMax(initial.typicalBudgetMax || '');
     setSkills(normalizeFreelancerSkills(initial.skills));
 
     // Skip draft restore when jumping to a specific step or editing an existing post
-    if (!initial.existingPost && startAtStep == null) {
+    if (!ep && startAtStep == null) {
       const rawDraft = (() => {
         try {
           return localStorage.getItem(listOnCommunityDraftKey(userId));
@@ -541,7 +551,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full">
+      <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full isolate bg-background">
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
