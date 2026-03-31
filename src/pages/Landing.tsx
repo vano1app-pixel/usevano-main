@@ -14,8 +14,6 @@ import {
   Users,
   Search,
   MessageSquare,
-  MessageCircle,
-  Check,
   Megaphone,
   Linkedin,
   CircleUser,
@@ -26,8 +24,9 @@ import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
+import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
-import { LandingTalentPreview } from '@/components/LandingTalentPreview';
+
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -47,7 +46,6 @@ const scaleIn = {
 const Landing = () => {
   const navigate = useNavigate();
   const oauthHandledRef = useRef(false);
-  const howRef = useRef<HTMLElement | null>(null);
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
@@ -278,64 +276,8 @@ const Landing = () => {
         </div>
       </section>
 
-      <LandingTalentPreview />
-
-      {/* How it works — 4-phase journey */}
-      <section ref={howRef} id="how-it-works" className="scroll-mt-24 bg-muted/30 py-16 md:py-24 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={staggerContainer}
-            className="text-center mb-10 md:mb-14"
-          >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-semibold text-primary uppercase tracking-[0.2em] mb-3">
-              End-to-end workflow
-            </motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-4">
-              From first browse to final delivery
-            </motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
-              Discovery, clear scope on each gig, messaging, and reviews — designed for real freelance projects in Galway.
-            </motion.p>
-          </motion.div>
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-60px" }}
-            variants={staggerContainer}
-          >
-            {[
-              { num: '01', phase: 'Discover', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers, portfolios, and community listings. Search by name, bio, or skills.' },
-              { num: '02', phase: 'Scope', icon: Briefcase, title: 'Post or apply', desc: 'Hirers post gigs with budget and due date. Freelancers apply with a message — align on deliverables before you start.' },
-              { num: '03', phase: 'Connect', icon: MessageCircle, title: 'Chat on VANO', desc: 'Keep project conversation in one thread. No need to scatter details across different apps.' },
-              { num: '04', phase: 'Deliver', icon: Check, title: 'Complete & review', desc: 'Finish the work, then build reputation through reviews and completed gigs on your profile.' },
-            ].map((step, i) => (
-              <motion.div
-                key={i}
-                variants={scaleIn}
-                transition={{ duration: 0.45, delay: i * 0.08 }}
-                className="relative bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm hover:border-primary/20 hover:shadow-md transition-all group text-left"
-              >
-                <div className="flex items-start justify-between gap-2 mb-4">
-                  <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">{step.num}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{step.phase}</span>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
-                  <step.icon className="text-primary" size={20} strokeWidth={2} />
-                </div>
-                <h3 className="text-base font-semibold mb-2 text-foreground">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
       {/* What do you need? */}
-      <section className="pb-6 px-4 md:px-8">
+      <section className="pt-2 pb-6 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-3">What do you need?</p>
           <div className="grid grid-cols-3 gap-3">
@@ -381,7 +323,7 @@ const Landing = () => {
               </div>
               <button
                 type="button"
-                onClick={() => navigate('/community')}
+                onClick={() => navigate('/students')}
                 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0 pb-0.5"
               >
                 See all <ArrowRight size={14} />
@@ -441,76 +383,115 @@ const Landing = () => {
               </button>
             )}
 
-            {/* Scroll strip — remaining freelancers */}
+            {/* Scroll strip — compact text snippets (name, rate/budget, bio preview); tap → full profile */}
             {(studentsLoaded ? stripStudents.length > 0 : true) && (
               <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {!studentsLoaded
                   ? [1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
-                        <div className="h-[7rem] w-full bg-muted" />
-                        <div className="space-y-1.5 px-2.5 py-2.5">
-                          <div className="h-3 w-3/4 rounded-md bg-muted" />
-                          <div className="h-2.5 w-1/2 rounded-md bg-muted" />
+                      <div
+                        key={i}
+                        className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 animate-pulse"
+                      >
+                        <div className="flex gap-2.5">
+                          <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
+                          <div className="flex-1 space-y-1.5 pt-0.5">
+                            <div className="h-3 w-24 rounded bg-muted" />
+                            <div className="h-2.5 w-16 rounded bg-muted" />
+                          </div>
+                        </div>
+                        <div className="h-2 w-full rounded bg-muted" />
+                        <div className="h-2 w-5/6 rounded bg-muted" />
+                        <div className="h-2 w-4/6 rounded bg-muted" />
+                        <div className="mt-1 flex gap-1">
+                          <div className="h-5 w-14 rounded-md bg-muted" />
+                          <div className="h-5 w-12 rounded-md bg-muted" />
                         </div>
                       </div>
                     ))
                   : stripStudents.map((s) => {
-                      const isNew = s.created_at && (Date.now() - new Date(s.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+                      const isNew =
+                        s.created_at &&
+                        Date.now() - new Date(s.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
+                      const budgetLabel = formatTypicalBudget(s.typical_budget_min, s.typical_budget_max);
+                      const skillPills = ((s.skills as string[]) || []).slice(0, 2);
+                      const hourly = typeof s.hourly_rate === 'number' ? s.hourly_rate : 0;
                       return (
                         <button
                           key={s.user_id}
                           type="button"
                           onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group relative flex w-[10rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.97] text-left"
+                          className="group flex w-56 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
                         >
-                          <div className="relative h-[7rem] w-full overflow-hidden bg-muted">
-                            {s.avatar_url ? (
-                              <img src={s.avatar_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.05]" loading="lazy" decoding="async" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-foreground/20">
-                                {(s.display_name || 'F')[0].toUpperCase()}
+                          <div className="flex items-start gap-2.5">
+                            <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                              {s.avatar_url ? (
+                                <img
+                                  src={s.avatar_url}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-xs font-bold text-foreground/30">
+                                  {(s.display_name || 'F')[0].toUpperCase()}
+                                </div>
+                              )}
+                              <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-card bg-emerald-500" />
+                            </div>
+                            <div className="min-w-0 flex-1 pt-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
+                                  {s.display_name}
+                                </p>
+                                {isNew && (
+                                  <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary-foreground">
+                                    New
+                                  </span>
+                                )}
                               </div>
-                            )}
-                            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/30 to-transparent" />
-                            <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
-                            {isNew && (
-                              <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
-                                New
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                            {hourly > 0 && (
+                              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                €{hourly}/hr
                               </span>
                             )}
-                          </div>
-                          <div className="flex flex-col gap-1 px-2.5 py-2 h-[5.5rem] overflow-hidden">
-                            <p className="truncate text-[12px] font-semibold leading-snug text-foreground">{s.display_name}</p>
-                            {s.top_skill && (
-                              <span className="self-start rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary truncate max-w-full">
-                                {s.top_skill}
-                              </span>
-                            )}
-                            {s.hourly_rate > 0 && (
-                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">€{s.hourly_rate}/hr</span>
-                            )}
-                            {s.bio && (
-                              <p className="truncate text-[10px] text-muted-foreground">
-                                {s.bio.trim().split(' ').slice(0, 4).join(' ')}
-                                <span className="pointer-events-none select-none blur-[3px]"> {s.bio.trim().split(' ').slice(4, 8).join(' ')}</span>
-                              </p>
+                            {budgetLabel && (
+                              <span className="font-medium text-muted-foreground">{budgetLabel} projects</span>
                             )}
                           </div>
+                          {s.bio?.trim() && (
+                            <p className="line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">
+                              {s.bio.trim()}
+                            </p>
+                          )}
+                          {skillPills.length > 0 && (
+                            <div className="mt-auto flex flex-wrap gap-1 pt-0.5">
+                              {skillPills.map((sk) => (
+                                <span
+                                  key={sk}
+                                  className="max-w-full truncate rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary"
+                                >
+                                  {sk}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </button>
                       );
                     })}
                 {studentsLoaded && featuredStudents.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => navigate('/community')}
-                    className="flex w-[9rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-dashed border-foreground/15 transition-all hover:border-foreground/30 hover:bg-muted/30"
+                    onClick={() => navigate('/students')}
+                    className="flex w-56 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
                   >
-                    <div className="flex h-[7rem] w-full items-center justify-center bg-muted/30">
-                      <ArrowRight size={20} className="text-muted-foreground" />
-                    </div>
-                    <div className="px-2.5 py-2.5">
-                      <p className="text-[12px] font-medium text-muted-foreground">See all talent</p>
-                    </div>
+                    <ArrowRight size={22} className="text-muted-foreground" />
+                    <p className="text-center text-[12px] font-semibold text-muted-foreground">
+                      See all on Talent
+                    </p>
                   </button>
                 )}
               </div>

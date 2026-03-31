@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { StudentCard } from '@/components/StudentCard';
-import { useTopStudents } from '@/hooks/useTopStudents';
+import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { ArrowRight, Users } from 'lucide-react';
 
 const fadeUp = {
@@ -28,6 +27,7 @@ type StudentRow = {
   service_area?: string | null;
   typical_budget_min?: number | null;
   typical_budget_max?: number | null;
+  created_at?: string | null;
 };
 
 /**
@@ -35,7 +35,6 @@ type StudentRow = {
  */
 export function LandingTalentPreview() {
   const navigate = useNavigate();
-  const { topStudents } = useTopStudents();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [displayNames, setDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -74,6 +73,7 @@ export function LandingTalentPreview() {
         service_area: s.service_area,
         typical_budget_min: s.typical_budget_min,
         typical_budget_max: s.typical_budget_max,
+        created_at: s.created_at ?? null,
       }));
 
       setDisplayNames(nameMap);
@@ -123,32 +123,117 @@ export function LandingTalentPreview() {
         </motion.div>
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {[0, 1, 2, 3].map((i) => (
+          <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[0, 1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-48 animate-pulse rounded-xl border border-border bg-muted/60"
-              />
+                className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 animate-pulse"
+              >
+                <div className="flex gap-2.5">
+                  <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
+                  <div className="flex-1 space-y-1.5 pt-0.5">
+                    <div className="h-3 w-24 rounded bg-muted" />
+                    <div className="h-2.5 w-16 rounded bg-muted" />
+                  </div>
+                </div>
+                <div className="h-2 w-full rounded bg-muted" />
+                <div className="h-2 w-5/6 rounded bg-muted" />
+                <div className="h-2 w-4/6 rounded bg-muted" />
+                <div className="mt-1 flex gap-1">
+                  <div className="h-5 w-14 rounded-md bg-muted" />
+                  <div className="h-5 w-12 rounded-md bg-muted" />
+                </div>
+              </div>
             ))}
           </div>
         ) : (
           <motion.div
-            className="grid grid-cols-1 gap-4 md:grid-cols-2"
+            className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: '-20px' }}
             variants={stagger}
           >
-            {students.map((student) => (
-              <motion.div key={student.user_id} variants={fadeUp} transition={{ duration: 0.4 }}>
-                <StudentCard
-                  student={student}
-                  displayName={displayNames[student.user_id] ?? 'Student'}
-                  showFavourite={false}
-                  topInfo={topStudents[student.user_id]}
-                />
-              </motion.div>
-            ))}
+            {students.map((s) => {
+              const name = displayNames[s.user_id] ?? 'Student';
+              const isNew =
+                s.created_at &&
+                Date.now() - new Date(s.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
+              const budgetLabel = formatTypicalBudget(s.typical_budget_min, s.typical_budget_max);
+              const skillPills = s.skills.slice(0, 2);
+              const hourly = s.hourly_rate;
+              return (
+                <motion.div key={s.user_id} variants={fadeUp} transition={{ duration: 0.4 }} className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/students/${s.user_id}`)}
+                    className="group flex w-56 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                        {s.avatar_url ? (
+                          <img
+                            src={s.avatar_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs font-bold text-foreground/30">
+                            {name[0].toUpperCase()}
+                          </div>
+                        )}
+                        <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-card bg-emerald-500" />
+                      </div>
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{name}</p>
+                          {isNew && (
+                            <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary-foreground">
+                              New
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                      {hourly > 0 && (
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">€{hourly}/hr</span>
+                      )}
+                      {budgetLabel && (
+                        <span className="font-medium text-muted-foreground">{budgetLabel} projects</span>
+                      )}
+                    </div>
+                    {s.bio?.trim() && (
+                      <p className="line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">{s.bio.trim()}</p>
+                    )}
+                    {skillPills.length > 0 && (
+                      <div className="mt-auto flex flex-wrap gap-1 pt-0.5">
+                        {skillPills.map((sk) => (
+                          <span
+                            key={sk}
+                            className="max-w-full truncate rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary"
+                          >
+                            {sk}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                </motion.div>
+              );
+            })}
+            <motion.div variants={fadeUp} transition={{ duration: 0.4 }} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/students')}
+                className="flex w-56 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
+              >
+                <ArrowRight size={22} className="text-muted-foreground" />
+                <p className="text-center text-[12px] font-semibold text-muted-foreground">See all on Talent</p>
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </div>
