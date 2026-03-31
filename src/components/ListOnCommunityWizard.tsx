@@ -137,6 +137,8 @@ interface ListOnCommunityWizardProps {
   initial: ListOnCommunityInitial;
   /** Called after the listing goes live. */
   onSubmittedForReview: (category: CommunityCategoryId) => void;
+  /** Jump straight to a specific step (0-indexed). Skips draft restore. */
+  startAtStep?: number;
 }
 
 export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
@@ -145,6 +147,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   userId,
   initial,
   onSubmittedForReview,
+  startAtStep,
 }) => {
   const { toast } = useToast();
   const [step, setStep] = useState(0);
@@ -178,7 +181,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
 
     setDraftReady(false);
-    setStep(0);
+    setStep(startAtStep ?? 0);
     setCategory(null);
     setBannerUrl(initial.bannerUrl || '');
     setBannerFile(null);
@@ -202,40 +205,43 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setTypicalBudgetMax(initial.typicalBudgetMax || '');
     setSkills(normalizeFreelancerSkills(initial.skills));
 
-    const rawDraft = (() => {
-      try {
-        return localStorage.getItem(listOnCommunityDraftKey(userId));
-      } catch {
-        return null;
-      }
-    })();
+    // Skip draft restore when jumping to a specific step or editing an existing post
+    if (!initial.existingPost && startAtStep == null) {
+      const rawDraft = (() => {
+        try {
+          return localStorage.getItem(listOnCommunityDraftKey(userId));
+        } catch {
+          return null;
+        }
+      })();
 
-    const draft = rawDraft ? parseDraft(rawDraft) : null;
-    if (draft) {
-      setStep(draft.step);
-      setCategory(draft.category);
-      setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
-      setTitle(draft.title);
-      setDescription(draft.description);
-      setSyncBio(draft.syncBio);
-      setTiktokUrl(draft.tiktokUrl);
-      setWorkLinks(draft.workLinks);
-      setServiceArea(draft.serviceArea);
-      setRateUnit(draft.rateUnit);
-      setRateMin(draft.rateMin);
-      setRateMax(draft.rateMax);
-      setProfileHourly(draft.profileHourly);
-      setTypicalBudgetMin(draft.typicalBudgetMin);
-      setTypicalBudgetMax(draft.typicalBudgetMax);
-      setSkills(normalizeFreelancerSkills(draft.skills));
-      toast({
-        title: 'Draft restored',
-        description: 'We restored your listing draft on this device. Re-add photos if needed.',
-      });
+      const draft = rawDraft ? parseDraft(rawDraft) : null;
+      if (draft) {
+        setStep(draft.step);
+        setCategory(draft.category);
+        setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
+        setTitle(draft.title);
+        setDescription(draft.description);
+        setSyncBio(draft.syncBio);
+        setTiktokUrl(draft.tiktokUrl);
+        setWorkLinks(draft.workLinks);
+        setServiceArea(draft.serviceArea);
+        setRateUnit(draft.rateUnit);
+        setRateMin(draft.rateMin);
+        setRateMax(draft.rateMax);
+        setProfileHourly(draft.profileHourly);
+        setTypicalBudgetMin(draft.typicalBudgetMin);
+        setTypicalBudgetMax(draft.typicalBudgetMax);
+        setSkills(normalizeFreelancerSkills(draft.skills));
+        toast({
+          title: 'Draft restored',
+          description: 'We restored your listing draft on this device. Re-add photos if needed.',
+        });
+      }
     }
 
     setDraftReady(true);
-  }, [open, initial, userId, toast]);
+  }, [open, initial, userId, startAtStep, toast]);
 
   useEffect(() => {
     if (!open || !draftReady) return;

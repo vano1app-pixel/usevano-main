@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil } from 'lucide-react';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
 import { ModBadge } from '@/components/ModBadge';
@@ -53,7 +53,11 @@ const Profile = () => {
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
+  const [wizardStartStep, setWizardStartStep] = useState<number | undefined>(undefined);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [existingPost, setExistingPost] = useState<any>(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const bannerFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
     bannerUrl,
@@ -65,7 +69,8 @@ const Profile = () => {
     typicalBudgetMax,
     hourlyRate,
     bio,
-  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio]);
+    existingPost: existingPost ?? null,
+  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -141,8 +146,45 @@ const Profile = () => {
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
 
+      // Load existing community post so wizard can pre-fill and inline card can render
+      const { data: postRow } = await supabase
+        .from('community_posts')
+        .select('id, category, title, description, image_url, rate_min, rate_max, rate_unit, likes_count, created_at')
+        .eq('user_id', session.user.id)
+        .eq('moderation_status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setExistingPost(postRow ?? null);
     }
     setLoading(false);
+  };
+
+  const openWizardAtStep = (step: number) => {
+    setWizardStartStep(step);
+    setListCommunityOpen(true);
+  };
+
+  const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setBannerUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${user.id}/banner.${ext}`;
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = `${pub.publicUrl}?t=${Date.now()}`;
+      await supabase.from('student_profiles').upsert({ user_id: user.id, banner_url: url }, { onConflict: 'user_id' });
+      setBannerUrl(url);
+      toast({ title: 'Cover updated', description: 'Your listing banner has been updated.' });
+    } catch {
+      toast({ title: 'Upload failed', description: 'Could not update banner. Try again.', variant: 'destructive' });
+    } finally {
+      setBannerUploading(false);
+      if (bannerFileInputRef.current) bannerFileInputRef.current.value = '';
+    }
   };
 
   const handleSave = async () => {
@@ -231,8 +273,8 @@ const Profile = () => {
 
         {profile?.user_type === 'student' && user && (
           <>
-            {/* Profile strength widget */}
-            {(() => {
+            {/* Profile strength widget — hidden once live */}
+            {studentProfile?.community_board_status !== 'approved' && (() => {
               const steps = [
                 {
                   done: !!avatarUrl,
@@ -331,26 +373,153 @@ const Profile = () => {
               );
             })()}
 
-            {studentProfile?.community_board_status === 'approved' ? (
-              <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.07] px-4 py-3.5 sm:mb-6">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">You're live on the talent board</p>
-                    <p className="text-xs text-muted-foreground">Businesses can find and message you now.</p>
+            {/* Hidden file input for quick banner change */}
+            <input
+              ref={bannerFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleBannerFileChange}
+            />
+
+            {studentProfile?.community_board_status === 'approved' && existingPost ? (
+              /* ── Live listing editor card ── */
+              <div className="mb-5 sm:mb-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live on talent board</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => openWizardAtStep(0)}
+                    className="text-[12px] font-semibold text-primary hover:underline"
+                  >
+                    Edit full listing →
+                  </button>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0 rounded-xl text-xs font-semibold"
-                  onClick={() => setListCommunityOpen(true)}
-                >
-                  Edit listing
-                </Button>
+
+                <div className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm">
+                  {/* ── Banner — tap to change ── */}
+                  <button
+                    type="button"
+                    onClick={() => bannerFileInputRef.current?.click()}
+                    disabled={bannerUploading}
+                    className="group relative block h-36 w-full overflow-hidden"
+                    title="Tap to change cover photo"
+                  >
+                    {existingPost.image_url || bannerUrl ? (
+                      <>
+                        <img
+                          src={existingPost.image_url || bannerUrl}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover transition-opacity group-hover:opacity-85"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/75" />
+                      </>
+                    ) : (
+                      <div
+                        className="absolute inset-0"
+                        style={{ background: 'linear-gradient(145deg, hsl(248 62% 32%) 0%, hsl(270 58% 18%) 100%)' }}
+                      >
+                        <div className="absolute -right-10 -top-8 h-40 w-40 rounded-full bg-fuchsia-300/30 blur-2xl" />
+                        <div className="absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-cyan-300/20 blur-2xl" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/70" />
+                      </div>
+                    )}
+                    {/* Change cover — always visible on mobile, hover on desktop */}
+                    <div className="absolute right-2 top-2 flex items-center gap-1.5 rounded-lg bg-black/50 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus:opacity-100">
+                      {bannerUploading
+                        ? <span className="animate-pulse">Uploading…</span>
+                        : <><ImagePlus size={12} />Change cover</>
+                      }
+                    </div>
+                    {/* Name / category overlay at bottom */}
+                    <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white/40" />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white ring-2 ring-white/35">
+                          {displayName?.[0]?.toUpperCase() || 'Y'}
+                        </div>
+                      )}
+                      <div className="pb-0.5">
+                        <p className="text-sm font-semibold leading-tight text-white">{displayName || 'Your name'}</p>
+                        <p className="text-[11px] text-white/65">{existingPost.category}</p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* ── Pitch — tap to edit ── */}
+                  <button
+                    type="button"
+                    onClick={() => openWizardAtStep(3)}
+                    className="group w-full px-4 pb-3 pt-3 text-left transition-colors hover:bg-muted/30 active:bg-muted/40"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 space-y-1.5">
+                        <p className="text-sm font-semibold leading-snug text-foreground">{existingPost.title || 'Add a headline'}</p>
+                        <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
+                          {existingPost.description || 'Add a description so businesses know what you offer.'}
+                        </p>
+                      </div>
+                      <Pencil size={13} className="mt-0.5 shrink-0 text-muted-foreground transition-opacity md:opacity-0 md:group-hover:opacity-100" />
+                    </div>
+                  </button>
+
+                  {/* ── Skills / rates — tap to edit ── */}
+                  <button
+                    type="button"
+                    onClick={() => openWizardAtStep(5)}
+                    className="group w-full border-t border-foreground/8 px-4 pb-3.5 pt-2.5 text-left transition-colors hover:bg-muted/30 active:bg-muted/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        {skills.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {skills.slice(0, 5).map((s) => (
+                              <span key={s} className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75">{s}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[12px] text-muted-foreground">Add skills so businesses can find you</p>
+                        )}
+                        {(existingPost.rate_min != null || existingPost.rate_max != null) && (
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {existingPost.rate_min != null && existingPost.rate_max != null
+                              ? `€${existingPost.rate_min}–€${existingPost.rate_max}`
+                              : existingPost.rate_min != null
+                                ? `From €${existingPost.rate_min}`
+                                : `Up to €${existingPost.rate_max}`}
+                            {existingPost.rate_unit && existingPost.rate_unit !== 'negotiable'
+                              ? ` / ${existingPost.rate_unit}`
+                              : existingPost.rate_unit === 'negotiable' ? ' · Negotiable' : ''}
+                          </p>
+                        )}
+                      </div>
+                      <Pencil size={13} className="shrink-0 text-muted-foreground transition-opacity md:opacity-0 md:group-hover:opacity-100" />
+                    </div>
+                  </button>
+
+                  {/* ── Links — tap to edit ── */}
+                  <button
+                    type="button"
+                    onClick={() => openWizardAtStep(4)}
+                    className="group w-full border-t border-foreground/8 px-4 pb-3.5 pt-2.5 text-left transition-colors hover:bg-muted/30 active:bg-muted/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[12px] text-muted-foreground">
+                        {workLinks.some(l => l.url.trim())
+                          ? workLinks.filter(l => l.url.trim()).map(l => l.label || l.url).join(' · ')
+                          : 'Add portfolio links, social profiles…'}
+                      </p>
+                      <Pencil size={13} className="shrink-0 text-muted-foreground transition-opacity md:opacity-0 md:group-hover:opacity-100" />
+                    </div>
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">Tap any section to edit. Changes go live immediately.</p>
               </div>
-            ) : (
+            ) : studentProfile?.community_board_status !== 'approved' ? (
               <div className="mb-5 rounded-2xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/15 px-4 py-3.5 sm:mb-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0">
@@ -372,12 +541,17 @@ const Profile = () => {
                   </Button>
                 </div>
               </div>
-            )}
+            ) : null}
+
             <ListOnCommunityWizard
               open={listCommunityOpen}
-              onOpenChange={setListCommunityOpen}
+              onOpenChange={(v) => {
+                setListCommunityOpen(v);
+                if (!v) setWizardStartStep(undefined);
+              }}
               userId={user.id}
               initial={listOnCommunityInitial}
+              startAtStep={wizardStartStep}
               onSubmittedForReview={() => {
                 void loadProfile();
               }}
