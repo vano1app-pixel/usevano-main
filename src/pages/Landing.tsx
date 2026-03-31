@@ -14,6 +14,8 @@ import {
   Users,
   Search,
   MessageSquare,
+  MessageCircle,
+  Check,
   Megaphone,
   Linkedin,
   CircleUser,
@@ -45,6 +47,7 @@ const scaleIn = {
 const Landing = () => {
   const navigate = useNavigate();
   const oauthHandledRef = useRef(false);
+  const howRef = useRef<HTMLElement | null>(null);
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
@@ -192,123 +195,6 @@ const Landing = () => {
                   </div>
                   <ArrowRight size={18} className="shrink-0 text-muted-foreground" />
                 </button>
-<<<<<<< HEAD
-                <button
-                  type="button"
-                  onClick={() => navigate('/post-job')}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2"
-                >
-                  <Briefcase size={18} />
-                  Post a gig
-                </button>
-                <button
-                  type="button"
-                  onClick={scrollToHow}
-                  className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  How it works
-                </button>
-              </>
-            ) : (
-              <div className="flex w-full max-w-xl flex-col items-center gap-3 mx-auto">
-                <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-center sm:flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/auth?mode=signup')}
-                    className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-                  >
-                    Get started
-                    <ArrowRight size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/students')}
-                    className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Users size={18} />
-                    Find talent
-                  </button>
-                  <button
-                    type="button"
-                    onClick={scrollToHow}
-                    className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    How it works
-                  </button>
-                </div>
-                <p className="text-center text-xs text-muted-foreground leading-relaxed">
-                  On the next screen you can create an account, or{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/auth?mode=login')}
-                    className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
-                  >
-                    log in if you already have one
-                  </button>
-                  .
-                </p>
-              </div>
-            )}
-          </motion.div>
-
-          <p className="mt-10 text-center text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Fixed-price gigs · In-app messaging · Portfolios &amp; reviews · Community board · Built for Galway
-          </p>
-        </motion.div>
-      </section>
-
-      <LandingTalentPreview />
-
-      {/* How it works — 4-phase journey */}
-      <section ref={howRef} id="how-it-works" className="scroll-mt-24 bg-muted/30 py-16 md:py-24 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={staggerContainer}
-            className="text-center mb-10 md:mb-14"
-          >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-semibold text-primary uppercase tracking-[0.2em] mb-3">
-              End-to-end workflow
-            </motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-4">
-              From first browse to final delivery
-            </motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
-              Discovery, clear scope on each gig, messaging, and reviews — designed for real freelance projects in Galway.
-            </motion.p>
-          </motion.div>
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-60px" }}
-            variants={staggerContainer}
-          >
-            {[
-              { num: '01', phase: 'Discover', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers, portfolios, and community listings. Search by name, bio, or skills.' },
-              { num: '02', phase: 'Scope', icon: Briefcase, title: 'Post or apply', desc: 'Hirers post gigs with budget and due date. Freelancers apply with a message — align on deliverables before you start.' },
-              { num: '03', phase: 'Connect', icon: MessageCircle, title: 'Chat on VANO', desc: 'Keep project conversation in one thread. No need to scatter details across different apps.' },
-              { num: '04', phase: 'Deliver', icon: Check, title: 'Complete & review', desc: 'Finish the work, then build reputation through reviews and completed gigs on your profile.' },
-            ].map((step, i) => (
-              <motion.div
-                key={i}
-                variants={scaleIn}
-                transition={{ duration: 0.45, delay: i * 0.08 }}
-                className="relative bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm hover:border-primary/20 hover:shadow-md transition-all group text-left"
-              >
-                <div className="flex items-start justify-between gap-2 mb-4">
-                  <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">{step.num}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{step.phase}</span>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
-                  <step.icon className="text-primary" size={20} strokeWidth={2} />
-                </div>
-                <h3 className="text-base font-semibold mb-2 text-foreground">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
-=======
->>>>>>> e4e3153623bb8959d01cd8036d6e7ad71d89b028
               </motion.div>
 
               {/* Stat chips — mobile only */}
@@ -363,6 +249,10 @@ const Landing = () => {
                   </div>
                 )}
               </motion.div>
+
+              <p className="mt-10 text-center text-sm text-muted-foreground max-w-lg mx-auto md:mx-0 leading-relaxed md:text-left">
+                Fixed-price gigs · In-app messaging · Portfolios &amp; reviews · Community board · Built for Galway
+              </p>
             </motion.div>
 
             {/* Right column — stat cards, desktop only */}
@@ -385,6 +275,62 @@ const Landing = () => {
             </motion.div>
           </div>
 
+        </div>
+      </section>
+
+      <LandingTalentPreview />
+
+      {/* How it works — 4-phase journey */}
+      <section ref={howRef} id="how-it-works" className="scroll-mt-24 bg-muted/30 py-16 md:py-24 px-4 md:px-8">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-80px" }}
+            variants={staggerContainer}
+            className="text-center mb-10 md:mb-14"
+          >
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-xs font-semibold text-primary uppercase tracking-[0.2em] mb-3">
+              End-to-end workflow
+            </motion.p>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-4">
+              From first browse to final delivery
+            </motion.h2>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+              Discovery, clear scope on each gig, messaging, and reviews — designed for real freelance projects in Galway.
+            </motion.p>
+          </motion.div>
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-60px" }}
+            variants={staggerContainer}
+          >
+            {[
+              { num: '01', phase: 'Discover', icon: Users, title: 'Find the right fit', desc: 'Browse freelancers, portfolios, and community listings. Search by name, bio, or skills.' },
+              { num: '02', phase: 'Scope', icon: Briefcase, title: 'Post or apply', desc: 'Hirers post gigs with budget and due date. Freelancers apply with a message — align on deliverables before you start.' },
+              { num: '03', phase: 'Connect', icon: MessageCircle, title: 'Chat on VANO', desc: 'Keep project conversation in one thread. No need to scatter details across different apps.' },
+              { num: '04', phase: 'Deliver', icon: Check, title: 'Complete & review', desc: 'Finish the work, then build reputation through reviews and completed gigs on your profile.' },
+            ].map((step, i) => (
+              <motion.div
+                key={i}
+                variants={scaleIn}
+                transition={{ duration: 0.45, delay: i * 0.08 }}
+                className="relative bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm hover:border-primary/20 hover:shadow-md transition-all group text-left"
+              >
+                <div className="flex items-start justify-between gap-2 mb-4">
+                  <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">{step.num}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{step.phase}</span>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
+                  <step.icon className="text-primary" size={20} strokeWidth={2} />
+                </div>
+                <h3 className="text-base font-semibold mb-2 text-foreground">{step.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 

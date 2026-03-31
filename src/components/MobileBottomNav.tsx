@@ -60,9 +60,14 @@ export const MobileBottomNav: React.FC = () => {
     const requiresAuth = href === '/messages' || href === '/profile';
     if (requiresAuth && !user) {
       navigate('/auth');
-    } else {
-      navigate(href);
+      return;
     }
+    // Talent tab: always open hub (strip ?cat=) so signed-in matches signed-out “three boxes” first screen.
+    if (href === '/students') {
+      navigate({ pathname: '/students', search: '' });
+      return;
+    }
+    navigate(href);
   };
 
   const isActive = (href: string) => {

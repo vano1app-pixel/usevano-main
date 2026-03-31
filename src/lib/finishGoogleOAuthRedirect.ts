@@ -1,6 +1,6 @@
 import type { NavigateFunction } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { getPostGoogleAuthPath, isEmailVerified } from '@/lib/authSession';
+import { isEmailVerified, resolvePostGoogleAuthDestination } from '@/lib/authSession';
 import {
   clearGoogleOAuthIntent,
   ensureProfileAfterGoogleOAuth,
@@ -17,7 +17,7 @@ export async function tryFinishGoogleOAuthRedirect(navigate: NavigateFunction): 
   try {
     await ensureProfileAfterGoogleOAuth(session);
     clearGoogleOAuthIntent();
-    const path = await getPostGoogleAuthPath(session.user.id);
+    const path = await resolvePostGoogleAuthDestination(session.user.id);
     navigate(path, { replace: true });
     return true;
   } catch {

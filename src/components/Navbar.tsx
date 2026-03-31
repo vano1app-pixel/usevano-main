@@ -38,9 +38,9 @@ export const Navbar: React.FC = () => {
   }, [user, pendingRoute, navigate]);
 
   const navItems = [
-    { label: 'Browse Gigs', href: '/jobs', requiresAuth: false, isNew: false },
+    { label: 'Home', href: '/', requiresAuth: false, isNew: false },
     { label: 'Post a Gig', href: '/post-job', requiresAuth: true, isNew: false },
-    { label: 'Talent Board', href: '/community', requiresAuth: false, isNew: true },
+    { label: 'Talent Board', href: '/students', requiresAuth: false, isNew: true },
   ];
 
   const authNavItems = [
@@ -62,14 +62,28 @@ export const Navbar: React.FC = () => {
       navigate(href);
     }
   };
-  const isLandingPage = location.pathname === '/' || location.pathname === '/landing';
+  /** Mobile: show top bar on home and talent routes so /students isn’t an empty padded strip. */
+  const showNavbarOnMobile =
+    location.pathname === '/' ||
+    location.pathname === '/landing' ||
+    location.pathname === '/students' ||
+    location.pathname.startsWith('/students/');
 
-  // Hide navbar on mobile for all pages except landing
-  if (isMobile && !isLandingPage) return null;
+  if (isMobile && !showNavbarOnMobile) return null;
+
+  const talentRouteMobile =
+    isMobile &&
+    (location.pathname === '/students' || location.pathname.startsWith('/students/'));
+  /** Opaque bar on Talent so dark page bg doesn’t read as an empty “black box” through glass blur. */
+  const navSurfaceClass = talentRouteMobile
+    ? 'bg-background border-border/60 shadow-md'
+    : 'bg-background/60 backdrop-blur-xl border-border/50 shadow-lg shadow-black/5';
 
   return (
     <>
-      <nav className="fixed top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[2000] bg-background/60 backdrop-blur-xl border border-border/50 rounded-xl sm:rounded-2xl shadow-lg shadow-black/5">
+      <nav
+        className={`fixed top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[2000] rounded-xl sm:rounded-2xl ${navSurfaceClass}`}
+      >
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 h-14 sm:h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="VANO" className="h-8 w-8 rounded-lg" />

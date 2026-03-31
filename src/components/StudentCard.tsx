@@ -3,6 +3,7 @@ import { TagBadge } from './TagBadge';
 import { Heart, MapPin } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import type { TopStudentInfo } from '@/hooks/useTopStudents';
@@ -29,6 +30,8 @@ interface StudentCardProps {
   onToggleFavourite?: (studentUserId: string) => void;
   showFavourite?: boolean;
   topInfo?: TopStudentInfo;
+  /** Example profile — no navigation to /students/:id */
+  demoExample?: boolean;
 }
 
 const MEDAL_STYLES = [
@@ -91,19 +94,25 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   displayName,
   isFavourite,
   onToggleFavourite,
-  showFavourite,
+  showFavourite = false,
   topInfo,
+  demoExample,
 }) => {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin(student.user_id);
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
   const area = student.service_area?.trim();
   const uniStyle = getUniStyle(student.university);
+  const clickable = !demoExample;
 
   return (
     <div
-      className="cursor-pointer overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
-      onClick={() => navigate(`/students/${student.user_id}`)}
+      className={cn(
+        'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200',
+        clickable && 'cursor-pointer hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md',
+        !clickable && 'cursor-default',
+      )}
+      onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
       {/* Banner */}
       <div className="relative h-24 w-full overflow-hidden sm:h-28">

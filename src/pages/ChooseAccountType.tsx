@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { getPostGoogleAuthPath } from '@/lib/authSession';
+import { resolvePostGoogleAuthDestination } from '@/lib/authSession';
 import { GraduationCap, Building2, Loader2 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { cn } from '@/lib/utils';
@@ -34,7 +34,7 @@ const ChooseAccountType = () => {
         .maybeSingle();
       if (cancelled) return;
       if (profile?.user_type?.trim()) {
-        const path = await getPostGoogleAuthPath(session.user.id);
+        const path = await resolvePostGoogleAuthDestination(session.user.id);
         navigate(path, { replace: true });
         return;
       }
@@ -75,7 +75,7 @@ const ChooseAccountType = () => {
       if (selected === 'student') {
         await supabase.from('student_profiles').upsert({ user_id: uid }, { onConflict: 'user_id' });
       }
-      const path = await getPostGoogleAuthPath(uid);
+      const path = await resolvePostGoogleAuthDestination(uid);
       navigate(path, { replace: true });
     } catch (err: unknown) {
       toast({ title: 'Could not save', description: getUserFriendlyError(err), variant: 'destructive' });

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
 import { Briefcase, GraduationCap } from 'lucide-react';
-import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
+import { isEmailVerified, rememberTalentBoardReturn, resolvePostAuthDestination } from '@/lib/authSession';
 import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
@@ -18,13 +18,14 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const redirectIfAlreadySignedIn = useCallback(async () => {
     if (hasGoogleOAuthPending()) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !isEmailVerified(session)) return;
-    const path = await getPostAuthPath(session.user.id);
+    const path = await resolvePostAuthDestination(session.user.id);
     navigate(path, { replace: true });
   }, [navigate]);
 
@@ -33,6 +34,11 @@ const Auth = () => {
     if (mode === 'signup') setIsLogin(false);
     else if (mode === 'login') setIsLogin(true);
   }, []);
+
+  useEffect(() => {
+    const from = (location.state as { from?: string } | null)?.from;
+    if (from) rememberTalentBoardReturn(from);
+  }, [location.state]);
 
   useEffect(() => {
     void redirectIfAlreadySignedIn();

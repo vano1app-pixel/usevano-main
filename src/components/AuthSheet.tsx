@@ -5,7 +5,7 @@ import { X, GraduationCap, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { getPostAuthPath, isEmailVerified } from '@/lib/authSession';
+import { isEmailVerified, resolvePostAuthDestination } from '@/lib/authSession';
 import {
   clearGoogleOAuthIntent,
   hasGoogleOAuthPending,
@@ -34,7 +34,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
       if (hasGoogleOAuthPending()) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !isEmailVerified(session)) return;
-      const path = await getPostAuthPath(session.user.id);
+      const path = await resolvePostAuthDestination(session.user.id);
       onClose();
       navigate(path, { replace: true });
     };
@@ -45,7 +45,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session && isEmailVerified(session)) {
         void (async () => {
-          const path = await getPostAuthPath(session.user.id);
+          const path = await resolvePostAuthDestination(session.user.id);
           onClose();
           navigate(path, { replace: true });
         })();
