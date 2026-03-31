@@ -136,7 +136,13 @@ const BrowseStudents = () => {
   }, []);
 
   const fetchStudents = async () => {
-    const { data: studentData, error: studentErr } = await supabase.from('student_profiles').select('*').eq('is_available', true);
+    const { data: studentData, error: studentErr } = await supabase
+      .from('student_profiles')
+      .select('*')
+      .eq('is_available', true)
+      .eq('community_board_status', 'approved')
+      .not('bio', 'is', null)
+      .not('skills', 'eq', '{}');
     const { data: profileData, error: profileErr } = await supabase.from('profiles').select('user_id, display_name');
     if (studentErr || profileErr) {
       setFetchError(true);
