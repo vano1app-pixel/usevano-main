@@ -331,27 +331,48 @@ const Profile = () => {
               );
             })()}
 
-            <div className="mb-5 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:mb-6 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="min-w-0 text-center sm:text-left">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary sm:text-[11px]">Community</p>
-                  <h2 className="mt-1 text-base font-semibold tracking-tight text-foreground sm:text-lg">
-                    Get listed on the talent board
-                  </h2>
-                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                    Fill in a few details and your listing goes live straight away.
-                  </p>
+            {studentProfile?.community_board_status === 'approved' ? (
+              <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.07] px-4 py-3.5 sm:mb-6">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">You're live on the talent board</p>
+                    <p className="text-xs text-muted-foreground">Businesses can find and message you now.</p>
+                  </div>
                 </div>
                 <Button
                   type="button"
-                  size="lg"
-                  className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold shadow-md sm:h-12 sm:w-auto sm:min-w-[9.5rem]"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 rounded-xl text-xs font-semibold"
                   onClick={() => setListCommunityOpen(true)}
                 >
-                  Get listed
+                  Edit listing
                 </Button>
               </div>
-            </div>
+            ) : (
+              <div className="mb-5 rounded-2xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/15 px-4 py-3.5 sm:mb-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                      <p className="text-sm font-semibold text-foreground">Not visible on the talent board yet</p>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                      Complete your listing to go live — businesses search here for freelancers.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold shadow-md sm:h-12 sm:w-auto sm:min-w-[9.5rem]"
+                    onClick={() => setListCommunityOpen(true)}
+                  >
+                    Get listed
+                  </Button>
+                </div>
+              </div>
+            )}
             <ListOnCommunityWizard
               open={listCommunityOpen}
               onOpenChange={setListCommunityOpen}
@@ -419,6 +440,23 @@ const Profile = () => {
             </>
           ) : (
             <>
+              {myGigs.length === 0 && (
+                <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] via-card to-card p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Get started</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">You're set up as a business</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Post a gig to find a freelancer fast — set a budget, deadline, and location. Or browse the talent board to message someone directly.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Button size="sm" className="rounded-xl text-xs font-semibold" asChild>
+                      <a href="/post-job">Post a gig</a>
+                    </Button>
+                    <Button size="sm" variant="outline" className="rounded-xl text-xs font-semibold" asChild>
+                      <a href="/students">Browse talent</a>
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                 <AvatarUpload
                   userId={user.id}

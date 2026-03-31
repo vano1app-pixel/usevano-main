@@ -75,8 +75,8 @@ export const MobileBottomNav: React.FC = () => {
     return location.pathname.startsWith(href);
   };
 
-  // Hide on auth page
-  if (location.pathname === '/auth') return null;
+  const HIDDEN_PATHS = ['/auth', '/choose-account-type', '/complete-profile'];
+  if (HIDDEN_PATHS.includes(location.pathname)) return null;
 
   return (
     <>

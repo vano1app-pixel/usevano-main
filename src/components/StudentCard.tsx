@@ -206,10 +206,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
         {/* Location + rate row */}
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin size={11} className="shrink-0 text-primary/70" />
-            {area || 'Galway area'}
-          </span>
+          {area && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin size={11} className="shrink-0 text-primary/70" />
+              {area}
+            </span>
+          )}
           {student.hourly_rate > 0 && (
             <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
               €{student.hourly_rate}/hr

@@ -31,9 +31,11 @@ import { useToast } from '@/hooks/use-toast';
 import {
   COMMUNITY_CATEGORY_ORDER,
   COMMUNITY_CATEGORIES,
+  isCommunityCategoryId,
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
 import { FREELANCER_SKILL_OPTIONS, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
+import { formatCommunityBudget } from '@/lib/communityBudget';
 import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
@@ -59,6 +61,73 @@ export interface ListOnCommunityInitial {
   typicalBudgetMax: string;
   hourlyRate: string;
   bio: string;
+}
+
+interface ListOnCommunityDraft {
+  step: number;
+  category: CommunityCategoryId | null;
+  bannerUrl: string;
+  title: string;
+  description: string;
+  syncBio: boolean;
+  tiktokUrl: string;
+  workLinks: WorkLinkEntry[];
+  serviceArea: string;
+  rateUnit: string;
+  rateMin: string;
+  rateMax: string;
+  profileHourly: string;
+  typicalBudgetMin: string;
+  typicalBudgetMax: string;
+  skills: string[];
+}
+
+const listOnCommunityDraftKey = (userId: string) => `vano:list-on-community-draft:${userId}`;
+
+function parseDraftWorkLinks(value: unknown): WorkLinkEntry[] {
+  if (!Array.isArray(value)) return [{ url: '', label: '' }];
+  const rows = value
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null;
+      const obj = row as Record<string, unknown>;
+      return {
+        url: typeof obj.url === 'string' ? obj.url : '',
+        label: typeof obj.label === 'string' ? obj.label : '',
+      };
+    })
+    .filter((row): row is WorkLinkEntry => row !== null);
+  return rows.length > 0 ? rows : [{ url: '', label: '' }];
+}
+
+function parseDraft(raw: string): ListOnCommunityDraft | null {
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      step:
+        typeof parsed.step === 'number'
+          ? Math.max(0, Math.min(STEP_LABELS.length - 1, parsed.step))
+          : 0,
+      category: isCommunityCategoryId(typeof parsed.category === 'string' ? parsed.category : null)
+        ? parsed.category
+        : null,
+      bannerUrl: typeof parsed.bannerUrl === 'string' ? parsed.bannerUrl : '',
+      title: typeof parsed.title === 'string' ? parsed.title : '',
+      description: typeof parsed.description === 'string' ? parsed.description : '',
+      syncBio: Boolean(parsed.syncBio),
+      tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
+      workLinks: parseDraftWorkLinks(parsed.workLinks),
+      serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
+      rateUnit: typeof parsed.rateUnit === 'string' ? parsed.rateUnit : 'hourly',
+      rateMin: typeof parsed.rateMin === 'string' ? parsed.rateMin : '',
+      rateMax: typeof parsed.rateMax === 'string' ? parsed.rateMax : '',
+      profileHourly: typeof parsed.profileHourly === 'string' ? parsed.profileHourly : '',
+      typicalBudgetMin: typeof parsed.typicalBudgetMin === 'string' ? parsed.typicalBudgetMin : '',
+      typicalBudgetMax: typeof parsed.typicalBudgetMax === 'string' ? parsed.typicalBudgetMax : '',
+      skills: Array.isArray(parsed.skills) ? parsed.skills.filter((s): s is string => typeof s === 'string') : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 interface ListOnCommunityWizardProps {
@@ -98,11 +167,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setDraftReady(false);
+      return;
+    }
+
+    setDraftReady(false);
     setStep(0);
     setCategory(null);
     setBannerUrl(initial.bannerUrl || '');
@@ -126,7 +201,90 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setTypicalBudgetMin(initial.typicalBudgetMin || '');
     setTypicalBudgetMax(initial.typicalBudgetMax || '');
     setSkills(normalizeFreelancerSkills(initial.skills));
-  }, [open, initial]);
+
+    const rawDraft = (() => {
+      try {
+        return localStorage.getItem(listOnCommunityDraftKey(userId));
+      } catch {
+        return null;
+      }
+    })();
+
+    const draft = rawDraft ? parseDraft(rawDraft) : null;
+    if (draft) {
+      setStep(draft.step);
+      setCategory(draft.category);
+      setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
+      setTitle(draft.title);
+      setDescription(draft.description);
+      setSyncBio(draft.syncBio);
+      setTiktokUrl(draft.tiktokUrl);
+      setWorkLinks(draft.workLinks);
+      setServiceArea(draft.serviceArea);
+      setRateUnit(draft.rateUnit);
+      setRateMin(draft.rateMin);
+      setRateMax(draft.rateMax);
+      setProfileHourly(draft.profileHourly);
+      setTypicalBudgetMin(draft.typicalBudgetMin);
+      setTypicalBudgetMax(draft.typicalBudgetMax);
+      setSkills(normalizeFreelancerSkills(draft.skills));
+      toast({
+        title: 'Draft restored',
+        description: 'We restored your listing draft on this device. Re-add photos if needed.',
+      });
+    }
+
+    setDraftReady(true);
+  }, [open, initial, userId, toast]);
+
+  useEffect(() => {
+    if (!open || !draftReady) return;
+
+    const draft: ListOnCommunityDraft = {
+      step,
+      category,
+      bannerUrl: bannerUrl.startsWith('http') ? bannerUrl : '',
+      title,
+      description,
+      syncBio,
+      tiktokUrl,
+      workLinks,
+      serviceArea,
+      rateUnit,
+      rateMin,
+      rateMax,
+      profileHourly,
+      typicalBudgetMin,
+      typicalBudgetMax,
+      skills,
+    };
+
+    try {
+      localStorage.setItem(listOnCommunityDraftKey(userId), JSON.stringify(draft));
+    } catch {
+      // Ignore quota/storage restrictions - the wizard should still work without draft persistence.
+    }
+  }, [
+    open,
+    draftReady,
+    userId,
+    step,
+    category,
+    bannerUrl,
+    title,
+    description,
+    syncBio,
+    tiktokUrl,
+    workLinks,
+    serviceArea,
+    rateUnit,
+    rateMin,
+    rateMax,
+    profileHourly,
+    typicalBudgetMin,
+    typicalBudgetMax,
+    skills,
+  ]);
 
   // Websites = project-only pricing
   useEffect(() => {
@@ -197,6 +355,32 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setListingPreview(null);
     if (listingInputRef.current) listingInputRef.current.value = '';
   };
+
+  const previewRateMin = rateMin.trim()
+    ? (() => {
+        const n = parseFloat(rateMin.replace(',', '.'));
+        return Number.isNaN(n) || n < 0 ? null : n;
+      })()
+    : null;
+  const previewRateMax = rateMax.trim()
+    ? (() => {
+        const n = parseFloat(rateMax.replace(',', '.'));
+        return Number.isNaN(n) || n < 0 ? null : n;
+      })()
+    : null;
+  const previewHourly = (() => {
+    const n = parseFloat(profileHourly.replace(',', '.'));
+    return Number.isNaN(n) || n <= 0 ? null : n;
+  })();
+  const previewBudget = formatCommunityBudget(
+    rateUnit === 'negotiable' ? null : previewRateMin,
+    rateUnit === 'negotiable' ? null : previewRateMax,
+    rateUnit === 'negotiable' ? 'negotiable' : rateUnit,
+    previewHourly,
+  );
+  const previewHero = listingPreview || (bannerUrl.startsWith('http') ? bannerUrl : null);
+  const previewSkills = skills.slice(0, 5);
+  const previewDescription = description.trim();
 
   const publish = async () => {
     if (!category || !title.trim()) return;
@@ -333,6 +517,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         title: "You're live!",
         description: 'Your listing is now visible on the Community board.',
       });
+      try {
+        localStorage.removeItem(listOnCommunityDraftKey(userId));
+      } catch {
+        // Ignore storage restrictions - successful publish is the important part.
+      }
       onOpenChange(false);
       onSubmittedForReview(category);
     } catch (err: unknown) {
@@ -654,6 +843,103 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
                 We&apos;ll save your profile details (banner, links, location, skills, rates) and{' '}
                 <span className="font-medium text-foreground">publish your listing immediately</span>. It will be visible on the Community board right away.
+              </div>
+              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live preview</p>
+                    <p className="mt-1 text-sm text-muted-foreground">This is how businesses will roughly see your card.</p>
+                  </div>
+                  <div className="rounded-full border border-border bg-muted/50 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+                    Autosaves on this device
+                  </div>
+                </div>
+
+                <div className="mt-4 overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]">
+                  <div className="relative h-40 overflow-hidden sm:h-48">
+                    {previewHero ? (
+                      <>
+                        <img
+                          src={previewHero}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/80" />
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(248_62%_32%)_0%,hsl(270_58%_18%)_100%)]" />
+                        <div className="absolute -right-10 -top-8 h-40 w-40 rounded-full bg-fuchsia-300/35 blur-2xl" />
+                        <div className="absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-cyan-300/25 blur-2xl" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/70" />
+                      </>
+                    )}
+
+                    {previewBudget.emphasis && (
+                      <div className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/45 px-3 py-1.5 backdrop-blur-sm">
+                        <p className="text-[11px] font-semibold text-white">{previewBudget.label}</p>
+                      </div>
+                    )}
+
+                    <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-base font-bold text-white shadow-sm ring-2 ring-white/35 backdrop-blur-sm">
+                        Y
+                      </div>
+                      <div className="pb-0.5">
+                        <h3 className="text-base font-semibold leading-tight tracking-tight text-white">Your listing</h3>
+                        <p className="mt-0.5 text-[11px] text-white/70">
+                          {COMMUNITY_CATEGORIES[category].label}
+                          {serviceArea.trim() ? <><span className="mx-1.5 text-white/30">·</span>{serviceArea.trim()}</> : null}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 px-4 pb-4 pt-4 sm:px-5">
+                    <div className="space-y-2">
+                      <p className="text-base font-semibold leading-snug tracking-tight text-foreground">
+                        {title.trim() || 'Your headline will appear here'}
+                      </p>
+                      <p className="text-[14px] leading-relaxed text-muted-foreground">
+                        {previewDescription || 'Write a short, specific pitch so businesses understand what you deliver.'}
+                      </p>
+                    </div>
+
+                    {previewSkills.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {previewSkills.map((skill) => (
+                          <span
+                            key={skill}
+                            className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                        {skills.length > previewSkills.length && (
+                          <span className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+                            +{skills.length - previewSkills.length}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Add a few skills so businesses instantly know what you do.</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 border-t border-foreground/10 pt-3 text-[11px] text-muted-foreground">
+                      <span className="rounded-full bg-muted px-2.5 py-1">
+                        {previewBudget.label}
+                      </span>
+                      {syncBio ? (
+                        <span className="rounded-full bg-muted px-2.5 py-1">Also saves to profile bio</span>
+                      ) : null}
+                      {workLinks.some((link) => link.url.trim()) ? (
+                        <span className="rounded-full bg-muted px-2.5 py-1">
+                          {workLinks.filter((link) => link.url.trim()).length} work link{workLinks.filter((link) => link.url.trim()).length === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

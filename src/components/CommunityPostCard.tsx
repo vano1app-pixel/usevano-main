@@ -371,11 +371,11 @@ export const CommunityPostCard = ({
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
                   {isProjectBased ? (
-                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold shadow-none hover:bg-primary/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
                       <MessageCircle size={18} strokeWidth={2} />Request a quote
                     </Button>
                   ) : (
-                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold shadow-none hover:bg-primary/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
                       <MessageCircle size={18} strokeWidth={2} />Message
                     </Button>
                   )}
@@ -526,11 +526,11 @@ export const CommunityPostCard = ({
                     <UserRound size={18} strokeWidth={2} />Profile &amp; work
                   </Button>
                   {isProjectBased ? (
-                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold shadow-none hover:bg-primary/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={() => { if (!currentUserId) { navigate('/auth'); return; } setQuoteOpen(true); }}>
                       <MessageCircle size={18} strokeWidth={2} />Request a quote
                     </Button>
                   ) : (
-                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-foreground text-background text-[15px] font-semibold shadow-none hover:bg-foreground/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
+                    <Button type="button" size="lg" className="h-12 w-full rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold shadow-none hover:bg-primary/90 sm:h-11 sm:w-auto sm:min-w-[11rem]" onClick={openChat}>
                       <MessageCircle size={18} strokeWidth={2} />Message
                     </Button>
                   )}

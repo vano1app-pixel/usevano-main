@@ -649,22 +649,22 @@ const Landing = () => {
           variants={scaleIn}
           transition={{ duration: 0.55 }}
         >
-          <div className="rounded-3xl bg-foreground px-8 py-12 sm:px-14 sm:py-16 text-center">
-            <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-background/40">Galway · Free · Local</p>
-            <h2 className="text-3xl sm:text-5xl font-bold text-background tracking-tight leading-tight mb-4">
+          <div className="rounded-3xl bg-primary px-8 py-12 sm:px-14 sm:py-16 text-center">
+            <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-primary-foreground/50">Galway · Free · Local</p>
+            <h2 className="text-3xl sm:text-5xl font-bold text-primary-foreground tracking-tight leading-tight mb-4">
               Your next gig<br />starts here.
             </h2>
-            <p className="text-background/55 mb-10 text-sm sm:text-base max-w-sm mx-auto leading-relaxed">Join freelancers and businesses already using VANO across Galway.</p>
+            <p className="text-primary-foreground/60 mb-10 text-sm sm:text-base max-w-sm mx-auto leading-relaxed">Join freelancers and businesses already using VANO across Galway.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => navigate('/auth')}
-                className="w-full sm:w-auto px-8 py-3.5 bg-background text-foreground rounded-xl font-semibold text-sm hover:bg-background/90 transition-colors"
+                className="w-full sm:w-auto px-8 py-3.5 bg-primary-foreground text-primary rounded-xl font-semibold text-sm hover:bg-primary-foreground/90 transition-colors"
               >
                 Get started — it&apos;s free
               </button>
               <button
                 onClick={() => navigate('/students')}
-                className="w-full sm:w-auto px-8 py-3.5 border border-background/20 text-background rounded-xl font-medium text-sm hover:bg-background/8 transition-colors"
+                className="w-full sm:w-auto px-8 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary-foreground/10 transition-colors"
               >
                 Browse talent
               </button>

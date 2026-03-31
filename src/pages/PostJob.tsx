@@ -186,9 +186,9 @@ const PostJob = () => {
 
         {/* Get help from VANO */}
         <div className="mb-6 rounded-2xl border border-foreground/10 bg-card shadow-sm overflow-hidden">
-          <div className="bg-foreground px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-background/50">Free service</p>
-            <p className="text-base font-bold text-background mt-0.5">Not sure who you need?</p>
+          <div className="bg-primary px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary-foreground/60">Free service</p>
+            <p className="text-base font-bold text-primary-foreground mt-0.5">Not sure who you need?</p>
           </div>
           <div className="px-4 py-3.5 space-y-3">
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -197,7 +197,7 @@ const PostJob = () => {
             <div className="flex gap-2">
               <a
                 href="tel:+35389981711"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 active:scale-[0.98]"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 active:scale-[0.98]"
               >
                 📞 Call us
               </a>
