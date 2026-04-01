@@ -20,8 +20,19 @@ export function useProfileCompletion() {
       return;
     }
 
-    const check = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    let cancelled = false;
+
+    // Use onAuthStateChange so we wait for the real session to be restored
+    // from localStorage before making any decisions. getSession() can resolve
+    // with null before Supabase finishes reading storage, causing the check
+    // to be skipped entirely on page refresh.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // We only need the initial session value — unsubscribe immediately
+      // so this doesn't fire again on sign-in/sign-out events (those are
+      // handled by RequireVerifiedSession via useAuthSession).
+      subscription.unsubscribe();
+      if (cancelled) return;
+
       if (!session) { setComplete(true); return; }
 
       if (!isEmailVerified(session)) {
@@ -30,23 +41,28 @@ export function useProfileCompletion() {
         return;
       }
 
-      const { data: profile } = await supabase
+      void supabase
         .from('profiles')
         .select('display_name, avatar_url')
         .eq('user_id', session.user.id)
-        .maybeSingle();
+        .maybeSingle()
+        .then(({ data: profile }) => {
+          if (cancelled) return;
+          const hasName = profile?.display_name && profile.display_name.trim().length > 0;
+          const hasAvatar = profile?.avatar_url && profile.avatar_url.trim().length > 0;
+          if (!hasName || !hasAvatar) {
+            navigate('/complete-profile', { replace: true });
+            setComplete(false);
+          } else {
+            setComplete(true);
+          }
+        });
+    });
 
-      const hasName = profile?.display_name && profile.display_name.trim().length > 0;
-      const hasAvatar = profile?.avatar_url && profile.avatar_url.trim().length > 0;
-
-      if (!hasName || !hasAvatar) {
-        navigate('/complete-profile', { replace: true });
-        setComplete(false);
-      } else {
-        setComplete(true);
-      }
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
     };
-    check();
   }, [navigate, location.pathname]);
 
   return complete;
