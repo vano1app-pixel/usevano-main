@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Star, Clock, Wallet } from 'lucide-react';
+import { MapPin, Star, Clock, Wallet, GraduationCap } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 
 export interface FreelancerPublicHeaderProps {
@@ -16,6 +16,7 @@ export interface FreelancerPublicHeaderProps {
   avgRating?: string | null;
   reviewCount?: number;
   bio?: string | null;
+  university?: string | null;
   actionRow?: React.ReactNode;
   /** e.g. "3 gigs completed" on portfolio */
   footnote?: string | null;
@@ -34,6 +35,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
   avgRating,
   reviewCount,
   bio,
+  university,
   actionRow,
   footnote,
 }) => {
@@ -43,7 +45,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="relative h-36 sm:h-44">
+      <div className="relative h-48 sm:h-56">
         {bannerUrl ? (
           <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -56,7 +58,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
             }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/15 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-card/90 via-card/10 to-transparent" />
       </div>
 
       <div className="relative z-[1] px-4 pb-5 pt-0 sm:px-6 sm:pb-6">
@@ -109,6 +111,14 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
                   <Wallet size={14} className="shrink-0 text-amber-500" />
                   <span className="opacity-70">Typical project</span>
                   {budgetLabel}
+                </span>
+              )}
+
+              {/* University */}
+              {university && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground/70">
+                  <GraduationCap size={13} className="shrink-0 text-foreground/50" />
+                  {university}
                 </span>
               )}
 

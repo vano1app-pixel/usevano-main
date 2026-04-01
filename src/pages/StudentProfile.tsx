@@ -5,7 +5,7 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
@@ -152,7 +152,7 @@ const StudentProfile = () => {
         <button
           type="button"
           onClick={handleMessage}
-          className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
         >
           <MessageCircle size={18} strokeWidth={2} /> Message
         </button>
@@ -161,7 +161,7 @@ const StudentProfile = () => {
         <button
           type="button"
           onClick={() => navigate(`/portfolio/${id}`)}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
+          className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
         >
           Full portfolio
         </button>
@@ -279,19 +279,24 @@ const StudentProfile = () => {
               typicalBudgetMax={student.typical_budget_max}
               avgRating={avgRating || undefined}
               reviewCount={reviews.length}
+              bio={bioText}
+              university={student?.university}
               actionRow={freelancerActions}
             />
 
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Reviews', value: reviews.length },
-                { label: 'Skills', value: student?.skills?.length || 0 },
-                { label: 'Gigs done', value: completedJobs.length },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-4 shadow-sm">
-                  <span className="text-2xl font-bold tabular-nums text-foreground">{value}</span>
-                  <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">{label}</span>
+                { label: 'Reviews', value: reviews.length, icon: Star, color: 'text-amber-500', bg: 'bg-amber-500/8' },
+                { label: 'Skills', value: student?.skills?.length || 0, icon: Tag, color: 'text-primary', bg: 'bg-primary/8' },
+                { label: 'Gigs done', value: completedJobs.length, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/8' },
+              ].map(({ label, value, icon: Icon, color, bg }) => (
+                <div key={label} className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border bg-card py-4 shadow-sm">
+                  <div className={cn('flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
+                    <Icon size={15} className={cn('shrink-0', color)} />
+                  </div>
+                  <span className="text-xl font-bold tabular-nums text-foreground">{value}</span>
+                  <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
                 </div>
               ))}
             </div>
@@ -305,7 +310,7 @@ const StudentProfile = () => {
                     type="button"
                     onClick={() => setActiveTab('portfolio')}
                     title={item.title}
-                    className="relative h-24 w-24 shrink-0 rounded-xl overflow-hidden bg-muted transition-opacity hover:opacity-90 active:scale-[0.97]"
+                    className="relative h-28 w-28 shrink-0 rounded-xl overflow-hidden bg-muted transition-opacity hover:opacity-90 active:scale-[0.97]"
                   >
                     <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
                   </button>
@@ -313,7 +318,7 @@ const StudentProfile = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/portfolio/${id}`)}
-                  className="flex h-24 w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50"
+                  className="flex h-28 w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50"
                 >
                   <ArrowRight size={16} />
                   <span className="text-[10px] font-medium">All work</span>
@@ -323,22 +328,24 @@ const StudentProfile = () => {
 
             {/* Tab switcher */}
             <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-              <div className="flex border-b border-border">
-                {(['about', 'portfolio', 'reviews'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className={cn(
-                      'flex-1 py-3 text-sm font-semibold capitalize transition-colors',
-                      activeTab === tab
-                        ? 'border-b-2 border-foreground text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {tab === 'reviews' && reviews.length > 0 ? `Reviews (${reviews.length})` : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                ))}
+              <div className="p-1.5 border-b border-border/60">
+                <div className="flex gap-1">
+                  {(['about', 'portfolio', 'reviews'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setActiveTab(tab)}
+                      className={cn(
+                        'flex-1 rounded-xl py-2 text-sm font-semibold transition-all',
+                        activeTab === tab
+                          ? 'bg-primary/10 text-primary shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                      )}
+                    >
+                      {tab === 'reviews' && reviews.length > 0 ? `Reviews (${reviews.length})` : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* About tab */}
@@ -346,19 +353,19 @@ const StudentProfile = () => {
                 <div className="p-5 sm:p-6 space-y-5">
                   {bioText && (
                     <div>
-                      <h2 className="text-sm font-semibold text-foreground">About</h2>
+                      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><BookOpen size={14} className="text-primary/70" />About</h2>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{bioText}</p>
                     </div>
                   )}
                   {workDesc && (
                     <div>
-                      <h2 className="text-sm font-semibold text-foreground">Work experience</h2>
+                      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><Briefcase size={14} className="text-primary/70" />Work experience</h2>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{workDesc}</p>
                     </div>
                   )}
                   {student?.skills?.length > 0 && (
                     <div>
-                      <h2 className="text-sm font-semibold text-foreground mb-2">Skills</h2>
+                      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2"><Tag size={14} className="text-primary/70" />Skills</h2>
                       <div className="flex flex-wrap gap-2">
                         {student.skills.map((skill: string) => (
                           <TagBadge key={skill} tag={skill} />
@@ -382,7 +389,7 @@ const StudentProfile = () => {
                   )}
                   {(tiktokPublic || onlineWorkLinks.length > 0) && (
                     <div>
-                      <h2 className="text-sm font-semibold text-foreground mb-3">Links &amp; social proof</h2>
+                      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3"><ExternalLink size={14} className="text-primary/70" />Links &amp; social proof</h2>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {tiktokPublic && (
                           <a href={tiktokPublic} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40">
