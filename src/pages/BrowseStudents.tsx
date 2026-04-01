@@ -35,9 +35,11 @@ const TALENT_CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: st
 function TalentNeedCategoryRow({
   selectedCategory,
   onSelectCategory,
+  counts,
 }: {
   selectedCategory: CommunityCategoryId | null;
   onSelectCategory: (id: CommunityCategoryId) => void;
+  counts?: Partial<Record<CommunityCategoryId, number>>;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -73,6 +75,11 @@ function TalentNeedCategoryRow({
               <div>
                 <p className="text-[13px] font-semibold leading-snug text-foreground">{item.label}</p>
                 <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{item.sub}</p>
+                {counts?.[item.cat] !== undefined && counts[item.cat]! > 0 && (
+                  <p className="mt-1.5 text-[10px] font-semibold text-primary">
+                    {counts[item.cat]} freelancer{counts[item.cat] !== 1 ? 's' : ''}
+                  </p>
+                )}
               </div>
             </button>
           );
@@ -223,25 +230,74 @@ const BrowseStudents = () => {
           <TalentNeedCategoryRow
             selectedCategory={activeCategory}
             onSelectCategory={goToCategory}
+            counts={loading ? undefined : {
+              websites: realsByCategory.websites.length,
+              videographer: realsByCategory.videographer.length,
+              social_media: realsByCategory.social_media.length,
+            }}
           />
         </div>
 
         {!activeCategory ? (
-          <div className="mt-6 flex flex-col gap-4">
-            {!loading && students.length > 0 && (
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                On VANO now
-              </p>
-            )}
-            {!loading && students.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{students.length}</span> freelancers available — pick a category above.
-              </p>
-            )}
+          <div className="mt-6 flex flex-col gap-5">
+            {loading ? (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted/60" />
+                ))}
+              </div>
+            ) : students.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                    On VANO now
+                  </p>
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
+                    {students.length} available
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  {students.slice(0, 3).map((s) => {
+                    const name = getDisplayName(s.user_id);
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => goToCategory(primaryCategoryForStudent(s, name))}
+                        className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-foreground/10 bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+                      >
+                        {s.avatar_url ? (
+                          <img
+                            src={s.avatar_url}
+                            alt=""
+                            className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 ring-card">
+                            {name[0].toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-foreground">{name}</p>
+                          {s.hourly_rate > 0 && (
+                            <p className="text-[11px] font-medium text-emerald-700">€{s.hourly_rate}/hr</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-center text-xs text-muted-foreground">Pick a category above to browse all freelancers</p>
+              </>
+            ) : null}
           </div>
         ) : (
           <>
-            <p className="mt-8 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">On VANO now</p>
+            <p className="mt-8 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground/60">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              On VANO now
+            </p>
 
             <div className="relative mt-4 mb-6">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
@@ -261,7 +317,7 @@ const BrowseStudents = () => {
             )}
 
             {loading ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2" aria-busy aria-label="Loading freelancers">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2" aria-busy aria-label="Loading freelancers">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
                     <div className="h-24 w-full bg-muted/60" />
@@ -289,7 +345,7 @@ const BrowseStudents = () => {
                 {searchQ ? 'No freelancers or examples match that search on this board.' : 'No freelancers on this board yet — check back soon.'}
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {realsActive.map((student) => (
                   <StudentCard
                     key={student.id}

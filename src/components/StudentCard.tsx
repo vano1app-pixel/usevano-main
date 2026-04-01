@@ -1,6 +1,6 @@
 import React from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin } from 'lucide-react';
+import { Heart, MapPin, ArrowRight } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -109,13 +109,13 @@ export const StudentCard: React.FC<StudentCardProps> = ({
     <div
       className={cn(
         'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200',
-        clickable && 'cursor-pointer hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md',
+        clickable && 'cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 group',
         !clickable && 'cursor-default',
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
       {/* Banner */}
-      <div className="relative h-24 w-full overflow-hidden sm:h-28">
+      <div className="relative h-32 w-full overflow-hidden sm:h-36">
         {student.banner_url ? (
           <img src={student.banner_url} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
         ) : (
@@ -123,8 +123,13 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/25" />
 
-        {/* Top-right: medal + favourite */}
+        {/* Top-right: medal + demo badge + favourite */}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
+          {demoExample && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-black/30 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-white/80 backdrop-blur-sm">
+              Example
+            </span>
+          )}
           {topInfo && (
             <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold shadow-sm ${MEDAL_STYLES[topInfo.rank]}`}>
               {MEDAL_LABELS[topInfo.rank]}
@@ -235,6 +240,15 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             {student.skills.slice(0, 5).map((skill) => (
               <TagBadge key={skill} tag={skill} />
             ))}
+          </div>
+        )}
+
+        {/* CTA */}
+        {clickable && (
+          <div className="mt-4 pt-3 border-t border-foreground/6">
+            <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+              View profile <ArrowRight size={12} strokeWidth={2.5} />
+            </span>
           </div>
         )}
       </div>
