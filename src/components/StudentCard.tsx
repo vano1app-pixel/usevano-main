@@ -1,6 +1,6 @@
 import React from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, MessageCircle } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,10 @@ interface StudentCardProps {
   topInfo?: TopStudentInfo;
   /** Example profile — no navigation to /students/:id */
   demoExample?: boolean;
+  /** Category label shown on the banner (e.g. "Website Design") */
+  category?: string;
+  /** Called when the message icon is tapped; omit to hide the button */
+  onMessage?: (userId: string) => void;
 }
 
 const MEDAL_STYLES = [
@@ -97,6 +101,8 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   showFavourite = false,
   topInfo,
   demoExample,
+  category,
+  onMessage,
 }) => {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin(student.user_id);
@@ -115,13 +121,22 @@ export const StudentCard: React.FC<StudentCardProps> = ({
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
       {/* Banner */}
-      <div className="relative h-32 w-full overflow-hidden sm:h-36">
+      <div className="relative h-40 w-full overflow-hidden sm:h-44">
         {student.banner_url ? (
           <img src={student.banner_url} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="h-full w-full" style={{ background: cardGradient(student.user_id) }} />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/25" />
+
+        {/* Bottom-left: category label */}
+        {category && (
+          <div className="absolute bottom-2 left-3">
+            <span className="rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+              {category}
+            </span>
+          </div>
+        )}
 
         {/* Top-right: medal + demo badge + favourite */}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
@@ -245,10 +260,20 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
         {/* CTA */}
         {clickable && (
-          <div className="mt-4 pt-3 border-t border-foreground/6">
-            <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+          <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
+            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
               View profile <ArrowRight size={12} strokeWidth={2.5} />
             </span>
+            {onMessage && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMessage(student.user_id); }}
+                className="flex h-[2.125rem] w-[2.125rem] shrink-0 items-center justify-center rounded-xl border border-foreground/10 bg-muted/60 text-foreground/60 transition-colors hover:border-primary/30 hover:bg-primary/8 hover:text-primary"
+                title="Message"
+              >
+                <MessageCircle size={14} strokeWidth={2} />
+              </button>
+            )}
           </div>
         )}
       </div>

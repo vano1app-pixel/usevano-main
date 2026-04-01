@@ -4,7 +4,7 @@ import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Search, ArrowLeft, Monitor, Video, Megaphone } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isCommunityCategoryId, type CommunityCategoryId } from '@/lib/communityCategories';
 import {
   TALENT_BOARD_DEMO_PROFILES,
@@ -128,6 +128,7 @@ function studentMatchesSearch(student: any, displayName: string, q: string) {
 }
 
 const BrowseStudents = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const catParam = searchParams.get('cat');
   const activeCategory: CommunityCategoryId | null = isCommunityCategoryId(catParam) ? catParam : null;
@@ -346,14 +347,19 @@ const BrowseStudents = () => {
               </p>
             ) : (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                {realsActive.map((student) => (
-                  <StudentCard
-                    key={student.id}
-                    student={student}
-                    displayName={getDisplayName(student.user_id)}
-                    showFavourite={false}
-                  />
-                ))}
+                {realsActive.map((student) => {
+                  const name = getDisplayName(student.user_id);
+                  return (
+                    <StudentCard
+                      key={student.id}
+                      student={student}
+                      displayName={name}
+                      showFavourite={false}
+                      category={TALENT_CATEGORY_META[primaryCategoryForStudent(student, name)].label}
+                      onMessage={(userId) => navigate(`/messages?with=${userId}`)}
+                    />
+                  );
+                })}
                 {demosActive.map((demo) => {
                   const row = talentBoardDemoToStudentRow(demo);
                   return (
@@ -363,6 +369,7 @@ const BrowseStudents = () => {
                       displayName={demo.profile.display_name}
                       showFavourite={false}
                       demoExample
+                      category={TALENT_CATEGORY_META[demo.category].label}
                     />
                   );
                 })}
