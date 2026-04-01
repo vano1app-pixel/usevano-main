@@ -639,9 +639,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <Label className="text-sm font-medium">Profile banner</Label>
+                <Label className="text-sm font-medium">Cover photo</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Wide cover on your public profile — makes your listing feel polished.
+                  Your wide cover image — shown at the top of your public profile.
                 </p>
                 <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerFile} />
                 {bannerUrl ? (
@@ -667,8 +667,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 )}
               </div>
               <div>
-                <Label className="text-sm font-medium">Listing hero (optional)</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Shown at the top of your card on Community only.</p>
+                <Label className="text-sm font-medium">Sample work photo (optional)</Label>
+                <p className="mt-1 text-xs text-muted-foreground">A photo of your work — shown on your card in the talent board.</p>
                 <input ref={listingInputRef} type="file" accept="image/*" className="hidden" onChange={handleListingFile} />
                 {listingPreview ? (
                   <div className="relative mt-2 overflow-hidden rounded-xl border border-border">
@@ -698,7 +698,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           {step === 3 && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="lc-title">Headline</Label>
+                <Label htmlFor="lc-title">Your title</Label>
                 <Input
                   id="lc-title"
                   className="mt-1.5 h-11"
@@ -709,11 +709,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="lc-desc">What you deliver</Label>
+                <Label htmlFor="lc-desc">About your work</Label>
                 <Textarea
                   id="lc-desc"
                   className="mt-1.5 min-h-[120px] text-sm"
-                  placeholder="Gear, turnaround, style, past clients, what makes you easy to hire…"
+                  placeholder="What do you make? What gear or tools do you use? What kind of clients have you worked with?"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={2000}
@@ -833,8 +833,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 </>
               )}
               <div>
-                <Label className="text-sm font-medium">Skills on your profile</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Tap to toggle — shown on Community cards.</p>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Skills</Label>
+                  <span className={cn(
+                    'text-[11px] font-semibold',
+                    skills.length < 3 ? 'text-rose-500' : 'text-emerald-600',
+                  )}>
+                    {skills.length} selected{skills.length < 3 ? ` · need ${3 - skills.length} more` : ' ✓'}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Pick at least 3 so businesses can find you.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(category ? SKILLS_BY_CATEGORY[category] : []).map((s) => (
                     <TagBadge key={s} tag={s} selected={skills.includes(s)} onClick={() => toggleSkill(s)} />
