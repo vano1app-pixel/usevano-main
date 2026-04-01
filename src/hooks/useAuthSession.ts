@@ -13,13 +13,10 @@ export function useAuthSession() {
   useEffect(() => {
     let cancelled = false;
 
-    void supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (!cancelled) {
-        setSession(s);
-        setLoading(false);
-      }
-    });
-
+    // Rely solely on onAuthStateChange — it fires INITIAL_SESSION on mount
+    // with the real session value once restored from storage. Calling getSession()
+    // separately can resolve with null before storage is read, causing a premature
+    // redirect to /auth even when the user is signed in.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {

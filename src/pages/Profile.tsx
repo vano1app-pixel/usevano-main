@@ -283,8 +283,8 @@ const Profile = () => {
                   action: 'Upload below',
                 },
                 {
-                  done: skills.length >= 2,
-                  label: 'Skills listed',
+                  done: skills.length >= 3,
+                  label: 'At least 3 skills added',
                   why: 'Businesses search by skill — you won\'t show up without them',
                   action: 'Add in Get listed',
                 },
@@ -542,6 +542,164 @@ const Profile = () => {
                 </div>
               </div>
             ) : null}
+
+            {/* Post-publish profile quality widget */}
+            {studentProfile?.community_board_status === 'approved' && (() => {
+              const qualityChecks: {
+                id: string;
+                label: string;
+                detail: string;
+                done: boolean;
+                count: string | null;
+                wizardStep: number | null;
+                profileAction?: string;
+              }[] = [
+                {
+                  id: 'photo',
+                  label: 'Profile photo',
+                  detail: 'Profiles with a real face get far more messages',
+                  done: !!avatarUrl,
+                  count: null,
+                  wizardStep: null,
+                  profileAction: 'Upload photo below',
+                },
+                {
+                  id: 'banner',
+                  label: 'Cover photo',
+                  detail: 'No cover — your card looks plain without one',
+                  done: !!bannerUrl,
+                  count: null,
+                  wizardStep: 2,
+                },
+                {
+                  id: 'bio',
+                  label: 'Description written',
+                  detail: bio.trim().length === 0
+                    ? 'No description — businesses need to know what you offer'
+                    : `Too short (${bio.trim().length} chars — need 30+)`,
+                  done: bio.trim().length >= 30,
+                  count: null,
+                  wizardStep: 3,
+                },
+                {
+                  id: 'skills',
+                  label: 'At least 3 skills',
+                  detail: skills.length === 0
+                    ? 'No skills — businesses search by skill to find you'
+                    : `${skills.length}/3 minimum — add ${3 - skills.length} more`,
+                  done: skills.length >= 3,
+                  count: skills.length < 3 ? `${skills.length}/3` : null,
+                  wizardStep: 5,
+                },
+                {
+                  id: 'rate',
+                  label: 'Rate set',
+                  detail: 'No rate shown — people skip listings with no price',
+                  done: !!hourlyRate && Number(hourlyRate) > 0,
+                  count: null,
+                  wizardStep: 5,
+                },
+                {
+                  id: 'link',
+                  label: 'Portfolio or social link',
+                  detail: 'Add a link to your Instagram, Behance, GitHub, etc.',
+                  done: workLinks.some((l) => l.url.trim().length > 0),
+                  count: null,
+                  wizardStep: 4,
+                },
+              ];
+
+              const doneCount = qualityChecks.filter((c) => c.done).length;
+              const missingCount = qualityChecks.length - doneCount;
+              const allDone = missingCount === 0;
+
+              if (allDone) {
+                return (
+                  <div className="mb-5 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-50/50 px-4 py-3 dark:bg-emerald-900/15 sm:mb-6">
+                    <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
+                    <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-400">
+                      Profile looks great — all {qualityChecks.length} sections complete
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mb-6">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile quality</p>
+                      <p className="mt-0.5 text-sm font-semibold text-foreground">
+                        {doneCount} of {qualityChecks.length} complete
+                        <span className="ml-1.5 text-rose-500">· {missingCount} missing</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/students/${user.id}`)}
+                      className="shrink-0 rounded-xl border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-foreground/20 hover:text-foreground"
+                    >
+                      Preview →
+                    </button>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="mx-4 mb-3 h-2 overflow-hidden rounded-full bg-muted sm:mx-5">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${Math.round((doneCount / qualityChecks.length) * 100)}%` }}
+                    />
+                  </div>
+
+                  {/* Check rows */}
+                  <ul className="divide-y divide-border/50">
+                    {qualityChecks.map((check) => (
+                      <li
+                        key={check.id}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-2.5 sm:px-5',
+                          !check.done && 'bg-rose-50/40 dark:bg-rose-950/20',
+                        )}
+                      >
+                        {check.done
+                          ? <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
+                          : <Circle size={16} className="shrink-0 text-rose-400" />
+                        }
+                        <div className="min-w-0 flex-1">
+                          <p className={cn(
+                            'text-sm',
+                            check.done ? 'text-muted-foreground line-through' : 'font-medium text-foreground',
+                          )}>
+                            {check.label}
+                            {check.count && (
+                              <span className="ml-1.5 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                                {check.count}
+                              </span>
+                            )}
+                          </p>
+                          {!check.done && (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">{check.detail}</p>
+                          )}
+                        </div>
+                        {!check.done && check.wizardStep !== null && (
+                          <button
+                            type="button"
+                            onClick={() => openWizardAtStep(check.wizardStep!)}
+                            className="shrink-0 rounded-lg bg-rose-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-rose-600"
+                          >
+                            Fix →
+                          </button>
+                        )}
+                        {!check.done && check.wizardStep === null && (
+                          <span className="shrink-0 text-[11px] text-muted-foreground">{check.profileAction}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
 
             <ListOnCommunityWizard
               open={listCommunityOpen}
