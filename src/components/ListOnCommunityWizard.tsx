@@ -491,9 +491,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         hourly_rate,
         community_board_status: 'approved',
       };
-      if (syncBio) {
-        studentPatch.bio = description.trim();
-      }
+      studentPatch.bio = description.trim();
       if (uploadedBanner) {
         studentPatch.banner_url = uploadedBanner;
       } else {
@@ -510,6 +508,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         logSupabaseError('ListOnCommunityWizard: student_profiles upsert', spErr);
         throw spErr;
       }
+
+      await supabase.from('community_posts').delete().eq('user_id', userId);
 
       const { error: postErr } = await supabase
         .from('community_posts')
