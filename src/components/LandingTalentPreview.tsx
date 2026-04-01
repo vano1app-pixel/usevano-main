@@ -5,6 +5,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { ArrowRight, Users } from 'lucide-react';
 
+/** Deterministic banner gradient — mirrors StudentCard logic, no shared import needed. */
+function cardGradient(userId: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < userId.length; i++) { h ^= userId.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const u = h >>> 0;
+  const palettes = [
+    ['hsl(221 83% 53%)', 'hsl(262 50% 52%)'],
+    ['hsl(200 70% 42%)', 'hsl(221 83% 53%)'],
+    ['hsl(152 48% 35%)', 'hsl(200 55% 38%)'],
+    ['hsl(262 42% 40%)', 'hsl(316 45% 38%)'],
+    ['hsl(22 55% 38%)', 'hsl(221 83% 53%)'],
+  ];
+  const [a, b] = palettes[u % palettes.length];
+  return `linear-gradient(135deg, ${a} 0%, ${b} 100%)`;
+}
+
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
@@ -167,59 +183,71 @@ export function LandingTalentPreview() {
                   <button
                     type="button"
                     onClick={() => navigate(`/students/${s.user_id}`)}
-                    className="group flex w-56 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                    className="group flex w-56 flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:scale-[0.98]"
                   >
-                    <div className="flex items-start gap-2.5">
-                      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-                        {s.avatar_url ? (
-                          <img
-                            src={s.avatar_url}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs font-bold text-foreground/30">
-                            {name[0].toUpperCase()}
-                          </div>
-                        )}
-                        <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-card bg-emerald-500" />
-                      </div>
-                      <div className="min-w-0 flex-1 pt-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{name}</p>
-                          {isNew && (
-                            <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary-foreground">
-                              New
-                            </span>
+                    {/* Banner strip */}
+                    <div
+                      className="h-12 w-full shrink-0"
+                      style={s.banner_url
+                        ? { backgroundImage: `url(${s.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                        : { background: cardGradient(s.user_id) }
+                      }
+                    />
+                    {/* Card body */}
+                    <div className="flex flex-col gap-2 px-3 pb-3">
+                      {/* Avatar row with overlap */}
+                      <div className="flex items-end justify-between -mt-5 mb-0.5">
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-card bg-muted shadow-sm">
+                          {s.avatar_url ? (
+                            <img
+                              src={s.avatar_url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm font-bold text-foreground/30">
+                              {name[0].toUpperCase()}
+                            </div>
                           )}
+                          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-                      {hourly > 0 && (
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">€{hourly}/hr</span>
-                      )}
-                      {budgetLabel && (
-                        <span className="font-medium text-muted-foreground">{budgetLabel} projects</span>
-                      )}
-                    </div>
-                    {s.bio?.trim() && (
-                      <p className="line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">{s.bio.trim()}</p>
-                    )}
-                    {skillPills.length > 0 && (
-                      <div className="mt-auto flex flex-wrap gap-1 pt-0.5">
-                        {skillPills.map((sk) => (
-                          <span
-                            key={sk}
-                            className="max-w-full truncate rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary"
-                          >
-                            {sk}
+                        {isNew && (
+                          <span className="mb-0.5 shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary-foreground">
+                            New
                           </span>
-                        ))}
+                        )}
                       </div>
-                    )}
+                      {/* Name */}
+                      <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{name}</p>
+                      {/* Rate */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                        {hourly > 0 && (
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">€{hourly}/hr</span>
+                        )}
+                        {budgetLabel && (
+                          <span className="font-medium text-muted-foreground">{budgetLabel} projects</span>
+                        )}
+                      </div>
+                      {/* Bio */}
+                      {s.bio?.trim() && (
+                        <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">{s.bio.trim()}</p>
+                      )}
+                      {/* Skills */}
+                      {skillPills.length > 0 && (
+                        <div className="mt-auto flex flex-wrap gap-1 pt-0.5">
+                          {skillPills.map((sk) => (
+                            <span
+                              key={sk}
+                              className="max-w-full truncate rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary"
+                            >
+                              {sk}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </button>
                 </motion.div>
               );
