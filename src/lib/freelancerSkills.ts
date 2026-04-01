@@ -1,23 +1,54 @@
-/** Canonical skill tags for freelancer profiles and Community listing wizard */
-export const FREELANCER_SKILL_OPTIONS = [
-  'Social Media',
-  'Marketing',
-  'Graphic Design',
-  'Video Editing',
-  'Web Design',
-  'Photography',
-  'Admin',
-  'Events',
-] as const;
+import type { CommunityCategoryId } from '@/lib/communityCategories';
 
-export type FreelancerSkillId = (typeof FREELANCER_SKILL_OPTIONS)[number];
+/** Skills shown in the wizard based on the chosen category */
+export const SKILLS_BY_CATEGORY: Record<CommunityCategoryId, readonly string[]> = {
+  websites: [
+    'Web Design',
+    'Web Development',
+    'WordPress',
+    'Shopify',
+    'React / JavaScript',
+    'UI / UX Design',
+    'SEO',
+    'Graphic Design',
+  ],
+  social_media: [
+    'Social Media',
+    'Content Creation',
+    'Marketing',
+    'Copywriting',
+    'Email Marketing',
+    'Graphic Design',
+    'Paid Ads',
+    'Brand Strategy',
+  ],
+  videographer: [
+    'Video Editing',
+    'Photography',
+    'Videography',
+    'Drone Footage',
+    'Wedding Photography',
+    'Event Coverage',
+    'Reels & Short Form',
+    'Colour Grading',
+  ],
+};
 
-/** For filters (e.g. top students): "All" plus each skill */
-export const FREELANCER_SKILL_CATEGORIES = ['All', ...FREELANCER_SKILL_OPTIONS] as const;
+/** All unique skills across every category (used for normalisation) */
+export const ALL_SKILL_OPTIONS: readonly string[] = [
+  ...new Set(Object.values(SKILLS_BY_CATEGORY).flat()),
+];
 
-const skillSet = new Set<string>(FREELANCER_SKILL_OPTIONS);
+/** Legacy flat list kept for any existing references outside the wizard */
+export const FREELANCER_SKILL_OPTIONS = ALL_SKILL_OPTIONS;
 
-/** Drops legacy tags (e.g. removed "Writing") so only canonical options remain */
+export type FreelancerSkillId = string;
+
+export const FREELANCER_SKILL_CATEGORIES = ['All', ...ALL_SKILL_OPTIONS] as const;
+
+const skillSet = new Set<string>(ALL_SKILL_OPTIONS);
+
+/** Keeps only recognised skill tags; legacy tags are dropped */
 export function normalizeFreelancerSkills(saved: string[] | null | undefined): string[] {
   if (!saved?.length) return [];
   return saved.filter((s) => skillSet.has(s));

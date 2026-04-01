@@ -34,7 +34,7 @@ import {
   isCommunityCategoryId,
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
-import { FREELANCER_SKILL_OPTIONS, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
+import { SKILLS_BY_CATEGORY, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { formatCommunityBudget } from '@/lib/communityBudget';
 import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
@@ -836,7 +836,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Label className="text-sm font-medium">Skills on your profile</Label>
                 <p className="mt-1 text-xs text-muted-foreground">Tap to toggle — shown on Community cards.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {FREELANCER_SKILL_OPTIONS.map((s) => (
+                  {(category ? SKILLS_BY_CATEGORY[category] : []).map((s) => (
                     <TagBadge key={s} tag={s} selected={skills.includes(s)} onClick={() => toggleSkill(s)} />
                   ))}
                 </div>
