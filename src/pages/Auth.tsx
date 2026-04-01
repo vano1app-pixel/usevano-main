@@ -21,12 +21,13 @@ const Auth = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  const redirectIfAlreadySignedIn = useCallback(async () => {
+  const redirectIfAlreadySignedIn = useCallback(() => {
     if (hasGoogleOAuthPending()) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !isEmailVerified(session)) return;
-    const path = await resolvePostAuthDestination(session.user.id);
-    navigate(path, { replace: true });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      subscription.unsubscribe();
+      if (!session || !isEmailVerified(session)) return;
+      void resolvePostAuthDestination(session.user.id).then((path) => navigate(path, { replace: true }));
+    });
   }, [navigate]);
 
   useEffect(() => {
@@ -41,15 +42,7 @@ const Auth = () => {
   }, [location.state]);
 
   useEffect(() => {
-    void redirectIfAlreadySignedIn();
-    const delayed = window.setTimeout(() => void redirectIfAlreadySignedIn(), 700);
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) void redirectIfAlreadySignedIn();
-    });
-    return () => {
-      window.clearTimeout(delayed);
-      subscription.unsubscribe();
-    };
+    redirectIfAlreadySignedIn();
   }, [redirectIfAlreadySignedIn]);
 
   const handleGoogleSignIn = async () => {
@@ -60,7 +53,7 @@ const Auth = () => {
         provider: 'google',
         options: {
           redirectTo: getGoogleOAuthRedirectUrl(),
-          queryParams: { access_type: 'offline', prompt: 'consent' },
+          queryParams: { access_type: 'offline', prompt: 'select_account' },
         },
       });
       if (error) throw error;

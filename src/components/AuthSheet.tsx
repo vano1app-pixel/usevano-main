@@ -30,30 +30,16 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isOpen) return;
 
-    const redirectIfReady = async () => {
-      if (hasGoogleOAuthPending()) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !isEmailVerified(session)) return;
-      const path = await resolvePostAuthDestination(session.user.id);
-      onClose();
-      navigate(path, { replace: true });
-    };
-
-    void redirectIfReady();
-    const delayed = window.setTimeout(() => void redirectIfReady(), 700);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session && isEmailVerified(session)) {
-        void (async () => {
-          const path = await resolvePostAuthDestination(session.user.id);
-          onClose();
-          navigate(path, { replace: true });
-        })();
-      }
+      if (hasGoogleOAuthPending()) return;
+      if (!session || !isEmailVerified(session)) return;
+      void resolvePostAuthDestination(session.user.id).then((path) => {
+        onClose();
+        navigate(path, { replace: true });
+      });
     });
 
     return () => {
-      window.clearTimeout(delayed);
       subscription.unsubscribe();
     };
   }, [isOpen, navigate, onClose]);
@@ -66,7 +52,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
         provider: 'google',
         options: {
           redirectTo: getGoogleOAuthRedirectUrl(),
-          queryParams: { access_type: 'offline', prompt: 'consent' },
+          queryParams: { access_type: 'offline', prompt: 'select_account' },
         },
       });
       if (error) throw error;
