@@ -26,6 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
+import { BlurredTalentMarquee } from '@/components/BlurredTalentMarquee';
 
 
 const fadeUp = {
@@ -251,9 +252,7 @@ const Landing = () => {
                 )}
               </motion.div>
 
-              <p className="mt-10 text-center text-sm text-muted-foreground max-w-lg mx-auto md:mx-0 leading-relaxed md:text-left">
-                Fixed-price gigs · In-app messaging · Portfolios &amp; reviews · Community board · Built for Galway
-              </p>
+              <BlurredTalentMarquee />
             </motion.div>
 
             {/* Right column — stat cards, desktop only */}
