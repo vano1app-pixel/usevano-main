@@ -74,7 +74,10 @@ export const Navbar: React.FC = () => {
   const talentRouteMobile =
     isMobile &&
     (location.pathname === '/students' || location.pathname.startsWith('/students/'));
-  const navSurfaceClass = 'bg-background/95 backdrop-blur-md border-border shadow-sm';
+  /** Opaque bar on Talent so dark page bg doesn’t read as an empty “black box” through glass blur. */
+  const navSurfaceClass = talentRouteMobile
+    ? 'bg-background border-border/60 shadow-md'
+    : 'bg-background/60 backdrop-blur-xl border-border/50 shadow-lg shadow-black/5';
 
   return (
     <>
