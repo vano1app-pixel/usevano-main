@@ -74,7 +74,7 @@ export const Navbar: React.FC = () => {
   const talentRouteMobile =
     isMobile &&
     (location.pathname === '/students' || location.pathname.startsWith('/students/'));
-  const navSurfaceClass = ‘bg-background/95 backdrop-blur-md border-border shadow-sm’;
+  const navSurfaceClass = 'bg-background/95 backdrop-blur-md border-border shadow-sm';
 
   return (
     <>
