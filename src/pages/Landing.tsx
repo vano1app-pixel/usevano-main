@@ -81,10 +81,6 @@ const Landing = () => {
   }, []);
 
   React.useEffect(() => {
-    if (session) navigate('/students', { replace: true });
-  }, [session, navigate]);
-
-  React.useEffect(() => {
     const fetchFeatured = async () => {
       const { data: sprofs } = await supabase
         .from('student_profiles')
