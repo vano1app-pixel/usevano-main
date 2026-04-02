@@ -26,7 +26,7 @@ export type TalentBoardDemoEntry = {
 /** All demo profiles; each row carries its own `category` for filtering. */
 export const TALENT_BOARD_DEMO_PROFILES: TalentBoardDemoEntry[] = [
   {
-    category: 'videographer',
+    category: 'videography',
     post: {
       id: 'demo-video',
       user_id: 'demo-video-user',
@@ -39,8 +39,28 @@ export const TALENT_BOARD_DEMO_PROFILES: TalentBoardDemoEntry[] = [
       avatar_url: 'https://randomuser.me/api/portraits/men/32.jpg',
     },
     studentProfile: {
-      skills: ['Video Editing', 'Drone Filming', 'Wedding Films', 'Event Coverage', 'Short-form Reels', 'Premiere Pro', 'DaVinci Resolve', 'Colour Grading', 'Corporate Video', 'Instagram Reels'],
+      skills: ['Video Editing', 'Videography', 'Drone Footage', 'Wedding Films', 'Event Coverage', 'Reels & Short Form', 'Colour Grading', 'Promotional Video'],
       hourly_rate: 45,
+      is_available: true,
+      university: 'ATU',
+    },
+  },
+  {
+    category: 'photography',
+    post: {
+      id: 'demo-photo',
+      user_id: 'demo-photo-user',
+      title: 'Wedding, event & brand photography — Galway & West',
+      description: `Hi, I'm Niamh — a final-year Photography student at ATU Galway. I shoot weddings, corporate events, brand campaigns, and product photography for businesses across Connacht.\n\nI work with a Canon R6 Mark II and a range of prime lenses. I edit in Adobe Lightroom and Photoshop for a clean, consistent look that fits your brand.\n\nTurnaround is 3–5 working days with a full gallery delivered via private link. Happy to travel within Connacht.`,
+      image_url: 'https://picsum.photos/seed/vano-niamh/900/500',
+    },
+    profile: {
+      display_name: 'Niamh Brennan',
+      avatar_url: 'https://randomuser.me/api/portraits/women/68.jpg',
+    },
+    studentProfile: {
+      skills: ['Photography', 'Wedding Photography', 'Event Photography', 'Product Photography', 'Brand Photography', 'Portrait / Headshots', 'Photo Editing', 'Food Photography'],
+      hourly_rate: 40,
       is_available: true,
       university: 'ATU',
     },

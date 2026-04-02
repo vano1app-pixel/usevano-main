@@ -1,18 +1,23 @@
-import { Clapperboard, Globe, Share2 } from 'lucide-react';
+import { Clapperboard, Globe, Share2, Camera } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type CommunityCategoryId = 'videographer' | 'websites' | 'social_media';
+export type CommunityCategoryId = 'videography' | 'photography' | 'websites' | 'social_media';
 
-export const COMMUNITY_CATEGORY_ORDER: CommunityCategoryId[] = ['videographer', 'websites', 'social_media'];
+export const COMMUNITY_CATEGORY_ORDER: CommunityCategoryId[] = ['videography', 'photography', 'websites', 'social_media'];
 
 export const COMMUNITY_CATEGORIES: Record<
   CommunityCategoryId,
   { label: string; description: string; icon: LucideIcon }
 > = {
-  videographer: {
-    label: 'Videographer',
-    description: 'Filming, editing, reels, events, and production.',
+  videography: {
+    label: 'Videography',
+    description: 'Filming, editing, reels, TikToks, and promotional videos.',
     icon: Clapperboard,
+  },
+  photography: {
+    label: 'Photography',
+    description: 'Brand photos, product shots, events, and headshots.',
+    icon: Camera,
   },
   websites: {
     label: 'Websites',
@@ -27,7 +32,7 @@ export const COMMUNITY_CATEGORIES: Record<
 };
 
 export function isCommunityCategoryId(v: string | null): v is CommunityCategoryId {
-  return v === 'videographer' || v === 'websites' || v === 'social_media';
+  return v === 'videography' || v === 'photography' || v === 'websites' || v === 'social_media';
 }
 
 export function categoryLabel(id: CommunityCategoryId): string {

@@ -705,6 +705,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   placeholder={
                     category === 'websites' ? 'e.g. Custom React websites & Shopify stores' :
                     category === 'social_media' ? 'e.g. Social media management & content creation' :
+                    category === 'photography' ? 'e.g. Wedding & event photography — Galway' :
                     'e.g. Event videography & short-form reels'
                   }
                   value={title}
