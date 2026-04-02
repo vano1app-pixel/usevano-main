@@ -148,7 +148,7 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-24 sm:pt-20 md:pt-32 pb-14 md:pb-24 px-4 md:px-8">
+      <section className="relative pt-28 sm:pt-32 md:pt-44 pb-16 md:pb-28 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_13rem] gap-10 md:gap-16 items-start">
             {/* Text column */}
@@ -158,31 +158,20 @@ const Landing = () => {
               animate="visible"
               variants={staggerContainer}
             >
-              <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center md:items-start gap-2.5 mb-6 sm:mb-8">
-                <button
-                  type="button"
-                  onClick={() => navigate('/whats-new')}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
-                >
-                  <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
-                  What&apos;s new in {APP_VERSION_LABEL}
-                  <ArrowRight size={12} className="opacity-70" />
-                </button>
-              </motion.div>
               <motion.h1
                 variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.25rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
+                transition={{ duration: 0.55, delay: 0.05 }}
+                className="text-[2.75rem] sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-[-0.02em] text-foreground mb-5 sm:mb-6 leading-[1.05]"
               >
-                Local talent,<br />
-                <span className="italic font-semibold">instantly available.</span>
+                Hire a Galway<br />
+                <span className="italic font-bold text-primary">student this week.</span>
               </motion.h1>
               <motion.p
                 variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto md:mx-0 mb-8 leading-relaxed"
+                transition={{ duration: 0.55, delay: 0.15 }}
+                className="text-base sm:text-lg text-muted-foreground max-w-lg mx-auto md:mx-0 mb-8 leading-relaxed"
               >
-                Fixed-price gigs, portfolios, and chat — all in one place. Built for Galway.
+                Real portfolios. Real rates. Message directly — no middlemen.
               </motion.p>
 
               {/* Search bar */}
@@ -290,29 +279,31 @@ const Landing = () => {
       </section>
 
       {/* How it works */}
-      <section className="py-8 px-4 md:px-8">
+      <section className="py-5 px-4 md:px-8 border-y border-border/60">
         <div className="max-w-5xl mx-auto">
-          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4 text-center">How it works</p>
-          <div className="grid grid-cols-3 gap-3">
+          <ol className="flex flex-col sm:flex-row items-start sm:items-center justify-center gap-4 sm:gap-0 text-sm">
             {[
-              { step: '1', title: 'Sign up free', sub: 'Google login — takes 30 seconds', icon: CircleUser },
-              { step: '2', title: 'Post or browse', sub: 'Post a gig or find talent directly', icon: Search },
-              { step: '3', title: 'Get it done', sub: 'Chat in-app, agree terms, done', icon: Briefcase },
-            ].map((item) => (
-              <div key={item.step} className="flex flex-col items-center gap-2 rounded-2xl border border-foreground/10 bg-card p-4 text-center shadow-sm">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                  <item.icon size={16} className="text-primary" strokeWidth={2} />
-                </div>
-                <p className="text-[13px] font-semibold text-foreground leading-snug">{item.title}</p>
-                <p className="text-[11px] text-muted-foreground leading-snug">{item.sub}</p>
-              </div>
+              { n: '1', label: 'Sign up free', note: 'Google login · 30 seconds' },
+              { n: '2', label: 'Post or browse', note: 'Gigs or talent directly' },
+              { n: '3', label: 'Message & hire', note: 'Agree scope, get it done' },
+            ].map((item, i) => (
+              <React.Fragment key={item.n}>
+                <li className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">{item.n}</span>
+                  <span>
+                    <span className="font-semibold text-foreground">{item.label}</span>
+                    <span className="ml-1.5 text-muted-foreground">{item.note}</span>
+                  </span>
+                </li>
+                {i < 2 && <span className="hidden sm:block mx-5 text-border text-lg select-none">→</span>}
+              </React.Fragment>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
       {/* What do you need? */}
-      <section className="pt-2 pb-6 px-4 md:px-8">
+      <section className="pt-10 pb-8 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-3">What do you need?</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -554,7 +545,7 @@ const Landing = () => {
       )}
 
       {/* Why VANO */}
-      <section className="py-16 md:py-24 px-4 md:px-8">
+      <section className="py-20 md:py-32 px-4 md:px-8">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial="hidden"
@@ -563,8 +554,8 @@ const Landing = () => {
             variants={staggerContainer}
           >
             <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] text-center mb-3">Why VANO</motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold text-center mb-4">Built different, on purpose</motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg mx-auto">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold text-center mb-4">Why businesses use VANO</motion.h2>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg mx-auto">Not a global marketplace — just Galway talent you can actually trust and meet in person.</motion.p>
           </motion.div>
           <motion.div
             className="grid grid-cols-2 gap-3 sm:grid-cols-3"
@@ -615,7 +606,7 @@ const Landing = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 md:py-24 px-4 md:px-8 bg-muted/25">
+      <section className="py-20 md:py-32 px-4 md:px-8 bg-muted/30">
         <div className="max-w-2xl mx-auto">
           <motion.div
             initial="hidden"
