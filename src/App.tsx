@@ -16,6 +16,7 @@ import BrowseJobs from "./pages/BrowseJobs";
 import JobDetail from "./pages/JobDetail";
 import PostJob from "./pages/PostJob";
 import BrowseStudents from "./pages/BrowseStudents";
+import StudentsByCategory from "./pages/StudentsByCategory";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import StudentProfilePage from "./pages/StudentProfile";
@@ -51,6 +52,10 @@ const App = () => (
         }
       />
       <Route path="/students" element={<BrowseStudents />} />
+      <Route path="/students/videography" element={<StudentsByCategory />} />
+      <Route path="/students/photography" element={<StudentsByCategory />} />
+      <Route path="/students/websites" element={<StudentsByCategory />} />
+      <Route path="/students/social_media" element={<StudentsByCategory />} />
       <Route path="/students/:id" element={<StudentProfilePage />} />
       <Route
         path="/profile"
