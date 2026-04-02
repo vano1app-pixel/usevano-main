@@ -4,10 +4,8 @@ import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { isCommunityCategoryId, type CommunityCategoryId } from '@/lib/communityCategories';
-
-const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
+import { useNavigate } from 'react-router-dom';
+import { type CommunityCategoryId } from '@/lib/communityCategories';const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
   photography: { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera },
   websites:    { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor },
@@ -33,11 +31,10 @@ function primaryCategoryForStudent(student: any, displayName: string): Community
   return best;
 }
 
-const StudentsByCategory = () => {
-  const navigate = useNavigate();
-  const { categoryId } = useParams<{ categoryId: string }>();
+interface Props { categoryId: CommunityCategoryId; }
 
-  const catId = isCommunityCategoryId(categoryId) ? categoryId : null;
+const StudentsByCategory = ({ categoryId }: Props) => {
+  const navigate = useNavigate();
 
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -46,9 +43,8 @@ const StudentsByCategory = () => {
   const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
-    if (!catId) { navigate('/students', { replace: true }); return; }
     fetchData();
-  }, [catId]);
+  }, [categoryId]);
 
   const fetchData = async () => {
     const [{ data: studentData, error: studentErr }, { data: profileData, error: profileErr }] = await Promise.all([
@@ -63,7 +59,7 @@ const StudentsByCategory = () => {
 
     // Filter to this category only
     const getDisplayName = (uid: string) => profs.find((p: any) => p.user_id === uid)?.display_name || 'Student';
-    const filtered = rows.filter((s: any) => primaryCategoryForStudent(s, getDisplayName(s.user_id)) === catId);
+    const filtered = rows.filter((s: any) => primaryCategoryForStudent(s, getDisplayName(s.user_id)) === categoryId);
 
     setStudents(filtered);
     setProfiles(profs);
@@ -91,9 +87,7 @@ const StudentsByCategory = () => {
 
   const getDisplayName = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.display_name || 'Student';
 
-  if (!catId) return null;
-
-  const meta = CATEGORY_META[catId];
+  const meta = CATEGORY_META[categoryId];
   const Icon = meta.icon;
 
   return (
