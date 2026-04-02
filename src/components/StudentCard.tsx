@@ -1,5 +1,6 @@
 import React from 'react';
-import { Heart, MapPin, MessageCircle, ShieldCheck, Star } from 'lucide-react';
+import { TagBadge } from './TagBadge';
+import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, Star } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -116,6 +117,9 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const uniStyle = getUniStyle(student.university);
   const clickable = !demoExample;
 
+  // Top 3 skills for banner keyword line
+  const bannerSkills = (student.skills || []).slice(0, 3);
+
   return (
     <div
       className={cn(
@@ -134,6 +138,15 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         )}
         {/* Gradient overlay — stronger at bottom */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
+
+        {/* Top-left: skill keywords line */}
+        {bannerSkills.length > 0 && (
+          <div className="absolute left-3 top-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">
+              {bannerSkills.join(' · ')}
+            </p>
+          </div>
+        )}
 
         {/* Top-right: verified + medal + demo badge + favourite */}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
@@ -230,21 +243,13 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         </div>
 
         {/* Name */}
-        <h3 className="truncate text-[16px] font-bold leading-tight tracking-tight text-foreground">
+        <h3 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground">
           {displayName || 'Freelancer'}
         </h3>
 
-        {/* Rate — foxpop style: "STARTING AT" label + big number */}
-        {student.hourly_rate > 0 && (
-          <div className="mt-1">
-            <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Starting at</p>
-            <p className="text-[20px] font-extrabold leading-none text-foreground">€{student.hourly_rate}<span className="text-[13px] font-semibold text-muted-foreground">/hr</span></p>
-          </div>
-        )}
-
         {/* Rating row — shown if we have reviews */}
         {avgRating && (
-          <div className="mt-1.5 flex items-center gap-1">
+          <div className="mt-1 flex items-center gap-1">
             <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />
             <span className="text-[12px] font-semibold text-amber-700 dark:text-amber-400">{avgRating}</span>
             {reviewCount != null && reviewCount > 0 && (
@@ -253,20 +258,23 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         )}
 
-        {/* Location row */}
-        {(area || budgetLabel) && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-            {area && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin size={11} className="shrink-0 text-primary/70" />
-                {area}
-              </span>
-            )}
-            {budgetLabel && (
-              <span className="text-xs font-medium text-foreground/60">{budgetLabel} projects</span>
-            )}
-          </div>
-        )}
+        {/* Location + rate row */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {area && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin size={11} className="shrink-0 text-primary/70" />
+              {area}
+            </span>
+          )}
+          {student.hourly_rate > 0 && (
+            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+              from €{student.hourly_rate}/hr
+            </span>
+          )}
+          {budgetLabel && (
+            <span className="text-xs font-medium text-foreground/60">{budgetLabel} projects</span>
+          )}
+        </div>
 
         {/* Bio */}
         {student.bio && (
@@ -275,31 +283,29 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </p>
         )}
 
-        {/* Skills — simple flat pills, max 3 */}
+        {/* Skills */}
         {student.skills?.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {student.skills.slice(0, 3).map((skill) => (
-              <span key={skill} className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] text-foreground/70">
-                {skill}
-              </span>
+            {student.skills.slice(0, 4).map((skill) => (
+              <TagBadge key={skill} tag={skill} />
             ))}
           </div>
         )}
 
-        {/* CTA — two full-width buttons */}
+        {/* CTA */}
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
-            <span className="flex-1 inline-flex items-center justify-center rounded-xl border border-border py-2.5 text-[13px] font-semibold text-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary">
-              View profile
+            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+              View profile <ArrowRight size={12} strokeWidth={2.5} />
             </span>
             {onMessage && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMessage(student.user_id); }}
-                className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary/90"
+                className="flex h-[2.125rem] w-[2.125rem] shrink-0 items-center justify-center rounded-xl border border-foreground/10 bg-muted/60 text-foreground/60 transition-colors hover:border-primary/30 hover:bg-primary/8 hover:text-primary"
+                title="Message"
               >
-                <MessageCircle size={13} strokeWidth={2} />
-                Message
+                <MessageCircle size={14} strokeWidth={2} />
               </button>
             )}
           </div>

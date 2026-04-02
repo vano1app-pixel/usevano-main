@@ -341,7 +341,7 @@ const BrowseStudents = () => {
             )}
 
             {loading ? (
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3" aria-busy aria-label="Loading freelancers">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2" aria-busy aria-label="Loading freelancers">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
                     <div className="h-24 w-full bg-muted/60" />
@@ -369,7 +369,7 @@ const BrowseStudents = () => {
                 {searchQ ? 'No freelancers or examples match that search on this board.' : 'No freelancers on this board yet — check back soon.'}
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {realsActive.map((student) => {
                   const name = getDisplayName(student.user_id);
                   const ratingInfo = reviewMap[student.user_id];
