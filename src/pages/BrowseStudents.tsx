@@ -135,6 +135,7 @@ const BrowseStudents = () => {
 
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [reviewMap, setReviewMap] = useState<Record<string, { avg: string; count: number }>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [search, setSearch] = useState('');
@@ -144,21 +145,38 @@ const BrowseStudents = () => {
   }, []);
 
   const fetchStudents = async () => {
-    const { data: studentData, error: studentErr } = await supabase
-      .from('student_profiles')
-      .select('*')
-      .eq('is_available', true)
-      .eq('community_board_status', 'approved')
-      .not('bio', 'is', null)
-      .not('skills', 'eq', '{}');
-    const { data: profileData, error: profileErr } = await supabase.from('profiles').select('user_id, display_name');
+    const [{ data: studentData, error: studentErr }, { data: profileData, error: profileErr }] = await Promise.all([
+      supabase.from('student_profiles').select('*').eq('is_available', true).eq('community_board_status', 'approved').not('bio', 'is', null).not('skills', 'eq', '{}'),
+      supabase.from('profiles').select('user_id, display_name'),
+    ]);
     if (studentErr || profileErr) {
       setFetchError(true);
       setLoading(false);
       return;
     }
-    setStudents(studentData || []);
+    const rows = studentData || [];
+    setStudents(rows);
     setProfiles(profileData || []);
+
+    // Fetch review averages for all loaded students
+    if (rows.length > 0) {
+      const ids = rows.map((s: any) => s.user_id);
+      const { data: revData } = await supabase.from('reviews').select('reviewee_id, rating').in('reviewee_id', ids);
+      if (revData && revData.length > 0) {
+        const map: Record<string, { sum: number; count: number }> = {};
+        for (const r of revData) {
+          if (!map[r.reviewee_id]) map[r.reviewee_id] = { sum: 0, count: 0 };
+          map[r.reviewee_id].sum += r.rating;
+          map[r.reviewee_id].count += 1;
+        }
+        const result: Record<string, { avg: string; count: number }> = {};
+        for (const [uid, { sum, count }] of Object.entries(map)) {
+          result[uid] = { avg: (sum / count).toFixed(1), count };
+        }
+        setReviewMap(result);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -349,6 +367,7 @@ const BrowseStudents = () => {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {realsActive.map((student) => {
                   const name = getDisplayName(student.user_id);
+                  const ratingInfo = reviewMap[student.user_id];
                   return (
                     <StudentCard
                       key={student.id}
@@ -356,6 +375,8 @@ const BrowseStudents = () => {
                       displayName={name}
                       showFavourite={false}
                       category={TALENT_CATEGORY_META[primaryCategoryForStudent(student, name)].label}
+                      avgRating={ratingInfo?.avg ?? null}
+                      reviewCount={ratingInfo?.count}
                       onMessage={(userId) => navigate(`/messages?with=${userId}`)}
                     />
                   );

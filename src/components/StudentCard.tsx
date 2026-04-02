@@ -1,6 +1,6 @@
 import React from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, MessageCircle } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, Star } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ interface StudentProfile {
   typical_budget_min?: number | null;
   typical_budget_max?: number | null;
   university?: string | null;
+  student_verified?: boolean | null;
 }
 
 interface StudentCardProps {
@@ -36,6 +37,10 @@ interface StudentCardProps {
   category?: string;
   /** Called when the message icon is tapped; omit to hide the button */
   onMessage?: (userId: string) => void;
+  /** Pre-computed average rating (e.g. "4.8") */
+  avgRating?: string | null;
+  /** Number of reviews */
+  reviewCount?: number;
 }
 
 const MEDAL_STYLES = [
@@ -70,7 +75,6 @@ function getUniStyle(university: string | null | undefined): { color: string; ab
   for (const entry of UNI_MAP) {
     if (lower.includes(entry.match)) return { color: entry.color, abbr: entry.abbr };
   }
-  // Unknown uni — show first 4 chars in neutral
   return { color: '#6B7280', abbr: university.trim().slice(0, 5).toUpperCase() };
 }
 
@@ -103,6 +107,8 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   demoExample,
   category,
   onMessage,
+  avgRating,
+  reviewCount,
 }) => {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin(student.user_id);
@@ -110,6 +116,9 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const area = student.service_area?.trim();
   const uniStyle = getUniStyle(student.university);
   const clickable = !demoExample;
+
+  // Top 3 skills for banner keyword line
+  const bannerSkills = (student.skills || []).slice(0, 3);
 
   return (
     <div
@@ -120,25 +129,26 @@ export const StudentCard: React.FC<StudentCardProps> = ({
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
-      {/* Banner */}
-      <div className="relative h-40 w-full overflow-hidden sm:h-44">
+      {/* Banner — taller for more visual presence */}
+      <div className="relative h-48 w-full overflow-hidden sm:h-52">
         {student.banner_url ? (
           <img src={student.banner_url} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="h-full w-full" style={{ background: cardGradient(student.user_id) }} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/25" />
+        {/* Gradient overlay — stronger at bottom */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
 
-        {/* Bottom-left: category label */}
-        {category && (
-          <div className="absolute bottom-2 left-3">
-            <span className="rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
-              {category}
-            </span>
+        {/* Top-left: skill keywords line */}
+        {bannerSkills.length > 0 && (
+          <div className="absolute left-3 top-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">
+              {bannerSkills.join(' · ')}
+            </p>
           </div>
         )}
 
-        {/* Top-right: medal + demo badge + favourite */}
+        {/* Top-right: verified + medal + demo badge + favourite */}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
           {demoExample && (
             <span className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-black/30 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-white/80 backdrop-blur-sm">
@@ -161,13 +171,27 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             </button>
           )}
         </div>
+
+        {/* Bottom-left: verified badge + category */}
+        <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5">
+          {student.student_verified && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm">
+              <ShieldCheck size={9} className="text-emerald-400" />
+              Verified
+            </span>
+          )}
+          {category && (
+            <span className="rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+              {category}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="px-4 pb-4">
         {/* Avatar row — overlaps banner */}
         <div className="flex items-end justify-between -mt-7 mb-3">
           <div className="flex flex-col items-center gap-0.5">
-            {/* Avatar with university ring */}
             <div
               className="relative rounded-full shadow-md"
               style={uniStyle ? {
@@ -197,7 +221,6 @@ export const StudentCard: React.FC<StudentCardProps> = ({
                 <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-card bg-emerald-500 shadow-sm" />
               )}
             </div>
-            {/* University label */}
             {uniStyle && (
               <span
                 className="mt-1 text-[9px] font-bold uppercase tracking-widest"
@@ -208,7 +231,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             )}
           </div>
 
-          {/* Available + admin badges, right-aligned */}
+          {/* Right: available + admin */}
           <div className="flex flex-wrap items-center gap-1 pb-1">
             {isAdmin && <ModBadge size="sm" />}
             {student.is_available && (
@@ -224,6 +247,17 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           {displayName || 'Freelancer'}
         </h3>
 
+        {/* Rating row — shown if we have reviews */}
+        {avgRating && (
+          <div className="mt-1 flex items-center gap-1">
+            <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />
+            <span className="text-[12px] font-semibold text-amber-700 dark:text-amber-400">{avgRating}</span>
+            {reviewCount != null && reviewCount > 0 && (
+              <span className="text-[11px] text-muted-foreground">· {reviewCount} review{reviewCount !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+        )}
+
         {/* Location + rate row */}
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           {area && (
@@ -234,7 +268,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           )}
           {student.hourly_rate > 0 && (
             <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-              €{student.hourly_rate}/hr
+              from €{student.hourly_rate}/hr
             </span>
           )}
           {budgetLabel && (
@@ -252,7 +286,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* Skills */}
         {student.skills?.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {student.skills.slice(0, 5).map((skill) => (
+            {student.skills.slice(0, 4).map((skill) => (
               <TagBadge key={skill} tag={skill} />
             ))}
           </div>

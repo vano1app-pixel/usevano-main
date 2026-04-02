@@ -16,6 +16,8 @@ export interface FreelancerPublicHeaderProps {
   avgRating?: string | null;
   reviewCount?: number;
   bio?: string | null;
+  /** Listing title shown as a tagline below the name, e.g. "Event videography & short-form reels" */
+  subtitle?: string | null;
   university?: string | null;
   actionRow?: React.ReactNode;
   /** e.g. "3 gigs completed" on portfolio */
@@ -35,6 +37,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
   avgRating,
   reviewCount,
   bio,
+  subtitle,
   university,
   actionRow,
   footnote,
@@ -133,6 +136,10 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
                 </span>
               )}
             </div>
+
+            {subtitle && (
+              <p className="mt-2.5 text-sm font-semibold text-foreground/80 sm:max-w-2xl">{subtitle}</p>
+            )}
 
             {footnote && <p className="mt-2 text-xs font-medium text-muted-foreground">{footnote}</p>}
 

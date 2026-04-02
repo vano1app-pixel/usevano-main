@@ -5,7 +5,7 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
@@ -28,8 +28,10 @@ const StudentProfile = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [currentUserType, setCurrentUserType] = useState<string | null>(null);
+  const [communityPost, setCommunityPost] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'reviews'>('about');
   const [copied, setCopied] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const profileIsAdmin = useIsAdmin(id);
 
   useEffect(() => {
@@ -46,16 +48,18 @@ const StudentProfile = () => {
       setCurrentUserType(myProf?.user_type || null);
     }
 
-    const [{ data: prof }, { data: sp }, { data: revs }, { data: badges }, { data: items }] = await Promise.all([
+    const [{ data: prof }, { data: sp }, { data: revs }, { data: badges }, { data: items }, { data: post }] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', id!).maybeSingle(),
       supabase.from('student_profiles').select('*').eq('user_id', id!).maybeSingle(),
       supabase.from('reviews').select('*').eq('reviewee_id', id!).order('created_at', { ascending: false }),
       supabase.from('student_achievements').select('*').eq('user_id', id!),
       supabase.from('portfolio_items').select('*').eq('user_id', id!).order('created_at', { ascending: false }),
+      supabase.from('community_posts').select('title, description, category').eq('user_id', id!).eq('moderation_status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     setProfile(prof);
     setStudent(sp);
+    setCommunityPost(post);
     setAchievements(badges || []);
     setPortfolioItems(items || []);
 
@@ -142,6 +146,13 @@ const StudentProfile = () => {
     'first_shift': '🎉', 'five_shifts': '⭐', 'ten_shifts': '🔥',
     'twenty_shifts': '💎', 'five_star': '🌟', 'reliable': '✅',
   };
+
+  const categoryLabels: Record<string, string> = {
+    videographer: 'Videographer',
+    websites: 'Web & Design',
+    social_media: 'Social Media',
+  };
+  const categoryLabel = communityPost?.category ? categoryLabels[communityPost.category] : null;
 
   const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
   const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
@@ -259,6 +270,11 @@ const StudentProfile = () => {
                   <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-secondary-foreground ring-1 ring-border/80">
                     Freelancer
                   </span>
+                  {categoryLabel && (
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/20">
+                      {categoryLabel}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={handleShare}
@@ -280,35 +296,56 @@ const StudentProfile = () => {
               avgRating={avgRating || undefined}
               reviewCount={reviews.length}
               bio={bioText}
+              subtitle={communityPost?.title || null}
               university={student?.university}
               actionRow={freelancerActions}
             />
 
-            {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: 'Reviews', value: reviews.length, icon: Star, color: 'text-amber-500', bg: 'bg-amber-500/8' },
-                { label: 'Skills', value: student?.skills?.length || 0, icon: Tag, color: 'text-primary', bg: 'bg-primary/8' },
-                { label: 'Gigs done', value: completedJobs.length, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/8' },
-              ].map(({ label, value, icon: Icon, color, bg }) => (
-                <div key={label} className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border bg-card py-4 shadow-sm">
-                  <div className={cn('flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
-                    <Icon size={15} className={cn('shrink-0', color)} />
+            {/* Stats row — foxpop style */}
+            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="grid grid-cols-3 divide-x divide-border">
+                {[
+                  { label: reviews.length === 1 ? 'review' : 'reviews', value: avgRating ?? reviews.length.toString(), sub: avgRating ? `★ (${reviews.length} reviews)` : null },
+                  { label: 'Gigs done', value: completedJobs.length.toString(), sub: null },
+                  { label: 'Skills', value: (student?.skills?.length || 0).toString(), sub: null },
+                ].map(({ label, value, sub }) => (
+                  <div key={label} className="flex flex-col items-center justify-center gap-0.5 py-5 px-2">
+                    <span className="text-2xl font-bold tabular-nums text-foreground">{value}</span>
+                    {sub ? (
+                      <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">{sub}</span>
+                    ) : (
+                      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+                    )}
                   </div>
-                  <span className="text-xl font-bold tabular-nums text-foreground">{value}</span>
-                  <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
-                </div>
-              ))}
+                ))}
+              </div>
+              {/* Trust bar */}
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-emerald-500/5 px-4 py-2.5">
+                {student?.student_verified && (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    <ShieldCheck size={13} className="text-emerald-500" />
+                    Student Verified
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  <Lock size={11} className="text-emerald-500" />
+                  Secure Messaging
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  <Check size={11} className="text-emerald-500" />
+                  VANO Community
+                </span>
+              </div>
             </div>
 
             {/* Portfolio image strip — visible without tapping tab */}
             {portfolioItems.some((i) => i.image_url) && (
               <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {portfolioItems.filter((i) => i.image_url).slice(0, 8).map((item) => (
+                {portfolioItems.filter((i) => i.image_url).slice(0, 8).map((item, idx) => (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setActiveTab('portfolio')}
+                    onClick={() => { setLightboxIndex(idx); setActiveTab('portfolio'); }}
                     title={item.title}
                     className="relative h-28 w-28 shrink-0 rounded-xl overflow-hidden bg-muted transition-opacity hover:opacity-90 active:scale-[0.97]"
                   >
@@ -351,6 +388,12 @@ const StudentProfile = () => {
               {/* About tab */}
               {activeTab === 'about' && (
                 <div className="p-5 sm:p-6 space-y-5">
+                  {communityPost?.description && (
+                    <div>
+                      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><Briefcase size={14} className="text-primary/70" />What I do</h2>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{communityPost.description}</p>
+                    </div>
+                  )}
                   {bioText && (
                     <div>
                       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><BookOpen size={14} className="text-primary/70" />About</h2>
@@ -412,7 +455,7 @@ const StudentProfile = () => {
                       </div>
                     </div>
                   )}
-                  {!bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
+                  {!communityPost?.description && !bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">Nothing added yet — check back soon.</p>
                   )}
                 </div>
@@ -422,31 +465,45 @@ const StudentProfile = () => {
               {activeTab === 'portfolio' && (
                 <div className="p-5 sm:p-6">
                   {portfolioItems.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {portfolioItems.map((item) => (
-                        <div key={item.id} className="overflow-hidden rounded-xl border border-border/90 shadow-sm transition-shadow hover:shadow-md">
-                          {item.image_url && <img src={item.image_url} alt={item.title} className="h-44 w-full object-cover" />}
-                          <div className="p-4">
-                            <h3 className="text-sm font-semibold">{item.title}</h3>
-                            {item.description && <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        {portfolioItems.map((item, idx) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setLightboxIndex(idx)}
+                            className="group relative overflow-hidden rounded-xl bg-muted aspect-square transition-all hover:shadow-md active:scale-[0.98]"
+                          >
+                            {item.image_url ? (
+                              <>
+                                <img src={item.image_url} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/30 flex items-end">
+                                  <div className="translate-y-full group-hover:translate-y-0 transition-transform duration-200 w-full p-2.5 bg-gradient-to-t from-black/70 to-transparent">
+                                    <p className="text-xs font-semibold text-white truncate">{item.title}</p>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center bg-muted">
+                                <p className="text-xs text-muted-foreground px-2 text-center">{item.title}</p>
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/portfolio/${id}`)}
+                        className="mt-4 w-full rounded-xl border border-border py-2.5 text-sm font-semibold transition-colors hover:bg-secondary/50"
+                      >
+                        Full portfolio
+                      </button>
+                    </>
                   ) : (
                     <div className="py-8 text-center">
                       <p className="text-sm font-medium text-foreground">No portfolio items yet</p>
                       <p className="mt-1 text-xs text-muted-foreground">Ask them to share samples of their work in chat.</p>
                     </div>
-                  )}
-                  {portfolioItems.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/portfolio/${id}`)}
-                      className="mt-4 w-full rounded-xl border border-border py-2.5 text-sm font-semibold transition-colors hover:bg-secondary/50"
-                    >
-                      Full portfolio
-                    </button>
                   )}
                 </div>
               )}
@@ -454,6 +511,9 @@ const StudentProfile = () => {
               {/* Reviews tab */}
               {activeTab === 'reviews' && (
                 <div className="p-5 sm:p-6">
+                  {reviews.length > 0 && (
+                    <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">What clients say</h2>
+                  )}
                   {reviews.length > 0 ? (
                     <ReviewList reviews={reviews} />
                   ) : (
@@ -496,6 +556,57 @@ const StudentProfile = () => {
                 </div>
               </div>
             )}
+
+            {/* Portfolio lightbox */}
+            {lightboxIndex !== null && (() => {
+              const imageItems = portfolioItems.filter((i) => i.image_url);
+              const item = imageItems[lightboxIndex];
+              if (!item) return null;
+              return (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+                  onClick={() => setLightboxIndex(null)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex(null)}
+                    className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                  >
+                    <X size={18} />
+                  </button>
+                  {lightboxIndex > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex - 1); }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                    >
+                      <ChevronLeft size={22} />
+                    </button>
+                  )}
+                  {lightboxIndex < imageItems.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex + 1); }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                    >
+                      <ChevronRight size={22} />
+                    </button>
+                  )}
+                  <div className="max-h-[90vh] max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+                    <img
+                      src={item.image_url}
+                      alt={item.title}
+                      className="w-full max-h-[75vh] object-contain rounded-xl"
+                    />
+                    <div className="mt-3 text-center">
+                      <p className="text-sm font-semibold text-white">{item.title}</p>
+                      {item.description && <p className="mt-1 text-xs text-white/60">{item.description}</p>}
+                      <p className="mt-2 text-[11px] text-white/40">{lightboxIndex + 1} / {imageItems.length}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
