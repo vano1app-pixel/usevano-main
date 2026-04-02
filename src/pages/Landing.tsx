@@ -79,6 +79,10 @@ const Landing = () => {
   }, []);
 
   React.useEffect(() => {
+    if (session) navigate('/students', { replace: true });
+  }, [session, navigate]);
+
+  React.useEffect(() => {
     const fetchFeatured = async () => {
       const { data: sprofs } = await supabase
         .from('student_profiles')
@@ -199,12 +203,19 @@ const Landing = () => {
                 </button>
               </motion.div>
 
+              {/* Social proof count */}
+              {studentsLoaded && featuredStudents.length > 0 && (
+                <motion.p variants={fadeUp} transition={{ duration: 0.5, delay: 0.23 }} className="text-xs text-muted-foreground mb-5 text-center md:text-left">
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{featuredStudents.length}</span> freelancers available in Galway right now
+                </motion.p>
+              )}
+
               {/* Stat chips — mobile only */}
               <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="flex gap-2 mb-6 md:hidden">
                 {[
-                  { value: '€0', label: 'Free to join' },
-                  { value: 'Galway', label: 'Hyper-local' },
-                  { value: '1 min', label: 'Post a gig' },
+                  { value: '€0', label: 'Free' },
+                  { value: 'Galway', label: 'Only' },
+                  { value: '60 sec', label: 'Post' },
                 ].map((s) => (
                   <div key={s.value} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-foreground/10 bg-card px-3 py-1.5 shadow-sm">
                     <p className="text-sm font-bold text-foreground">{s.value}</p>
@@ -264,8 +275,8 @@ const Landing = () => {
             >
               {[
                 { value: '€0', label: 'Free to sign up' },
-                { value: 'Galway', label: 'Hyper-local focus' },
-                { value: '1 min', label: 'To post a gig' },
+                { value: 'Galway', label: 'Galway only' },
+                { value: '60 sec', label: 'To post a gig' },
               ].map((s) => (
                 <div key={s.value} className="rounded-2xl border border-foreground/10 bg-card px-5 py-4 shadow-sm">
                   <p className="text-2xl font-bold tracking-tight text-foreground">{s.value}</p>
@@ -275,6 +286,28 @@ const Landing = () => {
             </motion.div>
           </div>
 
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="py-8 px-4 md:px-8">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4 text-center">How it works</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { step: '1', title: 'Sign up free', sub: 'Google login — takes 30 seconds', icon: CircleUser },
+              { step: '2', title: 'Post or browse', sub: 'Post a gig or find talent directly', icon: Search },
+              { step: '3', title: 'Get it done', sub: 'Chat in-app, agree terms, done', icon: Briefcase },
+            ].map((item) => (
+              <div key={item.step} className="flex flex-col items-center gap-2 rounded-2xl border border-foreground/10 bg-card p-4 text-center shadow-sm">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                  <item.icon size={16} className="text-primary" strokeWidth={2} />
+                </div>
+                <p className="text-[13px] font-semibold text-foreground leading-snug">{item.title}</p>
+                <p className="text-[11px] text-muted-foreground leading-snug">{item.sub}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -387,7 +420,20 @@ const Landing = () => {
 
             {/* Scroll strip — compact text snippets (name, rate/budget, bio preview); tap → full profile */}
             {(studentsLoaded ? stripStudents.length > 0 : true) && (
-              <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="relative">
+                {session === null && (
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-background/60 backdrop-blur-[2px]">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/auth?mode=signup')}
+                      className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm shadow-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                    >
+                      Sign up free to see all freelancers <ArrowRight size={14} />
+                    </button>
+                    <p className="text-xs text-muted-foreground">Takes 30 seconds · No credit card</p>
+                  </div>
+                )}
+              <div className={`flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden${session === null ? ' pointer-events-none select-none blur-sm' : ''}`}>
                 {!studentsLoaded
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
@@ -496,6 +542,7 @@ const Landing = () => {
                     </p>
                   </button>
                 )}
+              </div>
               </div>
             )}
             {studentsLoaded && filteredStudents.length === 0 && activeCategory && (
@@ -653,7 +700,7 @@ const Landing = () => {
             <h2 className="text-3xl sm:text-5xl font-bold text-primary-foreground tracking-tight leading-tight mb-4">
               Your next gig<br />starts here.
             </h2>
-            <p className="text-primary-foreground/60 mb-10 text-sm sm:text-base max-w-sm mx-auto leading-relaxed">Join freelancers and businesses already using VANO across Galway.</p>
+            <p className="text-primary-foreground/60 mb-10 text-sm sm:text-base max-w-sm mx-auto leading-relaxed">Join freelancers and local businesses in Galway — free to join, takes less than a minute.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => navigate('/auth')}
