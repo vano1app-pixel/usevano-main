@@ -37,6 +37,7 @@ const App = () => (
     <RedirectToAccountTypeIfNeeded />
     <Toaster />
     <Sonner />
+    <div className="md:pt-14">
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/jobs" element={<BrowseJobs />} />
@@ -108,6 +109,7 @@ const App = () => (
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </div>
     <MobileBottomNav />
     <PWAInstallBanner />
     <PushNotificationPrompt />
