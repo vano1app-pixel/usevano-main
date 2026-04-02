@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Monitor, Video, Megaphone, Camera } from 'lucide-react';
+import { Monitor, Video, Megaphone, Camera, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 
@@ -83,7 +83,7 @@ const BrowseStudents = () => {
         <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-sm sm:p-4">
           <div className="flex flex-col gap-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
-            <div className="grid grid-cols-3 gap-3 [&>*:nth-child(4)]:col-start-2">
+            <div className="grid grid-cols-2 gap-3">
               {TALENT_HUB_CATEGORIES.map((item) => {
                 const Icon = item.icon;
                 const count = countsByCategory[item.cat];
@@ -92,21 +92,21 @@ const BrowseStudents = () => {
                     key={item.cat}
                     type="button"
                     onClick={() => navigate(`/students/${item.cat}`)}
-                    className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all hover:border-primary/20 hover:shadow-md active:scale-[0.98]"
+                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all hover:border-primary/20 hover:shadow-md active:scale-[0.98]"
                   >
                     {item.image && (
                       <>
-                        <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-30 pointer-events-none select-none" />
+                        <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
                       </>
                     )}
                     <div className="relative z-10 flex flex-col gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
-                        <Icon size={18} strokeWidth={2} className="text-foreground transition-colors group-hover:text-primary" />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
+                        <Icon size={22} strokeWidth={2} className="text-foreground transition-colors group-hover:text-primary" />
                       </div>
                       <div>
-                        <p className="text-[13px] font-bold leading-snug text-foreground">{item.label}</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-foreground/80">{item.sub}</p>
+                        <p className="text-[15px] font-bold leading-snug text-foreground">{item.label}</p>
+                        <p className="mt-0.5 text-xs leading-snug text-foreground/80">{item.sub}</p>
                         {!loading && count > 0 && (
                           <p className="mt-1.5 text-[10px] font-semibold text-primary">
                             {count} freelancer{count !== 1 ? 's' : ''}
@@ -114,6 +114,7 @@ const BrowseStudents = () => {
                         )}
                       </div>
                     </div>
+                    <ArrowRight size={14} className="absolute bottom-4 right-4 text-foreground/30 transition-colors group-hover:text-primary" />
                   </button>
                 );
               })}
