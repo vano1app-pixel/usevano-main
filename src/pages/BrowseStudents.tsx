@@ -46,7 +46,7 @@ function TalentNeedCategoryRow({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3 [&>*:nth-child(4)]:col-start-2">
         {TALENT_HUB_CATEGORIES.map((item) => {
           const Icon = item.icon;
           const isActive = selectedCategory === item.cat;
@@ -260,9 +260,97 @@ const BrowseStudents = () => {
               social_media: realsByCategory.social_media.length,
             }}
           />
+
+          {activeCategory && (
+            <div className="mt-5">
+              <p className="mb-4 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground/60">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                On VANO now
+              </p>
+
+              <div className="relative mb-5">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, skill, or keyword…"
+                  className="w-full pl-10 pr-4 py-3.5 border border-input rounded-2xl bg-background text-sm shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                />
+              </div>
+
+              {fetchError && (
+                <p className="mb-4 text-center text-sm text-muted-foreground">
+                  Could not load all live profiles — examples may still show below.
+                </p>
+              )}
+
+              {loading ? (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2" aria-busy aria-label="Loading freelancers">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
+                      <div className="h-24 w-full bg-muted/60" />
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-12 w-12 shrink-0 rounded-full bg-muted" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-3.5 w-32 rounded-md bg-muted" />
+                            <div className="h-2.5 w-24 rounded-md bg-muted" />
+                          </div>
+                        </div>
+                        <div className="h-3 w-full rounded-md bg-muted" />
+                        <div className="h-3 w-4/5 rounded-md bg-muted" />
+                        <div className="flex gap-1.5 pt-1">
+                          <div className="h-5 w-14 rounded-full bg-muted" />
+                          <div className="h-5 w-18 rounded-full bg-muted" />
+                          <div className="h-5 w-12 rounded-full bg-muted" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !hasRows ? (
+                <p className="py-12 text-center text-muted-foreground">
+                  {searchQ ? 'No freelancers or examples match that search on this board.' : 'No freelancers on this board yet — check back soon.'}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  {realsActive.map((student) => {
+                    const name = getDisplayName(student.user_id);
+                    const ratingInfo = reviewMap[student.user_id];
+                    return (
+                      <StudentCard
+                        key={student.id}
+                        student={student}
+                        displayName={name}
+                        showFavourite={false}
+                        category={TALENT_CATEGORY_META[primaryCategoryForStudent(student, name)].label}
+                        avgRating={ratingInfo?.avg ?? null}
+                        reviewCount={ratingInfo?.count}
+                        onMessage={(userId) => navigate(`/messages?with=${userId}`)}
+                      />
+                    );
+                  })}
+                  {demosActive.map((demo) => {
+                    const row = talentBoardDemoToStudentRow(demo);
+                    return (
+                      <StudentCard
+                        key={`demo-${demo.post.id}`}
+                        student={row}
+                        displayName={demo.profile.display_name}
+                        showFavourite={false}
+                        demoExample
+                        category={TALENT_CATEGORY_META[demo.category].label}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {!activeCategory ? (
+        {!activeCategory && (
           <div className="mt-6 flex flex-col gap-5">
             {loading ? (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -316,92 +404,6 @@ const BrowseStudents = () => {
               </>
             ) : null}
           </div>
-        ) : (
-          <>
-            <p className="mt-8 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground/60">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              On VANO now
-            </p>
-
-            <div className="relative mt-4 mb-6">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, skill, or keyword…"
-                className="w-full pl-10 pr-4 py-3.5 border border-input rounded-2xl bg-card text-sm shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              />
-            </div>
-
-            {fetchError && (
-              <p className="mb-4 text-center text-sm text-muted-foreground">
-                Could not load all live profiles — examples may still show below.
-              </p>
-            )}
-
-            {loading ? (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2" aria-busy aria-label="Loading freelancers">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
-                    <div className="h-24 w-full bg-muted/60" />
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 shrink-0 rounded-full bg-muted" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-3.5 w-32 rounded-md bg-muted" />
-                          <div className="h-2.5 w-24 rounded-md bg-muted" />
-                        </div>
-                      </div>
-                      <div className="h-3 w-full rounded-md bg-muted" />
-                      <div className="h-3 w-4/5 rounded-md bg-muted" />
-                      <div className="flex gap-1.5 pt-1">
-                        <div className="h-5 w-14 rounded-full bg-muted" />
-                        <div className="h-5 w-18 rounded-full bg-muted" />
-                        <div className="h-5 w-12 rounded-full bg-muted" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : !hasRows ? (
-              <p className="py-12 text-center text-muted-foreground">
-                {searchQ ? 'No freelancers or examples match that search on this board.' : 'No freelancers on this board yet — check back soon.'}
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                {realsActive.map((student) => {
-                  const name = getDisplayName(student.user_id);
-                  const ratingInfo = reviewMap[student.user_id];
-                  return (
-                    <StudentCard
-                      key={student.id}
-                      student={student}
-                      displayName={name}
-                      showFavourite={false}
-                      category={TALENT_CATEGORY_META[primaryCategoryForStudent(student, name)].label}
-                      avgRating={ratingInfo?.avg ?? null}
-                      reviewCount={ratingInfo?.count}
-                      onMessage={(userId) => navigate(`/messages?with=${userId}`)}
-                    />
-                  );
-                })}
-                {demosActive.map((demo) => {
-                  const row = talentBoardDemoToStudentRow(demo);
-                  return (
-                    <StudentCard
-                      key={`demo-${demo.post.id}`}
-                      student={row}
-                      displayName={demo.profile.display_name}
-                      showFavourite={false}
-                      demoExample
-                      category={TALENT_CATEGORY_META[demo.category].label}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </>
         )}
       </div>
     </div>
