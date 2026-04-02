@@ -14,6 +14,10 @@ import {
   Users,
   Search,
   MessageSquare,
+  Video,
+  Camera,
+  Monitor,
+  Megaphone,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
@@ -229,7 +233,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* What do you need? — foxpop-style image tiles */}
+      {/* What do you need? — white/blue brand tiles */}
       <section className="pt-10 pb-8 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">What do you need?</p>
@@ -241,7 +245,7 @@ const Landing = () => {
                 desc: 'Filming, reels & promo videos.',
                 keywords: 'REELS · PROMO · WEDDINGS',
                 pills: ['Reels', 'Events', 'Drone'],
-                img: 'https://images.unsplash.com/photo-1574717024453-354056afd6fc?auto=format&fit=crop&w=800&q=80',
+                Icon: Video,
               },
               {
                 cat: 'photography',
@@ -249,7 +253,7 @@ const Landing = () => {
                 desc: 'Events, brands & portraits.',
                 keywords: 'EVENTS · BRANDS · PORTRAITS',
                 pills: ['Weddings', 'Products', 'Headshots'],
-                img: 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?auto=format&fit=crop&w=800&q=80',
+                Icon: Camera,
               },
               {
                 cat: 'websites',
@@ -257,7 +261,7 @@ const Landing = () => {
                 desc: 'Build, design & launch your site.',
                 keywords: 'SHOPIFY · WORDPRESS · REACT',
                 pills: ['Landing page', 'Shopify', 'UI/UX'],
-                img: 'https://images.unsplash.com/photo-1547658719-da2b51169166?auto=format&fit=crop&w=800&q=80',
+                Icon: Monitor,
               },
               {
                 cat: 'social_media',
@@ -265,38 +269,48 @@ const Landing = () => {
                 desc: 'Content, strategy & growth.',
                 keywords: 'INSTAGRAM · TIKTOK · CONTENT',
                 pills: ['Strategy', 'Reels', 'Ads'],
-                img: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=800&q=80',
+                Icon: Megaphone,
               },
             ].map((tile) => (
               <button
                 key={tile.cat}
                 type="button"
                 onClick={() => navigate(`/students?cat=${tile.cat}`)}
-                className="group relative h-48 sm:h-56 md:h-64 overflow-hidden rounded-2xl text-left transition-all hover:scale-[1.01] active:scale-[0.99] shadow-sm"
+                className="group relative h-48 sm:h-56 md:h-64 overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
               >
-                <img
-                  src={tile.img}
-                  alt={tile.label}
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                  decoding="async"
+                {/* Large decorative icon — top-right watermark */}
+                <tile.Icon
+                  className="absolute -right-4 -top-4 text-primary/8 transition-transform duration-500 group-hover:scale-110 group-hover:text-primary/12"
+                  size={120}
+                  strokeWidth={1.25}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
-                <div className="absolute left-3 top-3">
-                  <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-white/60">{tile.keywords}</p>
-                </div>
-                <div className="absolute inset-x-0 bottom-0 flex flex-col p-3 sm:p-4">
-                  <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold leading-tight text-white">{tile.label}</h3>
-                  <p className="mt-1 line-clamp-1 sm:line-clamp-2 text-[11px] sm:text-xs text-white/75">{tile.desc}</p>
-                  <div className="mt-2 sm:mt-3 flex items-center justify-between gap-2">
-                    <div className="hidden sm:flex flex-wrap gap-1.5">
-                      {tile.pills.map((pill) => (
-                        <span key={pill} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
-                          {pill}
-                        </span>
-                      ))}
+                <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5">
+                  {/* Keywords */}
+                  <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    {tile.keywords}
+                  </p>
+                  {/* Bottom content */}
+                  <div>
+                    {/* Small icon badge */}
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                      <tile.Icon size={20} className="text-primary" strokeWidth={2} />
                     </div>
-                    <span className="text-[11px] sm:text-[12px] font-semibold text-white/80 shrink-0">Explore →</span>
+                    <h3 className="text-lg sm:text-xl md:text-2xl font-extrabold leading-tight tracking-tight text-foreground">
+                      {tile.label}
+                    </h3>
+                    <p className="mt-1 line-clamp-1 text-[11px] sm:text-xs text-muted-foreground">{tile.desc}</p>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <div className="hidden sm:flex flex-wrap gap-1.5">
+                        {tile.pills.map((pill) => (
+                          <span key={pill} className="rounded-full bg-primary/8 px-2.5 py-0.5 text-[10px] font-medium text-primary">
+                            {pill}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-[11px] sm:text-[12px] font-semibold text-primary shrink-0 group-hover:underline underline-offset-2">
+                        Explore →
+                      </span>
+                    </div>
                   </div>
                 </div>
               </button>
