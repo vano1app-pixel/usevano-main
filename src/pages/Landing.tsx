@@ -299,37 +299,31 @@ const Landing = () => {
               { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, cat: 'photography', image: '/cat-photography.png' },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' },
-            ].map((item) => {
-              const isActive = activeCategory === item.cat;
-              return (
+            ].map((item) => (
                 <button
                   key={item.cat}
                   type="button"
-                  onClick={() => setActiveCategory(isActive ? null : item.cat)}
-                  className={`group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border p-4 text-left shadow-sm transition-all active:scale-[0.98] ${
-                    isActive
-                      ? 'border-primary bg-primary/5 shadow-md'
-                      : 'border-foreground/10 bg-card hover:border-foreground/20 hover:shadow-md'
-                  }`}
+                  onClick={() => navigate(`/students?cat=${item.cat}`)}
+                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all active:scale-[0.98] hover:border-foreground/20 hover:shadow-md"
                 >
                   <img
                     src={item.image}
                     alt=""
                     aria-hidden="true"
-                    className="absolute inset-0 h-full w-full object-cover opacity-[0.13] pointer-events-none select-none"
+                    className="absolute inset-0 h-full w-full object-cover opacity-30 pointer-events-none select-none"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
                   <div className="relative z-10 flex flex-col gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${isActive ? 'bg-primary/15' : 'bg-foreground/8 group-hover:bg-primary/10'}`}>
-                      <item.icon size={18} className={`transition-colors ${isActive ? 'text-primary' : 'text-foreground group-hover:text-primary'}`} strokeWidth={2} />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl transition-colors bg-foreground/8 group-hover:bg-primary/10">
+                      <item.icon size={18} className="transition-colors text-foreground group-hover:text-primary" strokeWidth={2} />
                     </div>
                     <div>
-                      <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{item.sub}</p>
+                      <p className="text-[13px] font-bold text-foreground leading-snug">{item.label}</p>
+                      <p className="text-[11px] text-foreground/80 mt-0.5 leading-snug">{item.sub}</p>
                     </div>
                   </div>
                 </button>
-              );
-            })}
+            ))}
           </div>
         </div>
       </section>

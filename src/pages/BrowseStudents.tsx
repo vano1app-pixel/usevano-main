@@ -6,11 +6,6 @@ import { SEOHead } from '@/components/SEOHead';
 import { Search, ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isCommunityCategoryId, type CommunityCategoryId } from '@/lib/communityCategories';
-import {
-  TALENT_BOARD_DEMO_PROFILES,
-  talentBoardDemoToStudentRow,
-  type TalentBoardDemoEntry,
-} from '@/lib/talentBoardDemoData';
 
 /** Same copy, order, and icons as Home → “What do you need?” */
 const TALENT_HUB_CATEGORIES: {
@@ -63,12 +58,15 @@ function TalentNeedCategoryRow({
               }`}
             >
               {item.image && (
-                <img
-                  src={item.image}
-                  alt=""
-                  aria-hidden="true"
-                  className="absolute inset-0 h-full w-full object-cover opacity-[0.13] pointer-events-none select-none"
-                />
+                <>
+                  <img
+                    src={item.image}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 h-full w-full object-cover opacity-30 pointer-events-none select-none"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
+                </>
               )}
               <div className="relative z-10 flex flex-col gap-3">
                 <div
@@ -85,8 +83,8 @@ function TalentNeedCategoryRow({
                   />
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold leading-snug text-foreground">{item.label}</p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{item.sub}</p>
+                  <p className="text-[13px] font-bold leading-snug text-foreground">{item.label}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-foreground/80">{item.sub}</p>
                   {counts?.[item.cat] !== undefined && counts[item.cat]! > 0 && (
                     <p className="mt-1.5 text-[10px] font-semibold text-primary">
                       {counts[item.cat]} freelancer{counts[item.cat] !== 1 ? 's' : ''}
@@ -125,14 +123,6 @@ function primaryCategoryForStudent(student: any, displayName: string): Community
   return best;
 }
 
-function demoMatchesSearch(d: TalentBoardDemoEntry, q: string) {
-  if (!q) return true;
-  const name = d.profile.display_name.toLowerCase();
-  const skills = d.studentProfile.skills.join(' ').toLowerCase();
-  const title = d.post.title.toLowerCase();
-  const desc = d.post.description.toLowerCase();
-  return name.includes(q) || skills.includes(q) || title.includes(q) || desc.includes(q);
-}
 
 function studentMatchesSearch(student: any, displayName: string, q: string) {
   if (!q) return true;
@@ -218,23 +208,10 @@ const BrowseStudents = () => {
     return out;
   }, [students, profiles, searchQ]);
 
-  const demosByCategory = useMemo(() => {
-    const q = searchQ;
-    const forCat = (cat: CommunityCategoryId) =>
-      TALENT_BOARD_DEMO_PROFILES.filter((d) => d.category === cat && demoMatchesSearch(d, q));
-    return {
-      videography: forCat('videography'),
-      photography: forCat('photography'),
-      websites: forCat('websites'),
-      social_media: forCat('social_media'),
-    } satisfies Record<CommunityCategoryId, TalentBoardDemoEntry[]>;
-  }, [searchQ]);
-
   const categoryMeta = activeCategory ? TALENT_CATEGORY_META[activeCategory] : null;
 
   const realsActive = activeCategory ? realsByCategory[activeCategory] : [];
-  const demosActive = activeCategory ? demosByCategory[activeCategory] : [];
-  const hasRows = realsActive.length > 0 || demosActive.length > 0;
+  const hasRows = realsActive.length > 0;
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -339,19 +316,6 @@ const BrowseStudents = () => {
                         avgRating={ratingInfo?.avg ?? null}
                         reviewCount={ratingInfo?.count}
                         onMessage={(userId) => navigate(`/messages?with=${userId}`)}
-                      />
-                    );
-                  })}
-                  {demosActive.map((demo) => {
-                    const row = talentBoardDemoToStudentRow(demo);
-                    return (
-                      <StudentCard
-                        key={`demo-${demo.post.id}`}
-                        student={row}
-                        displayName={demo.profile.display_name}
-                        showFavourite={false}
-                        demoExample
-                        category={TALENT_CATEGORY_META[demo.category].label}
                       />
                     );
                   })}
