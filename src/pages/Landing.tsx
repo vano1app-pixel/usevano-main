@@ -186,21 +186,27 @@ const Landing = () => {
               <BlurredTalentMarquee />
             </motion.div>
 
-            {/* Right column — stat cards, desktop only */}
+            {/* Right column — photo collage, desktop only */}
             <motion.div
-              className="hidden md:flex flex-col gap-3"
+              className="hidden md:grid grid-cols-2 gap-2.5 self-start"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
               {[
-                { value: '€0', label: 'Free to sign up' },
-                { value: 'Galway', label: 'Galway only' },
-                { value: '60 sec', label: 'To post a gig' },
-              ].map((s) => (
-                <div key={s.value} className="rounded-2xl border border-foreground/10 bg-card px-5 py-4 shadow-sm">
-                  <p className="text-2xl font-bold tracking-tight text-foreground">{s.value}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
+                { src: 'https://images.unsplash.com/photo-1574717024453-354056afd6fc?auto=format&fit=crop&w=400&q=80', alt: 'Videography' },
+                { src: 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?auto=format&fit=crop&w=400&q=80', alt: 'Photography' },
+                { src: 'https://images.unsplash.com/photo-1547658719-da2b51169166?auto=format&fit=crop&w=400&q=80', alt: 'Web design' },
+                { src: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=400&q=80', alt: 'Social media' },
+              ].map((img, i) => (
+                <div key={i} className="overflow-hidden rounded-2xl shadow-sm border border-border">
+                  <img
+                    src={img.src}
+                    alt={img.alt}
+                    className="h-36 w-full object-cover transition-transform duration-500 hover:scale-105"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
               ))}
             </motion.div>
@@ -246,6 +252,7 @@ const Landing = () => {
                 keywords: 'REELS · PROMO · WEDDINGS',
                 pills: ['Reels', 'Events', 'Drone'],
                 Icon: Video,
+                img: 'https://images.unsplash.com/photo-1574717024453-354056afd6fc?auto=format&fit=crop&w=600&q=80',
               },
               {
                 cat: 'photography',
@@ -254,6 +261,7 @@ const Landing = () => {
                 keywords: 'EVENTS · BRANDS · PORTRAITS',
                 pills: ['Weddings', 'Products', 'Headshots'],
                 Icon: Camera,
+                img: 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?auto=format&fit=crop&w=600&q=80',
               },
               {
                 cat: 'websites',
@@ -262,6 +270,7 @@ const Landing = () => {
                 keywords: 'SHOPIFY · WORDPRESS · REACT',
                 pills: ['Landing page', 'Shopify', 'UI/UX'],
                 Icon: Monitor,
+                img: 'https://images.unsplash.com/photo-1547658719-da2b51169166?auto=format&fit=crop&w=600&q=80',
               },
               {
                 cat: 'social_media',
@@ -270,17 +279,29 @@ const Landing = () => {
                 keywords: 'INSTAGRAM · TIKTOK · CONTENT',
                 pills: ['Strategy', 'Reels', 'Ads'],
                 Icon: Megaphone,
+                img: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=600&q=80',
               },
             ].map((tile) => (
               <button
                 key={tile.cat}
                 type="button"
                 onClick={() => navigate(`/students?cat=${tile.cat}`)}
-                className="group relative h-48 sm:h-56 md:h-64 overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
+                className="group relative h-52 sm:h-56 md:h-64 overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
               >
+                {/* Stock photo texture — desaturated, bright, under white wash */}
+                <img
+                  src={tile.img}
+                  alt=""
+                  aria-hidden
+                  className="absolute inset-0 h-full w-full object-cover brightness-110 saturate-[0.35] transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                  decoding="async"
+                />
+                {/* White wash overlay — keeps white/blue brand, photo shows as subtle texture */}
+                <div className="absolute inset-0 bg-white/82" />
                 {/* Large decorative icon — top-right watermark */}
                 <tile.Icon
-                  className="absolute -right-4 -top-4 text-primary/8 transition-transform duration-500 group-hover:scale-110 group-hover:text-primary/12"
+                  className="absolute -right-4 -top-4 text-primary/10 transition-transform duration-500 group-hover:scale-110 group-hover:text-primary/15"
                   size={120}
                   strokeWidth={1.25}
                 />
@@ -341,12 +362,23 @@ const Landing = () => {
             variants={staggerContainer}
           >
             {/* Hyperlocal — 2 cols row 1 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/8">
-                <MapPin size={20} className="text-foreground" strokeWidth={2} />
+            <motion.div variants={fadeUp} transition={{ duration: 0.45 }} className="relative col-span-2 sm:col-span-2 overflow-hidden rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7">
+              <img
+                src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=800&q=80"
+                alt=""
+                aria-hidden
+                className="absolute inset-0 h-full w-full object-cover brightness-110 saturate-[0.3]"
+                loading="lazy"
+                decoding="async"
+              />
+              <div className="absolute inset-0 bg-white/88" />
+              <div className="relative">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+                  <MapPin size={20} className="text-primary" strokeWidth={2} />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
             </motion.div>
 
             {/* Speed — 1 col row 1 */}
