@@ -3,7 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Search, ArrowLeft, Monitor, Video, Megaphone } from 'lucide-react';
+import { Search, ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isCommunityCategoryId, type CommunityCategoryId } from '@/lib/communityCategories';
 import {
@@ -19,15 +19,17 @@ const TALENT_HUB_CATEGORIES: {
   sub: string;
   icon: typeof Monitor;
 }[] = [
+  { cat: 'videography', label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
+  { cat: 'photography', label: 'Photography', sub: 'Events, brands & portraits', icon: Camera },
   { cat: 'websites', label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor },
-  { cat: 'videographer', label: 'Video & Photography', sub: 'Weddings, events & reels', icon: Video },
   { cat: 'social_media', label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone },
 ];
 
 /** Category view title + subtitle (matches Home tiles, not Community board names). */
 const TALENT_CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string }> = {
+  videography: { label: 'Videography', sub: 'Filming, reels & promos' },
+  photography: { label: 'Photography', sub: 'Events, brands & portraits' },
   websites: { label: 'Website Design', sub: 'Get a site built or fixed' },
-  videographer: { label: 'Video & Photography', sub: 'Weddings, events & reels' },
   social_media: { label: 'Social Media', sub: 'Content, strategy & growth' },
 };
 
@@ -44,7 +46,7 @@ function TalentNeedCategoryRow({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {TALENT_HUB_CATEGORIES.map((item) => {
           const Icon = item.icon;
           const isActive = selectedCategory === item.cat;
@@ -92,13 +94,14 @@ function TalentNeedCategoryRow({
 /** Same keyword idea as Home — one primary board per freelancer. */
 const CAT_KEYWORDS: Record<CommunityCategoryId, string[]> = {
   websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify', 'react', 'next', 'figma', 'typescript', 'tailwind', 'supabase', 'webflow', 'framer'],
-  videographer: ['video', 'photo', 'film', 'camera', 'edit', 'photography', 'videography', 'reel', 'wedding', 'drone', 'premiere', 'davinci'],
+  videography: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo', 'colour grading', 'wedding film', 'corporate video'],
+  photography: ['photo', 'photography', 'photographer', 'portrait', 'headshot', 'lightroom', 'product photo', 'brand photo', 'food photo', 'event photo', 'wedding photo'],
   social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy', 'linkedin', 'copywriting'],
 };
 
 function primaryCategoryForStudent(student: any, displayName: string): CommunityCategoryId {
   const text = `${displayName} ${student.bio || ''} ${(student.skills || []).join(' ')}`.toLowerCase();
-  const order: CommunityCategoryId[] = ['websites', 'videographer', 'social_media'];
+  const order: CommunityCategoryId[] = ['websites', 'videography', 'photography', 'social_media'];
   let best: CommunityCategoryId = 'websites';
   let bestScore = 0;
   for (const cat of order) {
@@ -194,7 +197,7 @@ const BrowseStudents = () => {
 
   const realsByCategory = useMemo(() => {
     const q = searchQ;
-    const out: Record<CommunityCategoryId, any[]> = { websites: [], videographer: [], social_media: [] };
+    const out: Record<CommunityCategoryId, any[]> = { videography: [], photography: [], websites: [], social_media: [] };
     for (const s of students) {
       const name = getDisplayName(s.user_id);
       if (!studentMatchesSearch(s, name, q)) continue;
@@ -209,8 +212,9 @@ const BrowseStudents = () => {
     const forCat = (cat: CommunityCategoryId) =>
       TALENT_BOARD_DEMO_PROFILES.filter((d) => d.category === cat && demoMatchesSearch(d, q));
     return {
+      videography: forCat('videography'),
+      photography: forCat('photography'),
       websites: forCat('websites'),
-      videographer: forCat('videographer'),
       social_media: forCat('social_media'),
     } satisfies Record<CommunityCategoryId, TalentBoardDemoEntry[]>;
   }, [searchQ]);
@@ -250,8 +254,9 @@ const BrowseStudents = () => {
             selectedCategory={activeCategory}
             onSelectCategory={goToCategory}
             counts={loading ? undefined : {
+              videography: realsByCategory.videography.length,
+              photography: realsByCategory.photography.length,
               websites: realsByCategory.websites.length,
-              videographer: realsByCategory.videographer.length,
               social_media: realsByCategory.social_media.length,
             }}
           />

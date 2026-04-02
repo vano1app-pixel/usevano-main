@@ -19,6 +19,7 @@ import {
   CircleUser,
   Monitor,
   Video,
+  Camera,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
@@ -54,7 +55,8 @@ const Landing = () => {
 
   const catKeywords: Record<string, string[]> = {
     websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
-    videographer: ['video', 'photo', 'film', 'camera', 'edit', 'photography', 'videography', 'reel', 'wedding'],
+    videography: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo'],
+    photography: ['photo', 'photography', 'photographer', 'portrait', 'headshot', 'lightroom', 'product photo', 'brand photo'],
     social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
   };
 
@@ -313,10 +315,11 @@ const Landing = () => {
       <section className="pt-2 pb-6 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-3">What do you need?</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
+              { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography' },
+              { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, cat: 'photography' },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites' },
-              { label: 'Video & Photography', sub: 'Weddings, events & reels', icon: Video, cat: 'videographer' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media' },
             ].map((item) => {
               const isActive = activeCategory === item.cat;

@@ -148,7 +148,8 @@ const StudentProfile = () => {
   };
 
   const categoryLabels: Record<string, string> = {
-    videographer: 'Videographer',
+    videography: 'Videography',
+    photography: 'Photography',
     websites: 'Web & Design',
     social_media: 'Social Media',
   };

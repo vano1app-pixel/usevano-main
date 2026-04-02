@@ -24,7 +24,7 @@ type DemoEntry = {
 };
 
 const DEMO_POSTS: Record<CommunityCategoryId, DemoEntry[]> = {
-  videographer: [{
+  videography: [{
     post: {
       id: 'demo-video',
       user_id: 'demo-video-user',
@@ -62,6 +62,45 @@ const DEMO_POSTS: Record<CommunityCategoryId, DemoEntry[]> = {
       { id: 'p4', image_url: 'https://picsum.photos/seed/p-drone/300/200', title: 'Drone reel — Connemara landscape' },
       { id: 'p5', image_url: 'https://picsum.photos/seed/p-corp/300/200', title: 'Corporate event — Galway Chamber' },
       { id: 'p6', image_url: 'https://picsum.photos/seed/p-tiktok/300/200', title: 'TikTok content pack — fashion brand' },
+    ],
+  }],
+  photography: [{
+    post: {
+      id: 'demo-photo',
+      user_id: 'demo-photo-user',
+      title: 'Wedding, event & brand photography — Galway & West',
+      description: `Hi, I'm Niamh — a final-year Photography student at ATU Galway. I shoot weddings, corporate events, brand campaigns, and product photography for businesses across Connacht.\n\nI work with a Canon R6 Mark II and a range of prime lenses. I edit in Adobe Lightroom and Photoshop for a clean, consistent look that fits your brand.\n\nTurnaround is 3–5 working days with a full gallery delivered via private link. Happy to travel within Connacht.`,
+      image_url: 'https://picsum.photos/seed/vano-niamh/900/500',
+      likes_count: 41,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
+      rate_min: 200,
+      rate_max: 600,
+      rate_unit: 'day',
+    },
+    profile: {
+      display_name: 'Niamh Brennan',
+      avatar_url: 'https://randomuser.me/api/portraits/women/68.jpg',
+      user_type: 'student',
+    },
+    studentProfile: {
+      skills: ['Photography', 'Wedding Photography', 'Event Photography', 'Product Photography', 'Brand Photography', 'Portrait / Headshots', 'Photo Editing', 'Food Photography'],
+      hourly_rate: 40,
+      is_available: true,
+      university: 'ATU',
+      tiktok_url: null,
+      work_links: [
+        { url: 'https://niamhbrennan.ie', label: 'Portfolio — niamhbrennan.ie' },
+        { url: 'https://instagram.com/niamhbrennan.photo', label: 'Instagram' },
+        { url: 'https://linkedin.com/in/niamh-brennan-photo', label: 'LinkedIn' },
+      ],
+    },
+    portfolioPreview: [
+      { id: 'np1', image_url: 'https://picsum.photos/seed/np-wedding/300/200', title: 'Galway wedding — Ashford Castle, 2025' },
+      { id: 'np2', image_url: 'https://picsum.photos/seed/np-product/300/200', title: 'Product shoot — Galway skincare brand' },
+      { id: 'np3', image_url: 'https://picsum.photos/seed/np-event/300/200', title: 'Corporate event — Galway Chamber 2025' },
+      { id: 'np4', image_url: 'https://picsum.photos/seed/np-portrait/300/200', title: 'Headshots — LinkedIn & brand profiles' },
+      { id: 'np5', image_url: 'https://picsum.photos/seed/np-food/300/200', title: 'Food photography — restaurant menu shoot' },
+      { id: 'np6', image_url: 'https://picsum.photos/seed/np-brand/300/200', title: 'Brand shoot — local café rebrand' },
     ],
   }],
   websites: [{

@@ -22,15 +22,25 @@ export const SKILLS_BY_CATEGORY: Record<CommunityCategoryId, readonly string[]> 
     'Paid Ads',
     'Brand Strategy',
   ],
-  videographer: [
+  videography: [
     'Video Editing',
-    'Photography',
     'Videography',
     'Drone Footage',
-    'Wedding Photography',
-    'Event Coverage',
     'Reels & Short Form',
     'Colour Grading',
+    'Wedding Films',
+    'Event Coverage',
+    'Promotional Video',
+  ],
+  photography: [
+    'Photography',
+    'Wedding Photography',
+    'Event Photography',
+    'Product Photography',
+    'Brand Photography',
+    'Portrait / Headshots',
+    'Food Photography',
+    'Photo Editing',
   ],
 };
 
