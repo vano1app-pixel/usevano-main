@@ -14,18 +14,15 @@ import {
   Users,
   Search,
   MessageSquare,
-  Megaphone,
-  Linkedin,
-  CircleUser,
-  Monitor,
   Video,
   Camera,
+  Monitor,
+  Megaphone,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
-import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { BlurredTalentMarquee } from '@/components/BlurredTalentMarquee';
 
@@ -49,28 +46,6 @@ const Landing = () => {
   const navigate = useNavigate();
   const oauthHandledRef = useRef(false);
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
-  const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
-  const [studentsLoaded, setStudentsLoaded] = React.useState(false);
-  const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
-
-  const catKeywords: Record<string, string[]> = {
-    websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
-    videography: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo'],
-    photography: ['photo', 'photography', 'photographer', 'portrait', 'headshot', 'lightroom', 'product photo', 'brand photo'],
-    social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
-  };
-
-  const filteredStudents = React.useMemo(() => {
-    if (!activeCategory) return featuredStudents;
-    const kws = catKeywords[activeCategory] || [];
-    return featuredStudents.filter((s) =>
-      (s.skills as string[]).some((sk) => kws.some((kw) => sk.toLowerCase().includes(kw)))
-    );
-  }, [featuredStudents, activeCategory]);
-
-  const dayIndex = Math.floor(Date.now() / 86400000);
-  const featured = filteredStudents.length > 0 ? filteredStudents[dayIndex % filteredStudents.length] : null;
-  const stripStudents = filteredStudents.filter((s) => s.user_id !== featured?.user_id);
 
   // Use only onAuthStateChange (fires INITIAL_SESSION with the real stored session).
   // Calling getSession() separately can resolve null before localStorage is read,
@@ -82,43 +57,6 @@ const Landing = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  React.useEffect(() => {
-    const fetchFeatured = async () => {
-      const { data: sprofs } = await supabase
-        .from('student_profiles')
-        .select('user_id, skills, is_available, bio, hourly_rate, typical_budget_min, typical_budget_max, created_at')
-        .eq('is_available', true)
-        .eq('community_board_status', 'approved')
-        .not('bio', 'is', null)
-        .not('skills', 'eq', '{}')
-        .limit(20);
-      if (!sprofs?.length) { setStudentsLoaded(true); return; }
-      const uids = sprofs.map((s: any) => s.user_id);
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, avatar_url')
-        .in('user_id', uids);
-      const profMap: Record<string, any> = {};
-      (profs || []).forEach((p: any) => { profMap[p.user_id] = p; });
-      const combined = sprofs
-        .map((sp: any) => ({
-          user_id: sp.user_id,
-          display_name: profMap[sp.user_id]?.display_name || null,
-          avatar_url: profMap[sp.user_id]?.avatar_url || null,
-          top_skill: (sp.skills || [])[0] || null,
-          skills: sp.skills || [],
-          bio: sp.bio || null,
-          hourly_rate: sp.hourly_rate || null,
-          typical_budget_min: sp.typical_budget_min || null,
-          typical_budget_max: sp.typical_budget_max || null,
-          created_at: sp.created_at || null,
-        }))
-        .filter((s: any) => s.display_name && !s.display_name.toUpperCase().startsWith('VANO'));
-      setFeaturedStudents(combined);
-      setStudentsLoaded(true);
-    };
-    fetchFeatured();
-  }, []);
 
   /** Google OAuth returns to site root (`redirectTo`); finish profile + route once session is ready. */
   React.useEffect(() => {
@@ -148,7 +86,7 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-24 sm:pt-20 md:pt-32 pb-14 md:pb-24 px-4 md:px-8">
+      <section className="relative pt-28 sm:pt-32 md:pt-44 pb-16 md:pb-28 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_13rem] gap-10 md:gap-16 items-start">
             {/* Text column */}
@@ -158,31 +96,20 @@ const Landing = () => {
               animate="visible"
               variants={staggerContainer}
             >
-              <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center md:items-start gap-2.5 mb-6 sm:mb-8">
-                <button
-                  type="button"
-                  onClick={() => navigate('/whats-new')}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
-                >
-                  <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
-                  What&apos;s new in {APP_VERSION_LABEL}
-                  <ArrowRight size={12} className="opacity-70" />
-                </button>
-              </motion.div>
               <motion.h1
                 variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.25rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
+                transition={{ duration: 0.55, delay: 0.05 }}
+                className="text-[2.75rem] sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-[-0.02em] text-foreground mb-5 sm:mb-6 leading-[1.05]"
               >
-                Local talent,<br />
-                <span className="italic font-semibold">instantly available.</span>
+                Hire a Galway<br />
+                <span className="italic font-bold text-primary">student this week.</span>
               </motion.h1>
               <motion.p
                 variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto md:mx-0 mb-8 leading-relaxed"
+                transition={{ duration: 0.55, delay: 0.15 }}
+                className="text-base sm:text-lg text-muted-foreground max-w-lg mx-auto md:mx-0 mb-8 leading-relaxed"
               >
-                Fixed-price gigs, portfolios, and chat — all in one place. Built for Galway.
+                Real portfolios. Real rates. Message directly — no middlemen.
               </motion.p>
 
               {/* Search bar */}
@@ -202,13 +129,6 @@ const Landing = () => {
                   <ArrowRight size={18} className="shrink-0 text-muted-foreground" />
                 </button>
               </motion.div>
-
-              {/* Social proof count */}
-              {studentsLoaded && featuredStudents.length > 0 && (
-                <motion.p variants={fadeUp} transition={{ duration: 0.5, delay: 0.23 }} className="text-xs text-muted-foreground mb-5 text-center md:text-left">
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{featuredStudents.length}</span> freelancers available in Galway right now
-                </motion.p>
-              )}
 
               {/* Stat chips — mobile only */}
               <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="flex gap-2 mb-6 md:hidden">
@@ -290,271 +210,118 @@ const Landing = () => {
       </section>
 
       {/* How it works */}
-      <section className="py-8 px-4 md:px-8">
+      <section className="py-5 px-4 md:px-8 border-y border-border/60">
         <div className="max-w-5xl mx-auto">
-          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4 text-center">How it works</p>
-          <div className="grid grid-cols-3 gap-3">
+          <ol className="flex flex-col sm:flex-row items-start sm:items-center justify-center gap-4 sm:gap-0 text-sm">
             {[
-              { step: '1', title: 'Sign up free', sub: 'Google login — takes 30 seconds', icon: CircleUser },
-              { step: '2', title: 'Post or browse', sub: 'Post a gig or find talent directly', icon: Search },
-              { step: '3', title: 'Get it done', sub: 'Chat in-app, agree terms, done', icon: Briefcase },
-            ].map((item) => (
-              <div key={item.step} className="flex flex-col items-center gap-2 rounded-2xl border border-foreground/10 bg-card p-4 text-center shadow-sm">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                  <item.icon size={16} className="text-primary" strokeWidth={2} />
+              { n: '1', label: 'Sign up free', note: 'Google login · 30 seconds' },
+              { n: '2', label: 'Post or browse', note: 'Gigs or talent directly' },
+              { n: '3', label: 'Message & hire', note: 'Agree scope, get it done' },
+            ].map((item, i) => (
+              <React.Fragment key={item.n}>
+                <li className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">{item.n}</span>
+                  <span>
+                    <span className="font-semibold text-foreground">{item.label}</span>
+                    <span className="ml-1.5 text-muted-foreground">{item.note}</span>
+                  </span>
+                </li>
+                {i < 2 && <span className="hidden sm:block mx-5 text-border text-lg select-none">→</span>}
+              </React.Fragment>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* What do you need? — white/blue brand tiles */}
+      <section className="pt-10 pb-8 px-4 md:px-8">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">What do you need?</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              {
+                cat: 'videography',
+                label: 'Videography',
+                desc: 'Filming, reels & promo videos.',
+                keywords: 'REELS · PROMO · WEDDINGS',
+                pills: ['Reels', 'Events', 'Drone'],
+                Icon: Video,
+              },
+              {
+                cat: 'photography',
+                label: 'Photography',
+                desc: 'Events, brands & portraits.',
+                keywords: 'EVENTS · BRANDS · PORTRAITS',
+                pills: ['Weddings', 'Products', 'Headshots'],
+                Icon: Camera,
+              },
+              {
+                cat: 'websites',
+                label: 'Website Design',
+                desc: 'Build, design & launch your site.',
+                keywords: 'SHOPIFY · WORDPRESS · REACT',
+                pills: ['Landing page', 'Shopify', 'UI/UX'],
+                Icon: Monitor,
+              },
+              {
+                cat: 'social_media',
+                label: 'Social Media',
+                desc: 'Content, strategy & growth.',
+                keywords: 'INSTAGRAM · TIKTOK · CONTENT',
+                pills: ['Strategy', 'Reels', 'Ads'],
+                Icon: Megaphone,
+              },
+            ].map((tile) => (
+              <button
+                key={tile.cat}
+                type="button"
+                onClick={() => navigate(`/students?cat=${tile.cat}`)}
+                className="group relative h-48 sm:h-56 md:h-64 overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
+              >
+                {/* Large decorative icon — top-right watermark */}
+                <tile.Icon
+                  className="absolute -right-4 -top-4 text-primary/8 transition-transform duration-500 group-hover:scale-110 group-hover:text-primary/12"
+                  size={120}
+                  strokeWidth={1.25}
+                />
+                <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5">
+                  {/* Keywords */}
+                  <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    {tile.keywords}
+                  </p>
+                  {/* Bottom content */}
+                  <div>
+                    {/* Small icon badge */}
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 group-hover:bg-primary/15 transition-colors">
+                      <tile.Icon size={20} className="text-primary" strokeWidth={2} />
+                    </div>
+                    <h3 className="text-lg sm:text-xl md:text-2xl font-extrabold leading-tight tracking-tight text-foreground">
+                      {tile.label}
+                    </h3>
+                    <p className="mt-1 line-clamp-1 text-[11px] sm:text-xs text-muted-foreground">{tile.desc}</p>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <div className="hidden sm:flex flex-wrap gap-1.5">
+                        {tile.pills.map((pill) => (
+                          <span key={pill} className="rounded-full bg-primary/8 px-2.5 py-0.5 text-[10px] font-medium text-primary">
+                            {pill}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-[11px] sm:text-[12px] font-semibold text-primary shrink-0 group-hover:underline underline-offset-2">
+                        Explore →
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[13px] font-semibold text-foreground leading-snug">{item.title}</p>
-                <p className="text-[11px] text-muted-foreground leading-snug">{item.sub}</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* What do you need? */}
-      <section className="pt-2 pb-6 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
-          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-3">What do you need?</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography' },
-              { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, cat: 'photography' },
-              { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites' },
-              { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media' },
-            ].map((item) => {
-              const isActive = activeCategory === item.cat;
-              return (
-                <button
-                  key={item.cat}
-                  type="button"
-                  onClick={() => setActiveCategory(isActive ? null : item.cat)}
-                  className={`group flex flex-col items-start gap-3 rounded-2xl border p-4 text-left shadow-sm transition-all active:scale-[0.98] ${
-                    isActive
-                      ? 'border-primary bg-primary/5 shadow-md'
-                      : 'border-foreground/10 bg-card hover:border-foreground/20 hover:shadow-md'
-                  }`}
-                >
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${isActive ? 'bg-primary/15' : 'bg-foreground/8 group-hover:bg-primary/10'}`}>
-                    <item.icon size={18} className={`transition-colors ${isActive ? 'text-primary' : 'text-foreground group-hover:text-primary'}`} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-foreground leading-snug">{item.label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{item.sub}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Freelancer section */}
-      {(studentsLoaded ? featuredStudents.length > 0 : true) && (
-        <section className="pb-4 md:pb-6 overflow-hidden">
-          <div className="max-w-5xl mx-auto px-4 md:px-8">
-            <div className="flex items-end justify-between mb-4">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">On VANO now</p>
-                <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-foreground">Freelancers available today</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/students')}
-                className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0 pb-0.5"
-              >
-                See all <ArrowRight size={14} />
-              </button>
-            </div>
-
-            {/* Featured freelancer of the day — full-width hero card */}
-            {!studentsLoaded && (
-              <div className="mb-4 flex gap-4 rounded-2xl border border-foreground/10 bg-card p-4 animate-pulse">
-                <div className="h-20 w-20 shrink-0 rounded-xl bg-muted" />
-                <div className="flex-1 space-y-2 py-1">
-                  <div className="h-3 w-1/3 rounded bg-muted" />
-                  <div className="h-3.5 w-1/2 rounded bg-muted" />
-                  <div className="h-3 w-3/4 rounded bg-muted" />
-                </div>
-              </div>
-            )}
-            {studentsLoaded && featured && (
-              <button
-                type="button"
-                onClick={() => navigate(`/students/${featured.user_id}`)}
-                className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
-              >
-                {/* Avatar */}
-                <div className="relative h-20 w-20 shrink-0 rounded-xl overflow-hidden bg-muted">
-                  {featured.avatar_url ? (
-                    <img src={featured.avatar_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-foreground/20">
-                      {(featured.display_name || 'F')[0].toUpperCase()}
-                    </div>
-                  )}
-                  <span className="absolute right-1.5 bottom-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm" />
-                </div>
-                {/* Info */}
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Featured today</span>
-                  <p className="text-[14px] font-semibold text-foreground truncate mt-0.5">{featured.display_name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {featured.top_skill && (
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary truncate">
-                        {featured.top_skill}
-                      </span>
-                    )}
-                    {featured.hourly_rate > 0 && (
-                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">€{featured.hourly_rate}/hr</span>
-                    )}
-                  </div>
-                  {featured.bio && (
-                    <p className="mt-1.5 text-[11px] text-muted-foreground truncate">
-                      {featured.bio.trim().split(' ').slice(0, 5).join(' ')}
-                      <span className="pointer-events-none select-none blur-[3px]"> {featured.bio.trim().split(' ').slice(5, 9).join(' ')}</span>
-                    </p>
-                  )}
-                </div>
-                <ArrowRight size={16} className="shrink-0 text-muted-foreground" />
-              </button>
-            )}
-
-            {/* Scroll strip — compact text snippets (name, rate/budget, bio preview); tap → full profile */}
-            {(studentsLoaded ? stripStudents.length > 0 : true) && (
-              <div className="relative">
-                {session === null && (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-background/60 backdrop-blur-[2px]">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/auth?mode=signup')}
-                      className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm shadow-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                    >
-                      Sign up free to see all freelancers <ArrowRight size={14} />
-                    </button>
-                    <p className="text-xs text-muted-foreground">Takes 30 seconds · No credit card</p>
-                  </div>
-                )}
-              <div className={`flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden${session === null ? ' pointer-events-none select-none blur-sm' : ''}`}>
-                {!studentsLoaded
-                  ? [1, 2, 3, 4, 5].map((i) => (
-                      <div
-                        key={i}
-                        className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 animate-pulse"
-                      >
-                        <div className="flex gap-2.5">
-                          <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
-                          <div className="flex-1 space-y-1.5 pt-0.5">
-                            <div className="h-3 w-24 rounded bg-muted" />
-                            <div className="h-2.5 w-16 rounded bg-muted" />
-                          </div>
-                        </div>
-                        <div className="h-2 w-full rounded bg-muted" />
-                        <div className="h-2 w-5/6 rounded bg-muted" />
-                        <div className="h-2 w-4/6 rounded bg-muted" />
-                        <div className="mt-1 flex gap-1">
-                          <div className="h-5 w-14 rounded-md bg-muted" />
-                          <div className="h-5 w-12 rounded-md bg-muted" />
-                        </div>
-                      </div>
-                    ))
-                  : stripStudents.map((s) => {
-                      const isNew =
-                        s.created_at &&
-                        Date.now() - new Date(s.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
-                      const budgetLabel = formatTypicalBudget(s.typical_budget_min, s.typical_budget_max);
-                      const skillPills = ((s.skills as string[]) || []).slice(0, 2);
-                      const hourly = typeof s.hourly_rate === 'number' ? s.hourly_rate : 0;
-                      return (
-                        <button
-                          key={s.user_id}
-                          type="button"
-                          onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group flex w-56 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
-                        >
-                          <div className="flex items-start gap-2.5">
-                            <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-                              {s.avatar_url ? (
-                                <img
-                                  src={s.avatar_url}
-                                  alt=""
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                  decoding="async"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-xs font-bold text-foreground/30">
-                                  {(s.display_name || 'F')[0].toUpperCase()}
-                                </div>
-                              )}
-                              <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-card bg-emerald-500" />
-                            </div>
-                            <div className="min-w-0 flex-1 pt-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
-                                  {s.display_name}
-                                </p>
-                                {isNew && (
-                                  <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary-foreground">
-                                    New
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-                            {hourly > 0 && (
-                              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                                €{hourly}/hr
-                              </span>
-                            )}
-                            {budgetLabel && (
-                              <span className="font-medium text-muted-foreground">{budgetLabel} projects</span>
-                            )}
-                          </div>
-                          {s.bio?.trim() && (
-                            <p className="line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">
-                              {s.bio.trim()}
-                            </p>
-                          )}
-                          {skillPills.length > 0 && (
-                            <div className="mt-auto flex flex-wrap gap-1 pt-0.5">
-                              {skillPills.map((sk) => (
-                                <span
-                                  key={sk}
-                                  className="max-w-full truncate rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary"
-                                >
-                                  {sk}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                {studentsLoaded && featuredStudents.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/students')}
-                    className="flex w-56 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
-                  >
-                    <ArrowRight size={22} className="text-muted-foreground" />
-                    <p className="text-center text-[12px] font-semibold text-muted-foreground">
-                      See all on Talent
-                    </p>
-                  </button>
-                )}
-              </div>
-              </div>
-            )}
-            {studentsLoaded && filteredStudents.length === 0 && activeCategory && (
-              <p className="text-sm text-muted-foreground text-center py-4">No freelancers available for this category right now.</p>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* Why VANO */}
-      <section className="py-16 md:py-24 px-4 md:px-8">
+      <section className="py-20 md:py-32 px-4 md:px-8">
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial="hidden"
@@ -563,8 +330,8 @@ const Landing = () => {
             variants={staggerContainer}
           >
             <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] text-center mb-3">Why VANO</motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold text-center mb-4">Built different, on purpose</motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg mx-auto">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold text-center mb-4">Why businesses use VANO</motion.h2>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg mx-auto">Not a global marketplace — just Galway talent you can actually trust and meet in person.</motion.p>
           </motion.div>
           <motion.div
             className="grid grid-cols-2 gap-3 sm:grid-cols-3"
@@ -615,7 +382,7 @@ const Landing = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 md:py-24 px-4 md:px-8 bg-muted/25">
+      <section className="py-20 md:py-32 px-4 md:px-8 bg-muted/30">
         <div className="max-w-2xl mx-auto">
           <motion.div
             initial="hidden"

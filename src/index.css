@@ -7,54 +7,48 @@
 }
 
 @layer base {
-  /*
-   * Light theme tuned toward “carousel” off-whites (Instagram-style soft neutrals).
-   * For a pixel match to @vano.app posts, drop your background + text hex into a converter and replace the HSL values below.
-   */
   :root {
-    --background: 38 28% 95.5%;
-    /* Near-black body copy — stronger than soft gray UI defaults */
-    --foreground: 25 30% 8%;
+    --background: 0 0% 100%;
+    --foreground: 222 47% 8%;
 
-    --card: 38 20% 98.5%;
-    --card-foreground: 25 30% 8%;
+    --card: 210 20% 98.5%;
+    --card-foreground: 222 47% 8%;
 
-    --popover: 38 20% 98.5%;
-    --popover-foreground: 25 30% 8%;
+    --popover: 210 20% 98.5%;
+    --popover-foreground: 222 47% 8%;
 
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 38 12% 93%;
-    --secondary-foreground: 25 30% 8%;
+    --secondary: 214 20% 95%;
+    --secondary-foreground: 222 47% 8%;
 
-    --muted: 38 12% 93%;
-    /* Secondary labels: warm charcoal */
-    --muted-foreground: 30 10% 35%;
+    --muted: 214 20% 95%;
+    --muted-foreground: 215 16% 42%;
 
-    --accent: 38 12% 92%;
-    --accent-foreground: 25 30% 8%;
+    --accent: 214 20% 94%;
+    --accent-foreground: 222 47% 8%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 38 8% 87%;
-    --input: 38 8% 87%;
+    --border: 214 20% 91%;
+    --input: 214 20% 91%;
     --ring: 221 83% 53%;
 
     --radius: 0.75rem;
 
-    --glass-bg: 38 20% 100% / 0.6;
-    --glass-border: 38 20% 100% / 0.3;
-    --glass-shadow: 221 83% 53% / 0.08;
+    --glass-bg: 0 0% 100% / 0.7;
+    --glass-border: 214 20% 91% / 0.6;
+    --glass-shadow: 221 83% 53% / 0.07;
 
-    --sidebar-background: 38 28% 95.5%;
-    --sidebar-foreground: 25 30% 8%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 8%;
     --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 38 12% 93%;
-    --sidebar-accent-foreground: 25 30% 8%;
-    --sidebar-border: 38 8% 87%;
+    --sidebar-accent: 214 20% 95%;
+    --sidebar-accent-foreground: 222 47% 8%;
+    --sidebar-border: 214 20% 91%;
     --sidebar-ring: 221 83% 53%;
   }
 
@@ -109,7 +103,7 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased text-[15px] leading-relaxed;
+    @apply bg-background text-foreground font-sans antialiased text-[16px] leading-relaxed;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     min-height: 100vh;
