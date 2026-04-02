@@ -3,7 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Search, ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
+import { ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isCommunityCategoryId, type CommunityCategoryId } from '@/lib/communityCategories';
 
@@ -124,12 +124,6 @@ function primaryCategoryForStudent(student: any, displayName: string): Community
 }
 
 
-function studentMatchesSearch(student: any, displayName: string, q: string) {
-  if (!q) return true;
-  const name = displayName.toLowerCase();
-  const skillText = (student.skills || []).join(' ').toLowerCase();
-  return name.includes(q) || student.bio?.toLowerCase().includes(q) || skillText.includes(q);
-}
 
 const BrowseStudents = () => {
   const navigate = useNavigate();
@@ -142,7 +136,6 @@ const BrowseStudents = () => {
   const [reviewMap, setReviewMap] = useState<Record<string, { avg: string; count: number }>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
-  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchStudents();
@@ -194,19 +187,15 @@ const BrowseStudents = () => {
 
   const getDisplayName = (userId: string) => profiles.find((p) => p.user_id === userId)?.display_name || 'Student';
 
-  const searchQ = search.trim().toLowerCase();
-
   const realsByCategory = useMemo(() => {
-    const q = searchQ;
     const out: Record<CommunityCategoryId, any[]> = { videography: [], photography: [], websites: [], social_media: [] };
     for (const s of students) {
       const name = getDisplayName(s.user_id);
-      if (!studentMatchesSearch(s, name, q)) continue;
       const cat = primaryCategoryForStudent(s, name);
       out[cat].push(s);
     }
     return out;
-  }, [students, profiles, searchQ]);
+  }, [students, profiles]);
 
   const categoryMeta = activeCategory ? TALENT_CATEGORY_META[activeCategory] : null;
 
@@ -256,17 +245,6 @@ const BrowseStudents = () => {
                 On VANO now
               </p>
 
-              <div className="relative mb-5">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by name, skill, or keyword…"
-                  className="w-full pl-10 pr-4 py-3.5 border border-input rounded-2xl bg-background text-sm shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                />
-              </div>
-
               {fetchError && (
                 <p className="mb-4 text-center text-sm text-muted-foreground">
                   Could not load all live profiles — examples may still show below.
@@ -299,7 +277,7 @@ const BrowseStudents = () => {
                 </div>
               ) : !hasRows ? (
                 <p className="py-12 text-center text-muted-foreground">
-                  {searchQ ? 'No freelancers or examples match that search on this board.' : 'No freelancers on this board yet — check back soon.'}
+                  No freelancers on this board yet — check back soon.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
