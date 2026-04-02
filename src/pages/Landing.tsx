@@ -70,10 +70,12 @@ const Landing = () => {
   const featured = filteredStudents.length > 0 ? filteredStudents[dayIndex % filteredStudents.length] : null;
   const stripStudents = filteredStudents.filter((s) => s.user_id !== featured?.user_id);
 
+  // Use only onAuthStateChange (fires INITIAL_SESSION with the real stored session).
+  // Calling getSession() separately can resolve null before localStorage is read,
+  // causing a logged-out flash for users who are already signed in.
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+      setSession(nextSession ?? null);
     });
     return () => subscription.unsubscribe();
   }, []);
