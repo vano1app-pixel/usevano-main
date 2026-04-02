@@ -185,8 +185,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
     const ep = initial.existingPost ?? null;
 
-    // Pre-fill from existing post when editing; otherwise clear
-    setCategory(ep?.category ?? null);
+    // Pre-fill from existing post when editing; otherwise clear.
+    // 'videographer' is the legacy category value — map it to 'videography' so
+    // existing listings still open correctly before the DB migration runs.
+    const rawCat = ep?.category ?? null;
+    const mappedCat = rawCat === 'videographer' ? 'videography' : rawCat;
+    setCategory(isCommunityCategoryId(mappedCat) ? mappedCat : null);
     setBannerUrl(initial.bannerUrl || '');
     setBannerFile(null);
     setListingFile(null);
