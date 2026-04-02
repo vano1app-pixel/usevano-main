@@ -702,7 +702,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Input
                   id="lc-title"
                   className="mt-1.5 h-11"
-                  placeholder="e.g. Event videography & short-form reels"
+                  placeholder={
+                    category === 'websites' ? 'e.g. Custom React websites & Shopify stores' :
+                    category === 'social_media' ? 'e.g. Social media management & content creation' :
+                    'e.g. Event videography & short-form reels'
+                  }
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   maxLength={120}
@@ -713,7 +717,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Textarea
                   id="lc-desc"
                   className="mt-1.5 min-h-[120px] text-sm"
-                  placeholder="What do you make? What gear or tools do you use? What kind of clients have you worked with?"
+                  placeholder={
+                    category === 'websites'
+                      ? "What tech stack do you work with? Have you built e-commerce sites, portfolios, or landing pages? Any past client examples?"
+                      : category === 'social_media'
+                      ? "What platforms do you manage? What content formats do you create? Have you run paid ads or grown accounts from scratch?"
+                      : "What do you shoot? What gear do you use (camera, drone, etc.)? What kind of events or clients have you worked with?"
+                  }
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={2000}

@@ -28,6 +28,7 @@ const StudentProfile = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [currentUserType, setCurrentUserType] = useState<string | null>(null);
+  const [communityPost, setCommunityPost] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'reviews'>('about');
   const [copied, setCopied] = useState(false);
   const profileIsAdmin = useIsAdmin(id);
@@ -46,16 +47,18 @@ const StudentProfile = () => {
       setCurrentUserType(myProf?.user_type || null);
     }
 
-    const [{ data: prof }, { data: sp }, { data: revs }, { data: badges }, { data: items }] = await Promise.all([
+    const [{ data: prof }, { data: sp }, { data: revs }, { data: badges }, { data: items }, { data: post }] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', id!).maybeSingle(),
       supabase.from('student_profiles').select('*').eq('user_id', id!).maybeSingle(),
       supabase.from('reviews').select('*').eq('reviewee_id', id!).order('created_at', { ascending: false }),
       supabase.from('student_achievements').select('*').eq('user_id', id!),
       supabase.from('portfolio_items').select('*').eq('user_id', id!).order('created_at', { ascending: false }),
+      supabase.from('community_posts').select('title, description, category').eq('user_id', id!).eq('moderation_status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     setProfile(prof);
     setStudent(sp);
+    setCommunityPost(post);
     setAchievements(badges || []);
     setPortfolioItems(items || []);
 
@@ -142,6 +145,13 @@ const StudentProfile = () => {
     'first_shift': '🎉', 'five_shifts': '⭐', 'ten_shifts': '🔥',
     'twenty_shifts': '💎', 'five_star': '🌟', 'reliable': '✅',
   };
+
+  const categoryLabels: Record<string, string> = {
+    videographer: 'Videographer',
+    websites: 'Web & Design',
+    social_media: 'Social Media',
+  };
+  const categoryLabel = communityPost?.category ? categoryLabels[communityPost.category] : null;
 
   const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
   const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
@@ -259,6 +269,11 @@ const StudentProfile = () => {
                   <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-secondary-foreground ring-1 ring-border/80">
                     Freelancer
                   </span>
+                  {categoryLabel && (
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/20">
+                      {categoryLabel}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={handleShare}
@@ -280,6 +295,7 @@ const StudentProfile = () => {
               avgRating={avgRating || undefined}
               reviewCount={reviews.length}
               bio={bioText}
+              subtitle={communityPost?.title || null}
               university={student?.university}
               actionRow={freelancerActions}
             />
@@ -351,6 +367,12 @@ const StudentProfile = () => {
               {/* About tab */}
               {activeTab === 'about' && (
                 <div className="p-5 sm:p-6 space-y-5">
+                  {communityPost?.description && (
+                    <div>
+                      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><Briefcase size={14} className="text-primary/70" />What I do</h2>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{communityPost.description}</p>
+                    </div>
+                  )}
                   {bioText && (
                     <div>
                       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><BookOpen size={14} className="text-primary/70" />About</h2>
@@ -412,7 +434,7 @@ const StudentProfile = () => {
                       </div>
                     </div>
                   )}
-                  {!bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
+                  {!communityPost?.description && !bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">Nothing added yet — check back soon.</p>
                   )}
                 </div>
