@@ -18,10 +18,11 @@ const TALENT_HUB_CATEGORIES: {
   label: string;
   sub: string;
   icon: typeof Monitor;
+  image?: string;
 }[] = [
-  { cat: 'videography', label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
-  { cat: 'photography', label: 'Photography', sub: 'Events, brands & portraits', icon: Camera },
-  { cat: 'websites', label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor },
+  { cat: 'videography', label: 'Videography', sub: 'Filming, reels & promos', icon: Video, image: '/cat-videography.jpg' },
+  { cat: 'photography', label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, image: '/cat-photography.jpg' },
+  { cat: 'websites', label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, image: '/cat-websites.jpg' },
   { cat: 'social_media', label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone },
 ];
 
@@ -55,33 +56,43 @@ function TalentNeedCategoryRow({
               key={item.cat}
               type="button"
               onClick={() => onSelectCategory(item.cat)}
-              className={`group flex flex-col items-start gap-3 rounded-2xl border p-4 text-left shadow-sm transition-all active:scale-[0.98] ${
+              className={`group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border p-4 text-left shadow-sm transition-all active:scale-[0.98] ${
                 isActive
                   ? 'border-primary bg-primary/5 shadow-md'
                   : 'border-foreground/10 bg-card hover:border-foreground/20 hover:shadow-md'
               }`}
             >
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
-                  isActive ? 'bg-primary/15' : 'bg-foreground/8 group-hover:bg-primary/10'
-                }`}
-              >
-                <Icon
-                  size={18}
-                  strokeWidth={2}
-                  className={
-                    isActive ? 'text-primary' : 'text-foreground transition-colors group-hover:text-primary'
-                  }
+              {item.image && (
+                <img
+                  src={item.image}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 h-full w-full object-cover opacity-[0.13] pointer-events-none select-none"
                 />
-              </div>
-              <div>
-                <p className="text-[13px] font-semibold leading-snug text-foreground">{item.label}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{item.sub}</p>
-                {counts?.[item.cat] !== undefined && counts[item.cat]! > 0 && (
-                  <p className="mt-1.5 text-[10px] font-semibold text-primary">
-                    {counts[item.cat]} freelancer{counts[item.cat] !== 1 ? 's' : ''}
-                  </p>
-                )}
+              )}
+              <div className="relative z-10 flex flex-col gap-3">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                    isActive ? 'bg-primary/15' : 'bg-foreground/8 group-hover:bg-primary/10'
+                  }`}
+                >
+                  <Icon
+                    size={18}
+                    strokeWidth={2}
+                    className={
+                      isActive ? 'text-primary' : 'text-foreground transition-colors group-hover:text-primary'
+                    }
+                  />
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold leading-snug text-foreground">{item.label}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{item.sub}</p>
+                  {counts?.[item.cat] !== undefined && counts[item.cat]! > 0 && (
+                    <p className="mt-1.5 text-[10px] font-semibold text-primary">
+                      {counts[item.cat]} freelancer{counts[item.cat] !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
               </div>
             </button>
           );
