@@ -23,7 +23,7 @@ const TALENT_HUB_CATEGORIES: {
   { cat: 'videography', label: 'Videography', sub: 'Filming, reels & promos', icon: Video, image: '/cat-videography.png' },
   { cat: 'photography', label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, image: '/cat-photography.png' },
   { cat: 'websites', label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, image: '/cat-websites.png' },
-  { cat: 'social_media', label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone },
+  { cat: 'social_media', label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, image: '/cat-social_media.png' },
 ];
 
 /** Category view title + subtitle (matches Home tiles, not Community board names). */
