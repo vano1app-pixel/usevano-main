@@ -289,28 +289,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-8 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
-          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4 text-center">How it works</p>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { step: '1', title: 'Sign up free', sub: 'Google login — takes 30 seconds', icon: CircleUser },
-              { step: '2', title: 'Post or browse', sub: 'Post a gig or find talent directly', icon: Search },
-              { step: '3', title: 'Get it done', sub: 'Chat in-app, agree terms, done', icon: Briefcase },
-            ].map((item) => (
-              <div key={item.step} className="flex flex-col items-center gap-2 rounded-2xl border border-foreground/10 bg-card p-4 text-center shadow-sm">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                  <item.icon size={16} className="text-primary" strokeWidth={2} />
-                </div>
-                <p className="text-[13px] font-semibold text-foreground leading-snug">{item.title}</p>
-                <p className="text-[11px] text-muted-foreground leading-snug">{item.sub}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* What do you need? */}
       <section className="pt-2 pb-6 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
