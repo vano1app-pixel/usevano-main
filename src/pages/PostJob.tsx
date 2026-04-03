@@ -266,13 +266,13 @@ const PostJob = () => {
                   <p className="mt-0.5 text-xs text-white/60">Completely free — no fees, no hidden charges.</p>
                 </div>
                 <a
-                  href="tel:+35389981711"
+                  href="tel:+353899817111"
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-primary shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
                 >
-                  <Phone size={15} /> Call us — 089 981 711
+                  <Phone size={15} /> Call us — 089 981 7111
                 </a>
                 <a
-                  href="https://wa.me/35389981711"
+                  href="https://wa.me/353899817111"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20 active:scale-[0.98]"
