@@ -118,7 +118,6 @@ export const MobileBottomNav: React.FC = () => {
               >
                 <span className="inline-flex items-center gap-0.5">
                   {label}
-                  {null}
                 </span>
               </span>
             </button>

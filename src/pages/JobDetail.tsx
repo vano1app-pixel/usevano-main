@@ -275,7 +275,17 @@ const JobDetail = () => {
             <div className="bg-primary/10 text-primary rounded-xl p-4 text-center text-sm font-medium">
               ✓ You've already applied to this gig
             </div>
-          ) : user?.id !== job.posted_by ? (
+          ) : !user ? (
+            <div className="border-t border-border pt-6">
+              <a
+                href="/auth"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Sign in to apply
+              </a>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Create a free account to apply for gigs</p>
+            </div>
+          ) : user.id !== job.posted_by ? (
             <div className="border-t border-border pt-6">
               <div className="mb-3">
                 <h2 className="text-base font-semibold">Apply for this gig</h2>
