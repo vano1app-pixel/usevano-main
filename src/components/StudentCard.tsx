@@ -41,6 +41,8 @@ interface StudentCardProps {
   avgRating?: string | null;
   /** Number of reviews */
   reviewCount?: number;
+  /** Profile completion percentage (0-100). Hidden when 100. */
+  profileScore?: number;
 }
 
 const MEDAL_STYLES = [
@@ -109,6 +111,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   onMessage,
   avgRating,
   reviewCount,
+  profileScore,
 }) => {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin(student.user_id);
@@ -186,6 +189,18 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             </span>
           )}
         </div>
+
+        {/* Bottom-right: profile completion badge (hidden at 100%) */}
+        {profileScore != null && profileScore < 100 && (
+          <span className={cn(
+            'absolute bottom-2.5 right-3 rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur-sm',
+            profileScore < 50 && 'bg-rose-500/80 text-white',
+            profileScore >= 50 && profileScore < 80 && 'bg-amber-500/80 text-white',
+            profileScore >= 80 && 'bg-blue-500/80 text-white',
+          )}>
+            {profileScore}%
+          </span>
+        )}
       </div>
 
       <div className="px-4 pb-4">

@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { type CommunityCategoryId } from '@/lib/communityCategories';const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
+import { type CommunityCategoryId } from '@/lib/communityCategories';
+import { parseWorkLinksJson } from '@/lib/socialLinks';const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
   photography: { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera },
   websites:    { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor },
@@ -39,6 +40,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [reviewMap, setReviewMap] = useState<Record<string, { avg: string; count: number }>>({});
+  const [portfolioCounts, setPortfolioCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
 
@@ -66,7 +68,10 @@ const StudentsByCategory = ({ categoryId }: Props) => {
 
     if (filtered.length > 0) {
       const ids = filtered.map((s: any) => s.user_id);
-      const { data: revData } = await supabase.from('reviews').select('reviewee_id, rating').in('reviewee_id', ids);
+      const [{ data: revData }, { data: piData }] = await Promise.all([
+        supabase.from('reviews').select('reviewee_id, rating').in('reviewee_id', ids),
+        supabase.from('portfolio_items').select('user_id').in('user_id', ids),
+      ]);
       if (revData && revData.length > 0) {
         const map: Record<string, { sum: number; count: number }> = {};
         for (const r of revData) {
@@ -79,6 +84,11 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           result[uid] = { avg: (sum / count).toFixed(1), count };
         }
         setReviewMap(result);
+      }
+      if (piData) {
+        const counts: Record<string, number> = {};
+        for (const item of piData) { counts[item.user_id] = (counts[item.user_id] || 0) + 1; }
+        setPortfolioCounts(counts);
       }
     }
 
@@ -170,6 +180,18 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             {students.map((student) => {
               const name = getDisplayName(student.user_id);
               const ratingInfo = reviewMap[student.user_id];
+              const links = parseWorkLinksJson(student.work_links);
+              const score = [
+                !!student.avatar_url,
+                !!student.banner_url,
+                (student.bio?.trim().length ?? 0) >= 30,
+                (student.skills?.length ?? 0) >= 3,
+                student.hourly_rate > 0,
+                !!student.university?.trim(),
+                (portfolioCounts[student.user_id] ?? 0) > 0,
+                links.length > 0,
+              ].filter(Boolean).length;
+              const pct = Math.round((score / 8) * 100);
               return (
                 <StudentCard
                   key={student.id}
@@ -179,6 +201,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
                   category={meta.label}
                   avgRating={ratingInfo?.avg ?? null}
                   reviewCount={ratingInfo?.count}
+                  profileScore={pct}
                   onMessage={(userId) => navigate(`/messages?with=${userId}`)}
                 />
               );

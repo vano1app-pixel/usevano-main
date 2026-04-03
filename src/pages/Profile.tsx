@@ -567,7 +567,7 @@ const Profile = () => {
                 {
                   id: 'photo',
                   label: 'Profile photo',
-                  detail: 'Profiles with a real face get far more messages',
+                  detail: 'No face = no trust. Show them who they\'re hiring',
                   done: !!avatarUrl,
                   count: null,
                   wizardStep: null,
@@ -576,7 +576,7 @@ const Profile = () => {
                 {
                   id: 'banner',
                   label: 'Cover photo',
-                  detail: 'No cover — your card looks plain without one',
+                  detail: 'Your card looks naked without a cover photo. Fix that',
                   done: !!bannerUrl,
                   count: null,
                   wizardStep: 2,
@@ -584,9 +584,7 @@ const Profile = () => {
                 {
                   id: 'bio',
                   label: 'Description written',
-                  detail: bio.trim().length === 0
-                    ? 'No description — businesses need to know what you offer'
-                    : `Too short (${bio.trim().length} chars — need 30+)`,
+                  detail: 'Tell them why YOU. A solid bio = way more hires',
                   done: bio.trim().length >= 30,
                   count: null,
                   wizardStep: 3,
@@ -594,9 +592,7 @@ const Profile = () => {
                 {
                   id: 'skills',
                   label: 'At least 3 skills',
-                  detail: skills.length === 0
-                    ? 'No skills — businesses search by skill to find you'
-                    : `${skills.length}/3 minimum — add ${3 - skills.length} more`,
+                  detail: 'How will they find you with no skills tagged? Add 3+',
                   done: skills.length >= 3,
                   count: skills.length < 3 ? `${skills.length}/3` : null,
                   wizardStep: 5,
@@ -604,7 +600,7 @@ const Profile = () => {
                 {
                   id: 'rate',
                   label: 'Rate set',
-                  detail: 'No rate shown — people skip listings with no price',
+                  detail: 'No price = instant skip. Set your rate and get noticed',
                   done: !!hourlyRate && Number(hourlyRate) > 0,
                   count: null,
                   wizardStep: 5,
@@ -612,7 +608,7 @@ const Profile = () => {
                 {
                   id: 'link',
                   label: 'Portfolio or social link',
-                  detail: 'Add a link to your Instagram, Behance, GitHub, etc.',
+                  detail: 'Drop your Insta, Behance, or portfolio link. Proof > promises',
                   done: workLinks.some((l) => l.url.trim().length > 0),
                   count: null,
                   wizardStep: 4,
@@ -620,7 +616,7 @@ const Profile = () => {
                 {
                   id: 'university',
                   label: 'University',
-                  detail: 'Add your university — builds trust with businesses',
+                  detail: 'Uni = instant credibility. Takes 2 seconds to add',
                   done: !!university.trim(),
                   count: null,
                   wizardStep: 4,
@@ -628,7 +624,7 @@ const Profile = () => {
                 {
                   id: 'portfolio',
                   label: 'Portfolio photos',
-                  detail: 'Add sample work photos — profiles with images get way more views',
+                  detail: 'No work samples? You\'re invisible. Upload your best stuff',
                   done: portfolioCount > 0,
                   count: null,
                   wizardStep: 2,
@@ -644,7 +640,7 @@ const Profile = () => {
                   <div className="mb-5 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-50/50 px-4 py-3 dark:bg-emerald-900/15 sm:mb-6">
                     <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
                     <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-400">
-                      Profile looks great — all {qualityChecks.length} sections complete
+                      You're all set — your profile is looking fire
                     </p>
                   </div>
                 );
@@ -655,10 +651,10 @@ const Profile = () => {
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile quality</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Level up your profile</p>
                       <p className="mt-0.5 text-sm font-semibold text-foreground">
                         {doneCount} of {qualityChecks.length} complete
-                        <span className="ml-1.5 text-rose-500">· {missingCount} missing</span>
+                        <span className="ml-1.5 text-rose-500">· {missingCount} to go</span>
                       </p>
                     </div>
                     <button
