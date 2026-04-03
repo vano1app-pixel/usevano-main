@@ -21,7 +21,9 @@ const PostJob = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const rehireStudentId = searchParams.get('rehire');
-  const [mode, setMode] = useState<Mode>('choose');
+  const modeParam = searchParams.get('mode');
+  const initialMode = (modeParam === 'vano' || modeParam === 'self') ? modeParam : 'choose';
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [rehireStudentName, setRehireStudentName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -238,7 +240,7 @@ const PostJob = () => {
         {mode === 'vano' && (
           <div className="space-y-5">
             <button
-              onClick={() => setMode('choose')}
+              onClick={() => initialMode !== 'choose' ? navigate('/jobs') : setMode('choose')}
               className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <ChevronLeft size={14} /> Back
@@ -260,7 +262,7 @@ const PostJob = () => {
                 {/* 12% commission note */}
                 <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">Our fee</p>
-                  <p className="mt-0.5 text-base font-bold text-white">12% commission</p>
+                  <p className="mt-0.5 text-base font-bold text-white">0% commission</p>
                   <p className="mt-0.5 text-xs text-white/60">Only charged when we find your freelancer — no upfront cost.</p>
                 </div>
                 <a
@@ -287,7 +289,7 @@ const PostJob = () => {
         {mode === 'self' && (
           <div>
             <button
-              onClick={() => setMode('choose')}
+              onClick={() => initialMode !== 'choose' ? navigate('/jobs') : setMode('choose')}
               className="mb-5 flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <ChevronLeft size={14} /> Back

@@ -57,6 +57,7 @@ const Profile = () => {
   const [linkCopied, setLinkCopied] = useState(false);
   const [existingPost, setExistingPost] = useState<any>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [portfolioCount, setPortfolioCount] = useState(0);
   const bannerFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
@@ -69,8 +70,9 @@ const Profile = () => {
     typicalBudgetMax,
     hourlyRate,
     bio,
+    university,
     existingPost: existingPost ?? null,
-  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, existingPost]);
+  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -143,6 +145,14 @@ const Profile = () => {
             : [{ url: '', label: '' }]
         );
       }
+
+      // Portfolio item count for quality widget
+      const { count: piCount } = await supabase
+        .from('portfolio_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', session.user.id);
+      setPortfolioCount(piCount ?? 0);
+
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
 
@@ -606,6 +616,22 @@ const Profile = () => {
                   done: workLinks.some((l) => l.url.trim().length > 0),
                   count: null,
                   wizardStep: 4,
+                },
+                {
+                  id: 'university',
+                  label: 'University',
+                  detail: 'Add your university — builds trust with businesses',
+                  done: !!university.trim(),
+                  count: null,
+                  wizardStep: 4,
+                },
+                {
+                  id: 'portfolio',
+                  label: 'Portfolio photos',
+                  detail: 'Add sample work photos — profiles with images get way more views',
+                  done: portfolioCount > 0,
+                  count: null,
+                  wizardStep: 2,
                 },
               ];
 

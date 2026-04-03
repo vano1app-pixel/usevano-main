@@ -164,7 +164,7 @@ const JobDetail = () => {
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 pt-24 text-center">
         <h1 className="text-2xl font-bold mb-4">Job Not Found</h1>
-        <button onClick={() => navigate('/jobs')} className="text-primary hover:underline">Browse Gigs</button>
+        <button onClick={() => navigate('/jobs')} className="text-primary hover:underline">Browse Hiring</button>
       </div>
     </div>
   );
@@ -175,7 +175,7 @@ const JobDetail = () => {
       <Navbar />
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
         <button onClick={() => navigate('/jobs')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 transition-colors">
-          <ArrowLeft size={16} /> Back to Gigs
+          <ArrowLeft size={16} /> Back to Hiring
         </button>
 
         <div className={`bg-card border overflow-hidden rounded-xl sm:rounded-2xl ${job.is_urgent ? 'border-destructive/40' : 'border-border'}`}>
