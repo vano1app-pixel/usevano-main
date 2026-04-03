@@ -339,6 +339,37 @@ Deno.serve(async (req: Request) => {
       console.error("Failed to insert notifications:", insertError);
     }
 
+    // Notify admin emails
+    const ADMIN_EMAILS = ["vano1app@gmail.com", "ayushpuri1239@gmail.com"];
+    const adminUserIds: string[] = [];
+    try {
+      const { data: { users: allUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      if (allUsers) {
+        for (const u of allUsers) {
+          if (ADMIN_EMAILS.includes(u.email?.toLowerCase() ?? "")) {
+            adminUserIds.push(u.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch admin users:", e);
+    }
+
+    if (adminUserIds.length > 0) {
+      const adminNotifications = adminUserIds
+        .filter((id) => id !== callerId) // don't notify the poster if they're an admin
+        .map((id) => ({
+          user_id: id,
+          title: "New gig posted",
+          message: `"${job.title}" in ${job.location} — €${job.hourly_rate ?? job.fixed_price ?? 0}`,
+          job_id: job.id,
+        }));
+
+      if (adminNotifications.length > 0) {
+        await supabase.from("notifications").insert(adminNotifications);
+      }
+    }
+
     // Send web push notifications
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
@@ -346,10 +377,11 @@ Deno.serve(async (req: Request) => {
 
     if (vapidPublicKey && vapidPrivateKey) {
       const matchedUserIds = matchedStudents.map((s) => s.user_id);
+      const allPushTargets = [...new Set([...matchedUserIds, ...adminUserIds])];
       const { data: pushSubs } = await supabase
         .from("push_subscriptions")
         .select("*")
-        .in("user_id", matchedUserIds)
+        .in("user_id", allPushTargets)
         .eq("notify_gigs", true);
 
       if (pushSubs && pushSubs.length > 0) {
