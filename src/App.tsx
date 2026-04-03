@@ -7,6 +7,7 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
+import { ChatNotificationToast } from "@/components/ChatNotificationToast";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -119,6 +120,7 @@ const App = () => (
     <PWAInstallBanner />
     <PushNotificationPrompt />
     <PwaUpdateToast />
+    <ChatNotificationToast />
   </TooltipProvider>
 );
 
