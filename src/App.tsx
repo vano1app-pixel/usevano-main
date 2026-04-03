@@ -52,10 +52,10 @@ const App = () => (
         }
       />
       <Route path="/students" element={<BrowseStudents />} />
-      <Route path="/students/videography" element={<StudentsByCategory />} />
-      <Route path="/students/photography" element={<StudentsByCategory />} />
-      <Route path="/students/websites" element={<StudentsByCategory />} />
-      <Route path="/students/social_media" element={<StudentsByCategory />} />
+      <Route path="/students/videography"  element={<StudentsByCategory categoryId="videography" />} />
+      <Route path="/students/photography"  element={<StudentsByCategory categoryId="photography" />} />
+      <Route path="/students/websites"     element={<StudentsByCategory categoryId="websites" />} />
+      <Route path="/students/social_media" element={<StudentsByCategory categoryId="social_media" />} />
       <Route path="/students/:id" element={<StudentProfilePage />} />
       <Route
         path="/profile"

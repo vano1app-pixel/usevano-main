@@ -97,24 +97,25 @@ const BrowseStudents = () => {
                     {item.image && (
                       <>
                         <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
                       </>
                     )}
                     <div className="relative z-10 flex flex-col gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
-                        <Icon size={22} strokeWidth={2} className="text-foreground transition-colors group-hover:text-primary" />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                        <Icon size={22} strokeWidth={2} className="text-white" />
                       </div>
                       <div>
-                        <p className="text-[15px] font-bold leading-snug text-foreground">{item.label}</p>
-                        <p className="mt-0.5 text-xs leading-snug text-foreground/80">{item.sub}</p>
-                        {!loading && count > 0 && (
-                          <p className="mt-1.5 text-[10px] font-semibold text-primary">
-                            {count} freelancer{count !== 1 ? 's' : ''}
-                          </p>
-                        )}
+                        <p className="text-[15px] font-bold leading-snug text-white drop-shadow-sm">{item.label}</p>
+                        <p className="mt-0.5 text-xs leading-snug text-white/90 font-medium drop-shadow-sm">{item.sub}</p>
                       </div>
                     </div>
-                    <ArrowRight size={14} className="absolute bottom-4 right-4 text-foreground/30 transition-colors group-hover:text-primary" />
+                    {/* Freelancer count — bottom left pill */}
+                    {!loading && count > 0 && (
+                      <span className="absolute bottom-4 left-5 z-10 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-foreground shadow-sm">
+                        {count} freelancer{count !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    <ArrowRight size={14} className="absolute bottom-4 right-4 z-10 text-white/70 transition-colors group-hover:text-white" />
                   </button>
                 );
               })}
