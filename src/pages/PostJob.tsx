@@ -21,7 +21,9 @@ const PostJob = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const rehireStudentId = searchParams.get('rehire');
-  const [mode, setMode] = useState<Mode>('choose');
+  const modeParam = searchParams.get('mode');
+  const initialMode = (modeParam === 'vano' || modeParam === 'self') ? modeParam : 'choose';
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [rehireStudentName, setRehireStudentName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -238,7 +240,7 @@ const PostJob = () => {
         {mode === 'vano' && (
           <div className="space-y-5">
             <button
-              onClick={() => setMode('choose')}
+              onClick={() => initialMode !== 'choose' ? navigate('/jobs') : setMode('choose')}
               className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <ChevronLeft size={14} /> Back
@@ -287,7 +289,7 @@ const PostJob = () => {
         {mode === 'self' && (
           <div>
             <button
-              onClick={() => setMode('choose')}
+              onClick={() => initialMode !== 'choose' ? navigate('/jobs') : setMode('choose')}
               className="mb-5 flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <ChevronLeft size={14} /> Back

@@ -4,7 +4,7 @@ import { JobCard, JobPosterPreview } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Search, Map, List, Plus, ArrowUpDown } from 'lucide-react';
+import { Search, Map, List, ArrowUpDown, Sparkles, PenLine } from 'lucide-react';
 import { JobsMap } from '@/components/JobsMap';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, Link } from 'react-router-dom';
@@ -132,18 +132,53 @@ const BrowseJobs = () => {
           </p>
         </header>
 
-        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Hiring for something?</p>
-            <p className="text-xs text-muted-foreground sm:text-sm">Post a gig in minutes — set a total budget and deadline.</p>
-          </div>
+        <div className="mb-6">
+          <header className="mb-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Hiring</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">How would you like to hire?</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Choose how you want to find your freelancer.</p>
+          </header>
+
           {user ? (
-            <Button size="lg" className="h-11 w-full shrink-0 rounded-xl font-semibold sm:w-auto sm:min-w-[11rem]" asChild>
-              <Link to="/post-job" className="inline-flex items-center justify-center gap-2">
-                <Plus size={18} strokeWidth={2.5} className="opacity-90" />
-                Post a gig
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* VANO matches */}
+              <Link
+                to="/post-job?mode=vano"
+                className="group flex flex-col gap-3 rounded-2xl border-2 border-primary bg-primary/5 p-5 text-left transition hover:bg-primary/10 active:scale-[0.98]"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">VANO matches for you</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    We personally find and vet the right freelancer for your project.
+                  </p>
+                </div>
+                <span className="mt-auto inline-block rounded-full bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold text-primary">
+                  Recommended
+                </span>
               </Link>
-            </Button>
+
+              {/* Post it yourself */}
+              <Link
+                to="/post-job?mode=self"
+                className="group flex flex-col gap-3 rounded-2xl border border-foreground/15 bg-card p-5 text-left transition hover:bg-muted active:scale-[0.98]"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+                  <PenLine size={18} className="text-foreground/70" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Post it yourself</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    Write your brief and receive applications from freelancers directly.
+                  </p>
+                </div>
+                <span className="mt-auto inline-block rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  Self-serve
+                </span>
+              </Link>
+            </div>
           ) : (
             <Button size="lg" variant="secondary" className="h-11 w-full shrink-0 rounded-xl font-semibold sm:w-auto" onClick={() => navigate('/auth')}>
               Sign in to post
