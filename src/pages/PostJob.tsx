@@ -262,7 +262,7 @@ const PostJob = () => {
                 {/* 12% commission note */}
                 <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">Our fee</p>
-                  <p className="mt-0.5 text-base font-bold text-white">12% commission</p>
+                  <p className="mt-0.5 text-base font-bold text-white">0% commission</p>
                   <p className="mt-0.5 text-xs text-white/60">Only charged when we find your freelancer — no upfront cost.</p>
                 </div>
                 <a
