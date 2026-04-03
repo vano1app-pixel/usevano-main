@@ -8,7 +8,7 @@ import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 const NAV_ITEMS = [
   { label: 'Home', icon: Home, href: '/' },
   { label: 'Talent', icon: Users, href: '/students' },
-  { label: 'Hiring', icon: Briefcase, href: '/jobs' },
+  { label: 'Hiring', icon: Briefcase, href: '/post-job' },
   { label: 'Messages', icon: MessageCircle, href: '/messages' },
   { label: 'Profile', icon: User, href: '/profile' },
 ];
