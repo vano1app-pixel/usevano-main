@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { X, GraduationCap, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { isEmailVerified, resolvePostAuthDestination } from '@/lib/authSession';
 import {
   clearGoogleOAuthIntent,
@@ -24,6 +24,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [userType, setUserType] = useState<'student' | 'business'>('student');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -157,7 +158,24 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+            {isSignUp && (
+              <label className="flex items-start gap-2.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-primary accent-primary cursor-pointer"
+                />
+                <span className="text-xs text-muted-foreground leading-relaxed">
+                  I agree to the{' '}
+                  <Link to="/terms" onClick={onClose} className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+                  {' '}and{' '}
+                  <Link to="/privacy" onClick={onClose} className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>
+                </span>
+              </label>
+            )}
+
+            <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading || (isSignUp && !agreedToTerms)} />
 
             <p className="text-center text-sm text-muted-foreground">
               {isSignUp ? (

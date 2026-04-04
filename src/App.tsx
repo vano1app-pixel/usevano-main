@@ -30,6 +30,8 @@ import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
 import WhatsNew from "./pages/WhatsNew";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
 
 const App = () => (
@@ -111,6 +113,8 @@ const App = () => (
       <Route path="/u/:slug" element={<UserSlugRedirect />} />
       <Route path="/blog/vano-v1" element={<BlogPost />} />
       <Route path="/whats-new" element={<WhatsNew />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

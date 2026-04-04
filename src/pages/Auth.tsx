@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
@@ -15,6 +15,7 @@ import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [userType, setUserType] = useState<'student' | 'business'>('student');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -164,7 +165,24 @@ const Auth = () => {
             </div>
           )}
 
-          <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+          {!isLogin && (
+            <label className="flex items-start gap-2.5 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary accent-primary cursor-pointer"
+              />
+              <span className="text-xs text-muted-foreground leading-relaxed">
+                I agree to the{' '}
+                <Link to="/terms" className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+                {' '}and{' '}
+                <Link to="/privacy" className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>
+              </span>
+            </label>
+          )}
+
+          <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading || (!isLogin && !agreedToTerms)} />
 
           <p className="text-center text-xs text-muted-foreground">
             {isLogin ? (

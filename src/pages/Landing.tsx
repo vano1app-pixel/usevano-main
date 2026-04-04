@@ -762,16 +762,20 @@ const Landing = () => {
               © {new Date().getFullYear()} VANO · {APP_VERSION_LABEL}
             </span>
             <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <button type="button" onClick={() => navigate('/privacy')} className="hover:text-primary transition-colors">
+                Privacy
+              </button>
+              <span aria-hidden className="hidden sm:inline">·</span>
+              <button type="button" onClick={() => navigate('/terms')} className="hover:text-primary transition-colors">
+                Terms
+              </button>
+              <span aria-hidden className="hidden sm:inline">·</span>
               <button type="button" onClick={() => navigate('/whats-new')} className="hover:text-primary transition-colors">
                 Release notes
               </button>
-              <span aria-hidden className="hidden sm:inline">
-                ·
-              </span>
+              <span aria-hidden className="hidden sm:inline">·</span>
               <RequestFeatureLink className="text-xs" />
-              <span aria-hidden className="hidden sm:inline">
-                ·
-              </span>
+              <span aria-hidden className="hidden sm:inline">·</span>
               <span>Made in Galway, Ireland</span>
             </span>
           </div>
