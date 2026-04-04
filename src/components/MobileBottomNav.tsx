@@ -82,8 +82,8 @@ export const MobileBottomNav: React.FC = () => {
     <>
       {/* Gradient scrim — fades page content into the nav bar (mobile only) */}
       <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-10 bg-gradient-to-t from-background to-transparent md:hidden" />
-      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/40 bg-card/80 backdrop-blur-md md:bottom-auto md:top-0 md:border-t-0 md:border-b">
-      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))] md:max-w-2xl md:py-1 md:pb-1">
+      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/40 bg-card/80 backdrop-blur-md md:hidden">
+      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]">
         {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
           return (
