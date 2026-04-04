@@ -82,15 +82,15 @@ export const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className={`fixed top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[2000] rounded-xl sm:rounded-2xl ${navSurfaceClass}`}
+        className={`fixed top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 lg:top-5 lg:left-6 lg:right-6 z-[2000] rounded-xl sm:rounded-2xl ${navSurfaceClass}`}
       >
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 h-14 sm:h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 lg:px-10 h-14 sm:h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="VANO" className="h-8 w-8 rounded-lg" />
             <span className="text-2xl font-bold tracking-tight text-primary">VANO</span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-1 lg:gap-2">
             {navItems.map((item) => (
               <button
                 key={item.href}

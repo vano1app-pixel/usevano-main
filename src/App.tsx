@@ -38,7 +38,7 @@ const App = () => (
     <RedirectToAccountTypeIfNeeded />
     <Toaster />
     <Sonner />
-    <div className="md:pt-14">
+    <div className="md:pt-14 lg:pt-16">
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/jobs" element={<BrowseJobs />} />
