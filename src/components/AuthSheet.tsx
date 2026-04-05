@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { X, GraduationCap, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { isEmailVerified, resolvePostAuthDestination } from '@/lib/authSession';
 import {
   clearGoogleOAuthIntent,
@@ -158,6 +158,15 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
             )}
 
             <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+
+            {isSignUp && (
+              <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
+                By signing up, you agree to our{' '}
+                <Link to="/terms" onClick={onClose} className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+                {' '}and{' '}
+                <Link to="/privacy" onClick={onClose} className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>.
+              </p>
+            )}
 
             <p className="text-center text-sm text-muted-foreground">
               {isSignUp ? (

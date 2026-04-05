@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +6,7 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -30,6 +30,8 @@ import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
 import WhatsNew from "./pages/WhatsNew";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
 
 const App = () => (
@@ -38,7 +40,7 @@ const App = () => (
     <RedirectToAccountTypeIfNeeded />
     <Toaster />
     <Sonner />
-    <div className="md:pt-14">
+    <div className="md:pt-14 lg:pt-16">
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/jobs" element={<BrowseJobs />} />
@@ -111,11 +113,14 @@ const App = () => (
       <Route path="/u/:slug" element={<UserSlugRedirect />} />
       <Route path="/blog/vano-v1" element={<BlogPost />} />
       <Route path="/whats-new" element={<WhatsNew />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
     </div>
     <MobileBottomNav />
+    <CookieConsentBanner />
     <PWAInstallBanner />
     <PushNotificationPrompt />
     <PwaUpdateToast />
