@@ -7,6 +7,7 @@ import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -120,6 +121,7 @@ const App = () => (
     </Routes>
     </div>
     <MobileBottomNav />
+    <CookieConsentBanner />
     <PWAInstallBanner />
     <PushNotificationPrompt />
     <PwaUpdateToast />
