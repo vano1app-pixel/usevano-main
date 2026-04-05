@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -174,6 +175,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
@@ -953,6 +956,30 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 We&apos;ll save your profile details (banner, links, location, skills, rates) and{' '}
                 <span className="font-medium text-foreground">publish your listing immediately</span>. It will be visible on the Community board right away.
               </div>
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={agreedToTerms}
+                    onCheckedChange={(v) => setAgreedToTerms(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground leading-relaxed">
+                    I agree to the{' '}
+                    <Link to="/terms" target="_blank" className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={agreedToPrivacy}
+                    onCheckedChange={(v) => setAgreedToPrivacy(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground leading-relaxed">
+                    I agree to the{' '}
+                    <Link to="/privacy" target="_blank" className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>
+                  </span>
+                </label>
+              </div>
               <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -1086,7 +1113,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               type="button"
               className="h-11 flex-1 rounded-xl font-semibold"
               onClick={publish}
-              disabled={submitting || !category || !title.trim()}
+              disabled={submitting || !category || !title.trim() || !agreedToTerms || !agreedToPrivacy}
             >
               {submitting ? (
                 <>

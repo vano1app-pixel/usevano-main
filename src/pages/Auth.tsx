@@ -15,7 +15,6 @@ import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [userType, setUserType] = useState<'student' | 'business'>('student');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -165,24 +164,16 @@ const Auth = () => {
             </div>
           )}
 
-          {!isLogin && (
-            <label className="flex items-start gap-2.5 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border text-primary accent-primary cursor-pointer"
-              />
-              <span className="text-xs text-muted-foreground leading-relaxed">
-                I agree to the{' '}
-                <Link to="/terms" className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
-                {' '}and{' '}
-                <Link to="/privacy" className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>
-              </span>
-            </label>
-          )}
+          <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
 
-          <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading || (!isLogin && !agreedToTerms)} />
+          {!isLogin && (
+            <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
+              By signing up, you agree to our{' '}
+              <Link to="/terms" className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+              {' '}and{' '}
+              <Link to="/privacy" className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>.
+            </p>
+          )}
 
           <p className="text-center text-xs text-muted-foreground">
             {isLogin ? (
