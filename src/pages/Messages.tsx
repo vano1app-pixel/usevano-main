@@ -357,6 +357,31 @@ const Messages = () => {
           body: JSON.stringify({ recipient_id: recipientId, message_preview: tempMsg.content }),
         }).catch(() => {});
       });
+
+      // Notify admin about business↔freelancer messages
+      (async () => {
+        try {
+          const [{ data: senderProfile }, { data: recipientProfile }] = await Promise.all([
+            supabase.from('profiles').select('user_type, display_name').eq('user_id', user.id).single(),
+            supabase.from('profiles').select('user_type, display_name').eq('user_id', recipientId).single(),
+          ]);
+          const isBizToFreelancer = senderProfile?.user_type === 'business' && recipientProfile?.user_type === 'student';
+          const isFreelancerToBiz = senderProfile?.user_type === 'student' && recipientProfile?.user_type === 'business';
+          if (isBizToFreelancer || isFreelancerToBiz) {
+            const { data: adminIds } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
+            if (adminIds?.length) {
+              const title = isBizToFreelancer
+                ? `${senderProfile!.display_name} messaged ${recipientProfile!.display_name}`
+                : `${senderProfile!.display_name} responded to ${recipientProfile!.display_name}`;
+              await supabase.from('notifications').insert(
+                adminIds
+                  .filter((a) => a.user_id !== user.id)
+                  .map((a) => ({ user_id: a.user_id, title, message: tempMsg.content.slice(0, 100) }))
+              );
+            }
+          }
+        } catch {}
+      })();
     }
   };
 

@@ -72,8 +72,9 @@ const Profile = () => {
     hourlyRate,
     bio,
     university,
+    phone,
     existingPost: existingPost ?? null,
-  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, existingPost]);
+  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
 

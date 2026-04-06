@@ -43,14 +43,34 @@ import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 
 const STEP_LABELS = [
-  'Start',
-  'Category',
-  'Photos',
+  'Get started',
+  'What you do',
+  'Your work',
   'Your pitch',
-  'Links',
-  'Rates',
-  'Publish',
+  'Your details',
+  'Your price',
+  'Go live',
 ];
+
+const STEP_HEADINGS: Record<number, string> = {
+  0: 'Get listed in 5 minutes',
+  1: 'What do you do?',
+  2: 'Show your work',
+  3: 'Tell them about you',
+  4: 'Your details',
+  5: 'Set your price',
+  6: 'Review & go live',
+};
+
+const STEP_DESCRIPTIONS: Record<number, string> = {
+  0: 'Businesses in Galway are looking for people like you.',
+  1: 'Pick your main skill — this is how businesses find you.',
+  2: 'A strong cover photo makes businesses click. This is the first thing they see.',
+  3: 'Write a short pitch — what you do, what makes you different.',
+  4: 'Help businesses know where you\'re based and how to reach you.',
+  5: 'Be upfront — businesses prefer freelancers who are clear on pricing.',
+  6: 'Check everything looks good — you can always edit later.',
+};
 
 export interface ListOnCommunityInitial {
   bannerUrl: string;
@@ -63,6 +83,7 @@ export interface ListOnCommunityInitial {
   hourlyRate: string;
   bio: string;
   university: string;
+  phone?: string | null;
 }
 
 interface ListOnCommunityDraft {
@@ -76,6 +97,7 @@ interface ListOnCommunityDraft {
   workLinks: WorkLinkEntry[];
   serviceArea: string;
   university: string;
+  phone: string;
   rateUnit: string;
   rateMin: string;
   rateMax: string;
@@ -167,6 +189,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [serviceArea, setServiceArea] = useState('');
   const [university, setUniversity] = useState('');
+  const [phone, setPhone] = useState(initial.phone ?? '');
   const [rateUnit, setRateUnit] = useState('hourly');
   const [rateMin, setRateMin] = useState('');
   const [rateMax, setRateMax] = useState('');
@@ -247,6 +270,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setDescription(draft.description);
         setAboutMe(draft.aboutMe || '');
         setUniversity(draft.university || '');
+        if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
         setTiktokUrl(draft.tiktokUrl);
         setWorkLinks(draft.workLinks);
         setServiceArea(draft.serviceArea);
@@ -281,6 +305,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       workLinks,
       serviceArea,
       university,
+      phone,
       rateUnit,
       rateMin,
       rateMax,
@@ -309,6 +334,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     workLinks,
     serviceArea,
     university,
+    phone,
     rateUnit,
     rateMin,
     rateMax,
@@ -335,9 +361,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       case 3:
         return title.trim().length > 0 && description.trim().length > 0;
       case 4: {
-        // University required for new listings, optional when editing existing
+        // University + phone required for new listings, optional when editing existing
         const isEditing = !!(initial as any).existingPost;
-        return isEditing || university.trim().length > 0;
+        return isEditing || (university.trim().length > 0 && phone.trim().length > 0);
       }
       case 5:
         return true;
@@ -538,6 +564,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         bio: aboutMe.trim() || description.trim(),
       };
       if (university.trim()) studentPatch.university = university.trim();
+      if (phone.trim()) studentPatch.phone = phone.trim();
       if (uploadedBanner) {
         studentPatch.banner_url = uploadedBanner;
       } else {
@@ -615,7 +642,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
-            <DialogTitle className="text-xl font-semibold tracking-tight">List yourself on the talent board</DialogTitle>
+            <DialogTitle className="text-xl font-semibold tracking-tight">{STEP_HEADINGS[step] ?? 'List yourself'}</DialogTitle>
             <div className="flex gap-1 pt-1">
               {STEP_LABELS.map((_, i) => (
                 <div
@@ -631,6 +658,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               Step {step + 1} of {totalSteps}
               {step > 0 ? ` · ${STEP_LABELS[step]}` : ''}
             </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">{STEP_DESCRIPTIONS[step]}</p>
           </DialogHeader>
         </div>
 
@@ -641,21 +669,21 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <ClipboardList className="h-5 w-5" strokeWidth={2} />
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Fill in a few details and your listing goes{' '}
-                <span className="font-medium text-foreground">live on the Community board straight away</span>.
+                Your listing goes{' '}
+                <span className="font-medium text-foreground">live straight away</span>. Here&apos;s what we&apos;ll ask:
               </p>
               <ul className="space-y-2 text-sm text-foreground/90">
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Profile banner &amp; optional photo for your card
+                  Your skill category &amp; a cover photo
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Headline, description, and links to your work
+                  A short pitch about you and your work
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Rates, location, and skills
+                  Your rates, skills, and contact details
                 </li>
               </ul>
             </div>
@@ -809,6 +837,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
           {step === 4 && (
             <div className="space-y-4">
+              <div>
+                <Label>Phone number {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
+                <Input
+                  type="tel"
+                  className="mt-1.5 h-11"
+                  placeholder="e.g. 089 981 7111"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
+              </div>
               <div>
                 <Label>University {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
                 <Input
