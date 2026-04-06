@@ -463,36 +463,36 @@ const Landing = () => {
             variants={staggerContainer}
           >
             {/* Hyperlocal — 2 cols row 1 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7 lg:p-8">
-              <div className="mb-4 flex h-11 w-11 lg:h-13 lg:w-13 items-center justify-center rounded-xl bg-foreground/8">
-                <MapPin size={20} className="text-foreground" strokeWidth={2} />
+            <motion.div variants={fadeUp} transition={{ duration: 0.45 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7 lg:p-8 transition-all hover:shadow-md hover:border-foreground/20">
+              <div className="mb-4 flex h-11 w-11 lg:h-13 lg:w-13 items-center justify-center rounded-xl bg-blue-500/10">
+                <MapPin size={20} className="text-blue-600 dark:text-blue-400" strokeWidth={2} />
               </div>
               <h3 className="text-lg lg:text-xl font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
               <p className="text-sm lg:text-base text-muted-foreground leading-relaxed max-w-xs lg:max-w-sm">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
             </motion.div>
 
             {/* Speed — 1 col row 1 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.06 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
-                <Clock size={18} className="text-foreground" strokeWidth={2} />
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.06 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6 transition-all hover:shadow-md hover:border-foreground/20">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
+                <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
               </div>
               <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Hire in minutes</h3>
               <p className="text-xs lg:text-sm text-muted-foreground leading-relaxed">Post a gig, get applicants, pick someone — done.</p>
             </motion.div>
 
             {/* Chat — 1 col row 2 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.1 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
-                <MessageSquare size={18} className="text-foreground" strokeWidth={2} />
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.1 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6 transition-all hover:shadow-md hover:border-foreground/20">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10">
+                <MessageSquare size={18} className="text-violet-600 dark:text-violet-400" strokeWidth={2} />
               </div>
               <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Chat on platform</h3>
               <p className="text-xs lg:text-sm text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
             </motion.div>
 
             {/* Trust — 2 cols row 2 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.14 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6 flex items-center gap-5">
-              <div className="flex h-11 w-11 lg:h-13 lg:w-13 shrink-0 items-center justify-center rounded-xl bg-foreground/8">
-                <Shield size={20} className="text-foreground" strokeWidth={2} />
+            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.14 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6 flex items-center gap-5 transition-all hover:shadow-md hover:border-foreground/20">
+              <div className="flex h-11 w-11 lg:h-13 lg:w-13 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
+                <Shield size={20} className="text-amber-600 dark:text-amber-400" strokeWidth={2} />
               </div>
               <div>
                 <h3 className="text-sm lg:text-base font-semibold text-foreground mb-0.5">Built on trust</h3>
@@ -504,14 +504,14 @@ const Landing = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 md:py-24 px-4 md:px-8 lg:px-12 bg-muted/25">
+      <section className="py-12 md:py-16 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-80px" }}
             variants={staggerContainer}
-            className="text-center mb-10"
+            className="text-center mb-6"
           >
             <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-3">
               FAQ
