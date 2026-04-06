@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isEmailVerified } from '@/lib/authSession';
+import { TEAM_PHONE_DISPLAY, teamTelHref, teamWhatsAppHref } from '@/lib/contact';
 
 type Mode = 'choose' | 'vano' | 'self';
 
@@ -266,13 +267,13 @@ const PostJob = () => {
                   <p className="mt-0.5 text-xs text-white/60">Only charged when we find your freelancer — no upfront cost.</p>
                 </div>
                 <a
-                  href="tel:+35389981711"
+                  href={teamTelHref}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-primary shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
                 >
-                  <Phone size={15} /> Call us — 089 981 711
+                  <Phone size={15} /> Call us — {TEAM_PHONE_DISPLAY}
                 </a>
                 <a
-                  href="https://wa.me/35389981711"
+                  href={teamWhatsAppHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20 active:scale-[0.98]"
