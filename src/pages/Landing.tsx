@@ -6,13 +6,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
 import {
-  Briefcase,
   ArrowRight,
   Clock,
   Shield,
   MapPin,
-  Users,
-  Search,
   MessageSquare,
   Megaphone,
   Linkedin,
@@ -24,7 +21,6 @@ import {
 import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { BlurredTalentMarquee } from '@/components/BlurredTalentMarquee';
@@ -148,144 +144,46 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-24 sm:pt-20 md:pt-28 pb-14 md:pb-24 px-4 md:px-8 lg:px-12">
-        <div className="max-w-5xl lg:max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_14rem] lg:grid-cols-[1fr_18rem] gap-10 md:gap-16 items-start">
-            {/* Text column */}
-            <motion.div
-              className="text-center md:text-left"
-              initial="hidden"
-              animate="visible"
-              variants={staggerContainer}
+      <section className="relative pt-24 sm:pt-20 md:pt-28 pb-8 md:pb-12 px-4 md:px-8 lg:px-12">
+        <div className="max-w-3xl mx-auto text-center">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+          >
+            <motion.h1
+              variants={fadeUp}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
             >
-              <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center md:items-start gap-2.5 mb-6 sm:mb-8">
-                <button
-                  type="button"
-                  onClick={() => navigate('/whats-new')}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
-                >
-                  <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
-                  What&apos;s new in {APP_VERSION_LABEL}
-                  <ArrowRight size={12} className="opacity-70" />
-                </button>
-              </motion.div>
-              <motion.h1
-                variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
-              >
-                Local talent,<br />
-                <span className="italic font-semibold">instantly available.</span>
-              </motion.h1>
-              <motion.p
-                variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-xl lg:max-w-2xl mx-auto md:mx-0 mb-8 leading-relaxed"
-              >
-                Fixed-price gigs, portfolios, and chat — all in one place. Built for Galway.
-              </motion.p>
-
-              {/* Search bar */}
-              <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.22 }} className="w-full max-w-xl mx-auto md:mx-0 mb-6">
-                <button
-                  type="button"
-                  onClick={() => navigate('/students')}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-left shadow-sm transition-all hover:border-primary/25 hover:shadow-md"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Search size={18} strokeWidth={2.25} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Find talent</p>
-                    <p className="truncate text-sm font-medium text-foreground">Search freelancers by skill, name, or bio…</p>
-                  </div>
-                  <ArrowRight size={18} className="shrink-0 text-muted-foreground" />
-                </button>
-              </motion.div>
-
-              {/* Social proof count */}
-              {studentsLoaded && featuredStudents.length > 0 && (
-                <motion.p variants={fadeUp} transition={{ duration: 0.5, delay: 0.23 }} className="text-xs text-muted-foreground mb-5 text-center md:text-left">
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{featuredStudents.length}</span> freelancers available in Galway right now
-                </motion.p>
-              )}
-
-              {/* Stat chips — mobile only */}
-              <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="flex gap-2 mb-6 md:hidden">
-                {[
-                  { value: '€0', label: 'Free' },
-                  { value: 'Galway', label: 'Only' },
-                  { value: '60 sec', label: 'Post' },
-                ].map((s) => (
-                  <div key={s.value} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-foreground/10 bg-card px-3 py-1.5 shadow-sm">
-                    <p className="text-sm font-bold text-foreground">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </div>
-                ))}
-              </motion.div>
-
-              <motion.div
-                variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="flex flex-col sm:flex-row sm:flex-wrap items-center md:items-start justify-center md:justify-start gap-3 min-h-[3.25rem]"
-              >
-                {session === undefined ? (
-                  <div className="flex w-full max-w-md justify-center gap-3 sm:max-w-none">
-                    <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
-                    <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
-                  </div>
-                ) : session ? (
-                  <>
-                    <button type="button" onClick={() => navigate('/post-job')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                      <Briefcase size={18} />Post a gig<ArrowRight size={16} />
-                    </button>
-                    <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
-                      <Users size={18} />Browse talent
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex w-full max-w-xl flex-col items-center md:items-start gap-3 mx-auto md:mx-0">
-                    <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-center md:justify-start sm:flex-wrap">
-                      <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                        Get started — it's free<ArrowRight size={16} />
-                      </button>
-                      <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
-                        <Briefcase size={16} />Post a gig in 60 sec
-                      </button>
-                    </div>
-                    <p className="text-center md:text-left text-xs text-muted-foreground leading-relaxed">
-                      Already have an account?{' '}
-                      <button type="button" onClick={() => navigate('/auth?mode=login')} className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
-                        Log in
-                      </button>
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-
-              <BlurredTalentMarquee />
-            </motion.div>
-
-            {/* Right column — stat cards, desktop only */}
-            <motion.div
-              className="hidden md:flex flex-col gap-3 lg:gap-4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
+              Local talent,<br />
+              <span className="italic font-semibold">instantly available.</span>
+            </motion.h1>
+            <motion.p
+              variants={fadeUp}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-xl mx-auto mb-4 leading-relaxed"
             >
-              {[
-                { value: '€0', label: 'Free to sign up' },
-                { value: 'Galway', label: 'Galway only' },
-                { value: '60 sec', label: 'To post a gig' },
-              ].map((s) => (
-                <div key={s.value} className="rounded-2xl border border-foreground/10 bg-card px-5 py-4 lg:px-6 lg:py-5 shadow-sm">
-                  <p className="text-2xl lg:text-3xl font-bold tracking-tight text-foreground">{s.value}</p>
-                  <p className="mt-0.5 text-xs lg:text-sm text-muted-foreground">{s.label}</p>
-                </div>
-              ))}
-            </motion.div>
-          </div>
+              <button
+                type="button"
+                onClick={() => navigate('/auth?mode=signup')}
+                className="font-semibold text-foreground underline underline-offset-4 decoration-primary/40 hover:decoration-primary hover:text-primary transition-colors"
+              >
+                Become a freelancer
+              </button>
+              {' '}or{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/students')}
+                className="font-semibold text-foreground underline underline-offset-4 decoration-primary/40 hover:decoration-primary hover:text-primary transition-colors"
+              >
+                hire a freelancer
+              </button>
+              .
+            </motion.p>
 
+            <BlurredTalentMarquee />
+          </motion.div>
         </div>
       </section>
 
