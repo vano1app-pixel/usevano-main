@@ -179,6 +179,12 @@ const Landing = () => {
               >
                 Hire a freelancer
               </button>
+              {studentsLoaded && featuredStudents.length > 0 && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  {featuredStudents.length} freelancers available
+                </p>
+              )}
             </motion.div>
           </motion.div>
         </div>
