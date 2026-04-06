@@ -145,7 +145,7 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-24 sm:pt-20 md:pt-28 pb-8 md:pb-12 px-4 md:px-8 lg:px-12">
+      <section className="relative min-h-[70vh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4">
         <div className="max-w-3xl mx-auto text-center">
           <motion.div
             initial="hidden"
@@ -155,38 +155,41 @@ const Landing = () => {
             <motion.h1
               variants={fadeUp}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.5rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
             >
               Local talent,<br />
               <span className="italic font-semibold">instantly available.</span>
             </motion.h1>
-            <motion.p
+            <motion.div
               variants={fadeUp}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-xl mx-auto mb-4 leading-relaxed"
+              className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8"
             >
               <button
                 type="button"
                 onClick={() => navigate('/auth?mode=signup')}
-                className="font-semibold text-foreground underline underline-offset-4 decoration-primary/40 hover:decoration-primary hover:text-primary transition-colors"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:scale-[0.97]"
               >
                 Become a freelancer
               </button>
-              {' '}or{' '}
               <button
                 type="button"
                 onClick={() => navigate('/students')}
-                className="font-semibold text-foreground underline underline-offset-4 decoration-primary/40 hover:decoration-primary hover:text-primary transition-colors"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:scale-[0.97]"
               >
-                hire a freelancer
+                Hire a freelancer
               </button>
-              .
-            </motion.p>
-
-            <BlurredTalentMarquee />
+            </motion.div>
           </motion.div>
         </div>
       </section>
+
+      {/* Freelancer marquee */}
+      <div className="px-4 md:px-8 lg:px-12">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <BlurredTalentMarquee />
+        </div>
+      </div>
 
       {/* What do you need? */}
       <section className="pt-2 pb-6 px-4 md:px-8 lg:px-12">

@@ -77,7 +77,7 @@ export function BlurredTalentMarquee() {
   const loop = [...rows, ...rows];
 
   return (
-    <div className="mt-10 -mx-4 md:-mx-8">
+    <div className="-mx-4 md:-mx-8">
       {/* Section label */}
       <p className="px-4 md:px-8 mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
         Freelancers ready to work
