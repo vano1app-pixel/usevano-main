@@ -167,14 +167,14 @@ const Landing = () => {
             >
               <button
                 type="button"
-                onClick={() => navigate('/auth?mode=signup')}
+                onClick={() => navigate(session ? '/profile' : '/auth?mode=signup')}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:scale-[0.97]"
               >
                 Become a freelancer
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/students')}
+                onClick={() => navigate('/jobs')}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:scale-[0.97]"
               >
                 Hire a freelancer
