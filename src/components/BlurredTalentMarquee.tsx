@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Phone, MessageCircle } from 'lucide-react';
+import { ArrowRight, Phone, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 
@@ -100,7 +100,7 @@ export function BlurredTalentMarquee() {
               <button
                 key={`${f.user_id}-${i}`}
                 type="button"
-                onClick={() => navigate('/auth?mode=signup')}
+                onClick={() => navigate('/students')}
                 className="group relative flex w-40 shrink-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
               >
                 {/* Banner strip */}
@@ -158,16 +158,16 @@ export function BlurredTalentMarquee() {
             );
           })}
 
-          {/* Lock card */}
+          {/* Browse all card */}
           <button
             type="button"
-            onClick={() => navigate('/auth?mode=signup')}
+            onClick={() => navigate('/students')}
             className="flex w-40 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/60 px-4 py-6 text-center transition-all hover:border-primary/40 hover:bg-muted/30"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-              <Lock size={16} className="text-primary" />
+              <ArrowRight size={16} className="text-primary" />
             </div>
-            <p className="text-xs font-semibold text-foreground leading-snug">Sign in to<br />view profiles</p>
+            <p className="text-xs font-semibold text-foreground leading-snug">Browse all<br />freelancers</p>
           </button>
         </div>
       </div>

@@ -311,19 +311,7 @@ const Landing = () => {
             {/* Scroll strip — compact text snippets (name, rate/budget, bio preview); tap → full profile */}
             {(studentsLoaded ? stripStudents.length > 0 : true) && (
               <div className="relative">
-                {session === null && (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-background/60 backdrop-blur-[2px]">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/auth?mode=signup')}
-                      className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm shadow-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                    >
-                      Sign up free to see all freelancers <ArrowRight size={14} />
-                    </button>
-                    <p className="text-xs text-muted-foreground">Takes 30 seconds · No credit card</p>
-                  </div>
-                )}
-              <div className={`flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden${session === null ? ' pointer-events-none select-none blur-sm' : ''}`}>
+              <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {!studentsLoaded
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
