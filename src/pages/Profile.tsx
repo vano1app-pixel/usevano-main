@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image, LogOut } from 'lucide-react';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
@@ -799,12 +799,28 @@ const Profile = () => {
                   </div>
                 )}
 
-                {/* Signed in as */}
-                <div className="flex flex-col items-center gap-2 text-center lg:items-start lg:text-left">
+                {/* Signed in as + Sign out */}
+                <div className="flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
                   <RequestFeatureLink className="text-xs" />
                   <p className="text-xs text-muted-foreground">
                     Signed in as {user?.email}
                   </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await supabase.auth.signOut({ scope: 'global' });
+                      Object.keys(localStorage).forEach((key) => {
+                        if (key.startsWith('sb-') || key.includes('supabase')) {
+                          localStorage.removeItem(key);
+                        }
+                      });
+                      window.location.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.origin + '/auth?mode=signup');
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:text-destructive hover:border-destructive/30"
+                  >
+                    <LogOut size={12} />
+                    Sign out / switch account
+                  </button>
                 </div>
               </div>
               {/* ── END RIGHT COLUMN ── */}
@@ -946,12 +962,28 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Email info */}
-            <div className="flex flex-col items-center gap-2 text-center">
+            {/* Email info + Sign out */}
+            <div className="flex flex-col items-center gap-3 text-center">
               <RequestFeatureLink className="text-xs" />
               <p className="text-xs text-muted-foreground">
                 Signed in as {user?.email}
               </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  await supabase.auth.signOut({ scope: 'global' });
+                  Object.keys(localStorage).forEach((key) => {
+                    if (key.startsWith('sb-') || key.includes('supabase')) {
+                      localStorage.removeItem(key);
+                    }
+                  });
+                  window.location.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.origin + '/auth?mode=signup');
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:text-destructive hover:border-destructive/30"
+              >
+                <LogOut size={12} />
+                Sign out / switch account
+              </button>
             </div>
           </div>
         )}
