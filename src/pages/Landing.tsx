@@ -163,7 +163,7 @@ const Landing = () => {
             <motion.h1
               variants={fadeUp}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.12] sm:leading-[1.07]"
             >
               Local talent,<br />
               <span

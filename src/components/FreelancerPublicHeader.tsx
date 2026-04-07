@@ -94,14 +94,14 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
 
             <div className="mt-3 flex flex-wrap gap-2">
               {/* Location — blue */}
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-400 animate-fade-in opacity-0" style={{ animationDelay: '100ms' }}>
                 <MapPin size={14} className="shrink-0 text-blue-500" />
                 {locationLine}
               </span>
 
               {/* Hourly rate — green */}
               {showHourly && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 animate-fade-in opacity-0" style={{ animationDelay: '150ms' }}>
                   <Clock size={14} className="shrink-0 text-emerald-500" />
                   €{Number(hourlyRate).toLocaleString('en-IE', { maximumFractionDigits: 2 })}/hr
                   <span className="opacity-60">· hourly</span>
@@ -110,7 +110,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
 
               {/* Typical project budget — amber */}
               {budgetLabel && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 animate-fade-in opacity-0" style={{ animationDelay: '200ms' }}>
                   <Wallet size={14} className="shrink-0 text-amber-500" />
                   <span className="opacity-70">Typical project</span>
                   {budgetLabel}
@@ -119,7 +119,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
 
               {/* University */}
               {university && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground/70">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground/70 animate-fade-in opacity-0" style={{ animationDelay: '250ms' }}>
                   <GraduationCap size={13} className="shrink-0 text-foreground/50" />
                   {university}
                 </span>
@@ -127,7 +127,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
 
               {/* Rating — amber with filled star */}
               {avgRating && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 animate-fade-in opacity-0" style={{ animationDelay: '300ms' }}>
                   <Star size={14} className="shrink-0 fill-amber-400 text-amber-400" />
                   {avgRating}
                   {reviewCount != null && reviewCount > 0 && (

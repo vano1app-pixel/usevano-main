@@ -147,7 +147,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           <div className="flex flex-col gap-4" aria-busy aria-label="Loading freelancers">
             {[1, 2, 3].map((i) => (
               <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
-                <div className="h-48 w-full bg-muted/60" />
+                <div className="h-52 w-full bg-muted/60 sm:h-60" />
                 <div className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 shrink-0 rounded-full bg-muted" />

@@ -137,7 +137,7 @@ export const Navbar: React.FC = () => {
                 onClick={() => navigate('/auth')}
                 className="ml-2 px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
-                Sign In
+                Sign in
               </button>
             )}
           </div>

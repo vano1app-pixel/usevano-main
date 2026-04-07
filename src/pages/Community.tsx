@@ -461,7 +461,7 @@ const Community = () => {
           <div className="flex flex-col gap-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What are you looking for?</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {COMMUNITY_CATEGORY_ORDER.map((id) => {
+              {COMMUNITY_CATEGORY_ORDER.map((id, idx) => {
                 const item = COMMUNITY_CATEGORIES[id];
                 const Icon = item.icon;
                 return (
@@ -469,7 +469,8 @@ const Community = () => {
                     key={id}
                     type="button"
                     onClick={() => goToCategory(id)}
-                    className="group flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                    className="group flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98] animate-fade-in opacity-0"
+                    style={{ animationDelay: `${idx * 60}ms` }}
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8 transition-colors group-hover:bg-primary/10">
                       <Icon className="h-5 w-5 text-foreground transition-colors group-hover:text-primary" strokeWidth={2} />

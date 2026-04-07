@@ -127,18 +127,21 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200',
+        'relative overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200',
         clickable && 'cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 active:scale-[0.98] group',
         !clickable && 'cursor-default',
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
+      {/* Hover glow orb */}
+      {clickable && <div className="pointer-events-none absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-primary/[0.04] blur-2xl transition-all duration-500 group-hover:h-48 group-hover:w-48 group-hover:bg-primary/[0.1]" />}
+
       {/* Banner — taller for more visual presence */}
       <div className="relative h-52 w-full overflow-hidden sm:h-60">
         {student.banner_url ? (
-          <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+          <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" decoding="async" />
         ) : (
-          <div className="h-full w-full transition-transform duration-500 group-hover:scale-105" style={{ background: cardGradient(student.user_id) }} />
+          <div className="h-full w-full transition-transform duration-300 group-hover:scale-105" style={{ background: cardGradient(student.user_id) }} />
         )}
         {/* Gradient overlay — stronger at bottom */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
@@ -282,7 +285,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
         {/* Bio */}
         {student.bio && (
-          <p className="mt-2.5 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mt-2.5 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground">
             {student.bio}
           </p>
         )}
@@ -299,7 +302,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* CTA */}
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
-            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-[12px] font-semibold text-primary-foreground shadow-sm transition-all group-hover:shadow-md group-hover:brightness-110">
               View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform group-hover:translate-x-0.5" />
             </span>
             {onMessage && (

@@ -173,7 +173,7 @@ const JobDetail = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title={`${job.title} – VANO`} description={job.description?.substring(0, 160)} />
       <Navbar />
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 animate-fade-in">
         <button onClick={() => navigate('/jobs')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 transition-colors">
           <ArrowLeft size={16} /> Back to Hiring
         </button>
@@ -182,9 +182,9 @@ const JobDetail = () => {
           {poster && (
             <div className="flex items-center gap-3 border-b border-border/80 bg-muted/25 px-4 py-3 sm:px-6">
               {poster.avatar_url ? (
-                <img src={poster.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
+                <img src={poster.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-background" />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold ring-2 ring-background">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold ring-2 ring-background">
                   {(poster.display_name || 'C')[0].toUpperCase()}
                 </div>
               )}
@@ -202,7 +202,7 @@ const JobDetail = () => {
           )}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{job.title}</h1>
-            <span className="text-lg sm:text-xl font-bold text-primary whitespace-nowrap">
+            <span className="text-xl sm:text-2xl font-bold text-primary whitespace-nowrap">
               {(job as any).payment_type === 'fixed'
                 ? `€${(job as any).fixed_price ?? 0} total`
                 : `€${job.hourly_rate}/hr`}
