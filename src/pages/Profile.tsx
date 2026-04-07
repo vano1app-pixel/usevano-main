@@ -126,7 +126,7 @@ const Profile = () => {
         setIsAvailable(sp.is_available);
         setUniversity((sp as any).university || '');
         setPaymentDetails((sp as any).payment_details || '');
-        if (sp.avatar_url) setAvatarUrl(sp.avatar_url);
+        // Avatar is always read from profiles table (single source of truth)
         setTiktokUrl(sp.tiktok_url || '');
         setBannerUrl((sp as any).banner_url || '');
         setServiceArea((sp as any).service_area || '');
@@ -219,7 +219,6 @@ const Profile = () => {
         hourly_rate: parseFloat(hourlyRate) || 0,
         phone,
         is_available: isAvailable,
-        avatar_url: avatarUrl,
         banner_url: bannerUrl || null,
         service_area: serviceArea.trim() || null,
         typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null,

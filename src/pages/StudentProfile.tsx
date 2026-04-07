@@ -120,7 +120,7 @@ const StudentProfile = () => {
   );
 
   const isBusiness = profile.user_type === 'business';
-  const avatarUrl = isBusiness ? profile.avatar_url : (student?.avatar_url || profile.avatar_url);
+  const avatarUrl = profile.avatar_url;
   const displayName = profile.display_name || (isBusiness ? 'Client' : 'Freelancer');
   const bioText = isBusiness ? profile.bio : student?.bio;
   const workDesc = profile.work_description;

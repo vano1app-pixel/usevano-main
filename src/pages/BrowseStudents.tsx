@@ -50,7 +50,7 @@ const BrowseStudents = () => {
   const fetchStudents = async () => {
     const [{ data: studentData }, { data: profileData }] = await Promise.all([
       supabase.from('student_profiles').select('user_id, is_available, hourly_rate, avatar_url, skills, bio').eq('is_available', true).eq('community_board_status', 'approved').not('bio', 'is', null).not('skills', 'eq', '{}'),
-      supabase.from('profiles').select('user_id, display_name'),
+      supabase.from('profiles').select('user_id, display_name, avatar_url'),
     ]);
     setStudents(studentData || []);
     setProfiles(profileData || []);
@@ -58,6 +58,7 @@ const BrowseStudents = () => {
   };
 
   const getDisplayName = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.display_name || 'Student';
+  const getAvatarUrl = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.avatar_url || '';
 
   const countsByCategory = useMemo(() => {
     const out: Record<CommunityCategoryId, number> = { videography: 0, photography: 0, websites: 0, social_media: 0 };
@@ -149,8 +150,8 @@ const BrowseStudents = () => {
                       onClick={() => navigate(`/students/${primaryCategoryForStudent(s, name)}`)}
                       className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-foreground/10 bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
                     >
-                      {s.avatar_url ? (
-                        <img src={s.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />
+                      {getAvatarUrl(s.user_id) ? (
+                        <img src={getAvatarUrl(s.user_id)} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />
                       ) : (
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 ring-card">
                           {name[0].toUpperCase()}

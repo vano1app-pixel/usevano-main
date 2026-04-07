@@ -5,7 +5,8 @@ import { isEmailVerified } from '@/lib/authSession';
 
 /**
  * Redirects logged-in users to /complete-profile if they're missing
- * a display_name or avatar_url. Call at the top of protected pages.
+ * a display_name or avatar_url. For students also checks phone — if
+ * phone is missing, redirects to /complete-profile-step2.
  */
 export function useProfileCompletion() {
   const [complete, setComplete] = useState<boolean | null>(null);
@@ -13,8 +14,7 @@ export function useProfileCompletion() {
   const location = useLocation();
 
   useEffect(() => {
-    // Don't run on the complete-profile page itself or auth-related pages
-    const skip = ['/complete-profile', '/auth', '/reset-password'];
+    const skip = ['/complete-profile', '/complete-profile-step2', '/auth', '/reset-password', '/choose-account-type'];
     if (skip.includes(location.pathname)) {
       setComplete(true);
       return;
@@ -22,14 +22,7 @@ export function useProfileCompletion() {
 
     let cancelled = false;
 
-    // Use onAuthStateChange so we wait for the real session to be restored
-    // from localStorage before making any decisions. getSession() can resolve
-    // with null before Supabase finishes reading storage, causing the check
-    // to be skipped entirely on page refresh.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // We only need the initial session value — unsubscribe immediately
-      // so this doesn't fire again on sign-in/sign-out events (those are
-      // handled by RequireVerifiedSession via useAuthSession).
       subscription.unsubscribe();
       if (cancelled) return;
 
@@ -41,22 +34,42 @@ export function useProfileCompletion() {
         return;
       }
 
-      void supabase
-        .from('profiles')
-        .select('display_name, avatar_url')
-        .eq('user_id', session.user.id)
-        .maybeSingle()
-        .then(({ data: profile }) => {
+      void (async () => {
+        if (cancelled) return;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_url, user_type')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+        const hasName = profile?.display_name && profile.display_name.trim().length > 0;
+        const hasAvatar = profile?.avatar_url && profile.avatar_url.trim().length > 0;
+
+        if (!hasName || !hasAvatar) {
+          navigate('/complete-profile', { replace: true });
+          setComplete(false);
+          return;
+        }
+
+        // For students, also check phone number
+        if (profile?.user_type === 'student') {
+          const { data: sp } = await supabase
+            .from('student_profiles')
+            .select('phone')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
           if (cancelled) return;
-          const hasName = profile?.display_name && profile.display_name.trim().length > 0;
-          const hasAvatar = profile?.avatar_url && profile.avatar_url.trim().length > 0;
-          if (!hasName || !hasAvatar) {
-            navigate('/complete-profile', { replace: true });
+          if (!sp?.phone?.trim()) {
+            navigate('/complete-profile-step2', { replace: true });
             setComplete(false);
-          } else {
-            setComplete(true);
+            return;
           }
-        });
+        }
+
+        setComplete(true);
+      })();
     });
 
     return () => {

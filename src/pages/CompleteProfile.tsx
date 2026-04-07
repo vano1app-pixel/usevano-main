@@ -69,13 +69,8 @@ const CompleteProfile = () => {
       const updates: any = { display_name: displayName.trim(), avatar_url: avatarUrl };
       await supabase.from('profiles').update(updates).eq('user_id', userId!);
 
-      // Also update student_profiles avatar if student
-      if (userType === 'student') {
-        await supabase.from('student_profiles').update({ avatar_url: avatarUrl }).eq('user_id', userId!);
-      }
-
       toast({ title: 'Profile complete' });
-      navigate('/profile', { replace: true });
+      navigate(userType === 'student' ? '/complete-profile-step2' : '/profile', { replace: true });
     } catch (error: any) {
       toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
@@ -115,7 +110,6 @@ const CompleteProfile = () => {
               <AvatarUpload
                 userId={userId!}
                 currentUrl={avatarUrl}
-                table={userType === 'student' ? 'student_profiles' : 'profiles'}
                 onUploaded={(url) => setAvatarUrl(url)}
               />
             </div>

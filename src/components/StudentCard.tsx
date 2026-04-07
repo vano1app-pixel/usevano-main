@@ -41,6 +41,8 @@ interface StudentCardProps {
   avgRating?: string | null;
   /** Number of reviews */
   reviewCount?: number;
+  /** Override avatar from profiles table (single source of truth) */
+  profileAvatarUrl?: string | null;
 }
 
 const MEDAL_STYLES = [
@@ -109,9 +111,11 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   onMessage,
   avgRating,
   reviewCount,
+  profileAvatarUrl,
 }) => {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin(student.user_id);
+  const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
   const area = student.service_area?.trim();
   const uniStyle = getUniStyle(student.university);
@@ -204,9 +208,9 @@ export const StudentCard: React.FC<StudentCardProps> = ({
                 borderRadius: '9999px',
               }}
             >
-              {student.avatar_url ? (
+              {resolvedAvatar ? (
                 <img
-                  src={student.avatar_url}
+                  src={resolvedAvatar}
                   alt={displayName || 'Freelancer'}
                   className="h-16 w-16 rounded-full border-2 border-card object-cover sm:h-20 sm:w-20"
                   loading="lazy"

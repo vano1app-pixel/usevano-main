@@ -40,7 +40,7 @@ const PostJob = () => {
     is_urgent: false,
   });
   const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
-  const [matchedProfiles, setMatchedProfiles] = useState<Record<string, string>>({});
+  const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
   const [matchLoading, setMatchLoading] = useState(false);
 
@@ -129,7 +129,7 @@ const PostJob = () => {
         supabase.from('student_profiles').select('*')
           .eq('is_available', true)
           .eq('community_board_status', 'approved'),
-        supabase.from('profiles').select('user_id, display_name'),
+        supabase.from('profiles').select('user_id, display_name, avatar_url'),
       ]);
 
       const students = studentData || [];
@@ -164,10 +164,10 @@ const PostJob = () => {
 
       setMatchedStudents(matched);
 
-      // Build display name map
-      const nameMap: Record<string, string> = {};
-      profs.forEach((p: any) => { nameMap[p.user_id] = p.display_name; });
-      setMatchedProfiles(nameMap);
+      // Build display name + avatar map
+      const profMap: Record<string, { name: string; avatar: string }> = {};
+      profs.forEach((p: any) => { profMap[p.user_id] = { name: p.display_name, avatar: p.avatar_url || '' }; });
+      setMatchedProfiles(profMap);
 
       // Fetch reviews for matched students
       if (matched.length > 0) {
@@ -619,7 +619,8 @@ const PostJob = () => {
                     >
                       <StudentCard
                         student={student}
-                        displayName={matchedProfiles[student.user_id] || 'Freelancer'}
+                        displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
+                        profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
                         showFavourite={false}
                         avgRating={ratingInfo?.avg ?? null}
                         reviewCount={ratingInfo?.count}

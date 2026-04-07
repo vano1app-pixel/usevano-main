@@ -8,10 +8,9 @@ interface AvatarUploadProps {
   userId: string;
   currentUrl?: string;
   onUploaded: (url: string) => void;
-  table?: 'student_profiles' | 'profiles';
 }
 
-export const AvatarUpload: React.FC<AvatarUploadProps> = ({ userId, currentUrl, onUploaded, table = 'student_profiles' }) => {
+export const AvatarUpload: React.FC<AvatarUploadProps> = ({ userId, currentUrl, onUploaded }) => {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -40,7 +39,7 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({ userId, currentUrl, 
     const url = `${publicUrl}?t=${Date.now()}`;
     setPreview(url);
 
-    await supabase.from(table).update({ avatar_url: url }).eq('user_id', userId);
+    await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', userId);
     onUploaded(url);
     toast({ title: 'Photo updated!' });
     setUploading(false);

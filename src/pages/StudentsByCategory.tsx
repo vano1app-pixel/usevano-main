@@ -49,7 +49,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   const fetchData = async () => {
     const [{ data: studentData, error: studentErr }, { data: profileData, error: profileErr }] = await Promise.all([
       supabase.from('student_profiles').select('*').eq('is_available', true).eq('community_board_status', 'approved').not('bio', 'is', null).not('skills', 'eq', '{}'),
-      supabase.from('profiles').select('user_id, display_name'),
+      supabase.from('profiles').select('user_id, display_name, avatar_url'),
     ]);
 
     if (studentErr || profileErr) { setFetchError(true); setLoading(false); return; }
@@ -86,6 +86,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   };
 
   const getDisplayName = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.display_name || 'Student';
+  const getProfileAvatar = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.avatar_url || null;
 
   const meta = CATEGORY_META[categoryId];
   const Icon = meta.icon;
@@ -175,6 +176,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
                   <StudentCard
                     student={student}
                     displayName={name}
+                    profileAvatarUrl={getProfileAvatar(student.user_id)}
                     showFavourite={false}
                     category={meta.label}
                     avgRating={ratingInfo?.avg ?? null}
