@@ -139,9 +139,26 @@ const Auth = () => {
               <button
                 type="button"
                 onClick={async () => {
-                  await supabase.auth.signOut();
+                  // Sign out globally (revoke server-side too)
+                  await supabase.auth.signOut({ scope: 'global' });
+                  // Clear any leftover Supabase auth tokens from localStorage
+                  Object.keys(localStorage).forEach((key) => {
+                    if (key.startsWith('sb-') || key.includes('supabase')) {
+                      localStorage.removeItem(key);
+                    }
+                  });
+                  clearGoogleOAuthIntent();
                   setExistingEmail(null);
                   setExistingUserId(null);
+                  // Immediately start a fresh Google OAuth flow so user gets the picker
+                  setGoogleOAuthIntent(isLogin ? null : userType);
+                  await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                      redirectTo: getGoogleOAuthRedirectUrl(),
+                      queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+                    },
+                  });
                 }}
                 className="flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground hover:border-foreground/20"
               >
