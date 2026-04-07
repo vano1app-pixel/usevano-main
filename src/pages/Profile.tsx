@@ -80,97 +80,101 @@ const Profile = () => {
   useEffect(() => { loadProfile(); }, []);
 
   const loadProfile = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/auth');
-      return;
-    }
-    setUser(session.user);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
+      setUser(session.user);
 
-    let { data: prof } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+      let { data: prof } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
 
-    // Auto-create profile if missing
-    if (!prof) {
-      const { data: newProf } = await supabase.from('profiles').insert({
-        user_id: session.user.id,
-        display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
-      }).select().single();
-      prof = newProf;
-    }
-
-    setProfile(prof);
-    setDisplayName(prof?.display_name || '');
-    setAvatarUrl(prof?.avatar_url || '');
-
-    if (!prof?.user_type) {
-      navigate('/choose-account-type', { replace: true });
-      setLoading(false);
-      return;
-    }
-
-    if (prof?.user_type === 'business') {
-      setBio(prof?.bio || '');
-      setWorkDescription('');
-      const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
-      setMyGigs(gigs || []);
-    }
-
-    if (prof?.user_type === 'student') {
-      setWorkDescription(prof?.work_description || '');
-      const { data: sp } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
-      if (sp) {
-        setStudentProfile(sp);
-        setBio(sp.bio || '');
-        setSkills(normalizeFreelancerSkills(sp.skills));
-        setHourlyRate(sp.hourly_rate?.toString() || '');
-        setPhone(sp.phone || '');
-        setIsAvailable(sp.is_available);
-        setUniversity((sp as any).university || '');
-        setPaymentDetails((sp as any).payment_details || '');
-        // Avatar is always read from profiles table (single source of truth)
-        setTiktokUrl(sp.tiktok_url || '');
-        setBannerUrl((sp as any).banner_url || '');
-        setServiceArea((sp as any).service_area || '');
-        setTypicalBudgetMin(
-          (sp as any).typical_budget_min != null && (sp as any).typical_budget_min > 0
-            ? String((sp as any).typical_budget_min)
-            : '',
-        );
-        setTypicalBudgetMax(
-          (sp as any).typical_budget_max != null && (sp as any).typical_budget_max > 0
-            ? String((sp as any).typical_budget_max)
-            : '',
-        );
-        const parsed = parseWorkLinksJson(sp.work_links);
-        setWorkLinks(
-          parsed.length > 0
-            ? parsed.map((p) => ({ url: p.url, label: p.label }))
-            : [{ url: '', label: '' }]
-        );
+      // Auto-create profile if missing
+      if (!prof) {
+        const { data: newProf } = await supabase.from('profiles').insert({
+          user_id: session.user.id,
+          display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
+        }).select().single();
+        prof = newProf;
       }
 
-      // Portfolio item count for quality widget
-      const { count: piCount } = await supabase
-        .from('portfolio_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', session.user.id);
-      setPortfolioCount(piCount ?? 0);
+      setProfile(prof);
+      setDisplayName(prof?.display_name || '');
+      setAvatarUrl(prof?.avatar_url || '');
 
-      const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
-      setMyGigs(gigs || []);
+      if (!prof?.user_type) {
+        navigate('/choose-account-type', { replace: true });
+        return;
+      }
 
-      // Load existing community post so wizard can pre-fill and inline card can render
-      const { data: postRow } = await supabase
-        .from('community_posts')
-        .select('id, category, title, description, image_url, rate_min, rate_max, rate_unit, likes_count, created_at')
-        .eq('user_id', session.user.id)
-        .eq('moderation_status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      setExistingPost(postRow ?? null);
+      if (prof?.user_type === 'business') {
+        setBio(prof?.bio || '');
+        setWorkDescription('');
+        const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
+        setMyGigs(gigs || []);
+      }
+
+      if (prof?.user_type === 'student') {
+        setWorkDescription(prof?.work_description || '');
+        const { data: sp } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+        if (sp) {
+          setStudentProfile(sp);
+          setBio(sp.bio || '');
+          setSkills(normalizeFreelancerSkills(sp.skills));
+          setHourlyRate(sp.hourly_rate?.toString() || '');
+          setPhone(sp.phone || '');
+          setIsAvailable(sp.is_available);
+          setUniversity((sp as any).university || '');
+          setPaymentDetails((sp as any).payment_details || '');
+          setTiktokUrl(sp.tiktok_url || '');
+          setBannerUrl((sp as any).banner_url || '');
+          setServiceArea((sp as any).service_area || '');
+          setTypicalBudgetMin(
+            (sp as any).typical_budget_min != null && (sp as any).typical_budget_min > 0
+              ? String((sp as any).typical_budget_min)
+              : '',
+          );
+          setTypicalBudgetMax(
+            (sp as any).typical_budget_max != null && (sp as any).typical_budget_max > 0
+              ? String((sp as any).typical_budget_max)
+              : '',
+          );
+          const parsed = parseWorkLinksJson(sp.work_links);
+          setWorkLinks(
+            parsed.length > 0
+              ? parsed.map((p) => ({ url: p.url, label: p.label }))
+              : [{ url: '', label: '' }]
+          );
+        }
+
+        // Portfolio item count for quality widget
+        const { count: piCount } = await supabase
+          .from('portfolio_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', session.user.id);
+        setPortfolioCount(piCount ?? 0);
+
+        const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
+        setMyGigs(gigs || []);
+
+        // Load existing community post so wizard can pre-fill and inline card can render
+        const { data: postRow } = await supabase
+          .from('community_posts')
+          .select('id, category, title, description, image_url, rate_min, rate_max, rate_unit, likes_count, created_at')
+          .eq('user_id', session.user.id)
+          .eq('moderation_status', 'approved')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setExistingPost(postRow ?? null);
+      }
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+      toast({ title: 'Something went wrong', description: 'Could not load your profile. Try refreshing.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const openWizardAtStep = (step: number) => {
