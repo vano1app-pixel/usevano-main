@@ -26,6 +26,7 @@ import Community from "./pages/Community";
 import Portfolio from "./pages/Portfolio";
 
 import CompleteProfile from "./pages/CompleteProfile";
+import CompleteProfileStep2 from "./pages/CompleteProfileStep2";
 import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
@@ -97,6 +98,14 @@ const App = () => (
         element={
           <RequireVerifiedSession>
             <CompleteProfile />
+          </RequireVerifiedSession>
+        }
+      />
+      <Route
+        path="/complete-profile-step2"
+        element={
+          <RequireVerifiedSession>
+            <CompleteProfileStep2 />
           </RequireVerifiedSession>
         }
       />

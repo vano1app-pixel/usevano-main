@@ -41,6 +41,8 @@ interface StudentCardProps {
   avgRating?: string | null;
   /** Number of reviews */
   reviewCount?: number;
+  /** Override avatar from profiles table (single source of truth) */
+  profileAvatarUrl?: string | null;
 }
 
 const MEDAL_STYLES = [
@@ -109,9 +111,11 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   onMessage,
   avgRating,
   reviewCount,
+  profileAvatarUrl,
 }) => {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin(student.user_id);
+  const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
   const area = student.service_area?.trim();
   const uniStyle = getUniStyle(student.university);
@@ -124,17 +128,17 @@ export const StudentCard: React.FC<StudentCardProps> = ({
     <div
       className={cn(
         'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200',
-        clickable && 'cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 group',
+        clickable && 'cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 active:scale-[0.98] group',
         !clickable && 'cursor-default',
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
       {/* Banner — taller for more visual presence */}
-      <div className="relative h-48 w-full overflow-hidden sm:h-52">
+      <div className="relative h-52 w-full overflow-hidden sm:h-60">
         {student.banner_url ? (
-          <img src={student.banner_url} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+          <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
         ) : (
-          <div className="h-full w-full" style={{ background: cardGradient(student.user_id) }} />
+          <div className="h-full w-full transition-transform duration-500 group-hover:scale-105" style={{ background: cardGradient(student.user_id) }} />
         )}
         {/* Gradient overlay — stronger at bottom */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
@@ -190,7 +194,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
       <div className="px-4 pb-4">
         {/* Avatar row — overlaps banner */}
-        <div className="flex items-end justify-between -mt-7 mb-3">
+        <div className="flex items-end justify-between -mt-9 mb-3">
           <div className="flex flex-col items-center gap-0.5">
             <div
               className="relative rounded-full shadow-md"
@@ -204,16 +208,16 @@ export const StudentCard: React.FC<StudentCardProps> = ({
                 borderRadius: '9999px',
               }}
             >
-              {student.avatar_url ? (
+              {resolvedAvatar ? (
                 <img
-                  src={student.avatar_url}
+                  src={resolvedAvatar}
                   alt={displayName || 'Freelancer'}
-                  className="h-14 w-14 rounded-full border-2 border-card object-cover sm:h-16 sm:w-16"
+                  className="h-16 w-16 rounded-full border-2 border-card object-cover sm:h-20 sm:w-20"
                   loading="lazy"
                   decoding="async"
                 />
               ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-card bg-primary/10 text-lg font-bold text-primary sm:h-16 sm:w-16 sm:text-xl">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-card bg-primary/10 text-xl font-bold text-primary sm:h-20 sm:w-20 sm:text-2xl">
                   {(displayName || 'S')[0].toUpperCase()}
                 </div>
               )}
@@ -243,7 +247,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         </div>
 
         {/* Name */}
-        <h3 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground">
+        <h3 className="truncate text-lg font-semibold leading-tight tracking-tight text-foreground sm:text-xl">
           {displayName || 'Freelancer'}
         </h3>
 
@@ -296,7 +300,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
             <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-              View profile <ArrowRight size={12} strokeWidth={2.5} />
+              View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform group-hover:translate-x-0.5" />
             </span>
             {onMessage && (
               <button

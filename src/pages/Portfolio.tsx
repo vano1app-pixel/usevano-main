@@ -114,7 +114,7 @@ const Portfolio = () => {
         <FreelancerPublicHeader
           displayName={profile.display_name || 'Freelancer'}
           bannerUrl={student.banner_url}
-          avatarUrl={student.avatar_url}
+          avatarUrl={profile.avatar_url}
           isAvailable={student.is_available}
           serviceArea={student.service_area}
           hourlyRate={student.hourly_rate}

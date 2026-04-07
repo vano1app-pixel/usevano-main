@@ -358,7 +358,7 @@ const Messages = () => {
         }).catch(() => {});
       });
 
-      // Notify admin about business↔freelancer messages
+      // Notify admin about business↔freelancer messages (in-app + email)
       (async () => {
         try {
           const [{ data: senderProfile }, { data: recipientProfile }] = await Promise.all([
@@ -368,6 +368,7 @@ const Messages = () => {
           const isBizToFreelancer = senderProfile?.user_type === 'business' && recipientProfile?.user_type === 'student';
           const isFreelancerToBiz = senderProfile?.user_type === 'student' && recipientProfile?.user_type === 'business';
           if (isBizToFreelancer || isFreelancerToBiz) {
+            // In-app notification for admins
             const { data: adminIds } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
             if (adminIds?.length) {
               const title = isBizToFreelancer
@@ -378,6 +379,30 @@ const Messages = () => {
                   .filter((a) => a.user_id !== user.id)
                   .map((a) => ({ user_id: a.user_id, title, message: tempMsg.content.slice(0, 100) }))
               );
+            }
+
+            // Email notification to admin via Resend
+            const freelancerUid = isBizToFreelancer ? recipientId : user.id;
+            const { data: spPhone } = await supabase.from('student_profiles').select('phone').eq('user_id', freelancerUid).maybeSingle();
+
+            const sess = await supabase.auth.getSession();
+            const token = sess.data.session?.access_token;
+            if (token) {
+              const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || getSupabaseProjectRef();
+              if (projectId) {
+                fetch(`https://${projectId}.supabase.co/functions/v1/notify-admin-message`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({
+                    sender_name: senderProfile!.display_name,
+                    recipient_name: recipientProfile!.display_name,
+                    sender_type: senderProfile!.user_type,
+                    recipient_type: recipientProfile!.user_type,
+                    message_preview: tempMsg.content,
+                    freelancer_phone: spPhone?.phone || null,
+                  }),
+                }).catch(() => {});
+              }
             }
           }
         } catch {}

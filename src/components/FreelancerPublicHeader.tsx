@@ -48,7 +48,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="relative h-48 sm:h-56">
+      <div className="relative h-56 sm:h-64 overflow-hidden">
         {bannerUrl ? (
           <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -65,16 +65,16 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
       </div>
 
       <div className="relative z-[1] px-4 pb-5 pt-0 sm:px-6 sm:pb-6">
-        <div className="-mt-14 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:gap-6">
+        <div className="-mt-16 flex flex-col gap-4 sm:-mt-20 sm:flex-row sm:items-end sm:gap-6">
           <div className="shrink-0">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt={displayName}
-                className="h-24 w-24 rounded-full border-4 border-card object-cover shadow-lg ring-1 ring-border/60 sm:h-28 sm:w-28"
+                className="h-28 w-28 rounded-full border-4 border-card object-cover shadow-lg ring-2 ring-primary/15 sm:h-32 sm:w-32"
               />
             ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-card bg-primary/12 text-3xl font-bold text-primary shadow-lg ring-1 ring-border/60 sm:h-28 sm:w-28 sm:text-4xl">
+              <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-card bg-primary/12 text-3xl font-bold text-primary shadow-lg ring-2 ring-primary/15 sm:h-32 sm:w-32 sm:text-4xl">
                 {displayName[0]?.toUpperCase() || '?'}
               </div>
             )}
