@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
-import { Briefcase, GraduationCap } from 'lucide-react';
+import { Briefcase, GraduationCap, LogOut } from 'lucide-react';
 import { isEmailVerified, rememberTalentBoardReturn, resolvePostAuthDestination } from '@/lib/authSession';
 import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,8 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [userType, setUserType] = useState<'student' | 'business'>('student');
   const [loading, setLoading] = useState(false);
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
+  const [existingUserId, setExistingUserId] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,9 +28,11 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       subscription.unsubscribe();
       if (!session || !isEmailVerified(session)) return;
-      void resolvePostAuthDestination(session.user.id).then((path) => navigate(path, { replace: true }));
+      // Instead of auto-redirecting, show the user who they're signed in as
+      setExistingEmail(session.user.email || null);
+      setExistingUserId(session.user.id);
     });
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     const mode = new URLSearchParams(window.location.search).get('mode');
@@ -116,6 +120,37 @@ const Auth = () => {
             Create account
           </button>
         </div>
+
+        {existingEmail && (
+          <div className="mb-4 rounded-2xl border border-border bg-card p-5 space-y-3">
+            <p className="text-sm text-foreground">
+              You're signed in as <span className="font-semibold">{existingEmail}</span>
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => {
+                  void resolvePostAuthDestination(existingUserId!).then((path) => navigate(path, { replace: true }));
+                }}
+                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90"
+              >
+                Continue as {existingEmail?.split('@')[0]}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setExistingEmail(null);
+                  setExistingUserId(null);
+                }}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground hover:border-foreground/20"
+              >
+                <LogOut size={14} />
+                Use a different account
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="bg-card border border-border rounded-2xl p-6 md:p-8 space-y-5">
           {!isLogin && (

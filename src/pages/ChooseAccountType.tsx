@@ -73,7 +73,8 @@ const ChooseAccountType = () => {
         if (upErr) throw upErr;
       }
       if (selected === 'student') {
-        await supabase.from('student_profiles').upsert({ user_id: uid }, { onConflict: 'user_id' });
+        const { error: spErr } = await supabase.from('student_profiles').upsert({ user_id: uid }, { onConflict: 'user_id' });
+        if (spErr) throw spErr;
       }
       const path = await resolvePostGoogleAuthDestination(uid);
       navigate(path, { replace: true });
