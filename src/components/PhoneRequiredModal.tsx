@@ -27,6 +27,15 @@ export const PhoneRequiredModal = () => {
 
       if (profile?.user_type !== 'student') return;
 
+      // Skip for admin accounts
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', uid)
+        .eq('role', 'admin')
+        .maybeSingle();
+      if (roleData?.role === 'admin') return;
+
       // New user — missing name
       if (!profile?.display_name?.trim()) {
         setUserId(uid);
