@@ -814,7 +814,7 @@ const Profile = () => {
                           localStorage.removeItem(key);
                         }
                       });
-                      window.location.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.origin + '/auth?mode=signup');
+                      window.location.href = '/auth?mode=signup';
                     }}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:text-destructive hover:border-destructive/30"
                   >
@@ -977,7 +977,7 @@ const Profile = () => {
                       localStorage.removeItem(key);
                     }
                   });
-                  window.location.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.origin + '/auth?mode=signup');
+                  window.location.href = '/auth?mode=signup';
                 }}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:text-destructive hover:border-destructive/30"
               >
