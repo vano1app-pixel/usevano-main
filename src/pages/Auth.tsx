@@ -57,7 +57,7 @@ const Auth = () => {
         provider: 'google',
         options: {
           redirectTo: getGoogleOAuthRedirectUrl(),
-          queryParams: { access_type: 'offline', prompt: 'select_account' },
+          queryParams: { access_type: 'offline', prompt: 'consent select_account' },
         },
       });
       if (error) throw error;
