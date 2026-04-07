@@ -52,22 +52,6 @@ export function useProfileCompletion() {
           return;
         }
 
-        // For students, also check phone number
-        if (profile?.user_type === 'student') {
-          const { data: sp } = await supabase
-            .from('student_profiles')
-            .select('phone')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-
-          if (cancelled) return;
-          if (!sp?.phone?.trim()) {
-            navigate('/complete-profile-step2', { replace: true });
-            setComplete(false);
-            return;
-          }
-        }
-
         setComplete(true);
       })();
     });
