@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
-  RefreshCw, Loader2, X,
+  RefreshCw, Loader2,
   Briefcase, MapPin, Euro, Calendar, Tag,
   Phone, MessageCircle, Sparkles, PenLine, ChevronLeft, Users,
 } from 'lucide-react';
@@ -17,6 +17,17 @@ import { isEmailVerified } from '@/lib/authSession';
 import { TEAM_PHONE_DISPLAY, teamTelHref, teamWhatsAppHref } from '@/lib/contact';
 
 type Mode = 'choose' | 'vano' | 'self' | 'results';
+
+const SKILL_OPTIONS = [
+  // Videography
+  'Video editing', 'Filming', 'Reels', 'Drone', 'Promo video', 'Wedding film', 'Corporate video',
+  // Photography
+  'Photography', 'Portrait', 'Headshots', 'Product photos', 'Event photos', 'Wedding photo',
+  // Web design
+  'Web design', 'WordPress', 'React', 'Shopify', 'Figma', 'Webflow', 'Framer',
+  // Social media
+  'Social media', 'Content creation', 'Instagram', 'TikTok', 'Canva', 'Copywriting', 'Marketing',
+];
 
 const PostJob = () => {
   const navigate = useNavigate();
@@ -29,8 +40,6 @@ const PostJob = () => {
   const [loading, setLoading] = useState(false);
   const [rehireStudentName, setRehireStudentName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
-  const tagInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -85,25 +94,8 @@ const PostJob = () => {
     init();
   }, [rehireStudentId, navigate]);
 
-  const addTag = (raw: string) => {
-    const val = raw.trim().replace(/,+$/, '').trim();
-    if (!val) return;
-    const formatted = val.charAt(0).toUpperCase() + val.slice(1);
-    if (!tags.includes(formatted) && tags.length < 10) {
-      setTags((prev) => [...prev, formatted]);
-    }
-    setTagInput('');
-  };
-
-  const removeTag = (tag: string) => setTags((prev) => prev.filter((t) => t !== tag));
-
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); }
-    if (e.key === ',') { e.preventDefault(); addTag(tagInput); }
-    if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
-      setTags((prev) => prev.slice(0, -1));
-    }
-  };
+  const toggleTag = (tag: string) =>
+    setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
 
   const geocodeLocation = async (location: string): Promise<{ lat: number; lon: number } | null> => {
     if (!location.trim()) return null;
@@ -195,6 +187,11 @@ const PostJob = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (tags.length === 0) {
+      toast({ title: 'Please select at least one skill tag', variant: 'destructive' });
+      return;
+    }
 
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
@@ -502,35 +499,28 @@ const PostJob = () => {
                     <Tag size={14} className="text-slate-400" />
                   </div>
                   <h2 className="text-sm font-semibold text-foreground">
-                    Tags <span className="font-normal text-muted-foreground">(optional)</span>
+                    Skills needed <span className="text-red-500 ml-0.5">*</span>
                   </h2>
                 </div>
                 <p className="-mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Type a skill or keyword and press Enter or comma to add. Up to 8 tags.
+                  Select the skills you need — we'll match you with freelancers who have them.
                 </p>
-                <div
-                  className="flex min-h-[44px] cursor-text flex-wrap gap-1.5 rounded-xl border border-input bg-background px-3 py-2"
-                  onClick={() => tagInputRef.current?.focus()}
-                >
-                  {tags.map((tag) => (
-                    <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-foreground/8 px-2 py-0.5 text-[12px] font-medium text-foreground">
-                      {tag}
-                      <button type="button" onClick={(e) => { e.stopPropagation(); removeTag(tag); }} className="text-muted-foreground hover:text-foreground">
-                        <X size={11} strokeWidth={2.5} />
-                      </button>
-                    </span>
+                <div className="flex flex-wrap gap-2">
+                  {SKILL_OPTIONS.map(skill => (
+                    <button
+                      type="button"
+                      key={skill}
+                      onClick={() => toggleTag(skill)}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                        tags.includes(skill)
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background text-foreground hover:border-primary/60'
+                      )}
+                    >
+                      {skill}
+                    </button>
                   ))}
-                  {tags.length < 10 && (
-                    <input
-                      ref={tagInputRef}
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={handleTagKeyDown}
-                      onBlur={() => addTag(tagInput)}
-                      placeholder={tags.length === 0 ? 'e.g. Logo Design, Video, React…' : ''}
-                      className="min-w-[120px] flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
-                    />
-                  )}
                 </div>
               </div>
 
@@ -558,7 +548,7 @@ const PostJob = () => {
                 </div>
               </div>
 
-              <Button type="submit" disabled={loading} size="lg" className="h-12 w-full rounded-xl text-base font-semibold">
+              <Button type="submit" disabled={loading || tags.length === 0} size="lg" className="h-12 w-full rounded-xl text-base font-semibold">
                 {loading ? <><Loader2 size={16} className="animate-spin" /> Posting…</> : 'Publish gig'}
               </Button>
 
