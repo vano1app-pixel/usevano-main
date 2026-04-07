@@ -30,7 +30,7 @@ interface ProfileRow {
 
 interface StudentDataRow {
   user_id: string;
-  student_number: string | null;
+  phone: string | null;
   university: string | null;
 }
 
@@ -103,9 +103,9 @@ const Admin = () => {
   // Admin user IDs
   const [adminUserIds, setAdminUserIds] = useState<Set<string>>(new Set());
 
-  // Student data (number + university)
+  // Student data (phone + university)
   const [studentDataMap, setStudentDataMap] = useState<Record<string, StudentDataRow>>({});
-  const [showNoStudentNumber, setShowNoStudentNumber] = useState(false);
+  const [showNoPhone, setShowNoPhone] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -153,7 +153,7 @@ const Admin = () => {
     if (studentIds.length > 0) {
       const { data: spData } = await supabase
         .from('student_profiles')
-        .select('user_id, student_number, university')
+        .select('user_id, phone, university')
         .in('user_id', studentIds);
       const map: Record<string, StudentDataRow> = {};
       (spData || []).forEach((sp) => { map[sp.user_id] = sp; });
@@ -368,10 +368,10 @@ const Admin = () => {
   const filteredUsers = users.filter((u) => {
     const matchesSearch = (u.display_name || '').toLowerCase().includes(q) || (u.user_type || '').toLowerCase().includes(q);
     if (!matchesSearch) return false;
-    if (showNoStudentNumber) {
+    if (showNoPhone) {
       if (u.user_type !== 'student') return false;
       const sp = studentDataMap[u.user_id];
-      if (sp?.student_number?.trim()) return false;
+      if (sp?.phone?.trim()) return false;
     }
     return true;
   });
@@ -525,16 +525,16 @@ const Admin = () => {
             <div className="flex items-center gap-2 mb-3">
               <button
                 type="button"
-                onClick={() => setShowNoStudentNumber((v) => !v)}
+                onClick={() => setShowNoPhone((v) => !v)}
                 className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
-                  showNoStudentNumber
+                  showNoPhone
                     ? 'bg-destructive/10 border-destructive/30 text-destructive'
                     : 'border-border text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {showNoStudentNumber ? '✕ Clear filter' : '⚠ No student number'}
+                {showNoPhone ? '✕ Clear filter' : '⚠ No phone number'}
               </button>
-              {showNoStudentNumber && (
+              {showNoPhone && (
                 <span className="text-xs text-muted-foreground">{filteredUsers.length} account{filteredUsers.length !== 1 ? 's' : ''} flagged</span>
               )}
             </div>
@@ -543,7 +543,6 @@ const Admin = () => {
             )}
             {filteredUsers.map((u) => {
               const sp = studentDataMap[u.user_id];
-              const missingStudentNumber = u.user_type === 'student' && !sp?.student_number?.trim();
               return (
               <div key={u.user_id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
@@ -565,9 +564,9 @@ const Admin = () => {
                   </p>
                   {u.user_type === 'student' && (
                     <p className="text-xs mt-0.5">
-                      {sp?.student_number?.trim()
-                        ? <span className="text-emerald-600">#{sp.student_number}{sp?.university ? ` · ${sp.university}` : ''}</span>
-                        : <span className="text-destructive font-medium">⚠ No student number</span>
+                      {sp?.phone?.trim()
+                        ? <span className="text-emerald-600">📞 {sp.phone}{sp?.university ? ` · ${sp.university}` : ''}</span>
+                        : <span className="text-destructive font-medium">⚠ No phone number</span>
                       }
                     </p>
                   )}
