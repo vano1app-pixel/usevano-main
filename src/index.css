@@ -130,3 +130,12 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* Reduced motion: disable decorative animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer,
+  .animate-float,
+  .animate-pulse-ring {
+    animation: none !important;
+  }
+}
