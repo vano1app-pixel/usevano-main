@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
@@ -17,7 +16,6 @@ export const PhoneRequiredModal = () => {
   const [skills, setSkills] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const checkNeeded = async (uid: string) => {
@@ -82,22 +80,25 @@ export const PhoneRequiredModal = () => {
     setLoading(true);
     try {
       if (isNewUser) {
-        await supabase
+        const { error: profileError } = await supabase
           .from('profiles')
           .update({ display_name: displayName.trim() })
           .eq('user_id', userId!);
+        if (profileError) throw profileError;
       }
-      await supabase
+
+      const { error: spError } = await supabase
         .from('student_profiles')
-        .update({
+        .upsert({
+          user_id: userId!,
           phone: phone.trim(),
           ...(isNewUser && skills.length > 0 ? { skills } : {}),
-        })
-        .eq('user_id', userId!);
+        }, { onConflict: 'user_id' });
+      if (spError) throw spError;
+
       setShow(false);
-      navigate('/profile');
     } catch (error: any) {
-      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+      toast({ title: 'Error saving details', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
