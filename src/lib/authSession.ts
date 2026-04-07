@@ -71,7 +71,8 @@ export function isEmailVerified(session: Session | null): boolean {
 }
 
 /**
- * Where to send a signed-in user: profile when complete; otherwise business → dashboard, freelancer → complete-profile.
+ * Where to send a signed-in user: students always go to /profile (modal handles missing fields);
+ * business → dashboard or complete-profile if incomplete.
  */
 export async function getPostAuthPath(
   userId: string,
@@ -83,14 +84,16 @@ export async function getPostAuthPath(
     .maybeSingle();
   if (!profile?.user_type?.trim()) return '/choose-account-type';
 
+  // Students go straight to /profile — onboarding modal handles missing fields
+  if (profile.user_type === 'student') return '/profile';
+
   const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
-  if (done) return '/profile';
-  if (profile?.user_type === 'business') return '/dashboard';
-  return '/complete-profile';
+  return done ? '/dashboard' : '/complete-profile';
 }
 
 /**
- * After Google OAuth (and account-type choice): no user_type → picker; else incomplete → /complete-profile; complete → /dashboard.
+ * After Google OAuth: no user_type → picker; students → /profile (modal handles rest);
+ * business incomplete → /complete-profile; complete → /profile.
  */
 export async function getPostGoogleAuthPath(
   userId: string,
@@ -101,6 +104,9 @@ export async function getPostGoogleAuthPath(
     .eq('user_id', userId)
     .maybeSingle();
   if (!profile?.user_type?.trim()) return '/choose-account-type';
+
+  // Students go straight to /profile — onboarding modal handles missing fields
+  if (profile.user_type === 'student') return '/profile';
 
   const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
   if (!done) return '/complete-profile';
