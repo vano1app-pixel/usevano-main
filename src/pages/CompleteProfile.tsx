@@ -83,10 +83,7 @@ const CompleteProfile = () => {
       toast({ title: 'Please upload a profile photo', variant: 'destructive' });
       return;
     }
-    if (userType === 'student' && !phone.trim()) {
-      toast({ title: 'Phone number is required', variant: 'destructive' });
-      return;
-    }
+    // Phone is optional here — collected later in the listing wizard
 
     setLoading(true);
     try {
@@ -183,7 +180,7 @@ const CompleteProfile = () => {
                   <label className="flex items-center gap-1.5 text-sm font-medium mb-1.5">
                     <Phone size={14} className="text-muted-foreground" />
                     Phone number
-                    <span className="text-red-500 ml-0.5">*</span>
+                    <span className="text-xs text-muted-foreground font-normal ml-1">(optional)</span>
                   </label>
                   <input
                     type="tel"
@@ -223,7 +220,7 @@ const CompleteProfile = () => {
 
             <button
               type="submit"
-              disabled={loading || !displayName.trim() || !avatarUrl.trim() || (isStudent && !phone.trim())}
+              disabled={loading || !displayName.trim() || !avatarUrl.trim()}
               className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Continue →'}
