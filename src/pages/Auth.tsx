@@ -146,8 +146,8 @@ const Auth = () => {
                     }
                   });
                   clearGoogleOAuthIntent();
-                  // Redirect to Google's Account Chooser — always shows "Use another account"
-                  window.location.href = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(window.location.origin + '/auth?mode=signup');
+                  setExistingEmail(null);
+                  setExistingUserId(null);
                 }}
                 className="flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground hover:border-foreground/20"
               >
