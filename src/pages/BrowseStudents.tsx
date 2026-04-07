@@ -84,7 +84,7 @@ const BrowseStudents = () => {
           <div className="flex flex-col gap-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
             <div className="grid grid-cols-2 gap-3">
-              {TALENT_HUB_CATEGORIES.map((item) => {
+              {TALENT_HUB_CATEGORIES.map((item, idx) => {
                 const Icon = item.icon;
                 const count = countsByCategory[item.cat];
                 return (
@@ -92,11 +92,12 @@ const BrowseStudents = () => {
                     key={item.cat}
                     type="button"
                     onClick={() => navigate(`/students/${item.cat}`)}
-                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all hover:border-primary/20 hover:shadow-md active:scale-[0.98]"
+                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all hover:border-primary/20 hover:shadow-md active:scale-[0.98] animate-fade-in opacity-0"
+                    style={{ animationDelay: `${idx * 70}ms` }}
                   >
                     {item.image && (
                       <>
-                        <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none" />
+                        <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-transform duration-500 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
                       </>
                     )}

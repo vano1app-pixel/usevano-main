@@ -99,7 +99,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
       <Navbar />
 
       <div
-        className="mx-auto max-w-2xl px-3 sm:px-4 md:px-8 pb-12 sm:pb-16
+        className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pb-12 sm:pb-16
         pt-[max(4.5rem,calc(env(safe-area-inset-top,0px)+3.25rem))]
         sm:pt-20 md:pt-24"
       >
@@ -107,9 +107,9 @@ const StudentsByCategory = ({ categoryId }: Props) => {
         <button
           type="button"
           onClick={() => navigate('/students')}
-          className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="group mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft size={16} strokeWidth={2} />
+          <ArrowLeft size={16} strokeWidth={2} className="transition-transform group-hover:-translate-x-1" />
           All categories
         </button>
 
@@ -167,20 +167,21 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           </p>
         ) : (
           <div className="flex flex-col gap-4">
-            {students.map((student) => {
+            {students.map((student, idx) => {
               const name = getDisplayName(student.user_id);
               const ratingInfo = reviewMap[student.user_id];
               return (
-                <StudentCard
-                  key={student.id}
-                  student={student}
-                  displayName={name}
-                  showFavourite={false}
-                  category={meta.label}
-                  avgRating={ratingInfo?.avg ?? null}
-                  reviewCount={ratingInfo?.count}
-                  onMessage={(userId) => navigate(`/messages?with=${userId}`)}
-                />
+                <div key={student.id} className="animate-fade-in opacity-0" style={{ animationDelay: `${idx * 60}ms` }}>
+                  <StudentCard
+                    student={student}
+                    displayName={name}
+                    showFavourite={false}
+                    category={meta.label}
+                    avgRating={ratingInfo?.avg ?? null}
+                    reviewCount={ratingInfo?.count}
+                    onMessage={(userId) => navigate(`/messages?with=${userId}`)}
+                  />
+                </div>
               );
             })}
           </div>
