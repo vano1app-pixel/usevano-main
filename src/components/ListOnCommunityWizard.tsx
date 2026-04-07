@@ -582,7 +582,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         throw spErr;
       }
 
-      await supabase.from('community_posts').delete().eq('user_id', userId);
+      const { error: delErr } = await supabase.from('community_posts').delete().eq('user_id', userId);
+      if (delErr) {
+        logSupabaseError('ListOnCommunityWizard: community_posts delete', delErr);
+        // Non-fatal for first-time listings (nothing to delete), fatal for edits
+      }
 
       const { error: postErr } = await supabase
         .from('community_posts')

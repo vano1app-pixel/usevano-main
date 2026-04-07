@@ -206,41 +206,50 @@ const Profile = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    const profileUpdate: any = { display_name: displayName, avatar_url: avatarUrl };
+    try {
+      const profileUpdate: any = { display_name: displayName, avatar_url: avatarUrl };
 
-    if (profile?.user_type === 'business') {
-      profileUpdate.bio = bio;
-      profileUpdate.work_description = '';
-    } else if (profile?.user_type === 'student') {
-      profileUpdate.work_description = workDescription;
-    }
-
-    await supabase.from('profiles').update(profileUpdate).eq('user_id', user.id);
-
-    if (profile?.user_type === 'student') {
-      const studentData = {
-        bio,
-        skills: normalizeFreelancerSkills(skills),
-        hourly_rate: parseFloat(hourlyRate) || 0,
-        phone,
-        is_available: isAvailable,
-        banner_url: bannerUrl || null,
-        service_area: serviceArea.trim() || null,
-        typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null,
-        typical_budget_max: parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null,
-        payment_details: paymentDetails,
-        university,
-        tiktok_url: normalizeTikTokUrl(tiktokUrl),
-        work_links: workLinksToJson(workLinks) as any,
-      };
-      if (studentProfile) {
-        await supabase.from('student_profiles').update(studentData as any).eq('user_id', user.id);
-      } else {
-        await supabase.from('student_profiles').insert({ user_id: user.id, ...studentData } as any);
+      if (profile?.user_type === 'business') {
+        profileUpdate.bio = bio;
+        profileUpdate.work_description = '';
+      } else if (profile?.user_type === 'student') {
+        profileUpdate.work_description = workDescription;
       }
+
+      const { error: profErr } = await supabase.from('profiles').update(profileUpdate).eq('user_id', user.id);
+      if (profErr) throw profErr;
+
+      if (profile?.user_type === 'student') {
+        const studentData = {
+          bio,
+          skills: normalizeFreelancerSkills(skills),
+          hourly_rate: parseFloat(hourlyRate) || 0,
+          phone,
+          is_available: isAvailable,
+          banner_url: bannerUrl || null,
+          service_area: serviceArea.trim() || null,
+          typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null,
+          typical_budget_max: parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null,
+          payment_details: paymentDetails,
+          university,
+          tiktok_url: normalizeTikTokUrl(tiktokUrl),
+          work_links: workLinksToJson(workLinks) as any,
+        };
+        if (studentProfile) {
+          const { error: spErr } = await supabase.from('student_profiles').update(studentData as any).eq('user_id', user.id);
+          if (spErr) throw spErr;
+        } else {
+          const { error: spErr } = await supabase.from('student_profiles').insert({ user_id: user.id, ...studentData } as any);
+          if (spErr) throw spErr;
+        }
+      }
+      toast({ title: 'Profile saved!' });
+    } catch (err: any) {
+      console.error('Failed to save profile:', err);
+      toast({ title: 'Could not save', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
-    toast({ title: 'Profile saved!' });
-    setSaving(false);
   };
 
   const deleteGig = async (jobId: string) => {

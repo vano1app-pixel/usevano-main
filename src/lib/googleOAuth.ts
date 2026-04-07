@@ -67,21 +67,25 @@ export async function ensureProfileAfterGoogleOAuth(session: Session): Promise<v
     .maybeSingle();
 
   if (!existing) {
-    await supabase.from('profiles').insert({
+    const { error: insErr } = await supabase.from('profiles').insert({
       user_id: userId,
       display_name: name,
       user_type: resolvedFromIntent,
     });
+    if (insErr) throw insErr;
     if (resolvedFromIntent === 'student') {
-      await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      const { error: spErr } = await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      if (spErr) throw spErr;
     }
     return;
   }
 
   if (!existing.user_type && resolvedFromIntent) {
-    await supabase.from('profiles').update({ user_type: resolvedFromIntent }).eq('user_id', userId);
+    const { error: upErr } = await supabase.from('profiles').update({ user_type: resolvedFromIntent }).eq('user_id', userId);
+    if (upErr) throw upErr;
     if (resolvedFromIntent === 'student') {
-      await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      const { error: spErr } = await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+      if (spErr) throw spErr;
     }
   }
 }
