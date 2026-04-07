@@ -48,12 +48,6 @@ const CompleteProfile = () => {
         return;
       }
 
-      // Students are handled by the onboarding modal — send straight to profile
-      if (profile?.user_type === 'student') {
-        navigate('/profile', { replace: true });
-        return;
-      }
-
       if (profile?.display_name?.trim() && profile?.avatar_url?.trim()) {
         navigate('/profile', { replace: true });
         return;
