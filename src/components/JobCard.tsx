@@ -68,8 +68,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
       }}
       onMouseLeave={() => setSpot(null)}
       className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-300',
-        'hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md active:scale-[0.98]',
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-250',
+        'hover:-translate-y-[3px] hover:border-foreground/15 hover:shadow-lg active:scale-[0.97]',
         job.is_urgent && 'border-destructive/30'
       )}
     >
@@ -109,7 +109,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
               await onToggleSave(job.id);
               setSaving(false);
             }}
-            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
+            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-all duration-150 hover:bg-background hover:text-foreground active:scale-95 disabled:opacity-50"
             title={isSaved ? 'Remove save' : 'Save gig'}
           >
             {saving

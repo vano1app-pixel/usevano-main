@@ -33,8 +33,8 @@ export const TagBadge: React.FC<TagBadgeProps> = ({ tag, selected, onClick, remo
     <span
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium ring-1 transition-colors',
-        onClick && 'cursor-pointer',
+        'inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium ring-1 transition-all duration-150',
+        onClick && 'cursor-pointer hover:shadow-sm active:scale-95',
         selected
           ? 'bg-primary/12 text-primary ring-primary/30'
           : tagColor(tag),
@@ -44,7 +44,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({ tag, selected, onClick, remo
       {removable && onRemove && (
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="ml-0.5 opacity-60 hover:opacity-100 hover:text-destructive"
+          className="ml-0.5 opacity-60 hover:opacity-100 hover:text-destructive transition-all duration-150"
         >
           ×
         </button>

@@ -95,7 +95,7 @@ export const Navbar: React.FC = () => {
               <button
                 key={item.href}
                 onClick={() => handleNavClick(item.href, item.requiresAuth)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground/70 hover:text-primary transition-colors rounded-lg hover:bg-primary/5"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground/70 hover:text-primary rounded-lg hover:bg-primary/5 transition-all duration-150"
               >
                 {item.label}
                 {item.isNew ? <NewFeatureBadge /> : null}
@@ -135,7 +135,7 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={() => navigate('/auth')}
-                className="ml-2 px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                className="ml-2 px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-xl shadow-md shadow-primary/20 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 transition-all duration-200"
               >
                 Sign In
               </button>
@@ -157,7 +157,7 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                className="px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-xl shadow-md shadow-primary/20 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 transition-all duration-200"
               >
                 Sign in
               </button>

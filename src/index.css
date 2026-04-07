@@ -115,6 +115,23 @@
     min-height: 100vh;
   }
 
+  /* Premium text selection */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.15);
+    color: hsl(var(--foreground));
+  }
+
+  /* Smooth scroll with reduced-motion respect */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus-visible rings for keyboard accessibility + polish */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary) / 0.5);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
 }
 
 /* Hide scrollbar for filter rows */
@@ -145,6 +162,9 @@
 
 /* Reduced motion: disable decorative animations */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .animate-shimmer,
   .animate-float,
   .animate-pulse-ring,

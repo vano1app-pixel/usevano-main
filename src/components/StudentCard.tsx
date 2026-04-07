@@ -127,8 +127,8 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200',
-        clickable && 'cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 active:scale-[0.98] group',
+        'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-250',
+        clickable && 'cursor-pointer hover:-translate-y-[3px] hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 active:scale-[0.97] group',
         !clickable && 'cursor-default',
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
@@ -168,7 +168,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onToggleFavourite(student.user_id); }}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm transition-colors hover:bg-black/50"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm transition-all duration-150 hover:bg-black/50 active:scale-90"
               title={isFavourite ? 'Remove favourite' : 'Save'}
             >
               <Heart size={13} className={isFavourite ? 'fill-white text-white' : 'text-white'} />
@@ -299,14 +299,14 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* CTA */}
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
-            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-              View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform group-hover:translate-x-0.5" />
+            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
+              View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </span>
             {onMessage && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMessage(student.user_id); }}
-                className="flex h-[2.125rem] w-[2.125rem] shrink-0 items-center justify-center rounded-xl border border-foreground/10 bg-muted/60 text-foreground/60 transition-colors hover:border-primary/30 hover:bg-primary/8 hover:text-primary"
+                className="flex h-[2.125rem] w-[2.125rem] shrink-0 items-center justify-center rounded-xl border border-foreground/10 bg-muted/60 text-foreground/60 transition-all duration-150 hover:border-primary/30 hover:bg-primary/8 hover:text-primary active:scale-95"
                 title="Message"
               >
                 <MessageCircle size={14} strokeWidth={2} />
