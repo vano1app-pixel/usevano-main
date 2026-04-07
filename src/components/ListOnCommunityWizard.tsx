@@ -41,6 +41,7 @@ import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/s
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
+import { getUserFriendlyError } from '@/lib/errorMessages';
 
 const STEP_LABELS = [
   'Get started',
@@ -629,7 +630,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       onSubmittedForReview(category);
     } catch (err: unknown) {
       logSupabaseError('ListOnCommunityWizard: publish', err);
-      const msg = getSupabaseErrorMessage(err);
+      const msg = getUserFriendlyError(err);
       toast({ title: 'Could not publish', description: msg, variant: 'destructive' });
     } finally {
       setSubmitting(false);

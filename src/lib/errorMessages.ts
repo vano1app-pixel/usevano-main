@@ -12,7 +12,10 @@ export function getUserFriendlyError(error: unknown): string {
   if (code === '23503') return 'Invalid reference. Please check your input.';
   if (code === '23502') return 'A required field is missing.';
   if (code === '42501') return 'You do not have permission to perform this action.';
-  if (code === '23514') return 'Input does not meet the required constraints.';
+  if (code === '23514') {
+    if (msg.includes('category')) return 'This category isn\'t available right now. Please pick a different one or contact us.';
+    return 'Some of your input doesn\'t meet the requirements. Please check your fields and try again.';
+  }
 
   // Auth-specific messages (safe to surface)
   if (msg.includes('invalid login credentials')) return 'Invalid email or password.';

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { ImagePlus, X, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getUserFriendlyError } from '@/lib/errorMessages';
 import { useToast } from '@/hooks/use-toast';
 import type { CommunityCategoryId } from '@/lib/communityCategories';
 import { categoryLabel } from '@/lib/communityCategories';
@@ -160,7 +161,7 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
       onOpenChange(false);
       onPostCreated();
     } catch (err: any) {
-      toast({ title: 'Failed to post', description: err.message, variant: 'destructive' });
+      toast({ title: 'Failed to post', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
