@@ -150,9 +150,9 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative min-h-[70vh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
+      <section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
         {/* Subtle animated gradient orb behind hero */}
-        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-3xl" />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] sm:w-[600px] sm:h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div className="relative max-w-3xl mx-auto text-center">
           <motion.div
@@ -171,6 +171,8 @@ const Landing = () => {
                 style={{
                   backgroundImage: 'linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(221 83% 53%) 25%, hsl(var(--foreground)) 50%, hsl(262 50% 52%) 75%, hsl(var(--foreground)) 100%)',
                   backgroundSize: '200% auto',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
                 }}
               >
                 instantly available.
@@ -488,6 +490,7 @@ const Landing = () => {
               variants={fadeUp}
               transition={{ duration: 0.45 }}
               whileHover="hover"
+              whileTap="hover"
               initial="rest"
               animate="rest"
               className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7 lg:p-8"
@@ -507,6 +510,7 @@ const Landing = () => {
               variants={fadeUp}
               transition={{ duration: 0.45, delay: 0.06 }}
               whileHover="hover"
+              whileTap="hover"
               initial="rest"
               animate="rest"
               className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6"
@@ -526,6 +530,7 @@ const Landing = () => {
               variants={fadeUp}
               transition={{ duration: 0.45, delay: 0.1 }}
               whileHover="hover"
+              whileTap="hover"
               initial="rest"
               animate="rest"
               className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6"
@@ -545,6 +550,7 @@ const Landing = () => {
               variants={fadeUp}
               transition={{ duration: 0.45, delay: 0.14 }}
               whileHover="hover"
+              whileTap="hover"
               initial="rest"
               animate="rest"
               className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6 flex items-center gap-5"
