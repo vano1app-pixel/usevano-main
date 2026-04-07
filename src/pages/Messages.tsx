@@ -531,7 +531,15 @@ const Messages = () => {
               </Dialog>
 
               {conversations.length === 0 ? (
-                <p className="px-4 py-12 text-center text-sm text-muted-foreground">No conversations yet.<br />Message someone from a gig or Community listing.</p>
+                <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <MessageCircle size={22} className="text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">No conversations yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Message someone from a gig or talent listing to get started.</p>
+                  </div>
+                </div>
               ) : (
                 conversations.map((convo) => {
                   const isActive = selectedConvo === convo.id;

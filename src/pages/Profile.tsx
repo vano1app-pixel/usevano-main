@@ -373,7 +373,7 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={() => openWizardAtStep(check.wizardStep!)}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-200 hover:bg-primary/10 hover:border-primary/30"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow"
                   >
                     Fix <ExternalLink size={10} />
                   </button>
@@ -689,7 +689,7 @@ const Profile = () => {
                       <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:-translate-y-[1px] disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+                        className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:brightness-105 disabled:opacity-50 disabled:hover:shadow-sm"
                       >
                         {saving ? 'Saving...' : 'Save Profile'}
                       </button>
@@ -839,7 +839,7 @@ const Profile = () => {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:-translate-y-[1px] disabled:opacity-50 disabled:hover:translate-y-0"
+                  className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:brightness-105 disabled:opacity-50 disabled:hover:shadow-sm"
                 >
                   {saving ? 'Saving...' : 'Save Profile'}
                 </button>
@@ -883,9 +883,9 @@ const Profile = () => {
                             {format(new Date(gig.shift_date), 'MMM d, yyyy')}
                           </p>
                           <span className={cn(
-                            "text-[10px] font-medium px-2 py-0.5 rounded-full mt-1.5 inline-block",
-                            gig.status === 'open' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            gig.status === 'completed' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                            "text-[11px] font-semibold px-2.5 py-0.5 rounded-full mt-1.5 inline-block capitalize",
+                            gig.status === 'open' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            gig.status === 'completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                             'bg-muted text-muted-foreground'
                           )}>{gig.status}</span>
                         </div>

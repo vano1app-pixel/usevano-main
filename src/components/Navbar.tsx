@@ -6,6 +6,7 @@ import { User } from '@supabase/supabase-js';
 import { AuthSheet } from './AuthSheet';
 import { NotificationBell } from './NotificationBell';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
+import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { NewFeatureBadge } from '@/components/NewFeatureBadge';
@@ -18,6 +19,11 @@ export const Navbar: React.FC = () => {
   const isMobile = useIsMobile();
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const showAdminLink = isAdminOwnerEmail(user?.email);
+
+  const isActiveRoute = (href: string) => {
+    if (href === '/') return location.pathname === '/';
+    return location.pathname.startsWith(href);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -95,7 +101,12 @@ export const Navbar: React.FC = () => {
               <button
                 key={item.href}
                 onClick={() => handleNavClick(item.href, item.requiresAuth)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground/70 hover:text-primary rounded-lg hover:bg-primary/5 transition-all duration-150"
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150",
+                  isActiveRoute(item.href)
+                    ? "text-primary bg-primary/10 font-semibold"
+                    : "text-foreground/70 hover:text-primary hover:bg-primary/5"
+                )}
               >
                 {item.label}
                 {item.isNew ? <NewFeatureBadge /> : null}
@@ -111,7 +122,12 @@ export const Navbar: React.FC = () => {
               <Link
                 key={item.href}
                 to={item.href}
-                className="px-4 py-2 text-sm font-medium text-foreground/70 hover:text-primary transition-colors rounded-lg hover:bg-primary/5"
+                className={cn(
+                  "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                  isActiveRoute(item.href)
+                    ? "text-primary bg-primary/10 font-semibold"
+                    : "text-foreground/70 hover:text-primary hover:bg-primary/5"
+                )}
               >
                 {item.label}
               </Link>
