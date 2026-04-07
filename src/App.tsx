@@ -11,6 +11,7 @@ import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
+import { PhoneRequiredModal } from "@/components/PhoneRequiredModal";
 import Landing from "./pages/Landing";
 import BrowseJobs from "./pages/BrowseJobs";
 import JobDetail from "./pages/JobDetail";
@@ -36,6 +37,7 @@ const App = () => (
   <TooltipProvider>
     <ScrollToTop />
     <RedirectToAccountTypeIfNeeded />
+    <PhoneRequiredModal />
     <Toaster />
     <Sonner />
     <div className="md:pt-14">

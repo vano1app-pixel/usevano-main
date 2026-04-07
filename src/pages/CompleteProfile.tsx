@@ -25,10 +25,6 @@ const CompleteProfile = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [userType, setUserType] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
-  // Modal for existing accounts missing phone
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [modalPhone, setModalPhone] = useState('');
-  const [modalLoading, setModalLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -53,30 +49,7 @@ const CompleteProfile = () => {
         return;
       }
 
-      const profileComplete =
-        profile?.display_name?.trim() && profile?.avatar_url?.trim();
-
-      // For students with a complete profile, check if they have a phone number
-      if (profileComplete && profile.user_type === 'student') {
-        const { data: sp } = await supabase
-          .from('student_profiles')
-          .select('phone')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-
-        if (!sp?.phone?.trim()) {
-          // Existing account, missing phone — show modal
-          setUserId(session.user.id);
-          setUserType(profile.user_type);
-          setChecking(false);
-          setShowPhoneModal(true);
-          return;
-        }
-        navigate('/profile', { replace: true });
-        return;
-      }
-
-      if (profileComplete) {
+      if (profile?.display_name?.trim() && profile?.avatar_url?.trim()) {
         navigate('/profile', { replace: true });
         return;
       }
@@ -93,26 +66,6 @@ const CompleteProfile = () => {
     setSkills(prev =>
       prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
     );
-  };
-
-  const handleModalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!modalPhone.trim()) {
-      toast({ title: 'Phone number is required', variant: 'destructive' });
-      return;
-    }
-    setModalLoading(true);
-    try {
-      await supabase
-        .from('student_profiles')
-        .update({ phone: modalPhone.trim() })
-        .eq('user_id', userId!);
-      navigate('/profile', { replace: true });
-    } catch (error: any) {
-      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
-    } finally {
-      setModalLoading(false);
-    }
   };
 
   const handleComplete = async (e: React.FormEvent) => {
@@ -162,52 +115,6 @@ const CompleteProfile = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  // Phone modal for existing accounts
-  if (showPhoneModal) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-        <SEOHead title="One more thing – VANO" description="Add your phone number to continue" />
-        <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <img src={logo} alt="VANO" className="h-8 w-8 rounded-xl" />
-            <span className="text-lg font-bold text-primary">VANO</span>
-          </div>
-          <div className="mb-5 text-center">
-            <h2 className="text-lg font-bold text-foreground">One more thing</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Add your phone number so the VANO team can reach you
-            </p>
-          </div>
-          <form onSubmit={handleModalSubmit} className="space-y-4">
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium mb-1.5">
-                <Phone size={14} className="text-muted-foreground" />
-                Phone number
-              </label>
-              <input
-                type="tel"
-                value={modalPhone}
-                onChange={(e) => setModalPhone(e.target.value)}
-                required
-                autoFocus
-                className="w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="e.g. 089 123 4567"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">Only shared with VANO team, not displayed publicly</p>
-            </div>
-            <button
-              type="submit"
-              disabled={modalLoading || !modalPhone.trim()}
-              className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {modalLoading ? 'Saving...' : 'Save & continue →'}
-            </button>
-          </form>
-        </div>
       </div>
     );
   }
