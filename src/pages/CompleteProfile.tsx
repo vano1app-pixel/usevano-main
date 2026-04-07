@@ -101,7 +101,7 @@ const CompleteProfile = () => {
       }
 
       toast({ title: 'Profile complete' });
-      navigate('/profile', { replace: true });
+      navigate(userType === 'student' ? '/complete-profile-step2' : '/profile', { replace: true });
     } catch (error: any) {
       toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {

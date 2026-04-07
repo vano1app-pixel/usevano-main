@@ -6,13 +6,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
 import {
-  Briefcase,
   ArrowRight,
   Clock,
   Shield,
   MapPin,
-  Users,
-  Search,
   MessageSquare,
   Megaphone,
   Linkedin,
@@ -43,6 +40,11 @@ const staggerContainer = {
 const scaleIn = {
   hidden: { opacity: 0, scale: 0.95 },
   visible: { opacity: 1, scale: 1 },
+};
+
+const cardHover = {
+  rest: { scale: 1, y: 0 },
+  hover: { scale: 1.02, y: -4, transition: { type: 'spring', stiffness: 300, damping: 20 } },
 };
 
 const Landing = () => {
@@ -148,152 +150,93 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-24 sm:pt-20 md:pt-32 pb-14 md:pb-24 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_13rem] gap-10 md:gap-16 items-start">
-            {/* Text column */}
-            <motion.div
-              className="text-center md:text-left"
-              initial="hidden"
-              animate="visible"
-              variants={staggerContainer}
+      <section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
+        {/* Subtle animated gradient orb behind hero */}
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] sm:w-[600px] sm:h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+
+        <div className="relative max-w-3xl mx-auto text-center">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+          >
+            <motion.h1
+              variants={fadeUp}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
             >
-              <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="flex flex-col items-center md:items-start gap-2.5 mb-6 sm:mb-8">
-                <button
-                  type="button"
-                  onClick={() => navigate('/whats-new')}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted border border-border text-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
-                >
-                  <Megaphone size={14} className="text-primary shrink-0" strokeWidth={2} />
-                  What&apos;s new in {APP_VERSION_LABEL}
-                  <ArrowRight size={12} className="opacity-70" />
-                </button>
-              </motion.div>
-              <motion.h1
-                variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-[2.6rem] sm:text-5xl md:text-6xl lg:text-[4.25rem] font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
+              Local talent,<br />
+              <span
+                className="italic font-semibold bg-clip-text text-transparent animate-shimmer"
+                style={{
+                  backgroundImage: 'linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(221 83% 53%) 25%, hsl(var(--foreground)) 50%, hsl(262 50% 52%) 75%, hsl(var(--foreground)) 100%)',
+                  backgroundSize: '200% auto',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
               >
-                Local talent,<br />
-                <span className="italic font-semibold">instantly available.</span>
-              </motion.h1>
-              <motion.p
-                variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto md:mx-0 mb-8 leading-relaxed"
+                instantly available.
+              </span>
+            </motion.h1>
+            <motion.p
+              variants={fadeUp}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="text-muted-foreground text-sm sm:text-base lg:text-lg max-w-md mx-auto mb-8 leading-relaxed"
+            >
+              Connect with Galway's best freelancers for videography, photography, web design, and more.
+            </motion.p>
+            <motion.div
+              variants={fadeUp}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="flex flex-col sm:flex-row items-center justify-center gap-3"
+            >
+              <button
+                type="button"
+                onClick={() => navigate(session ? '/profile' : '/auth?mode=signup')}
+                className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 active:scale-[0.97]"
               >
-                Fixed-price gigs, portfolios, and chat — all in one place. Built for Galway.
-              </motion.p>
-
-              {/* Search bar */}
-              <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.22 }} className="w-full max-w-xl mx-auto md:mx-0 mb-6">
-                <button
-                  type="button"
-                  onClick={() => navigate('/students')}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-left shadow-sm transition-all hover:border-primary/25 hover:shadow-md"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Search size={18} strokeWidth={2.25} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Find talent</p>
-                    <p className="truncate text-sm font-medium text-foreground">Search freelancers by skill, name, or bio…</p>
-                  </div>
-                  <ArrowRight size={18} className="shrink-0 text-muted-foreground" />
-                </button>
-              </motion.div>
-
-              {/* Social proof count */}
-              {studentsLoaded && featuredStudents.length > 0 && (
-                <motion.p variants={fadeUp} transition={{ duration: 0.5, delay: 0.23 }} className="text-xs text-muted-foreground mb-5 text-center md:text-left">
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{featuredStudents.length}</span> freelancers available in Galway right now
-                </motion.p>
-              )}
-
-              {/* Stat chips — mobile only */}
-              <motion.div variants={fadeUp} transition={{ duration: 0.5, delay: 0.25 }} className="flex gap-2 mb-6 md:hidden">
-                {[
-                  { value: '€0', label: 'Free' },
-                  { value: 'Galway', label: 'Only' },
-                  { value: '60 sec', label: 'Post' },
-                ].map((s) => (
-                  <div key={s.value} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-foreground/10 bg-card px-3 py-1.5 shadow-sm">
-                    <p className="text-sm font-bold text-foreground">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </div>
-                ))}
-              </motion.div>
-
+                Become a freelancer
+                <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/jobs')}
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:scale-[0.97]"
+              >
+                Hire a freelancer
+              </button>
+            </motion.div>
+            {studentsLoaded && featuredStudents.length > 0 && (
               <motion.div
                 variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="flex flex-col sm:flex-row sm:flex-wrap items-center md:items-start justify-center md:justify-start gap-3 min-h-[3.25rem]"
+                transition={{ duration: 0.5, delay: 0.35 }}
+                className="flex items-center justify-center gap-2 mt-6"
               >
-                {session === undefined ? (
-                  <div className="flex w-full max-w-md justify-center gap-3 sm:max-w-none">
-                    <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
-                    <div className="h-12 w-full max-w-[200px] animate-pulse rounded-xl bg-muted sm:w-44" />
-                  </div>
-                ) : session ? (
-                  <>
-                    <button type="button" onClick={() => navigate('/post-job')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                      <Briefcase size={18} />Post a gig<ArrowRight size={16} />
-                    </button>
-                    <button type="button" onClick={() => navigate('/students')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
-                      <Users size={18} />Browse talent
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex w-full max-w-xl flex-col items-center md:items-start gap-3 mx-auto md:mx-0">
-                    <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-center md:justify-start sm:flex-wrap">
-                      <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-                        Get started — it's free<ArrowRight size={16} />
-                      </button>
-                      <button type="button" onClick={() => navigate('/auth?mode=signup')} className="w-full sm:w-auto px-8 py-3.5 bg-card border border-border text-foreground rounded-xl font-medium text-sm hover:border-primary/25 hover:bg-muted/40 transition-all flex items-center justify-center gap-2">
-                        <Briefcase size={16} />Post a gig in 60 sec
-                      </button>
-                    </div>
-                    <p className="text-center md:text-left text-xs text-muted-foreground leading-relaxed">
-                      Already have an account?{' '}
-                      <button type="button" onClick={() => navigate('/auth?mode=login')} className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
-                        Log in
-                      </button>
-                    </p>
-                  </div>
-                )}
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-pulse-ring" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                </span>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {featuredStudents.length} freelancers online now
+                </p>
               </motion.div>
-
-              <BlurredTalentMarquee />
-            </motion.div>
-
-            {/* Right column — stat cards, desktop only */}
-            <motion.div
-              className="hidden md:flex flex-col gap-3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              {[
-                { value: '€0', label: 'Free to sign up' },
-                { value: 'Galway', label: 'Galway only' },
-                { value: '60 sec', label: 'To post a gig' },
-              ].map((s) => (
-                <div key={s.value} className="rounded-2xl border border-foreground/10 bg-card px-5 py-4 shadow-sm">
-                  <p className="text-2xl font-bold tracking-tight text-foreground">{s.value}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
+            )}
+          </motion.div>
         </div>
       </section>
 
+      {/* Freelancer marquee */}
+      <div className="px-4 md:px-8 lg:px-12">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <BlurredTalentMarquee />
+        </div>
+      </div>
+
       {/* What do you need? */}
-      <section className="pt-2 pb-6 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto">
+      <section className="pt-2 pb-6 px-4 md:px-8 lg:px-12">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-3">What do you need?</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' },
               { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, cat: 'photography', image: '/cat-photography.png' },
@@ -304,7 +247,7 @@ const Landing = () => {
                   key={item.cat}
                   type="button"
                   onClick={() => navigate(`/students/${item.cat}`)}
-                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 text-left shadow-sm transition-all active:scale-[0.98] hover:border-foreground/20 hover:shadow-md"
+                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all active:scale-[0.98] hover:border-foreground/20 hover:shadow-md"
                 >
                   <img
                     src={item.image}
@@ -313,13 +256,14 @@ const Landing = () => {
                     className="absolute inset-0 h-full w-full object-cover opacity-30 pointer-events-none select-none"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
-                  <div className="relative z-10 flex flex-col gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl transition-colors bg-foreground/8 group-hover:bg-primary/10">
-                      <item.icon size={18} className="transition-colors text-foreground group-hover:text-primary" strokeWidth={2} />
+                  <div className="relative z-10 flex flex-col gap-3 md:gap-4">
+                    <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl transition-colors bg-foreground/8 group-hover:bg-primary/10">
+                      <item.icon size={18} className="transition-colors text-foreground group-hover:text-primary md:hidden" strokeWidth={2} />
+                      <item.icon size={22} className="transition-colors text-foreground group-hover:text-primary hidden md:block" strokeWidth={2} />
                     </div>
                     <div>
-                      <p className="text-[13px] font-bold text-foreground leading-snug">{item.label}</p>
-                      <p className="text-[11px] text-foreground/80 mt-0.5 leading-snug">{item.sub}</p>
+                      <p className="text-[13px] md:text-[15px] font-bold text-foreground leading-snug">{item.label}</p>
+                      <p className="text-[11px] md:text-[13px] text-foreground/80 mt-0.5 leading-snug">{item.sub}</p>
                     </div>
                   </div>
                 </button>
@@ -331,7 +275,7 @@ const Landing = () => {
       {/* Freelancer section */}
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
         <section className="pb-4 md:pb-6 overflow-hidden">
-          <div className="max-w-5xl mx-auto px-4 md:px-8">
+          <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 md:px-8 lg:px-12">
             <div className="flex items-end justify-between mb-4">
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">On VANO now</p>
@@ -402,24 +346,12 @@ const Landing = () => {
             {/* Scroll strip — compact text snippets (name, rate/budget, bio preview); tap → full profile */}
             {(studentsLoaded ? stripStudents.length > 0 : true) && (
               <div className="relative">
-                {session === null && (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-background/60 backdrop-blur-[2px]">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/auth?mode=signup')}
-                      className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm shadow-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                    >
-                      Sign up free to see all freelancers <ArrowRight size={14} />
-                    </button>
-                    <p className="text-xs text-muted-foreground">Takes 30 seconds · No credit card</p>
-                  </div>
-                )}
-              <div className={`flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden${session === null ? ' pointer-events-none select-none blur-sm' : ''}`}>
+              <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {!studentsLoaded
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
                         key={i}
-                        className="flex w-56 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 animate-pulse"
+                        className="flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
                       >
                         <div className="flex gap-2.5">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
@@ -449,7 +381,7 @@ const Landing = () => {
                           key={s.user_id}
                           type="button"
                           onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group flex w-56 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                          className="group flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
                         >
                           <div className="flex items-start gap-2.5">
                             <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
@@ -515,7 +447,7 @@ const Landing = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/students')}
-                    className="flex w-56 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
+                    className="flex w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
                   >
                     <ArrowRight size={22} className="text-muted-foreground" />
                     <p className="text-center text-[12px] font-semibold text-muted-foreground">
@@ -534,80 +466,124 @@ const Landing = () => {
       )}
 
       {/* Why VANO */}
-      <section className="py-16 md:py-24 px-4 md:px-8">
-        <div className="max-w-4xl mx-auto">
+      <section className="py-16 md:py-24 px-4 md:px-8 lg:px-12">
+        <div className="max-w-4xl lg:max-w-5xl mx-auto">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-80px" }}
             variants={staggerContainer}
           >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] text-center mb-3">Why VANO</motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold text-center mb-4">Built different, on purpose</motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg mx-auto">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-primary uppercase tracking-[0.15em] text-center mb-3">Why VANO</motion.p>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-4 tracking-tight">Built different, on purpose</motion.h2>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg lg:max-w-xl mx-auto lg:text-lg">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
           </motion.div>
           <motion.div
-            className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-60px" }}
             variants={staggerContainer}
           >
             {/* Hyperlocal — 2 cols row 1 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/8">
-                <MapPin size={20} className="text-foreground" strokeWidth={2} />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
+            <motion.div
+              variants={fadeUp}
+              transition={{ duration: 0.45 }}
+              whileHover="hover"
+              whileTap="hover"
+              initial="rest"
+              animate="rest"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7 lg:p-8"
+            >
+              <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-blue-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-48 group-hover:w-48 group-hover:bg-blue-500/[0.12]" />
+              <motion.div variants={cardHover}>
+                <div className="mb-4 flex h-11 w-11 lg:h-13 lg:w-13 items-center justify-center rounded-xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
+                  <MapPin size={20} className="text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                </div>
+                <h3 className="text-lg lg:text-xl font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
+                <p className="text-sm lg:text-base text-muted-foreground leading-relaxed max-w-xs lg:max-w-sm">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
+              </motion.div>
             </motion.div>
 
             {/* Speed — 1 col row 1 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.06 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
-                <Clock size={18} className="text-foreground" strokeWidth={2} />
-              </div>
-              <h3 className="text-sm font-semibold text-foreground mb-1">Hire in minutes</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">Post a gig, get applicants, pick someone — done.</p>
+            <motion.div
+              variants={fadeUp}
+              transition={{ duration: 0.45, delay: 0.06 }}
+              whileHover="hover"
+              whileTap="hover"
+              initial="rest"
+              animate="rest"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-36 group-hover:w-36 group-hover:bg-emerald-500/[0.12]" />
+              <motion.div variants={cardHover}>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 transition-colors group-hover:bg-emerald-500/20">
+                  <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                </div>
+                <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Hire in minutes</h3>
+                <p className="text-xs lg:text-sm text-muted-foreground leading-relaxed">Post a gig, get applicants, pick someone — done.</p>
+              </motion.div>
             </motion.div>
 
             {/* Chat — 1 col row 2 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.1 }} className="col-span-1 rounded-2xl border border-foreground/10 bg-card p-5">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/8">
-                <MessageSquare size={18} className="text-foreground" strokeWidth={2} />
-              </div>
-              <h3 className="text-sm font-semibold text-foreground mb-1">Chat on platform</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
+            <motion.div
+              variants={fadeUp}
+              transition={{ duration: 0.45, delay: 0.1 }}
+              whileHover="hover"
+              whileTap="hover"
+              initial="rest"
+              animate="rest"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-violet-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-36 group-hover:w-36 group-hover:bg-violet-500/[0.12]" />
+              <motion.div variants={cardHover}>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 transition-colors group-hover:bg-violet-500/20">
+                  <MessageSquare size={18} className="text-violet-600 dark:text-violet-400" strokeWidth={2} />
+                </div>
+                <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Chat on platform</h3>
+                <p className="text-xs lg:text-sm text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
+              </motion.div>
             </motion.div>
 
             {/* Trust — 2 cols row 2 */}
-            <motion.div variants={fadeUp} transition={{ duration: 0.45, delay: 0.14 }} className="col-span-2 sm:col-span-2 rounded-2xl border border-foreground/10 bg-card p-5 flex items-center gap-5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-foreground/8">
-                <Shield size={20} className="text-foreground" strokeWidth={2} />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground mb-0.5">Built on trust</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Profiles with portfolios, reviews, and verified gigs — so you know who you're dealing with before you hire.</p>
-              </div>
+            <motion.div
+              variants={fadeUp}
+              transition={{ duration: 0.45, delay: 0.14 }}
+              whileHover="hover"
+              whileTap="hover"
+              initial="rest"
+              animate="rest"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6 flex items-center gap-5"
+            >
+              <div className="pointer-events-none absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-amber-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-48 group-hover:w-48 group-hover:bg-amber-500/[0.12]" />
+              <motion.div variants={cardHover} className="flex items-center gap-5">
+                <div className="flex h-11 w-11 lg:h-13 lg:w-13 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/20">
+                  <Shield size={20} className="text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-sm lg:text-base font-semibold text-foreground mb-0.5">Built on trust</h3>
+                  <p className="text-sm lg:text-base text-muted-foreground leading-relaxed">Profiles with portfolios, reviews, and verified gigs — so you know who you're dealing with before you hire.</p>
+                </div>
+              </motion.div>
             </motion.div>
           </motion.div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-16 md:py-24 px-4 md:px-8 bg-muted/25">
-        <div className="max-w-2xl mx-auto">
+      <section className="py-12 md:py-16 px-4 md:px-8 lg:px-12">
+        <div className="max-w-2xl lg:max-w-3xl mx-auto">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-80px" }}
             variants={staggerContainer}
-            className="text-center mb-10"
+            className="text-center mb-6"
           >
             <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-3">
               FAQ
             </motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
               Common questions
             </motion.h2>
             <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-3 text-sm text-muted-foreground">
@@ -667,22 +643,25 @@ const Landing = () => {
       </section>
 
       {/* CTA */}
-      <section className="py-16 md:py-24 px-4 md:px-8">
+      <section className="py-16 md:py-24 px-4 md:px-8 lg:px-12">
         <motion.div
-          className="max-w-2xl mx-auto"
+          className="max-w-2xl lg:max-w-3xl mx-auto"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
           variants={scaleIn}
           transition={{ duration: 0.55 }}
         >
-          <div className="rounded-3xl bg-primary px-8 py-12 sm:px-14 sm:py-16 text-center">
-            <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.15em] text-primary-foreground/50">Galway · Free · Local</p>
-            <h2 className="text-3xl sm:text-5xl font-bold text-primary-foreground tracking-tight leading-tight mb-4">
+          <div className="relative overflow-hidden rounded-3xl bg-primary px-8 py-12 sm:px-14 sm:py-16 lg:px-20 lg:py-20 text-center">
+            {/* Animated gradient orbs */}
+            <div className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl animate-float" />
+            <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+            <p className="relative mb-4 text-[11px] lg:text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/50">Galway · Free · Local</p>
+            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4">
               Your next gig<br />starts here.
             </h2>
-            <p className="text-primary-foreground/60 mb-10 text-sm sm:text-base max-w-sm mx-auto leading-relaxed">Join freelancers and local businesses in Galway — free to join, takes less than a minute.</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <p className="relative text-primary-foreground/60 mb-10 text-sm sm:text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Join freelancers and local businesses in Galway — free to join, takes less than a minute.</p>
+            <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => navigate('/auth')}
                 className="w-full sm:w-auto px-8 py-3.5 bg-primary-foreground text-primary rounded-xl font-semibold text-sm hover:bg-primary-foreground/90 transition-colors"
@@ -702,20 +681,20 @@ const Landing = () => {
 
       {/* Footer */}
       <motion.footer
-        className="border-t border-border py-12 px-4 md:px-8"
+        className="border-t border-border py-12 px-4 md:px-8 lg:px-12"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
       >
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col md:flex-row items-start justify-between gap-8 mb-8">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row items-start justify-between gap-8 lg:gap-12 mb-8">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <img src={logo} alt="VANO" className="h-7 w-7 rounded-lg" loading="lazy" decoding="async" />
                 <span className="text-lg font-bold text-foreground">VANO</span>
               </div>
-              <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+              <p className="text-sm text-muted-foreground max-w-xs lg:max-w-sm leading-relaxed">
                 Connecting businesses with freelancers for gigs across Galway. Fast and simple.
               </p>
             </div>
@@ -725,7 +704,7 @@ const Landing = () => {
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Platform</h4>
                 <div className="flex flex-col gap-2.5 text-sm">
                   <button onClick={() => navigate('/students')} className="text-left text-foreground/70 hover:text-primary transition-colors">Find talent</button>
-                  <button onClick={() => navigate('/jobs')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse gigs</button>
+                  <button onClick={() => navigate('/jobs')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse hiring</button>
                   <button onClick={() => navigate('/community')} className="text-left text-foreground/70 hover:text-primary transition-colors">Community</button>
                   <button onClick={() => navigate('/post-job')} className="text-left text-foreground/70 hover:text-primary transition-colors">Post a gig</button>
                 </div>
@@ -761,16 +740,20 @@ const Landing = () => {
               © {new Date().getFullYear()} VANO · {APP_VERSION_LABEL}
             </span>
             <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <button type="button" onClick={() => navigate('/privacy')} className="hover:text-primary transition-colors">
+                Privacy
+              </button>
+              <span aria-hidden className="hidden sm:inline">·</span>
+              <button type="button" onClick={() => navigate('/terms')} className="hover:text-primary transition-colors">
+                Terms
+              </button>
+              <span aria-hidden className="hidden sm:inline">·</span>
               <button type="button" onClick={() => navigate('/whats-new')} className="hover:text-primary transition-colors">
                 Release notes
               </button>
-              <span aria-hidden className="hidden sm:inline">
-                ·
-              </span>
+              <span aria-hidden className="hidden sm:inline">·</span>
               <RequestFeatureLink className="text-xs" />
-              <span aria-hidden className="hidden sm:inline">
-                ·
-              </span>
+              <span aria-hidden className="hidden sm:inline">·</span>
               <span>Made in Galway, Ireland</span>
             </span>
           </div>

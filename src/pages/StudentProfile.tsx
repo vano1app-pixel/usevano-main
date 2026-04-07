@@ -120,7 +120,7 @@ const StudentProfile = () => {
   );
 
   const isBusiness = profile.user_type === 'business';
-  const avatarUrl = isBusiness ? profile.avatar_url : (student?.avatar_url || profile.avatar_url);
+  const avatarUrl = profile.avatar_url;
   const displayName = profile.display_name || (isBusiness ? 'Client' : 'Freelancer');
   const bioText = isBusiness ? profile.bio : student?.bio;
   const workDesc = profile.work_description;
@@ -210,7 +210,7 @@ const StudentProfile = () => {
         url={shareUrl}
       />
       <Navbar />
-      <div className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 space-y-5">
+      <div className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 space-y-5 animate-fade-in">
         {isBusiness ? (
           <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm">
             <div className="flex items-start gap-5 mb-5">
@@ -362,7 +362,7 @@ const StudentProfile = () => {
                     type="button"
                     onClick={() => { setLightboxIndex(idx); setActiveTab('portfolio'); }}
                     title={item.title}
-                    className="relative h-28 w-28 shrink-0 rounded-xl overflow-hidden bg-muted transition-opacity hover:opacity-90 active:scale-[0.97]"
+                    className="relative h-32 w-32 shrink-0 rounded-xl overflow-hidden bg-muted transition-opacity hover:opacity-90 active:scale-[0.97] sm:h-36 sm:w-36"
                   >
                     <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
                   </button>
@@ -370,7 +370,7 @@ const StudentProfile = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/portfolio/${id}`)}
-                  className="flex h-28 w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50"
+                  className="flex h-32 w-32 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50 sm:h-36 sm:w-36"
                 >
                   <ArrowRight size={16} />
                   <span className="text-[10px] font-medium">All work</span>
@@ -390,7 +390,7 @@ const StudentProfile = () => {
                       className={cn(
                         'flex-1 rounded-xl py-2 text-sm font-semibold transition-all',
                         activeTab === tab
-                          ? 'bg-primary/10 text-primary shadow-sm'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                       )}
                     >
@@ -481,7 +481,7 @@ const StudentProfile = () => {
                 <div className="p-5 sm:p-6">
                   {portfolioItems.length > 0 ? (
                     <>
-                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         {portfolioItems.map((item, idx) => (
                           <button
                             key={item.id}

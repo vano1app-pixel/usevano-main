@@ -16,3 +16,5 @@ const subject = encodeURIComponent('VANO — question for the team');
 export const teamMailtoHref = `mailto:${TEAM_CONTACT_EMAIL}?subject=${subject}`;
 
 export const teamTelHref = `tel:${TEAM_PHONE_TEL}`;
+
+export const teamWhatsAppHref = `https://wa.me/${TEAM_PHONE_TEL.replace('+', '')}`;

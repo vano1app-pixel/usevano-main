@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -42,14 +43,34 @@ import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 
 const STEP_LABELS = [
-  'Start',
-  'Category',
-  'Photos',
+  'Get started',
+  'What you do',
+  'Your work',
   'Your pitch',
-  'Links',
-  'Rates',
-  'Publish',
+  'Your details',
+  'Your price',
+  'Go live',
 ];
+
+const STEP_HEADINGS: Record<number, string> = {
+  0: 'Get listed in 5 minutes',
+  1: 'What do you do?',
+  2: 'Show your work',
+  3: 'Tell them about you',
+  4: 'Your details',
+  5: 'Set your price',
+  6: 'Review & go live',
+};
+
+const STEP_DESCRIPTIONS: Record<number, string> = {
+  0: 'Businesses in Galway are looking for people like you.',
+  1: 'Pick your main skill — this is how businesses find you.',
+  2: 'A strong cover photo makes businesses click. This is the first thing they see.',
+  3: 'Write a short pitch — what you do, what makes you different.',
+  4: 'Help businesses know where you\'re based and how to reach you.',
+  5: 'Be upfront — businesses prefer freelancers who are clear on pricing.',
+  6: 'Check everything looks good — you can always edit later.',
+};
 
 export interface ListOnCommunityInitial {
   bannerUrl: string;
@@ -61,6 +82,8 @@ export interface ListOnCommunityInitial {
   typicalBudgetMax: string;
   hourlyRate: string;
   bio: string;
+  university: string;
+  phone?: string | null;
 }
 
 interface ListOnCommunityDraft {
@@ -69,10 +92,12 @@ interface ListOnCommunityDraft {
   bannerUrl: string;
   title: string;
   description: string;
-  syncBio: boolean;
+  aboutMe: string;
   tiktokUrl: string;
   workLinks: WorkLinkEntry[];
   serviceArea: string;
+  university: string;
+  phone: string;
   rateUnit: string;
   rateMin: string;
   rateMax: string;
@@ -113,10 +138,11 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       bannerUrl: typeof parsed.bannerUrl === 'string' ? parsed.bannerUrl : '',
       title: typeof parsed.title === 'string' ? parsed.title : '',
       description: typeof parsed.description === 'string' ? parsed.description : '',
-      syncBio: Boolean(parsed.syncBio),
+      aboutMe: typeof parsed.aboutMe === 'string' ? parsed.aboutMe : '',
       tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
       workLinks: parseDraftWorkLinks(parsed.workLinks),
       serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
+      university: typeof parsed.university === 'string' ? parsed.university : '',
       rateUnit: typeof parsed.rateUnit === 'string' ? parsed.rateUnit : 'hourly',
       rateMin: typeof parsed.rateMin === 'string' ? parsed.rateMin : '',
       rateMax: typeof parsed.rateMax === 'string' ? parsed.rateMax : '',
@@ -154,14 +180,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [category, setCategory] = useState<CommunityCategoryId | null>(null);
   const [bannerUrl, setBannerUrl] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [listingFile, setListingFile] = useState<File | null>(null);
-  const [listingPreview, setListingPreview] = useState<string | null>(null);
+  const [listingFiles, setListingFiles] = useState<File[]>([]);
+  const [listingPreviews, setListingPreviews] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [syncBio, setSyncBio] = useState(false);
+  const [aboutMe, setAboutMe] = useState('');
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [serviceArea, setServiceArea] = useState('');
+  const [university, setUniversity] = useState('');
+  const [phone, setPhone] = useState(initial.phone ?? '');
   const [rateUnit, setRateUnit] = useState('hourly');
   const [rateMin, setRateMin] = useState('');
   const [rateMax, setRateMax] = useState('');
@@ -170,9 +198,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
+  const MAX_LISTING_IMAGES = 5;
 
   useEffect(() => {
     if (!open) {
@@ -193,11 +224,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setCategory(isCommunityCategoryId(mappedCat) ? mappedCat : null);
     setBannerUrl(initial.bannerUrl || '');
     setBannerFile(null);
-    setListingFile(null);
-    setListingPreview(ep?.image_url ?? null);
+    setListingFiles([]);
+    setListingPreviews(ep?.image_url ? [ep.image_url] : []);
     setTitle(ep?.title ?? '');
     setDescription(ep?.description ?? '');
-    setSyncBio(false);
+    setAboutMe(initial.bio || '');
+    setUniversity(initial.university || '');
     setTiktokUrl(initial.tiktokUrl || '');
     setWorkLinks(
       initial.workLinks.some((r) => r.url.trim() || r.label.trim())
@@ -236,7 +268,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
         setTitle(draft.title);
         setDescription(draft.description);
-        setSyncBio(draft.syncBio);
+        setAboutMe(draft.aboutMe || '');
+        setUniversity(draft.university || '');
+        if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
         setTiktokUrl(draft.tiktokUrl);
         setWorkLinks(draft.workLinks);
         setServiceArea(draft.serviceArea);
@@ -266,10 +300,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       bannerUrl: bannerUrl.startsWith('http') ? bannerUrl : '',
       title,
       description,
-      syncBio,
+      aboutMe,
       tiktokUrl,
       workLinks,
       serviceArea,
+      university,
+      phone,
       rateUnit,
       rateMin,
       rateMax,
@@ -293,10 +329,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     bannerUrl,
     title,
     description,
-    syncBio,
+    aboutMe,
     tiktokUrl,
     workLinks,
     serviceArea,
+    university,
+    phone,
     rateUnit,
     rateMin,
     rateMax,
@@ -319,11 +357,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       case 1:
         return category !== null;
       case 2:
-        return true;
+        return !!(bannerFile || bannerUrl);
       case 3:
         return title.trim().length > 0 && description.trim().length > 0;
-      case 4:
-        return true;
+      case 4: {
+        // University + phone required for new listings, optional when editing existing
+        const isEditing = !!(initial as any).existingPost;
+        return isEditing || (university.trim().length > 0 && phone.trim().length > 0);
+      }
       case 5:
         return true;
       default:
@@ -359,21 +400,42 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setBannerUrl(URL.createObjectURL(file));
   };
 
-  const handleListingFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Image too large', description: 'Max 5MB', variant: 'destructive' });
+  const handleListingFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const remaining = MAX_LISTING_IMAGES - listingFiles.length - listingPreviews.filter(p => p.startsWith('http')).length;
+    if (remaining <= 0) {
+      toast({ title: `Max ${MAX_LISTING_IMAGES} photos`, description: 'Remove one to add more.', variant: 'destructive' });
       return;
     }
-    setListingFile(file);
-    setListingPreview(URL.createObjectURL(file));
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+    for (let i = 0; i < Math.min(files.length, remaining); i++) {
+      const file = files[i];
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: 'Image too large', description: `${file.name} exceeds 5MB`, variant: 'destructive' });
+        continue;
+      }
+      newFiles.push(file);
+      newPreviews.push(URL.createObjectURL(file));
+    }
+    setListingFiles(prev => [...prev, ...newFiles]);
+    setListingPreviews(prev => [...prev, ...newPreviews]);
+    if (listingInputRef.current) listingInputRef.current.value = '';
   };
 
-  const clearListingImage = () => {
-    setListingFile(null);
-    setListingPreview(null);
-    if (listingInputRef.current) listingInputRef.current.value = '';
+  const removeListingImage = (index: number) => {
+    const preview = listingPreviews[index];
+    const isExisting = preview?.startsWith('http');
+    if (isExisting) {
+      // Remove an existing image (URL-based preview)
+      setListingPreviews(prev => prev.filter((_, i) => i !== index));
+    } else {
+      // Remove a newly added file — find its index in listingFiles
+      const newFileIndex = index - listingPreviews.filter((p, i) => i < index && p.startsWith('http')).length;
+      setListingFiles(prev => prev.filter((_, i) => i !== newFileIndex));
+      setListingPreviews(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const previewRateMin = rateMin.trim()
@@ -398,7 +460,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     rateUnit === 'negotiable' ? 'negotiable' : rateUnit,
     previewHourly,
   );
-  const previewHero = listingPreview || (bannerUrl.startsWith('http') ? bannerUrl : null);
+  const previewHero = listingPreviews[0] || (bannerUrl.startsWith('http') ? bannerUrl : null);
   const previewSkills = skills.slice(0, 5);
   const previewDescription = description.trim();
 
@@ -439,18 +501,23 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         uploadedBanner = `${pub.publicUrl}?t=${Date.now()}`;
       }
 
-      let image_url: string | null = null;
-      if (listingFile) {
-        const ext = listingFile.name.split('.').pop();
-        const path = `${userId}/${Date.now()}.${ext}`;
-        const { error: liErr } = await supabase.storage.from('community-images').upload(path, listingFile);
+      // Upload all new listing images to portfolio-images bucket
+      const uploadedImageUrls: string[] = [];
+      for (const file of listingFiles) {
+        const ext = file.name.split('.').pop();
+        const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+        const { error: liErr } = await supabase.storage.from('portfolio-images').upload(path, file);
         if (liErr) {
-          logSupabaseError('ListOnCommunityWizard: community-images upload', liErr);
+          logSupabaseError('ListOnCommunityWizard: portfolio-images upload', liErr);
           throw liErr;
         }
-        const { data: pub } = supabase.storage.from('community-images').getPublicUrl(path);
-        image_url = pub.publicUrl;
+        const { data: pub } = supabase.storage.from('portfolio-images').getPublicUrl(path);
+        uploadedImageUrls.push(pub.publicUrl);
       }
+      // Combine existing URL previews (kept from previous edit) with newly uploaded
+      const existingUrls = listingPreviews.filter(p => p.startsWith('http'));
+      const allImageUrls = [...existingUrls, ...uploadedImageUrls];
+      const image_url = allImageUrls[0] || null;
 
       let rate_min: number | null = null;
       let rate_max: number | null = null;
@@ -494,8 +561,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         skills,
         hourly_rate,
         community_board_status: 'approved',
+        bio: aboutMe.trim() || description.trim(),
       };
-      studentPatch.bio = description.trim();
+      if (university.trim()) studentPatch.university = university.trim();
+      if (phone.trim()) studentPatch.phone = phone.trim();
       if (uploadedBanner) {
         studentPatch.banner_url = uploadedBanner;
       } else {
@@ -533,6 +602,20 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         throw postErr;
       }
 
+      // Save uploaded images as portfolio items
+      if (uploadedImageUrls.length > 0) {
+        const portfolioRows = uploadedImageUrls.map((url) => ({
+          user_id: userId,
+          title: title.trim(),
+          image_url: url,
+        }));
+        const { error: piErr } = await supabase.from('portfolio_items').insert(portfolioRows);
+        if (piErr) {
+          // Non-critical — listing is already live, just log
+          logSupabaseError('ListOnCommunityWizard: portfolio_items insert', piErr);
+        }
+      }
+
       toast({
         title: "You're live!",
         description: 'Your listing is now visible on the Community board.',
@@ -559,7 +642,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
-            <DialogTitle className="text-xl font-semibold tracking-tight">List yourself on the talent board</DialogTitle>
+            <DialogTitle className="text-xl font-semibold tracking-tight">{STEP_HEADINGS[step] ?? 'List yourself'}</DialogTitle>
             <div className="flex gap-1 pt-1">
               {STEP_LABELS.map((_, i) => (
                 <div
@@ -575,6 +658,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               Step {step + 1} of {totalSteps}
               {step > 0 ? ` · ${STEP_LABELS[step]}` : ''}
             </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">{STEP_DESCRIPTIONS[step]}</p>
           </DialogHeader>
         </div>
 
@@ -585,21 +669,21 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <ClipboardList className="h-5 w-5" strokeWidth={2} />
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Fill in a few details and your listing goes{' '}
-                <span className="font-medium text-foreground">live on the Community board straight away</span>.
+                Your listing goes{' '}
+                <span className="font-medium text-foreground">live straight away</span>. Here&apos;s what we&apos;ll ask:
               </p>
               <ul className="space-y-2 text-sm text-foreground/90">
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Profile banner &amp; optional photo for your card
+                  Your skill category &amp; a cover photo
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Headline, description, and links to your work
+                  A short pitch about you and your work
                 </li>
                 <li className="flex gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Rates, location, and skills
+                  Your rates, skills, and contact details
                 </li>
               </ul>
             </div>
@@ -671,30 +755,33 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 )}
               </div>
               <div>
-                <Label className="text-sm font-medium">Sample work photo (optional)</Label>
-                <p className="mt-1 text-xs text-muted-foreground">A photo of your work — shown on your card in the talent board.</p>
-                <input ref={listingInputRef} type="file" accept="image/*" className="hidden" onChange={handleListingFile} />
-                {listingPreview ? (
-                  <div className="relative mt-2 overflow-hidden rounded-xl border border-border">
-                    <img src={listingPreview} alt="" className="h-32 w-full object-cover" />
+                <Label className="text-sm font-medium">Sample work photos (optional)</Label>
+                <p className="mt-1 text-xs text-muted-foreground">Up to {MAX_LISTING_IMAGES} photos of your work — shown in your portfolio and on your card.</p>
+                <input ref={listingInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleListingFiles} />
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {listingPreviews.map((preview, i) => (
+                    <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-border">
+                      <img src={preview} alt="" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeListingImage(i)}
+                        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {listingPreviews.length < MAX_LISTING_IMAGES && (
                     <button
                       type="button"
-                      onClick={clearListingImage}
-                      className="absolute right-2 top-2 rounded-full bg-background/90 p-1 shadow"
+                      onClick={() => listingInputRef.current?.click()}
+                      className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/20 text-xs text-muted-foreground hover:border-primary/30"
                     >
-                      <X className="h-4 w-4" />
+                      <ImagePlus className="h-5 w-5" />
+                      Add
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => listingInputRef.current?.click()}
-                    className="mt-2 flex h-24 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/20 text-xs text-muted-foreground hover:border-primary/30"
-                  >
-                    <ImagePlus className="h-5 w-5" />
-                    Add photo
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -734,17 +821,42 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   maxLength={2000}
                 />
               </div>
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 bg-muted/20 p-3">
-                <Checkbox checked={syncBio} onCheckedChange={(v) => setSyncBio(!!v)} className="mt-0.5" />
-                <span className="text-sm leading-snug text-muted-foreground">
-                  <span className="font-medium text-foreground">Also save as my profile bio</span> — keeps your public profile in sync.
-                </span>
-              </label>
+              <div>
+                <Label htmlFor="lc-about">A bit about you <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Textarea
+                  id="lc-about"
+                  className="mt-1.5 min-h-[80px] text-sm"
+                  placeholder="Where you're from, what you're passionate about, fun facts — helps clients get to know you."
+                  value={aboutMe}
+                  onChange={(e) => setAboutMe(e.target.value)}
+                  maxLength={500}
+                />
+              </div>
             </div>
           )}
 
           {step === 4 && (
             <div className="space-y-4">
+              <div>
+                <Label>Phone number {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
+                <Input
+                  type="tel"
+                  className="mt-1.5 h-11"
+                  placeholder="e.g. 089 981 7111"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
+              </div>
+              <div>
+                <Label>University {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
+                <Input
+                  className="mt-1.5 h-11"
+                  placeholder="e.g. University of Galway"
+                  value={university}
+                  onChange={(e) => setUniversity(e.target.value)}
+                />
+              </div>
               <div>
                 <Label>TikTok</Label>
                 <Input
@@ -883,6 +995,30 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 We&apos;ll save your profile details (banner, links, location, skills, rates) and{' '}
                 <span className="font-medium text-foreground">publish your listing immediately</span>. It will be visible on the Community board right away.
               </div>
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={agreedToTerms}
+                    onCheckedChange={(v) => setAgreedToTerms(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground leading-relaxed">
+                    I agree to the{' '}
+                    <Link to="/terms" target="_blank" className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <Checkbox
+                    checked={agreedToPrivacy}
+                    onCheckedChange={(v) => setAgreedToPrivacy(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground leading-relaxed">
+                    I agree to the{' '}
+                    <Link to="/privacy" target="_blank" className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>
+                  </span>
+                </label>
+              </div>
               <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -968,8 +1104,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       <span className="rounded-full bg-muted px-2.5 py-1">
                         {previewBudget.label}
                       </span>
-                      {syncBio ? (
-                        <span className="rounded-full bg-muted px-2.5 py-1">Also saves to profile bio</span>
+                      {listingPreviews.length > 0 ? (
+                        <span className="rounded-full bg-muted px-2.5 py-1">{listingPreviews.length} portfolio photo{listingPreviews.length === 1 ? '' : 's'}</span>
                       ) : null}
                       {workLinks.some((link) => link.url.trim()) ? (
                         <span className="rounded-full bg-muted px-2.5 py-1">
@@ -1016,7 +1152,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               type="button"
               className="h-11 flex-1 rounded-xl font-semibold"
               onClick={publish}
-              disabled={submitting || !category || !title.trim()}
+              disabled={submitting || !category || !title.trim() || !agreedToTerms || !agreedToPrivacy}
             >
               {submitting ? (
                 <>

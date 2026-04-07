@@ -55,8 +55,10 @@ const Profile = () => {
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
   const [wizardStartStep, setWizardStartStep] = useState<number | undefined>(undefined);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [qualityExpanded, setQualityExpanded] = useState(false);
   const [existingPost, setExistingPost] = useState<any>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [portfolioCount, setPortfolioCount] = useState(0);
   const bannerFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
@@ -69,8 +71,10 @@ const Profile = () => {
     typicalBudgetMax,
     hourlyRate,
     bio,
+    university,
+    phone,
     existingPost: existingPost ?? null,
-  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, existingPost]);
+  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -122,7 +126,7 @@ const Profile = () => {
         setIsAvailable(sp.is_available);
         setUniversity((sp as any).university || '');
         setPaymentDetails((sp as any).payment_details || '');
-        if (sp.avatar_url) setAvatarUrl(sp.avatar_url);
+        // Avatar is always read from profiles table (single source of truth)
         setTiktokUrl(sp.tiktok_url || '');
         setBannerUrl((sp as any).banner_url || '');
         setServiceArea((sp as any).service_area || '');
@@ -143,6 +147,14 @@ const Profile = () => {
             : [{ url: '', label: '' }]
         );
       }
+
+      // Portfolio item count for quality widget
+      const { count: piCount } = await supabase
+        .from('portfolio_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', session.user.id);
+      setPortfolioCount(piCount ?? 0);
+
       const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
       setMyGigs(gigs || []);
 
@@ -207,7 +219,6 @@ const Profile = () => {
         hourly_rate: parseFloat(hourlyRate) || 0,
         phone,
         is_available: isAvailable,
-        avatar_url: avatarUrl,
         banner_url: bannerUrl || null,
         service_area: serviceArea.trim() || null,
         typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null,
@@ -259,8 +270,8 @@ const Profile = () => {
       <SEOHead title="My Profile – VANO" description="Manage your VANO profile." />
       <Navbar />
       <div className="mx-auto max-w-lg px-4 pt-20 sm:max-w-xl sm:px-5 sm:pt-24 md:max-w-2xl md:px-8 pb-12 sm:pb-16">
-        <div className="mb-5 sm:mb-7">
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl mb-1 flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl mb-1 flex flex-wrap items-center gap-2 sm:gap-3">
             My Profile
             {user && <ModBadgeIfAdmin userId={user.id} />}
           </h1>
@@ -313,11 +324,11 @@ const Profile = () => {
               const allDone = doneCount === steps.length;
 
               return (
-                <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mb-6">
+                <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mb-8">
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile strength</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile strength</p>
                       <p className="mt-0.5 text-sm font-semibold text-foreground">
                         {allDone ? '🎉 Fully set up — looking great!' : `${doneCount} of ${steps.length} steps done`}
                       </p>
@@ -384,11 +395,11 @@ const Profile = () => {
 
             {studentProfile?.community_board_status === 'approved' && existingPost ? (
               /* ── Live listing editor card ── */
-              <div className="mb-5 sm:mb-6">
+              <div className="mb-6 sm:mb-8">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live on talent board</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live on talent board</p>
                   </div>
                   <button
                     type="button"
@@ -520,7 +531,7 @@ const Profile = () => {
                 <p className="mt-1.5 text-[11px] text-muted-foreground">Tap any section to edit. Changes go live immediately.</p>
               </div>
             ) : studentProfile?.community_board_status !== 'approved' ? (
-              <div className="mb-5 rounded-2xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/15 px-4 py-3.5 sm:mb-6">
+              <div className="mb-6 rounded-2xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/15 px-4 py-3.5 sm:mb-8">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -607,6 +618,22 @@ const Profile = () => {
                   count: null,
                   wizardStep: 4,
                 },
+                {
+                  id: 'university',
+                  label: 'University',
+                  detail: 'Add your university — builds trust with businesses',
+                  done: !!university.trim(),
+                  count: null,
+                  wizardStep: 4,
+                },
+                {
+                  id: 'portfolio',
+                  label: 'Portfolio photos',
+                  detail: 'Add sample work photos — profiles with images get way more views',
+                  done: portfolioCount > 0,
+                  count: null,
+                  wizardStep: 2,
+                },
               ];
 
               const doneCount = qualityChecks.filter((c) => c.done).length;
@@ -615,7 +642,7 @@ const Profile = () => {
 
               if (allDone) {
                 return (
-                  <div className="mb-5 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-50/50 px-4 py-3 dark:bg-emerald-900/15 sm:mb-6">
+                  <div className="mb-6 flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-50/50 px-4 py-3 dark:bg-emerald-900/15 sm:mb-8">
                     <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
                     <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-400">
                       Profile looks great — all {qualityChecks.length} sections complete
@@ -625,14 +652,14 @@ const Profile = () => {
               }
 
               return (
-                <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mb-6">
+                <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm sm:mb-8">
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile quality</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile quality</p>
                       <p className="mt-0.5 text-sm font-semibold text-foreground">
                         {doneCount} of {qualityChecks.length} complete
-                        <span className="ml-1.5 text-rose-500">· {missingCount} missing</span>
+                        <span className="ml-1.5 text-muted-foreground">· {missingCount} to go</span>
                       </p>
                     </div>
                     <button
@@ -652,19 +679,25 @@ const Profile = () => {
                     />
                   </div>
 
+                  {/* Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setQualityExpanded(v => !v)}
+                    className="mx-4 mb-1 text-xs font-semibold text-primary hover:underline sm:mx-5"
+                  >
+                    {qualityExpanded ? 'Show less' : `Show all ${qualityChecks.length} checks`}
+                  </button>
+
                   {/* Check rows */}
                   <ul className="divide-y divide-border/50">
-                    {qualityChecks.map((check) => (
+                    {(qualityExpanded ? qualityChecks : qualityChecks.filter(c => !c.done).slice(0, 2)).map((check) => (
                       <li
                         key={check.id}
-                        className={cn(
-                          'flex items-center gap-3 px-4 py-2.5 sm:px-5',
-                          !check.done && 'bg-rose-50/40 dark:bg-rose-950/20',
-                        )}
+                        className="flex items-center gap-3 px-4 py-2.5 sm:px-5"
                       >
                         {check.done
                           ? <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
-                          : <Circle size={16} className="shrink-0 text-rose-400" />
+                          : <Circle size={16} className="shrink-0 text-muted-foreground/40" />
                         }
                         <div className="min-w-0 flex-1">
                           <p className={cn(
@@ -673,26 +706,26 @@ const Profile = () => {
                           )}>
                             {check.label}
                             {check.count && (
-                              <span className="ml-1.5 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                              <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                                 {check.count}
                               </span>
                             )}
                           </p>
                           {!check.done && (
-                            <p className="mt-0.5 text-[11px] text-muted-foreground">{check.detail}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{check.detail}</p>
                           )}
                         </div>
                         {!check.done && check.wizardStep !== null && (
                           <button
                             type="button"
                             onClick={() => openWizardAtStep(check.wizardStep!)}
-                            className="shrink-0 rounded-lg bg-rose-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-rose-600"
+                            className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                           >
                             Fix →
                           </button>
                         )}
                         {!check.done && check.wizardStep === null && (
-                          <span className="shrink-0 text-[11px] text-muted-foreground">{check.profileAction}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">{check.profileAction}</span>
                         )}
                       </li>
                     ))}
@@ -715,39 +748,18 @@ const Profile = () => {
               }}
             />
 
-            {/* Shareable profile link */}
-            {displayName && (
-              <div className="mb-5 sm:mb-6">
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your profile link</p>
-                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
-                  <Link2 size={14} className="shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
-                    {getSiteOrigin()}/u/{nameToSlug(displayName)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(`${getSiteOrigin()}/u/${nameToSlug(displayName)}`);
-                      setLinkCopied(true);
-                      setTimeout(() => setLinkCopied(false), 2000);
-                    }}
-                    className="shrink-0 rounded-lg border border-border bg-background px-2.5 py-1 text-[12px] font-semibold text-foreground transition-colors hover:border-foreground/20 inline-flex items-center gap-1"
-                  >
-                    {linkCopied ? <><Check size={12} className="text-emerald-500" />Copied!</> : 'Copy'}
-                  </button>
-                </div>
-                <p className="mt-1.5 text-[11px] text-muted-foreground">Put this in your Instagram bio, TikTok, or WhatsApp status.</p>
-              </div>
-            )}
           </>
         )}
 
-        <div className="space-y-5 rounded-xl border border-border bg-card p-4 sm:space-y-6 sm:rounded-2xl sm:p-5 md:p-7">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {profile?.user_type === 'student' ? 'Your details' : 'Your profile'}
+        </p>
+        <div className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:space-y-6 sm:p-6 md:p-7">
           {/* Freelancer: photo + display name only (listing lives in Get listed) */}
           {profile?.user_type === 'student' ? (
             <>
               {!avatarUrl && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-[13px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-400">
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-400">
                   📸 Add a photo — listings with a real face get significantly more messages than ones with just an initial.
                 </div>
               )}
@@ -766,9 +778,34 @@ const Profile = () => {
                   <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="Your name" />
                 </div>
               </div>
-              <button onClick={handleSave} disabled={saving} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+              <button onClick={handleSave} disabled={saving} className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Profile'}
               </button>
+
+              {/* Shareable profile link */}
+              {displayName && (
+                <div className="border-t border-border pt-5">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your profile link</p>
+                  <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+                    <Link2 size={14} className="shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
+                      {getSiteOrigin()}/u/{nameToSlug(displayName)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(`${getSiteOrigin()}/u/${nameToSlug(displayName)}`);
+                        setLinkCopied(true);
+                        setTimeout(() => setLinkCopied(false), 2000);
+                      }}
+                      className="shrink-0 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-foreground/20 inline-flex items-center gap-1"
+                    >
+                      {linkCopied ? <><Check size={12} className="text-emerald-500" />Copied!</> : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">Put this in your Instagram bio, TikTok, or WhatsApp status.</p>
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -813,7 +850,7 @@ const Profile = () => {
                   No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.
                 </p>
               </div>
-              <button onClick={handleSave} disabled={saving} className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+              <button onClick={handleSave} disabled={saving} className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Profile'}
               </button>
             </>
@@ -822,15 +859,15 @@ const Profile = () => {
 
         {/* My Posted Gigs — all users */}
         {myGigs !== undefined && (
-          <div className="mt-6">
-            <h2 className="text-xl font-bold mb-4">My Posted Gigs</h2>
+          <div className="mt-8">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">My Posted Gigs</h2>
             {myGigs.length === 0 ? (
-              <div className="text-center py-12 bg-card border border-border rounded-2xl">
+              <div className="text-center py-8 bg-card border border-border rounded-2xl">
                 <Briefcase className="mx-auto text-muted-foreground mb-3" size={28} />
                 <p className="text-muted-foreground text-sm">No gigs posted yet</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {myGigs.map((gig) => (
                   <div key={gig.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:border-primary/20 transition-colors">
                     <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/jobs/${gig.id}`)}>
@@ -864,7 +901,7 @@ const Profile = () => {
         )}
 
         {/* Email info */}
-        <div className="mt-6 flex flex-col items-center gap-2 text-center">
+        <div className="mt-8 flex flex-col items-center gap-2 text-center">
           <RequestFeatureLink className="text-xs" />
           <p className="text-xs text-muted-foreground">
             Signed in as {user?.email}

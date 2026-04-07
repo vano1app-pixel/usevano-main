@@ -9,19 +9,23 @@ import { Button } from '@/components/ui/button';
 import {
   RefreshCw, Loader2, X,
   Briefcase, MapPin, Euro, Calendar, Tag,
-  Phone, MessageCircle, Sparkles, PenLine, ChevronLeft,
+  Phone, MessageCircle, Sparkles, PenLine, ChevronLeft, Users,
 } from 'lucide-react';
+import { StudentCard } from '@/components/StudentCard';
 import { cn } from '@/lib/utils';
 import { isEmailVerified } from '@/lib/authSession';
+import { TEAM_PHONE_DISPLAY, teamTelHref, teamWhatsAppHref } from '@/lib/contact';
 
-type Mode = 'choose' | 'vano' | 'self';
+type Mode = 'choose' | 'vano' | 'self' | 'results';
 
 const PostJob = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const rehireStudentId = searchParams.get('rehire');
-  const [mode, setMode] = useState<Mode>('choose');
+  const modeParam = searchParams.get('mode');
+  const initialMode = (modeParam === 'vano' || modeParam === 'self') ? modeParam : 'choose';
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [rehireStudentName, setRehireStudentName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -35,6 +39,10 @@ const PostJob = () => {
     shift_date: '',
     is_urgent: false,
   });
+  const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
+  const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
+  const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
+  const [matchLoading, setMatchLoading] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -114,6 +122,77 @@ const PostJob = () => {
     return null;
   };
 
+  const fetchMatchedStudents = async (jobTags: string[], fixedPrice: number) => {
+    setMatchLoading(true);
+    try {
+      const [{ data: studentData }, { data: profileData }] = await Promise.all([
+        supabase.from('student_profiles').select('*')
+          .eq('is_available', true)
+          .eq('community_board_status', 'approved'),
+        supabase.from('profiles').select('user_id, display_name, avatar_url'),
+      ]);
+
+      const students = studentData || [];
+      const profs = profileData || [];
+      const lowerTags = jobTags.map(t => t.toLowerCase());
+
+      let matched: any[];
+      if (lowerTags.length > 0) {
+        // Try tag-based matching first
+        matched = students.filter(s => {
+          const studentSkills = (s.skills || []).map((sk: string) => sk.toLowerCase());
+          const hasTagOverlap = studentSkills.some((skill: string) => lowerTags.includes(skill));
+          if (!hasTagOverlap) return false;
+
+          // Budget compatibility check
+          const min = s.typical_budget_min;
+          const max = s.typical_budget_max;
+          if (min != null && max != null && fixedPrice > 0) {
+            if (fixedPrice < min || fixedPrice > max) return false;
+          }
+          return true;
+        });
+
+        // If no exact tag matches, show all available students
+        if (matched.length === 0) {
+          matched = students;
+        }
+      } else {
+        // No tags entered — show all available students
+        matched = students;
+      }
+
+      setMatchedStudents(matched);
+
+      // Build display name + avatar map
+      const profMap: Record<string, { name: string; avatar: string }> = {};
+      profs.forEach((p: any) => { profMap[p.user_id] = { name: p.display_name, avatar: p.avatar_url || '' }; });
+      setMatchedProfiles(profMap);
+
+      // Fetch reviews for matched students
+      if (matched.length > 0) {
+        const ids = matched.map((s: any) => s.user_id);
+        const { data: revData } = await supabase.from('reviews').select('reviewee_id, rating').in('reviewee_id', ids);
+        if (revData && revData.length > 0) {
+          const map: Record<string, { sum: number; count: number }> = {};
+          for (const r of revData) {
+            if (!map[r.reviewee_id]) map[r.reviewee_id] = { sum: 0, count: 0 };
+            map[r.reviewee_id].sum += r.rating;
+            map[r.reviewee_id].count += 1;
+          }
+          const result: Record<string, { avg: string; count: number }> = {};
+          for (const [uid, { sum, count }] of Object.entries(map)) {
+            result[uid] = { avg: (sum / count).toFixed(1), count };
+          }
+          setMatchedReviews(result);
+        }
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('Match fetch failed:', err);
+    }
+    setMatchLoading(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -156,7 +235,8 @@ const PostJob = () => {
         supabase.functions.invoke('notify-matched-students', { body: { job_id: jobData.id } }).catch(() => {});
       }
       toast({ title: 'Gig posted!' });
-      navigate('/jobs');
+      await fetchMatchedStudents(tags, parseFloat(form.fixed_price) || 0);
+      setMode('results');
     }
     setLoading(false);
   };
@@ -238,7 +318,7 @@ const PostJob = () => {
         {mode === 'vano' && (
           <div className="space-y-5">
             <button
-              onClick={() => setMode('choose')}
+              onClick={() => initialMode !== 'choose' ? navigate('/jobs') : setMode('choose')}
               className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <ChevronLeft size={14} /> Back
@@ -260,17 +340,17 @@ const PostJob = () => {
                 {/* 12% commission note */}
                 <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">Our fee</p>
-                  <p className="mt-0.5 text-base font-bold text-white">12% commission</p>
+                  <p className="mt-0.5 text-base font-bold text-white">0% commission</p>
                   <p className="mt-0.5 text-xs text-white/60">Only charged when we find your freelancer — no upfront cost.</p>
                 </div>
                 <a
-                  href="tel:+35389981711"
+                  href={teamTelHref}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-primary shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
                 >
-                  <Phone size={15} /> Call us — 089 981 711
+                  <Phone size={15} /> Call us — {TEAM_PHONE_DISPLAY}
                 </a>
                 <a
-                  href="https://wa.me/35389981711"
+                  href={teamWhatsAppHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20 active:scale-[0.98]"
@@ -287,7 +367,7 @@ const PostJob = () => {
         {mode === 'self' && (
           <div>
             <button
-              onClick={() => setMode('choose')}
+              onClick={() => initialMode !== 'choose' ? navigate('/jobs') : setMode('choose')}
               className="mb-5 flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <ChevronLeft size={14} /> Back
@@ -486,6 +566,94 @@ const PostJob = () => {
                 Your gig goes live instantly · Matching freelancers get notified
               </p>
             </form>
+          </div>
+        )}
+
+        {/* ── Results Screen ── */}
+        {mode === 'results' && (
+          <div>
+            <header className="mb-6">
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Gig posted</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                {matchLoading
+                  ? 'Finding matching freelancers…'
+                  : matchedStudents.length > 0
+                    ? `We found ${matchedStudents.length} matching freelancer${matchedStudents.length !== 1 ? 's' : ''}`
+                    : 'Your gig is live!'}
+              </h1>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                {matchLoading
+                  ? 'Hang tight while we search for the best matches.'
+                  : matchedStudents.length > 0
+                    ? 'These freelancers match your skills and budget. View their profiles or send a message.'
+                    : 'No freelancers matched right now, but your gig is live and matching freelancers will be notified.'}
+              </p>
+            </header>
+
+            {matchLoading ? (
+              <div className="flex flex-col gap-4" aria-busy aria-label="Finding matches">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
+                    <div className="h-48 w-full bg-muted/60" />
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-14 w-14 shrink-0 rounded-full bg-muted" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 w-32 rounded-md bg-muted" />
+                          <div className="h-2.5 w-24 rounded-md bg-muted" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : matchedStudents.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                {matchedStudents.map((student, idx) => {
+                  const ratingInfo = matchedReviews[student.user_id];
+                  return (
+                    <div
+                      key={student.id}
+                      className="animate-fade-in opacity-0"
+                      style={{ animationDelay: `${idx * 60}ms` }}
+                    >
+                      <StudentCard
+                        student={student}
+                        displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
+                        profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
+                        showFavourite={false}
+                        avgRating={ratingInfo?.avg ?? null}
+                        reviewCount={ratingInfo?.count}
+                        onMessage={(userId) => navigate(`/messages?with=${userId}`)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button
+                onClick={() => navigate('/students')}
+                variant="outline"
+                className="h-11 rounded-xl text-sm font-medium"
+              >
+                <Users size={15} className="mr-2" /> Browse all freelancers
+              </Button>
+              <Button
+                onClick={() => {
+                  setForm({ title: '', description: '', location: '', fixed_price: '', shift_date: '', is_urgent: false });
+                  setTags([]);
+                  setMatchedStudents([]);
+                  setMatchedReviews({});
+                  setMode('self');
+                }}
+                variant="ghost"
+                className="h-11 rounded-xl text-sm font-medium"
+              >
+                Post another gig
+              </Button>
+            </div>
           </div>
         )}
 

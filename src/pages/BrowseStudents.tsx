@@ -50,7 +50,7 @@ const BrowseStudents = () => {
   const fetchStudents = async () => {
     const [{ data: studentData }, { data: profileData }] = await Promise.all([
       supabase.from('student_profiles').select('user_id, is_available, hourly_rate, avatar_url, skills, bio').eq('is_available', true).eq('community_board_status', 'approved').not('bio', 'is', null).not('skills', 'eq', '{}'),
-      supabase.from('profiles').select('user_id, display_name'),
+      supabase.from('profiles').select('user_id, display_name, avatar_url'),
     ]);
     setStudents(studentData || []);
     setProfiles(profileData || []);
@@ -58,6 +58,7 @@ const BrowseStudents = () => {
   };
 
   const getDisplayName = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.display_name || 'Student';
+  const getAvatarUrl = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.avatar_url || '';
 
   const countsByCategory = useMemo(() => {
     const out: Record<CommunityCategoryId, number> = { videography: 0, photography: 0, websites: 0, social_media: 0 };
@@ -84,7 +85,7 @@ const BrowseStudents = () => {
           <div className="flex flex-col gap-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
             <div className="grid grid-cols-2 gap-3">
-              {TALENT_HUB_CATEGORIES.map((item) => {
+              {TALENT_HUB_CATEGORIES.map((item, idx) => {
                 const Icon = item.icon;
                 const count = countsByCategory[item.cat];
                 return (
@@ -92,11 +93,12 @@ const BrowseStudents = () => {
                     key={item.cat}
                     type="button"
                     onClick={() => navigate(`/students/${item.cat}`)}
-                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all hover:border-primary/20 hover:shadow-md active:scale-[0.98]"
+                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all hover:border-primary/20 hover:shadow-md active:scale-[0.98] animate-fade-in opacity-0"
+                    style={{ animationDelay: `${idx * 70}ms` }}
                   >
                     {item.image && (
                       <>
-                        <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none" />
+                        <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-transform duration-500 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
                       </>
                     )}
@@ -148,8 +150,8 @@ const BrowseStudents = () => {
                       onClick={() => navigate(`/students/${primaryCategoryForStudent(s, name)}`)}
                       className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-foreground/10 bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
                     >
-                      {s.avatar_url ? (
-                        <img src={s.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />
+                      {getAvatarUrl(s.user_id) ? (
+                        <img src={getAvatarUrl(s.user_id)} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />
                       ) : (
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 ring-card">
                           {name[0].toUpperCase()}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
@@ -165,6 +165,15 @@ const Auth = () => {
           )}
 
           <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+
+          {!isLogin && (
+            <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
+              By signing up, you agree to our{' '}
+              <Link to="/terms" className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+              {' '}and{' '}
+              <Link to="/privacy" className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>.
+            </p>
+          )}
 
           <p className="text-center text-xs text-muted-foreground">
             {isLogin ? (
