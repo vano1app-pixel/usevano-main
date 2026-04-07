@@ -6,7 +6,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
-import { Phone, Briefcase, Tag, UserCircle } from 'lucide-react';
+import { Phone, Tag, UserCircle } from 'lucide-react';
 
 const SKILL_OPTIONS = [
   'Video editing', 'Filming', 'Reels', 'Drone', 'Promo video', 'Wedding film', 'Corporate video',
@@ -19,7 +19,6 @@ const CompleteProfile = () => {
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [phone, setPhone] = useState('');
-  const [bio, setBio] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -96,7 +95,6 @@ const CompleteProfile = () => {
           .update({
             avatar_url: avatarUrl,
             phone: phone.trim(),
-            bio: bio.trim() || null,
             skills: skills.length > 0 ? skills : null,
           })
           .eq('user_id', userId!);
@@ -189,19 +187,6 @@ const CompleteProfile = () => {
                     placeholder="e.g. 089 123 4567"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">Only shared with VANO team, not displayed publicly</p>
-                </div>
-
-                <div>
-                  <label className="flex items-center gap-1.5 text-sm font-medium mb-1.5">
-                    <Briefcase size={14} className="text-muted-foreground" />
-                    What do you do?
-                  </label>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className={`${inputClass} min-h-[80px] resize-none`}
-                    placeholder="e.g. I shoot short-form video content for brands and events in Galway"
-                  />
                 </div>
 
                 <div>
