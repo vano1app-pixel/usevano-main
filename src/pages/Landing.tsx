@@ -246,7 +246,7 @@ const Landing = () => {
                 <button
                   key={item.cat}
                   type="button"
-                  onClick={() => navigate(`/students?cat=${item.cat}`)}
+                  onClick={() => navigate(`/students/${item.cat}`)}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all active:scale-[0.98] hover:border-foreground/20 hover:shadow-md"
                 >
                   <img

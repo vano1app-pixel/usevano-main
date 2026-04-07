@@ -160,7 +160,14 @@ const StudentProfile = () => {
 
   const freelancerActions = (
     <>
-      {user && user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
+      {!user ? (
+        <a
+          href="/auth"
+          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+        >
+          <MessageCircle size={18} strokeWidth={2} /> Sign in to message
+        </a>
+      ) : user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
         <button
           type="button"
           onClick={handleMessage}
@@ -230,7 +237,14 @@ const StudentProfile = () => {
               </div>
             </div>
             <div className="flex gap-3 mb-6">
-              {user && user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
+              {!user ? (
+                <a
+                  href="/auth"
+                  className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={16} /> Sign in to message
+                </a>
+              ) : user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
                 <button
                   type="button"
                   onClick={handleMessage}
