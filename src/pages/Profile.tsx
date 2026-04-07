@@ -627,10 +627,33 @@ const Profile = () => {
                   </div>
                 )}
 
-                {/* ── Portfolio section ── */}
-                <div>
-                  <PortfolioManager userId={user.id} />
-                </div>
+                {/* Profile strength (pre-approval) */}
+                {studentProfile?.community_board_status !== 'approved' && (() => {
+                  const steps: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
+                    { id: 'photo', label: 'Profile photo', detail: 'Listings with a photo get far more clicks', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
+                    { id: 'skills', label: 'At least 3 skills', detail: 'Businesses search by skill — you won\'t show up without them', done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 5 },
+                    { id: 'rate', label: 'Hourly rate set', detail: 'People skip listings with no rate — they assume it\'s expensive', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 5 },
+                    { id: 'bio', label: 'Bio written', detail: 'A short intro builds trust before someone messages you', done: bio.trim().length >= 30, count: null, wizardStep: 3 },
+                    { id: 'link', label: 'Portfolio link', detail: 'Instagram, Behance, GitHub — link your actual work', done: workLinks.some(l => l.url.trim().length > 0), count: null, wizardStep: 4 },
+                  ];
+                  return renderChecklist(steps);
+                })()}
+
+                {/* Profile quality (post-approval) */}
+                {studentProfile?.community_board_status === 'approved' && (() => {
+                  const qualityChecks: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
+                    { id: 'photo', label: 'Profile photo', detail: 'Profiles with a real face get far more messages', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
+                    { id: 'banner', label: 'Cover photo', detail: 'No cover — your card looks plain without one', done: !!bannerUrl, count: null, wizardStep: 2 },
+                    { id: 'bio', label: 'Description', detail: bio.trim().length === 0 ? 'No description — businesses need to know what you offer' : `Too short (${bio.trim().length} chars — need 30+)`, done: bio.trim().length >= 30, count: null, wizardStep: 3 },
+                    { id: 'skills', label: 'At least 3 skills', detail: skills.length === 0 ? 'No skills — businesses search by skill to find you'
+                      : `${skills.length}/3 minimum — add ${3 - skills.length} more`, done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 5 },
+                    { id: 'rate', label: 'Rate set', detail: 'No rate shown — people skip listings with no price', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 5 },
+                    { id: 'link', label: 'Portfolio or social link', detail: 'Add a link to your Instagram, Behance, GitHub, etc.', done: workLinks.some((l) => l.url.trim().length > 0), count: null, wizardStep: 4 },
+                    { id: 'university', label: 'University', detail: 'Add your university — builds trust with businesses', done: !!university.trim(), count: null, wizardStep: 4 },
+                    { id: 'portfolio', label: 'Portfolio photos', detail: 'Add sample work photos — profiles with images get way more views', done: portfolioCount > 0, count: null, wizardStep: 2 },
+                  ];
+                  return renderChecklist(qualityChecks);
+                })()}
 
                 {/* ── Your Details card ── */}
                 <div>
@@ -674,97 +697,16 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* ── My Posted Gigs ── */}
-                {myGigs !== undefined && (
-                  <div>
-                    <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">My Posted Gigs</h2>
-                    {myGigs.length === 0 ? (
-                      <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border bg-card/50 py-10 px-6 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                          <Briefcase className="text-muted-foreground" size={22} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">No gigs posted yet</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">Post a gig to find freelancers fast</p>
-                        </div>
-                        <Button size="sm" className="mt-1 rounded-xl text-xs font-semibold" asChild>
-                          <a href="/post-job"><Plus size={14} className="mr-1" />Post your first gig</a>
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {myGigs.map((gig) => (
-                          <div key={gig.id} className="group overflow-hidden rounded-xl border border-border bg-card flex items-stretch transition-all duration-200 hover:border-primary/20 hover:shadow-sm">
-                            {/* Status color bar */}
-                            <div className={cn(
-                              "w-1 shrink-0",
-                              gig.status === 'open' ? 'bg-emerald-500' :
-                              gig.status === 'completed' ? 'bg-blue-500' :
-                              'bg-muted-foreground/30'
-                            )} />
-                            <div className="min-w-0 flex-1 cursor-pointer p-4" onClick={() => navigate(`/jobs/${gig.id}`)}>
-                              <h3 className="font-semibold text-sm truncate">{gig.title}</h3>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {gig.location}
-                                {' · '}
-                                {gig.payment_type === 'fixed' ? `€${gig.fixed_price ?? 0} total` : `€${gig.hourly_rate}/hr`}
-                                {' · '}
-                                {format(new Date(gig.shift_date), 'MMM d, yyyy')}
-                              </p>
-                              <span className={cn(
-                                "text-[10px] font-medium px-2 py-0.5 rounded-full mt-1.5 inline-block",
-                                gig.status === 'open' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                gig.status === 'completed' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                'bg-muted text-muted-foreground'
-                              )}>{gig.status}</span>
-                            </div>
-                            <button
-                              onClick={() => deleteGig(gig.id)}
-                              disabled={deletingGig === gig.id}
-                              className="p-4 text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors shrink-0 disabled:opacity-50"
-                              title="Delete gig"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
               {/* ── END LEFT COLUMN ── */}
 
               {/* ── RIGHT COLUMN: Sidebar (quality + link) ── */}
               <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
 
-                {/* Profile strength (pre-approval) */}
-                {studentProfile?.community_board_status !== 'approved' && (() => {
-                  const steps: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
-                    { id: 'photo', label: 'Profile photo', detail: 'Listings with a photo get far more clicks', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'skills', label: 'At least 3 skills', detail: 'Businesses search by skill — you won\'t show up without them', done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 5 },
-                    { id: 'rate', label: 'Hourly rate set', detail: 'People skip listings with no rate — they assume it\'s expensive', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 5 },
-                    { id: 'bio', label: 'Bio written', detail: 'A short intro builds trust before someone messages you', done: bio.trim().length >= 30, count: null, wizardStep: 3 },
-                    { id: 'link', label: 'Portfolio link', detail: 'Instagram, Behance, GitHub — link your actual work', done: workLinks.some(l => l.url.trim().length > 0), count: null, wizardStep: 4 },
-                  ];
-                  return renderChecklist(steps);
-                })()}
-
-                {/* Profile quality (post-approval) */}
-                {studentProfile?.community_board_status === 'approved' && (() => {
-                  const qualityChecks: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
-                    { id: 'photo', label: 'Profile photo', detail: 'Profiles with a real face get far more messages', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'banner', label: 'Cover photo', detail: 'No cover — your card looks plain without one', done: !!bannerUrl, count: null, wizardStep: 2 },
-                    { id: 'bio', label: 'Description', detail: bio.trim().length === 0 ? 'No description — businesses need to know what you offer' : `Too short (${bio.trim().length} chars — need 30+)`, done: bio.trim().length >= 30, count: null, wizardStep: 3 },
-                    { id: 'skills', label: 'At least 3 skills', detail: skills.length === 0 ? 'No skills — businesses search by skill to find you'
-                      : `${skills.length}/3 minimum — add ${3 - skills.length} more`, done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 5 },
-                    { id: 'rate', label: 'Rate set', detail: 'No rate shown — people skip listings with no price', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 5 },
-                    { id: 'link', label: 'Portfolio or social link', detail: 'Add a link to your Instagram, Behance, GitHub, etc.', done: workLinks.some((l) => l.url.trim().length > 0), count: null, wizardStep: 4 },
-                    { id: 'university', label: 'University', detail: 'Add your university — builds trust with businesses', done: !!university.trim(), count: null, wizardStep: 4 },
-                    { id: 'portfolio', label: 'Portfolio photos', detail: 'Add sample work photos — profiles with images get way more views', done: portfolioCount > 0, count: null, wizardStep: 2 },
-                  ];
-                  return renderChecklist(qualityChecks);
-                })()}
+                {/* ── Portfolio section ── */}
+                <div>
+                  <PortfolioManager userId={user.id} />
+                </div>
 
                 {/* Shareable profile link — sidebar on desktop */}
                 {displayName && (
@@ -816,7 +758,7 @@ const Profile = () => {
                       });
                       window.location.href = '/auth?mode=signup';
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:text-destructive hover:border-destructive/30"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-xs font-semibold text-blue-700 transition-all duration-200 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50 dark:hover:border-blue-600"
                   >
                     <LogOut size={12} />
                     Sign out / switch account
@@ -979,7 +921,7 @@ const Profile = () => {
                   });
                   window.location.href = '/auth?mode=signup';
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:text-destructive hover:border-destructive/30"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-xs font-semibold text-blue-700 transition-all duration-200 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50 dark:hover:border-blue-600"
               >
                 <LogOut size={12} />
                 Sign out / switch account
