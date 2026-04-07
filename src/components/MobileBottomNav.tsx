@@ -90,33 +90,33 @@ export const MobileBottomNav: React.FC = () => {
               key={href}
               type="button"
               onClick={() => handleNav(href)}
-              className="flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.96]"
+              className="relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.96]"
             >
               <span
-                className={cn(
-                  'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150',
-                  active ? 'bg-foreground/10' : 'bg-transparent',
-                )}
+                className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150"
               >
                 <Icon
-                  size={18}
-                  strokeWidth={active ? 2.2 : 1.8}
-                  className={cn('transition-colors duration-150', active ? 'text-foreground' : 'text-foreground/50')}
+                  size={20}
+                  strokeWidth={active ? 2.2 : 1.7}
+                  className={cn('transition-colors duration-150', active ? 'text-primary' : 'text-foreground/50')}
                 />
                 {href === '/messages' && unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full border-2 border-card bg-foreground px-0.5 text-[9px] font-bold leading-none text-background">
+                  <span className="absolute -right-1 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full border-2 border-card bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </span>
               <span
                 className={cn(
-                  'text-[10px] leading-none tracking-tight',
-                  active ? 'font-semibold text-foreground' : 'font-normal text-foreground/45',
+                  'text-[11px] leading-none tracking-tight',
+                  active ? 'font-semibold text-primary' : 'font-normal text-foreground/45',
                 )}
               >
                 {label}
               </span>
+              {active && (
+                <span className="absolute bottom-0 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" />
+              )}
             </button>
           );
         })}
