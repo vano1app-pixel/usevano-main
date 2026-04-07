@@ -609,18 +609,23 @@ const PostJob = () => {
               </div>
             ) : matchedStudents.length > 0 ? (
               <div className="flex flex-col gap-4">
-                {matchedStudents.map((student) => {
+                {matchedStudents.map((student, idx) => {
                   const ratingInfo = matchedReviews[student.user_id];
                   return (
-                    <StudentCard
+                    <div
                       key={student.id}
-                      student={student}
-                      displayName={matchedProfiles[student.user_id] || 'Freelancer'}
-                      showFavourite={false}
-                      avgRating={ratingInfo?.avg ?? null}
-                      reviewCount={ratingInfo?.count}
-                      onMessage={(userId) => navigate(`/messages?with=${userId}`)}
-                    />
+                      className="animate-fade-in opacity-0"
+                      style={{ animationDelay: `${idx * 60}ms` }}
+                    >
+                      <StudentCard
+                        student={student}
+                        displayName={matchedProfiles[student.user_id] || 'Freelancer'}
+                        showFavourite={false}
+                        avgRating={ratingInfo?.avg ?? null}
+                        reviewCount={ratingInfo?.count}
+                        onMessage={(userId) => navigate(`/messages?with=${userId}`)}
+                      />
+                    </div>
                   );
                 })}
               </div>

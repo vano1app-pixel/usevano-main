@@ -62,6 +62,9 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      transitionTimingFunction: {
+        'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -137,8 +140,8 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-zoom-in": "fade-zoom-in 1s ease-out",
-        "fade-in": "fade-in 0.6s ease-out forwards",
-        "slide-in-right": "slide-in-right 0.3s ease-out",
+        "fade-in": "fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "slide-in-right": "slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         "scroll-left": "scroll-left 40s linear infinite",
         "scroll-left-fast": "scroll-left 110s linear infinite",
       },

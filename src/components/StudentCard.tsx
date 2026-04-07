@@ -124,7 +124,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
     <div
       className={cn(
         'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-200',
-        clickable && 'cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 group',
+        clickable && 'cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 active:scale-[0.98] group',
         !clickable && 'cursor-default',
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
