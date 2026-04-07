@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, UserCircle } from 'lucide-react';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
 import { ModBadge } from '@/components/ModBadge';
@@ -34,6 +34,7 @@ const Profile = () => {
   const [studentProfile, setStudentProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [workDescription, setWorkDescription] = useState('');
@@ -236,6 +237,8 @@ const Profile = () => {
     }
     toast({ title: 'Profile saved!' });
     setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const deleteGig = async (jobId: string) => {
@@ -263,13 +266,13 @@ const Profile = () => {
     </div>
   );
 
-  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
+  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/50 transition-colors";
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title="My Profile – VANO" description="Manage your VANO profile." />
       <Navbar />
-      <div className="mx-auto max-w-lg px-4 pt-20 sm:max-w-xl sm:px-5 sm:pt-24 md:max-w-2xl md:px-8 pb-12 sm:pb-16">
+      <div className="mx-auto max-w-lg px-4 pt-20 sm:max-w-xl sm:px-5 sm:pt-24 md:max-w-2xl md:px-8 pb-12 sm:pb-16 animate-fade-in">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl mb-1 flex flex-wrap items-center gap-2 sm:gap-3">
             My Profile
@@ -345,15 +348,15 @@ const Profile = () => {
                   {/* Progress bar */}
                   <div className="mx-4 mb-3 h-2 overflow-hidden rounded-full bg-muted sm:mx-5">
                     <div
-                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
 
                   {/* Steps */}
                   <ul className="divide-y divide-border/50">
-                    {steps.map((step) => (
-                      <li key={step.label} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
+                    {steps.map((step, idx) => (
+                      <li key={step.label} className="flex items-center gap-3 px-4 py-2.5 sm:px-5 animate-fade-in opacity-0" style={{ animationDelay: `${idx * 60}ms` }}>
                         {step.done
                           ? <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
                           : <Circle size={16} className="shrink-0 text-foreground/20" />
@@ -674,7 +677,7 @@ const Profile = () => {
                   {/* Progress bar */}
                   <div className="mx-4 mb-3 h-2 overflow-hidden rounded-full bg-muted sm:mx-5">
                     <div
-                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
                       style={{ width: `${Math.round((doneCount / qualityChecks.length) * 100)}%` }}
                     />
                   </div>
@@ -690,10 +693,11 @@ const Profile = () => {
 
                   {/* Check rows */}
                   <ul className="divide-y divide-border/50">
-                    {(qualityExpanded ? qualityChecks : qualityChecks.filter(c => !c.done).slice(0, 2)).map((check) => (
+                    {(qualityExpanded ? qualityChecks : qualityChecks.filter(c => !c.done).slice(0, 2)).map((check, idx) => (
                       <li
                         key={check.id}
-                        className="flex items-center gap-3 px-4 py-2.5 sm:px-5"
+                        className="flex items-center gap-3 px-4 py-2.5 sm:px-5 animate-fade-in opacity-0"
+                        style={{ animationDelay: `${idx * 60}ms` }}
                       >
                         {check.done
                           ? <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
@@ -751,7 +755,10 @@ const Profile = () => {
           </>
         )}
 
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10">
+            <UserCircle size={12} className="text-primary" />
+          </span>
           {profile?.user_type === 'student' ? 'Your details' : 'Your profile'}
         </p>
         <div className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:space-y-6 sm:p-6 md:p-7">
@@ -778,8 +785,8 @@ const Profile = () => {
                   <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="Your name" />
                 </div>
               </div>
-              <button onClick={handleSave} disabled={saving} className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
-                {saving ? 'Saving...' : 'Save Profile'}
+              <button onClick={handleSave} disabled={saving} className={`w-full py-3 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-50 ${saved ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}>
+                {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Profile'}
               </button>
 
               {/* Shareable profile link */}
@@ -850,8 +857,8 @@ const Profile = () => {
                   No need to add your address here. When you post a gig, you can set city or area (and any other details) for that specific job.
                 </p>
               </div>
-              <button onClick={handleSave} disabled={saving} className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
-                {saving ? 'Saving...' : 'Save Profile'}
+              <button onClick={handleSave} disabled={saving} className={`w-full py-3 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-50 ${saved ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}>
+                {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Profile'}
               </button>
             </>
           )}

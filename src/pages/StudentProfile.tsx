@@ -303,7 +303,7 @@ const StudentProfile = () => {
             />
 
             {/* Stats row — foxpop style */}
-            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden animate-fade-in opacity-0" style={{ animationDelay: '100ms' }}>
               <div className="grid grid-cols-3 divide-x divide-border">
                 {[
                   { label: reviews.length === 1 ? 'review' : 'reviews', value: avgRating ?? reviews.length.toString(), sub: avgRating ? `★ (${reviews.length} reviews)` : null },
@@ -341,7 +341,7 @@ const StudentProfile = () => {
 
             {/* Portfolio image strip — visible without tapping tab */}
             {portfolioItems.some((i) => i.image_url) && (
-              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden animate-fade-in opacity-0" style={{ animationDelay: '150ms' }}>
                 {portfolioItems.filter((i) => i.image_url).slice(0, 8).map((item, idx) => (
                   <button
                     key={item.id}
@@ -365,7 +365,7 @@ const StudentProfile = () => {
             )}
 
             {/* Tab switcher */}
-            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden animate-fade-in opacity-0" style={{ animationDelay: '200ms' }}>
               <div className="p-1.5 border-b border-border/60">
                 <div className="flex gap-1">
                   {(['about', 'portfolio', 'reviews'] as const).map((tab) => (
@@ -529,7 +529,7 @@ const StudentProfile = () => {
 
             {/* Gigs done (visible on all tabs, below the tab card) */}
             {completedJobs.length > 0 && (
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm animate-fade-in opacity-0" style={{ animationDelay: '300ms' }}>
                 <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
                   <Briefcase size={16} className="text-primary" /> Gigs Completed
                 </h2>
