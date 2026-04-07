@@ -31,16 +31,26 @@ export function RedirectToAccountTypeIfNeeded() {
     let cancelled = false;
     setOverlay(true);
     void (async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_type')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      if (cancelled) return;
-      if (!profile?.user_type?.trim()) {
-        navigate('/choose-account-type', { replace: true, state: { from: path } });
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) {
+          // Query failed — don't block the user, just dismiss overlay
+          setOverlay(false);
+          return;
+        }
+        if (!profile?.user_type?.trim()) {
+          navigate('/choose-account-type', { replace: true, state: { from: path } });
+        }
+      } catch {
+        // Network/timeout error — don't block the user
+      } finally {
+        if (!cancelled) setOverlay(false);
       }
-      setOverlay(false);
     })();
     return () => {
       cancelled = true;
