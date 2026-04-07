@@ -80,8 +80,8 @@ export const MobileBottomNav: React.FC = () => {
   return (
     <>
       {/* Gradient scrim — fades page content into the nav bar (mobile only) */}
-      <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-10 bg-gradient-to-t from-background to-transparent md:hidden" />
-      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/40 bg-card/80 backdrop-blur-md md:hidden">
+      <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-12 bg-gradient-to-t from-background via-background/50 to-transparent md:hidden" />
+      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/30 bg-card/70 backdrop-blur-xl md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]">
         {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
@@ -90,7 +90,7 @@ export const MobileBottomNav: React.FC = () => {
               key={href}
               type="button"
               onClick={() => handleNav(href)}
-              className="flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform active:scale-[0.94]"
+              className="flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.96]"
             >
               <span
                 className={cn(
@@ -101,7 +101,7 @@ export const MobileBottomNav: React.FC = () => {
                 <Icon
                   size={18}
                   strokeWidth={active ? 2.2 : 1.8}
-                  className={active ? 'text-foreground' : 'text-foreground/50'}
+                  className={cn('transition-colors duration-150', active ? 'text-foreground' : 'text-foreground/50')}
                 />
                 {href === '/messages' && unreadCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full border-2 border-card bg-foreground px-0.5 text-[9px] font-bold leading-none text-background">

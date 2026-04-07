@@ -93,7 +93,7 @@ const BrowseStudents = () => {
                     key={item.cat}
                     type="button"
                     onClick={() => navigate(`/students/${item.cat}`)}
-                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all hover:border-primary/20 hover:shadow-md active:scale-[0.98] animate-fade-in opacity-0"
+                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all duration-250 hover:border-primary/20 hover:shadow-lg hover:-translate-y-[2px] active:scale-[0.97] animate-fade-in opacity-0"
                     style={{ animationDelay: `${idx * 70}ms` }}
                   >
                     {item.image && (
@@ -117,7 +117,7 @@ const BrowseStudents = () => {
                         {count} freelancer{count !== 1 ? 's' : ''}
                       </span>
                     )}
-                    <ArrowRight size={14} className="absolute bottom-4 right-4 z-10 text-white/70 transition-colors group-hover:text-white" />
+                    <ArrowRight size={14} className="absolute bottom-4 right-4 z-10 text-white/70 transition-all duration-200 group-hover:text-white group-hover:translate-x-0.5" />
                   </button>
                 );
               })}

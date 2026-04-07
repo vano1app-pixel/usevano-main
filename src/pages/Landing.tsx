@@ -193,7 +193,7 @@ const Landing = () => {
               <button
                 type="button"
                 onClick={() => navigate(session ? '/profile' : '/auth?mode=signup')}
-                className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 active:scale-[0.97]"
+                className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Become a freelancer
                 <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
@@ -201,7 +201,7 @@ const Landing = () => {
               <button
                 type="button"
                 onClick={() => navigate('/jobs')}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/30 hover:shadow-md active:scale-[0.97]"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Hire a freelancer
               </button>
@@ -247,23 +247,23 @@ const Landing = () => {
                   key={item.cat}
                   type="button"
                   onClick={() => navigate(`/students/${item.cat}`)}
-                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all active:scale-[0.98] hover:border-foreground/20 hover:shadow-md"
+                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
                 >
                   <img
                     src={item.image}
                     alt=""
                     aria-hidden="true"
-                    className="absolute inset-0 h-full w-full object-cover opacity-30 pointer-events-none select-none"
+                    className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-all duration-500 group-hover:opacity-50 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none" />
                   <div className="relative z-10 flex flex-col gap-3 md:gap-4">
-                    <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl transition-colors bg-foreground/8 group-hover:bg-primary/10">
-                      <item.icon size={18} className="transition-colors text-foreground group-hover:text-primary md:hidden" strokeWidth={2} />
-                      <item.icon size={22} className="transition-colors text-foreground group-hover:text-primary hidden md:block" strokeWidth={2} />
+                    <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm transition-all duration-200 group-hover:bg-white/25">
+                      <item.icon size={18} className="transition-colors duration-200 text-white group-hover:text-white md:hidden" strokeWidth={2} />
+                      <item.icon size={22} className="transition-colors duration-200 text-white group-hover:text-white hidden md:block" strokeWidth={2} />
                     </div>
                     <div>
-                      <p className="text-[13px] md:text-[15px] font-bold text-foreground leading-snug">{item.label}</p>
-                      <p className="text-[11px] md:text-[13px] text-foreground/80 mt-0.5 leading-snug">{item.sub}</p>
+                      <p className="text-[13px] md:text-[15px] font-bold text-white leading-snug drop-shadow-sm">{item.label}</p>
+                      <p className="text-[11px] md:text-[13px] text-white/80 mt-0.5 leading-snug">{item.sub}</p>
                     </div>
                   </div>
                 </button>
@@ -664,13 +664,13 @@ const Landing = () => {
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => navigate('/auth')}
-                className="w-full sm:w-auto px-8 py-3.5 bg-primary-foreground text-primary rounded-xl font-semibold text-sm hover:bg-primary-foreground/90 transition-colors"
+                className="w-full sm:w-auto px-8 py-3.5 bg-primary-foreground text-primary rounded-xl font-semibold text-sm shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px]"
               >
                 Get started — it&apos;s free
               </button>
               <button
                 onClick={() => navigate('/students')}
-                className="w-full sm:w-auto px-8 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary-foreground/10 transition-colors"
+                className="w-full sm:w-auto px-8 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-xl font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px]"
               >
                 Browse talent
               </button>

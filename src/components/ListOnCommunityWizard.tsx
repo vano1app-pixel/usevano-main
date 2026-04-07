@@ -366,7 +366,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         return isEditing || (university.trim().length > 0 && phone.trim().length > 0);
       }
       case 5:
-        return true;
+        return skills.length >= 3;
       default:
         return true;
     }

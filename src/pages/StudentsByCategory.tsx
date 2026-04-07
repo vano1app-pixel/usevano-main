@@ -108,7 +108,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
         <button
           type="button"
           onClick={() => navigate('/students')}
-          className="group mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="group mb-5 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 -ml-2 text-sm font-medium text-muted-foreground transition-all duration-150 hover:text-foreground hover:bg-foreground/5"
         >
           <ArrowLeft size={16} strokeWidth={2} className="transition-transform group-hover:-translate-x-1" />
           All categories
