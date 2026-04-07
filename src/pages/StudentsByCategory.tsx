@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { isAdminOwnerEmail } from '@/lib/adminOwner';
 import { type CommunityCategoryId } from '@/lib/communityCategories';const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
   photography: { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera },
@@ -41,10 +43,33 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   const [reviewMap, setReviewMap] = useState<Record<string, { avg: string; count: number }>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
+  const isAdmin = isAdminOwnerEmail(currentUserEmail);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserEmail(session?.user?.email ?? null);
+    });
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [categoryId]);
+
+  const handleRemoveListing = async (userId: string) => {
+    if (!window.confirm('Remove this listing from the talent board?')) return;
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ community_board_status: null })
+      .eq('user_id', userId);
+    if (error) {
+      toast.error('Failed to remove listing');
+      return;
+    }
+    setStudents((prev) => prev.filter((s: any) => s.user_id !== userId));
+    toast.success('Listing removed');
+  };
 
   const fetchData = async () => {
     const [{ data: studentData, error: studentErr }, { data: profileData, error: profileErr }] = await Promise.all([
@@ -182,6 +207,8 @@ const StudentsByCategory = ({ categoryId }: Props) => {
                     avgRating={ratingInfo?.avg ?? null}
                     reviewCount={ratingInfo?.count}
                     onMessage={(userId) => navigate(`/messages?with=${userId}`)}
+                    isAdmin={isAdmin}
+                    onRemoveListing={isAdmin ? handleRemoveListing : undefined}
                   />
                 </div>
               );

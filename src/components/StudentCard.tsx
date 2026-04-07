@@ -1,6 +1,6 @@
 import React from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, Star } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, ShieldX, Star } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,10 @@ interface StudentCardProps {
   reviewCount?: number;
   /** Override avatar from profiles table (single source of truth) */
   profileAvatarUrl?: string | null;
+  /** Whether the current viewer is an admin */
+  isAdmin?: boolean;
+  /** Called when admin clicks remove — omit to hide the button */
+  onRemoveListing?: (userId: string) => void;
 }
 
 const MEDAL_STYLES = [
@@ -112,9 +116,11 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   avgRating,
   reviewCount,
   profileAvatarUrl,
+  isAdmin,
+  onRemoveListing,
 }) => {
   const navigate = useNavigate();
-  const isAdmin = useIsAdmin(student.user_id);
+  const isStudentAdmin = useIsAdmin(student.user_id);
   const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
   const area = student.service_area?.trim();
@@ -172,6 +178,16 @@ export const StudentCard: React.FC<StudentCardProps> = ({
               title={isFavourite ? 'Remove favourite' : 'Save'}
             >
               <Heart size={13} className={isFavourite ? 'fill-white text-white' : 'text-white'} />
+            </button>
+          )}
+          {isAdmin && onRemoveListing && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRemoveListing(student.user_id); }}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition-all duration-150 hover:bg-destructive active:scale-90"
+              title="Remove listing"
+            >
+              <ShieldX size={13} className="text-white" />
             </button>
           )}
         </div>
@@ -237,7 +253,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
           {/* Right: available + admin */}
           <div className="flex flex-wrap items-center gap-1 pb-1">
-            {isAdmin && <ModBadge size="sm" />}
+            {isStudentAdmin && <ModBadge size="sm" />}
             {student.is_available && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400">
                 Available
