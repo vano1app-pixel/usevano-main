@@ -1,27 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
-import { Phone, Briefcase, Tag, X } from 'lucide-react';
+import { Phone, Video, Camera, Monitor, Megaphone, Check, ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const CATEGORIES = [
+  { id: 'videography', label: 'Videography', icon: Video, skills: ['Video Editing', 'Filming', 'Reels', 'Drone', 'Motion Graphics'] },
+  { id: 'photography', label: 'Photography', icon: Camera, skills: ['Photography', 'Portrait', 'Product Photo', 'Event Photography', 'Lightroom'] },
+  { id: 'websites', label: 'Web Design', icon: Monitor, skills: ['Web Design', 'WordPress', 'Shopify', 'HTML/CSS', 'Frontend Development'] },
+  { id: 'social_media', label: 'Social Media', icon: Megaphone, skills: ['Social Media', 'Content Creation', 'TikTok', 'Instagram', 'Marketing Strategy'] },
+];
 
 /**
  * Step 2 of profile completion for freelancers.
- * New signups: collects phone, bio, and at least 1 skill.
+ * New signups: collects phone + category/skills via tappable tags.
  * Existing users missing phone only: collects just the phone number.
  */
 const CompleteProfileStep2 = () => {
   const [phone, setPhone] = useState('');
-  const [bio, setBio] = useState('');
-  const [skills, setSkills] = useState<string[]>([]);
-  const [skillInput, setSkillInput] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [phoneOnly, setPhoneOnly] = useState(false);
-  const skillInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -39,7 +45,6 @@ const CompleteProfileStep2 = () => {
         .eq('user_id', uid)
         .maybeSingle();
 
-      // Only for students
       if (profile?.user_type !== 'student') {
         navigate('/profile', { replace: true });
         return;
@@ -51,21 +56,15 @@ const CompleteProfileStep2 = () => {
         .eq('user_id', uid)
         .maybeSingle();
 
-      // If they already have a phone, they're done
       if (sp?.phone?.trim()) {
         navigate('/profile', { replace: true });
         return;
       }
 
-      // Check if they have bio + skills already (existing user, just need phone)
       const hasBio = sp?.bio?.trim();
       const hasSkills = Array.isArray(sp?.skills) && sp!.skills.length > 0;
       if (hasBio && hasSkills) {
         setPhoneOnly(true);
-      } else {
-        // Pre-fill what they have
-        if (hasBio) setBio(sp!.bio!);
-        if (hasSkills) setSkills(sp!.skills as string[]);
       }
 
       setChecking(false);
@@ -73,25 +72,22 @@ const CompleteProfileStep2 = () => {
     check();
   }, [navigate]);
 
-  const addSkill = (raw: string) => {
-    const val = raw.trim().replace(/,+$/, '').trim();
-    if (!val) return;
-    const formatted = val.charAt(0).toUpperCase() + val.slice(1);
-    if (!skills.includes(formatted) && skills.length < 10) {
-      setSkills((prev) => [...prev, formatted]);
-    }
-    setSkillInput('');
+  const toggleCategory = (catId: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(catId) ? prev.filter((c) => c !== catId) : [...prev, catId]
+    );
   };
 
-  const removeSkill = (skill: string) => setSkills((prev) => prev.filter((s) => s !== skill));
-
-  const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); addSkill(skillInput); }
-    if (e.key === ',') { e.preventDefault(); addSkill(skillInput); }
-    if (e.key === 'Backspace' && !skillInput && skills.length > 0) {
-      setSkills((prev) => prev.slice(0, -1));
-    }
+  const toggleSkill = (skill: string) => {
+    setSelectedSkills((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : prev.length < 10 ? [...prev, skill] : prev
+    );
   };
+
+  // Get all skills from selected categories
+  const availableSkills = CATEGORIES
+    .filter((c) => selectedCategories.includes(c.id))
+    .flatMap((c) => c.skills);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,12 +96,8 @@ const CompleteProfileStep2 = () => {
       toast({ title: 'Phone number is required', variant: 'destructive' });
       return;
     }
-    if (!phoneOnly && !bio.trim()) {
-      toast({ title: 'Please add a short bio', variant: 'destructive' });
-      return;
-    }
-    if (!phoneOnly && skills.length === 0) {
-      toast({ title: 'Add at least one skill', variant: 'destructive' });
+    if (!phoneOnly && selectedCategories.length === 0) {
+      toast({ title: 'Pick at least one category', variant: 'destructive' });
       return;
     }
 
@@ -113,8 +105,15 @@ const CompleteProfileStep2 = () => {
     try {
       const updates: any = { phone: phone.trim() };
       if (!phoneOnly) {
-        updates.bio = bio.trim();
-        updates.skills = skills;
+        // Build skills from selected categories + specific skills
+        const allSkills = [...new Set([
+          ...selectedCategories.map((id) => CATEGORIES.find((c) => c.id === id)!.label),
+          ...selectedSkills,
+        ])];
+        updates.skills = allSkills;
+        // Auto-generate a bio from their categories
+        const catLabels = selectedCategories.map((id) => CATEGORIES.find((c) => c.id === id)!.label);
+        updates.bio = catLabels.join(', ') + ' freelancer based in Galway';
       }
 
       const { error } = await supabase
@@ -141,28 +140,39 @@ const CompleteProfileStep2 = () => {
     );
   }
 
-  const inputClass = 'w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring';
+  const inputClass = 'w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/50 transition-colors';
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="relative min-h-[100dvh] bg-background flex items-center justify-center px-4 overflow-hidden">
+      {/* Gradient orb */}
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] sm:w-[500px] sm:h-[500px] rounded-full bg-gradient-to-br from-primary/[0.06] via-transparent to-emerald-500/[0.04] blur-2xl" />
+
       <SEOHead title="Complete Your Profile – VANO" description="Add your details to get started" />
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
+      <div className="relative w-full max-w-md animate-fade-in">
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-2 mb-3">
             <img src={logo} alt="VANO" className="h-10 w-10 rounded-xl" />
             <span className="text-2xl font-bold text-primary">VANO</span>
           </div>
+
+          {/* Step dots */}
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            <span className="h-2 w-2 rounded-full bg-border" />
+          </div>
+
           <h1 className="text-2xl font-bold text-foreground">
-            {phoneOnly ? 'One more thing' : 'Almost there'}
+            {phoneOnly ? 'One more thing' : 'What do you do?'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {phoneOnly
               ? 'Add your phone number so businesses can reach you'
-              : 'Tell us what you do so businesses can find you'}
+              : 'Pick your categories and we\'ll set up your profile'}
           </p>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
+        <div className="bg-card border border-border rounded-2xl p-5 md:p-7">
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Phone number — always shown */}
             <div>
@@ -182,63 +192,84 @@ const CompleteProfileStep2 = () => {
               <p className="mt-1 text-[11px] text-muted-foreground">Only shared with VANO team, not displayed publicly</p>
             </div>
 
-            {/* Bio — only for new signups */}
+            {/* Category selection — tap to select */}
             {!phoneOnly && (
               <div>
-                <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-                  <Briefcase size={14} className="text-primary/70" />
-                  What do you do?
-                </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  required
-                  className={`${inputClass} min-h-[80px] resize-y`}
-                  placeholder="e.g. I shoot short-form video content for brands and events in Galway"
-                />
+                <label className="mb-2 block text-sm font-medium">What do you offer?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {CATEGORIES.map((cat) => {
+                    const selected = selectedCategories.includes(cat.id);
+                    const Icon = cat.icon;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => toggleCategory(cat.id)}
+                        className={cn(
+                          'group relative flex items-center gap-2.5 rounded-xl border-2 p-3 text-left transition-all active:scale-[0.97]',
+                          selected
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-border bg-background hover:border-foreground/20'
+                        )}
+                      >
+                        <div className={cn(
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+                          selected ? 'bg-primary/15' : 'bg-muted'
+                        )}>
+                          <Icon size={16} className={cn(selected ? 'text-primary' : 'text-foreground/60')} />
+                        </div>
+                        <span className={cn(
+                          'text-sm font-semibold',
+                          selected ? 'text-primary' : 'text-foreground'
+                        )}>
+                          {cat.label}
+                        </span>
+                        {selected && (
+                          <Check size={14} className="absolute right-2.5 top-2.5 text-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Skills — only for new signups */}
-            {!phoneOnly && (
-              <div>
-                <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-                  <Tag size={14} className="text-primary/70" />
-                  Skills (at least 1)
-                </label>
-                <div
-                  className="flex min-h-[44px] cursor-text flex-wrap gap-1.5 rounded-xl border border-input bg-background px-3 py-2"
-                  onClick={() => skillInputRef.current?.focus()}
-                >
-                  {skills.map((skill) => (
-                    <span key={skill} className="inline-flex items-center gap-1 rounded-md bg-foreground/8 px-2 py-0.5 text-[12px] font-medium text-foreground">
-                      {skill}
-                      <button type="button" onClick={(e) => { e.stopPropagation(); removeSkill(skill); }} className="text-muted-foreground hover:text-foreground">
-                        <X size={11} strokeWidth={2.5} />
+            {/* Skill tags — shown after selecting categories */}
+            {!phoneOnly && availableSkills.length > 0 && (
+              <div className="animate-fade-in">
+                <label className="mb-2 block text-sm font-medium">Tap your skills</label>
+                <div className="flex flex-wrap gap-2">
+                  {availableSkills.map((skill) => {
+                    const selected = selectedSkills.includes(skill);
+                    return (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => toggleSkill(skill)}
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.95]',
+                          selected
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border bg-background text-foreground/70 hover:border-foreground/25'
+                        )}
+                      >
+                        {selected && <Check size={10} className="inline mr-1" />}
+                        {skill}
                       </button>
-                    </span>
-                  ))}
-                  {skills.length < 10 && (
-                    <input
-                      ref={skillInputRef}
-                      value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      onKeyDown={handleSkillKeyDown}
-                      onBlur={() => addSkill(skillInput)}
-                      placeholder={skills.length === 0 ? 'e.g. Video Editing, Photography…' : ''}
-                      className="min-w-[120px] flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
-                    />
-                  )}
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             <button
               type="submit"
-              disabled={loading || !phone.trim() || (!phoneOnly && (!bio.trim() || skills.length === 0))}
-              className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              disabled={loading || !phone.trim() || (!phoneOnly && selectedCategories.length === 0)}
+              className="group w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-semibold text-sm hover:brightness-110 shadow-md shadow-primary/20 transition-all disabled:opacity-50 disabled:shadow-none"
             >
-              {loading ? 'Saving...' : 'Finish →'}
+              {loading ? 'Saving...' : (
+                <>Finish <ArrowRight size={14} className="inline ml-1 transition-transform group-hover:translate-x-1" /></>
+              )}
             </button>
 
             {phoneOnly && (
