@@ -6,7 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image } from 'lucide-react';
+import { PortfolioManager } from '@/components/PortfolioManager';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
 import { ModBadge } from '@/components/ModBadge';
@@ -271,12 +272,14 @@ const Profile = () => {
     const circ = 2 * Math.PI * r;
     const pct = total > 0 ? done / total : 0;
     const offset = circ * (1 - pct);
+    // Color shifts: red → amber → blue → green as completion grows
+    const ringColor = pct >= 1 ? '#10b981' : pct >= 0.75 ? '#3b82f6' : pct >= 0.4 ? '#f59e0b' : '#ef4444';
     return (
       <svg width={size} height={size} className="shrink-0 -rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
         <circle
           cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={pct >= 1 ? '#10b981' : '#3b82f6'}
+          stroke={ringColor}
           strokeWidth={stroke} strokeLinecap="round"
           strokeDasharray={circ} strokeDashoffset={offset}
           className="animate-progress-ring"
@@ -291,25 +294,37 @@ const Profile = () => {
     const incomplete = checks.filter(c => !c.done);
     const complete = checks.filter(c => c.done);
     const doneCount = complete.length;
+    const pct = Math.round((doneCount / checks.length) * 100);
+
+    const motivationMsg = pct === 100
+      ? 'Looking great — fully set up!'
+      : pct >= 75
+        ? 'Almost there — just a few more!'
+        : pct >= 50
+          ? 'Halfway done — keep going!'
+          : pct > 0
+            ? 'Good start — complete your profile to get seen'
+            : 'Get started — fill in your profile to attract businesses';
 
     return (
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        {/* Header with ring */}
+        {/* Header with ring + percentage */}
         <div className="flex items-center gap-4 px-5 py-4">
           <div className="relative">
-            <ProgressRing done={doneCount} total={checks.length} size={56} stroke={4} />
-            <span className="absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums text-foreground">
-              {doneCount}/{checks.length}
+            <ProgressRing done={doneCount} total={checks.length} size={64} stroke={5} />
+            <span className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-base font-bold tabular-nums text-foreground leading-none">{pct}%</span>
             </span>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {doneCount === checks.length ? 'All complete' : 'Profile completeness'}
+              Profile completeness
             </p>
             <p className="mt-0.5 text-sm font-semibold text-foreground">
-              {doneCount === checks.length
-                ? 'Looking great — fully set up'
-                : `${checks.length - doneCount} item${checks.length - doneCount > 1 ? 's' : ''} to go`}
+              {motivationMsg}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+              {doneCount} of {checks.length} complete
             </p>
           </div>
           <button
@@ -598,6 +613,11 @@ const Profile = () => {
                     <p className="mt-1.5 text-[11px] text-muted-foreground">Tap any section to edit. Changes go live immediately.</p>
                   </div>
                 )}
+
+                {/* ── Portfolio section ── */}
+                <div>
+                  <PortfolioManager userId={user.id} />
+                </div>
 
                 {/* ── Your Details card ── */}
                 <div>
