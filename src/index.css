@@ -129,6 +129,18 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Progress ring animation */
+@keyframes progress-ring-fill {
+  from { stroke-dashoffset: var(--ring-circumference); }
+  to { stroke-dashoffset: var(--ring-offset); }
+}
+.animate-progress-ring {
+  animation: progress-ring-fill 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Reduced motion: disable decorative animations */
