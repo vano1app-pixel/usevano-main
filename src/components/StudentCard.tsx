@@ -1,6 +1,6 @@
 import React from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, Star } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, MessageCircle, Star } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -176,20 +176,6 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           )}
         </div>
 
-        {/* Bottom-left: verified badge + category */}
-        <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5">
-          {student.student_verified && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm">
-              <ShieldCheck size={9} className="text-emerald-400" />
-              Verified
-            </span>
-          )}
-          {category && (
-            <span className="rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
-              {category}
-            </span>
-          )}
-        </div>
       </div>
 
       <div className="px-4 pb-4">
