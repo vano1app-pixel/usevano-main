@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin, Star, Clock, Wallet, GraduationCap } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
+import { getUniversityLabel } from '@/lib/universities';
 
 export interface FreelancerPublicHeaderProps {
   displayName: string;
@@ -121,7 +122,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
               {university && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground/70 transition-colors duration-200 hover:bg-foreground/5">
                   <GraduationCap size={13} className="shrink-0 text-foreground/50" />
-                  {university}
+                  {getUniversityLabel(university)}
                 </span>
               )}
 

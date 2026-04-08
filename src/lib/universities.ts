@@ -25,6 +25,29 @@ export const UNIVERSITIES: University[] = [
   { key: 'Other',    label: 'Other',                                           abbr: '',     color: '#6B7280', aliases: [] },
 ];
 
+/**
+ * Resolve a raw university value (canonical key OR legacy free-text) to a canonical key.
+ * Use this when loading from DB or drafts to normalise before passing to a Select.
+ */
+export function resolveUniversityKey(value: string | null | undefined): string {
+  if (!value?.trim()) return '';
+
+  // Already a canonical key?
+  if (UNIVERSITIES.some((u) => u.key === value)) return value;
+
+  // Fuzzy match against aliases
+  const lower = value.toLowerCase();
+  for (const uni of UNIVERSITIES) {
+    if (uni.key === 'Other') continue;
+    if (lower.includes(uni.key.toLowerCase())) return uni.key;
+    for (const alias of uni.aliases) {
+      if (lower.includes(alias)) return uni.key;
+    }
+  }
+
+  return value; // Unknown — keep as-is
+}
+
 /** Look up a university by its canonical key (e.g. 'UGalway'). */
 export function getUniversityByKey(key: string): University | undefined {
   return UNIVERSITIES.find((u) => u.key === key);

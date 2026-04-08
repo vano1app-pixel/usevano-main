@@ -41,7 +41,7 @@ import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/s
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
-import { UNIVERSITIES } from '@/lib/universities';
+import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
 
 const STEP_LABELS = [
   'Get started',
@@ -143,7 +143,7 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
       workLinks: parseDraftWorkLinks(parsed.workLinks),
       serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
-      university: typeof parsed.university === 'string' ? parsed.university : '',
+      university: typeof parsed.university === 'string' ? resolveUniversityKey(parsed.university) : '',
       rateUnit: typeof parsed.rateUnit === 'string' ? parsed.rateUnit : 'hourly',
       rateMin: typeof parsed.rateMin === 'string' ? parsed.rateMin : '',
       rateMax: typeof parsed.rateMax === 'string' ? parsed.rateMax : '',
@@ -230,7 +230,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setTitle(ep?.title ?? '');
     setDescription(ep?.description ?? '');
     setAboutMe(initial.bio || '');
-    setUniversity(initial.university || '');
+    setUniversity(resolveUniversityKey(initial.university) || '');
     setTiktokUrl(initial.tiktokUrl || '');
     setWorkLinks(
       initial.workLinks.some((r) => r.url.trim() || r.label.trim())
@@ -270,7 +270,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setTitle(draft.title);
         setDescription(draft.description);
         setAboutMe(draft.aboutMe || '');
-        setUniversity(draft.university || '');
+        setUniversity(resolveUniversityKey(draft.university) || '');
         if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
         setTiktokUrl(draft.tiktokUrl);
         setWorkLinks(draft.workLinks);
