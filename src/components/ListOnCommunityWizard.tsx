@@ -41,6 +41,7 @@ import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/s
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
+import { UNIVERSITIES } from '@/lib/universities';
 
 const STEP_LABELS = [
   'Get started',
@@ -854,12 +855,18 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               </div>
               <div>
                 <Label>University {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="e.g. University of Galway"
-                  value={university}
-                  onChange={(e) => setUniversity(e.target.value)}
-                />
+                <Select value={university} onValueChange={setUniversity}>
+                  <SelectTrigger className="mt-1.5 h-11">
+                    <SelectValue placeholder="Select your university" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UNIVERSITIES.map((uni) => (
+                      <SelectItem key={uni.key} value={uni.key}>
+                        {uni.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>TikTok</Label>

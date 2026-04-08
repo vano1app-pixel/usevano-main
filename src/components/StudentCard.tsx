@@ -4,6 +4,7 @@ import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, Star } from 'luc
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { getUniversityStyle } from '@/lib/universities';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import type { TopStudentInfo } from '@/hooks/useTopStudents';
@@ -52,32 +53,9 @@ const MEDAL_STYLES = [
 ];
 const MEDAL_LABELS = ['🥇 #1', '🥈 #2', '🥉 #3'];
 
-/** University brand colors and short labels */
-const UNI_MAP: { match: string; color: string; abbr: string }[] = [
-  { match: 'atu',                     color: '#0066B3', abbr: 'ATU' },
-  { match: 'atlantic technological',  color: '#0066B3', abbr: 'ATU' },
-  { match: 'university of galway',    color: '#822433', abbr: 'UG' },
-  { match: 'nui galway',              color: '#822433', abbr: 'NUIG' },
-  { match: 'nuig',                    color: '#822433', abbr: 'NUIG' },
-  { match: 'ucd',                     color: '#1A3A6B', abbr: 'UCD' },
-  { match: 'university college dublin', color: '#1A3A6B', abbr: 'UCD' },
-  { match: 'trinity',                 color: '#003B8E', abbr: 'TCD' },
-  { match: 'tcd',                     color: '#003B8E', abbr: 'TCD' },
-  { match: 'dcu',                     color: '#C8102E', abbr: 'DCU' },
-  { match: 'ucc',                     color: '#002147', abbr: 'UCC' },
-  { match: 'university of limerick',  color: '#003087', abbr: 'UL' },
-  { match: 'ul ',                     color: '#003087', abbr: 'UL' },
-  { match: 'maynooth',                color: '#4A1942', abbr: 'MU' },
-  { match: 'dkit',                    color: '#E07B00', abbr: 'DkIT' },
-];
-
+/** University brand colors and short labels – delegates to shared lib */
 function getUniStyle(university: string | null | undefined): { color: string; abbr: string } | null {
-  if (!university?.trim()) return null;
-  const lower = university.toLowerCase();
-  for (const entry of UNI_MAP) {
-    if (lower.includes(entry.match)) return { color: entry.color, abbr: entry.abbr };
-  }
-  return { color: '#6B7280', abbr: university.trim().slice(0, 5).toUpperCase() };
+  return getUniversityStyle(university);
 }
 
 /** Deterministic banner gradient from user_id */
