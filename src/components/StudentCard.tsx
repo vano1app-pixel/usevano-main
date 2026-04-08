@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, Star } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { getUniversityStyle } from '@/lib/universities';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import type { TopStudentInfo } from '@/hooks/useTopStudents';
 
 interface StudentProfile {
@@ -36,8 +44,6 @@ interface StudentCardProps {
   demoExample?: boolean;
   /** Category label shown on the banner (e.g. "Website Design") */
   category?: string;
-  /** Called when the message icon is tapped; omit to hide the button */
-  onMessage?: (userId: string) => void;
   /** Pre-computed average rating (e.g. "4.8") */
   avgRating?: string | null;
   /** Number of reviews */
@@ -86,7 +92,6 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   topInfo,
   demoExample,
   category,
-  onMessage,
   avgRating,
   reviewCount,
   profileAvatarUrl,
@@ -98,6 +103,22 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const area = student.service_area?.trim();
   const uniStyle = getUniStyle(student.university);
   const clickable = !demoExample;
+
+  // Quote dialog state
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [quoteDesc, setQuoteDesc] = useState('');
+  const [quoteBudget, setQuoteBudget] = useState('');
+
+  const sendQuoteRequest = () => {
+    const lines = [`Hi! I'd like to get a quote.`, ``, `What I need: ${quoteDesc.trim()}`];
+    if (quoteBudget.trim()) lines.push(`My budget: €${quoteBudget.trim()}`);
+    lines.push(``, `Let me know if you're available!`);
+    const draft = lines.join('\n');
+    setQuoteOpen(false);
+    setQuoteDesc('');
+    setQuoteBudget('');
+    navigate(`/messages?with=${student.user_id}&draft=${encodeURIComponent(draft)}`);
+  };
 
   // Top 3 skills for banner keyword line
   const bannerSkills = (student.skills || []).slice(0, 3);
@@ -277,22 +298,61 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* CTA */}
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
-            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
+            <span className="w-[60%] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
               View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </span>
-            {onMessage && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onMessage(student.user_id); }}
-                className="flex h-[2.125rem] w-[2.125rem] shrink-0 items-center justify-center rounded-xl border border-foreground/10 bg-muted/60 text-foreground/60 transition-all duration-150 hover:border-primary/30 hover:bg-primary/8 hover:text-primary active:scale-95"
-                title="Message"
-              >
-                <MessageCircle size={14} strokeWidth={2} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
+              className="w-[40%] inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/10 bg-muted/60 px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all duration-150 hover:border-primary/30 hover:bg-primary/8 hover:text-primary active:scale-95"
+            >
+              <MessageSquareQuote size={13} strokeWidth={2} />
+              Get a Quote
+            </button>
           </div>
         )}
       </div>
+
+      {/* Quote request dialog */}
+      <Dialog open={quoteOpen} onOpenChange={setQuoteOpen}>
+        <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Get a quote from {displayName || 'this freelancer'}</DialogTitle>
+            <DialogDescription>Describe what you need and your budget — this gets sent as a message.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Describe your project <span className="text-destructive">*</span></label>
+              <textarea
+                value={quoteDesc}
+                onChange={(e) => setQuoteDesc(e.target.value)}
+                placeholder="e.g. A 5-page website for my café — home, menu, about, gallery, contact. Need it mobile-friendly and easy to update."
+                className="w-full min-h-[100px] resize-y rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Your budget (€) <span className="text-muted-foreground/60">optional</span></label>
+              <input
+                type="number"
+                min="0"
+                value={quoteBudget}
+                onChange={(e) => setQuoteBudget(e.target.value)}
+                placeholder="e.g. 500"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <Button
+              type="button"
+              size="lg"
+              className="w-full h-11 rounded-xl font-semibold"
+              disabled={!quoteDesc.trim()}
+              onClick={sendQuoteRequest}
+            >
+              Send quote request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

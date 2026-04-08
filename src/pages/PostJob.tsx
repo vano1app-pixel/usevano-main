@@ -614,7 +614,6 @@ const PostJob = () => {
                         showFavourite={false}
                         avgRating={ratingInfo?.avg ?? null}
                         reviewCount={ratingInfo?.count}
-                        onMessage={(userId) => navigate(`/messages?with=${userId}`)}
                       />
                     </div>
                   );

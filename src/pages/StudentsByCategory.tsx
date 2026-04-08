@@ -181,7 +181,6 @@ const StudentsByCategory = ({ categoryId }: Props) => {
                     category={meta.label}
                     avgRating={ratingInfo?.avg ?? null}
                     reviewCount={ratingInfo?.count}
-                    onMessage={(userId) => navigate(`/messages?with=${userId}`)}
                   />
                 </div>
               );
