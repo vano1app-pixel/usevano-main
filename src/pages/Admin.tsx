@@ -8,7 +8,7 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { format } from 'date-fns';
 import {
   Shield, ShieldCheck, ShieldOff, Users, Briefcase, Calendar, Trash2, Search,
-  ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
+  ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList, Lightbulb,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import {
@@ -65,7 +65,16 @@ interface FeedbackRow {
   sender_avatar?: string;
 }
 
-type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings';
+interface FeatureRequestRow {
+  id: string;
+  user_id: string;
+  message: string;
+  created_at: string;
+  sender_name?: string;
+  sender_avatar?: string;
+}
+
+type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings' | 'feature_requests';
 const PAGE_SIZE = 20;
 
 // ── Component ──
@@ -84,6 +93,7 @@ const Admin = () => {
   const [gigs, setGigs] = useState<JobRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackRow[]>([]);
+  const [featureRequests, setFeatureRequests] = useState<FeatureRequestRow[]>([]);
   const [listingRequests, setListingRequests] = useState<ListingRequestRow[]>([]);
   const [reviewRequest, setReviewRequest] = useState<ListingRequestRow | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -247,6 +257,31 @@ const Admin = () => {
     }
   }, [page]);
 
+  const fetchFeatureRequests = useCallback(async () => {
+    const { data } = await supabase
+      .from('feature_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1) as any;
+
+    if (data && data.length > 0) {
+      const userIds = [...new Set((data as FeatureRequestRow[]).map((f) => f.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', userIds);
+
+      const nameMap = new Map((profiles || []).map((p) => [p.user_id, p]));
+      setFeatureRequests((data as FeatureRequestRow[]).map((f) => ({
+        ...f,
+        sender_name: (nameMap.get(f.user_id) as any)?.display_name || 'Unknown',
+        sender_avatar: (nameMap.get(f.user_id) as any)?.avatar_url || '',
+      })));
+    } else {
+      setFeatureRequests([]);
+    }
+  }, [page]);
+
   useEffect(() => {
     if (!authed) return;
     setPage(0);
@@ -258,8 +293,9 @@ const Admin = () => {
     if (tab === 'gigs') fetchGigs();
     if (tab === 'events') fetchEvents();
     if (tab === 'feedback') fetchFeedback();
+    if (tab === 'feature_requests') fetchFeatureRequests();
     if (tab === 'listings') fetchListingRequests();
-  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests]);
+  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchFeatureRequests, fetchListingRequests]);
 
   // ── Actions ──
   const toggleAdmin = async (userId: string) => {
@@ -363,6 +399,17 @@ const Admin = () => {
     }
   };
 
+  const deleteFeatureRequest = async (id: string) => {
+    if (!window.confirm('Delete this feature request?')) return;
+    const { error } = await supabase.from('feature_requests').delete().eq('id', id) as any;
+    if (error) {
+      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
+      toast({ title: 'Feature request deleted' });
+      fetchFeatureRequests();
+    }
+  };
+
   // ── Filter ──
   const q = search.toLowerCase();
   const filteredUsers = users.filter((u) => {
@@ -385,6 +432,10 @@ const Admin = () => {
     ev.creator.toLowerCase().includes(q)
   );
   const filteredFeedbacks = feedbacks.filter((f) =>
+    f.message.toLowerCase().includes(q) ||
+    (f.sender_name || '').toLowerCase().includes(q)
+  );
+  const filteredFeatureRequests = featureRequests.filter((f) =>
     f.message.toLowerCase().includes(q) ||
     (f.sender_name || '').toLowerCase().includes(q)
   );
@@ -467,6 +518,7 @@ const Admin = () => {
     { key: 'events', label: 'Events', icon: <Calendar size={16} />, count: filteredEvents.length },
     { key: 'listings', label: 'Community', icon: <ClipboardList size={16} />, count: filteredListings.length },
     { key: 'feedback', label: 'Feedback', icon: <MessageSquare size={16} />, count: filteredFeedbacks.length },
+    { key: 'feature_requests', label: 'Requests', icon: <Lightbulb size={16} />, count: filteredFeatureRequests.length },
   ];
 
   return (
@@ -752,6 +804,42 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ── Feature Requests tab ── */}
+        {tab === 'feature_requests' && (
+          <div className="space-y-2">
+            {filteredFeatureRequests.length === 0 && (
+              <p className="text-center text-muted-foreground py-12 text-sm">No feature requests yet</p>
+            )}
+            {filteredFeatureRequests.map((f) => (
+              <div key={f.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
+                  {f.sender_avatar ? (
+                    <img src={f.sender_avatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm font-bold">
+                      {(f.sender_name || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-medium text-sm">{f.sender_name}</p>
+                    <span className="text-xs text-muted-foreground">{format(new Date(f.created_at), 'MMM d, yyyy · h:mm a')}</span>
+                  </div>
+                  <p className="text-sm text-foreground/80 leading-relaxed">{f.message}</p>
+                </div>
+                <button
+                  onClick={() => deleteFeatureRequest(f.id)}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                  title="Delete feature request"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Pagination */}
         <div className="flex items-center justify-center gap-4 mt-6">
           <button
@@ -769,7 +857,8 @@ const Admin = () => {
               (tab === 'gigs' && filteredGigs.length < PAGE_SIZE) ||
               (tab === 'events' && filteredEvents.length < PAGE_SIZE) ||
               (tab === 'listings' && filteredListings.length < PAGE_SIZE) ||
-              (tab === 'feedback' && filteredFeedbacks.length < PAGE_SIZE)
+              (tab === 'feedback' && filteredFeedbacks.length < PAGE_SIZE) ||
+              (tab === 'feature_requests' && filteredFeatureRequests.length < PAGE_SIZE)
             }
             className="p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-40 transition-colors"
           >
