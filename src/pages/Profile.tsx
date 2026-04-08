@@ -743,7 +743,7 @@ const Profile = () => {
 
                 {/* Signed in as + Sign out */}
                 <div className="flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
-                  <RequestFeatureLink className="text-xs" />
+                  <RequestFeatureLink />
                   <p className="text-xs text-muted-foreground">
                     Signed in as {user?.email}
                   </p>
@@ -906,7 +906,7 @@ const Profile = () => {
 
             {/* Email info + Sign out */}
             <div className="flex flex-col items-center gap-3 text-center">
-              <RequestFeatureLink className="text-xs" />
+              <RequestFeatureLink />
               <p className="text-xs text-muted-foreground">
                 Signed in as {user?.email}
               </p>
