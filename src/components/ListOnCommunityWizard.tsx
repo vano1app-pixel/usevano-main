@@ -854,12 +854,27 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               </div>
               <div>
                 <Label>University {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="e.g. University of Galway"
-                  value={university}
-                  onChange={(e) => setUniversity(e.target.value)}
-                />
+                <Select value={university} onValueChange={setUniversity}>
+                  <SelectTrigger className="mt-1.5 h-11">
+                    <SelectValue placeholder="Select your university" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NUI Galway">NUI Galway</SelectItem>
+                    <SelectItem value="ATU">ATU</SelectItem>
+                    <SelectItem value="University of Galway">University of Galway</SelectItem>
+                    <SelectItem value="UCD">UCD</SelectItem>
+                    <SelectItem value="Trinity College Dublin">Trinity College Dublin</SelectItem>
+                    <SelectItem value="DCU">DCU</SelectItem>
+                    <SelectItem value="UCC">UCC</SelectItem>
+                    <SelectItem value="University of Limerick">University of Limerick</SelectItem>
+                    <SelectItem value="TU Dublin">TU Dublin</SelectItem>
+                    <SelectItem value="SETU">SETU</SelectItem>
+                    <SelectItem value="MTU">MTU</SelectItem>
+                    <SelectItem value="Maynooth University">Maynooth University</SelectItem>
+                    <SelectItem value="DkIT">DkIT</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>TikTok</Label>

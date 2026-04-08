@@ -54,11 +54,11 @@ const MEDAL_LABELS = ['🥇 #1', '🥈 #2', '🥉 #3'];
 
 /** University brand colors and short labels */
 const UNI_MAP: { match: string; color: string; abbr: string }[] = [
+  { match: 'nui galway',              color: '#822433', abbr: 'NUIG' },
+  { match: 'nuig',                    color: '#822433', abbr: 'NUIG' },
   { match: 'atu',                     color: '#0066B3', abbr: 'ATU' },
   { match: 'atlantic technological',  color: '#0066B3', abbr: 'ATU' },
   { match: 'university of galway',    color: '#822433', abbr: 'UG' },
-  { match: 'nui galway',              color: '#822433', abbr: 'NUIG' },
-  { match: 'nuig',                    color: '#822433', abbr: 'NUIG' },
   { match: 'ucd',                     color: '#1A3A6B', abbr: 'UCD' },
   { match: 'university college dublin', color: '#1A3A6B', abbr: 'UCD' },
   { match: 'trinity',                 color: '#003B8E', abbr: 'TCD' },
@@ -67,12 +67,15 @@ const UNI_MAP: { match: string; color: string; abbr: string }[] = [
   { match: 'ucc',                     color: '#002147', abbr: 'UCC' },
   { match: 'university of limerick',  color: '#003087', abbr: 'UL' },
   { match: 'ul ',                     color: '#003087', abbr: 'UL' },
+  { match: 'tu dublin',               color: '#EA1D24', abbr: 'TUD' },
+  { match: 'setu',                    color: '#003478', abbr: 'SETU' },
+  { match: 'mtu',                     color: '#C8102E', abbr: 'MTU' },
   { match: 'maynooth',                color: '#4A1942', abbr: 'MU' },
   { match: 'dkit',                    color: '#E07B00', abbr: 'DkIT' },
 ];
 
 function getUniStyle(university: string | null | undefined): { color: string; abbr: string } | null {
-  if (!university?.trim()) return null;
+  if (!university?.trim() || university.trim().toLowerCase() === 'other') return null;
   const lower = university.toLowerCase();
   for (const entry of UNI_MAP) {
     if (lower.includes(entry.match)) return { color: entry.color, abbr: entry.abbr };
