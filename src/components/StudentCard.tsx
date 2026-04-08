@@ -136,8 +136,8 @@ export const StudentCard: React.FC<StudentCardProps> = ({
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
-      {/* Banner — taller for more visual presence */}
-      <div className="relative h-52 w-full overflow-hidden sm:h-60">
+      {/* Banner */}
+      <div className="relative h-36 w-full overflow-hidden sm:h-40">
         {student.banner_url ? (
           <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
         ) : (
@@ -287,20 +287,20 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
         {/* CTA */}
         {clickable && (
-          <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
-            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
-              View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform duration-200 group-hover:translate-x-0.5" />
-            </span>
+          <div className="mt-4 pt-3 border-t border-foreground/6 flex flex-col gap-2">
             {onMessage && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMessage(student.user_id); }}
-                className="flex h-[2.125rem] w-[2.125rem] shrink-0 items-center justify-center rounded-xl border border-foreground/10 bg-muted/60 text-foreground/60 transition-all duration-150 hover:border-primary/30 hover:bg-primary/8 hover:text-primary active:scale-95"
-                title="Message"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-[12px] font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:shadow-primary/20 active:scale-[0.98]"
               >
-                <MessageCircle size={14} strokeWidth={2} />
+                <MessageCircle size={13} strokeWidth={2.2} />
+                Ask for a quote
               </button>
             )}
+            <span className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors duration-200 group-hover:text-primary">
+              View profile <ArrowRight size={11} strokeWidth={2} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+            </span>
           </div>
         )}
       </div>
