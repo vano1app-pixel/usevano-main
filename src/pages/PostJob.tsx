@@ -53,6 +53,13 @@ const PostJob = () => {
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
   const [matchLoading, setMatchLoading] = useState(false);
 
+  // Redirect vano mode to the new /hire page
+  useEffect(() => {
+    if (modeParam === 'vano' && !rehireStudentId) {
+      navigate('/hire', { replace: true });
+    }
+  }, [modeParam, rehireStudentId, navigate]);
+
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();

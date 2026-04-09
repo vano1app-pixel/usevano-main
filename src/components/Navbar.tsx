@@ -88,6 +88,7 @@ export const Navbar: React.FC = () => {
   const showNavbarOnMobile =
     location.pathname === '/' ||
     location.pathname === '/landing' ||
+    location.pathname === '/hire' ||
     location.pathname === '/students' ||
     location.pathname.startsWith('/students/');
 
