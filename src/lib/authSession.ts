@@ -87,13 +87,14 @@ export async function getPostAuthPath(
   // Students go straight to /profile — onboarding modal handles missing fields
   if (profile.user_type === 'student') return '/profile';
 
-  const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
+  // Business only needs display_name (no avatar required)
+  const done = !!profile?.display_name?.trim();
   return done ? '/business-dashboard' : '/complete-profile';
 }
 
 /**
  * After Google OAuth: no user_type → picker; students → /profile (modal handles rest);
- * business incomplete → /complete-profile; complete → /profile.
+ * business incomplete → /complete-profile; complete → /business-dashboard.
  */
 export async function getPostGoogleAuthPath(
   userId: string,
@@ -108,7 +109,8 @@ export async function getPostGoogleAuthPath(
   // Students go straight to /profile — onboarding modal handles missing fields
   if (profile.user_type === 'student') return '/profile';
 
-  const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
+  // Business only needs display_name (no avatar required)
+  const done = !!profile?.display_name?.trim();
   if (!done) return '/complete-profile';
   return '/business-dashboard';
 }

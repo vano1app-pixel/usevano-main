@@ -48,8 +48,11 @@ const CompleteProfile = () => {
         return;
       }
 
-      if (profile?.display_name?.trim() && profile?.avatar_url?.trim()) {
-        navigate(profile.user_type === 'business' ? '/business-dashboard' : '/profile', { replace: true });
+      const nameDone = !!profile?.display_name?.trim();
+      const avatarDone = !!profile?.avatar_url?.trim();
+      const isBiz = profile.user_type === 'business';
+      if (isBiz ? nameDone : nameDone && avatarDone) {
+        navigate(isBiz ? '/business-dashboard' : '/profile', { replace: true });
         return;
       }
 
@@ -73,17 +76,26 @@ const CompleteProfile = () => {
       toast({ title: 'Name is required', variant: 'destructive' });
       return;
     }
-    if (!avatarUrl.trim()) {
+    if (userType !== 'business' && !avatarUrl.trim()) {
       toast({ title: 'Please upload a profile photo', variant: 'destructive' });
+      return;
+    }
+    if (userType === 'business' && !phone.trim()) {
+      toast({ title: 'Phone number is required', variant: 'destructive' });
       return;
     }
     // Phone is optional here — collected later in the listing wizard
 
     setLoading(true);
     try {
+      const profileUpdate: Record<string, string> = { display_name: displayName.trim() };
+      if (avatarUrl) profileUpdate.avatar_url = avatarUrl;
+      // Business: store phone in work_description (profiles has no phone column)
+      if (userType === 'business' && phone.trim()) profileUpdate.work_description = phone.trim();
+
       await supabase
         .from('profiles')
-        .update({ display_name: displayName.trim(), avatar_url: avatarUrl })
+        .update(profileUpdate)
         .eq('user_id', userId!);
 
       if (userType === 'student') {
@@ -137,21 +149,23 @@ const CompleteProfile = () => {
                 <UserCircle className="text-primary" size={32} />
               </div>
               <h1 className="text-2xl font-bold text-foreground">Complete your profile</h1>
-              <p className="text-sm text-muted-foreground mt-1">Add your name and a photo so people know who you are</p>
+              <p className="text-sm text-muted-foreground mt-1">Add your name and phone number so we can reach you</p>
             </>
           )}
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
           <form onSubmit={handleComplete} className="space-y-6">
-            <div className="flex justify-center">
-              <AvatarUpload
-                userId={userId!}
-                currentUrl={avatarUrl}
-                table={isStudent ? 'student_profiles' : 'profiles'}
-                onUploaded={(url) => setAvatarUrl(url)}
-              />
-            </div>
+            {isStudent && (
+              <div className="flex justify-center">
+                <AvatarUpload
+                  userId={userId!}
+                  currentUrl={avatarUrl}
+                  table="student_profiles"
+                  onUploaded={(url) => setAvatarUrl(url)}
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium mb-1.5">
@@ -168,23 +182,27 @@ const CompleteProfile = () => {
               />
             </div>
 
+            {/* Phone field — optional for students, required for business */}
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-medium mb-1.5">
+                <Phone size={14} className="text-muted-foreground" />
+                Phone number
+                {isStudent && <span className="text-xs text-muted-foreground font-normal ml-1">(optional)</span>}
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. 089 123 4567"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isStudent ? 'Only shared with VANO team, not displayed publicly' : 'So we can reach you quickly'}
+              </p>
+            </div>
+
             {isStudent && (
               <>
-                <div>
-                  <label className="flex items-center gap-1.5 text-sm font-medium mb-1.5">
-                    <Phone size={14} className="text-muted-foreground" />
-                    Phone number
-                    <span className="text-xs text-muted-foreground font-normal ml-1">(optional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={inputClass}
-                    placeholder="e.g. 089 123 4567"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">Only shared with VANO team, not displayed publicly</p>
-                </div>
 
                 <div>
                   <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
@@ -214,7 +232,7 @@ const CompleteProfile = () => {
 
             <button
               type="submit"
-              disabled={loading || !displayName.trim() || !avatarUrl.trim()}
+              disabled={loading || !displayName.trim() || (isStudent ? !avatarUrl.trim() : !phone.trim())}
               className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Continue →'}

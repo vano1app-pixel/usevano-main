@@ -45,8 +45,10 @@ export function useProfileCompletion() {
         if (cancelled) return;
         const hasName = profile?.display_name && profile.display_name.trim().length > 0;
         const hasAvatar = profile?.avatar_url && profile.avatar_url.trim().length > 0;
+        const isBusiness = profile?.user_type === 'business';
 
-        if (!hasName || !hasAvatar) {
+        // Business only needs name; students need name + avatar
+        if (isBusiness ? !hasName : !hasName || !hasAvatar) {
           navigate('/complete-profile', { replace: true });
           setComplete(false);
           return;
