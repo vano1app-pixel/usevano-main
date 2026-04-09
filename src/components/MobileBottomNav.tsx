@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Briefcase, Users, MessageCircle, User, LayoutDashboard } from 'lucide-react';
+import { Home, Users, MessageCircle, User, LayoutDashboard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -69,7 +69,6 @@ export const MobileBottomNav: React.FC = () => {
   const navItems = useMemo(() => [
     { label: 'Home', icon: Home, href: '/' },
     { label: 'Talent', icon: Users, href: '/students' },
-    { label: 'Hiring', icon: Briefcase, href: '/jobs' },
     { label: 'Messages', icon: MessageCircle, href: '/messages' },
     userType === 'business'
       ? { label: 'Dashboard', icon: LayoutDashboard, href: '/business-dashboard' }

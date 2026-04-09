@@ -9,6 +9,7 @@ import {
   Users,
   Check,
   MessageCircle,
+  MessagesSquare,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
@@ -140,12 +141,22 @@ interface RecommendedStudent {
   display_name: string | null;
 }
 
+interface RecentConvo {
+  id: string;
+  otherName: string;
+  otherAvatar: string | null;
+  lastMessage: string;
+  updatedAt: string;
+}
+
 /* ─── component ─── */
 export default function BusinessDashboard() {
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
+  const [savedPhone, setSavedPhone] = useState('');
   const [recommended, setRecommended] = useState<RecommendedStudent[]>([]);
   const [loadingTalent, setLoadingTalent] = useState(true);
+  const [recentConvos, setRecentConvos] = useState<RecentConvo[]>([]);
 
   // inquiry dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -165,13 +176,14 @@ export default function BusinessDashboard() {
 
       const { data: prof } = await supabase
         .from('profiles')
-        .select('display_name, user_type')
+        .select('display_name, user_type, work_description')
         .eq('user_id', session.user.id)
         .maybeSingle();
 
       if (!cancelled && prof) {
         if (prof.user_type !== 'business') { navigate('/profile', { replace: true }); return; }
         setDisplayName(prof.display_name ?? '');
+        setSavedPhone(prof.work_description ?? '');
       }
 
       const { data: students } = await supabase
@@ -197,6 +209,54 @@ export default function BusinessDashboard() {
         );
       }
       if (!cancelled) setLoadingTalent(false);
+
+      // recent conversations
+      const uid = session.user.id;
+      const { data: convos } = await supabase
+        .from('conversations')
+        .select('id, participant_1, participant_2, updated_at')
+        .or(`participant_1.eq.${uid},participant_2.eq.${uid}`)
+        .order('updated_at', { ascending: false })
+        .limit(3);
+
+      if (!cancelled && convos && convos.length > 0) {
+        const otherIds = convos.map((c) =>
+          c.participant_1 === uid ? c.participant_2 : c.participant_1,
+        );
+        const convoIds = convos.map((c) => c.id);
+
+        const [{ data: otherProfiles }, { data: lastMsgs }] = await Promise.all([
+          supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', otherIds),
+          supabase.from('messages').select('conversation_id, content, created_at').in('conversation_id', convoIds).order('created_at', { ascending: false }),
+        ]);
+
+        const profileMap = new Map(
+          (otherProfiles ?? []).map((p) => [p.user_id, p]),
+        );
+        // last message per convo
+        const lastMsgMap = new Map<string, string>();
+        for (const msg of lastMsgs ?? []) {
+          if (!lastMsgMap.has(msg.conversation_id)) {
+            lastMsgMap.set(msg.conversation_id, msg.content ?? '');
+          }
+        }
+
+        if (!cancelled) {
+          setRecentConvos(
+            convos.map((c) => {
+              const otherId = c.participant_1 === uid ? c.participant_2 : c.participant_1;
+              const p = profileMap.get(otherId);
+              return {
+                id: c.id,
+                otherName: p?.display_name ?? 'User',
+                otherAvatar: p?.avatar_url ?? null,
+                lastMessage: lastMsgMap.get(c.id) ?? '',
+                updatedAt: c.updated_at,
+              };
+            }),
+          );
+        }
+      }
     };
 
     load();
@@ -205,11 +265,11 @@ export default function BusinessDashboard() {
 
   const openInquiry = (serviceLabel: string) => {
     setSelectedService(serviceLabel);
-    setFormName('');
+    setFormName(displayName);
     setFormBusiness('');
     setFormDetails('');
     setFormBudget('');
-    setFormPhone('');
+    setFormPhone(savedPhone);
     setDialogOpen(true);
   };
 
@@ -405,6 +465,70 @@ export default function BusinessDashboard() {
               )}
             </div>
           </motion.section>
+
+          {/* ── Recent messages ── */}
+          {recentConvos.length > 0 && (
+            <motion.section
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-16 sm:mb-24"
+            >
+              <div className="flex items-end justify-between mb-5">
+                <div>
+                  <motion.span
+                    variants={fadeUp}
+                    className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                  >
+                    Messages
+                  </motion.span>
+                  <motion.h2
+                    variants={fadeUp}
+                    className="text-2xl font-bold tracking-tight"
+                  >
+                    Recent conversations
+                  </motion.h2>
+                </div>
+                <motion.div variants={fadeUp}>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+                    onClick={() => navigate('/messages')}
+                  >
+                    <MessagesSquare className="mr-2 h-4 w-4" />
+                    All messages
+                  </Button>
+                </motion.div>
+              </div>
+
+              <div className="space-y-2">
+                {recentConvos.map((c) => (
+                  <motion.div key={c.id} variants={fadeUp}>
+                    <Link
+                      to={`/messages?with=${c.otherName}`}
+                      className="group flex items-center gap-4 rounded-2xl border border-foreground/[0.06] bg-card p-4 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-foreground/[0.12] hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] active:scale-[0.98]"
+                    >
+                      <Avatar className="h-10 w-10 border border-border/60">
+                        <AvatarImage src={c.otherAvatar ?? undefined} />
+                        <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
+                          {c.otherName[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-medium text-foreground/90 transition-colors duration-200 group-hover:text-primary">
+                          {c.otherName}
+                        </p>
+                        <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                          {c.lastMessage || 'No messages yet'}
+                        </p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/30 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-foreground/50" strokeWidth={1.8} />
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.section>
+          )}
 
           {/* ── Pricing ── */}
           <motion.section

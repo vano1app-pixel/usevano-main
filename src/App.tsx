@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
@@ -70,14 +70,7 @@ const App = () => (
           </RequireVerifiedSession>
         }
       />
-      <Route
-        path="/dashboard"
-        element={
-          <RequireVerifiedSession>
-            <Profile />
-          </RequireVerifiedSession>
-        }
-      />
+      <Route path="/dashboard" element={<Navigate to="/business-dashboard" replace />} />
       <Route
         path="/business-dashboard"
         element={
