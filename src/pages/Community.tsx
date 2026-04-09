@@ -3,6 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
+import { ScrollReveal } from '@/components/ScrollReveal';
 import { ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CommunityPostCard, type SimilarPost } from '@/components/CommunityPostCard';
@@ -553,21 +554,22 @@ const Community = () => {
                   studentProfile: studentProfiles[p.user_id] || null,
                 }));
               return (
-                <CommunityPostCard
-                  key={post.id}
-                  post={post}
-                  profile={profiles[post.user_id] || null}
-                  studentProfile={studentProfiles[post.user_id] || null}
-                  portfolioPreview={portfolioByUser[post.user_id] || []}
-                  similarPosts={similar}
-                  reviewInfo={reviewsByUser[post.user_id] || null}
-                  currentUserId={user?.id || null}
-                  currentUserType={currentUserType}
-                  isLiked={likedPostIds.has(post.id)}
-                  isAdmin={isAdmin}
-                  onLikeToggle={handleLikeToggle}
-                  onDelete={handleDelete}
-                />
+                <ScrollReveal key={post.id} delay={idx * 70}>
+                  <CommunityPostCard
+                    post={post}
+                    profile={profiles[post.user_id] || null}
+                    studentProfile={studentProfiles[post.user_id] || null}
+                    portfolioPreview={portfolioByUser[post.user_id] || []}
+                    similarPosts={similar}
+                    reviewInfo={reviewsByUser[post.user_id] || null}
+                    currentUserId={user?.id || null}
+                    currentUserType={currentUserType}
+                    isLiked={likedPostIds.has(post.id)}
+                    isAdmin={isAdmin}
+                    onLikeToggle={handleLikeToggle}
+                    onDelete={handleDelete}
+                  />
+                </ScrollReveal>
               );
             })}
             {activeCategory && posts.length < 3 && (DEMO_POSTS[activeCategory] || []).map((demo) => (

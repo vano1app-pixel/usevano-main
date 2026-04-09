@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
+import confetti from 'canvas-confetti';
 import { StudentCard } from '@/components/StudentCard';
 import { useToast } from '@/hooks/use-toast';
 import { isEmailVerified } from '@/lib/authSession';
@@ -166,6 +167,13 @@ const HirePage = () => {
       toast({ title: 'Something went wrong', description: 'Please try again or message us on WhatsApp.', variant: 'destructive' });
     } else {
       setSubmitted(true);
+      // Celebration confetti burst
+      const end = Date.now() + 600;
+      const fire = () => {
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'] });
+        if (Date.now() < end) requestAnimationFrame(fire);
+      };
+      fire();
       supabase.functions.invoke('notify-hire-request', {
         body: { description, category, budget_range: budget, timeline, requester_email: user.email },
       }).catch(() => {});
