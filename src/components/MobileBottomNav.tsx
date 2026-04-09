@@ -68,7 +68,8 @@ export const MobileBottomNav: React.FC = () => {
 
   const navItems = useMemo(() => [
     { label: 'Home', icon: Home, href: '/' },
-    { label: 'Hire', icon: Sparkles, href: '/hire' },
+    // "Hire" only for business users or visitors (not students)
+    ...(userType !== 'student' ? [{ label: 'Hire', icon: Sparkles, href: '/hire' }] : []),
     { label: 'Talent', icon: Users, href: '/students' },
     { label: 'Messages', icon: MessageCircle, href: '/messages' },
     userType === 'business'

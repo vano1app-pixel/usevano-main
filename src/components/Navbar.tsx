@@ -58,7 +58,8 @@ export const Navbar: React.FC = () => {
 
   const navItems = [
     { label: 'Home', href: '/', requiresAuth: false, isNew: false },
-    { label: 'Hire', href: '/hire', requiresAuth: false, isNew: true },
+    // "Hire" only for business users or visitors (not students)
+    ...(userType !== 'student' ? [{ label: 'Hire', href: '/hire', requiresAuth: false, isNew: true }] : []),
     { label: 'Talent Board', href: '/students', requiresAuth: false, isNew: true },
   ];
 
