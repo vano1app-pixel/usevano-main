@@ -193,20 +193,20 @@ const Landing = () => {
               <button
                 type="button"
                 onClick={() => navigate('/hire')}
-                className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
+                className="group w-full sm:w-auto px-10 py-4 rounded-xl bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
               >
-                Tell us what you need
-                <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
+                Hire a freelancer
+                <ArrowRight size={16} className="inline ml-2 transition-transform group-hover:translate-x-1" />
               </button>
-              {!session && (
+              {!session ? (
                 <button
                   type="button"
-                  onClick={() => navigate('/auth?mode=login')}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
+                  onClick={() => navigate('/auth?mode=signup')}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
                 >
-                  Log in
+                  Join as a freelancer
                 </button>
-              )}
+              ) : null}
             </motion.div>
             {studentsLoaded && featuredStudents.length > 0 && (
               <motion.div
@@ -660,21 +660,21 @@ const Landing = () => {
             <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
             <p className="relative mb-4 text-[11px] lg:text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/50">Galway · Free · Local</p>
             <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4">
-              Your next gig<br />starts here.
+              Need something done?<br />Tell us.
             </h2>
-            <p className="relative text-primary-foreground/60 mb-10 text-sm sm:text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Join freelancers and local businesses in Galway — free to join, takes less than a minute.</p>
+            <p className="relative text-primary-foreground/60 mb-10 text-sm sm:text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
-                onClick={() => navigate('/auth')}
-                className="w-full sm:w-auto px-8 py-3.5 bg-primary-foreground text-primary rounded-xl font-semibold text-sm shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px]"
+                onClick={() => navigate('/hire')}
+                className="w-full sm:w-auto px-10 py-4 bg-primary-foreground text-primary rounded-xl font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px]"
               >
-                Get started — it&apos;s free
+                Hire a freelancer
               </button>
               <button
-                onClick={() => navigate('/students')}
-                className="w-full sm:w-auto px-8 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-xl font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px]"
+                onClick={() => navigate('/auth')}
+                className="w-full sm:w-auto px-6 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-xl font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px]"
               >
-                Browse talent
+                Join as a freelancer
               </button>
             </div>
           </div>
