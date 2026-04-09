@@ -530,7 +530,83 @@ export default function BusinessDashboard() {
             </motion.section>
           )}
 
-          {/* ── Pricing ── */}
+          {/* ── Two paths: hire direct vs managed ── */}
+          <motion.section
+            variants={stagger}
+            initial="hidden"
+            animate="visible"
+            className="mb-16 sm:mb-20"
+          >
+            <motion.span
+              variants={fadeUp}
+              className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              Two ways to hire
+            </motion.span>
+            <motion.h2
+              variants={fadeUp}
+              className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl"
+            >
+              However you prefer to work
+            </motion.h2>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Direct hire */}
+              <motion.div
+                variants={fadeUp}
+                className="flex flex-col rounded-2xl border border-foreground/[0.06] bg-card p-6 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)]"
+              >
+                <span className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10">
+                  <Users className="h-5 w-5 text-emerald-500" strokeWidth={1.8} />
+                </span>
+                <h3 className="text-[17px] font-semibold">Hire directly</h3>
+                <p className="mt-1.5 mb-5 text-[13px] leading-relaxed text-muted-foreground">
+                  Browse our talent board, view portfolios, and message freelancers directly. No fees, no middleman.
+                </p>
+                <div className="mt-auto flex items-center gap-3">
+                  <span className="text-2xl font-bold tracking-tight">Free</span>
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600">Always</span>
+                </div>
+                <Button
+                  variant="outline"
+                  className="mt-5 w-full rounded-xl transition-all duration-200 active:scale-[0.97]"
+                  onClick={() => navigate('/students')}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Browse talent
+                </Button>
+              </motion.div>
+
+              {/* Managed by VANO */}
+              <motion.div
+                variants={fadeUp}
+                className="flex flex-col rounded-2xl border border-primary/30 bg-card p-6 shadow-[0_0_0_1px_hsl(221_83%_53%/0.08)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)]"
+              >
+                <span className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+                  <Check className="h-5 w-5 text-primary" strokeWidth={1.8} />
+                </span>
+                <h3 className="text-[17px] font-semibold">Let VANO handle it</h3>
+                <p className="mt-1.5 mb-5 text-[13px] leading-relaxed text-muted-foreground">
+                  Tell us what you need and we'll find the right freelancer, manage the project, and make sure you're happy.
+                </p>
+                <div className="mt-auto flex items-center gap-3">
+                  <span className="text-2xl font-bold tracking-tight">From €249</span>
+                  <span className="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[11px] font-medium text-primary">Managed</span>
+                </div>
+                <a
+                  href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi! I'd like to learn more about VANO's managed service.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-primary/90 hover:shadow-md active:scale-[0.97]"
+                >
+                  <MessageCircle className="h-4 w-4" strokeWidth={1.8} />
+                  Talk to us
+                </a>
+              </motion.div>
+            </div>
+          </motion.section>
+
+          {/* ── Done-for-you packages ── */}
           <motion.section
             variants={stagger}
             initial="hidden"
@@ -541,16 +617,21 @@ export default function BusinessDashboard() {
               variants={fadeUp}
               className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
             >
-              Packages
+              Done for you
             </motion.span>
             <motion.h2
               variants={fadeUp}
-              className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl"
+              className="text-2xl font-bold tracking-tight sm:text-3xl"
             >
-              Simple, transparent pricing
+              Let us handle it
             </motion.h2>
+            <motion.p
+              variants={fadeUp}
+              className="mt-2 mb-8 max-w-lg text-[14px] text-muted-foreground leading-relaxed"
+            >
+              We match you with the right freelancer, manage the work, and deliver results. You just approve.
+            </motion.p>
 
-            {/* Asymmetric: first card full-width on mobile, 2-col then 1-col on desktop for variety */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {PRICING_PACKAGES.map((pkg) => (
                 <motion.div
