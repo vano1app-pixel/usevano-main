@@ -93,7 +93,7 @@ const BrowseStudents = () => {
                     key={item.cat}
                     type="button"
                     onClick={() => navigate(`/students/${item.cat}`)}
-                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all duration-250 hover:border-primary/20 hover:shadow-lg hover:-translate-y-[2px] active:scale-[0.97] animate-fade-in opacity-0"
+                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/[0.06] bg-card p-5 text-left shadow-sm min-h-[160px] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-foreground/[0.12] hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.1)] hover:-translate-y-[2px] active:scale-[0.97] animate-fade-in opacity-0"
                     style={{ animationDelay: `${idx * 70}ms` }}
                   >
                     {item.image && (

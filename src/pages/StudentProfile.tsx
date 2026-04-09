@@ -163,7 +163,7 @@ const StudentProfile = () => {
       {!user ? (
         <a
           href="/auth"
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.97] sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
         >
           <MessageCircle size={18} strokeWidth={2} /> Sign in to message
         </a>
@@ -171,7 +171,7 @@ const StudentProfile = () => {
         <button
           type="button"
           onClick={handleMessage}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.97] sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
         >
           <MessageCircle size={18} strokeWidth={2} /> Message
         </button>
@@ -180,7 +180,7 @@ const StudentProfile = () => {
         <button
           type="button"
           onClick={() => navigate(`/portfolio/${id}`)}
-          className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
+          className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-secondary/80 hover:shadow-md active:scale-[0.97] sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
         >
           Full portfolio
         </button>

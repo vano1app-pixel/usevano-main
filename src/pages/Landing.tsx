@@ -152,7 +152,7 @@ const Landing = () => {
       {/* Hero */}
       <section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
         {/* Subtle animated gradient orb behind hero */}
-        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] sm:w-[600px] sm:h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] sm:w-[450px] sm:h-[450px] md:w-[600px] md:h-[600px] rounded-full bg-gradient-to-br from-primary/[0.05] via-transparent to-emerald-500/[0.03] blur-2xl" />
 
         <div className="relative max-w-3xl mx-auto text-center">
           <motion.div
@@ -166,15 +166,7 @@ const Landing = () => {
               className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight text-foreground mb-5 sm:mb-6 leading-[1.07]"
             >
               Local talent,<br />
-              <span
-                className="italic font-semibold bg-clip-text text-transparent animate-shimmer"
-                style={{
-                  backgroundImage: 'linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(221 83% 53%) 25%, hsl(var(--foreground)) 50%, hsl(262 50% 52%) 75%, hsl(var(--foreground)) 100%)',
-                  backgroundSize: '200% auto',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
+              <span className="italic font-semibold text-primary">
                 instantly available.
               </span>
             </motion.h1>
@@ -249,7 +241,7 @@ const Landing = () => {
                   key={item.cat}
                   type="button"
                   onClick={() => navigate(`/students/${item.cat}`)}
-                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
+                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/[0.06] bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] hover:border-foreground/[0.12] hover:shadow-lg hover:-translate-y-[2px]"
                 >
                   <img
                     src={item.image}
@@ -294,7 +286,7 @@ const Landing = () => {
 
             {/* Featured freelancer of the day — full-width hero card */}
             {!studentsLoaded && (
-              <div className="mb-4 flex gap-4 rounded-2xl border border-foreground/10 bg-card p-4 animate-pulse">
+              <div className="mb-4 flex gap-4 rounded-2xl border border-foreground/[0.06] bg-card p-4 animate-pulse">
                 <div className="h-20 w-20 shrink-0 rounded-xl bg-muted" />
                 <div className="flex-1 space-y-2 py-1">
                   <div className="h-3 w-1/3 rounded bg-muted" />
@@ -307,7 +299,7 @@ const Landing = () => {
               <button
                 type="button"
                 onClick={() => navigate(`/students/${featured.user_id}`)}
-                className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
+                className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/[0.06] bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/[0.12] hover:shadow-md active:scale-[0.99]"
               >
                 {/* Avatar */}
                 <div className="relative h-20 w-20 shrink-0 rounded-xl overflow-hidden bg-muted">
@@ -353,7 +345,7 @@ const Landing = () => {
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
                         key={i}
-                        className="flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
+                        className="flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/[0.06] bg-card p-3 md:p-4 animate-pulse"
                       >
                         <div className="flex gap-2.5">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
@@ -383,7 +375,7 @@ const Landing = () => {
                           key={s.user_id}
                           type="button"
                           onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                          className="group flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/[0.06] bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/[0.12] hover:shadow-md active:scale-[0.98]"
                         >
                           <div className="flex items-start gap-2.5">
                             <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
@@ -476,9 +468,9 @@ const Landing = () => {
             viewport={{ once: true, margin: "-80px" }}
             variants={staggerContainer}
           >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-primary uppercase tracking-[0.15em] text-center mb-3">Why VANO</motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-4 tracking-tight">Built different, on purpose</motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg lg:max-w-xl mx-auto lg:text-lg">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
+            <motion.span variants={fadeUp} transition={{ duration: 0.5 }} className="inline-block rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary mb-4">Why VANO</motion.span>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 tracking-tight">Built different, on purpose</motion.h2>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-muted-foreground mb-12 max-w-lg lg:max-w-xl lg:text-lg leading-relaxed">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
           </motion.div>
           <motion.div
             className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4"
@@ -495,7 +487,7 @@ const Landing = () => {
               whileTap="hover"
               initial="rest"
               animate="rest"
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-6 sm:p-7 lg:p-8"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/[0.06] bg-card p-6 sm:p-7 lg:p-8"
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-blue-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-48 group-hover:w-48 group-hover:bg-blue-500/[0.12]" />
               <motion.div variants={cardHover}>
@@ -515,7 +507,7 @@ const Landing = () => {
               whileTap="hover"
               initial="rest"
               animate="rest"
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/[0.06] bg-card p-5 lg:p-6"
             >
               <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-36 group-hover:w-36 group-hover:bg-emerald-500/[0.12]" />
               <motion.div variants={cardHover}>
@@ -535,7 +527,7 @@ const Landing = () => {
               whileTap="hover"
               initial="rest"
               animate="rest"
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/[0.06] bg-card p-5 lg:p-6"
             >
               <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-violet-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-36 group-hover:w-36 group-hover:bg-violet-500/[0.12]" />
               <motion.div variants={cardHover}>
@@ -555,7 +547,7 @@ const Landing = () => {
               whileTap="hover"
               initial="rest"
               animate="rest"
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/10 bg-card p-5 lg:p-6 flex items-center gap-5"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-foreground/[0.06] bg-card p-5 lg:p-6 flex items-center gap-5"
             >
               <div className="pointer-events-none absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-amber-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-48 group-hover:w-48 group-hover:bg-amber-500/[0.12]" />
               <motion.div variants={cardHover} className="flex items-center gap-5">
@@ -582,9 +574,9 @@ const Landing = () => {
             variants={staggerContainer}
             className="text-center mb-6"
           >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-3">
+            <motion.span variants={fadeUp} transition={{ duration: 0.5 }} className="inline-block rounded-full border border-foreground/10 bg-muted/50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground mb-4">
               FAQ
-            </motion.p>
+            </motion.span>
             <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
               Common questions
             </motion.h2>
