@@ -76,7 +76,7 @@ export function isEmailVerified(session: Session | null): boolean {
  */
 export async function getPostAuthPath(
   userId: string,
-): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/dashboard'> {
+): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
@@ -87,17 +87,18 @@ export async function getPostAuthPath(
   // Students go straight to /profile — onboarding modal handles missing fields
   if (profile.user_type === 'student') return '/profile';
 
-  const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
-  return done ? '/dashboard' : '/complete-profile';
+  // Business only needs display_name (no avatar required)
+  const done = !!profile?.display_name?.trim();
+  return done ? '/business-dashboard' : '/complete-profile';
 }
 
 /**
  * After Google OAuth: no user_type → picker; students → /profile (modal handles rest);
- * business incomplete → /complete-profile; complete → /profile.
+ * business incomplete → /complete-profile; complete → /business-dashboard.
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/complete-profile' | '/profile'> {
+): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
@@ -108,9 +109,10 @@ export async function getPostGoogleAuthPath(
   // Students go straight to /profile — onboarding modal handles missing fields
   if (profile.user_type === 'student') return '/profile';
 
-  const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
+  // Business only needs display_name (no avatar required)
+  const done = !!profile?.display_name?.trim();
   if (!done) return '/complete-profile';
-  return '/profile';
+  return '/business-dashboard';
 }
 
 /**

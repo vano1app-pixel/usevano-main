@@ -118,36 +118,58 @@ const ChooseAccountType = () => {
               onClick={() => setSelected('student')}
               disabled={saving}
               className={cn(
-                'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[96px] flex flex-col gap-1',
+                'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 selected === 'student'
-                  ? 'border-emerald-500/70 bg-emerald-500/[0.07] shadow-sm'
-                  : 'border-border bg-muted/30 hover:border-emerald-500/25',
+                  ? 'border-emerald-500/50 bg-emerald-500/[0.06] shadow-[0_0_0_1px_rgba(16,185,129,0.1)]'
+                  : 'border-foreground/[0.06] bg-muted/30 hover:border-emerald-500/30 hover:bg-emerald-500/[0.03]',
               )}
             >
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                <GraduationCap className="text-emerald-600 shrink-0" size={18} />
-                Freelancer
+              <div className={cn(
+                'pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 transition-opacity duration-500',
+                selected === 'student' ? 'opacity-100' : 'group-hover:opacity-60',
+              )} />
+              <span className={cn(
+                'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
+                selected === 'student' ? 'bg-emerald-500/15' : 'bg-muted/60',
+              )}>
+                <GraduationCap className="text-emerald-600" size={20} strokeWidth={1.8} />
               </span>
-              <span className="text-xs text-muted-foreground leading-snug">Find gigs &amp; build your portfolio</span>
+              <div className="relative">
+                <span className="block text-[14px] font-semibold text-foreground">Freelancer</span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                  Offer services &amp; build your portfolio
+                </span>
+              </div>
             </button>
             <button
               type="button"
               onClick={() => setSelected('business')}
               disabled={saving}
               className={cn(
-                'rounded-xl border-2 px-4 py-4 text-left transition-all min-h-[96px] flex flex-col gap-1',
+                'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 selected === 'business'
-                  ? 'border-sky-500/70 bg-sky-500/[0.07] shadow-sm'
-                  : 'border-border bg-muted/30 hover:border-sky-500/25',
+                  ? 'border-sky-500/50 bg-sky-500/[0.06] shadow-[0_0_0_1px_rgba(14,165,233,0.1)]'
+                  : 'border-foreground/[0.06] bg-muted/30 hover:border-sky-500/30 hover:bg-sky-500/[0.03]',
               )}
             >
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Building2 className="text-sky-600 shrink-0" size={18} />
-                Business
+              <div className={cn(
+                'pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-500/10 to-transparent opacity-0 transition-opacity duration-500',
+                selected === 'business' ? 'opacity-100' : 'group-hover:opacity-60',
+              )} />
+              <span className={cn(
+                'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
+                selected === 'business' ? 'bg-sky-500/15' : 'bg-muted/60',
+              )}>
+                <Building2 className="text-sky-600" size={20} strokeWidth={1.8} />
               </span>
-              <span className="text-xs text-muted-foreground leading-snug">Post jobs &amp; hire students</span>
+              <div className="relative">
+                <span className="block text-[14px] font-semibold text-foreground">Business</span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                  Find creative talent for your business
+                </span>
+              </div>
             </button>
           </div>
 

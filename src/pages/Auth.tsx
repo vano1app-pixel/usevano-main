@@ -161,45 +161,63 @@ const Auth = () => {
         <div className="bg-card border border-border rounded-2xl p-6 md:p-8 space-y-5">
           {!isLogin && (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Account type</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">I am a</p>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   disabled={loading}
                   onClick={() => setUserType('student')}
                   className={cn(
-                    'flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left',
+                    'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
                     userType === 'student'
-                      ? 'border-emerald-500/70 bg-emerald-500/[0.07] shadow-sm'
-                      : 'border-border text-muted-foreground hover:border-emerald-500/25',
+                      ? 'border-emerald-500/50 bg-emerald-500/[0.06] shadow-[0_0_0_1px_rgba(16,185,129,0.1)]'
+                      : 'border-foreground/[0.06] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03]',
                   )}
                 >
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <GraduationCap className="text-emerald-600 shrink-0" size={20} />
-                    Freelancer
+                  <div className={cn(
+                    'pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 transition-opacity duration-500',
+                    userType === 'student' ? 'opacity-100' : 'group-hover:opacity-60',
+                  )} />
+                  <span className={cn(
+                    'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
+                    userType === 'student' ? 'bg-emerald-500/15' : 'bg-muted/60',
+                  )}>
+                    <GraduationCap className="text-emerald-600" size={20} strokeWidth={1.8} />
                   </span>
-                  <span className="text-[11px] text-muted-foreground leading-tight">
-                    Offer services &amp; join the community
-                  </span>
+                  <div className="relative">
+                    <span className="block text-[14px] font-semibold text-foreground">Freelancer</span>
+                    <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                      Offer services &amp; build your portfolio
+                    </span>
+                  </div>
                 </button>
                 <button
                   type="button"
                   disabled={loading}
                   onClick={() => setUserType('business')}
                   className={cn(
-                    'flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left',
+                    'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
                     userType === 'business'
-                      ? 'border-sky-500/70 bg-sky-500/[0.07] shadow-sm'
-                      : 'border-border text-muted-foreground hover:border-sky-500/25',
+                      ? 'border-sky-500/50 bg-sky-500/[0.06] shadow-[0_0_0_1px_rgba(14,165,233,0.1)]'
+                      : 'border-foreground/[0.06] hover:border-sky-500/30 hover:bg-sky-500/[0.03]',
                   )}
                 >
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Briefcase className="text-sky-600 shrink-0" size={20} />
-                    Business
+                  <div className={cn(
+                    'pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-500/10 to-transparent opacity-0 transition-opacity duration-500',
+                    userType === 'business' ? 'opacity-100' : 'group-hover:opacity-60',
+                  )} />
+                  <span className={cn(
+                    'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
+                    userType === 'business' ? 'bg-sky-500/15' : 'bg-muted/60',
+                  )}>
+                    <Briefcase className="text-sky-600" size={20} strokeWidth={1.8} />
                   </span>
-                  <span className="text-[11px] text-muted-foreground leading-tight">
-                    Post gigs &amp; hire students
-                  </span>
+                  <div className="relative">
+                    <span className="block text-[14px] font-semibold text-foreground">Business</span>
+                    <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                      Find creative talent for your business
+                    </span>
+                  </div>
                 </button>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
@@ -29,11 +29,13 @@ import CompleteProfile from "./pages/CompleteProfile";
 import CompleteProfileStep2 from "./pages/CompleteProfileStep2";
 import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
+import BusinessDashboard from "./pages/BusinessDashboard";
 import BlogPost from "./pages/BlogPost";
 import WhatsNew from "./pages/WhatsNew";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
+import { WhatsAppFloatingButton } from "./components/WhatsAppFloatingButton";
 
 const App = () => (
   <TooltipProvider>
@@ -68,11 +70,12 @@ const App = () => (
           </RequireVerifiedSession>
         }
       />
+      <Route path="/dashboard" element={<Navigate to="/business-dashboard" replace />} />
       <Route
-        path="/dashboard"
+        path="/business-dashboard"
         element={
           <RequireVerifiedSession>
-            <Profile />
+            <BusinessDashboard />
           </RequireVerifiedSession>
         }
       />
@@ -129,6 +132,7 @@ const App = () => (
     </Routes>
     </div>
     <MobileBottomNav />
+    <WhatsAppFloatingButton />
     <CookieConsentBanner />
     <PWAInstallBanner />
     <PushNotificationPrompt />
