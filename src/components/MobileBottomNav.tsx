@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, MessageCircle, User, LayoutDashboard } from 'lucide-react';
+import { Home, Users, MessageCircle, User, LayoutDashboard, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -68,6 +68,8 @@ export const MobileBottomNav: React.FC = () => {
 
   const navItems = useMemo(() => [
     { label: 'Home', icon: Home, href: '/' },
+    // "Hire" only for business users or visitors (not students)
+    ...(userType !== 'student' ? [{ label: 'Hire', icon: Sparkles, href: '/hire' }] : []),
     { label: 'Talent', icon: Users, href: '/students' },
     { label: 'Messages', icon: MessageCircle, href: '/messages' },
     userType === 'business'
@@ -99,10 +101,10 @@ export const MobileBottomNav: React.FC = () => {
 
   return (
     <>
-      {/* Gradient scrim — fades page content into the nav bar (mobile only) */}
-      <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-12 bg-gradient-to-t from-background via-background/50 to-transparent md:hidden" />
-      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/30 bg-card/70 backdrop-blur-xl md:hidden">
-      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]">
+      {/* Gradient scrim */}
+      <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-16 bg-gradient-to-t from-background via-background/60 to-transparent md:hidden" />
+      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/25 bg-card/75 backdrop-blur-2xl backdrop-saturate-[1.2] md:hidden">
+      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1.5 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom,0px))]">
         {navItems.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
           return (
@@ -110,33 +112,29 @@ export const MobileBottomNav: React.FC = () => {
               key={href}
               type="button"
               onClick={() => handleNav(href)}
-              className="relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.96]"
+              className="relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.95]"
             >
-              <span
-                className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150"
-              >
+              <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200">
+                {active && (
+                  <span className="absolute inset-0 rounded-xl bg-primary/10 scale-100" />
+                )}
                 <Icon
                   size={20}
-                  strokeWidth={active ? 2.2 : 1.7}
-                  className={cn('transition-colors duration-150', active ? 'text-primary' : 'text-foreground/50')}
+                  strokeWidth={active ? 2.2 : 1.6}
+                  className={cn('relative transition-colors duration-200', active ? 'text-primary' : 'text-foreground/45')}
                 />
                 {href === '/messages' && unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full border-2 border-card bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
+                  <span className="absolute -right-1.5 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full border-2 border-card bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </span>
-              <span
-                className={cn(
-                  'text-[11px] leading-none tracking-tight',
-                  active ? 'font-semibold text-primary' : 'font-normal text-foreground/45',
-                )}
-              >
+              <span className={cn(
+                'text-[10px] leading-none tracking-wide transition-colors duration-200',
+                active ? 'font-semibold text-primary' : 'font-medium text-foreground/40',
+              )}>
                 {label}
               </span>
-              {active && (
-                <span className="absolute bottom-0 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" />
-              )}
             </button>
           );
         })}

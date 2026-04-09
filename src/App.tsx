@@ -15,6 +15,7 @@ import Landing from "./pages/Landing";
 import BrowseJobs from "./pages/BrowseJobs";
 import JobDetail from "./pages/JobDetail";
 import PostJob from "./pages/PostJob";
+import HirePage from "./pages/HirePage";
 import BrowseStudents from "./pages/BrowseStudents";
 import StudentsByCategory from "./pages/StudentsByCategory";
 import Profile from "./pages/Profile";
@@ -46,7 +47,8 @@ const App = () => (
     <div className="md:pt-14 lg:pt-16">
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/jobs" element={<BrowseJobs />} />
+      <Route path="/hire" element={<HirePage />} />
+      <Route path="/jobs" element={<Navigate to="/hire" replace />} />
       <Route path="/jobs/:id" element={<JobDetail />} />
       <Route
         path="/post-job"
