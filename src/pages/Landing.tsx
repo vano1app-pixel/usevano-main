@@ -190,21 +190,34 @@ const Landing = () => {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="flex flex-col sm:flex-row items-center justify-center gap-3"
             >
-              <button
-                type="button"
-                onClick={() => navigate(session ? '/profile' : '/auth?mode=signup')}
-                className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
-              >
-                Become a freelancer
-                <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/jobs')}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
-              >
-                Hire a freelancer
-              </button>
+              {session ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/students')}
+                  className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
+                >
+                  Browse talent
+                  <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/auth?mode=signup')}
+                    className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
+                  >
+                    Get started
+                    <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/auth?mode=login')}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
+                  >
+                    Log in
+                  </button>
+                </>
+              )}
             </motion.div>
             {studentsLoaded && featuredStudents.length > 0 && (
               <motion.div
