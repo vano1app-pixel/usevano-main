@@ -438,7 +438,7 @@ const Messages = () => {
   };
 
   if (loading) return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
     </div>
   );
@@ -446,7 +446,7 @@ const Messages = () => {
   const selectedConversation = conversations.find((c) => c.id === selectedConvo);
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
       <SEOHead title="Messages – VANO" description="Chat with businesses and students on VANO." />
       <Navbar />
       <div className="max-w-5xl mx-auto px-0 sm:px-4 md:px-8 pt-16 sm:pt-20 pb-0 sm:pb-4">

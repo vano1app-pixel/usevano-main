@@ -68,8 +68,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, poster, isSaved, onToggle
       }}
       onMouseLeave={() => setSpot(null)}
       className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-2xl border border-foreground/10 bg-card text-left shadow-sm transition-all duration-250',
-        'hover:-translate-y-[3px] hover:border-foreground/15 hover:shadow-lg active:scale-[0.97]',
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-foreground/6 bg-card text-left shadow-tinted transition-all duration-300 ease-out-quint',
+        'hover:-translate-y-[3px] hover:border-primary/15 hover:shadow-tinted-lg active:scale-[0.98]',
         job.is_urgent && 'border-destructive/30'
       )}
     >

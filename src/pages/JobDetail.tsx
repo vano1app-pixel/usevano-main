@@ -158,9 +158,9 @@ const JobDetail = () => {
   const isShiftPast = job ? new Date(job.shift_date) < new Date() : false;
   const canReview = user && isShiftPast && !hasReviewed && job && user.id !== job.posted_by;
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (loading) return <div className="min-h-[100dvh] bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
   if (!job) return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 pt-24 text-center">
         <h1 className="text-2xl font-bold mb-4">Job Not Found</h1>
@@ -170,7 +170,7 @@ const JobDetail = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
       <SEOHead title={`${job.title} – VANO`} description={job.description?.substring(0, 160)} />
       <Navbar />
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
@@ -180,7 +180,7 @@ const JobDetail = () => {
 
         <div className={`bg-card border overflow-hidden rounded-xl sm:rounded-2xl ${job.is_urgent ? 'border-destructive/40' : 'border-border'}`}>
           {poster && (
-            <div className="flex items-center gap-3 border-b border-border/80 bg-muted/25 px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3 border-b border-foreground/6 bg-muted/25 px-4 py-3 sm:px-6">
               {poster.avatar_url ? (
                 <img src={poster.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
               ) : (

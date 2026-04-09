@@ -24,7 +24,7 @@ const ITEMS = [
 ];
 
 const WhatsNew = () => (
-  <div className="min-h-screen bg-background pb-16 md:pb-0">
+  <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
     <SEOHead
       title={`What's new – VANO ${APP_VERSION_LABEL}`}
       description="Smoother UI, Google sign-in, verified Community listings, and faster loading."
@@ -47,7 +47,7 @@ const WhatsNew = () => (
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">What&apos;s new in {APP_VERSION_LABEL}</h1>
         </div>
       </div>
-      <ul className="space-y-0 divide-y divide-border rounded-2xl border border-border bg-card px-5 py-1 shadow-sm">
+      <ul className="space-y-0 divide-y divide-foreground/6 rounded-2xl border border-foreground/6 bg-card px-5 py-1 shadow-sm">
         {ITEMS.map((item) => (
           <li key={item.title} className="py-5 first:pt-4 last:pb-4">
             <h2 className="text-base font-semibold text-foreground">{item.title}</h2>

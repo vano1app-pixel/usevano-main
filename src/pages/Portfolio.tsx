@@ -85,9 +85,9 @@ const Portfolio = () => {
     navigate('/messages');
   };
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="min-h-[100dvh] bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!student || !profile) return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 pt-24 text-center">
         <h1 className="text-2xl font-bold mb-4">Profile Not Found</h1>
@@ -107,7 +107,7 @@ const Portfolio = () => {
   const tiktokPublic = student?.tiktok_url?.trim() || '';
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
       <SEOHead title={`${profile.display_name || 'Freelancer'} – Portfolio – VANO`} description={student.bio?.substring(0, 160) || 'Freelancer portfolio on VANO'} />
       <Navbar />
       <div className="mx-auto max-w-4xl space-y-5 px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
@@ -130,7 +130,7 @@ const Portfolio = () => {
                 <button
                   type="button"
                   onClick={handleMessage}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[9rem] sm:px-6"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-foreground/6 bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[9rem] sm:px-6"
                 >
                   <MessageCircle size={18} strokeWidth={2} /> Message
                 </button>
@@ -171,7 +171,7 @@ const Portfolio = () => {
         )}
 
         {(tiktokPublic || onlineWorkLinks.length > 0) && (
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+          <div className="rounded-2xl border border-foreground/6 bg-card p-5 shadow-tinted sm:p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Work online</p>
             <h2 className="mt-1 text-base font-semibold">Links &amp; social</h2>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -210,7 +210,7 @@ const Portfolio = () => {
 
         {/* Achievements */}
         {achievements.length > 0 && (
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="rounded-2xl border border-foreground/6 bg-card p-6 shadow-tinted">
             <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><Award size={16} className="text-primary" /> Achievements</h2>
             <div className="flex flex-wrap gap-2">
               {achievements.map((a) => (
@@ -224,7 +224,7 @@ const Portfolio = () => {
 
         {/* Portfolio */}
         {portfolioItems.length > 0 && (
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="rounded-2xl border border-foreground/6 bg-card p-6 shadow-tinted">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Gallery</p>
             <h2 className="mt-1 text-base font-semibold">Portfolio</h2>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">

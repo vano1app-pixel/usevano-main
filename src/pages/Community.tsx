@@ -419,7 +419,7 @@ const Community = () => {
     : 'Choose a board to see freelancers offering work in that space.';
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-background pb-24 md:pb-12">
+    <div className="relative min-h-[100dvh] overflow-x-hidden bg-background pb-24 md:pb-12">
       <SEOHead
         title={activeCategory ? `${boardTitle} – Community · VANO` : 'Community – VANO'}
         description="Browse freelancer listings by specialty — videography, websites, or social media."

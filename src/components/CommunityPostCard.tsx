@@ -205,7 +205,7 @@ export const CommunityPostCard = ({
       }}
       onMouseLeave={() => setSpot(null)}
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]',
+        'relative overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-tinted-lg',
         'transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_1px_0_rgba(0,0,0,0.04),0_20px_40px_-16px_rgba(0,0,0,0.18)]'
       )}
     >
