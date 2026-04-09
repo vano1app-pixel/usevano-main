@@ -14,7 +14,7 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, Camera, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, ChevronDown,
+  Shield, Zap, ChevronDown, Check,
 } from 'lucide-react';
 
 /* ─── Constants ─── */
@@ -49,6 +49,43 @@ const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
   '500_plus': { min: 500, max: 9999 },
   unsure: { min: 0, max: 9999 },
 };
+
+const PRICING_PACKAGES = [
+  {
+    name: 'Social Media',
+    price: '249',
+    period: '/mo',
+    features: [
+      'Content calendar & strategy',
+      '12 posts per month',
+      'Community engagement',
+      'Monthly performance report',
+    ],
+  },
+  {
+    name: 'Website Build',
+    price: '499',
+    period: ' one-off',
+    popular: true,
+    features: [
+      'Custom responsive design',
+      'Up to 5 pages',
+      'SEO setup',
+      'Contact form & analytics',
+    ],
+  },
+  {
+    name: 'Content Bundle',
+    price: '349',
+    period: '/mo',
+    features: [
+      'Professional photo shoot',
+      'Short-form video content',
+      'Editing & post-production',
+      'Brand-ready deliverables',
+    ],
+  },
+];
 
 /* ─── Component ─── */
 
@@ -590,6 +627,66 @@ const HirePage = () => {
             {step === 3 && renderStep3()}
           </motion.div>
         </AnimatePresence>
+
+        {/* ── Done-for-you pricing packages ── */}
+        <div className="mt-14 border-t border-foreground/[0.06] pt-10 mb-4">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Done for you
+          </p>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+            Or pick a package
+          </h2>
+          <p className="mt-1.5 mb-6 text-sm text-muted-foreground leading-relaxed">
+            Fixed-price packages — we handle everything from start to finish.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {PRICING_PACKAGES.map((pkg) => (
+              <div
+                key={pkg.name}
+                className={cn(
+                  'relative flex flex-col rounded-2xl border bg-card p-5 transition-all hover:shadow-md',
+                  pkg.popular
+                    ? 'border-primary/30 shadow-[0_0_0_1px_hsl(221_83%_53%/0.08)]'
+                    : 'border-foreground/[0.06]'
+                )}
+              >
+                {pkg.popular && (
+                  <span className="absolute -top-3 left-5 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                    Most popular
+                  </span>
+                )}
+
+                <h3 className="text-[14px] font-semibold">{pkg.name}</h3>
+
+                <p className="mt-2 mb-3 flex items-baseline gap-0.5">
+                  <span className="text-xs text-muted-foreground">€</span>
+                  <span className="text-2xl font-bold tracking-tighter tabular-nums">{pkg.price}</span>
+                  <span className="text-xs text-muted-foreground">{pkg.period}</span>
+                </p>
+
+                <ul className="mb-4 flex-1 space-y-1.5">
+                  {pkg.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-[12px] text-muted-foreground leading-snug">
+                      <Check size={12} className="mt-0.5 shrink-0 text-primary/70" strokeWidth={2.5} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <a
+                  href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I'm interested in the ${pkg.name} package (€${pkg.price}${pkg.period}).`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-white transition-all hover:bg-[#1fba59] hover:shadow-[0_4px_12px_-4px_rgba(37,211,102,0.4)] active:scale-[0.97]"
+                >
+                  <MessageCircle size={15} strokeWidth={1.8} />
+                  Get started
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
