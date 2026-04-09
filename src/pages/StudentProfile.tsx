@@ -189,7 +189,7 @@ const StudentProfile = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
       <SEOHead
         title={!isBusiness
           ? `${displayName} — ${student?.skills?.[0] ?? 'Freelancer'} in Galway`
@@ -212,7 +212,7 @@ const StudentProfile = () => {
       <Navbar />
       <div className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 space-y-5 animate-fade-in">
         {isBusiness ? (
-          <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm">
+          <div className="rounded-2xl border border-foreground/6 bg-card p-6 md:p-8 shadow-tinted">
             <div className="flex items-start gap-5 mb-5">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={displayName} className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0" />
@@ -317,7 +317,7 @@ const StudentProfile = () => {
             />
 
             {/* Stats row — foxpop style */}
-            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
               <div className="grid grid-cols-3 divide-x divide-border">
                 {[
                   { label: reviews.length === 1 ? 'review' : 'reviews', value: avgRating ?? reviews.length.toString(), sub: avgRating ? `★ (${reviews.length} reviews)` : null },
@@ -379,7 +379,7 @@ const StudentProfile = () => {
             )}
 
             {/* Tab switcher */}
-            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
               <div className="p-1.5 border-b border-border/60">
                 <div className="flex gap-1">
                   {(['about', 'portfolio', 'reviews'] as const).map((tab) => (
@@ -543,7 +543,7 @@ const StudentProfile = () => {
 
             {/* Gigs done (visible on all tabs, below the tab card) */}
             {completedJobs.length > 0 && (
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <div className="rounded-2xl border border-foreground/6 bg-card p-6 shadow-tinted">
                 <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
                   <Briefcase size={16} className="text-primary" /> Gigs Completed
                 </h2>
@@ -632,7 +632,7 @@ const StudentProfile = () => {
 
         {/* Business gigs posted (only for business accounts — freelancer data is in tabs) */}
         {isBusiness && completedJobs.length > 0 && (
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="rounded-2xl border border-foreground/6 bg-card p-6 shadow-tinted">
             <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Briefcase size={16} className="text-primary" /> Gigs Posted
             </h2>

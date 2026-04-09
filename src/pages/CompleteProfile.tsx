@@ -120,7 +120,7 @@ const CompleteProfile = () => {
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -130,7 +130,7 @@ const CompleteProfile = () => {
   const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
+    <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-8">
       <SEOHead title="Almost there – VANO" description="Tell us what you do so businesses can find you" />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
@@ -154,7 +154,7 @@ const CompleteProfile = () => {
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
+        <div className="bg-card border border-foreground/6 rounded-2xl p-6 md:p-8 shadow-tinted">
           <form onSubmit={handleComplete} className="space-y-6">
             {isStudent && (
               <div className="flex justify-center">

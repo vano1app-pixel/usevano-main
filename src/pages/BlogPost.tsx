@@ -89,7 +89,7 @@ const BlogPost = () => {
   const [submitting, setSubmitting] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
       <SEOHead
         title="VANO v1.5 — What's New"
         description="Introducing VANO v1.5: smoother UI, Google sign-in, verified Community listings, and faster performance."

@@ -683,7 +683,7 @@ const Landing = () => {
 
       {/* Footer */}
       <motion.footer
-        className="border-t border-border py-12 px-4 md:px-8 lg:px-12"
+        className="border-t border-foreground/6 py-16 md:py-20 px-4 md:px-8 lg:px-12"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
