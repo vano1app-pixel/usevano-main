@@ -217,30 +217,32 @@ const HirePage = () => {
       </div>
 
       {/* Textarea */}
-      <div className="rounded-2xl border border-foreground/10 bg-card shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden transition-all duration-300 focus-within:border-primary/20 focus-within:shadow-tinted-lg">
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder={'e.g. "I need a 30-second promo video for my cafe\'s Instagram"'}
-          className="w-full min-h-[130px] lg:min-h-[160px] resize-none bg-transparent px-4 pt-4 pb-2 text-[15px] sm:text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+          className="w-full min-h-[130px] lg:min-h-[160px] resize-none bg-transparent px-5 pt-5 pb-2 text-[15px] sm:text-base leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
           autoFocus
         />
-        <div className="flex items-center justify-between px-4 pb-3">
-          <p className="text-[11px] text-muted-foreground/60">
-            {description.trim().length < 5 ? 'Tell us a little more...' : 'Looks good!'}
+        <div className="flex items-center justify-between px-5 pb-3">
+          <p className={cn('text-[11px] transition-colors duration-200', description.trim().length >= 5 ? 'text-emerald-600/70' : 'text-muted-foreground/50')}>
+            {description.trim().length < 5 ? 'Tell us a little more...' : 'Looks good'}
           </p>
         </div>
       </div>
 
       {/* Value props */}
-      <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
         {[
           { icon: Euro, label: 'Affordable rates', sub: 'Student-friendly prices' },
           { icon: Zap, label: 'Fast turnaround', sub: 'Motivated talent' },
           { icon: Shield, label: 'Vano vetted', sub: 'Quality assured' },
         ].map(v => (
-          <div key={v.label} className="flex flex-col items-center text-center gap-1.5 rounded-xl border border-foreground/5 bg-muted/30 px-2 py-3 sm:py-4">
-            <v.icon size={16} className="text-primary" />
+          <div key={v.label} className="flex flex-col items-center text-center gap-2 rounded-2xl border border-foreground/4 bg-foreground/[0.015] px-2.5 py-4 sm:py-5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/8">
+              <v.icon size={16} className="text-primary" />
+            </div>
             <p className="text-[11px] sm:text-xs font-semibold text-foreground leading-tight">{v.label}</p>
             <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight">{v.sub}</p>
           </div>

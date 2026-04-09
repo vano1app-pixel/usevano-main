@@ -99,30 +99,30 @@ export const Navbar: React.FC = () => {
     (location.pathname === '/students' || location.pathname.startsWith('/students/'));
   /** Opaque bar on Talent so dark page bg doesn’t read as an empty “black box” through glass blur. */
   const navSurfaceClass = talentRouteMobile
-    ? 'bg-background border-border/60 shadow-md'
-    : 'bg-background/60 backdrop-blur-xl border-border/50 shadow-lg shadow-black/5';
+    ? 'bg-background/95 border-border/50 shadow-tinted'
+    : 'bg-background/65 backdrop-blur-2xl backdrop-saturate-[1.15] border-border/40 shadow-tinted-lg';
 
   return (
     <>
       <nav
-        className={`fixed top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 lg:top-5 lg:left-6 lg:right-6 z-[2000] rounded-xl sm:rounded-2xl ${navSurfaceClass}`}
+        className={`fixed top-2.5 left-3 right-3 sm:top-4 sm:left-5 sm:right-5 lg:top-5 lg:left-8 lg:right-8 z-[2000] rounded-2xl border transition-all duration-300 ${navSurfaceClass}`}
       >
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 lg:px-10 h-14 sm:h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt="VANO" className="h-8 w-8 rounded-lg" />
-            <span className="text-2xl font-bold tracking-tight text-primary">VANO</span>
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-5 md:px-8 lg:px-10 h-14 sm:h-[3.75rem] flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <img src={logo} alt="VANO" className="h-8 w-8 rounded-[10px] shadow-sm transition-transform duration-200 group-hover:scale-105" />
+            <span className="text-[22px] font-bold tracking-tight text-primary">VANO</span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-1 lg:gap-2">
+          <div className="hidden md:flex items-center gap-0.5 lg:gap-1">
             {navItems.map((item) => (
               <button
                 key={item.href}
                 onClick={() => handleNavClick(item.href, item.requiresAuth)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150",
+                  "inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
                   isActiveRoute(item.href)
                     ? "text-primary bg-primary/10 font-semibold"
-                    : "text-foreground/70 hover:text-primary hover:bg-primary/5"
+                    : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]"
                 )}
               >
                 {item.label}
@@ -131,19 +131,22 @@ export const Navbar: React.FC = () => {
             ))}
             <Link
               to="/whats-new"
-              className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/80"
+              className="px-3 py-2 text-xs font-medium text-muted-foreground/70 hover:text-foreground transition-colors duration-150 rounded-xl hover:bg-foreground/[0.03]"
             >
               What&apos;s new
             </Link>
+
+            <div className="w-px h-5 bg-border/60 mx-1.5" />
+
             {user && authNavItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                  "px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
                   isActiveRoute(item.href)
                     ? "text-primary bg-primary/10 font-semibold"
-                    : "text-foreground/70 hover:text-primary hover:bg-primary/5"
+                    : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]"
                 )}
               >
                 {item.label}
@@ -152,7 +155,7 @@ export const Navbar: React.FC = () => {
             {user && showAdminLink && (
               <Link
                 to="/admin"
-                className="px-4 py-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors rounded-lg hover:bg-destructive/5"
+                className="px-3.5 py-2 text-[13px] font-medium text-destructive/80 hover:text-destructive transition-colors duration-150 rounded-xl hover:bg-destructive/5"
               >
                 Admin
               </Link>
@@ -161,26 +164,26 @@ export const Navbar: React.FC = () => {
             {user ? (
               <button
                 onClick={async () => { await supabase.auth.signOut(); }}
-                className="ml-2 px-4 py-2 text-sm font-medium text-foreground/70 hover:text-destructive transition-colors rounded-lg"
+                className="ml-1 px-3.5 py-2 text-[13px] font-medium text-foreground/50 hover:text-destructive transition-colors duration-150 rounded-xl"
               >
-                Sign Out
+                Sign out
               </button>
             ) : (
               <button
                 onClick={() => navigate('/auth')}
-                className="ml-2 px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-xl shadow-md shadow-primary/20 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 transition-all duration-200"
+                className="ml-1.5 px-5 py-2 text-[13px] font-semibold bg-primary text-primary-foreground rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-all duration-200 hover:-translate-y-[0.5px] active:scale-[0.97]"
               >
-                Sign In
+                Sign in
               </button>
             )}
           </div>
 
-          {/* Mobile right side — no hamburger, just action */}
+          {/* Mobile right */}
           <div className="md:hidden flex items-center gap-2">
             {user && showAdminLink && (
               <Link
                 to="/admin"
-                className="px-3 py-1.5 text-xs font-semibold text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/5 transition-colors"
+                className="px-2.5 py-1.5 text-[11px] font-semibold text-destructive/80 border border-destructive/25 rounded-lg hover:bg-destructive/5 transition-colors"
               >
                 Admin
               </Link>
@@ -190,7 +193,7 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-xl shadow-md shadow-primary/20 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 transition-all duration-200"
+                className="px-4.5 py-2 text-[13px] font-semibold bg-primary text-primary-foreground rounded-xl shadow-md shadow-primary/20 hover:shadow-lg transition-all duration-200 active:scale-[0.97]"
               >
                 Sign in
               </button>

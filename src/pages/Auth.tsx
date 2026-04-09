@@ -73,26 +73,26 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
+    <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-10">
       <SEOHead
         title={`${isLogin ? 'Log in' : 'Create account'} – VANO`}
         description="Log in or sign up for VANO — local gigs and freelancers in Galway."
       />
       <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <img src={logo} alt="VANO" className="h-10 w-10 rounded-xl" />
-            <span className="text-2xl font-bold text-primary">VANO</span>
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2.5 mb-5">
+            <img src={logo} alt="VANO" className="h-11 w-11 rounded-xl shadow-tinted-sm" />
+            <span className="text-[22px] font-bold tracking-tight text-primary">VANO</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {isLogin ? 'Welcome back' : 'Join VANO'}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
+          <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
             {isLogin ? 'Sign in to your account.' : 'Pick your role and continue with Google.'}
           </p>
         </div>
 
-        <div className="flex rounded-xl border border-border bg-muted/40 p-1 mb-6">
+        <div className="flex rounded-xl border border-border/60 bg-foreground/[0.02] p-1 mb-7">
           <button
             type="button"
             disabled={loading}
@@ -100,8 +100,8 @@ const Auth = () => {
               setIsLogin(true);
               navigate('/auth?mode=login', { replace: true });
             }}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-              isLogin ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
+              isLogin ? 'bg-card text-foreground shadow-tinted-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Log in
@@ -113,8 +113,8 @@ const Auth = () => {
               setIsLogin(false);
               navigate('/auth?mode=signup', { replace: true });
             }}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-              !isLogin ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
+              !isLogin ? 'bg-card text-foreground shadow-tinted-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Create account

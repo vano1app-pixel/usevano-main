@@ -468,7 +468,7 @@ const Landing = () => {
       )}
 
       {/* Why VANO */}
-      <section className="py-16 md:py-24 px-4 md:px-8 lg:px-12">
+      <section className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
         <div className="max-w-4xl lg:max-w-5xl mx-auto">
           <motion.div
             initial="hidden"
@@ -476,9 +476,9 @@ const Landing = () => {
             viewport={{ once: true, margin: "-80px" }}
             variants={staggerContainer}
           >
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-primary uppercase tracking-[0.15em] text-center mb-3">Why VANO</motion.p>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-4 tracking-tight">Built different, on purpose</motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-12 max-w-lg lg:max-w-xl mx-auto lg:text-lg">We're not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-[11px] font-medium text-primary uppercase tracking-[0.18em] text-center mb-3">Why VANO</motion.p>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.5 }} className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1]">Built different, on purpose</motion.h2>
+            <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-sm lg:text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
           </motion.div>
           <motion.div
             className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4"
@@ -573,7 +573,7 @@ const Landing = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-12 md:py-16 px-4 md:px-8 lg:px-12">
+      <section className="py-16 md:py-24 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
           <motion.div
             initial="hidden"
@@ -645,7 +645,7 @@ const Landing = () => {
       </section>
 
       {/* CTA */}
-      <section className="py-16 md:py-24 px-4 md:px-8 lg:px-12">
+      <section className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
         <motion.div
           className="max-w-2xl lg:max-w-3xl mx-auto"
           initial="hidden"

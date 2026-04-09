@@ -155,21 +155,20 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border border-foreground/8 bg-card shadow-sm transition-all duration-250',
-        clickable && 'cursor-pointer hover:-translate-y-[3px] hover:border-primary/30 hover:shadow-lg hover:shadow-primary/8 active:scale-[0.97] group',
+        'overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-tinted transition-all duration-300 ease-out-quint',
+        clickable && 'cursor-pointer hover:-translate-y-[3px] hover:border-primary/20 hover:shadow-tinted-lg active:scale-[0.98] group',
         !clickable && 'cursor-default',
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
-      {/* Banner — taller for more visual presence */}
-      <div className="relative h-52 w-full overflow-hidden sm:h-60">
+      {/* Banner */}
+      <div className="relative h-48 w-full overflow-hidden sm:h-56">
         {student.banner_url ? (
-          <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+          <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]" loading="lazy" decoding="async" />
         ) : (
-          <div className="h-full w-full transition-transform duration-500 group-hover:scale-105" style={{ background: cardGradient(student.user_id) }} />
+          <div className="h-full w-full transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]" style={{ background: cardGradient(student.user_id) }} />
         )}
-        {/* Gradient overlay — stronger at bottom */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/55" />
 
         {/* Top-left: skill keywords line */}
         {bannerSkills.length > 0 && (
@@ -336,17 +335,17 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
         {/* CTA */}
         {clickable && (
-          <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
-            <span className="w-[60%] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
-              View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+          <div className="mt-4 pt-3 border-t border-foreground/5 flex gap-2">
+            <span className="w-[60%] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2.5 text-[12px] font-semibold text-primary transition-all duration-300 ease-out-quint group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
+              View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
             </span>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
-              className="w-[40%] inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/10 bg-muted/60 px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all duration-150 hover:border-primary/30 hover:bg-primary/8 hover:text-primary active:scale-95"
+              className="w-[40%] inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/8 bg-foreground/[0.02] px-3 py-2.5 text-[12px] font-semibold text-foreground/65 transition-all duration-200 hover:border-primary/25 hover:bg-primary/6 hover:text-primary active:scale-[0.97]"
             >
               <MessageSquareQuote size={13} strokeWidth={2} />
-              Get a Quote
+              Get a quote
             </button>
           </div>
         )}
