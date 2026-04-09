@@ -14,7 +14,7 @@ export function useProfileCompletion() {
   const location = useLocation();
 
   useEffect(() => {
-    const skip = ['/complete-profile', '/complete-profile-step2', '/auth', '/reset-password', '/choose-account-type'];
+    const skip = ['/complete-profile', '/complete-profile-step2', '/auth', '/reset-password', '/choose-account-type', '/business-dashboard'];
     if (skip.includes(location.pathname)) {
       setComplete(true);
       return;

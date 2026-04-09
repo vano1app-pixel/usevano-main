@@ -49,7 +49,7 @@ const CompleteProfile = () => {
       }
 
       if (profile?.display_name?.trim() && profile?.avatar_url?.trim()) {
-        navigate('/profile', { replace: true });
+        navigate(profile.user_type === 'business' ? '/business-dashboard' : '/profile', { replace: true });
         return;
       }
 
@@ -98,7 +98,7 @@ const CompleteProfile = () => {
       }
 
       toast({ title: 'Profile complete' });
-      navigate(userType === 'student' ? '/complete-profile-step2' : '/profile', { replace: true });
+      navigate(userType === 'student' ? '/complete-profile-step2' : '/business-dashboard', { replace: true });
     } catch (error: any) {
       toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
     } finally {
