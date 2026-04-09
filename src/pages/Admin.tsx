@@ -32,6 +32,7 @@ interface StudentDataRow {
   user_id: string;
   phone: string | null;
   university: string | null;
+  community_board_status: string | null;
 }
 
 interface JobRow {
@@ -153,7 +154,7 @@ const Admin = () => {
     if (studentIds.length > 0) {
       const { data: spData } = await supabase
         .from('student_profiles')
-        .select('user_id, phone, university')
+        .select('user_id, phone, university, community_board_status')
         .in('user_id', studentIds);
       const map: Record<string, StudentDataRow> = {};
       (spData || []).forEach((sp) => { map[sp.user_id] = sp; });
@@ -323,6 +324,23 @@ const Admin = () => {
     } else {
       toast({ title: 'User deleted' });
       fetchUsers();
+    }
+  };
+
+  const removeListing = async (userId: string) => {
+    if (!window.confirm('Remove this freelancer from the talent board? They can re-list themselves.')) return;
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ community_board_status: null })
+      .eq('user_id', userId);
+    if (error) {
+      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
+      toast({ title: 'Listing removed' });
+      setStudentDataMap((prev) => ({
+        ...prev,
+        [userId]: { ...prev[userId], community_board_status: null },
+      }));
     }
   };
 
@@ -563,15 +581,27 @@ const Admin = () => {
                     {u.user_type === 'student' ? '🎓 Freelancer' : u.user_type === 'business' ? '🏢 Account' : 'No type'} · Joined {format(new Date(u.created_at), 'MMM d, yyyy')}
                   </p>
                   {u.user_type === 'student' && (
-                    <p className="text-xs mt-0.5">
+                    <p className="text-xs mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       {sp?.phone?.trim()
                         ? <span className="text-emerald-600">📞 {sp.phone}{sp?.university ? ` · ${sp.university}` : ''}</span>
                         : <span className="text-destructive font-medium">⚠ No phone number</span>
                       }
+                      {sp?.community_board_status === 'approved' && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">Listed</span>
+                      )}
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {sp?.community_board_status === 'approved' && (
+                    <button
+                      onClick={() => removeListing(u.user_id)}
+                      className="p-2 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-500/10 transition-colors"
+                      title="Remove listing from talent board"
+                    >
+                      <Ban size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={() => toggleAdmin(u.user_id)}
                     className={`p-2 rounded-lg transition-colors ${
