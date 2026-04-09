@@ -371,100 +371,6 @@ export default function BusinessDashboard() {
             </div>
           </motion.section>
 
-          {/* ── Done-for-you packages ── */}
-          <motion.section
-            variants={stagger}
-            initial="hidden"
-            animate="visible"
-            className="mb-16 sm:mb-20"
-          >
-            <motion.span
-              variants={fadeUp}
-              className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-            >
-              Pricing
-            </motion.span>
-            <motion.h2
-              variants={fadeUp}
-              className="text-2xl font-bold tracking-tight sm:text-3xl"
-            >
-              Done-for-you packages
-            </motion.h2>
-            <motion.p
-              variants={fadeUp}
-              className="mt-2 mb-8 max-w-lg text-[14px] text-muted-foreground leading-relaxed"
-            >
-              We match you with the right freelancer, manage the work, and deliver results. You just approve.
-            </motion.p>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {PRICING_PACKAGES.map((pkg) => (
-                <motion.div
-                  key={pkg.name}
-                  variants={fadeUp}
-                  className={`relative flex flex-col rounded-2xl border bg-card p-6 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)] ${
-                    pkg.popular
-                      ? 'border-primary/30 shadow-[0_0_0_1px_hsl(221_83%_53%/0.08)]'
-                      : 'border-foreground/[0.06]'
-                  }`}
-                >
-                  {pkg.popular && (
-                    <span className="absolute -top-3 left-5 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                      Most popular
-                    </span>
-                  )}
-
-                  <h3 className="text-[15px] font-semibold">{pkg.name}</h3>
-
-                  <p className="mt-3 mb-5 flex items-baseline gap-1">
-                    <span className="text-[13px] text-muted-foreground">€</span>
-                    <span className="text-4xl font-bold tracking-tighter tabular-nums">{pkg.price}</span>
-                    <span className="text-[13px] text-muted-foreground">{pkg.period}</span>
-                  </p>
-
-                  <ul className="mb-6 flex-1 space-y-2.5">
-                    {pkg.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5 text-[13px] text-muted-foreground leading-snug">
-                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" strokeWidth={2.2} />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <a
-                    href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I'm interested in the ${pkg.name} package (€${pkg.price}${pkg.period}).`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-white transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#1fba59] hover:shadow-[0_4px_12px_-4px_rgba(37,211,102,0.4)] active:scale-[0.97]"
-                  >
-                    <MessageCircle className="h-4 w-4" strokeWidth={1.8} />
-                    Get started
-                  </a>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Custom pricing note */}
-            <motion.div
-              variants={fadeUp}
-              className="mt-4 rounded-2xl border border-dashed border-foreground/10 bg-muted/30 px-5 py-4 text-center"
-            >
-              <p className="text-[14px] font-medium text-foreground">Need something different?</p>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                We offer custom pricing for larger projects or ongoing work — just tell us what you need.
-              </p>
-              <a
-                href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi! I'd like to discuss custom pricing for my project.")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2 text-[13px] font-semibold text-primary transition hover:bg-primary/10 active:scale-[0.97]"
-              >
-                <MessageCircle className="h-4 w-4" strokeWidth={1.8} />
-                Get a custom quote
-              </a>
-            </motion.div>
-          </motion.section>
-
           {/* ── Browse talent ── */}
           <motion.section
             variants={stagger}
@@ -700,6 +606,79 @@ export default function BusinessDashboard() {
             </div>
           </motion.section>
 
+          {/* ── Done-for-you packages ── */}
+          <motion.section
+            variants={stagger}
+            initial="hidden"
+            animate="visible"
+            className="mb-12"
+          >
+            <motion.span
+              variants={fadeUp}
+              className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              Done for you
+            </motion.span>
+            <motion.h2
+              variants={fadeUp}
+              className="text-2xl font-bold tracking-tight sm:text-3xl"
+            >
+              Let us handle it
+            </motion.h2>
+            <motion.p
+              variants={fadeUp}
+              className="mt-2 mb-8 max-w-lg text-[14px] text-muted-foreground leading-relaxed"
+            >
+              We match you with the right freelancer, manage the work, and deliver results. You just approve.
+            </motion.p>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {PRICING_PACKAGES.map((pkg) => (
+                <motion.div
+                  key={pkg.name}
+                  variants={fadeUp}
+                  className={`relative flex flex-col rounded-2xl border bg-card p-6 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)] ${
+                    pkg.popular
+                      ? 'border-primary/30 shadow-[0_0_0_1px_hsl(221_83%_53%/0.08)]'
+                      : 'border-foreground/[0.06]'
+                  }`}
+                >
+                  {pkg.popular && (
+                    <span className="absolute -top-3 left-5 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                      Most popular
+                    </span>
+                  )}
+
+                  <h3 className="text-[15px] font-semibold">{pkg.name}</h3>
+
+                  <p className="mt-3 mb-5 flex items-baseline gap-1">
+                    <span className="text-[13px] text-muted-foreground">€</span>
+                    <span className="text-4xl font-bold tracking-tighter tabular-nums">{pkg.price}</span>
+                    <span className="text-[13px] text-muted-foreground">{pkg.period}</span>
+                  </p>
+
+                  <ul className="mb-6 flex-1 space-y-2.5">
+                    {pkg.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5 text-[13px] text-muted-foreground leading-snug">
+                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" strokeWidth={2.2} />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <a
+                    href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I'm interested in the ${pkg.name} package (€${pkg.price}${pkg.period}).`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-white transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#1fba59] hover:shadow-[0_4px_12px_-4px_rgba(37,211,102,0.4)] active:scale-[0.97]"
+                  >
+                    <MessageCircle className="h-4 w-4" strokeWidth={1.8} />
+                    Get started
+                  </a>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
         </div>
       </main>
 
