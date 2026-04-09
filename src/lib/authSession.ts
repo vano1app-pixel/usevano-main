@@ -76,7 +76,7 @@ export function isEmailVerified(session: Session | null): boolean {
  */
 export async function getPostAuthPath(
   userId: string,
-): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/dashboard'> {
+): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
@@ -88,7 +88,7 @@ export async function getPostAuthPath(
   if (profile.user_type === 'student') return '/profile';
 
   const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
-  return done ? '/dashboard' : '/complete-profile';
+  return done ? '/business-dashboard' : '/complete-profile';
 }
 
 /**
@@ -97,7 +97,7 @@ export async function getPostAuthPath(
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/complete-profile' | '/profile'> {
+): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
@@ -110,7 +110,7 @@ export async function getPostGoogleAuthPath(
 
   const done = !!(profile?.display_name?.trim() && profile?.avatar_url?.trim());
   if (!done) return '/complete-profile';
-  return '/profile';
+  return '/business-dashboard';
 }
 
 /**

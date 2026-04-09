@@ -1,32 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Briefcase, Users, MessageCircle, User } from 'lucide-react';
+import { Home, Briefcase, Users, MessageCircle, User, LayoutDashboard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-
-const NAV_ITEMS = [
-  { label: 'Home', icon: Home, href: '/' },
-  { label: 'Talent', icon: Users, href: '/students' },
-  { label: 'Hiring', icon: Briefcase, href: '/jobs' },
-  { label: 'Messages', icon: MessageCircle, href: '/messages' },
-  { label: 'Profile', icon: User, href: '/profile' },
-];
 
 export const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
+  const [userType, setUserType] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    const fetchUserType = async (userId: string | undefined) => {
+      if (!userId) { setUserType(null); return; }
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('user_id', userId)
+        .maybeSingle();
+      setUserType(data?.user_type ?? null);
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadUnread(session.user.id);
+      if (session?.user) {
+        loadUnread(session.user.id);
+        fetchUserType(session.user.id);
+      }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadUnread(session.user.id);
-      else setUnreadCount(0);
+      if (session?.user) {
+        loadUnread(session.user.id);
+        fetchUserType(session.user.id);
+      } else {
+        setUnreadCount(0);
+        setUserType(null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -55,8 +66,18 @@ export const MobileBottomNav: React.FC = () => {
     setUnreadCount(count || 0);
   };
 
+  const navItems = useMemo(() => [
+    { label: 'Home', icon: Home, href: '/' },
+    { label: 'Talent', icon: Users, href: '/students' },
+    { label: 'Hiring', icon: Briefcase, href: '/jobs' },
+    { label: 'Messages', icon: MessageCircle, href: '/messages' },
+    userType === 'business'
+      ? { label: 'Dashboard', icon: LayoutDashboard, href: '/business-dashboard' }
+      : { label: 'Profile', icon: User, href: '/profile' },
+  ], [userType]);
+
   const handleNav = (href: string) => {
-    const requiresAuth = href === '/messages' || href === '/profile';
+    const requiresAuth = href === '/messages' || href === '/profile' || href === '/business-dashboard';
     if (requiresAuth && !user) {
       navigate('/auth');
       return;
@@ -83,7 +104,7 @@ export const MobileBottomNav: React.FC = () => {
       <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-12 bg-gradient-to-t from-background via-background/50 to-transparent md:hidden" />
       <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/30 bg-card/70 backdrop-blur-xl md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]">
-        {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+        {navItems.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
           return (
             <button

@@ -13,6 +13,7 @@ import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 
 export const Navbar: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [userType, setUserType] = useState<string | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,11 +27,23 @@ export const Navbar: React.FC = () => {
   };
 
   useEffect(() => {
+    const fetchUserType = async (userId: string | undefined) => {
+      if (!userId) { setUserType(null); return; }
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('user_id', userId)
+        .maybeSingle();
+      setUserType(data?.user_type ?? null);
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      fetchUserType(session?.user?.id);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
+      fetchUserType(session?.user?.id);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -51,7 +64,9 @@ export const Navbar: React.FC = () => {
 
   const authNavItems = [
     { label: 'Messages', href: '/messages' },
-    { label: 'Profile', href: '/profile' },
+    userType === 'business'
+      ? { label: 'Dashboard', href: '/business-dashboard' }
+      : { label: 'Profile', href: '/profile' },
   ];
 
   const handleNavClick = (href: string, requiresAuth: boolean) => {

@@ -29,11 +29,13 @@ import CompleteProfile from "./pages/CompleteProfile";
 import CompleteProfileStep2 from "./pages/CompleteProfileStep2";
 import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
+import BusinessDashboard from "./pages/BusinessDashboard";
 import BlogPost from "./pages/BlogPost";
 import WhatsNew from "./pages/WhatsNew";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
+import { WhatsAppFloatingButton } from "./components/WhatsAppFloatingButton";
 
 const App = () => (
   <TooltipProvider>
@@ -73,6 +75,14 @@ const App = () => (
         element={
           <RequireVerifiedSession>
             <Profile />
+          </RequireVerifiedSession>
+        }
+      />
+      <Route
+        path="/business-dashboard"
+        element={
+          <RequireVerifiedSession>
+            <BusinessDashboard />
           </RequireVerifiedSession>
         }
       />
@@ -129,6 +139,7 @@ const App = () => (
     </Routes>
     </div>
     <MobileBottomNav />
+    <WhatsAppFloatingButton />
     <CookieConsentBanner />
     <PWAInstallBanner />
     <PushNotificationPrompt />
