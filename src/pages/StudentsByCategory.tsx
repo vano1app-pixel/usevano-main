@@ -5,7 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { type CommunityCategoryId } from '@/lib/communityCategories';const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
+import { type CommunityCategoryId } from '@/lib/communityCategories';
+import { isAdminOwnerEmail } from '@/lib/adminOwner';
+
+const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
   photography: { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera },
   websites:    { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor },
@@ -41,6 +44,13 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   const [reviewMap, setReviewMap] = useState<Record<string, { avg: string; count: number }>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
+  const [isViewerAdmin, setIsViewerAdmin] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsViewerAdmin(isAdminOwnerEmail(session?.user?.email));
+    });
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -181,6 +191,8 @@ const StudentsByCategory = ({ categoryId }: Props) => {
                     category={meta.label}
                     avgRating={ratingInfo?.avg ?? null}
                     reviewCount={ratingInfo?.count}
+                    viewerIsAdmin={isViewerAdmin}
+                    onRemoved={(uid) => setStudents((prev) => prev.filter((s) => s.user_id !== uid))}
                   />
                 </div>
               );

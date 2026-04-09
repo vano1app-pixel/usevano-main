@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2 } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import type { TopStudentInfo } from '@/hooks/useTopStudents';
 
 interface StudentProfile {
@@ -50,6 +52,10 @@ interface StudentCardProps {
   reviewCount?: number;
   /** Override avatar from profiles table (single source of truth) */
   profileAvatarUrl?: string | null;
+  /** If true, shows admin-only remove button */
+  viewerIsAdmin?: boolean;
+  /** Called after admin removes the listing so parent can update state */
+  onRemoved?: (userId: string) => void;
 }
 
 const MEDAL_STYLES = [
@@ -95,8 +101,11 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   avgRating,
   reviewCount,
   profileAvatarUrl,
+  viewerIsAdmin,
+  onRemoved,
 }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isAdmin = useIsAdmin(student.user_id);
   const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
@@ -108,6 +117,26 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [quoteDesc, setQuoteDesc] = useState('');
   const [quoteBudget, setQuoteBudget] = useState('');
+
+  // Admin remove listing state
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  const handleRemoveListing = async () => {
+    setRemoving(true);
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ community_board_status: null } as any)
+      .eq('user_id', student.user_id);
+    setRemoving(false);
+    setRemoveConfirmOpen(false);
+    if (error) {
+      toast({ title: 'Failed to remove listing', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Listing removed', description: `${displayName || 'Freelancer'} can re-list later.` });
+      onRemoved?.(student.user_id);
+    }
+  };
 
   const sendQuoteRequest = () => {
     const lines = [`Hi! I'd like to get a quote.`, ``, `What I need: ${quoteDesc.trim()}`];
@@ -171,6 +200,16 @@ export const StudentCard: React.FC<StudentCardProps> = ({
               title={isFavourite ? 'Remove favourite' : 'Save'}
             >
               <Heart size={13} className={isFavourite ? 'fill-white text-white' : 'text-white'} />
+            </button>
+          )}
+          {viewerIsAdmin && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setRemoveConfirmOpen(true); }}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600/70 backdrop-blur-sm transition-all duration-150 hover:bg-red-600 active:scale-90"
+              title="Remove listing"
+            >
+              <Trash2 size={13} className="text-white" />
             </button>
           )}
         </div>
@@ -353,6 +392,39 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Admin remove listing confirm dialog */}
+      {viewerIsAdmin && (
+        <Dialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+          <DialogContent className="sm:max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <DialogHeader>
+              <DialogTitle>Remove listing?</DialogTitle>
+              <DialogDescription>
+                This removes {displayName || 'this freelancer'} from the talent board. They can re-list later through the wizard.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setRemoveConfirmOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="flex-1 rounded-xl"
+                disabled={removing}
+                onClick={handleRemoveListing}
+              >
+                {removing ? 'Removing…' : 'Remove'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
