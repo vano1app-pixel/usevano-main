@@ -74,8 +74,9 @@ const STEP_DESCRIPTIONS: Record<number, string> = {
 };
 
 /* ─── Student pricing caps ─── */
-const MAX_HOURLY_RATE = 20;          // €20/hr for social media, photo, video
-const MAX_PROJECT_BUDGET = 500;      // €500 for websites
+const MAX_HOURLY_RATE = 20;              // €20/hr for social media, photo, video
+const MAX_DAY_OR_PROJECT_RATE = 200;     // €200 per day / per project
+const MAX_PROJECT_BUDGET = 500;          // €500 for websites
 
 export interface ListOnCommunityInitial {
   bannerUrl: string;
@@ -527,10 +528,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       let rate_min: number | null = null;
       let rate_max: number | null = null;
       let rate_unit_out: string | null = rateUnit;
-      // Cap: €500 for websites (project), €20/hr for hourly rates on other categories
+      // Cap: €500 for websites, €20/hr hourly, €200 day/project for other categories
       const ratecap = category === 'websites'
         ? MAX_PROJECT_BUDGET
-        : (rateUnit === 'hourly' ? MAX_HOURLY_RATE : null);
+        : rateUnit === 'hourly' ? MAX_HOURLY_RATE
+        : (rateUnit === 'day' || rateUnit === 'project') ? MAX_DAY_OR_PROJECT_RATE
+        : null;
       if (rateUnit === 'negotiable') {
         rate_min = null;
         rate_max = null;
@@ -965,24 +968,28 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  {rateUnit !== 'negotiable' && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">From (€)</Label>
-                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
-                        {rateUnit === 'hourly' && parseFloat(rateMin.replace(',', '.')) > MAX_HOURLY_RATE && (
-                          <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_HOURLY_RATE}/hr</p>
-                        )}
+                  {rateUnit !== 'negotiable' && (() => {
+                    const cap = rateUnit === 'hourly' ? MAX_HOURLY_RATE : MAX_DAY_OR_PROJECT_RATE;
+                    const label = rateUnit === 'hourly' ? `€${cap}/hr` : `€${cap}`;
+                    return (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">From (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                          {parseFloat(rateMin.replace(',', '.')) > cap && (
+                            <p className="mt-1 text-xs font-medium text-red-500">Can't exceed {label}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                          {parseFloat(rateMax.replace(',', '.')) > cap && (
+                            <p className="mt-1 text-xs font-medium text-red-500">Can't exceed {label}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                        {rateUnit === 'hourly' && parseFloat(rateMax.replace(',', '.')) > MAX_HOURLY_RATE && (
-                          <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_HOURLY_RATE}/hr</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   <div>
                     <Label>Your hourly rate (€)</Label>
                     <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>

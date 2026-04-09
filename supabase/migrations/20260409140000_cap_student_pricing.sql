@@ -21,6 +21,15 @@ UPDATE community_posts
 SET rate_min = 20
 WHERE rate_unit = 'hourly' AND rate_min > 20;
 
+-- Cap community post rates: per-day and per-project at €200
+UPDATE community_posts
+SET rate_max = 200
+WHERE rate_unit IN ('day', 'project') AND category != 'websites' AND rate_max > 200;
+
+UPDATE community_posts
+SET rate_min = 200
+WHERE rate_unit IN ('day', 'project') AND category != 'websites' AND rate_min > 200;
+
 -- Cap community post rates: website project prices at €500
 UPDATE community_posts
 SET rate_max = 500
