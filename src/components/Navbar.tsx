@@ -58,7 +58,7 @@ export const Navbar: React.FC = () => {
 
   const navItems = [
     { label: 'Home', href: '/', requiresAuth: false, isNew: false },
-    { label: 'Post a Gig', href: '/post-job', requiresAuth: true, isNew: false },
+    { label: 'Hire', href: '/hire', requiresAuth: false, isNew: true },
     { label: 'Talent Board', href: '/students', requiresAuth: false, isNew: true },
   ];
 

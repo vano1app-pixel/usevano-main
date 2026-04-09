@@ -185,20 +185,20 @@ const Landing = () => {
             >
               Connect with Galway's best freelancers for videography, photography, web design, and more.
             </motion.p>
-            {!session && (
-              <motion.div
-                variants={fadeUp}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="flex flex-col sm:flex-row items-center justify-center gap-3"
+            <motion.div
+              variants={fadeUp}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="flex flex-col sm:flex-row items-center justify-center gap-3"
+            >
+              <button
+                type="button"
+                onClick={() => navigate('/hire')}
+                className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
               >
-                <button
-                  type="button"
-                  onClick={() => navigate('/auth?mode=signup')}
-                  className="group w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
-                >
-                  Get started
-                  <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
-                </button>
+                Tell us what you need
+                <ArrowRight size={14} className="inline ml-2 transition-transform group-hover:translate-x-1" />
+              </button>
+              {!session && (
                 <button
                   type="button"
                   onClick={() => navigate('/auth?mode=login')}
@@ -206,8 +206,8 @@ const Landing = () => {
                 >
                   Log in
                 </button>
-              </motion.div>
-            )}
+              )}
+            </motion.div>
             {studentsLoaded && featuredStudents.length > 0 && (
               <motion.div
                 variants={fadeUp}
@@ -248,7 +248,7 @@ const Landing = () => {
                 <button
                   key={item.cat}
                   type="button"
-                  onClick={() => navigate(`/students/${item.cat}`)}
+                  onClick={() => navigate(`/hire?category=${item.cat}`)}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
                 >
                   <img
