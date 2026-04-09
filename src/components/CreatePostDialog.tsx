@@ -80,6 +80,11 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
       let rate_min: number | null = null;
       let rate_max: number | null = null;
       let rate_unit: string | null = rateUnit;
+      // Caps: €500 websites, €20/hr hourly, €200 day/project
+      const ratecap = category === 'websites' ? 500
+        : rateUnit === 'hourly' ? 20
+        : (rateUnit === 'day' || rateUnit === 'project') ? 200
+        : null;
 
       if (rateUnit === 'negotiable') {
         rate_min = null;
@@ -93,7 +98,7 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
             setSubmitting(false);
             return;
           }
-          rate_min = n;
+          rate_min = ratecap != null ? Math.min(n, ratecap) : n;
         }
         if (rateMax.trim()) {
           const n = parseFloat(rateMax.replace(',', '.'));
@@ -102,7 +107,7 @@ export const CreatePostDialog = ({ open, onOpenChange, onPostCreated, userId, ca
             setSubmitting(false);
             return;
           }
-          rate_max = n;
+          rate_max = ratecap != null ? Math.min(n, ratecap) : n;
         }
         if (rate_min != null && rate_max != null && rate_max < rate_min) {
           toast({ title: 'Invalid range', description: 'Maximum should be greater than minimum.', variant: 'destructive' });
