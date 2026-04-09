@@ -7,7 +7,7 @@ import {
   Camera,
   ArrowRight,
   Users,
-  Star,
+  Check,
   MessageCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,22 +34,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-/* ─── animation variants (same as Landing.tsx) ─── */
+/* ─── custom easing (Emil Kowalski style) ─── */
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+
 const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0 },
-};
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
-};
-const cardHover = {
-  rest: { scale: 1, y: 0 },
-  hover: {
-    scale: 1.02,
-    y: -4,
-    transition: { type: 'spring', stiffness: 300, damping: 20 },
+  hidden: { opacity: 0, y: 20, filter: 'blur(4px)' },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.5, ease: EASE_OUT },
   },
+};
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
 };
 
 /* ─── static data ─── */
@@ -57,36 +57,39 @@ const SERVICE_CARDS = [
   {
     id: 'social-media',
     label: 'Social Media',
-    description: 'Content creation, scheduling & management',
+    detail: 'Strategy, content creation, scheduling & community management',
     icon: Megaphone,
-    color: 'text-pink-500',
-    bg: 'bg-pink-500/10',
-    glow: 'group-hover:shadow-pink-500/20',
+    accent: 'from-rose-500/10 to-orange-400/5',
+    iconColor: 'text-rose-500',
+    iconBg: 'bg-rose-500/10',
+    span: 'sm:col-span-2', // wider — asymmetric
   },
   {
     id: 'website',
     label: 'Website',
-    description: 'Design, build & launch your site',
+    detail: 'Design, develop & launch a site that converts',
     icon: Monitor,
-    color: 'text-blue-500',
-    bg: 'bg-blue-500/10',
-    glow: 'group-hover:shadow-blue-500/20',
+    accent: 'from-blue-500/10 to-indigo-400/5',
+    iconColor: 'text-blue-500',
+    iconBg: 'bg-blue-500/10',
+    span: '',
   },
   {
     id: 'content',
-    label: 'Content (Photo/Video)',
-    description: 'Professional photo & video production',
+    label: 'Content',
+    detail: 'Professional photo & video production for your brand',
     icon: Camera,
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10',
-    glow: 'group-hover:shadow-amber-500/20',
+    accent: 'from-amber-500/10 to-yellow-400/5',
+    iconColor: 'text-amber-500',
+    iconBg: 'bg-amber-500/10',
+    span: '',
   },
 ] as const;
 
 const PRICING_PACKAGES = [
   {
     name: 'Social Media',
-    price: '€249',
+    price: '249',
     period: '/mo',
     features: [
       'Content calendar & strategy',
@@ -97,7 +100,7 @@ const PRICING_PACKAGES = [
   },
   {
     name: 'Website Build',
-    price: '€499',
+    price: '499',
     period: ' one-off',
     popular: true,
     features: [
@@ -109,7 +112,7 @@ const PRICING_PACKAGES = [
   },
   {
     name: 'Content Bundle',
-    price: '€349',
+    price: '349',
     period: '/mo',
     features: [
       'Professional photo shoot',
@@ -144,7 +147,7 @@ export default function BusinessDashboard() {
   const [recommended, setRecommended] = useState<RecommendedStudent[]>([]);
   const [loadingTalent, setLoadingTalent] = useState(true);
 
-  // inquiry dialog state
+  // inquiry dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedService, setSelectedService] = useState('');
   const [formName, setFormName] = useState('');
@@ -153,20 +156,13 @@ export default function BusinessDashboard() {
   const [formBudget, setFormBudget] = useState('');
   const [formPhone, setFormPhone] = useState('');
 
-  /* ── load user display name + recommended talent ── */
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate('/auth', { replace: true });
-        return;
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) { navigate('/auth', { replace: true }); return; }
 
-      // profile display name
       const { data: prof } = await supabase
         .from('profiles')
         .select('display_name, user_type')
@@ -174,14 +170,10 @@ export default function BusinessDashboard() {
         .maybeSingle();
 
       if (!cancelled && prof) {
-        if (prof.user_type !== 'business') {
-          navigate('/profile', { replace: true });
-          return;
-        }
+        if (prof.user_type !== 'business') { navigate('/profile', { replace: true }); return; }
         setDisplayName(prof.display_name ?? '');
       }
 
-      // recommended talent
       const { data: students } = await supabase
         .from('student_profiles')
         .select('user_id, avatar_url, skills, hourly_rate')
@@ -191,7 +183,6 @@ export default function BusinessDashboard() {
         .limit(6);
 
       if (!cancelled && students) {
-        // fetch display names for each
         const ids = students.map((s) => s.user_id);
         const { data: profiles } = await supabase
           .from('profiles')
@@ -201,24 +192,17 @@ export default function BusinessDashboard() {
         const nameMap = new Map(
           (profiles ?? []).map((p) => [p.user_id, p.display_name]),
         );
-
         setRecommended(
-          students.map((s) => ({
-            ...s,
-            display_name: nameMap.get(s.user_id) ?? null,
-          })),
+          students.map((s) => ({ ...s, display_name: nameMap.get(s.user_id) ?? null })),
         );
       }
       if (!cancelled) setLoadingTalent(false);
     };
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [navigate]);
 
-  /* ── open inquiry dialog ── */
   const openInquiry = (serviceLabel: string) => {
     setSelectedService(serviceLabel);
     setFormName('');
@@ -229,7 +213,6 @@ export default function BusinessDashboard() {
     setDialogOpen(true);
   };
 
-  /* ── submit inquiry → WhatsApp ── */
   const submitInquiry = () => {
     const lines = [
       `Hi! I'm interested in: ${selectedService}`,
@@ -239,8 +222,7 @@ export default function BusinessDashboard() {
       `Budget: ${formBudget}`,
       `Phone/WhatsApp: ${formPhone}`,
     ];
-    const text = encodeURIComponent(lines.join('\n'));
-    window.open(`${teamWhatsAppHref}?text=${text}`, '_blank');
+    window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
     setDialogOpen(false);
   };
 
@@ -250,217 +232,243 @@ export default function BusinessDashboard() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-background pb-28 md:pb-16">
-        <div className="mx-auto max-w-6xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
-          {/* ── Welcome ── */}
+      <main className="min-h-[100dvh] bg-background pb-28 md:pb-20">
+        <div className="mx-auto max-w-5xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
+
+          {/* ── Hero / Welcome ── */}
           <motion.section
-            variants={staggerContainer}
+            variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-10"
+            className="mb-16 sm:mb-20"
           >
+            <motion.span
+              variants={fadeUp}
+              className="mb-3 inline-block rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary"
+            >
+              Business Dashboard
+            </motion.span>
             <motion.h1
               variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="text-3xl font-bold tracking-tight sm:text-4xl"
+              className="text-4xl font-bold tracking-tight sm:text-5xl"
             >
-              {displayName ? `Welcome back, ${displayName}` : 'Welcome back'}
+              {displayName ? (
+                <>Hey, {displayName}</>
+              ) : (
+                <>Welcome back</>
+              )}
             </motion.h1>
             <motion.p
               variants={fadeUp}
-              transition={{ duration: 0.5, delay: 0.05 }}
-              className="mt-2 text-lg text-muted-foreground"
+              className="mt-3 max-w-xl text-base text-muted-foreground leading-relaxed"
             >
-              What do you need help with?
+              Tell us what you need and we'll match you with the right creative talent — or browse freelancers directly.
             </motion.p>
           </motion.section>
 
-          {/* ── Service cards ── */}
+          {/* ── Service cards — asymmetric 2+1+1 grid ── */}
           <motion.section
-            variants={staggerContainer}
+            variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-12 grid gap-4 sm:grid-cols-3"
+            className="mb-16 sm:mb-20"
           >
-            {SERVICE_CARDS.map((card) => {
-              const Icon = card.icon;
-              return (
-                <motion.button
-                  key={card.id}
-                  variants={fadeUp}
-                  whileHover="hover"
-                  initial="rest"
-                  animate="rest"
-                  className={`group relative flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-6 text-left shadow-sm transition-shadow duration-200 ${card.glow} hover:shadow-md`}
-                  onClick={() => openInquiry(card.label)}
-                >
-                  <span
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.bg}`}
+            <motion.span
+              variants={fadeUp}
+              className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              Get started
+            </motion.span>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {SERVICE_CARDS.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <motion.button
+                    key={card.id}
+                    variants={fadeUp}
+                    onClick={() => openInquiry(card.label)}
+                    className={`group relative flex flex-col items-start gap-4 overflow-hidden rounded-2xl border border-foreground/[0.06] bg-card p-5 sm:p-6 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-foreground/[0.12] hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)] active:scale-[0.98] ${card.span}`}
                   >
-                    <Icon className={`h-6 w-6 ${card.color}`} />
-                  </span>
-                  <div>
-                    <h3 className="text-lg font-semibold">{card.label}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {card.description}
-                    </p>
-                  </div>
-                  <ArrowRight className="absolute right-5 top-6 h-5 w-5 text-muted-foreground/40 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-primary" />
-                </motion.button>
-              );
-            })}
+                    {/* subtle gradient wash */}
+                    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 transition-opacity duration-500 group-hover:opacity-100`} />
+
+                    <span className={`relative flex h-11 w-11 items-center justify-center rounded-xl ${card.iconBg}`}>
+                      <Icon className={`h-5 w-5 ${card.iconColor}`} strokeWidth={1.8} />
+                    </span>
+
+                    <div className="relative">
+                      <h3 className="text-[15px] font-semibold leading-snug">{card.label}</h3>
+                      <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+                        {card.detail}
+                      </p>
+                    </div>
+
+                    <ArrowRight className="absolute right-4 top-5 h-4 w-4 text-muted-foreground/30 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 group-hover:text-foreground/50" strokeWidth={1.8} />
+                  </motion.button>
+                );
+              })}
+            </div>
           </motion.section>
 
-          {/* ── Browse talent CTA ── */}
-          <motion.div
-            variants={fadeUp}
-            initial="hidden"
-            animate="visible"
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-14 flex items-center gap-4"
-          >
-            <Button
-              size="lg"
-              className="rounded-xl shadow-md shadow-primary/20"
-              onClick={() => navigate('/students')}
-            >
-              <Users className="mr-2 h-5 w-5" />
-              Browse talent
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Find the perfect freelancer for your project
-            </span>
-          </motion.div>
-
-          {/* ── Recommended for you ── */}
+          {/* ── Browse talent ── */}
           <motion.section
-            variants={staggerContainer}
+            variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-14"
+            className="mb-16 sm:mb-24"
           >
-            <motion.h2
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="mb-5 text-xl font-semibold"
-            >
-              Recommended for you
-            </motion.h2>
-
-            {loadingTalent ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-28 animate-pulse rounded-2xl bg-muted/60"
-                  />
-                ))}
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <motion.span
+                  variants={fadeUp}
+                  className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                >
+                  Recommended for you
+                </motion.span>
+                <motion.h2
+                  variants={fadeUp}
+                  className="text-2xl font-bold tracking-tight sm:text-3xl"
+                >
+                  Top freelancers
+                </motion.h2>
               </div>
-            ) : recommended.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No recommended freelancers yet — check back soon!
-              </p>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {recommended.map((s) => (
-                  <motion.div key={s.user_id} variants={fadeUp}>
-                    <Link
-                      to={`/students/${s.user_id}`}
-                      className="group flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md"
-                    >
-                      <Avatar className="h-12 w-12 border border-border">
-                        <AvatarImage src={s.avatar_url ?? undefined} />
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
-                          {(s.display_name ?? '?')[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium group-hover:text-primary transition-colors">
-                          {s.display_name ?? 'Freelancer'}
-                        </p>
-                        {s.skills?.[0] && (
-                          <Badge
-                            variant="secondary"
-                            className="mt-1 text-xs"
-                          >
-                            {s.skills[0]}
-                          </Badge>
-                        )}
+              <motion.div variants={fadeUp}>
+                <Button
+                  variant="outline"
+                  className="rounded-xl transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+                  onClick={() => navigate('/students')}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Browse all talent
+                </Button>
+              </motion.div>
+            </div>
+
+            <div className="mt-6">
+              {loadingTalent ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 rounded-2xl border border-foreground/[0.04] bg-muted/40 p-4">
+                      <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-muted" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3.5 w-24 animate-pulse rounded bg-muted" />
+                        <div className="h-3 w-16 animate-pulse rounded bg-muted/70" />
                       </div>
-                      {s.hourly_rate != null && (
-                        <span className="shrink-0 text-sm font-semibold text-primary">
-                          €{s.hourly_rate}/hr
-                        </span>
-                      )}
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            )}
+                    </div>
+                  ))}
+                </div>
+              ) : recommended.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-foreground/10 px-6 py-12 text-center">
+                  <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
+                  <p className="text-sm font-medium text-muted-foreground">No freelancers available right now</p>
+                  <p className="mt-1 text-xs text-muted-foreground/70">Check back soon — new talent joins every week.</p>
+                </div>
+              ) : (
+                <motion.div
+                  variants={stagger}
+                  initial="hidden"
+                  animate="visible"
+                  className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {recommended.map((s) => (
+                    <motion.div key={s.user_id} variants={fadeUp}>
+                      <Link
+                        to={`/students/${s.user_id}`}
+                        className="group flex items-center gap-4 rounded-2xl border border-foreground/[0.06] bg-card p-4 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-foreground/[0.12] hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] active:scale-[0.98]"
+                      >
+                        <Avatar className="h-11 w-11 border border-border/60">
+                          <AvatarImage src={s.avatar_url ?? undefined} />
+                          <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
+                            {(s.display_name ?? '?')[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14px] font-medium text-foreground/90 transition-colors duration-200 group-hover:text-primary">
+                            {s.display_name ?? 'Freelancer'}
+                          </p>
+                          {s.skills?.[0] && (
+                            <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
+                              {s.skills[0]}
+                            </span>
+                          )}
+                        </div>
+                        {s.hourly_rate != null && (
+                          <span className="shrink-0 rounded-lg bg-primary/5 px-2.5 py-1 text-[13px] font-semibold tabular-nums text-primary">
+                            €{s.hourly_rate}/hr
+                          </span>
+                        )}
+                      </Link>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </div>
           </motion.section>
 
-          {/* ── Pricing packages ── */}
+          {/* ── Pricing ── */}
           <motion.section
-            variants={staggerContainer}
+            variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-8"
+            className="mb-12"
           >
+            <motion.span
+              variants={fadeUp}
+              className="mb-4 block text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              Packages
+            </motion.span>
             <motion.h2
               variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="mb-5 text-xl font-semibold"
+              className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl"
             >
-              Our packages
+              Simple, transparent pricing
             </motion.h2>
 
-            <div className="grid gap-5 sm:grid-cols-3">
+            {/* Asymmetric: first card full-width on mobile, 2-col then 1-col on desktop for variety */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {PRICING_PACKAGES.map((pkg) => (
                 <motion.div
                   key={pkg.name}
                   variants={fadeUp}
-                  whileHover="hover"
-                  initial="rest"
-                  animate="rest"
-                  className={`relative flex flex-col rounded-2xl border bg-card p-6 shadow-sm transition-shadow duration-200 hover:shadow-md ${
+                  className={`relative flex flex-col rounded-2xl border bg-card p-6 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)] ${
                     pkg.popular
-                      ? 'border-primary/40 ring-1 ring-primary/20'
-                      : 'border-foreground/10'
+                      ? 'border-primary/30 shadow-[0_0_0_1px_hsl(221_83%_53%/0.08)]'
+                      : 'border-foreground/[0.06]'
                   }`}
                 >
                   {pkg.popular && (
-                    <span className="absolute -top-3 left-5 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
-                      Popular
+                    <span className="absolute -top-3 left-5 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                      Most popular
                     </span>
                   )}
-                  <h3 className="text-lg font-semibold">{pkg.name}</h3>
-                  <p className="mt-2 mb-4">
-                    <span className="text-3xl font-bold tracking-tight">
-                      {pkg.price}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {pkg.period}
-                    </span>
+
+                  <h3 className="text-[15px] font-semibold">{pkg.name}</h3>
+
+                  <p className="mt-3 mb-5 flex items-baseline gap-1">
+                    <span className="text-[13px] text-muted-foreground">€</span>
+                    <span className="text-4xl font-bold tracking-tighter tabular-nums">{pkg.price}</span>
+                    <span className="text-[13px] text-muted-foreground">{pkg.period}</span>
                   </p>
-                  <ul className="mb-6 flex-1 space-y-2">
+
+                  <ul className="mb-6 flex-1 space-y-2.5">
                     {pkg.features.map((f) => (
-                      <li
-                        key={f}
-                        className="flex items-start gap-2 text-sm text-muted-foreground"
-                      >
-                        <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <li key={f} className="flex items-start gap-2.5 text-[13px] text-muted-foreground leading-snug">
+                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" strokeWidth={2.2} />
                         {f}
                       </li>
                     ))}
                   </ul>
+
                   <a
-                    href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I'm interested in the ${pkg.name} package (${pkg.price}${pkg.period}).`)}`}
+                    href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I'm interested in the ${pkg.name} package (€${pkg.price}${pkg.period}).`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[#20bd5a] hover:shadow-md active:scale-[0.97]"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-white transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#1fba59] hover:shadow-[0_4px_12px_-4px_rgba(37,211,102,0.4)] active:scale-[0.97]"
                   >
-                    <MessageCircle className="h-4 w-4" />
-                    Chat on WhatsApp
+                    <MessageCircle className="h-4 w-4" strokeWidth={1.8} />
+                    Get started
                   </a>
                 </motion.div>
               ))}
@@ -473,43 +481,42 @@ export default function BusinessDashboard() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Get a quote — {selectedService}</DialogTitle>
+            <DialogTitle className="text-lg">Get a quote — {selectedService}</DialogTitle>
             <DialogDescription>
-              Fill in the details below and we&apos;ll get back to you on
-              WhatsApp.
+              Fill in the details and we'll reach out on WhatsApp.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-2 space-y-4">
-            <div>
+          <div className="mt-3 space-y-4">
+            <div className="space-y-1.5">
               <Label htmlFor="inq-name">Your name</Label>
               <Input
                 id="inq-name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="John Doe"
+                placeholder="Your full name"
               />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="inq-biz">Business name</Label>
               <Input
                 id="inq-biz"
                 value={formBusiness}
                 onChange={(e) => setFormBusiness(e.target.value)}
-                placeholder="Acme Ltd"
+                placeholder="Your company name"
               />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="inq-details">What do you need?</Label>
               <Textarea
                 id="inq-details"
                 value={formDetails}
                 onChange={(e) => setFormDetails(e.target.value)}
-                placeholder="Describe your project or what you're looking for…"
+                placeholder="Describe your project or what you're looking for..."
                 rows={3}
               />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label>Budget range</Label>
               <Select value={formBudget} onValueChange={setFormBudget}>
                 <SelectTrigger>
@@ -524,18 +531,18 @@ export default function BusinessDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="inq-phone">WhatsApp / Phone number</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="inq-phone">WhatsApp / Phone</Label>
               <Input
                 id="inq-phone"
                 value={formPhone}
                 onChange={(e) => setFormPhone(e.target.value)}
-                placeholder="+353 89 …"
+                placeholder="+353 89 ..."
               />
             </div>
 
             <Button
-              className="w-full rounded-xl"
+              className="w-full rounded-xl transition-all duration-200 active:scale-[0.97]"
               size="lg"
               disabled={!formValid}
               onClick={submitInquiry}
