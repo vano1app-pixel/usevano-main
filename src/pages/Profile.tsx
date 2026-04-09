@@ -17,6 +17,7 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
+import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { cn } from '@/lib/utils';
@@ -125,7 +126,7 @@ const Profile = () => {
           setHourlyRate(sp.hourly_rate?.toString() || '');
           setPhone(sp.phone || '');
           setIsAvailable(sp.is_available);
-          setUniversity((sp as any).university || '');
+          setUniversity(resolveUniversityKey((sp as any).university) || '');
           setPaymentDetails((sp as any).payment_details || '');
           setTiktokUrl(sp.tiktok_url || '');
           setBannerUrl((sp as any).banner_url || '');

@@ -9,35 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { formatCommunityBudget } from '@/lib/communityBudget';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { cn } from '@/lib/utils';
-
-const UNI_COLORS: Record<string, string> = {
-  ATU: '#F47920',
-  UGalway: '#6D0026',
-  UCD: '#003B71',
-  TCD: '#006272',
-  DCU: '#CD1927',
-  UCC: '#C8102E',
-  UL: '#003087',
-  TUDublin: '#EA1D24',
-  SETU: '#003478',
-  MTU: '#C8102E',
-  MU: '#CC0000',
-};
-
-const UNI_LABELS: Record<string, string> = {
-  ATU: 'ATU',
-  UGalway: 'University of Galway',
-  UCD: 'UCD',
-  TCD: 'Trinity',
-  DCU: 'DCU',
-  UCC: 'UCC',
-  UL: 'UL',
-  TUDublin: 'TU Dublin',
-  SETU: 'SETU',
-  MTU: 'MTU',
-  MU: 'Maynooth',
-  Other: 'Other',
-};
+import { getUniversityStyle, getUniversityLabel } from '@/lib/universities';
 
 interface PostProfile {
   display_name: string | null;
@@ -169,7 +141,8 @@ export const CommunityPostCard = ({
   const avatar = profile?.avatar_url;
   const name = profile?.display_name || 'Freelancer';
   const skills = (studentProfile?.skills || []).filter(Boolean).slice(0, 10);
-  const uniColor = studentProfile?.university ? (UNI_COLORS[studentProfile.university] ?? null) : null;
+  const uniStyle = studentProfile?.university ? getUniversityStyle(studentProfile.university) : null;
+  const uniColor = uniStyle?.color ?? null;
 
   const budget = formatCommunityBudget(
     post.rate_min,
@@ -311,7 +284,7 @@ export const CommunityPostCard = ({
                 <p className="mt-0.5 text-[11px] text-white/65 sm:text-xs">
                   Freelance
                   {studentProfile?.university ? (
-                    <><span className="mx-1.5 text-white/30">·</span>{UNI_LABELS[studentProfile.university] ?? studentProfile.university}</>
+                    <><span className="mx-1.5 text-white/30">·</span>{getUniversityLabel(studentProfile.university)}</>
                   ) : null}
                   <span className="mx-1.5 text-white/30">·</span>
                   {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
@@ -470,7 +443,7 @@ export const CommunityPostCard = ({
                 <p className="mt-0.5 text-[11px] text-white/65 sm:text-xs">
                   Freelance
                   {studentProfile?.university ? (
-                    <><span className="mx-1.5 text-white/30">·</span>{UNI_LABELS[studentProfile.university] ?? studentProfile.university}</>
+                    <><span className="mx-1.5 text-white/30">·</span>{getUniversityLabel(studentProfile.university)}</>
                   ) : null}
                   <span className="mx-1.5 text-white/30">·</span>
                   {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
@@ -551,7 +524,7 @@ export const CommunityPostCard = ({
             {similarPosts.map(({ post: sp, profile: spProfile, studentProfile: spStudent }) => {
               const spName = spProfile?.display_name || 'Freelancer';
               const spAvatar = spProfile?.avatar_url;
-              const spUniColor = spStudent?.university ? (UNI_COLORS[spStudent.university] ?? null) : null;
+              const spUniColor = spStudent?.university ? (getUniversityStyle(spStudent.university)?.color ?? null) : null;
               const spBudget = formatCommunityBudget(sp.rate_min, sp.rate_max, sp.rate_unit, spStudent?.hourly_rate);
               return (
                 <button

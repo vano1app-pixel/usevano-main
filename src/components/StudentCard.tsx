@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, MessageCircle, ShieldCheck, Star } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2 } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { getUniversityStyle } from '@/lib/universities';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import type { TopStudentInfo } from '@/hooks/useTopStudents';
 
 interface StudentProfile {
@@ -35,14 +46,16 @@ interface StudentCardProps {
   demoExample?: boolean;
   /** Category label shown on the banner (e.g. "Website Design") */
   category?: string;
-  /** Called when the message icon is tapped; omit to hide the button */
-  onMessage?: (userId: string) => void;
   /** Pre-computed average rating (e.g. "4.8") */
   avgRating?: string | null;
   /** Number of reviews */
   reviewCount?: number;
   /** Override avatar from profiles table (single source of truth) */
   profileAvatarUrl?: string | null;
+  /** If true, shows admin-only remove button */
+  viewerIsAdmin?: boolean;
+  /** Called after admin removes the listing so parent can update state */
+  onRemoved?: (userId: string) => void;
 }
 
 const MEDAL_STYLES = [
@@ -52,32 +65,9 @@ const MEDAL_STYLES = [
 ];
 const MEDAL_LABELS = ['🥇 #1', '🥈 #2', '🥉 #3'];
 
-/** University brand colors and short labels */
-const UNI_MAP: { match: string; color: string; abbr: string }[] = [
-  { match: 'atu',                     color: '#0066B3', abbr: 'ATU' },
-  { match: 'atlantic technological',  color: '#0066B3', abbr: 'ATU' },
-  { match: 'university of galway',    color: '#822433', abbr: 'UG' },
-  { match: 'nui galway',              color: '#822433', abbr: 'NUIG' },
-  { match: 'nuig',                    color: '#822433', abbr: 'NUIG' },
-  { match: 'ucd',                     color: '#1A3A6B', abbr: 'UCD' },
-  { match: 'university college dublin', color: '#1A3A6B', abbr: 'UCD' },
-  { match: 'trinity',                 color: '#003B8E', abbr: 'TCD' },
-  { match: 'tcd',                     color: '#003B8E', abbr: 'TCD' },
-  { match: 'dcu',                     color: '#C8102E', abbr: 'DCU' },
-  { match: 'ucc',                     color: '#002147', abbr: 'UCC' },
-  { match: 'university of limerick',  color: '#003087', abbr: 'UL' },
-  { match: 'ul ',                     color: '#003087', abbr: 'UL' },
-  { match: 'maynooth',                color: '#4A1942', abbr: 'MU' },
-  { match: 'dkit',                    color: '#E07B00', abbr: 'DkIT' },
-];
-
+/** University brand colors and short labels – delegates to shared lib */
 function getUniStyle(university: string | null | undefined): { color: string; abbr: string } | null {
-  if (!university?.trim()) return null;
-  const lower = university.toLowerCase();
-  for (const entry of UNI_MAP) {
-    if (lower.includes(entry.match)) return { color: entry.color, abbr: entry.abbr };
-  }
-  return { color: '#6B7280', abbr: university.trim().slice(0, 5).toUpperCase() };
+  return getUniversityStyle(university);
 }
 
 /** Deterministic banner gradient from user_id */
@@ -108,18 +98,56 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   topInfo,
   demoExample,
   category,
-  onMessage,
   avgRating,
   reviewCount,
   profileAvatarUrl,
+  viewerIsAdmin,
+  onRemoved,
 }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isAdmin = useIsAdmin(student.user_id);
   const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
   const area = student.service_area?.trim();
   const uniStyle = getUniStyle(student.university);
   const clickable = !demoExample;
+
+  // Quote dialog state
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [quoteDesc, setQuoteDesc] = useState('');
+  const [quoteBudget, setQuoteBudget] = useState('');
+
+  // Admin remove listing state
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  const handleRemoveListing = async () => {
+    setRemoving(true);
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ community_board_status: null } as any)
+      .eq('user_id', student.user_id);
+    setRemoving(false);
+    setRemoveConfirmOpen(false);
+    if (error) {
+      toast({ title: 'Failed to remove listing', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Listing removed', description: `${displayName || 'Freelancer'} can re-list later.` });
+      onRemoved?.(student.user_id);
+    }
+  };
+
+  const sendQuoteRequest = () => {
+    const lines = [`Hi! I'd like to get a quote.`, ``, `What I need: ${quoteDesc.trim()}`];
+    if (quoteBudget.trim()) lines.push(`My budget: €${quoteBudget.trim()}`);
+    lines.push(``, `Let me know if you're available!`);
+    const draft = lines.join('\n');
+    setQuoteOpen(false);
+    setQuoteDesc('');
+    setQuoteBudget('');
+    navigate(`/messages?with=${student.user_id}&draft=${encodeURIComponent(draft)}`);
+  };
 
   // Top 3 skills for banner keyword line
   const bannerSkills = (student.skills || []).slice(0, 3);
@@ -172,6 +200,16 @@ export const StudentCard: React.FC<StudentCardProps> = ({
               title={isFavourite ? 'Remove favourite' : 'Save'}
             >
               <Heart size={13} className={isFavourite ? 'fill-white text-white' : 'text-white'} />
+            </button>
+          )}
+          {viewerIsAdmin && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setRemoveConfirmOpen(true); }}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600/70 backdrop-blur-sm transition-all duration-150 hover:bg-red-600 active:scale-90"
+              title="Remove listing"
+            >
+              <Trash2 size={13} className="text-white" />
             </button>
           )}
         </div>
@@ -299,22 +337,94 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* CTA */}
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/6 flex gap-2">
-            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
+            <span className="w-[60%] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2 text-[12px] font-semibold text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
               View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </span>
-            {onMessage && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onMessage(student.user_id); }}
-                className="flex h-[2.125rem] w-[2.125rem] shrink-0 items-center justify-center rounded-xl border border-foreground/10 bg-muted/60 text-foreground/60 transition-all duration-150 hover:border-primary/30 hover:bg-primary/8 hover:text-primary active:scale-95"
-                title="Message"
-              >
-                <MessageCircle size={14} strokeWidth={2} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
+              className="w-[40%] inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/10 bg-muted/60 px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all duration-150 hover:border-primary/30 hover:bg-primary/8 hover:text-primary active:scale-95"
+            >
+              <MessageSquareQuote size={13} strokeWidth={2} />
+              Get a Quote
+            </button>
           </div>
         )}
       </div>
+
+      {/* Quote request dialog */}
+      <Dialog open={quoteOpen} onOpenChange={setQuoteOpen}>
+        <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Get a quote from {displayName || 'this freelancer'}</DialogTitle>
+            <DialogDescription>Describe what you need and your budget — this gets sent as a message.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Describe your project <span className="text-destructive">*</span></label>
+              <textarea
+                value={quoteDesc}
+                onChange={(e) => setQuoteDesc(e.target.value)}
+                placeholder="e.g. A 5-page website for my café — home, menu, about, gallery, contact. Need it mobile-friendly and easy to update."
+                className="w-full min-h-[100px] resize-y rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Your budget (€) <span className="text-muted-foreground/60">optional</span></label>
+              <input
+                type="number"
+                min="0"
+                value={quoteBudget}
+                onChange={(e) => setQuoteBudget(e.target.value)}
+                placeholder="e.g. 500"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <Button
+              type="button"
+              size="lg"
+              className="w-full h-11 rounded-xl font-semibold"
+              disabled={!quoteDesc.trim()}
+              onClick={sendQuoteRequest}
+            >
+              Send quote request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin remove listing confirm dialog */}
+      {viewerIsAdmin && (
+        <Dialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+          <DialogContent className="sm:max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <DialogHeader>
+              <DialogTitle>Remove listing?</DialogTitle>
+              <DialogDescription>
+                This removes {displayName || 'this freelancer'} from the talent board. They can re-list later through the wizard.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setRemoveConfirmOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="flex-1 rounded-xl"
+                disabled={removing}
+                onClick={handleRemoveListing}
+              >
+                {removing ? 'Removing…' : 'Remove'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
