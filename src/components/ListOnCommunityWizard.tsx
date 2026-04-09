@@ -527,7 +527,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       let rate_min: number | null = null;
       let rate_max: number | null = null;
       let rate_unit_out: string | null = rateUnit;
-      const ratecap = category === 'websites' ? MAX_PROJECT_BUDGET : MAX_HOURLY_RATE;
+      // Cap: €500 for websites (project), €20/hr for hourly rates on other categories
+      const ratecap = category === 'websites'
+        ? MAX_PROJECT_BUDGET
+        : (rateUnit === 'hourly' ? MAX_HOURLY_RATE : null);
       if (rateUnit === 'negotiable') {
         rate_min = null;
         rate_max = null;
@@ -535,11 +538,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       } else {
         if (rateMin.trim()) {
           const n = parseFloat(rateMin.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_min = Math.min(n, ratecap);
+          if (!Number.isNaN(n) && n >= 0) rate_min = ratecap != null ? Math.min(n, ratecap) : n;
         }
         if (rateMax.trim()) {
           const n = parseFloat(rateMax.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_max = Math.min(n, ratecap);
+          if (!Number.isNaN(n) && n >= 0) rate_max = ratecap != null ? Math.min(n, ratecap) : n;
         }
         if (rate_min != null && rate_max != null && rate_max < rate_min) {
           toast({ title: 'Invalid range', description: 'Maximum should be ≥ minimum.', variant: 'destructive' });
