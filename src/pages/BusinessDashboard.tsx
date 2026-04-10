@@ -329,6 +329,11 @@ export default function BusinessDashboard() {
     [jobs],
   );
 
+  const pendingAppCount = useMemo(
+    () => applications.filter((a) => a.status === 'pending').length,
+    [applications],
+  );
+
   const recentApps = useMemo(() => applications.slice(0, 5), [applications]);
 
   const formatPayment = (job: JobRow) => {
@@ -443,43 +448,56 @@ export default function BusinessDashboard() {
                   value: activeJobCount,
                   icon: Briefcase,
                   desc: 'Open & filled',
+                  href: '/hire',
                 },
                 {
-                  label: 'Applications',
-                  value: applications.length,
+                  label: 'Pending',
+                  value: pendingAppCount,
                   icon: Users,
-                  desc: 'Total received',
+                  desc: `${applications.length} total application${applications.length !== 1 ? 's' : ''}`,
+                  href: '/hire',
                 },
                 {
                   label: 'Completed',
                   value: completedJobCount,
                   icon: CheckCircle2,
                   desc: 'Jobs finished',
+                  href: '/hire',
                 },
                 {
                   label: 'Avg Rating',
                   value: avgRating != null ? avgRating.toFixed(1) : '—',
                   icon: Star,
                   desc: reviewCount > 0 ? `${reviewCount} review${reviewCount !== 1 ? 's' : ''}` : 'No reviews yet',
+                  href: null as string | null,
                 },
               ].map((stat) => {
                 const Icon = stat.icon;
+                const cardContent = (
+                  <Card className={`border-foreground/[0.06] shadow-none hover:border-foreground/[0.12] hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] transition-all duration-300 h-full ${stat.href ? 'group/card cursor-pointer' : ''}`}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {stat.label}
+                        </span>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                          <Icon className="h-4 w-4 text-primary" strokeWidth={1.8} />
+                        </span>
+                      </div>
+                      <p className="text-4xl font-bold tracking-tight tabular-nums">{stat.value}</p>
+                      <p className="mt-1 text-[12px] text-muted-foreground">{stat.desc}</p>
+                    </CardContent>
+                  </Card>
+                );
                 return (
                   <motion.div key={stat.label} variants={fadeUp}>
-                    <Card className="border-foreground/[0.06] shadow-none hover:border-foreground/[0.12] hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] transition-all duration-300">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
-                            {stat.label}
-                          </span>
-                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                            <Icon className="h-4 w-4 text-primary" strokeWidth={1.8} />
-                          </span>
-                        </div>
-                        <p className="text-4xl font-bold tracking-tight tabular-nums">{stat.value}</p>
-                        <p className="mt-1 text-[12px] text-muted-foreground">{stat.desc}</p>
-                      </CardContent>
-                    </Card>
+                    {stat.href ? (
+                      <Link to={stat.href} className="block h-full">
+                        {cardContent}
+                      </Link>
+                    ) : (
+                      cardContent
+                    )}
                   </motion.div>
                 );
               })}
@@ -657,6 +675,7 @@ export default function BusinessDashboard() {
                       <TableBody>
                         {activeJobs.slice(0, 8).map((job) => {
                           const appCount = applications.filter((a) => a.job_id === job.id).length;
+                          const pendingCount = applications.filter((a) => a.job_id === job.id && a.status === 'pending').length;
                           return (
                             <TableRow key={job.id} className="hover:bg-muted/50">
                               <TableCell className="font-medium max-w-[200px] truncate">
@@ -668,7 +687,14 @@ export default function BusinessDashboard() {
                                 </span>
                               </TableCell>
                               <TableCell className="hidden sm:table-cell tabular-nums">
-                                {appCount}
+                                <span className="inline-flex items-center gap-2">
+                                  {appCount}
+                                  {pendingCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                      {pendingCount} new
+                                    </span>
+                                  )}
+                                </span>
                               </TableCell>
                               <TableCell className="hidden md:table-cell text-muted-foreground text-[13px]">
                                 {formatPayment(job)}
