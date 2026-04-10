@@ -82,12 +82,10 @@ interface JobRow {
   id: string;
   title: string;
   status: string;
-  shift_date: string;
   hourly_rate: number;
   fixed_price: number | null;
   payment_type: string | null;
   created_at: string;
-  tags: string[];
 }
 
 interface ApplicationRow {
@@ -160,7 +158,7 @@ export default function BusinessDashboard() {
       // Jobs
       const { data: jobRows } = await supabase
         .from('jobs')
-        .select('id, title, status, shift_date, hourly_rate, fixed_price, payment_type, created_at, tags')
+        .select('id, title, status, hourly_rate, fixed_price, payment_type, created_at')
         .eq('posted_by', uid)
         .order('created_at', { ascending: false });
 
@@ -345,19 +343,19 @@ export default function BusinessDashboard() {
         <Navbar />
         <main className="min-h-[100dvh] bg-background pb-28 md:pb-20">
           <div className="mx-auto max-w-6xl px-4 pt-24 sm:px-6 sm:pt-28 lg:px-8">
-            <div className="mb-8 space-y-3">
+            <div className="mb-12 space-y-3">
               <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
               <div className="h-4 w-72 animate-pulse rounded bg-muted/70" />
             </div>
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-10">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="rounded-2xl border border-foreground/[0.04] bg-muted/40 p-6">
                   <div className="h-4 w-20 animate-pulse rounded bg-muted mb-3" />
-                  <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+                  <div className="h-10 w-16 animate-pulse rounded bg-muted" />
                 </div>
               ))}
             </div>
-            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 mb-8">
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 mb-10">
               {Array.from({ length: 2 }).map((_, i) => (
                 <div key={i} className="rounded-2xl border border-foreground/[0.04] bg-muted/40 p-6 h-72">
                   <div className="h-4 w-32 animate-pulse rounded bg-muted mb-4" />
@@ -708,6 +706,9 @@ export default function BusinessDashboard() {
               animate="visible"
               className="mb-10"
             >
+              <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+                Recent Activity
+              </motion.p>
               <motion.div variants={fadeUp}>
                 <Card className="border-foreground/[0.06] shadow-none">
                   <CardHeader className="pb-2">
