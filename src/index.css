@@ -116,7 +116,7 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased text-[15px] leading-relaxed;
+    @apply bg-background text-foreground font-sans antialiased text-base leading-relaxed;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     min-height: 100dvh;

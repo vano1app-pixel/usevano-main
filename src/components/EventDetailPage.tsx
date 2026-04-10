@@ -84,13 +84,13 @@ export const EventDetailPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center bg-white">
+    return <div className="flex min-h-[100dvh] items-center justify-center bg-white">
         <div className="text-[#1A1A1A] text-2xl">Loading...</div>
       </div>;
   }
   if (notFound || !event) {
     return (
-      <div className="flex flex-col h-screen items-center justify-center bg-white px-4">
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-white px-4">
         <SEOHead 
           title="Event Not Found"
           description="The event you're looking for doesn't exist or has been removed."
@@ -121,8 +121,8 @@ export const EventDetailPage: React.FC = () => {
       <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
       <Navbar />
 
-      <main className="flex h-screen justify-center items-start w-full relative bg-white mx-auto my-0 max-lg:flex-col max-lg:h-auto">
-        <div className="flex flex-col justify-end items-start fixed h-screen w-[calc(100%-540px)] pl-[49px] pr-[590px] pt-[calc(100vh-97px)] pb-12 left-0 top-0 overflow-hidden max-lg:relative max-lg:w-full max-lg:h-[400px] max-lg:bg-cover max-lg:bg-center max-lg:pt-80 max-lg:pb-6 max-lg:px-4 max-lg:right-0 max-sm:h-[300px] max-sm:pt-60 max-sm:pb-6 max-sm:px-4" role="img" aria-label="Event background image">
+      <main className="flex h-dvh justify-center items-start w-full relative bg-white mx-auto my-0 max-lg:flex-col max-lg:h-auto">
+        <div className="flex flex-col justify-end items-start fixed h-dvh w-[calc(100%-540px)] pl-[49px] pr-[590px] pt-[calc(100dvh-97px)] pb-12 left-0 top-0 overflow-hidden max-lg:relative max-lg:w-full max-lg:h-[400px] max-lg:bg-cover max-lg:bg-center max-lg:pt-80 max-lg:pb-6 max-lg:px-4 max-lg:right-0 max-sm:h-[300px] max-sm:pt-60 max-sm:pb-6 max-sm:px-4" role="img" aria-label="Event background image">
           <div className="absolute inset-0 animate-[zoom-in_1.2s_ease-out_forwards]" style={{
             backgroundImage: `url("${event.background_image_url}")`,
             backgroundSize: 'cover',
@@ -133,7 +133,7 @@ export const EventDetailPage: React.FC = () => {
           </div>
         </div>
         
-        <aside className="flex w-[540px] flex-col justify-start items-start fixed h-screen box-border right-0 top-0 bg-white overflow-y-auto max-lg:relative max-lg:w-full max-lg:h-auto max-lg:right-auto max-lg:top-0 max-lg:overflow-y-visible">
+        <aside className="flex w-[540px] flex-col justify-start items-start fixed h-dvh box-border right-0 top-0 bg-white overflow-y-auto max-lg:relative max-lg:w-full max-lg:h-auto max-lg:right-auto max-lg:top-0 max-lg:overflow-y-visible">
           <div className="flex w-full flex-col items-start gap-10 relative p-10 pb-24 max-lg:w-full max-lg:px-4 max-lg:py-6 max-lg:pb-6 max-lg:gap-8 opacity-0 animate-fade-in [animation-delay:200ms]">
             <div className="flex flex-col items-start gap-4 self-stretch relative">
               <EventMeta date={event.date} time={event.time} />
