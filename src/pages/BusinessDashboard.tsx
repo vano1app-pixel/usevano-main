@@ -11,9 +11,6 @@ import {
   ArrowRight,
   MessagesSquare,
   Heart,
-  Calendar,
-  Clock,
-  Euro,
 } from 'lucide-react';
 import {
   BarChart,
