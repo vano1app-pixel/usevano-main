@@ -224,13 +224,13 @@ const Profile = () => {
         const studentData = {
           bio,
           skills: normalizeFreelancerSkills(skills),
-          hourly_rate: parseFloat(hourlyRate) || 0,
+          hourly_rate: Math.min(parseFloat(hourlyRate) || 0, 20),
           phone,
           is_available: isAvailable,
           banner_url: bannerUrl || null,
           service_area: serviceArea.trim() || null,
-          typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? parseInt(typicalBudgetMin, 10) : null,
-          typical_budget_max: parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null,
+          typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? Math.min(parseInt(typicalBudgetMin, 10), 500) : null,
+          typical_budget_max: parseInt(typicalBudgetMax, 10) > 0 ? Math.min(parseInt(typicalBudgetMax, 10), 500) : null,
           payment_details: paymentDetails,
           university,
           tiktok_url: normalizeTikTokUrl(tiktokUrl),
@@ -562,7 +562,7 @@ const Profile = () => {
                         </div>
                       </button>
 
-                      {/* ── SKILLS & RATES section ── */}
+                      {/* ── SKILLS section (opens wizard) ── */}
                       <button
                         type="button"
                         onClick={() => openWizardAtStep(5)}
@@ -570,7 +570,7 @@ const Profile = () => {
                       >
                         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
                           <span className={cn("h-1.5 w-1.5 rounded-full", skills.length > 0 ? "bg-emerald-500" : "bg-amber-400")} />
-                          Skills & Rates
+                          Skills
                         </p>
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
@@ -603,6 +603,58 @@ const Profile = () => {
                           <Pencil size={13} className="shrink-0 text-muted-foreground transition-opacity md:opacity-0 md:group-hover:opacity-100" />
                         </div>
                       </button>
+
+                      {/* ── PRICING section (inline editable) ── */}
+                      <div className="border-t border-foreground/8 px-4 pb-3.5 pt-2.5">
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                          <span className={cn("h-1.5 w-1.5 rounded-full", (hourlyRate && Number(hourlyRate) > 0) ? "bg-emerald-500" : "bg-amber-400")} />
+                          Pricing
+                        </p>
+                        <div className="space-y-2.5">
+                          <div>
+                            <label className="text-[11px] text-muted-foreground">Hourly rate (€)</label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={hourlyRate}
+                              onChange={(e) => setHourlyRate(e.target.value)}
+                              placeholder="e.g. 15"
+                              className="mt-1 block w-full rounded-lg border border-foreground/10 bg-background px-3 py-2 text-sm focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                            />
+                            {parseFloat(hourlyRate.replace(',', '.')) > 20 && (
+                              <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €20/hr</p>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[11px] text-muted-foreground">Budget from (€)</label>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={typicalBudgetMin}
+                                onChange={(e) => setTypicalBudgetMin(e.target.value)}
+                                placeholder="e.g. 100"
+                                className="mt-1 block w-full rounded-lg border border-foreground/10 bg-background px-3 py-2 text-sm focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-muted-foreground">Budget up to (€)</label>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={typicalBudgetMax}
+                                onChange={(e) => setTypicalBudgetMax(e.target.value)}
+                                placeholder="e.g. 500"
+                                className="mt-1 block w-full rounded-lg border border-foreground/10 bg-background px-3 py-2 text-sm focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                              />
+                              {parseInt(typicalBudgetMax, 10) > 500 && (
+                                <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €500</p>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/60">Saves when you hit "Save Profile"</p>
+                        </div>
+                      </div>
 
                       {/* ── LINKS section ── */}
                       <button

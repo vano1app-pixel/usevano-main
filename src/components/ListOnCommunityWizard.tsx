@@ -73,6 +73,11 @@ const STEP_DESCRIPTIONS: Record<number, string> = {
   6: 'Check everything looks good — you can always edit later.',
 };
 
+/* ─── Student pricing caps ─── */
+const MAX_HOURLY_RATE = 20;              // €20/hr for social media, photo, video
+const MAX_DAY_OR_PROJECT_RATE = 200;     // €200 per day / per project
+const MAX_PROJECT_BUDGET = 500;          // €500 for websites
+
 export interface ListOnCommunityInitial {
   bannerUrl: string;
   tiktokUrl: string;
@@ -523,6 +528,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       let rate_min: number | null = null;
       let rate_max: number | null = null;
       let rate_unit_out: string | null = rateUnit;
+      // Cap: €500 for websites, €20/hr hourly, €200 day/project for other categories
+      const ratecap = category === 'websites'
+        ? MAX_PROJECT_BUDGET
+        : rateUnit === 'hourly' ? MAX_HOURLY_RATE
+        : (rateUnit === 'day' || rateUnit === 'project') ? MAX_DAY_OR_PROJECT_RATE
+        : null;
       if (rateUnit === 'negotiable') {
         rate_min = null;
         rate_max = null;
@@ -530,11 +541,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       } else {
         if (rateMin.trim()) {
           const n = parseFloat(rateMin.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_min = n;
+          if (!Number.isNaN(n) && n >= 0) rate_min = ratecap != null ? Math.min(n, ratecap) : n;
         }
         if (rateMax.trim()) {
           const n = parseFloat(rateMax.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_max = n;
+          if (!Number.isNaN(n) && n >= 0) rate_max = ratecap != null ? Math.min(n, ratecap) : n;
         }
         if (rate_min != null && rate_max != null && rate_max < rate_min) {
           toast({ title: 'Invalid range', description: 'Maximum should be ≥ minimum.', variant: 'destructive' });
@@ -551,7 +562,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         ? (rate_max ?? null)
         : (typicalBudgetMax.trim() && parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null);
       const hourlyNum = parseFloat(profileHourly.replace(',', '.'));
-      const hourly_rate = !Number.isNaN(hourlyNum) && hourlyNum > 0 ? hourlyNum : 0;
+      const hourly_rate = !Number.isNaN(hourlyNum) && hourlyNum > 0 ? Math.min(hourlyNum, MAX_HOURLY_RATE) : 0;
 
       const studentPatch: Record<string, unknown> = {
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
@@ -928,10 +939,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                     <div>
                       <Label className="text-xs text-muted-foreground">From (€)</Label>
                       <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 200" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                      {parseFloat(rateMin.replace(',', '.')) > MAX_PROJECT_BUDGET && (
+                        <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_PROJECT_BUDGET}</p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 2000" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 500" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                      {parseFloat(rateMax.replace(',', '.')) > MAX_PROJECT_BUDGET && (
+                        <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_PROJECT_BUDGET}</p>
+                      )}
                     </div>
                   </div>
                 </>
@@ -951,22 +968,35 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  {rateUnit !== 'negotiable' && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">From (€)</Label>
-                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 25" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                  {rateUnit !== 'negotiable' && (() => {
+                    const cap = rateUnit === 'hourly' ? MAX_HOURLY_RATE : MAX_DAY_OR_PROJECT_RATE;
+                    const label = rateUnit === 'hourly' ? `€${cap}/hr` : `€${cap}`;
+                    return (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">From (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                          {parseFloat(rateMin.replace(',', '.')) > cap && (
+                            <p className="mt-1 text-xs font-medium text-red-500">Can't exceed {label}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                          {parseFloat(rateMax.replace(',', '.')) > cap && (
+                            <p className="mt-1 text-xs font-medium text-red-500">Can't exceed {label}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   <div>
                     <Label>Your hourly rate (€)</Label>
                     <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>
-                    <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 35" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
+                    <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
+                    {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
+                      <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_HOURLY_RATE}/hr</p>
+                    )}
                   </div>
                 </>
               )}

@@ -14,7 +14,7 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, Camera, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap,
+  Shield, Zap, ChevronDown, Check,
 } from 'lucide-react';
 
 /* ─── Constants ─── */
@@ -50,6 +50,43 @@ const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
   unsure: { min: 0, max: 9999 },
 };
 
+const PRICING_PACKAGES = [
+  {
+    name: 'Social Media',
+    price: '249',
+    period: '/mo',
+    features: [
+      'Content calendar & strategy',
+      '12 posts per month',
+      'Community engagement',
+      'Monthly performance report',
+    ],
+  },
+  {
+    name: 'Website Build',
+    price: '499',
+    period: ' one-off',
+    popular: true,
+    features: [
+      'Custom responsive design',
+      'Up to 5 pages',
+      'SEO setup',
+      'Contact form & analytics',
+    ],
+  },
+  {
+    name: 'Content Bundle',
+    price: '349',
+    period: '/mo',
+    features: [
+      'Professional photo shoot',
+      'Short-form video content',
+      'Editing & post-production',
+      'Brand-ready deliverables',
+    ],
+  },
+];
+
 /* ─── Component ─── */
 
 const HirePage = () => {
@@ -72,6 +109,7 @@ const HirePage = () => {
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
   const [matchLoading, setMatchLoading] = useState(false);
+  const [showDirectHire, setShowDirectHire] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -174,6 +212,19 @@ const HirePage = () => {
         if (Date.now() < end) requestAnimationFrame(fire);
       };
       fire();
+      // Auto-open WhatsApp with request details so the team can respond directly
+      const catLabel = CATEGORIES.find(c => c.id === category)?.label || 'Not specified';
+      const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || 'Not specified';
+      const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || 'Not specified';
+      const waLines = [
+        `Hi! I just submitted a hire request on VANO.`,
+        ``,
+        `Project: ${description.trim()}`,
+        `Category: ${catLabel}`,
+        `Timeline: ${timelineLabel}`,
+        `Budget: ${budgetLabel}`,
+      ];
+      window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(waLines.join('\n'))}`, '_blank');
       supabase.functions.invoke('notify-hire-request', {
         body: { description, category, budget_range: budget, timeline, requester_email: user.email },
       }).catch(() => {});
@@ -370,156 +421,168 @@ const HirePage = () => {
         </p>
       </header>
 
-      {/* Desktop: side-by-side layout for the two options */}
-      <div className="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
-
-        {/* ── OPTION A — Let Vano Handle It ── */}
-        <div className="mb-4 lg:mb-0">
-          {!submitted ? (
-            <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg">
-              <div className="bg-primary px-5 py-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Sparkles size={16} className="text-white" />
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Recommended</span>
-                </div>
-                <h2 className="text-lg font-bold text-white">Let Vano find your freelancer</h2>
-                <p className="mt-1 text-[13px] leading-relaxed text-white/75">
-                  Tell us what you need, we match you with the right person at the right price. You just approve.
-                </p>
+      {/* ── OPTION A — Let Vano Handle It (primary, full-width) ── */}
+      <div>
+        {!submitted ? (
+          <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg">
+            <div className="bg-primary px-5 py-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={16} className="text-white" />
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Recommended</span>
               </div>
-              <div className="space-y-3 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-3">
-                {/* How it works */}
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { num: '1', text: 'You describe it' },
-                    { num: '2', text: 'We find the match' },
-                    { num: '3', text: 'You approve & pay' },
-                  ].map(s => (
-                    <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-2 py-2.5">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold text-white">{s.num}</span>
-                      <p className="text-[10px] font-medium text-white/80 text-center leading-tight">{s.text}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Brief summary */}
-                <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">Your request</p>
-                  <p className="text-xs text-white/80 line-clamp-2">{description}</p>
-                  <div className="flex gap-1.5 mt-2 flex-wrap">
-                    {[
-                      category && CATEGORIES.find(c => c.id === category)?.label,
-                      timeline && TIMELINES.find(t => t.id === timeline)?.label,
-                      budget && BUDGETS.find(b => b.id === budget)?.label,
-                    ].filter(Boolean).map(tag => (
-                      <span key={tag} className="inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/80">{tag}</span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Fee */}
-                <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-400/20">
-                    <Euro size={14} className="text-emerald-300" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">0% commission</p>
-                    <p className="text-[10px] text-white/60">You only pay the freelancer — no hidden fees.</p>
-                  </div>
-                </div>
-
-                <button type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
-                  {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
-                </button>
-                <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
-              <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
-              <h2 className="text-lg font-bold text-foreground">Request sent!</h2>
-              <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-                We're reviewing your brief and will match you with the best freelancer. Expect to hear back within 24 hours.
+              <h2 className="text-lg font-bold text-white">Let Vano find your freelancer</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-white/75">
+                Tell us what you need, we match you with the right person at the right price. You just approve.
               </p>
-              <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
-                <MessageCircle size={15} /> Chat with us on WhatsApp
-              </a>
             </div>
-          )}
-        </div>
-
-        {/* ── OPTION B — Message Freelancers Directly ── */}
-        <div>
-          {/* Divider on mobile only */}
-          <div className="flex items-center gap-3 mb-4 lg:hidden">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-[11px] font-medium text-muted-foreground">or hire directly — it's free</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-
-          <div className="rounded-2xl border border-foreground/10 bg-card p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <MessageCircle size={16} className="text-muted-foreground" />
-              <h2 className="text-[15px] sm:text-base font-semibold text-foreground">Message freelancers directly</h2>
-            </div>
-            <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
-              Your brief is pre-filled — just tap "Message" to start a conversation. Compare quotes and pick who fits best.
-            </p>
-
-            {matchLoading ? (
-              <div className="flex flex-col gap-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
-                    <div className="h-32 w-full bg-muted/60" />
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-full bg-muted" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-3 w-28 rounded bg-muted" />
-                          <div className="h-2.5 w-20 rounded bg-muted" />
-                        </div>
-                      </div>
-                    </div>
+            <div className="space-y-3 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-3">
+              {/* How it works */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { num: '1', text: 'You describe it' },
+                  { num: '2', text: 'We find the match' },
+                  { num: '3', text: 'You approve & pay' },
+                ].map(s => (
+                  <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-2 py-2.5">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold text-white">{s.num}</span>
+                    <p className="text-[10px] font-medium text-white/80 text-center leading-tight">{s.text}</p>
                   </div>
                 ))}
               </div>
-            ) : matchedStudents.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {matchedStudents.slice(0, 6).map((student, idx) => {
-                  const ratingInfo = matchedReviews[student.user_id];
-                  return (
-                    <div key={student.id} className="animate-fade-in opacity-0" style={{ animationDelay: `${idx * 50}ms` }}>
-                      <StudentCard
-                        student={student}
-                        displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
-                        profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
-                        showFavourite={false}
-                        avgRating={ratingInfo?.avg ?? null}
-                        reviewCount={ratingInfo?.count}
-                      />
-                      <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10 active:scale-[0.98]">
-                        <MessageCircle size={14} /> Message with your brief
+
+              {/* Brief summary */}
+              <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">Your request</p>
+                <p className="text-xs text-white/80 line-clamp-2">{description}</p>
+                <div className="flex gap-1.5 mt-2 flex-wrap">
+                  {[
+                    category && CATEGORIES.find(c => c.id === category)?.label,
+                    timeline && TIMELINES.find(t => t.id === timeline)?.label,
+                    budget && BUDGETS.find(b => b.id === budget)?.label,
+                  ].filter(Boolean).map(tag => (
+                    <span key={tag} className="inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/80">{tag}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Fee */}
+              <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-400/20">
+                  <Euro size={14} className="text-emerald-300" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">0% commission</p>
+                  <p className="text-[10px] text-white/60">You only pay the freelancer — no hidden fees.</p>
+                </div>
+              </div>
+
+              <button type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
+                {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
+              </button>
+              <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
+            <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
+            <h2 className="text-lg font-bold text-foreground">Request sent!</h2>
+            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+              We're reviewing your brief and will match you with the best freelancer. Expect to hear back within 24 hours.
+            </p>
+            <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
+              <MessageCircle size={15} /> Chat with us on WhatsApp
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* ── OPTION B — Message Freelancers Directly (collapsed by default) ── */}
+      <div className="mt-6">
+        <button
+          type="button"
+          onClick={() => setShowDirectHire(prev => !prev)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground hover:border-foreground/20 cursor-pointer select-none"
+        >
+          <MessageCircle size={14} />
+          Or browse & message freelancers yourself
+          <ChevronDown size={14} className={cn('transition-transform duration-200', showDirectHire && 'rotate-180')} />
+        </button>
+
+        <AnimatePresence>
+          {showDirectHire && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="pt-4">
+                <div className="rounded-2xl border border-foreground/10 bg-card p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MessageCircle size={16} className="text-muted-foreground" />
+                    <h2 className="text-[15px] sm:text-base font-semibold text-foreground">Message freelancers directly</h2>
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
+                    Your brief is pre-filled — just tap "Message" to start a conversation. Compare quotes and pick who fits best.
+                  </p>
+
+                  {matchLoading ? (
+                    <div className="flex flex-col gap-3">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
+                          <div className="h-32 w-full bg-muted/60" />
+                          <div className="p-4 space-y-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-11 w-11 rounded-full bg-muted" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-3 w-28 rounded bg-muted" />
+                                <div className="h-2.5 w-20 rounded bg-muted" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : matchedStudents.length > 0 ? (
+                    <div className="flex flex-col gap-3">
+                      {matchedStudents.slice(0, 3).map((student, idx) => {
+                        const ratingInfo = matchedReviews[student.user_id];
+                        return (
+                          <div key={student.id} className="animate-fade-in opacity-0" style={{ animationDelay: `${idx * 50}ms` }}>
+                            <StudentCard
+                              student={student}
+                              displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
+                              profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
+                              showFavourite={false}
+                              avgRating={ratingInfo?.avg ?? null}
+                              reviewCount={ratingInfo?.count}
+                            />
+                            <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10 active:scale-[0.98]">
+                              <MessageCircle size={14} /> Message with your brief
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {matchedStudents.length > 3 && (
+                        <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition cursor-pointer">
+                          View all {matchedStudents.length} freelancers <ArrowRight size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-muted-foreground">No matches found right now.</p>
+                      <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
+                        Browse all freelancers <ArrowRight size={14} />
                       </button>
                     </div>
-                  );
-                })}
-                {matchedStudents.length > 6 && (
-                  <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition cursor-pointer">
-                    View all {matchedStudents.length} freelancers <ArrowRight size={14} />
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-muted-foreground">No matches found right now.</p>
-                <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
-                  Browse all freelancers <ArrowRight size={14} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -531,7 +594,7 @@ const HirePage = () => {
 
       <div className={cn(
         'mx-auto px-4 pt-20 sm:px-6 sm:pt-24 md:px-8',
-        step === 3 ? 'max-w-5xl' : 'max-w-2xl lg:max-w-3xl'
+        'max-w-2xl lg:max-w-3xl'
       )}>
 
         {/* ── Progress dots ── */}
@@ -564,6 +627,66 @@ const HirePage = () => {
             {step === 3 && renderStep3()}
           </motion.div>
         </AnimatePresence>
+
+        {/* ── Done-for-you pricing packages ── */}
+        <div className="mt-14 border-t border-foreground/[0.06] pt-10 mb-4">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Done for you
+          </p>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+            Or pick a package
+          </h2>
+          <p className="mt-1.5 mb-6 text-sm text-muted-foreground leading-relaxed">
+            Fixed-price packages — we handle everything from start to finish.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {PRICING_PACKAGES.map((pkg) => (
+              <div
+                key={pkg.name}
+                className={cn(
+                  'relative flex flex-col rounded-2xl border bg-card p-5 transition-all hover:shadow-md',
+                  pkg.popular
+                    ? 'border-primary/30 shadow-[0_0_0_1px_hsl(221_83%_53%/0.08)]'
+                    : 'border-foreground/[0.06]'
+                )}
+              >
+                {pkg.popular && (
+                  <span className="absolute -top-3 left-5 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                    Most popular
+                  </span>
+                )}
+
+                <h3 className="text-[14px] font-semibold">{pkg.name}</h3>
+
+                <p className="mt-2 mb-3 flex items-baseline gap-0.5">
+                  <span className="text-xs text-muted-foreground">€</span>
+                  <span className="text-2xl font-bold tracking-tighter tabular-nums">{pkg.price}</span>
+                  <span className="text-xs text-muted-foreground">{pkg.period}</span>
+                </p>
+
+                <ul className="mb-4 flex-1 space-y-1.5">
+                  {pkg.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-[12px] text-muted-foreground leading-snug">
+                      <Check size={12} className="mt-0.5 shrink-0 text-primary/70" strokeWidth={2.5} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <a
+                  href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I'm interested in the ${pkg.name} package (€${pkg.price}${pkg.period}).`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-white transition-all hover:bg-[#1fba59] hover:shadow-[0_4px_12px_-4px_rgba(37,211,102,0.4)] active:scale-[0.97]"
+                >
+                  <MessageCircle size={15} strokeWidth={1.8} />
+                  Get started
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
