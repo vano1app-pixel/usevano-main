@@ -163,7 +163,7 @@ const Landing = () => {
             <motion.h1
               variants={fadeUp}
               transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05]"
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance"
             >
               Local talent,<br />
               <span
@@ -495,7 +495,7 @@ const Landing = () => {
             className="text-center"
           >
             <motion.span variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</motion.span>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1]">Built different, on purpose</motion.h2>
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</motion.h2>
             <motion.p variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
           </motion.div>
           <motion.div
@@ -603,7 +603,7 @@ const Landing = () => {
             <motion.span variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.2em] mb-4">
               FAQ
             </motion.span>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
+            <motion.h2 variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
               Common questions
             </motion.h2>
             <motion.p variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="mt-3 text-base text-muted-foreground">
@@ -621,7 +621,7 @@ const Landing = () => {
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   What is VANO?
                 </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
                   VANO connects people hiring for gigs with freelancers in Galway. You can browse talent, post fixed-price work with a deadline, message in-app, and use the community board.
                 </AccordionContent>
               </AccordionItem>
@@ -629,7 +629,7 @@ const Landing = () => {
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   How do I hire someone?
                 </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
                   Create an account, browse freelancers or post a gig with budget and due date. Applicants reach out; you agree scope in messages, then complete the work off-platform or as you arrange.
                 </AccordionContent>
               </AccordionItem>
@@ -637,7 +637,7 @@ const Landing = () => {
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   How does payment work?
                 </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
                   VANO helps you find each other and communicate. You and the other party agree payment method and timing directly — always confirm details clearly in your thread.
                 </AccordionContent>
               </AccordionItem>
@@ -645,7 +645,7 @@ const Landing = () => {
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   Is VANO only for Galway?
                 </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
                   We are built around Galway first — local gigs and talent are the focus. You can still use remote-friendly setups; each gig shows location where it matters.
                 </AccordionContent>
               </AccordionItem>
@@ -653,7 +653,7 @@ const Landing = () => {
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   I am a freelancer — how do I start?
                 </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
                   Sign up as a freelancer, complete your profile and portfolio links, then browse open gigs and apply with a short message. Good profiles and reviews help you stand out.
                 </AccordionContent>
               </AccordionItem>
@@ -677,7 +677,7 @@ const Landing = () => {
             <div className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl animate-float" />
             <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
             <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Galway · Free · Local</span>
-            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4">
+            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
               Need something done?<br />Tell us.
             </h2>
             <p className="relative text-primary-foreground/60 mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>

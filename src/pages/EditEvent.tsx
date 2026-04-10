@@ -334,7 +334,7 @@ const EditEvent = () => {
     return (
       <div className="min-h-screen bg-white">
         <Navbar />
-        <div className="flex h-screen items-center justify-center">
+        <div className="flex min-h-[100dvh] items-center justify-center">
           <div className="text-[#1A1A1A] text-2xl">Loading...</div>
         </div>
       </div>
