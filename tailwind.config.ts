@@ -164,6 +164,7 @@ export default {
         "scroll-left": "scroll-left 40s linear infinite",
         "scroll-left-fast": "scroll-left 110s linear infinite",
         "shimmer": "shimmer 4s ease-in-out infinite",
+        "shimmer-slow": "shimmer 8s ease-in-out infinite",
         "slide-up-fade": "slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "scale-in": "scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "pulse-ring": "pulse-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite",
