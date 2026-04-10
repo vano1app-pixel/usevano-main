@@ -6,8 +6,6 @@ import {
   Users,
   CheckCircle2,
   Star,
-  Plus,
-  Search,
   ArrowRight,
   MessagesSquare,
   Heart,
@@ -411,23 +409,6 @@ export default function BusinessDashboard() {
                   {format(new Date(), 'EEEE, d MMMM yyyy')}
                 </motion.p>
               </div>
-              <motion.div variants={fadeUp} className="flex gap-2">
-                <Button
-                  className="rounded-xl transition-all duration-200 active:scale-[0.97]"
-                  onClick={() => navigate('/post-job')}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Post a Job
-                </Button>
-                <Button
-                  variant="outline"
-                  className="rounded-xl transition-all duration-200 active:scale-[0.97]"
-                  onClick={() => navigate('/students')}
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Browse Talent
-                </Button>
-              </motion.div>
             </div>
           </motion.section>
 
@@ -448,56 +429,43 @@ export default function BusinessDashboard() {
                   value: activeJobCount,
                   icon: Briefcase,
                   desc: 'Open & filled',
-                  href: '/hire',
                 },
                 {
                   label: 'Pending',
                   value: pendingAppCount,
                   icon: Users,
                   desc: `${applications.length} total application${applications.length !== 1 ? 's' : ''}`,
-                  href: '/hire',
                 },
                 {
                   label: 'Completed',
                   value: completedJobCount,
                   icon: CheckCircle2,
                   desc: 'Jobs finished',
-                  href: '/hire',
                 },
                 {
                   label: 'Avg Rating',
                   value: avgRating != null ? avgRating.toFixed(1) : '—',
                   icon: Star,
                   desc: reviewCount > 0 ? `${reviewCount} review${reviewCount !== 1 ? 's' : ''}` : 'No reviews yet',
-                  href: null as string | null,
                 },
               ].map((stat) => {
                 const Icon = stat.icon;
-                const cardContent = (
-                  <Card className={`border-foreground/[0.06] shadow-none hover:border-foreground/[0.12] hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] transition-all duration-300 h-full ${stat.href ? 'group/card cursor-pointer' : ''}`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
-                          {stat.label}
-                        </span>
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                          <Icon className="h-4 w-4 text-primary" strokeWidth={1.8} />
-                        </span>
-                      </div>
-                      <p className="text-4xl font-bold tracking-tight tabular-nums">{stat.value}</p>
-                      <p className="mt-1 text-[12px] text-muted-foreground">{stat.desc}</p>
-                    </CardContent>
-                  </Card>
-                );
                 return (
                   <motion.div key={stat.label} variants={fadeUp}>
-                    {stat.href ? (
-                      <Link to={stat.href} className="block h-full">
-                        {cardContent}
-                      </Link>
-                    ) : (
-                      cardContent
-                    )}
+                    <Card className="border-foreground/[0.06] shadow-none hover:border-foreground/[0.12] hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] transition-all duration-300">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {stat.label}
+                          </span>
+                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                            <Icon className="h-4 w-4 text-primary" strokeWidth={1.8} />
+                          </span>
+                        </div>
+                        <p className="text-4xl font-bold tracking-tight tabular-nums">{stat.value}</p>
+                        <p className="mt-1 text-[12px] text-muted-foreground">{stat.desc}</p>
+                      </CardContent>
+                    </Card>
                   </motion.div>
                 );
               })}
@@ -629,36 +597,17 @@ export default function BusinessDashboard() {
             </motion.p>
             <motion.div variants={fadeUp}>
               <Card className="border-foreground/[0.06] shadow-none">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardHeader className="pb-2">
                   <CardTitle className="text-[15px] font-semibold">Active Jobs</CardTitle>
-                  {jobs.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[12px] text-muted-foreground"
-                      onClick={() => navigate('/hire')}
-                    >
-                      View all
-                      <ArrowRight className="ml-1 h-3 w-3" />
-                    </Button>
-                  )}
                 </CardHeader>
                 <CardContent>
                   {activeJobs.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-foreground/10 px-6 py-10 text-center">
                       <Briefcase className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
-                      <p className="text-sm font-medium text-muted-foreground">No active jobs</p>
+                      <p className="text-sm font-medium text-muted-foreground">No active jobs yet</p>
                       <p className="mt-1 text-xs text-muted-foreground/70">
-                        Post a job to start receiving applications from freelancers.
+                        Your posted jobs will appear here.
                       </p>
-                      <Button
-                        className="mt-4 rounded-xl"
-                        size="sm"
-                        onClick={() => navigate('/post-job')}
-                      >
-                        <Plus className="mr-1.5 h-3.5 w-3.5" />
-                        Post a Job
-                      </Button>
                     </div>
                   ) : (
                     <Table>
@@ -790,20 +739,11 @@ export default function BusinessDashboard() {
               {/* Saved Freelancers */}
               <motion.div variants={fadeUp}>
                 <Card className="border-foreground/[0.06] shadow-none h-full">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardHeader className="pb-2">
                     <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
                       <Heart className="h-4 w-4 text-primary" strokeWidth={1.8} />
                       Saved Freelancers
                     </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[12px] text-muted-foreground"
-                      onClick={() => navigate('/students')}
-                    >
-                      Browse all
-                      <ArrowRight className="ml-1 h-3 w-3" />
-                    </Button>
                   </CardHeader>
                   <CardContent>
                     {favourites.length === 0 ? (
