@@ -386,7 +386,7 @@ export default function BusinessDashboard() {
             variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-10"
+            className="mb-12"
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -398,7 +398,13 @@ export default function BusinessDashboard() {
                 </motion.span>
                 <motion.h1
                   variants={fadeUp}
-                  className="text-3xl font-bold tracking-tight sm:text-4xl"
+                  className="text-3xl font-bold tracking-tight sm:text-4xl bg-clip-text text-transparent animate-shimmer-slow"
+                  style={{
+                    backgroundImage: 'linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(221 83% 53%) 25%, hsl(210 80% 60%) 40%, hsl(var(--foreground)) 55%, hsl(221 83% 53%) 75%, hsl(var(--foreground)) 100%)',
+                    backgroundSize: '300% auto',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
                 >
                   {displayName ? <>Hey, {displayName}</> : <>Welcome back</>}
                 </motion.h1>
@@ -431,8 +437,11 @@ export default function BusinessDashboard() {
             variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-8"
+            className="mb-10"
           >
+            <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+              Overview
+            </motion.p>
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
               {[
                 {
@@ -440,48 +449,40 @@ export default function BusinessDashboard() {
                   value: activeJobCount,
                   icon: Briefcase,
                   desc: 'Open & filled',
-                  color: 'text-blue-500',
-                  bg: 'bg-blue-500/10',
                 },
                 {
                   label: 'Applications',
                   value: applications.length,
                   icon: Users,
                   desc: 'Total received',
-                  color: 'text-violet-500',
-                  bg: 'bg-violet-500/10',
                 },
                 {
                   label: 'Completed',
                   value: completedJobCount,
                   icon: CheckCircle2,
                   desc: 'Jobs finished',
-                  color: 'text-emerald-500',
-                  bg: 'bg-emerald-500/10',
                 },
                 {
                   label: 'Avg Rating',
                   value: avgRating != null ? avgRating.toFixed(1) : '—',
                   icon: Star,
                   desc: reviewCount > 0 ? `${reviewCount} review${reviewCount !== 1 ? 's' : ''}` : 'No reviews yet',
-                  color: 'text-amber-500',
-                  bg: 'bg-amber-500/10',
                 },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (
                   <motion.div key={stat.label} variants={fadeUp}>
                     <Card className="border-foreground/[0.06] shadow-none hover:border-foreground/[0.12] hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] transition-all duration-300">
-                      <CardContent className="p-5">
+                      <CardContent className="p-6">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
                             {stat.label}
                           </span>
-                          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${stat.bg}`}>
-                            <Icon className={`h-4 w-4 ${stat.color}`} strokeWidth={1.8} />
+                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                            <Icon className="h-4 w-4 text-primary" strokeWidth={1.8} />
                           </span>
                         </div>
-                        <p className="text-3xl font-bold tracking-tight tabular-nums">{stat.value}</p>
+                        <p className="text-4xl font-bold tracking-tight tabular-nums">{stat.value}</p>
                         <p className="mt-1 text-[12px] text-muted-foreground">{stat.desc}</p>
                       </CardContent>
                     </Card>
@@ -496,8 +497,11 @@ export default function BusinessDashboard() {
             variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-8"
+            className="mb-10"
           >
+            <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+              Analytics
+            </motion.p>
             <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
               {/* Jobs Over Time */}
               <motion.div variants={fadeUp}>
@@ -606,8 +610,11 @@ export default function BusinessDashboard() {
             variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-8"
+            className="mb-10"
           >
+            <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+              Your Jobs
+            </motion.p>
             <motion.div variants={fadeUp}>
               <Card className="border-foreground/[0.06] shadow-none">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -703,7 +710,7 @@ export default function BusinessDashboard() {
               variants={stagger}
               initial="hidden"
               animate="visible"
-              className="mb-8"
+              className="mb-10"
             >
               <motion.div variants={fadeUp}>
                 <Card className="border-foreground/[0.06] shadow-none">
@@ -746,133 +753,132 @@ export default function BusinessDashboard() {
             </motion.section>
           )}
 
-          {/* ── Favourite Freelancers ── */}
+          {/* ── Your Network ── */}
           <motion.section
             variants={stagger}
             initial="hidden"
             animate="visible"
-            className="mb-8"
+            className="mb-10"
           >
-            <motion.div variants={fadeUp}>
-              <Card className="border-foreground/[0.06] shadow-none">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-rose-500" strokeWidth={1.8} />
-                    Saved Freelancers
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-[12px] text-muted-foreground"
-                    onClick={() => navigate('/students')}
-                  >
-                    Browse all
-                    <ArrowRight className="ml-1 h-3 w-3" />
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {favourites.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-foreground/10 px-6 py-10 text-center">
-                      <Heart className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
-                      <p className="text-sm font-medium text-muted-foreground">No saved freelancers</p>
-                      <p className="mt-1 text-xs text-muted-foreground/70">
-                        Browse talent and save your favourites for quick access.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {favourites.map((f) => (
-                        <Link
-                          key={f.user_id}
-                          to={`/students/${f.user_id}`}
-                          className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.98]"
-                        >
-                          <Avatar className="h-10 w-10 border border-border/60">
-                            <AvatarImage src={f.avatar_url ?? undefined} />
-                            <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
-                              {(f.display_name ?? '?')[0]?.toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[14px] font-medium text-foreground/90 group-hover:text-primary transition-colors duration-200">
-                              {f.display_name ?? 'Freelancer'}
-                            </p>
-                            {f.skills?.[0] && (
-                              <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
-                                {f.skills[0]}
-                              </span>
-                            )}
-                          </div>
-                          {f.hourly_rate != null && (
-                            <span className="shrink-0 rounded-lg bg-primary/5 px-2 py-0.5 text-[12px] font-semibold tabular-nums text-primary">
-                              €{f.hourly_rate}/hr
-                            </span>
-                          )}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          </motion.section>
-
-          {/* ── Recent Messages ── */}
-          {recentConvos.length > 0 && (
-            <motion.section
-              variants={stagger}
-              initial="hidden"
-              animate="visible"
-              className="mb-8"
-            >
+            <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+              Your Network
+            </motion.p>
+            <div className={`grid gap-4 grid-cols-1 ${recentConvos.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+              {/* Saved Freelancers */}
               <motion.div variants={fadeUp}>
-                <Card className="border-foreground/[0.06] shadow-none">
+                <Card className="border-foreground/[0.06] shadow-none h-full">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
-                      <MessagesSquare className="h-4 w-4 text-primary" strokeWidth={1.8} />
-                      Recent Messages
+                      <Heart className="h-4 w-4 text-primary" strokeWidth={1.8} />
+                      Saved Freelancers
                     </CardTitle>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="text-[12px] text-muted-foreground"
-                      onClick={() => navigate('/messages')}
+                      onClick={() => navigate('/students')}
                     >
-                      All messages
+                      Browse all
                       <ArrowRight className="ml-1 h-3 w-3" />
                     </Button>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {recentConvos.map((c) => (
-                        <Link
-                          key={c.id}
-                          to={`/messages?with=${c.otherName}`}
-                          className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.99]"
-                        >
-                          <Avatar className="h-10 w-10 border border-border/60">
-                            <AvatarImage src={c.otherAvatar ?? undefined} />
-                            <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
-                              {c.otherName[0]?.toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[14px] font-medium text-foreground/90 group-hover:text-primary transition-colors duration-200">
-                              {c.otherName}
-                            </p>
-                            <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
-                              {c.lastMessage || 'No messages yet'}
-                            </p>
-                          </div>
-                          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/30 group-hover:translate-x-0.5 group-hover:text-foreground/50 transition-all duration-200" strokeWidth={1.8} />
-                        </Link>
-                      ))}
-                    </div>
+                    {favourites.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-foreground/10 px-6 py-10 text-center">
+                        <Heart className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
+                        <p className="text-sm font-medium text-muted-foreground">No saved freelancers</p>
+                        <p className="mt-1 text-xs text-muted-foreground/70">
+                          Browse talent and save your favourites for quick access.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {favourites.map((f) => (
+                          <Link
+                            key={f.user_id}
+                            to={`/students/${f.user_id}`}
+                            className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.98]"
+                          >
+                            <Avatar className="h-10 w-10 border border-border/60">
+                              <AvatarImage src={f.avatar_url ?? undefined} />
+                              <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
+                                {(f.display_name ?? '?')[0]?.toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[14px] font-medium text-foreground/90 group-hover:text-primary transition-colors duration-200">
+                                {f.display_name ?? 'Freelancer'}
+                              </p>
+                              {f.skills?.[0] && (
+                                <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
+                                  {f.skills[0]}
+                                </span>
+                              )}
+                            </div>
+                            {f.hourly_rate != null && (
+                              <span className="shrink-0 rounded-lg bg-primary/5 px-2 py-0.5 text-[12px] font-semibold tabular-nums text-primary">
+                                €{f.hourly_rate}/hr
+                              </span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
-            </motion.section>
-          )}
+
+              {/* Recent Messages */}
+              {recentConvos.length > 0 && (
+                <motion.div variants={fadeUp}>
+                  <Card className="border-foreground/[0.06] shadow-none h-full">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-[15px] font-semibold flex items-center gap-2">
+                        <MessagesSquare className="h-4 w-4 text-primary" strokeWidth={1.8} />
+                        Recent Messages
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[12px] text-muted-foreground"
+                        onClick={() => navigate('/messages')}
+                      >
+                        All messages
+                        <ArrowRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {recentConvos.map((c) => (
+                          <Link
+                            key={c.id}
+                            to={`/messages?with=${c.otherName}`}
+                            className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.99]"
+                          >
+                            <Avatar className="h-10 w-10 border border-border/60">
+                              <AvatarImage src={c.otherAvatar ?? undefined} />
+                              <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
+                                {c.otherName[0]?.toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[14px] font-medium text-foreground/90 group-hover:text-primary transition-colors duration-200">
+                                {c.otherName}
+                              </p>
+                              <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                                {c.lastMessage || 'No messages yet'}
+                              </p>
+                            </div>
+                            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/30 group-hover:translate-x-0.5 group-hover:text-foreground/50 transition-all duration-200" strokeWidth={1.8} />
+                          </Link>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </div>
+          </motion.section>
         </div>
       </main>
     </>

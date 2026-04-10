@@ -208,6 +208,7 @@
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .animate-shimmer,
+  .animate-shimmer-slow,
   .animate-float,
   .animate-pulse-ring,
   .animate-scroll-left,
