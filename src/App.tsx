@@ -10,6 +10,7 @@ import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { PageTransition } from "@/components/PageTransition";
 import { ScrollProgress } from "@/components/ScrollProgress";
+import { MascotGuide } from "@/components/MascotGuide";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -127,6 +128,7 @@ const App = () => {
       </AnimatePresence>
       </div>
       <MobileBottomNav />
+      <MascotGuide />
       <WhatsAppFloatingButton />
       <CookieConsentBanner />
       <PWAInstallBanner />

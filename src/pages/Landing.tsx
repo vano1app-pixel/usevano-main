@@ -393,6 +393,7 @@ const Landing = () => {
           </p>
           <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
+                data-mascot="hire-cta"
                 burstType="sparkle"
                 particleCount={25}
                 magneticStrength={0.35}
@@ -406,6 +407,7 @@ const Landing = () => {
               </InteractiveButton>
               {!session ? (
                 <InteractiveButton
+                  data-mascot="freelancer-cta"
                   burstType="sparkle"
                   particleCount={15}
                   magneticStrength={0.25}
