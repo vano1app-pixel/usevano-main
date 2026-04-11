@@ -89,6 +89,8 @@ const PRICING_PACKAGES = [
 
 /* ─── Component ─── */
 
+const isMobileHire = typeof window !== 'undefined' && window.innerWidth < 768;
+
 const HirePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -621,10 +623,10 @@ const HirePage = () => {
           <motion.div
             key={step}
             custom={stepDirection}
-            initial={{ opacity: 0, x: stepDirection * 80, scale: 0.94, filter: 'blur(5px)' }}
+            initial={{ opacity: 0, x: stepDirection * (isMobileHire ? 40 : 80), scale: isMobileHire ? 0.97 : 0.94, filter: isMobileHire ? 'blur(2px)' : 'blur(5px)' }}
             animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, x: stepDirection * -40, scale: 0.97, filter: 'blur(2px)' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+            exit={{ opacity: 0, x: stepDirection * (isMobileHire ? -20 : -40), scale: 0.97, filter: isMobileHire ? 'blur(1px)' : 'blur(2px)' }}
+            transition={{ type: 'spring', stiffness: 300, damping: isMobileHire ? 30 : 26 }}
             className="relative z-10"
             style={{ willChange: 'transform, opacity, filter' }}
           >

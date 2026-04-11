@@ -162,7 +162,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
       {/* Banner */}
-      <div className="relative h-48 w-full overflow-hidden sm:h-56">
+      <div className="relative h-40 w-full overflow-hidden sm:h-48 md:h-56">
         {student.banner_url ? (
           <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]" loading="lazy" decoding="async" />
         ) : (

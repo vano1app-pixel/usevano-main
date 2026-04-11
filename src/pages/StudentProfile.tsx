@@ -391,7 +391,7 @@ const StudentProfile = () => {
                     View all <ArrowRight size={12} />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4 sm:p-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 p-4 sm:p-5">
                   {portfolioItems.filter((i) => i.image_url).slice(0, 6).map((item, idx) => (
                     <button
                       key={item.id}
@@ -457,7 +457,7 @@ const StudentProfile = () => {
                       type="button"
                       onClick={() => setActiveTab(tab)}
                       className={cn(
-                        'flex-1 rounded-xl py-2 text-sm font-semibold transition-all',
+                        'flex-1 rounded-xl py-2 text-xs sm:text-sm font-semibold transition-all',
                         activeTab === tab
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -648,7 +648,7 @@ const StudentProfile = () => {
                   <button
                     type="button"
                     onClick={() => setLightboxIndex(null)}
-                    className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                    className="absolute right-3 top-3 sm:right-4 sm:top-4 flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                   >
                     <X size={18} />
                   </button>

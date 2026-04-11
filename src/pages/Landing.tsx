@@ -126,17 +126,19 @@ const Landing = () => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) return;
 
+    const isMobile = window.innerWidth < 768;
+
     const ctx = gsap.context(() => {
       /* ── Hero: storybook opens — words cascade with 3D depth ── */
       const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' } });
       heroTl
         .from('[data-hero-title] > *', {
-          y: 80,
+          y: isMobile ? 40 : 80,
           opacity: 0,
-          rotateX: 20,
-          transformPerspective: 600,
-          stagger: 0.15,
-          duration: 1.2,
+          rotateX: isMobile ? 6 : 20,
+          transformPerspective: isMobile ? 0 : 600,
+          stagger: isMobile ? 0.1 : 0.15,
+          duration: isMobile ? 0.8 : 1.2,
           delay: 0.15,
         })
         .from('[data-hero-sub]', { y: 40, opacity: 0, duration: 0.8, filter: 'blur(4px)' }, '-=0.6')
@@ -168,14 +170,14 @@ const Landing = () => {
           start: 'top 80%',
           toggleActions: 'play none none none',
         },
-        y: 100,
+        y: isMobile ? 50 : 100,
         opacity: 0,
-        scale: 0.8,
-        rotateY: 25,
-        rotateX: 8,
-        transformPerspective: 800,
-        stagger: 0.15,
-        duration: 0.9,
+        scale: isMobile ? 0.9 : 0.8,
+        rotateY: isMobile ? 8 : 25,
+        rotateX: isMobile ? 0 : 8,
+        transformPerspective: isMobile ? 0 : 800,
+        stagger: isMobile ? 0.1 : 0.15,
+        duration: isMobile ? 0.6 : 0.9,
         ease: 'back.out(1.4)',
       });
 
@@ -232,13 +234,13 @@ const Landing = () => {
           start: 'top 75%',
           toggleActions: 'play none none none',
         },
-        y: 80,
+        y: isMobile ? 40 : 80,
         opacity: 0,
-        scale: 0.85,
-        rotateX: 15,
-        transformPerspective: 800,
-        stagger: 0.12,
-        duration: 0.8,
+        scale: isMobile ? 0.92 : 0.85,
+        rotateX: isMobile ? 0 : 15,
+        transformPerspective: isMobile ? 0 : 800,
+        stagger: isMobile ? 0.08 : 0.12,
+        duration: isMobile ? 0.6 : 0.8,
         ease: 'back.out(1.5)',
       });
 
@@ -342,11 +344,11 @@ const Landing = () => {
       {/* Hero */}
       <section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
         {/* Breathing gradient orb */}
-        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] sm:w-[600px] sm:h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
           <div data-hero-title>
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
               <span className="inline-block">Local talent,</span><br />
               <span
                 className="inline-block italic font-semibold bg-clip-text text-transparent animate-shimmer"
@@ -525,7 +527,7 @@ const Landing = () => {
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
                         key={i}
-                        className="flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
+                        className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
                       >
                         <div className="flex gap-2.5">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
@@ -555,7 +557,7 @@ const Landing = () => {
                           key={s.user_id}
                           type="button"
                           onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                          className="group flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
                         >
                           <div className="flex items-start gap-2.5">
                             <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
@@ -621,7 +623,7 @@ const Landing = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/students')}
-                    className="flex w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
+                    className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
                   >
                     <ArrowRight size={22} className="text-muted-foreground" />
                     <p className="text-center text-[12px] font-semibold text-muted-foreground">
@@ -777,7 +779,7 @@ const Landing = () => {
       {/* CTA */}
       <section data-section-cta className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
-          <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-8 py-12 sm:px-14 sm:py-16 lg:px-20 lg:py-20 text-center">
+          <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-5 py-10 sm:px-10 sm:py-14 lg:px-20 lg:py-20 text-center">
             {/* Floating magic orbs */}
             <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
             <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />

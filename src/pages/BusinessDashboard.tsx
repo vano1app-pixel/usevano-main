@@ -556,8 +556,8 @@ export default function BusinessDashboard() {
                         No applications yet
                       </div>
                     ) : (
-                      <div className="flex h-52 items-center justify-center gap-8">
-                        <div className="h-44 w-44">
+                      <div className="flex flex-col sm:flex-row h-auto sm:h-52 items-center justify-center gap-4 sm:gap-8">
+                        <div className="h-36 w-36 sm:h-44 sm:w-44">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
