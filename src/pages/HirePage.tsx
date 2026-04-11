@@ -621,11 +621,12 @@ const HirePage = () => {
           <motion.div
             key={step}
             custom={stepDirection}
-            initial={{ opacity: 0, x: stepDirection * 60, filter: 'blur(3px)' }}
-            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, x: stepDirection * -60, filter: 'blur(3px)' }}
-            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+            initial={{ opacity: 0, x: stepDirection * 80, scale: 0.94, filter: 'blur(5px)' }}
+            animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: stepDirection * -40, scale: 0.97, filter: 'blur(2px)' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 26 }}
             className="relative z-10"
+            style={{ willChange: 'transform, opacity, filter' }}
           >
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}

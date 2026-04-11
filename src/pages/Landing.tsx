@@ -127,54 +127,59 @@ const Landing = () => {
     if (prefersReduced) return;
 
     const ctx = gsap.context(() => {
-      /* ── Hero: words cascade in like opening a storybook ── */
+      /* ── Hero: storybook opens — words cascade with 3D depth ── */
       const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' } });
       heroTl
         .from('[data-hero-title] > *', {
-          y: 60,
+          y: 80,
           opacity: 0,
-          rotateX: 15,
-          stagger: 0.12,
-          duration: 1,
-          delay: 0.2,
+          rotateX: 20,
+          transformPerspective: 600,
+          stagger: 0.15,
+          duration: 1.2,
+          delay: 0.15,
         })
-        .from('[data-hero-sub]', { y: 30, opacity: 0, duration: 0.7 }, '-=0.5')
+        .from('[data-hero-sub]', { y: 40, opacity: 0, duration: 0.8, filter: 'blur(4px)' }, '-=0.6')
         .from('[data-hero-cta] > *', {
-          y: 20,
+          y: 30,
           opacity: 0,
-          scale: 0.9,
-          stagger: 0.1,
-          duration: 0.5,
-        }, '-=0.3')
-        .from('[data-hero-badge]', { scale: 0, opacity: 0, duration: 0.4, ease: 'back.out(2)' }, '-=0.1');
+          scale: 0.8,
+          stagger: 0.12,
+          duration: 0.8,
+          ease: 'elastic.out(1, 0.5)',
+        }, '-=0.4')
+        .from('[data-hero-badge]', { scale: 0, opacity: 0, duration: 0.5, ease: 'back.out(3)' }, '-=0.2');
 
-      /* ── Hero orb: slow breathing pulse ── */
+      /* ── Hero orb: living breathing pulse with drift ── */
       gsap.to('[data-hero-orb]', {
-        scale: 1.15,
-        opacity: 0.7,
-        duration: 4,
+        scale: 1.2,
+        opacity: 0.8,
+        rotation: 15,
+        duration: 5,
         repeat: -1,
         yoyo: true,
         ease: 'sine.inOut',
       });
 
-      /* ── Category cards: storybook pages turning ── */
+      /* ── Category cards: flip in like playing cards dealt onto a table ── */
       gsap.from('[data-cat-card]', {
         scrollTrigger: {
           trigger: '[data-section-categories]',
           start: 'top 80%',
           toggleActions: 'play none none none',
         },
-        y: 80,
+        y: 100,
         opacity: 0,
-        scale: 0.88,
-        rotateY: 12,
-        stagger: 0.12,
-        duration: 0.8,
-        ease: 'power3.out',
+        scale: 0.8,
+        rotateY: 25,
+        rotateX: 8,
+        transformPerspective: 800,
+        stagger: 0.15,
+        duration: 0.9,
+        ease: 'back.out(1.4)',
       });
 
-      /* ── Category card images: subtle parallax drift ── */
+      /* ── Category card images: deep parallax drift ── */
       document.querySelectorAll<HTMLElement>('[data-cat-card]').forEach((card) => {
         const img = card.querySelector<HTMLElement>('[data-cat-img]');
         if (!img) return;
@@ -185,13 +190,13 @@ const Landing = () => {
             end: 'bottom top',
             scrub: 1,
           },
-          y: -30,
-          scale: 1.08,
+          y: -40,
+          scale: 1.12,
           ease: 'none',
         });
       });
 
-      /* ── Freelancers section: characters entering the scene ── */
+      /* ── Freelancers: characters float onto the scene ── */
       const freelancerTl = gsap.timeline({
         scrollTrigger: {
           trigger: '[data-section-freelancers]',
@@ -200,38 +205,44 @@ const Landing = () => {
         },
       });
       freelancerTl
-        .from('[data-section-freelancers] [data-section-label]', { x: -40, opacity: 0, duration: 0.6 })
+        .from('[data-section-freelancers] [data-section-label]', {
+          x: -60, opacity: 0, duration: 0.7, ease: 'power3.out',
+        })
         .from('[data-featured-card]', {
-          y: 40,
+          y: 50,
           opacity: 0,
-          scale: 0.95,
-          duration: 0.7,
-          ease: 'power3.out',
+          scale: 0.9,
+          rotation: -1,
+          duration: 0.9,
+          ease: 'elastic.out(1, 0.6)',
         }, '-=0.3')
         .from('[data-freelancer-strip] > *', {
-          x: 60,
+          x: 100,
           opacity: 0,
-          stagger: 0.08,
-          duration: 0.5,
-          ease: 'power2.out',
-        }, '-=0.3');
+          rotation: 3,
+          stagger: 0.1,
+          duration: 0.6,
+          ease: 'power3.out',
+        }, '-=0.4');
 
-      /* ── Why VANO: features unfold like chapters ── */
+      /* ── Why VANO: chapters unfold with 3D tilt ── */
       gsap.from('[data-why-card]', {
         scrollTrigger: {
           trigger: '[data-section-why]',
           start: 'top 75%',
           toggleActions: 'play none none none',
         },
-        y: 60,
+        y: 80,
         opacity: 0,
-        scale: 0.92,
-        stagger: 0.1,
-        duration: 0.7,
-        ease: 'power3.out',
+        scale: 0.85,
+        rotateX: 15,
+        transformPerspective: 800,
+        stagger: 0.12,
+        duration: 0.8,
+        ease: 'back.out(1.5)',
       });
 
-      /* ── Why VANO: icon glow on reveal ── */
+      /* ── Why icons: dramatic half-spin entrance ── */
       document.querySelectorAll<HTMLElement>('[data-why-icon]').forEach((icon) => {
         gsap.from(icon, {
           scrollTrigger: {
@@ -240,62 +251,79 @@ const Landing = () => {
             toggleActions: 'play none none none',
           },
           scale: 0,
-          rotation: -90,
-          duration: 0.6,
-          ease: 'back.out(2)',
+          rotation: -180,
+          duration: 0.7,
+          ease: 'back.out(3)',
         });
       });
 
-      /* ── FAQ: accordion slides up like a scroll unfurling ── */
+      /* ── FAQ: scroll unfurls with depth ── */
       gsap.from('[data-section-faq] [data-faq-body]', {
         scrollTrigger: {
           trigger: '[data-section-faq]',
           start: 'top 80%',
           toggleActions: 'play none none none',
         },
-        y: 50,
+        y: 60,
         opacity: 0,
-        duration: 0.8,
+        scale: 0.95,
+        rotateX: 5,
+        transformPerspective: 800,
+        duration: 0.9,
         ease: 'power3.out',
       });
 
-      /* ── CTA: grand finale — scales in with dramatic presence ── */
-      gsap.from('[data-section-cta] [data-cta-box]', {
+      /* ── CTA: grand finale — dramatic entrance with staggered content ── */
+      const ctaTl = gsap.timeline({
         scrollTrigger: {
           trigger: '[data-section-cta]',
           start: 'top 80%',
           toggleActions: 'play none none none',
         },
-        y: 80,
-        opacity: 0,
-        scale: 0.85,
-        duration: 1,
-        ease: 'power4.out',
       });
+      ctaTl
+        .from('[data-cta-box]', {
+          y: 100,
+          opacity: 0,
+          scale: 0.75,
+          rotation: -2,
+          duration: 1.1,
+          ease: 'power4.out',
+        })
+        .from('[data-cta-box] > *', {
+          y: 30,
+          opacity: 0,
+          stagger: 0.08,
+          duration: 0.5,
+          ease: 'power3.out',
+        }, '-=0.4');
 
-      /* ── CTA orbs: floating magic particles ── */
+      /* ── CTA orbs: floating magic with opacity pulse ── */
       gsap.utils.toArray<HTMLElement>('[data-cta-orb]').forEach((orb, i) => {
         gsap.to(orb, {
-          y: i % 2 === 0 ? -20 : 20,
-          x: i % 2 === 0 ? 15 : -10,
-          scale: 1.2,
-          duration: 3 + i,
+          y: i % 2 === 0 ? -30 : 30,
+          x: i % 2 === 0 ? 20 : -15,
+          scale: 1.3,
+          opacity: 0.6,
+          duration: 3.5 + i * 1.5,
           repeat: -1,
           yoyo: true,
           ease: 'sine.inOut',
         });
       });
 
-      /* ── Footer: gentle fade-in ── */
-      gsap.from('[data-section-footer]', {
+      /* ── Footer: children stagger in individually ── */
+      gsap.from('[data-section-footer] > div > *', {
         scrollTrigger: {
           trigger: '[data-section-footer]',
           start: 'top 90%',
           toggleActions: 'play none none none',
         },
-        y: 30,
+        y: 40,
         opacity: 0,
-        duration: 0.8,
+        stagger: 0.08,
+        duration: 0.6,
+        ease: 'power3.out',
       });
     }, mainRef);
 

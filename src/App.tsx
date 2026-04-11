@@ -33,11 +33,19 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
 import { WhatsAppFloatingButton } from "./components/WhatsAppFloatingButton";
+import type { TransitionVariant } from "./components/PageTransition";
 
-const P = ({ children }: { children: React.ReactNode }) => <PageTransition>{children}</PageTransition>;
+function getVariant(path: string): TransitionVariant {
+  if (path === '/' || path === '/hire') return 'portal';
+  if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages'].includes(path)) return 'rise';
+  if (path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
+  return 'default';
+}
 
 const App = () => {
   const location = useLocation();
+  const variant = getVariant(location.pathname);
+  const P = ({ children }: { children: React.ReactNode }) => <PageTransition variant={variant}>{children}</PageTransition>;
 
   return (
     <TooltipProvider>
@@ -45,7 +53,7 @@ const App = () => {
       <RedirectToAccountTypeIfNeeded />
       <Toaster />
       <Sonner />
-      <div className="md:pt-14 lg:pt-16">
+      <div className="md:pt-14 lg:pt-16" style={{ perspective: '1200px' }}>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<P><Landing /></P>} />
