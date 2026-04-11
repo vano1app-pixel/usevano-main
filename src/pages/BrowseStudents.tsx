@@ -142,13 +142,14 @@ const BrowseStudents = () => {
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {students.slice(0, 3).map((s) => {
+                {students.slice(0, 3).map((s, idx) => {
                   const name = getDisplayName(s.user_id);
                   return (
                     <div
                       key={s.user_id}
                       onClick={() => navigate(`/students/${primaryCategoryForStudent(s, name)}`)}
-                      className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-foreground/10 bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+                      className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-foreground/10 bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md animate-fade-in opacity-0"
+                      style={{ animationDelay: `${idx * 100}ms` }}
                     >
                       {getAvatarUrl(s.user_id) ? (
                         <img src={getAvatarUrl(s.user_id)} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />

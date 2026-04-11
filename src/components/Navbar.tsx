@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,18 @@ export const Navbar: React.FC = () => {
   const isMobile = useIsMobile();
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const showAdminLink = isAdminOwnerEmail(user?.email);
+  const [scrolled, setScrolled] = useState(false);
+
+  /* ── Glass effect on scroll ── */
+  const handleScroll = useCallback(() => {
+    setScrolled(window.scrollY > 50);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Check initial state
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   const isActiveRoute = (href: string) => {
     if (href === '/') return location.pathname === '/';
@@ -96,11 +108,12 @@ export const Navbar: React.FC = () => {
 
   const talentRouteMobile =
     isMobile &&
-    (location.pathname === '/students' || location.pathname.startsWith('/students/'));
-  /** Opaque bar on Talent so dark page bg doesn’t read as an empty “black box” through glass blur. */
+    (location.pathname === "/students" || location.pathname.startsWith("/students/"));
   const navSurfaceClass = talentRouteMobile
-    ? 'bg-background/95 border-border/50 shadow-tinted'
-    : 'bg-background/65 backdrop-blur-2xl backdrop-saturate-[1.15] border-border/40 shadow-tinted-lg';
+    ? "bg-background/95 border-border/50 shadow-tinted"
+    : scrolled
+      ? "bg-background/70 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg"
+      : "bg-transparent border-transparent shadow-none backdrop-blur-none";
 
   return (
     <>
