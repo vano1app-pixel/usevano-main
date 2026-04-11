@@ -15,7 +15,7 @@ export function WhatsAppFloatingButton() {
         .select('user_type')
         .eq('user_id', userId)
         .maybeSingle();
-      if (!cancelled) setVisible(data?.user_type === 'business');
+      if (!cancelled) setVisible(!!data?.user_type);
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
