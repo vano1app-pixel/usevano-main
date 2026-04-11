@@ -12,7 +12,6 @@ import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
 import Landing from "./pages/Landing";
-import BrowseJobs from "./pages/BrowseJobs";
 import JobDetail from "./pages/JobDetail";
 import PostJob from "./pages/PostJob";
 import HirePage from "./pages/HirePage";
@@ -27,7 +26,6 @@ import Community from "./pages/Community";
 import Portfolio from "./pages/Portfolio";
 
 import CompleteProfile from "./pages/CompleteProfile";
-import CompleteProfileStep2 from "./pages/CompleteProfileStep2";
 import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BusinessDashboard from "./pages/BusinessDashboard";
@@ -48,7 +46,6 @@ const App = () => (
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/hire" element={<HirePage />} />
-      <Route path="/jobs" element={<Navigate to="/hire" replace />} />
       <Route path="/jobs/:id" element={<JobDetail />} />
       <Route
         path="/post-job"
@@ -103,14 +100,6 @@ const App = () => (
         element={
           <RequireVerifiedSession>
             <CompleteProfile />
-          </RequireVerifiedSession>
-        }
-      />
-      <Route
-        path="/complete-profile-step2"
-        element={
-          <RequireVerifiedSession>
-            <CompleteProfileStep2 />
           </RequireVerifiedSession>
         }
       />

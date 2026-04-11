@@ -798,7 +798,7 @@ const Landing = () => {
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Platform</h4>
                 <div className="flex flex-col gap-2.5 text-sm">
                   <button onClick={() => navigate('/students')} className="text-left text-foreground/70 hover:text-primary transition-colors">Find talent</button>
-                  <button onClick={() => navigate('/jobs')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse hiring</button>
+                  <button onClick={() => navigate('/hire')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse hiring</button>
                 </div>
               </div>
               <div>

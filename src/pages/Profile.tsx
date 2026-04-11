@@ -857,7 +857,7 @@ const Profile = () => {
                     </p>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                       <Button size="sm" className="rounded-xl text-xs font-semibold" asChild>
-                        <a href="/post-job">Post a gig</a>
+                        <a href="/hire">Post a gig</a>
                       </Button>
                       <Button size="sm" variant="outline" className="rounded-xl text-xs font-semibold" asChild>
                         <a href="/students">Browse talent</a>
@@ -913,7 +913,7 @@ const Profile = () => {
                       <p className="mt-0.5 text-xs text-muted-foreground">Post a gig to find freelancers fast</p>
                     </div>
                     <Button size="sm" className="mt-1 rounded-xl text-xs font-semibold" asChild>
-                      <a href="/post-job"><Plus size={14} className="mr-1" />Post your first gig</a>
+                      <a href="/hire"><Plus size={14} className="mr-1" />Post your first gig</a>
                     </Button>
                   </div>
                 ) : (
