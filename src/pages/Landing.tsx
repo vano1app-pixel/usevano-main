@@ -840,7 +840,7 @@ const Landing = () => {
                 Terms
               </button>
               <span aria-hidden className="hidden sm:inline">·</span>
-              <button type="button" onClick={() => navigate('/whats-new')} className="hover:text-primary transition-colors">
+              <button type="button" onClick={() => navigate('/blog/vano-v1')} className="hover:text-primary transition-colors">
                 Release notes
               </button>
               <span aria-hidden className="hidden sm:inline">·</span>

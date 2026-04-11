@@ -584,7 +584,7 @@ const Admin = () => {
                     {adminUserIds.has(u.user_id) ? <ShieldOff size={16} /> : <ShieldCheck size={16} />}
                   </button>
                   <button
-                    onClick={() => navigate(u.user_type === 'student' ? `/students/${u.user_id}` : `/portfolio/${u.user_id}`)}
+                    onClick={() => navigate(`/students/${u.user_id}`)}
                     className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                     title="View profile"
                   >

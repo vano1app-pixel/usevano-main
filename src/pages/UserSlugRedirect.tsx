@@ -39,10 +39,10 @@ const UserSlugRedirect = () => {
         <div className="text-center">
           <p className="text-lg font-semibold">Profile not found</p>
           <button
-            onClick={() => navigate('/community')}
+            onClick={() => navigate('/students')}
             className="mt-3 text-sm text-primary hover:underline"
           >
-            Browse the community
+            Browse freelancers
           </button>
         </div>
       </div>

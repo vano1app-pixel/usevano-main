@@ -188,7 +188,7 @@ const StudentProfile = () => {
       {!isBusiness && (
         <button
           type="button"
-          onClick={() => navigate(`/portfolio/${id}`)}
+          onClick={() => setActiveTab('portfolio')}
           className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
         >
           Full portfolio
@@ -379,7 +379,7 @@ const StudentProfile = () => {
                   <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">Portfolio</h2>
                   <button
                     type="button"
-                    onClick={() => navigate(`/portfolio/${id}`)}
+                    onClick={() => setActiveTab('portfolio')}
                     className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     View all <ArrowRight size={12} />
@@ -565,10 +565,10 @@ const StudentProfile = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => navigate(`/portfolio/${id}`)}
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                         className="mt-4 w-full rounded-xl border border-border py-2.5 text-sm font-semibold transition-colors hover:bg-secondary/50"
                       >
-                        Full portfolio
+                        Back to top
                       </button>
                     </>
                   ) : (

@@ -21,15 +21,12 @@ import Messages from "./pages/Messages";
 import StudentProfilePage from "./pages/StudentProfile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import Community from "./pages/Community";
-import Portfolio from "./pages/Portfolio";
 
 import CompleteProfile from "./pages/CompleteProfile";
 import ChooseAccountType from "./pages/ChooseAccountType";
 import Admin from "./pages/Admin";
 import BusinessDashboard from "./pages/BusinessDashboard";
 import BlogPost from "./pages/BlogPost";
-import WhatsNew from "./pages/WhatsNew";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
@@ -94,7 +91,6 @@ const App = () => (
           </RequireVerifiedSession>
         }
       />
-      <Route path="/community" element={<Community />} />
       <Route
         path="/admin"
         element={
@@ -103,10 +99,8 @@ const App = () => (
           </RequireVerifiedSession>
         }
       />
-      <Route path="/portfolio/:userId" element={<Portfolio />} />
       <Route path="/u/:slug" element={<UserSlugRedirect />} />
       <Route path="/blog/vano-v1" element={<BlogPost />} />
-      <Route path="/whats-new" element={<WhatsNew />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
