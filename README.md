@@ -1,125 +1,179 @@
 # VANO
 
-**VANO** is a two-sided marketplace connecting **students and freelancers** with **local Galway businesses**—post shifts, browse talent, and hire for real projects without the noise of generic job boards.
+**VANO** is a two-sided marketplace connecting **Galway businesses** with **local freelancers** — browse talent, hire for projects, and message in-app. Simple, fast, local.
 
-## What it does
+**Live:** [vanojobs.com](https://vanojobs.com)
 
-- **Businesses** post gigs (fixed-price work, clear deliverables) and hire freelancers.
-- **Students / freelancers** build profiles, apply to jobs, message clients, and get listed on the Community board after review.
-- **Local focus** — Galway and nearby; simple, fast flows for small businesses and college talent.
+---
 
-Built with **Vite**, **React**, **TypeScript**, **Tailwind CSS**, **shadcn/ui**, and **Supabase** (auth, Postgres, storage, Edge Functions).
+## How it works
+
+### For businesses
+1. Describe what you need on the **Hire** page
+2. VANO matches you with the right freelancer — or browse talent yourself
+3. Message, agree scope, and get started
+
+### For freelancers
+1. Sign up and build your profile (bio, skills, portfolio, rates)
+2. Get found by businesses browsing the **Talent Board**
+3. Message clients and get hired
+
+---
+
+## Tech stack
+
+| Layer | Tech |
+|-------|------|
+| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Animation | GSAP (scroll-driven), Framer Motion (micro-interactions) |
+| Backend | Supabase (Auth, PostgreSQL, Storage, Edge Functions) |
+| PWA | vite-plugin-pwa with custom service worker |
+| Hosting | Vercel (static SPA) |
+| Maps | Google Places API (optional) |
+
+---
+
+## Project structure
+
+```
+src/
+├── pages/                  # Route-level page components
+│   ├── Landing.tsx          # Homepage — hero, categories, freelancers, FAQ
+│   ├── HirePage.tsx         # Business hiring flow (match or DIY)
+│   ├── BrowseStudents.tsx   # Talent hub — 4 category cards
+│   ├── StudentsByCategory.tsx # Filtered freelancer list by category
+│   ├── StudentProfile.tsx   # Individual freelancer profile (public)
+│   ├── JobDetail.tsx        # Job/gig detail + apply
+│   ├── Profile.tsx          # Freelancer/business profile editor
+│   ├── BusinessDashboard.tsx # Business dashboard (jobs, apps, analytics)
+│   ├── Messages.tsx         # In-app messaging
+│   ├── Auth.tsx             # Sign in / sign up
+│   ├── ChooseAccountType.tsx # Onboarding: freelancer or business
+│   ├── CompleteProfile.tsx  # Onboarding: complete profile
+│   ├── BlogPost.tsx         # Release notes / blog
+│   ├── Admin.tsx            # Admin moderation panel
+│   ├── Privacy.tsx          # Privacy policy
+│   ├── Terms.tsx            # Terms of service
+│   ├── NotFound.tsx         # 404 page
+│   └── UserSlugRedirect.tsx # SEO-friendly /u/:slug redirects
+│
+├── components/             # Reusable UI components
+│   ├── ui/                  # shadcn/ui primitives (button, card, etc.)
+│   ├── Navbar.tsx           # Desktop navigation bar
+│   ├── MobileBottomNav.tsx  # Mobile bottom tab bar
+│   ├── FreelancerPublicHeader.tsx # Freelancer profile hero banner
+│   ├── StudentCard.tsx      # Freelancer card (used in browse/search)
+│   ├── JobCard.tsx          # Job listing card
+│   ├── ReviewForm.tsx       # Submit a review
+│   ├── ReviewList.tsx       # Display reviews
+│   ├── PortfolioManager.tsx # Upload/manage portfolio items
+│   ├── AuthSheet.tsx        # Mobile auth bottom sheet
+│   ├── WhatsAppFloatingButton.tsx # WhatsApp contact button
+│   └── ...                  # Other shared components
+│
+├── hooks/                  # Custom React hooks
+│   ├── useAuthSession.ts    # Auth state management
+│   ├── useProfileCompletion.ts # Redirect if profile incomplete
+│   ├── useIsAdmin.ts        # Admin role check
+│   └── ...                  # Other hooks
+│
+├── lib/                    # Utilities and configuration
+│   ├── gsapSetup.ts         # GSAP plugin registration
+│   ├── contact.ts           # WhatsApp/email contact config
+│   ├── slugify.ts           # URL slug generation
+│   ├── freelancerProfile.ts # Freelancer data formatting
+│   ├── socialLinks.ts       # Work links parsing
+│   └── ...                  # Other utilities
+│
+├── integrations/
+│   └── supabase/            # Supabase client setup
+│
+├── App.tsx                 # Route definitions
+├── main.tsx                # Entry point
+└── sw.ts                   # Service worker (PWA)
+```
+
+---
 
 ## Quick start
 
 ```sh
-npm i
+# Install dependencies
+npm install
+
+# Start dev server
 npm run dev
+
+# Build for production
+npm run build
 ```
-
-- **Build:** `npm run build` (or `npm run vercel-build` on Vercel as a fallback)
-- **Preview production build:** `npm run preview`
-
-## Project info
-
-**URL**: https://lovable.dev/projects/f1ba0c74-af75-4389-a8ae-60baf80911b5
-
-## Editing the codebase
-
-**Lovable:** open the [Lovable project](https://lovable.dev/projects/f1ba0c74-af75-4389-a8ae-60baf80911b5) and prompt for changes.
-
-**Locally:** clone the repo, install Node.js, then `npm i` and `npm run dev`. You can also edit on GitHub or in GitHub Codespaces.
-
-## Technologies
-
-- Vite, TypeScript, React
-- shadcn-ui, Tailwind CSS
-- Supabase (Auth, database, Storage, Edge Functions)
-- vite-plugin-pwa with `injectManifest` — custom service worker at `src/sw.ts` (required for the build)
-
-## Configuration
-
-### Google Maps (optional)
-
-Places autocomplete uses `VITE_GOOGLE_MAPS_API_KEY` in `.env` / Vercel. Restrict the key to your domains and the Places API in Google Cloud Console.
-
-## Deploy on Vercel + Supabase
-
-This app is a **Vite SPA**. The database, auth, storage, and **Edge Functions** live in **Supabase** — not on Vercel. Vercel hosts the static frontend.
-
-### 1. Environment variables (Vercel)
-
-In [Vercel](https://vercel.com) → your project → **Settings** → **Environment Variables**, add for **Production** (and Preview if you use it):
-
-| Name | Value |
-|------|--------|
-| `VITE_SUPABASE_URL` | Supabase → **Project Settings** → **API** → **Project URL** (no trailing slash) |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Same page → **Publishable key** (or **anon** key — same JWT) |
-
-Optional: `VITE_SUPABASE_ANON_KEY` — only if you prefer that name (same value as publishable).  
-Optional: `VITE_GOOGLE_MAPS_API_KEY`, `VITE_TEAM_CONTACT_EMAIL`.
-
-**Important:** `VITE_*` variables are baked in at **build time**. After changing them in Vercel, trigger a **new deployment** (Redeploy).
 
 Copy `.env.example` to `.env.local` for local development.
 
-### 2. Supabase Auth (production: vanojobs.com)
+---
 
-**URL configuration** — Supabase → **Authentication** → **URL configuration**:
+## Environment variables
 
-- **Site URL:** `https://vanojobs.com` (use your Vercel URL while testing, e.g. `https://your-app.vercel.app`)
-- **Redirect URLs:** include at least (use the apex host; Vercel redirects `www.vanojobs.com` → `https://vanojobs.com`):  
-  `https://vanojobs.com`  
-  `https://vanojobs.com/**`  
-  `https://*.vercel.app/**` (optional, preview deployments)  
-  `http://localhost:8080/**` (local dev)
+Set in Vercel (Settings > Environment Variables) or `.env.local` locally:
 
-**Email sign-up (6-digit OTP)** — configure all of the following or confirmation mail may not send or may lack a code:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase anon/publishable key |
+| `VITE_GOOGLE_MAPS_API_KEY` | No | Google Places autocomplete |
+| `VITE_TEAM_CONTACT_EMAIL` | No | Team contact WhatsApp number |
 
-1. **Providers → Email**
-   - Turn **Confirm email** / **Enable email confirmations** on.
-   - Enable **Email OTP** (wording varies by Supabase version) and set **Email OTP expiry** (e.g. 3600 seconds).
+`VITE_*` variables are baked in at build time — redeploy after changing them.
 
-2. **Email Templates → Confirm signup**
-   - For OTP, the template body must include **`{{ .Token }}`** (the 6-digit code). If it only uses **`{{ .ConfirmationURL }}`**, users on an OTP flow get a link-oriented email and may see no usable code.
-   - You can include both token and link if needed.
+---
 
-3. **Client**
-   - `signUp` uses `options.emailRedirectTo: undefined` so confirmation is not forced down a magic-link-only path.
-   - After sign-up, open the browser **console**: logs show `[auth] signUp response` with `data` / `error` (session tokens redacted). Use this to see Supabase errors (e.g. rate limit, validation).
+## Deployment
 
-4. **Rate limits (free tier)**
-   - Auth emails are capped (on the order of **~3 emails per hour** per project on free tier). Hitting the limit looks like “no email” — wait or upgrade; check **Authentication → Logs** in the dashboard.
+### Vercel (frontend)
 
-5. **Custom “Send Email” hook**
-   - If **Authentication → Hooks** sends mail through a custom Edge Function, that hook must return success. A failing hook (wrong payload, missing secrets) means **no email**. For debugging, temporarily disable the hook and use Supabase’s built-in mailer.
+- **Framework:** Vite
+- **Build command:** `npm run build`
+- **Output directory:** `dist`
+- `vercel.json` handles SPA routing (rewrites to `index.html`)
 
-6. **SMTP (optional; use your own mail server for OTP and auth mail)**  
-   In Supabase → **Project Settings** → **Authentication** (or **Auth**), open **SMTP** and enable custom SMTP. For Gmail: **Host** `smtp.gmail.com`, **Port** `587`, enable TLS, **User** your mailbox (e.g. `vano1app@gmail.com`), **Password** a [Google App Password](https://support.google.com/accounts/answer/185833) (requires 2FA on the Google account — not your normal login password). This is configured only in the Supabase dashboard, not in this repo.
+### Supabase (backend)
 
-Password reset still uses a link to `/reset-password`; those hosts must remain in **Redirect URLs**.
-
-### 3. Edge Functions
-
-Features like AI helpers, notifications, and email hooks call **`supabase.functions.invoke`** or `https://<ref>.supabase.co/functions/v1/...`.
-
-Deploy functions in Supabase (not Vercel):
-
-```bash
+```sh
 supabase link --project-ref YOUR_PROJECT_REF
 supabase db push
 supabase functions deploy
 ```
 
-Set secrets in the Supabase dashboard (**Edge Functions** → secrets) where needed.
+Set Edge Function secrets in the Supabase dashboard.
 
-### 4. Vercel project settings
+### Auth setup
 
-- **Framework preset:** Vite (`vercel.json` sets `"framework": "vite"`)
-- **Build command:** `npm run build` (or `vercel-build` as a fallback)
-- **Output directory:** `dist`
-- `vercel.json` SPA-rewrites routes to `index.html` for client-side routing.
+- **Site URL:** `https://vanojobs.com`
+- **Redirect URLs:** `https://vanojobs.com`, `https://vanojobs.com/**`, `http://localhost:8080/**`
+- Enable email OTP confirmation with `{{ .Token }}` in the signup template
+- Google OAuth configured via Supabase Auth providers
 
-## Custom domain (Lovable)
+---
 
-See [Lovable: custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain).
+## Routes
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Landing | Homepage |
+| `/hire` | HirePage | Business hiring flow |
+| `/jobs/:id` | JobDetail | View & apply to a gig |
+| `/students` | BrowseStudents | Talent hub (categories) |
+| `/students/:category` | StudentsByCategory | Freelancers by category |
+| `/students/:id` | StudentProfile | Freelancer profile |
+| `/profile` | Profile | Edit your profile |
+| `/business-dashboard` | BusinessDashboard | Business dashboard |
+| `/messages` | Messages | In-app messaging |
+| `/auth` | Auth | Sign in / sign up |
+| `/blog/vano-v1` | BlogPost | Release notes |
+| `/admin` | Admin | Moderation panel |
+
+---
+
+## License
+
+Private project.

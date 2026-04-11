@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthSession } from '@/hooks/useAuthSession';
 
-const SKIP_PREFIXES = ['/auth', '/choose-account-type', '/reset-password', '/business-dashboard', '/complete-profile', '/complete-profile-step2'];
+const SKIP_PREFIXES = ['/auth', '/choose-account-type', '/reset-password', '/business-dashboard', '/complete-profile'];
 
 /**
  * After OAuth or legacy sign-up, users may have no `profiles.user_type`.

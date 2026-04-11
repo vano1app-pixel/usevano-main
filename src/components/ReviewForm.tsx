@@ -34,8 +34,13 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ jobId, revieweeId, revie
         toast({ title: 'File too large (max 5MB)', variant: 'destructive' });
         continue;
       }
-      const ext = file.name.split('.').pop();
-      const path = `${reviewerId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        toast({ title: 'Invalid file type', description: 'Upload JPEG, PNG, WebP, or GIF.', variant: 'destructive' });
+        continue;
+      }
+      const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${reviewerId}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from('review-photos').upload(path, file);
       if (error) continue;
       const { data: { publicUrl } } = supabase.storage.from('review-photos').getPublicUrl(path);

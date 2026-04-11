@@ -89,12 +89,15 @@ const PRICING_PACKAGES = [
 
 /* ─── Component ─── */
 
+const isMobileHire = typeof window !== 'undefined' && window.innerWidth < 768;
+
 const HirePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState(1);
+  const [stepDirection, setStepDirection] = useState(1); // 1 = forward, -1 = backward
 
   // Brief
   const [description, setDescription] = useState('');
@@ -126,7 +129,10 @@ const HirePage = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const goTo = (s: number) => setStep(s);
+  const goTo = (s: number) => {
+    setStepDirection(s > step ? 1 : -1);
+    setStep(s);
+  };
 
   const handleCategoryPick = (id: string) => {
     const cat = CATEGORIES.find(c => c.id === id);
@@ -613,14 +619,16 @@ const HirePage = () => {
         </div>
 
         {/* Render active step — simple fade transition, no pointer-event issues */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={stepDirection}>
           <motion.div
             key={step}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            custom={stepDirection}
+            initial={{ opacity: 0, x: stepDirection * (isMobileHire ? 40 : 80), scale: isMobileHire ? 0.97 : 0.94, filter: isMobileHire ? 'blur(2px)' : 'blur(5px)' }}
+            animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: stepDirection * (isMobileHire ? -20 : -40), scale: 0.97, filter: isMobileHire ? 'blur(1px)' : 'blur(2px)' }}
+            transition={{ type: 'spring', stiffness: 300, damping: isMobileHire ? 30 : 26 }}
             className="relative z-10"
+            style={{ willChange: 'transform, opacity, filter' }}
           >
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}

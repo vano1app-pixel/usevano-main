@@ -5,8 +5,7 @@ import { isEmailVerified } from '@/lib/authSession';
 
 /**
  * Redirects logged-in users to /complete-profile if they're missing
- * a display_name or avatar_url. For students also checks phone — if
- * phone is missing, redirects to /complete-profile-step2.
+ * a display_name or avatar_url.
  */
 export function useProfileCompletion() {
   const [complete, setComplete] = useState<boolean | null>(null);
@@ -14,7 +13,7 @@ export function useProfileCompletion() {
   const location = useLocation();
 
   useEffect(() => {
-    const skip = ['/complete-profile', '/complete-profile-step2', '/auth', '/reset-password', '/choose-account-type', '/business-dashboard'];
+    const skip = ['/complete-profile', '/auth', '/reset-password', '/choose-account-type', '/business-dashboard'];
     if (skip.includes(location.pathname)) {
       setComplete(true);
       return;

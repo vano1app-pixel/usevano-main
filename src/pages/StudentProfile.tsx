@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { TagBadge } from '@/components/TagBadge';
@@ -30,8 +30,14 @@ const StudentProfile = () => {
   const [currentUserType, setCurrentUserType] = useState<string | null>(null);
   const [communityPost, setCommunityPost] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'reviews'>('about');
+  const tabRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const scrollToTab = useCallback((tab: 'about' | 'portfolio' | 'reviews') => {
+    setActiveTab(tab);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }, []);
   const profileIsAdmin = useIsAdmin(id);
 
   useEffect(() => {
@@ -176,10 +182,19 @@ const StudentProfile = () => {
           <MessageCircle size={18} strokeWidth={2} /> Message
         </button>
       )}
+      {user && currentUserType === 'business' && user.id !== id && !isBusiness && (
+        <button
+          type="button"
+          onClick={() => navigate('/hire')}
+          className="w-full rounded-xl border border-primary bg-primary/5 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/10 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+        >
+          <Briefcase size={18} strokeWidth={2} /> Hire
+        </button>
+      )}
       {!isBusiness && (
         <button
           type="button"
-          onClick={() => navigate(`/portfolio/${id}`)}
+          onClick={() => scrollToTab('portfolio')}
           className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
         >
           Full portfolio
@@ -353,33 +368,87 @@ const StudentProfile = () => {
               </div>
             </div>
 
-            {/* Portfolio image strip — visible without tapping tab */}
+            {/* What I do — surfaced above tabs */}
+            {communityPost?.description && (
+              <div className="rounded-2xl border border-foreground/6 bg-card p-5 sm:p-6 shadow-tinted">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Briefcase size={14} className="text-primary/70" />What I do
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{communityPost.description}</p>
+              </div>
+            )}
+
+            {/* Portfolio grid — visible without tapping tab */}
             {portfolioItems.some((i) => i.image_url) && (
-              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {portfolioItems.filter((i) => i.image_url).slice(0, 8).map((item, idx) => (
+              <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
+                <div className="flex items-center justify-between px-5 pt-5 sm:px-6 sm:pt-6">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">Portfolio</h2>
                   <button
-                    key={item.id}
                     type="button"
-                    onClick={() => { setLightboxIndex(idx); setActiveTab('portfolio'); }}
-                    title={item.title}
-                    className="relative h-32 w-32 shrink-0 rounded-xl overflow-hidden bg-muted transition-opacity hover:opacity-90 active:scale-[0.97] sm:h-36 sm:w-36"
+                    onClick={() => scrollToTab('portfolio')}
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+                    View all <ArrowRight size={12} />
                   </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => navigate(`/portfolio/${id}`)}
-                  className="flex h-32 w-32 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50 sm:h-36 sm:w-36"
-                >
-                  <ArrowRight size={16} />
-                  <span className="text-[10px] font-medium">All work</span>
-                </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 p-4 sm:p-5">
+                  {portfolioItems.filter((i) => i.image_url).slice(0, 6).map((item, idx) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setLightboxIndex(idx)}
+                      className="group relative overflow-hidden rounded-xl bg-muted aspect-square transition-all hover:shadow-md active:scale-[0.98]"
+                    >
+                      <img src={item.image_url} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                      <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/30 flex items-end">
+                        <div className="translate-y-full group-hover:translate-y-0 transition-transform duration-200 w-full p-2.5 bg-gradient-to-t from-black/70 to-transparent">
+                          <p className="text-xs font-semibold text-white truncate">{item.title}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Review snippets — visible without tapping tab */}
+            {reviews.length > 0 && (
+              <div className="rounded-2xl border border-foreground/6 bg-card p-5 sm:p-6 shadow-tinted">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <Star size={14} className="fill-amber-400 text-amber-400" />
+                    {avgRating} · {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => scrollToTab('reviews')}
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    See all <ArrowRight size={12} />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {reviews.slice(0, 2).map((review) => (
+                    <div key={review.id} className="rounded-xl bg-secondary/50 p-4">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star key={star} size={11} className={review.rating >= star ? 'fill-primary text-primary' : 'text-muted-foreground/30'} />
+                          ))}
+                        </div>
+                        <span className="text-xs font-medium text-foreground">{review.reviewerName || 'Anonymous'}</span>
+                      </div>
+                      {review.comment && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{review.comment}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {/* Tab switcher */}
-            <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
+            <div ref={tabRef} className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
               <div className="p-1.5 border-b border-border/60">
                 <div className="flex gap-1">
                   {(['about', 'portfolio', 'reviews'] as const).map((tab) => (
@@ -388,7 +457,7 @@ const StudentProfile = () => {
                       type="button"
                       onClick={() => setActiveTab(tab)}
                       className={cn(
-                        'flex-1 rounded-xl py-2 text-sm font-semibold transition-all',
+                        'flex-1 rounded-xl py-2 text-xs sm:text-sm font-semibold transition-all',
                         activeTab === tab
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -403,12 +472,6 @@ const StudentProfile = () => {
               {/* About tab */}
               {activeTab === 'about' && (
                 <div className="p-5 sm:p-6 space-y-5">
-                  {communityPost?.description && (
-                    <div>
-                      <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><Briefcase size={14} className="text-primary/70" />What I do</h2>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{communityPost.description}</p>
-                    </div>
-                  )}
                   {bioText && (
                     <div>
                       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><BookOpen size={14} className="text-primary/70" />About</h2>
@@ -470,7 +533,7 @@ const StudentProfile = () => {
                       </div>
                     </div>
                   )}
-                  {!communityPost?.description && !bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
+                  {!bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">Nothing added yet — check back soon.</p>
                   )}
                 </div>
@@ -508,10 +571,10 @@ const StudentProfile = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => navigate(`/portfolio/${id}`)}
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                         className="mt-4 w-full rounded-xl border border-border py-2.5 text-sm font-semibold transition-colors hover:bg-secondary/50"
                       >
-                        Full portfolio
+                        Back to top
                       </button>
                     </>
                   ) : (
@@ -585,7 +648,7 @@ const StudentProfile = () => {
                   <button
                     type="button"
                     onClick={() => setLightboxIndex(null)}
-                    className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                    className="absolute right-3 top-3 sm:right-4 sm:top-4 flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                   >
                     <X size={18} />
                   </button>

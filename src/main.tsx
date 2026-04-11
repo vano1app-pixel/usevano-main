@@ -6,6 +6,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import "./index.css";
+import "./lib/gsapSetup";
 
 window.googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 

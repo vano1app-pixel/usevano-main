@@ -6,7 +6,7 @@ import {
   Users,
   CheckCircle2,
   Star,
-  Plus,
+
   Search,
   ArrowRight,
   MessagesSquare,
@@ -413,13 +413,6 @@ export default function BusinessDashboard() {
               </div>
               <motion.div variants={fadeUp} className="flex gap-2">
                 <Button
-                  className="rounded-xl transition-all duration-200 active:scale-[0.97]"
-                  onClick={() => navigate('/post-job')}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Post a Job
-                </Button>
-                <Button
                   variant="outline"
                   className="rounded-xl transition-all duration-200 active:scale-[0.97]"
                   onClick={() => navigate('/students')}
@@ -524,7 +517,7 @@ export default function BusinessDashboard() {
                   <CardContent>
                     {jobChartData.length === 0 ? (
                       <div className="flex h-52 items-center justify-center text-sm text-muted-foreground">
-                        Post your first job to see activity here
+                        Hire your first freelancer to see activity here
                       </div>
                     ) : (
                       <div className="h-52">
@@ -563,8 +556,8 @@ export default function BusinessDashboard() {
                         No applications yet
                       </div>
                     ) : (
-                      <div className="flex h-52 items-center justify-center gap-8">
-                        <div className="h-44 w-44">
+                      <div className="flex flex-col sm:flex-row h-auto sm:h-52 items-center justify-center gap-4 sm:gap-8">
+                        <div className="h-36 w-36 sm:h-44 sm:w-44">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
@@ -649,16 +642,12 @@ export default function BusinessDashboard() {
                       <Briefcase className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
                       <p className="text-sm font-medium text-muted-foreground">No active jobs</p>
                       <p className="mt-1 text-xs text-muted-foreground/70">
-                        Post a job to start receiving applications from freelancers.
+                        Visit the{' '}
+                        <Link to="/hire" className="underline text-muted-foreground hover:text-foreground transition-colors">
+                          Hire page
+                        </Link>
+                        {' '}to find a freelancer and get started.
                       </p>
-                      <Button
-                        className="mt-4 rounded-xl"
-                        size="sm"
-                        onClick={() => navigate('/post-job')}
-                      >
-                        <Plus className="mr-1.5 h-3.5 w-3.5" />
-                        Post a Job
-                      </Button>
                     </div>
                   ) : (
                     <Table>

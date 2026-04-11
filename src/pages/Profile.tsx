@@ -186,9 +186,18 @@ const Profile = () => {
   const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Invalid file type', description: 'Upload JPEG, PNG, WebP, or GIF.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 5MB.', variant: 'destructive' });
+      return;
+    }
     setBannerUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
+      const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
       const path = `${user.id}/banner.${ext}`;
       const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
       if (upErr) throw upErr;
@@ -416,8 +425,16 @@ const Profile = () => {
           <p className="text-sm text-muted-foreground sm:text-base">
             {profile?.user_type === 'student'
               ? 'Manage your listing and see what businesses see.'
-              : 'Your account — a short intro is enough; set location when you post a gig'}
+              : 'Your account — a short intro is enough; set location when you hire'}
           </p>
+          {profile?.user_type === 'student' && user && (
+            <a
+              href={`/students/${user.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
+            >
+              <ExternalLink size={14} /> View public profile
+            </a>
+          )}
         </div>
 
         {profile?.user_type === 'student' && user && (
@@ -857,7 +874,7 @@ const Profile = () => {
                     </p>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                       <Button size="sm" className="rounded-xl text-xs font-semibold" asChild>
-                        <a href="/post-job">Post a gig</a>
+                        <a href="/hire">Post a gig</a>
                       </Button>
                       <Button size="sm" variant="outline" className="rounded-xl text-xs font-semibold" asChild>
                         <a href="/students">Browse talent</a>
@@ -913,7 +930,7 @@ const Profile = () => {
                       <p className="mt-0.5 text-xs text-muted-foreground">Post a gig to find freelancers fast</p>
                     </div>
                     <Button size="sm" className="mt-1 rounded-xl text-xs font-semibold" asChild>
-                      <a href="/post-job"><Plus size={14} className="mr-1" />Post your first gig</a>
+                      <a href="/hire"><Plus size={14} className="mr-1" />Post your first gig</a>
                     </Button>
                   </div>
                 ) : (

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
@@ -18,34 +18,13 @@ import {
   Video,
   Camera,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
-import { BlurredTalentMarquee } from '@/components/BlurredTalentMarquee';
+import { gsap, ScrollTrigger } from '@/lib/gsapSetup';
 
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.96 },
-  visible: { opacity: 1, scale: 1 },
-};
-
-const cardHover = {
-  rest: { scale: 1, y: 0 },
-  hover: { scale: 1.02, y: -4, transition: { type: 'spring', stiffness: 300, damping: 20 } },
-};
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -140,8 +119,221 @@ const Landing = () => {
     };
   }, [navigate]);
 
+  /* ─── GSAP cinematic scroll animations ─── */
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+
+    const isMobile = window.innerWidth < 768;
+
+    const ctx = gsap.context(() => {
+      /* ── Hero: storybook opens — words cascade with 3D depth ── */
+      const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' } });
+      heroTl
+        .from('[data-hero-title] > *', {
+          y: isMobile ? 40 : 80,
+          opacity: 0,
+          rotateX: isMobile ? 6 : 20,
+          transformPerspective: isMobile ? 0 : 600,
+          stagger: isMobile ? 0.1 : 0.15,
+          duration: isMobile ? 0.8 : 1.2,
+          delay: 0.15,
+        })
+        .from('[data-hero-sub]', { y: 40, opacity: 0, duration: 0.8, filter: 'blur(4px)' }, '-=0.6')
+        .from('[data-hero-cta] > *', {
+          y: 30,
+          opacity: 0,
+          scale: 0.8,
+          stagger: 0.12,
+          duration: 0.8,
+          ease: 'elastic.out(1, 0.5)',
+        }, '-=0.4')
+        .from('[data-hero-badge]', { scale: 0, opacity: 0, duration: 0.5, ease: 'back.out(3)' }, '-=0.2');
+
+      /* ── Hero orb: living breathing pulse with drift ── */
+      gsap.to('[data-hero-orb]', {
+        scale: 1.2,
+        opacity: 0.8,
+        rotation: 15,
+        duration: 5,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
+
+      /* ── Category cards: flip in like playing cards dealt onto a table ── */
+      gsap.from('[data-cat-card]', {
+        scrollTrigger: {
+          trigger: '[data-section-categories]',
+          start: 'top 80%',
+          toggleActions: 'play none none none',
+        },
+        y: isMobile ? 50 : 100,
+        opacity: 0,
+        scale: isMobile ? 0.9 : 0.8,
+        rotateY: isMobile ? 8 : 25,
+        rotateX: isMobile ? 0 : 8,
+        transformPerspective: isMobile ? 0 : 800,
+        stagger: isMobile ? 0.1 : 0.15,
+        duration: isMobile ? 0.6 : 0.9,
+        ease: 'back.out(1.4)',
+      });
+
+      /* ── Category card images: deep parallax drift ── */
+      document.querySelectorAll<HTMLElement>('[data-cat-card]').forEach((card) => {
+        const img = card.querySelector<HTMLElement>('[data-cat-img]');
+        if (!img) return;
+        gsap.to(img, {
+          scrollTrigger: {
+            trigger: card,
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: 1,
+          },
+          y: -40,
+          scale: 1.12,
+          ease: 'none',
+        });
+      });
+
+      /* ── Freelancers: characters float onto the scene ── */
+      const freelancerTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: '[data-section-freelancers]',
+          start: 'top 75%',
+          toggleActions: 'play none none none',
+        },
+      });
+      freelancerTl
+        .from('[data-section-freelancers] [data-section-label]', {
+          x: -60, opacity: 0, duration: 0.7, ease: 'power3.out',
+        })
+        .from('[data-featured-card]', {
+          y: 50,
+          opacity: 0,
+          scale: 0.9,
+          rotation: -1,
+          duration: 0.9,
+          ease: 'elastic.out(1, 0.6)',
+        }, '-=0.3')
+        .from('[data-freelancer-strip] > *', {
+          x: 100,
+          opacity: 0,
+          rotation: 3,
+          stagger: 0.1,
+          duration: 0.6,
+          ease: 'power3.out',
+        }, '-=0.4');
+
+      /* ── Why VANO: chapters unfold with 3D tilt ── */
+      gsap.from('[data-why-card]', {
+        scrollTrigger: {
+          trigger: '[data-section-why]',
+          start: 'top 75%',
+          toggleActions: 'play none none none',
+        },
+        y: isMobile ? 40 : 80,
+        opacity: 0,
+        scale: isMobile ? 0.92 : 0.85,
+        rotateX: isMobile ? 0 : 15,
+        transformPerspective: isMobile ? 0 : 800,
+        stagger: isMobile ? 0.08 : 0.12,
+        duration: isMobile ? 0.6 : 0.8,
+        ease: 'back.out(1.5)',
+      });
+
+      /* ── Why icons: dramatic half-spin entrance ── */
+      document.querySelectorAll<HTMLElement>('[data-why-icon]').forEach((icon) => {
+        gsap.from(icon, {
+          scrollTrigger: {
+            trigger: icon,
+            start: 'top 85%',
+            toggleActions: 'play none none none',
+          },
+          scale: 0,
+          rotation: -180,
+          duration: 0.7,
+          ease: 'back.out(3)',
+        });
+      });
+
+      /* ── FAQ: scroll unfurls with depth ── */
+      gsap.from('[data-section-faq] [data-faq-body]', {
+        scrollTrigger: {
+          trigger: '[data-section-faq]',
+          start: 'top 80%',
+          toggleActions: 'play none none none',
+        },
+        y: 60,
+        opacity: 0,
+        scale: 0.95,
+        rotateX: 5,
+        transformPerspective: 800,
+        duration: 0.9,
+        ease: 'power3.out',
+      });
+
+      /* ── CTA: grand finale — dramatic entrance with staggered content ── */
+      const ctaTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: '[data-section-cta]',
+          start: 'top 80%',
+          toggleActions: 'play none none none',
+        },
+      });
+      ctaTl
+        .from('[data-cta-box]', {
+          y: 100,
+          opacity: 0,
+          scale: 0.75,
+          rotation: -2,
+          duration: 1.1,
+          ease: 'power4.out',
+        })
+        .from('[data-cta-box] > *', {
+          y: 30,
+          opacity: 0,
+          stagger: 0.08,
+          duration: 0.5,
+          ease: 'power3.out',
+        }, '-=0.4');
+
+      /* ── CTA orbs: floating magic with opacity pulse ── */
+      gsap.utils.toArray<HTMLElement>('[data-cta-orb]').forEach((orb, i) => {
+        gsap.to(orb, {
+          y: i % 2 === 0 ? -30 : 30,
+          x: i % 2 === 0 ? 20 : -15,
+          scale: 1.3,
+          opacity: 0.6,
+          duration: 3.5 + i * 1.5,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut',
+        });
+      });
+
+      /* ── Footer: children stagger in individually ── */
+      gsap.from('[data-section-footer] > div > *', {
+        scrollTrigger: {
+          trigger: '[data-section-footer]',
+          start: 'top 90%',
+          toggleActions: 'play none none none',
+        },
+        y: 40,
+        opacity: 0,
+        stagger: 0.08,
+        duration: 0.6,
+        ease: 'power3.out',
+      });
+    }, mainRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="VANO – Connect Galway Businesses with Students"
         description="We connect Galway businesses with freelancers for local gigs. Simple, fast, local."
@@ -151,23 +343,15 @@ const Landing = () => {
 
       {/* Hero */}
       <section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
-        {/* Subtle animated gradient orb behind hero */}
-        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] sm:w-[600px] sm:h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+        {/* Breathing gradient orb */}
+        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
-        <div className="relative max-w-3xl mx-auto text-center">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={staggerContainer}
-          >
-            <motion.h1
-              variants={fadeUp}
-              transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance"
-            >
-              Local talent,<br />
+        <div className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
+          <div data-hero-title>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
+              <span className="inline-block">Local talent,</span><br />
               <span
-                className="italic font-semibold bg-clip-text text-transparent animate-shimmer"
+                className="inline-block italic font-semibold bg-clip-text text-transparent animate-shimmer"
                 style={{
                   backgroundImage: 'linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(221 83% 53%) 20%, hsl(200 70% 50%) 35%, hsl(var(--foreground)) 50%, hsl(38 80% 55%) 65%, hsl(221 83% 53%) 80%, hsl(var(--foreground)) 100%)',
                   backgroundSize: '300% auto',
@@ -177,19 +361,12 @@ const Landing = () => {
               >
                 instantly available.
               </span>
-            </motion.h1>
-            <motion.p
-              variants={fadeUp}
-              transition={{ duration: 0.4, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-              className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-8 leading-relaxed"
-            >
-              Connect with Galway's best freelancers for videography, photography, web design, and more.
-            </motion.p>
-            <motion.div
-              variants={fadeUp}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-3"
-            >
+            </h1>
+          </div>
+          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-8 leading-relaxed">
+            Connect with Galway's best freelancers for videography, photography, web design, and more.
+          </p>
+          <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate('/hire')}
@@ -209,13 +386,9 @@ const Landing = () => {
                   Join as a freelancer
                 </button>
               ) : null}
-            </motion.div>
+            </div>
             {studentsLoaded && featuredStudents.length > 0 && (
-              <motion.div
-                variants={fadeUp}
-                transition={{ duration: 0.5, delay: 0.35 }}
-                className="flex items-center justify-center gap-2 mt-6"
-              >
+              <div data-hero-badge className="flex items-center justify-center gap-2 mt-6">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-pulse-ring" />
                   <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -223,29 +396,17 @@ const Landing = () => {
                 <p className="text-xs font-medium text-muted-foreground">
                   {featuredStudents.length} freelancers online now
                 </p>
-              </motion.div>
+              </div>
             )}
-          </motion.div>
         </div>
       </section>
 
-      {/* Freelancer marquee */}
-      <div className="px-4 md:px-8 lg:px-12">
-        <div className="max-w-5xl lg:max-w-6xl mx-auto">
-          <BlurredTalentMarquee />
-        </div>
-      </div>
 
       {/* What do you need? */}
-      <section className="py-14 md:py-20 px-4 md:px-8 lg:px-12">
+      <section data-section-categories className="py-14 md:py-20 px-4 md:px-8 lg:px-12">
         <div className="max-w-5xl lg:max-w-6xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-60px" }}
-            variants={staggerContainer}
-          >
-          <motion.span variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-4">What do you need?</motion.span>
+          <div>
+          <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-4">What do you need?</span>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' },
@@ -253,15 +414,16 @@ const Landing = () => {
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' },
             ].map((item) => (
-                <motion.button
-                  variants={fadeUp}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                <button
+                  data-cat-card
                   key={item.cat}
                   type="button"
                   onClick={() => navigate(`/hire?category=${item.cat}`)}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
+                  style={{ transformStyle: 'preserve-3d' }}
                 >
                   <img
+                    data-cat-img
                     src={item.image}
                     alt=""
                     aria-hidden="true"
@@ -278,24 +440,18 @@ const Landing = () => {
                       <p className="text-[11px] md:text-[13px] text-white/80 mt-0.5 leading-snug">{item.sub}</p>
                     </div>
                   </div>
-                </motion.button>
+                </button>
             ))}
           </div>
-          </motion.div>
+          </div>
         </div>
       </section>
-
-      {/* Freelancer section */}
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
-        <section className="py-8 md:py-12 overflow-hidden">
-          <motion.div
+        <section data-section-freelancers className="py-8 md:py-12 overflow-hidden">
+          <div
             className="max-w-5xl lg:max-w-6xl mx-auto px-4 md:px-8 lg:px-12"
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="flex items-end justify-between mb-4">
+            <div data-section-label className="flex items-end justify-between mb-4">
               <div>
                 <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">On VANO now</span>
                 <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-foreground">Freelancers available today</h2>
@@ -324,6 +480,7 @@ const Landing = () => {
               <button
                 type="button"
                 onClick={() => navigate(`/students/${featured.user_id}`)}
+                data-featured-card
                 className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
               >
                 {/* Avatar */}
@@ -365,12 +522,12 @@ const Landing = () => {
             {/* Scroll strip — compact text snippets (name, rate/budget, bio preview); tap → full profile */}
             {(studentsLoaded ? stripStudents.length > 0 : true) && (
               <div className="relative">
-              <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div data-freelancer-strip className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {!studentsLoaded
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
                         key={i}
-                        className="flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
+                        className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
                       >
                         <div className="flex gap-2.5">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
@@ -400,7 +557,7 @@ const Landing = () => {
                           key={s.user_id}
                           type="button"
                           onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group flex w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                          className="group flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
                         >
                           <div className="flex items-start gap-2.5">
                             <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
@@ -466,7 +623,7 @@ const Landing = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/students')}
-                    className="flex w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
+                    className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
                   >
                     <ArrowRight size={22} className="text-muted-foreground" />
                     <p className="text-center text-[12px] font-semibold text-muted-foreground">
@@ -480,149 +637,106 @@ const Landing = () => {
             {studentsLoaded && filteredStudents.length === 0 && activeCategory && (
               <p className="text-base text-muted-foreground text-center py-4">No freelancers available for this category right now.</p>
             )}
-          </motion.div>
+          </div>
         </section>
       )}
 
       {/* Why VANO */}
-      <section className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+      <section data-section-why className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
         <div className="max-w-4xl lg:max-w-5xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={staggerContainer}
-            className="text-center"
-          >
-            <motion.span variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</motion.span>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</motion.p>
-          </motion.div>
-          <motion.div
-            className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-60px" }}
-            variants={staggerContainer}
-          >
+          <div className="text-center">
+            <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</span>
+            <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
+            <p className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5">
             {/* Hyperlocal — 2 cols row 1 */}
-            <motion.div
-              variants={fadeUp}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              whileHover="hover"
-              whileTap="hover"
-              initial="rest"
-              animate="rest"
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-blue-500/[0.08] bg-blue-500/[0.02] dark:bg-blue-500/[0.04] p-7 sm:p-8 lg:p-10"
+            <div
+              data-why-card
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-blue-500/[0.08] bg-blue-500/[0.02] dark:bg-blue-500/[0.04] p-7 sm:p-8 lg:p-10 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-blue-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-blue-500/[0.12]" />
-              <motion.div variants={cardHover}>
-                <div className="mb-5 flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
+              <div>
+                <div data-why-icon className="mb-5 flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
                   <MapPin size={22} className="text-blue-600 dark:text-blue-400" strokeWidth={2} />
                 </div>
                 <h3 className="text-xl lg:text-2xl font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
                 <p className="text-base text-muted-foreground leading-relaxed max-w-sm lg:max-w-md">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
 
             {/* Speed — 1 col row 1 */}
-            <motion.div
-              variants={fadeUp}
-              transition={{ duration: 0.4, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
-              whileHover="hover"
-              whileTap="hover"
-              initial="rest"
-              animate="rest"
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/[0.08] bg-card p-5 lg:p-7"
+            <div
+              data-why-card
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-emerald-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-emerald-500/[0.12]" />
-              <motion.div variants={cardHover}>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 transition-colors group-hover:bg-emerald-500/20">
+              <div>
+                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 transition-colors group-hover:bg-emerald-500/20">
                   <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
                 </div>
                 <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Hire in minutes</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Post a gig, get applicants, pick someone — done.</p>
-              </motion.div>
-            </motion.div>
+                <p className="text-sm text-muted-foreground leading-relaxed">Describe what you need, get matched, pick someone — done.</p>
+              </div>
+            </div>
 
             {/* Chat — 1 col row 2 */}
-            <motion.div
-              variants={fadeUp}
-              transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              whileHover="hover"
-              whileTap="hover"
-              initial="rest"
-              animate="rest"
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-violet-500/[0.08] bg-card p-5 lg:p-7"
+            <div
+              data-why-card
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-violet-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-violet-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-violet-500/[0.12]" />
-              <motion.div variants={cardHover}>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 transition-colors group-hover:bg-violet-500/20">
+              <div>
+                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 transition-colors group-hover:bg-violet-500/20">
                   <MessageSquare size={18} className="text-violet-600 dark:text-violet-400" strokeWidth={2} />
                 </div>
                 <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Chat on platform</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
 
             {/* Trust — 2 cols row 2 */}
-            <motion.div
-              variants={fadeUp}
-              transition={{ duration: 0.4, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
-              whileHover="hover"
-              whileTap="hover"
-              initial="rest"
-              animate="rest"
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/[0.08] bg-amber-500/[0.02] dark:bg-amber-500/[0.04] p-6 lg:p-8 flex items-center gap-5"
+            <div
+              data-why-card
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/[0.08] bg-amber-500/[0.02] dark:bg-amber-500/[0.04] p-6 lg:p-8 flex items-center gap-5 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -left-8 -bottom-8 h-40 w-40 rounded-full bg-amber-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-amber-500/[0.12]" />
-              <motion.div variants={cardHover} className="flex items-center gap-5">
-                <div className="flex h-12 w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/20">
+              <div className="flex items-center gap-5">
+                <div data-why-icon className="flex h-12 w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/20">
                   <Shield size={22} className="text-amber-600 dark:text-amber-400" strokeWidth={2} />
                 </div>
                 <div>
                   <h3 className="text-base lg:text-lg font-semibold text-foreground mb-0.5">Built on trust</h3>
                   <p className="text-base text-muted-foreground leading-relaxed">Profiles with portfolios, reviews, and verified gigs — so you know who you're dealing with before you hire.</p>
                 </div>
-              </motion.div>
-            </motion.div>
-          </motion.div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
+      <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={staggerContainer}
-            className="text-center mb-6"
-          >
-            <motion.span variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.2em] mb-4">
+          <div className="text-center mb-6">
+            <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.2em] mb-4">
               FAQ
-            </motion.span>
-            <motion.h2 variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
+            </span>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
               Common questions
-            </motion.h2>
-            <motion.p variants={fadeUp} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="mt-3 text-base text-muted-foreground">
+            </h2>
+            <p className="mt-3 text-base text-muted-foreground">
               Straight answers about hiring and freelancing on VANO.
-            </motion.p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{ duration: 0.45 }}
-          >
+            </p>
+          </div>
+          <div data-faq-body>
             <Accordion type="single" collapsible className="w-full rounded-2xl border border-border bg-card px-2 py-1 shadow-sm">
               <AccordionItem value="what" className="border-border/80 px-2">
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO connects people hiring for gigs with freelancers in Galway. You can browse talent, post fixed-price work with a deadline, message in-app, and use the community board.
+                  VANO connects businesses with freelancers in Galway. Browse talent, hire for projects, and message in-app — all in one place.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -630,7 +744,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Create an account, browse freelancers or post a gig with budget and due date. Applicants reach out; you agree scope in messages, then complete the work off-platform or as you arrange.
+                  Create an account, browse freelancers or tell us what you need on the hire page. We'll match you with the right person, or you can message freelancers directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="pay" className="border-border/80 px-2">
@@ -658,24 +772,17 @@ const Landing = () => {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
-        <motion.div
-          className="max-w-2xl lg:max-w-3xl mx-auto"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          variants={scaleIn}
-          transition={{ duration: 0.55 }}
-        >
-          <div className="relative overflow-hidden rounded-3xl bg-primary px-8 py-12 sm:px-14 sm:py-16 lg:px-20 lg:py-20 text-center">
-            {/* Animated gradient orbs */}
-            <div className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl animate-float" />
-            <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+      <section data-section-cta className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+        <div className="max-w-2xl lg:max-w-3xl mx-auto">
+          <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-5 py-10 sm:px-10 sm:py-14 lg:px-20 lg:py-20 text-center">
+            {/* Floating magic orbs */}
+            <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
+            <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
             <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Galway · Free · Local</span>
             <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
               Need something done?<br />Tell us.
@@ -699,17 +806,11 @@ const Landing = () => {
               </button>
             </div>
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* Footer */}
-      <motion.footer
-        className="border-t border-foreground/6 py-20 md:py-28 px-4 md:px-8 lg:px-12"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5 }}
-      >
+      <footer data-section-footer className="border-t border-foreground/6 py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-5xl lg:max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-start justify-between gap-10 lg:gap-16 mb-10">
             <div className="flex flex-col gap-4">
@@ -727,9 +828,7 @@ const Landing = () => {
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Platform</h4>
                 <div className="flex flex-col gap-2.5 text-sm">
                   <button onClick={() => navigate('/students')} className="text-left text-foreground/70 hover:text-primary transition-colors">Find talent</button>
-                  <button onClick={() => navigate('/jobs')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse hiring</button>
-                  <button onClick={() => navigate('/community')} className="text-left text-foreground/70 hover:text-primary transition-colors">Community</button>
-                  <button onClick={() => navigate('/post-job')} className="text-left text-foreground/70 hover:text-primary transition-colors">Post a gig</button>
+                  <button onClick={() => navigate('/hire')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse hiring</button>
                 </div>
               </div>
               <div>
@@ -771,7 +870,7 @@ const Landing = () => {
                 Terms
               </button>
               <span aria-hidden className="hidden sm:inline">·</span>
-              <button type="button" onClick={() => navigate('/whats-new')} className="hover:text-primary transition-colors">
+              <button type="button" onClick={() => navigate('/blog/vano-v1')} className="hover:text-primary transition-colors">
                 Release notes
               </button>
               <span aria-hidden className="hidden sm:inline">·</span>
@@ -781,7 +880,7 @@ const Landing = () => {
             </span>
           </div>
         </div>
-      </motion.footer>
+      </footer>
     </div>
   );
 };

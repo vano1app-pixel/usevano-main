@@ -413,9 +413,18 @@ const Messages = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user || !selectedConvo) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Invalid file type', description: 'Upload JPEG, PNG, WebP, or GIF.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 5MB.', variant: 'destructive' });
+      return;
+    }
     setUploadingImage(true);
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/${Date.now()}.${ext}`;
+    const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from('chat-images').upload(path, file);
     if (!error) {
       const { data: urlData } = supabase.storage.from('chat-images').getPublicUrl(path);

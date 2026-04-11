@@ -15,7 +15,7 @@ import {
   AdminListingReviewModal,
   type ListingRequestRow,
 } from '@/components/AdminListingReviewModal';
-import { isAdminOwnerEmail } from '@/lib/adminOwner';
+
 
 // ── Types ──
 
@@ -119,7 +119,9 @@ const Admin = () => {
         return;
       }
 
-      if (!isAdminOwnerEmail(session.user.email)) {
+      // Server-side admin check via database role (not hardcoded emails)
+      const { data: roleCheck } = await supabase.rpc('has_role', { _user_id: session.user.id, _role: 'admin' });
+      if (!roleCheck) {
         toast({ title: 'Access denied', description: 'This page is restricted.', variant: 'destructive' });
         navigate('/', { replace: true });
         return;
@@ -584,7 +586,7 @@ const Admin = () => {
                     {adminUserIds.has(u.user_id) ? <ShieldOff size={16} /> : <ShieldCheck size={16} />}
                   </button>
                   <button
-                    onClick={() => navigate(u.user_type === 'student' ? `/students/${u.user_id}` : `/portfolio/${u.user_id}`)}
+                    onClick={() => navigate(`/students/${u.user_id}`)}
                     className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                     title="View profile"
                   >
