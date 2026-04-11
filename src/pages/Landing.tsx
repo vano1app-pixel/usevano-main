@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
@@ -122,7 +122,7 @@ const Landing = () => {
   /* ─── GSAP cinematic scroll animations ─── */
   const mainRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) return;
 
@@ -130,6 +130,9 @@ const Landing = () => {
 
     const ctx = gsap.context(() => {
       /* ── Hero: storybook opens — words cascade with 3D depth ── */
+      // Ensure elements are visible first, then animate from hidden
+      gsap.set('[data-hero-title], [data-hero-sub], [data-hero-cta], [data-hero-badge]', { visibility: 'visible' });
+
       const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' } });
       heroTl
         .from('[data-hero-title] > *', {
