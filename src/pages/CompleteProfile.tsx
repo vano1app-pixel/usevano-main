@@ -7,6 +7,7 @@ import { AvatarUpload } from '@/components/AvatarUpload';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
 import { Phone, Tag, UserCircle } from 'lucide-react';
+import { OnboardingJourney } from '@/components/OnboardingJourney';
 
 const SKILL_OPTIONS = [
   'Video editing', 'Filming', 'Reels', 'Drone', 'Promo video', 'Wedding film', 'Corporate video',
@@ -133,6 +134,7 @@ const CompleteProfile = () => {
     <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-8">
       <SEOHead title="Almost there – VANO" description="Tell us what you do so businesses can find you" />
       <div className="w-full max-w-md">
+        <OnboardingJourney currentPage={3} className="mb-4" />
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <img src={logo} alt="VANO" className="h-10 w-10 rounded-xl" />

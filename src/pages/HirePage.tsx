@@ -17,6 +17,7 @@ import {
   Shield, Zap, ChevronDown, Check,
 } from 'lucide-react';
 import { useParticleBurst } from '@/hooks/useParticleBurst';
+import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 
 /* ─── Constants ─── */
 
@@ -607,20 +608,13 @@ const HirePage = () => {
         'max-w-2xl lg:max-w-3xl'
       )}>
 
-        {/* ── Progress dots ── */}
-        <div className="mb-6 flex items-center justify-center gap-2">
-          {[1, 2, 3].map(s => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => s < step ? goTo(s) : undefined}
-              className={cn(
-                'h-1.5 rounded-full transition-all duration-300',
-                s === step ? 'w-8 bg-primary' : s < step ? 'w-2 bg-primary/40 cursor-pointer hover:bg-primary/60' : 'w-2 bg-muted-foreground/20'
-              )}
-            />
-          ))}
-        </div>
+        {/* ── Journey map with animated character ── */}
+        <JourneyMap
+          currentStep={step}
+          steps={HIRE_JOURNEY_STEPS}
+          title="Your hiring quest"
+          className="mb-4"
+        />
 
         {/* Render active step — simple fade transition, no pointer-event issues */}
         <AnimatePresence mode="wait" custom={stepDirection}>

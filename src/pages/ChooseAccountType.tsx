@@ -8,6 +8,7 @@ import logo from '@/assets/logo.png';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { OnboardingJourney } from '@/components/OnboardingJourney';
 
 /**
  * Shown when a user signs in with Google (or otherwise) and `profiles.user_type` is not set yet.
@@ -100,6 +101,7 @@ const ChooseAccountType = () => {
         description="Select whether you are joining as a freelancer or a business."
       />
       <div className="w-full max-w-md space-y-8">
+        <OnboardingJourney currentPage={2} />
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
             <img src={logo} alt="" className="h-10 w-10 rounded-xl" />

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { OnboardingJourney } from '@/components/OnboardingJourney';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -79,6 +80,7 @@ const Auth = () => {
         description="Log in or sign up for VANO — local gigs and freelancers in Galway."
       />
       <div className="w-full max-w-md">
+        {!isLogin && <OnboardingJourney currentPage={1} className="mb-4" />}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2.5 mb-5">
             <img src={logo} alt="VANO" className="h-11 w-11 rounded-xl shadow-tinted-sm" />
