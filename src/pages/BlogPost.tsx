@@ -265,7 +265,7 @@ const BlogPost = () => {
           className="mt-12 text-center"
         >
           <button
-            onClick={() => navigate('/jobs')}
+            onClick={() => navigate('/hire')}
             className="px-8 py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-all shadow-[0_2px_16px_hsl(var(--primary)/0.25)]"
           >
             Start exploring VANO v1.5 →

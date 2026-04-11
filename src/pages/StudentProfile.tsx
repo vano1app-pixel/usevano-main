@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { TagBadge } from '@/components/TagBadge';
@@ -30,8 +30,14 @@ const StudentProfile = () => {
   const [currentUserType, setCurrentUserType] = useState<string | null>(null);
   const [communityPost, setCommunityPost] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'about' | 'portfolio' | 'reviews'>('about');
+  const tabRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const scrollToTab = useCallback((tab: 'about' | 'portfolio' | 'reviews') => {
+    setActiveTab(tab);
+    setTimeout(() => tabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }, []);
   const profileIsAdmin = useIsAdmin(id);
 
   useEffect(() => {
@@ -188,7 +194,7 @@ const StudentProfile = () => {
       {!isBusiness && (
         <button
           type="button"
-          onClick={() => setActiveTab('portfolio')}
+          onClick={() => scrollToTab('portfolio')}
           className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold shadow-sm transition-colors hover:bg-secondary/80 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
         >
           Full portfolio
@@ -379,7 +385,7 @@ const StudentProfile = () => {
                   <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">Portfolio</h2>
                   <button
                     type="button"
-                    onClick={() => setActiveTab('portfolio')}
+                    onClick={() => scrollToTab('portfolio')}
                     className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     View all <ArrowRight size={12} />
@@ -415,7 +421,7 @@ const StudentProfile = () => {
                   </h2>
                   <button
                     type="button"
-                    onClick={() => setActiveTab('reviews')}
+                    onClick={() => scrollToTab('reviews')}
                     className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     See all <ArrowRight size={12} />
@@ -442,7 +448,7 @@ const StudentProfile = () => {
             )}
 
             {/* Tab switcher */}
-            <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
+            <div ref={tabRef} className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
               <div className="p-1.5 border-b border-border/60">
                 <div className="flex gap-1">
                   {(['about', 'portfolio', 'reviews'] as const).map((tab) => (

@@ -150,7 +150,7 @@ const JobDetail = () => {
       toast({ title: 'Could not delete gig', description: getUserFriendlyError(error), variant: 'destructive' });
     } else {
       toast({ title: 'Gig deleted' });
-      navigate('/jobs');
+      navigate('/hire');
     }
   };
 
@@ -164,7 +164,7 @@ const JobDetail = () => {
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 pt-24 text-center">
         <h1 className="text-2xl font-bold mb-4">Job Not Found</h1>
-        <button onClick={() => navigate('/jobs')} className="text-primary hover:underline">Browse Hiring</button>
+        <button onClick={() => navigate('/hire')} className="text-primary hover:underline">Browse Hiring</button>
       </div>
     </div>
   );
@@ -174,7 +174,7 @@ const JobDetail = () => {
       <SEOHead title={`${job.title} – VANO`} description={job.description?.substring(0, 160)} />
       <Navbar />
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        <button onClick={() => navigate('/jobs')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 transition-colors">
+        <button onClick={() => navigate('/hire')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 transition-colors">
           <ArrowLeft size={16} /> Back to Hiring
         </button>
 
