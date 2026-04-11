@@ -1,12 +1,14 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { PageTransition } from "@/components/PageTransition";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -32,88 +34,95 @@ import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
 import { WhatsAppFloatingButton } from "./components/WhatsAppFloatingButton";
 
-const App = () => (
-  <TooltipProvider>
-    <ScrollToTop />
-    <RedirectToAccountTypeIfNeeded />
-    <Toaster />
-    <Sonner />
-    <div className="md:pt-14 lg:pt-16">
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/hire" element={<HirePage />} />
-      <Route path="/jobs/:id" element={<JobDetail />} />
-      <Route path="/students" element={<BrowseStudents />} />
-      <Route path="/students/videography"  element={<StudentsByCategory categoryId="videography" />} />
-      <Route path="/students/photography"  element={<StudentsByCategory categoryId="photography" />} />
-      <Route path="/students/websites"     element={<StudentsByCategory categoryId="websites" />} />
-      <Route path="/students/social_media" element={<StudentsByCategory categoryId="social_media" />} />
-      <Route path="/students/:id" element={<StudentProfilePage />} />
-      <Route
-        path="/profile"
-        element={
-          <RequireVerifiedSession>
-            <Profile />
-          </RequireVerifiedSession>
-        }
-      />
-      <Route path="/dashboard" element={<Navigate to="/business-dashboard" replace />} />
-      <Route
-        path="/business-dashboard"
-        element={
-          <RequireVerifiedSession>
-            <BusinessDashboard />
-          </RequireVerifiedSession>
-        }
-      />
-      <Route
-        path="/messages"
-        element={
-          <RequireVerifiedSession>
-            <Messages />
-          </RequireVerifiedSession>
-        }
-      />
-      <Route path="/auth" element={<Auth />} />
-      <Route
-        path="/choose-account-type"
-        element={
-          <RequireVerifiedSession>
-            <ChooseAccountType />
-          </RequireVerifiedSession>
-        }
-      />
-      <Route
-        path="/complete-profile"
-        element={
-          <RequireVerifiedSession>
-            <CompleteProfile />
-          </RequireVerifiedSession>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <RequireVerifiedSession>
-            <Admin />
-          </RequireVerifiedSession>
-        }
-      />
-      <Route path="/u/:slug" element={<UserSlugRedirect />} />
-      <Route path="/blog/vano-v1" element={<BlogPost />} />
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/terms" element={<Terms />} />
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-    </div>
-    <MobileBottomNav />
-    <WhatsAppFloatingButton />
-    <CookieConsentBanner />
-    <PWAInstallBanner />
-    <PushNotificationPrompt />
-    <PwaUpdateToast />
-  </TooltipProvider>
-);
+const P = ({ children }: { children: React.ReactNode }) => <PageTransition>{children}</PageTransition>;
+
+const App = () => {
+  const location = useLocation();
+
+  return (
+    <TooltipProvider>
+      <ScrollToTop />
+      <RedirectToAccountTypeIfNeeded />
+      <Toaster />
+      <Sonner />
+      <div className="md:pt-14 lg:pt-16">
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<P><Landing /></P>} />
+          <Route path="/hire" element={<P><HirePage /></P>} />
+          <Route path="/jobs/:id" element={<P><JobDetail /></P>} />
+          <Route path="/students" element={<P><BrowseStudents /></P>} />
+          <Route path="/students/videography"  element={<P><StudentsByCategory categoryId="videography" /></P>} />
+          <Route path="/students/photography"  element={<P><StudentsByCategory categoryId="photography" /></P>} />
+          <Route path="/students/websites"     element={<P><StudentsByCategory categoryId="websites" /></P>} />
+          <Route path="/students/social_media" element={<P><StudentsByCategory categoryId="social_media" /></P>} />
+          <Route path="/students/:id" element={<P><StudentProfilePage /></P>} />
+          <Route
+            path="/profile"
+            element={
+              <RequireVerifiedSession>
+                <P><Profile /></P>
+              </RequireVerifiedSession>
+            }
+          />
+          <Route path="/dashboard" element={<Navigate to="/business-dashboard" replace />} />
+          <Route
+            path="/business-dashboard"
+            element={
+              <RequireVerifiedSession>
+                <P><BusinessDashboard /></P>
+              </RequireVerifiedSession>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <RequireVerifiedSession>
+                <P><Messages /></P>
+              </RequireVerifiedSession>
+            }
+          />
+          <Route path="/auth" element={<P><Auth /></P>} />
+          <Route
+            path="/choose-account-type"
+            element={
+              <RequireVerifiedSession>
+                <P><ChooseAccountType /></P>
+              </RequireVerifiedSession>
+            }
+          />
+          <Route
+            path="/complete-profile"
+            element={
+              <RequireVerifiedSession>
+                <P><CompleteProfile /></P>
+              </RequireVerifiedSession>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <RequireVerifiedSession>
+                <P><Admin /></P>
+              </RequireVerifiedSession>
+            }
+          />
+          <Route path="/u/:slug" element={<P><UserSlugRedirect /></P>} />
+          <Route path="/blog/vano-v1" element={<P><BlogPost /></P>} />
+          <Route path="/privacy" element={<P><Privacy /></P>} />
+          <Route path="/terms" element={<P><Terms /></P>} />
+          <Route path="*" element={<P><NotFound /></P>} />
+        </Routes>
+      </AnimatePresence>
+      </div>
+      <MobileBottomNav />
+      <WhatsAppFloatingButton />
+      <CookieConsentBanner />
+      <PWAInstallBanner />
+      <PushNotificationPrompt />
+      <PwaUpdateToast />
+    </TooltipProvider>
+  );
+};
 
 export default App;

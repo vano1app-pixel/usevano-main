@@ -95,6 +95,7 @@ const HirePage = () => {
   const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState(1);
+  const [stepDirection, setStepDirection] = useState(1); // 1 = forward, -1 = backward
 
   // Brief
   const [description, setDescription] = useState('');
@@ -126,7 +127,10 @@ const HirePage = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const goTo = (s: number) => setStep(s);
+  const goTo = (s: number) => {
+    setStepDirection(s > step ? 1 : -1);
+    setStep(s);
+  };
 
   const handleCategoryPick = (id: string) => {
     const cat = CATEGORIES.find(c => c.id === id);
@@ -613,13 +617,14 @@ const HirePage = () => {
         </div>
 
         {/* Render active step — simple fade transition, no pointer-event issues */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={stepDirection}>
           <motion.div
             key={step}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            custom={stepDirection}
+            initial={{ opacity: 0, x: stepDirection * 60, filter: 'blur(3px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: stepDirection * -60, filter: 'blur(3px)' }}
+            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             className="relative z-10"
           >
             {step === 1 && renderStep1()}
