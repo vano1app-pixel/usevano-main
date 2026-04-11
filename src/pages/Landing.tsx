@@ -130,30 +130,27 @@ const Landing = () => {
 
     const ctx = gsap.context(() => {
       /* ── Hero: storybook opens — words cascade with 3D depth ── */
-      // Ensure elements are visible first, then animate from hidden
-      gsap.set('[data-hero-title], [data-hero-sub], [data-hero-cta], [data-hero-badge]', { visibility: 'visible' });
-
       const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' } });
       heroTl
-        .from('[data-hero-title] > *', {
-          y: isMobile ? 40 : 80,
-          opacity: 0,
-          rotateX: isMobile ? 6 : 20,
-          transformPerspective: isMobile ? 0 : 600,
-          stagger: isMobile ? 0.1 : 0.15,
-          duration: isMobile ? 0.8 : 1.2,
-          delay: 0.15,
-        })
-        .from('[data-hero-sub]', { y: 40, opacity: 0, duration: 0.8, filter: 'blur(4px)' }, '-=0.6')
-        .from('[data-hero-cta] > *', {
-          y: 30,
-          opacity: 0,
-          scale: 0.8,
-          stagger: 0.12,
-          duration: 0.8,
-          ease: 'elastic.out(1, 0.5)',
-        }, '-=0.4')
-        .from('[data-hero-badge]', { scale: 0, opacity: 0, duration: 0.5, ease: 'back.out(3)' }, '-=0.2');
+        .fromTo('[data-hero-title] > *',
+          { y: isMobile ? 40 : 80, opacity: 0, rotateX: isMobile ? 6 : 20, transformPerspective: isMobile ? 0 : 600 },
+          { y: 0, opacity: 1, rotateX: 0, stagger: isMobile ? 0.1 : 0.15, duration: isMobile ? 0.8 : 1.2, delay: 0.15 }
+        )
+        .fromTo('[data-hero-sub]',
+          { y: 40, opacity: 0, filter: 'blur(4px)' },
+          { y: 0, opacity: 1, filter: 'blur(0px)', duration: 0.8 },
+          '-=0.6'
+        )
+        .fromTo('[data-hero-cta] > *',
+          { y: 30, opacity: 0, scale: 0.8 },
+          { y: 0, opacity: 1, scale: 1, stagger: 0.12, duration: 0.8, ease: 'elastic.out(1, 0.5)' },
+          '-=0.4'
+        )
+        .fromTo('[data-hero-badge]',
+          { scale: 0, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 0.5, ease: 'back.out(3)' },
+          '-=0.2'
+        );
 
       /* ── Hero orb: living breathing pulse with drift ── */
       gsap.to('[data-hero-orb]', {
