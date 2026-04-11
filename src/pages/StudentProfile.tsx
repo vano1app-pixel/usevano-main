@@ -176,6 +176,15 @@ const StudentProfile = () => {
           <MessageCircle size={18} strokeWidth={2} /> Message
         </button>
       )}
+      {user && currentUserType === 'business' && user.id !== id && !isBusiness && (
+        <button
+          type="button"
+          onClick={() => navigate('/hire')}
+          className="w-full rounded-xl border border-primary bg-primary/5 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/10 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+        >
+          <Briefcase size={18} strokeWidth={2} /> Hire
+        </button>
+      )}
       {!isBusiness && (
         <button
           type="button"

@@ -13,7 +13,6 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
 import Landing from "./pages/Landing";
 import JobDetail from "./pages/JobDetail";
-import PostJob from "./pages/PostJob";
 import HirePage from "./pages/HirePage";
 import BrowseStudents from "./pages/BrowseStudents";
 import StudentsByCategory from "./pages/StudentsByCategory";
@@ -47,14 +46,6 @@ const App = () => (
       <Route path="/" element={<Landing />} />
       <Route path="/hire" element={<HirePage />} />
       <Route path="/jobs/:id" element={<JobDetail />} />
-      <Route
-        path="/post-job"
-        element={
-          <RequireVerifiedSession>
-            <PostJob />
-          </RequireVerifiedSession>
-        }
-      />
       <Route path="/students" element={<BrowseStudents />} />
       <Route path="/students/videography"  element={<StudentsByCategory categoryId="videography" />} />
       <Route path="/students/photography"  element={<StudentsByCategory categoryId="photography" />} />

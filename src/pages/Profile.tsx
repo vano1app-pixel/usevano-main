@@ -416,8 +416,16 @@ const Profile = () => {
           <p className="text-sm text-muted-foreground sm:text-base">
             {profile?.user_type === 'student'
               ? 'Manage your listing and see what businesses see.'
-              : 'Your account — a short intro is enough; set location when you post a gig'}
+              : 'Your account — a short intro is enough; set location when you hire'}
           </p>
+          {profile?.user_type === 'student' && user && (
+            <a
+              href={`/students/${user.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
+            >
+              <ExternalLink size={14} /> View public profile
+            </a>
+          )}
         </div>
 
         {profile?.user_type === 'student' && user && (
