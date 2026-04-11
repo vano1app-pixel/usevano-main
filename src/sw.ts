@@ -60,7 +60,9 @@ self.addEventListener('push', (event) => {
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const rawUrl = event.notification.data?.url || '/';
+  // Prevent open redirect — only allow relative paths
+  const url = rawUrl.startsWith('/') ? rawUrl : '/';
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

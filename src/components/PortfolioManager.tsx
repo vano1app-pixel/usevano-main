@@ -34,9 +34,14 @@ export const PortfolioManager: React.FC<PortfolioManagerProps> = ({ userId }) =>
       toast({ title: 'File too large', description: 'Max 5MB', variant: 'destructive' });
       return;
     }
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Invalid file type', description: 'Please upload a JPEG, PNG, WebP, or GIF image.', variant: 'destructive' });
+      return;
+    }
     setUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `${userId}/${Date.now()}.${ext}`;
+    const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = `${userId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from('portfolio-images').upload(path, file);
     if (error) {
       toast({ title: 'Upload failed', variant: 'destructive' });

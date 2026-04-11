@@ -23,6 +23,11 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({ userId, currentUrl, 
       toast({ title: 'File too large', description: 'Max 2MB', variant: 'destructive' });
       return;
     }
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Invalid file type', description: 'Please upload a JPEG, PNG, WebP, or GIF image.', variant: 'destructive' });
+      return;
+    }
 
     setUploading(true);
     const ext = file.name.split('.').pop();

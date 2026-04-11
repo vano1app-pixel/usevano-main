@@ -186,9 +186,18 @@ const Profile = () => {
   const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Invalid file type', description: 'Upload JPEG, PNG, WebP, or GIF.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 5MB.', variant: 'destructive' });
+      return;
+    }
     setBannerUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
+      const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
       const path = `${user.id}/banner.${ext}`;
       const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
       if (upErr) throw upErr;

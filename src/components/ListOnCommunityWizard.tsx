@@ -510,8 +510,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       // Upload all new listing images to portfolio-images bucket
       const uploadedImageUrls: string[] = [];
       for (const file of listingFiles) {
-        const ext = file.name.split('.').pop();
-        const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+        const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
         const { error: liErr } = await supabase.storage.from('portfolio-images').upload(path, file);
         if (liErr) {
           logSupabaseError('ListOnCommunityWizard: portfolio-images upload', liErr);
@@ -1045,7 +1045,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   />
                   <span className="text-xs text-muted-foreground leading-relaxed">
                     I agree to the{' '}
-                    <Link to="/terms" target="_blank" className="text-primary hover:underline underline-offset-2">Terms of Service</Link>
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Terms of Service</a>
                   </span>
                 </label>
                 <label className="flex items-start gap-3 cursor-pointer group">
@@ -1056,7 +1056,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   />
                   <span className="text-xs text-muted-foreground leading-relaxed">
                     I agree to the{' '}
-                    <Link to="/privacy" target="_blank" className="text-primary hover:underline underline-offset-2">Privacy Policy</Link>
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>
                   </span>
                 </label>
               </div>
