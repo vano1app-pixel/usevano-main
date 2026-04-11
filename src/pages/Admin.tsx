@@ -15,7 +15,7 @@ import {
   AdminListingReviewModal,
   type ListingRequestRow,
 } from '@/components/AdminListingReviewModal';
-import { isAdminOwnerEmail } from '@/lib/adminOwner';
+
 
 // ── Types ──
 
@@ -119,7 +119,9 @@ const Admin = () => {
         return;
       }
 
-      if (!isAdminOwnerEmail(session.user.email)) {
+      // Server-side admin check via database role (not hardcoded emails)
+      const { data: roleCheck } = await supabase.rpc('has_role', { _user_id: session.user.id, _role: 'admin' });
+      if (!roleCheck) {
         toast({ title: 'Access denied', description: 'This page is restricted.', variant: 'destructive' });
         navigate('/', { replace: true });
         return;

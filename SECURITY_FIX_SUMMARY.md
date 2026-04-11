@@ -1,6 +1,27 @@
 # VANO Security Fix Summary
 
-**Date:** 2026-04-11
+**Date:** 2026-04-11 (updated with v2 fixes)
+
+---
+
+## V2 Fixes (remaining risks resolved)
+
+### Admin page — server-side role check (was C1/C2)
+- **Admin.tsx** — replaced `isAdminOwnerEmail()` hardcoded email check with `supabase.rpc('has_role')` database call. Admin access now verified server-side via `user_roles` table, not client-side email list.
+
+### 5 AI Edge Functions — auth validation added (was critical)
+- **ai-profile-coach** — added Bearer token + `getUser()` validation
+- **ai-cover-letter** — added Bearer token + `getUser()` validation
+- **ai-pricing-advisor** — added Bearer token + `getUser()` validation
+- **ai-job-description** — added Bearer token + `getUser()` validation
+- **ai-review-summary** — added Bearer token + `getUser()` validation
+- Unauthenticated callers now get 401 before any AI credits are consumed.
+
+### RLS migration — community posts + hire requests (was high)
+- **New migration: `20260411120000_security_hardening_v2.sql`**
+  - Community posts INSERT now forces `moderation_status = 'pending'` — users can't self-approve
+  - Hire requests get admin SELECT/UPDATE/DELETE policies
+  - Notifications UPDATE policy tightened
 
 ---
 
