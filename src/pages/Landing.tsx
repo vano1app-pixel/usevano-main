@@ -164,22 +164,14 @@ const Landing = () => {
       });
 
       /* ── Category cards: flip in like playing cards dealt onto a table ── */
-      gsap.from('[data-cat-card]', {
-        scrollTrigger: {
-          trigger: '[data-section-categories]',
-          start: 'top 80%',
-          toggleActions: 'play none none none',
-        },
-        y: isMobile ? 50 : 100,
-        opacity: 0,
-        scale: isMobile ? 0.9 : 0.8,
-        rotateY: isMobile ? 8 : 25,
-        rotateX: isMobile ? 0 : 8,
-        transformPerspective: isMobile ? 0 : 800,
-        stagger: isMobile ? 0.1 : 0.15,
-        duration: isMobile ? 0.6 : 0.9,
-        ease: 'back.out(1.4)',
-      });
+      gsap.fromTo('[data-cat-card]',
+        { y: isMobile ? 50 : 100, opacity: 0, scale: isMobile ? 0.9 : 0.8, rotateY: isMobile ? 8 : 25, rotateX: isMobile ? 0 : 8, transformPerspective: isMobile ? 0 : 800 },
+        {
+          y: 0, opacity: 1, scale: 1, rotateY: 0, rotateX: 0,
+          scrollTrigger: { trigger: '[data-section-categories]', start: 'top 85%', toggleActions: 'play none none none' },
+          stagger: isMobile ? 0.1 : 0.15, duration: isMobile ? 0.6 : 0.9, ease: 'back.out(1.4)',
+        }
+      );
 
       /* ── Category card images: deep parallax drift ── */
       document.querySelectorAll<HTMLElement>('[data-cat-card]').forEach((card) => {
@@ -207,73 +199,52 @@ const Landing = () => {
         },
       });
       freelancerTl
-        .from('[data-section-freelancers] [data-section-label]', {
-          x: -60, opacity: 0, duration: 0.7, ease: 'power3.out',
-        })
-        .from('[data-featured-card]', {
-          y: 50,
-          opacity: 0,
-          scale: 0.9,
-          rotation: -1,
-          duration: 0.9,
-          ease: 'elastic.out(1, 0.6)',
-        }, '-=0.3')
-        .from('[data-freelancer-strip] > *', {
-          x: 100,
-          opacity: 0,
-          rotation: 3,
-          stagger: 0.1,
-          duration: 0.6,
-          ease: 'power3.out',
-        }, '-=0.4');
+        .fromTo('[data-section-freelancers] [data-section-label]',
+          { x: -60, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.7, ease: 'power3.out' }
+        )
+        .fromTo('[data-featured-card]',
+          { y: 50, opacity: 0, scale: 0.9, rotation: -1 },
+          { y: 0, opacity: 1, scale: 1, rotation: 0, duration: 0.9, ease: 'elastic.out(1, 0.6)' },
+          '-=0.3'
+        )
+        .fromTo('[data-freelancer-strip] > *',
+          { x: 100, opacity: 0, rotation: 3 },
+          { x: 0, opacity: 1, rotation: 0, stagger: 0.1, duration: 0.6, ease: 'power3.out' },
+          '-=0.4'
+        );
 
       /* ── Why VANO: chapters unfold with 3D tilt ── */
-      gsap.from('[data-why-card]', {
-        scrollTrigger: {
-          trigger: '[data-section-why]',
-          start: 'top 75%',
-          toggleActions: 'play none none none',
-        },
-        y: isMobile ? 40 : 80,
-        opacity: 0,
-        scale: isMobile ? 0.92 : 0.85,
-        rotateX: isMobile ? 0 : 15,
-        transformPerspective: isMobile ? 0 : 800,
-        stagger: isMobile ? 0.08 : 0.12,
-        duration: isMobile ? 0.6 : 0.8,
-        ease: 'back.out(1.5)',
-      });
+      gsap.fromTo('[data-why-card]',
+        { y: isMobile ? 40 : 80, opacity: 0, scale: isMobile ? 0.92 : 0.85, rotateX: isMobile ? 0 : 15, transformPerspective: isMobile ? 0 : 800 },
+        {
+          y: 0, opacity: 1, scale: 1, rotateX: 0,
+          scrollTrigger: { trigger: '[data-section-why]', start: 'top 85%', toggleActions: 'play none none none' },
+          stagger: isMobile ? 0.08 : 0.12, duration: isMobile ? 0.6 : 0.8, ease: 'back.out(1.5)',
+        }
+      );
 
       /* ── Why icons: dramatic half-spin entrance ── */
       document.querySelectorAll<HTMLElement>('[data-why-icon]').forEach((icon) => {
-        gsap.from(icon, {
-          scrollTrigger: {
-            trigger: icon,
-            start: 'top 85%',
-            toggleActions: 'play none none none',
-          },
-          scale: 0,
-          rotation: -180,
-          duration: 0.7,
-          ease: 'back.out(3)',
-        });
+        gsap.fromTo(icon,
+          { scale: 0, rotation: -180 },
+          {
+            scale: 1, rotation: 0,
+            scrollTrigger: { trigger: icon, start: 'top 90%', toggleActions: 'play none none none' },
+            duration: 0.7, ease: 'back.out(3)',
+          }
+        );
       });
 
       /* ── FAQ: scroll unfurls with depth ── */
-      gsap.from('[data-section-faq] [data-faq-body]', {
-        scrollTrigger: {
-          trigger: '[data-section-faq]',
-          start: 'top 80%',
-          toggleActions: 'play none none none',
-        },
-        y: 60,
-        opacity: 0,
-        scale: 0.95,
-        rotateX: 5,
-        transformPerspective: 800,
-        duration: 0.9,
-        ease: 'power3.out',
-      });
+      gsap.fromTo('[data-section-faq] [data-faq-body]',
+        { y: 60, opacity: 0, scale: 0.95, rotateX: 5, transformPerspective: 800 },
+        {
+          y: 0, opacity: 1, scale: 1, rotateX: 0,
+          scrollTrigger: { trigger: '[data-section-faq]', start: 'top 85%', toggleActions: 'play none none none' },
+          duration: 0.9, ease: 'power3.out',
+        }
+      );
 
       /* ── CTA: grand finale — dramatic entrance with staggered content ── */
       const ctaTl = gsap.timeline({
@@ -284,21 +255,15 @@ const Landing = () => {
         },
       });
       ctaTl
-        .from('[data-cta-box]', {
-          y: 100,
-          opacity: 0,
-          scale: 0.75,
-          rotation: -2,
-          duration: 1.1,
-          ease: 'power4.out',
-        })
-        .from('[data-cta-box] > *', {
-          y: 30,
-          opacity: 0,
-          stagger: 0.08,
-          duration: 0.5,
-          ease: 'power3.out',
-        }, '-=0.4');
+        .fromTo('[data-cta-box]',
+          { y: 100, opacity: 0, scale: 0.75, rotation: -2 },
+          { y: 0, opacity: 1, scale: 1, rotation: 0, duration: 1.1, ease: 'power4.out' }
+        )
+        .fromTo('[data-cta-box] > *',
+          { y: 30, opacity: 0 },
+          { y: 0, opacity: 1, stagger: 0.08, duration: 0.5, ease: 'power3.out' },
+          '-=0.4'
+        );
 
       /* ── CTA orbs: floating magic with opacity pulse ── */
       gsap.utils.toArray<HTMLElement>('[data-cta-orb]').forEach((orb, i) => {
@@ -315,17 +280,12 @@ const Landing = () => {
       });
 
       /* ── Footer: children stagger in individually ── */
-      gsap.from('[data-section-footer] > div > *', {
-        scrollTrigger: {
-          trigger: '[data-section-footer]',
-          start: 'top 90%',
-          toggleActions: 'play none none none',
-        },
-        y: 40,
-        opacity: 0,
-        stagger: 0.08,
-        duration: 0.6,
-        ease: 'power3.out',
+      gsap.fromTo('[data-section-footer] > div > *',
+        { y: 40, opacity: 0 },
+        {
+          y: 0, opacity: 1,
+          scrollTrigger: { trigger: '[data-section-footer]', start: 'top 95%', toggleActions: 'play none none none' },
+          stagger: 0.08, duration: 0.6, ease: 'power3.out',
       });
     }, mainRef);
 
