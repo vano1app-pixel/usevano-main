@@ -1,6 +1,11 @@
 /**
  * Text animation utilities — word-split reveals, character animations, typewriter.
  * Works with GSAP (already installed).
+ *
+ * Mobile notes:
+ * - splitTextIntoChars is expensive on long text (creates span per char)
+ * - animateTextScramble runs RAF at 60fps — use sparingly on mobile
+ * - Callers (useTextReveal) handle mobile downgrade logic
  */
 import { gsap } from '@/lib/gsapSetup';
 

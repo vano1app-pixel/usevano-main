@@ -112,7 +112,9 @@ export const Navbar: React.FC = () => {
   const navSurfaceClass = talentRouteMobile
     ? "bg-background/95 border-border/50 shadow-tinted"
     : scrolled
-      ? "bg-background/70 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg"
+      ? isMobile
+        ? "bg-background/80 backdrop-blur-lg border-border/50 shadow-tinted"
+        : "bg-background/70 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg"
       : "bg-transparent border-transparent shadow-none backdrop-blur-none";
 
   return (

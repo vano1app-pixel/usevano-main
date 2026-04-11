@@ -39,10 +39,10 @@ const configs: Record<string, {
     transition: { duration: 0.2 },
   },
   dissolve: {
-    initial: { opacity: 0, filter: 'blur(12px)', scale: 0.95 },
+    initial: { opacity: 0, filter: isMobile ? 'blur(4px)' : 'blur(12px)', scale: isMobile ? 0.97 : 0.95 },
     animate: { opacity: 1, filter: 'blur(0px)', scale: 1 },
-    exit:    { opacity: 0, filter: 'blur(12px)', scale: 1.02 },
-    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+    exit:    { opacity: 0, filter: isMobile ? 'blur(4px)' : 'blur(12px)', scale: isMobile ? 1.01 : 1.02 },
+    transition: { duration: isMobile ? 0.35 : 0.5, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
