@@ -413,10 +413,9 @@ const Landing = () => {
                 </button>
             ))}
           </div>
+          </div>
         </div>
       </section>
-
-      {/* Freelancer section */}
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
         <section data-section-freelancers className="py-8 md:py-12 overflow-hidden">
           <div
