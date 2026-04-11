@@ -24,7 +24,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
-import { BlurredTalentMarquee } from '@/components/BlurredTalentMarquee';
 
 
 const fadeUp = {
@@ -229,12 +228,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Freelancer marquee */}
-      <div className="px-4 md:px-8 lg:px-12">
-        <div className="max-w-5xl lg:max-w-6xl mx-auto">
-          <BlurredTalentMarquee />
-        </div>
-      </div>
 
       {/* What do you need? */}
       <section className="py-14 md:py-20 px-4 md:px-8 lg:px-12">
@@ -541,7 +534,7 @@ const Landing = () => {
                   <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
                 </div>
                 <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Hire in minutes</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Post a gig, get applicants, pick someone — done.</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">Describe what you need, get matched, pick someone — done.</p>
               </motion.div>
             </motion.div>
 
@@ -622,7 +615,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO connects people hiring for gigs with freelancers in Galway. You can browse talent, post fixed-price work with a deadline, message in-app, and use the community board.
+                  VANO connects businesses with freelancers in Galway. Browse talent, hire for projects, and message in-app — all in one place.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -630,7 +623,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Create an account, browse freelancers or post a gig with budget and due date. Applicants reach out; you agree scope in messages, then complete the work off-platform or as you arrange.
+                  Create an account, browse freelancers or tell us what you need on the hire page. We'll match you with the right person, or you can message freelancers directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="pay" className="border-border/80 px-2">
@@ -728,8 +721,6 @@ const Landing = () => {
                 <div className="flex flex-col gap-2.5 text-sm">
                   <button onClick={() => navigate('/students')} className="text-left text-foreground/70 hover:text-primary transition-colors">Find talent</button>
                   <button onClick={() => navigate('/jobs')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse hiring</button>
-                  <button onClick={() => navigate('/community')} className="text-left text-foreground/70 hover:text-primary transition-colors">Community</button>
-                  <button onClick={() => navigate('/post-job')} className="text-left text-foreground/70 hover:text-primary transition-colors">Post a gig</button>
                 </div>
               </div>
               <div>
