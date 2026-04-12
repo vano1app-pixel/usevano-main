@@ -99,7 +99,23 @@ const BrowseStudents = () => {
                   >
                     {item.image && (
                       <>
-                        <img src={item.image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-transform duration-500 group-hover:scale-110" />
+                        <picture className="absolute inset-0 h-full w-full pointer-events-none">
+                          <source
+                            type="image/webp"
+                            srcSet={`/cat-${item.cat}-400.webp 400w, /cat-${item.cat}-800.webp 800w`}
+                            sizes="(max-width: 640px) 50vw, 25vw"
+                          />
+                          <img
+                            src={item.image}
+                            alt=""
+                            aria-hidden="true"
+                            loading="lazy"
+                            decoding="async"
+                            width="400"
+                            height="600"
+                            className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-transform duration-500 group-hover:scale-110"
+                          />
+                        </picture>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
                       </>
                     )}

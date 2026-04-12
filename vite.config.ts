@@ -26,8 +26,11 @@ export default defineConfig(({ mode }) => ({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
-      // User confirms via in-app toast so we can skipWaiting + reload cleanly
-      registerType: "prompt",
+      // Auto-replace the cached bundle on next visit so returning users don't
+      // stay stuck on stale pre-perf builds. "prompt" needed the user to tap a
+      // toast which a lot of people never do. VANO forms are short so the
+      // small risk of a mid-form reload is acceptable.
+      registerType: "autoUpdate",
       includeAssets: ["favicon.png", "favicon.ico"],
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
