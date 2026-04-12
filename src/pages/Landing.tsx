@@ -24,7 +24,6 @@ import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { gsap, ScrollTrigger } from '@/lib/gsapSetup';
-import { ParticleBackground } from '@/components/ParticleBackground';
 import { InteractiveButton } from '@/components/InteractiveButton';
 import { useTextReveal } from '@/hooks/useTextReveal';
 import { useParticleBurst } from '@/hooks/useParticleBurst';
@@ -365,9 +364,6 @@ const Landing = () => {
 
       {/* Hero */}
       <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
-        {/* Interactive particle field */}
-        <ParticleBackground variant="interactive" className="opacity-60" />
-
         {/* Breathing gradient orb */}
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 

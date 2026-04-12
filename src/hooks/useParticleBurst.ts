@@ -1,5 +1,4 @@
 import { useCallback, useRef } from 'react';
-import { tsParticles } from '@tsparticles/engine';
 import { burstConfigs, type ParticleBurstType } from '@/lib/animations/particles';
 
 const isTouchDevice = () =>
@@ -8,13 +7,30 @@ const isTouchDevice = () =>
 const isMobileViewport = () =>
   typeof window !== 'undefined' && window.innerWidth < 768;
 
+/** Lazy-init the tsparticles engine once */
+let engineReady = false;
+let engineLoading: Promise<void> | null = null;
+
+async function ensureEngine() {
+  if (engineReady) return;
+  if (engineLoading) { await engineLoading; return; }
+  engineLoading = (async () => {
+    try {
+      const { tsParticles } = await import('@tsparticles/engine');
+      const { loadSlim } = await import('@tsparticles/slim');
+      await loadSlim(tsParticles);
+      engineReady = true;
+    } catch {
+      // tsparticles failed to load — silently disable particle bursts
+    }
+  })();
+  await engineLoading;
+}
+
 /**
  * Hook that returns a function to trigger a particle burst at given coordinates.
  * Automatically reduces particle count on mobile and respects prefers-reduced-motion.
- *
- * Usage:
- *   const burst = useParticleBurst();
- *   <button onClick={(e) => burst(e, 'confetti')}>Click me</button>
+ * Lazy-loads tsparticles engine on first use.
  */
 export function useParticleBurst() {
   const counterRef = useRef(0);
@@ -29,12 +45,15 @@ export function useParticleBurst() {
 
     const { clientX, clientY } = event;
     const mobile = isTouchDevice() || isMobileViewport();
-
-    // Reduce particle count on mobile (40% of desktop)
     const desktopCount = options.particleCount ?? 30;
     const particleCount = mobile ? Math.max(5, Math.round(desktopCount * 0.4)) : desktopCount;
 
-    // Create a temporary container at the click position
+    // Lazy-init engine
+    await ensureEngine();
+    if (!engineReady) return;
+
+    const { tsParticles } = await import('@tsparticles/engine');
+
     const container = document.createElement('div');
     const id = `particle-burst-${Date.now()}-${counterRef.current++}`;
     container.id = id;
@@ -52,12 +71,10 @@ export function useParticleBurst() {
     try {
       const config = structuredClone(burstConfigs[type]);
 
-      // Override particle count
       if (config.emitters && !Array.isArray(config.emitters)) {
         config.emitters.rate = { quantity: particleCount, delay: 0 };
       }
 
-      // Reduce particle sizes on mobile
       if (mobile && config.particles?.size) {
         const size = config.particles.size;
         if (typeof size.value === 'object' && 'max' in size.value) {
@@ -67,7 +84,6 @@ export function useParticleBurst() {
 
       const instance = await tsParticles.load({ id, options: config });
 
-      // Auto-cleanup after particles die (shorter on mobile)
       setTimeout(() => {
         instance?.destroy();
         container.remove();
