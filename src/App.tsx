@@ -34,6 +34,7 @@ import BlogPost from "./pages/BlogPost";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import UserSlugRedirect from "./pages/UserSlugRedirect";
+import HireRequests from "./pages/HireRequests";
 import { WhatsAppFloatingButton } from "./components/WhatsAppFloatingButton";
 import type { TransitionVariant } from "./components/PageTransition";
 
@@ -91,6 +92,14 @@ const App = () => {
             element={
               <RequireVerifiedSession>
                 <P><Messages /></P>
+              </RequireVerifiedSession>
+            }
+          />
+          <Route
+            path="/hire-requests"
+            element={
+              <RequireVerifiedSession>
+                <P><HireRequests /></P>
               </RequireVerifiedSession>
             }
           />

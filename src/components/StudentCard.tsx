@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2 } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap } from 'lucide-react';
+import { QuoteModal } from './QuoteModal';
+import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -113,10 +115,9 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const uniStyle = getUniStyle(student.university);
   const clickable = !demoExample;
 
-  // Quote dialog state
+  // Hire-flow modal state (shared QuoteModal + HireNowModal)
   const [quoteOpen, setQuoteOpen] = useState(false);
-  const [quoteDesc, setQuoteDesc] = useState('');
-  const [quoteBudget, setQuoteBudget] = useState('');
+  const [hireOpen, setHireOpen] = useState(false);
 
   // Admin remove listing state
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
@@ -136,17 +137,6 @@ export const StudentCard: React.FC<StudentCardProps> = ({
       toast({ title: 'Listing removed', description: `${displayName || 'Freelancer'} can re-list later.` });
       onRemoved?.(student.user_id);
     }
-  };
-
-  const sendQuoteRequest = () => {
-    const lines = [`Hi! I'd like to get a quote.`, ``, `What I need: ${quoteDesc.trim()}`];
-    if (quoteBudget.trim()) lines.push(`My budget: €${quoteBudget.trim()}`);
-    lines.push(``, `Let me know if you're available!`);
-    const draft = lines.join('\n');
-    setQuoteOpen(false);
-    setQuoteDesc('');
-    setQuoteBudget('');
-    navigate(`/messages?with=${student.user_id}&draft=${encodeURIComponent(draft)}`);
   };
 
   // Top 3 skills for banner keyword line
@@ -346,64 +336,53 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         )}
 
-        {/* CTA */}
+        {/* CTA — two rows so both conversion paths are visible without leaving the card */}
         {clickable && (
-          <div className="mt-4 pt-3 border-t border-foreground/5 flex gap-2">
-            <span className="w-[60%] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2.5 text-[12px] font-semibold text-primary transition-all duration-300 ease-out-quint group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/15">
-              View profile <ArrowRight size={12} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
+          <div className="mt-4 pt-3 border-t border-foreground/5 space-y-2">
+            {/* Row 1: Hire now (primary amber) + Ask for a quote (secondary) */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setHireOpen(true); }}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2.5 text-[12px] font-bold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-110 active:scale-[0.97]"
+              >
+                <Zap size={13} strokeWidth={2.5} />
+                Hire now
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/8 bg-foreground/[0.02] px-3 py-2.5 text-[12px] font-semibold text-foreground/70 transition-all duration-200 hover:border-primary/25 hover:bg-primary/6 hover:text-primary active:scale-[0.97]"
+              >
+                <MessageSquareQuote size={13} strokeWidth={2} />
+                Ask for a quote
+              </button>
+            </div>
+            {/* Row 2: View profile (tertiary — still discoverable, just de-emphasized) */}
+            <span className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/5 px-3 py-2 text-[11px] font-semibold text-primary/80 transition-all duration-300 ease-out-quint group-hover:bg-primary/10 group-hover:text-primary">
+              View profile <ArrowRight size={11} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
             </span>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
-              className="w-[40%] inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/8 bg-foreground/[0.02] px-3 py-2.5 text-[12px] font-semibold text-foreground/65 transition-all duration-200 hover:border-primary/25 hover:bg-primary/6 hover:text-primary active:scale-[0.97]"
-            >
-              <MessageSquareQuote size={13} strokeWidth={2} />
-              Get a quote
-            </button>
           </div>
         )}
       </div>
 
-      {/* Quote request dialog */}
-      <Dialog open={quoteOpen} onOpenChange={setQuoteOpen}>
-        <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle>Get a quote from {displayName || 'this freelancer'}</DialogTitle>
-            <DialogDescription>Describe what you need and your budget — this gets sent as a message.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-1">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Describe your project <span className="text-destructive">*</span></label>
-              <textarea
-                value={quoteDesc}
-                onChange={(e) => setQuoteDesc(e.target.value)}
-                placeholder="e.g. A 5-page website for my café — home, menu, about, gallery, contact. Need it mobile-friendly and easy to update."
-                className="w-full min-h-[100px] resize-y rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Your budget (€) <span className="text-muted-foreground/60">optional</span></label>
-              <input
-                type="number"
-                min="0"
-                value={quoteBudget}
-                onChange={(e) => setQuoteBudget(e.target.value)}
-                placeholder="e.g. 500"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <Button
-              type="button"
-              size="lg"
-              className="w-full h-11 rounded-xl font-semibold"
-              disabled={!quoteDesc.trim()}
-              onClick={sendQuoteRequest}
-            >
-              Send quote request
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Shared hire-flow modals */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <QuoteModal
+          open={quoteOpen}
+          onOpenChange={setQuoteOpen}
+          freelancerId={student.user_id}
+          freelancerName={displayName || 'this freelancer'}
+          category={category}
+        />
+        <HireNowModal
+          open={hireOpen}
+          onOpenChange={setHireOpen}
+          freelancerId={student.user_id}
+          freelancerName={displayName || 'this freelancer'}
+          category={category}
+        />
+      </div>
 
       {/* Admin remove listing confirm dialog */}
       {viewerIsAdmin && (
