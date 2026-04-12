@@ -1,38 +1,15 @@
-import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuthContext';
 import { teamWhatsAppHref } from '@/lib/contact';
 
 export function WhatsAppFloatingButton() {
-  const [visible, setVisible] = useState(false);
+  const { userType } = useAuth();
   const { pathname } = useLocation();
   const onTalentPage = pathname === '/students' || pathname.startsWith('/students/');
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const check = async (userId: string | undefined) => {
-      if (!userId) { setVisible(false); return; }
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_type')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (!cancelled) setVisible(!!data?.user_type);
-    };
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      check(session?.user?.id);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      check(session?.user?.id);
-    });
-
-    return () => { cancelled = true; subscription.unsubscribe(); };
-  }, []);
-
-  if (!visible || onTalentPage) return null;
+  // Show for any authenticated user that has picked an account type,
+  // everywhere except the talent board.
+  if (!userType || onTalentPage) return null;
 
   return (
     <a

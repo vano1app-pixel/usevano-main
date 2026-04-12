@@ -57,26 +57,36 @@ const ChooseAccountType = () => {
         return;
       }
       const uid = session.user.id;
-      const { data: existing } = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
       const display =
         (session.user.user_metadata?.full_name as string | undefined) ||
         session.user.email?.split('@')[0] ||
         'User';
-      if (!existing) {
-        const { error: insErr } = await supabase.from('profiles').insert({
-          user_id: uid,
-          display_name: display,
-          user_type: selected,
-        });
-        if (insErr) throw insErr;
-      } else {
-        const { error: upErr } = await supabase.from('profiles').update({ user_type: selected }).eq('user_id', uid);
-        if (upErr) throw upErr;
-      }
+
+      // One upsert on profiles replaces the old SELECT → (INSERT or UPDATE) pair.
+      // `onConflict: 'user_id'` + `ignoreDuplicates: false` means existing rows
+      // get their `user_type` updated; new rows get seeded with display_name.
+      // Run student_profiles upsert in parallel when relevant — previously it
+      // waited for the profile write to finish even though they don't depend on
+      // each other.
+      const writes: Promise<{ error: unknown }>[] = [
+        supabase
+          .from('profiles')
+          .upsert(
+            { user_id: uid, display_name: display, user_type: selected },
+            { onConflict: 'user_id', ignoreDuplicates: false },
+          ),
+      ];
       if (selected === 'student') {
-        const { error: spErr } = await supabase.from('student_profiles').upsert({ user_id: uid }, { onConflict: 'user_id' });
-        if (spErr) throw spErr;
+        writes.push(
+          supabase
+            .from('student_profiles')
+            .upsert({ user_id: uid }, { onConflict: 'user_id' }),
+        );
       }
+      const results = await Promise.all(writes);
+      const firstError = results.find((r) => r.error)?.error;
+      if (firstError) throw firstError;
+
       const path = await resolvePostGoogleAuthDestination(uid);
       navigate(path, { replace: true });
     } catch (err: unknown) {

@@ -1,63 +1,42 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuthSession } from '@/hooks/useAuthSession';
+import { useAuth } from '@/hooks/useAuthContext';
 
 const SKIP_PREFIXES = ['/auth', '/choose-account-type', '/reset-password', '/business-dashboard', '/complete-profile'];
 
 /**
  * After OAuth or legacy sign-up, users may have no `profiles.user_type`.
  * Send them to the account-type picker before using the rest of the app.
+ *
+ * Uses the shared AuthProvider cache rather than querying profiles on every
+ * navigation — previously this component fired a round-trip per route change
+ * and showed a full-screen blocking overlay while it waited.
  */
 export function RedirectToAccountTypeIfNeeded() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, loading, isVerified } = useAuthSession();
-  const [overlay, setOverlay] = useState(false);
+  const { session, loading, isVerified, userType, profileLoading } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
-    if (!session || !isVerified) {
-      setOverlay(false);
-      return;
-    }
+    if (loading || profileLoading) return;
+    if (!session || !isVerified) return;
     const path = location.pathname;
-    if (SKIP_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) {
-      setOverlay(false);
-      return;
+    if (SKIP_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) return;
+    if (!userType?.trim()) {
+      navigate('/choose-account-type', { replace: true, state: { from: path } });
     }
+  }, [loading, profileLoading, session, isVerified, userType, location.pathname, navigate]);
 
-    let cancelled = false;
-    setOverlay(true);
-    void (async () => {
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        if (cancelled) return;
-        if (error) {
-          // Query failed — don't block the user, just dismiss overlay
-          setOverlay(false);
-          return;
-        }
-        if (!profile?.user_type?.trim()) {
-          navigate('/choose-account-type', { replace: true, state: { from: path } });
-        }
-      } catch {
-        // Network/timeout error — don't block the user
-      } finally {
-        if (!cancelled) setOverlay(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, session, isVerified, location.pathname, navigate]);
-
-  if (!overlay) return null;
+  // Show a subtle overlay only while we're still fetching the profile AFTER
+  // a confirmed sign-in. No overlay on sign-out, on the skip-listed routes,
+  // or once we know the user_type. Keeps navigation snappy everywhere else.
+  const showOverlay =
+    Boolean(session) &&
+    isVerified &&
+    profileLoading &&
+    !SKIP_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(`${p}/`));
+  if (!showOverlay) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">

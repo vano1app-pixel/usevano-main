@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { useAuth } from '@/hooks/useAuthContext';
 import { AuthSheet } from './AuthSheet';
 import { NotificationBell } from './NotificationBell';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
@@ -12,8 +11,10 @@ import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 
 export const Navbar: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [userType, setUserType] = useState<string | null>(null);
+  // Shared auth context: single subscription + single profile fetch shared
+  // across Navbar, WhatsApp button, MascotGuide, etc. Replaces the old
+  // Navbar-local onAuthStateChange + SELECT user_type round-trip.
+  const { user, userType } = useAuth();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,28 +38,6 @@ export const Navbar: React.FC = () => {
     if (href === '/') return location.pathname === '/';
     return location.pathname.startsWith(href);
   };
-
-  useEffect(() => {
-    const fetchUserType = async (userId: string | undefined) => {
-      if (!userId) { setUserType(null); return; }
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_type')
-        .eq('user_id', userId)
-        .maybeSingle();
-      setUserType(data?.user_type ?? null);
-    };
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      fetchUserType(session?.user?.id);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-      fetchUserType(session?.user?.id);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (user && pendingRoute) {

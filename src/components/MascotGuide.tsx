@@ -179,10 +179,15 @@ interface FloatingMascotProps {
    * multiple mascots so their speech bubbles take turns instead of overlapping.
    */
   turnOffsetMs?: number;
+  /**
+   * When true, lifts the mascot above the ~56px WhatsApp floating button plus
+   * an 8px gap. Only relevant on the right side (where WhatsApp lives).
+   */
+  lift?: boolean;
 }
 
 const FloatingMascot: React.FC<FloatingMascotProps> = ({
-  type, messages, side, isAngry = false, persistBubble = false, onTap, title, turnOffsetMs = 0,
+  type, messages, side, isAngry = false, persistBubble = false, onTap, title, turnOffsetMs = 0, lift = false,
 }) => {
   const [showBubble, setShowBubble] = useState(false);
   const [currentMessage, setCurrentMessage] = useState(messages[0] || '');
@@ -242,14 +247,19 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
     window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(msgText)}`, '_blank');
   };
 
+  // Lift the mascot above the WhatsApp floating button when it's present.
+  // WhatsApp is 56px tall; add a small gap so they sit stacked cleanly.
+  const baseBottom = isMobile ? 80 : 100;
+  const liftedBottom = baseBottom + 56 + 8;
   return (
     <div
       className="fixed z-[2100] cursor-pointer group"
       style={{
         ...(side === 'left' ? { left: isMobile ? 8 : 20 } : { right: isMobile ? 8 : 20 }),
-        bottom: isMobile ? 80 : 100,
+        bottom: lift ? liftedBottom : baseBottom,
         width: mascotSize,
         height: mascotSize,
+        transition: 'bottom 200ms ease-out',
       }}
       onClick={handleClick}
       title={title ?? (type === 'wizard' ? 'Chat with us about freelancing!' : 'Chat with us about hiring!')}
@@ -300,48 +310,45 @@ const NAG_MESSAGES = [
 export const MascotGuide: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  // userType comes from the shared AuthProvider so we don't re-fetch profiles
+  // here — Navbar, WhatsApp button and the hire-inbox link all share the same cached value.
+  const { user: sessionUser, userType: rawUserType } = useAuth();
+  const userType = (rawUserType as 'student' | 'business' | null) ?? null;
   const [guide, setGuide] = useState<PageGuide>(getPageGuide('/'));
   const [isUnlistedFreelancer, setIsUnlistedFreelancer] = useState(false);
   const [pendingHireCount, setPendingHireCount] = useState(0);
-  const [userType, setUserType] = useState<'student' | 'business' | null>(null);
   const [businessHasHired, setBusinessHasHired] = useState<boolean | null>(null);
   const [nagIndex, setNagIndex] = useState(0);
 
   const prefersReduced = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Check user state — listing status, pending hires, first-hire status.
+  // Fetch only the extras we need beyond user_type: unlisted status + pending
+  // hire count for freelancers, or has-ever-hired status for businesses.
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
+      if (!sessionUser) {
         if (!cancelled) {
           setIsUnlistedFreelancer(false);
           setPendingHireCount(0);
-          setUserType(null);
           setBusinessHasHired(null);
         }
         return;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles').select('user_type').eq('user_id', session.user.id).maybeSingle();
-      const type = (profile?.user_type as 'student' | 'business' | null) ?? null;
-      if (!cancelled) setUserType(type);
-
-      if (type === 'student') {
+      if (userType === 'student') {
         const [{ data: sp }, { count: pendingCount }] = await Promise.all([
           supabase
             .from('student_profiles')
             .select('community_board_status')
-            .eq('user_id', session.user.id)
+            .eq('user_id', sessionUser.id)
             .maybeSingle(),
           supabase
             .from('hire_requests' as any)
             .select('id', { count: 'exact', head: true })
             .eq('kind', 'direct')
-            .eq('target_freelancer_id', session.user.id)
+            .eq('target_freelancer_id', sessionUser.id)
             .eq('status', 'pending')
             .gt('expires_at', new Date().toISOString()),
         ]);
@@ -350,11 +357,11 @@ export const MascotGuide: React.FC = () => {
           setPendingHireCount(pendingCount ?? 0);
           setBusinessHasHired(null);
         }
-      } else if (type === 'business') {
+      } else if (userType === 'business') {
         const { count: totalHires } = await supabase
           .from('hire_requests' as any)
           .select('id', { count: 'exact', head: true })
-          .eq('requester_id', session.user.id);
+          .eq('requester_id', sessionUser.id);
         if (!cancelled) {
           setIsUnlistedFreelancer(false);
           setPendingHireCount(0);
@@ -367,9 +374,11 @@ export const MascotGuide: React.FC = () => {
       }
     };
     check();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => check());
-    return () => { cancelled = true; subscription.unsubscribe(); };
-  }, [location.pathname]);
+    return () => { cancelled = true; };
+    // Re-run when the signed-in user changes, userType resolves, or the user
+    // navigates (so e.g. a freelancer who just responded on /hire-requests
+    // sees the urgent mascot go away when they return to /).
+  }, [sessionUser, userType, location.pathname]);
 
   // Escalate "you're unlisted" nag messages (only when no urgent hire is pending).
   useEffect(() => {
@@ -464,6 +473,15 @@ export const MascotGuide: React.FC = () => {
   const wizardOffset = 0;
   const dragonOffset = bothVisible ? 3500 : 0;
 
+  // The WhatsApp floating button (bottom-right) is shown for authenticated
+  // users with a user_type set, everywhere except the talent board. Mirror
+  // that condition here so the knight slides up above it instead of hiding
+  // behind it. Only applies to the right-side mascot ("dragon"/knight).
+  const isTalentBoard =
+    location.pathname === '/students' || location.pathname.startsWith('/students/');
+  const whatsappVisible = Boolean(userType) && !isTalentBoard;
+  const dragonLift = whatsappVisible;
+
   return (
     <>
       {showWizard && (
@@ -486,6 +504,7 @@ export const MascotGuide: React.FC = () => {
           onTap={dragonOnTap}
           title={dragonTitle}
           turnOffsetMs={dragonOffset}
+          lift={dragonLift}
         />
       )}
     </>

@@ -114,7 +114,10 @@ const Landing = () => {
     fetchFeatured();
   }, []);
 
-  /** Google OAuth returns to site root (`redirectTo`); finish profile + route once session is ready. */
+  /** Google OAuth returns to site root (`redirectTo`); finish profile + route once session is ready.
+   *  We run once on mount AND on every auth-state change — the `INITIAL_SESSION` event fires
+   *  as soon as Supabase has restored the session, which covers the race we used to paper over
+   *  with a 400ms setTimeout. Keep it simple: two calls, no timers. */
   React.useEffect(() => {
     const finish = async () => {
       if (oauthHandledRef.current) return;
@@ -122,12 +125,10 @@ const Landing = () => {
       if (done) oauthHandledRef.current = true;
     };
     void finish();
-    const t = window.setTimeout(() => void finish(), 400);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       void finish();
     });
     return () => {
-      window.clearTimeout(t);
       subscription.unsubscribe();
     };
   }, [navigate]);
@@ -440,22 +441,37 @@ const Landing = () => {
               { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, cat: 'photography', image: '/cat-photography.png' },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' },
-            ].map((item) => (
+            ].map((item) => {
+              // Image paths derived from the naming convention used in /public.
+              // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.
+              const slug = item.cat;
+              return (
                 <button
                   data-cat-card
-                  key={item.cat}
+                  key={slug}
                   type="button"
-                  onClick={(e) => { burst(e, 'sparkle', { particleCount: 20 }); navigate(`/hire?category=${item.cat}`); }}
+                  onClick={(e) => { burst(e, 'sparkle', { particleCount: 20 }); navigate(`/hire?category=${slug}`); }}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
                 >
-                  <img
-                    data-cat-img
-                    src={item.image}
-                    alt=""
-                    aria-hidden="true"
-                    className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-all duration-500 group-hover:opacity-50 group-hover:scale-105"
-                  />
+                  <picture className="absolute inset-0 h-full w-full pointer-events-none">
+                    <source
+                      type="image/webp"
+                      srcSet={`/cat-${slug}-400.webp 400w, /cat-${slug}-800.webp 800w`}
+                      sizes="(max-width: 640px) 50vw, 25vw"
+                    />
+                    <img
+                      data-cat-img
+                      src={item.image}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
+                      width="400"
+                      height="600"
+                      className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-all duration-500 group-hover:opacity-50 group-hover:scale-105"
+                    />
+                  </picture>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none" />
                   <div className="relative z-10 flex flex-col gap-3 md:gap-4">
                     <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm transition-all duration-200 group-hover:bg-white/25">
@@ -468,7 +484,8 @@ const Landing = () => {
                     </div>
                   </div>
                 </button>
-            ))}
+              );
+            })}
           </div>
           </div>
         </div>

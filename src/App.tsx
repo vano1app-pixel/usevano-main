@@ -11,6 +11,7 @@ import { ScrollProgress } from "@/components/ScrollProgress";
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
+import { AuthProvider } from "@/hooks/useAuthContext";
 
 // Landing stays eager: it's the most common first-visit page so keeping it in
 // the main bundle avoids a Suspense flash on the marketing page. Every other
@@ -76,15 +77,11 @@ function getVariant(path: string): TransitionVariant {
   return 'default';
 }
 
-/**
- * Small spinner shown while a lazy route chunk loads. Matches the inline
- * spinners used in Profile.tsx / StudentProfile.tsx / Admin.tsx.
- */
-const RouteFallback = () => (
-  <div className="min-h-screen bg-background flex items-center justify-center">
-    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-  </div>
-);
+// Route-level Suspense boundary intentionally uses `fallback={null}` below:
+// the PageTransition AnimatePresence already provides a smooth swap, and
+// showing a full-screen spinner for the ~100-300ms chunk fetch made the site
+// feel janky. The brief blank frame is imperceptible on fast networks and
+// more tolerable on slow ones than a pop-in spinner.
 
 const App = () => {
   const location = useLocation();
@@ -92,6 +89,7 @@ const App = () => {
   const P = ({ children }: { children: React.ReactNode }) => <PageTransition variant={variant}>{children}</PageTransition>;
 
   return (
+    <AuthProvider>
     <TooltipProvider>
       <ScrollProgress />
       <ScrollToTop />
@@ -100,7 +98,7 @@ const App = () => {
       <Sonner />
       <div className="md:pt-14 lg:pt-16" style={{ perspective: '1200px' }}>
       <AnimatePresence mode="wait">
-        <Suspense fallback={<RouteFallback />}>
+        <Suspense fallback={null}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<P><Landing /></P>} />
             <Route path="/hire" element={<P><HirePage /></P>} />
@@ -189,6 +187,7 @@ const App = () => {
         <PwaUpdateToast />
       </Suspense>
     </TooltipProvider>
+    </AuthProvider>
   );
 };
 

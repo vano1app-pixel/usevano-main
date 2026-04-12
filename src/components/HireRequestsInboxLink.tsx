@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuthContext';
 import { Zap, ArrowRight } from 'lucide-react';
 
 /**
@@ -12,53 +13,50 @@ import { Zap, ArrowRight } from 'lucide-react';
  */
 export const HireRequestsInboxLink: React.FC = () => {
   const navigate = useNavigate();
+  // User id comes from the shared auth cache — no more redundant getSession() here.
+  const { user } = useAuth();
   const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!user?.id) {
+      setPendingCount(null);
+      return;
+    }
+    const uid = user.id;
     let cancelled = false;
-    // Channel ref kept at effect scope so the useEffect cleanup can tear it down.
-    // Without this the realtime subscription leaks on every Profile-page unmount.
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
       const { count } = await supabase
         .from('hire_requests' as any)
         .select('id', { count: 'exact', head: true })
         .eq('kind', 'direct')
-        .eq('target_freelancer_id', session.user.id)
+        .eq('target_freelancer_id', uid)
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString());
       if (!cancelled) setPendingCount(count ?? 0);
     };
 
-    const wire = async () => {
-      await load();
-      if (cancelled) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user || cancelled) return;
-      channel = supabase
-        .channel(`hire-inbox-link-${session.user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'hire_requests',
-            filter: `target_freelancer_id=eq.${session.user.id}`,
-          },
-          () => load(),
-        )
-        .subscribe();
-    };
-    wire();
+    void load();
+    channel = supabase
+      .channel(`hire-inbox-link-${uid}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'hire_requests',
+          filter: `target_freelancer_id=eq.${uid}`,
+        },
+        () => load(),
+      )
+      .subscribe();
 
     return () => {
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user?.id]);
 
   const hasPending = (pendingCount ?? 0) > 0;
 
