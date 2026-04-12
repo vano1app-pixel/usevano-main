@@ -128,12 +128,14 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
       return;
     }
 
-    const arriveY = targetRect.top + targetRect.height / 2 - mSize / 2;
+    // Position ABOVE the button, offset to the side — never on top of it
+    const gap = isMobile ? 6 : 14;
+    const arriveY = Math.max(4, targetRect.top - mSize - gap);
     let arriveX: number;
     if (side === 'left') {
-      arriveX = Math.max(4, targetRect.left - mSize - 12);
+      arriveX = Math.max(4, targetRect.left);
     } else {
-      arriveX = Math.min(window.innerWidth - mSize - 4, targetRect.right + 12);
+      arriveX = Math.min(window.innerWidth - mSize - 4, targetRect.right - mSize);
     }
 
     setIsWalking(true);
@@ -189,8 +191,9 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
   }, [side, idleLeft, idleRight, idleBottom]);
 
   // Move to target on mount/route change, follow on scroll
+  // Wait 5 seconds before walking to target — let users see the page first
   useEffect(() => {
-    const timer = setTimeout(() => moveToTarget(), 800);
+    const timer = setTimeout(() => moveToTarget(), 5000);
 
     let scrollRaf: number;
     const onScroll = () => {
