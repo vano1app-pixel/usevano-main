@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { WizardMascot } from './WizardMascot';
 import { DragonMascot } from './DragonMascot';
 import { teamWhatsAppHref } from '@/lib/contact';
@@ -14,6 +14,7 @@ const DRAGON_MESSAGES: Record<string, string[]> = {
     'Just tell us what you need!',
     'Affordable talent, right here!',
     'Find the perfect freelancer!',
+    '⚡ Click "Hire now" — they respond in 2hrs!',
   ],
   '/hire': [
     'Describe what you need!',
@@ -25,7 +26,9 @@ const DRAGON_MESSAGES: Record<string, string[]> = {
   '/students': [
     'Browse local talent!',
     'Tap a category to explore!',
+    '⚡ Hit "Hire now" to lock someone in!',
     'Freelancers ready to work!',
+    'Ask for a quote — no commitment!',
     'Need help? Text VANO directly!',
   ],
   '/auth': [
@@ -53,6 +56,28 @@ const DRAGON_MESSAGES: Record<string, string[]> = {
   ],
 };
 
+/* ─── Business-specific pools (shown when viewer is confirmed business) ─── */
+const DRAGON_BUSINESS_MESSAGES: Record<string, string[]> = {
+  '/students': [
+    '⚡ See someone good? Hit Hire now!',
+    'They have 2 hours to respond!',
+    'Lock in a freelancer in one click!',
+    'Not sure? Ask for a quote first!',
+  ],
+  _default: [
+    '⚡ Hire now — 2hr response guaranteed!',
+    'Ready to hire? Let\'s go!',
+  ],
+};
+
+/* ─── Business who hasn't hired anyone yet ─── */
+const DRAGON_FIRST_HIRE_MESSAGES: string[] = [
+  '👋 First time hiring? Easy!',
+  '⚡ Tap "Hire now" on anyone!',
+  'Your first hire — let\'s do this!',
+  'Locals are waiting for you!',
+];
+
 const WIZARD_MESSAGES: Record<string, string[]> = {
   '/': [
     'Show your skills to the world!',
@@ -74,6 +99,7 @@ const WIZARD_MESSAGES: Record<string, string[]> = {
     'Make your profile stand out!',
     'Add skills to get discovered!',
     'A good bio gets more gigs!',
+    '⚡ Check your hire requests inbox!',
     'Need help? Tap me!',
   ],
   '/complete-profile': [
@@ -86,12 +112,26 @@ const WIZARD_MESSAGES: Record<string, string[]> = {
     'Quick replies get more gigs!',
     'Need help? Tap me!',
   ],
+  '/hire-requests': [
+    '⚡ Respond fast to win the gig!',
+    'Tap Accept if you\'re free!',
+    'You have 2 hours — don\'t miss it!',
+  ],
   _default: [
     'Need help? Tap me!',
     'Get listed on the talent board!',
     'Questions? Tap me!',
   ],
 };
+
+/* ─── URGENT: Freelancer has a pending hire request ─── */
+const WIZARD_URGENT_HIRE_MESSAGES: string[] = [
+  '🎯 A business wants to hire you — GO!',
+  '⚡ Respond in 2hrs or they move on!',
+  '🔥 Accept now before someone else does!',
+  '⏰ The clock is ticking — open your inbox!',
+  '💰 Don\'t lose this gig — respond!',
+];
 
 type MascotType = 'wizard' | 'dragon';
 
@@ -130,10 +170,19 @@ interface FloatingMascotProps {
   side: 'left' | 'right';
   isAngry?: boolean;
   persistBubble?: boolean;
+  /** Overrides the default WhatsApp-open click behaviour (e.g. route to inbox). */
+  onTap?: () => void;
+  /** Custom tooltip for the mascot. */
+  title?: string;
+  /**
+   * Extra delay (ms) added before the bubble first appears. Used to stagger
+   * multiple mascots so their speech bubbles take turns instead of overlapping.
+   */
+  turnOffsetMs?: number;
 }
 
 const FloatingMascot: React.FC<FloatingMascotProps> = ({
-  type, messages, side, isAngry = false, persistBubble = false,
+  type, messages, side, isAngry = false, persistBubble = false, onTap, title, turnOffsetMs = 0,
 }) => {
   const [showBubble, setShowBubble] = useState(false);
   const [currentMessage, setCurrentMessage] = useState(messages[0] || '');
@@ -150,34 +199,43 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
     setCurrentMessage(messages[0] || '');
   }, [messages]);
 
-  // Rotate messages: show 4s -> hide 2s -> next -> repeat
+  // Rotate messages. Visible + hidden durations are kept equal so two mascots
+  // with a half-cycle turnOffsetMs alternate cleanly without their bubbles
+  // overlapping. Cycle = 7000ms (3500ms visible → 3500ms hidden → next).
   useEffect(() => {
     if (!messages.length) return;
     setShowBubble(false);
 
-    const showDelay = persistBubble ? 800 : 2000;
-    const visibleDuration = 4000;
-    const hideDuration = 2000;
+    const baseDelay = persistBubble ? 800 : 1500;
+    const visibleDuration = 3500;
+    const hideDuration = 3500;
     const cycleDuration = visibleDuration + hideDuration;
+    const showDelay = baseDelay + Math.max(0, turnOffsetMs);
 
     const t1 = setTimeout(() => setShowBubble(true), showDelay);
+    // Auto-hide after visibleDuration so two mascots can take turns.
+    const t2 = setTimeout(() => setShowBubble(false), showDelay + visibleDuration);
 
     const interval = setInterval(() => {
-      setShowBubble(false);
-      setTimeout(() => {
-        setMsgIndex(prev => {
-          const next = (prev + 1) % messages.length;
-          setCurrentMessage(messages[next]);
-          return next;
-        });
-        setShowBubble(true);
-      }, hideDuration);
+      setMsgIndex(prev => {
+        const next = (prev + 1) % messages.length;
+        setCurrentMessage(messages[next]);
+        return next;
+      });
+      setShowBubble(true);
+      // Hide again after visible window
+      window.setTimeout(() => setShowBubble(false), visibleDuration);
     }, cycleDuration);
 
-    return () => { clearTimeout(t1); clearInterval(interval); };
-  }, [messages, persistBubble]);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearInterval(interval);
+    };
+  }, [messages, persistBubble, turnOffsetMs]);
 
   const handleClick = () => {
+    if (onTap) { onTap(); return; }
     const msgText = type === 'wizard'
       ? "Hi! I'm a freelancer interested in joining VANO!"
       : "Hi! I'm looking to hire a freelancer on VANO!";
@@ -194,7 +252,7 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
         height: mascotSize,
       }}
       onClick={handleClick}
-      title={type === 'wizard' ? 'Chat with us about freelancing!' : 'Chat with us about hiring!'}
+      title={title ?? (type === 'wizard' ? 'Chat with us about freelancing!' : 'Chat with us about hiring!')}
     >
       {/* Speech bubble */}
       <div className={cn(
@@ -241,65 +299,170 @@ const NAG_MESSAGES = [
 /* ─── Main persistent guide rendered in App.tsx ─── */
 export const MascotGuide: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [guide, setGuide] = useState<PageGuide>(getPageGuide('/'));
   const [isUnlistedFreelancer, setIsUnlistedFreelancer] = useState(false);
+  const [pendingHireCount, setPendingHireCount] = useState(0);
+  const [userType, setUserType] = useState<'student' | 'business' | null>(null);
+  const [businessHasHired, setBusinessHasHired] = useState<boolean | null>(null);
   const [nagIndex, setNagIndex] = useState(0);
 
   const prefersReduced = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Check if user is an unlisted freelancer
+  // Check user state — listing status, pending hires, first-hire status.
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { if (!cancelled) setIsUnlistedFreelancer(false); return; }
+      if (!session?.user) {
+        if (!cancelled) {
+          setIsUnlistedFreelancer(false);
+          setPendingHireCount(0);
+          setUserType(null);
+          setBusinessHasHired(null);
+        }
+        return;
+      }
 
       const { data: profile } = await supabase
         .from('profiles').select('user_type').eq('user_id', session.user.id).maybeSingle();
-      if (!profile || profile.user_type !== 'student') {
-        if (!cancelled) setIsUnlistedFreelancer(false); return;
-      }
+      const type = (profile?.user_type as 'student' | 'business' | null) ?? null;
+      if (!cancelled) setUserType(type);
 
-      const { data: sp } = await supabase
-        .from('student_profiles').select('community_board_status').eq('user_id', session.user.id).maybeSingle();
-      if (!cancelled) setIsUnlistedFreelancer(sp?.community_board_status !== 'approved');
+      if (type === 'student') {
+        const [{ data: sp }, { count: pendingCount }] = await Promise.all([
+          supabase
+            .from('student_profiles')
+            .select('community_board_status')
+            .eq('user_id', session.user.id)
+            .maybeSingle(),
+          supabase
+            .from('hire_requests' as any)
+            .select('id', { count: 'exact', head: true })
+            .eq('kind', 'direct')
+            .eq('target_freelancer_id', session.user.id)
+            .eq('status', 'pending')
+            .gt('expires_at', new Date().toISOString()),
+        ]);
+        if (!cancelled) {
+          setIsUnlistedFreelancer(sp?.community_board_status !== 'approved');
+          setPendingHireCount(pendingCount ?? 0);
+          setBusinessHasHired(null);
+        }
+      } else if (type === 'business') {
+        const { count: totalHires } = await supabase
+          .from('hire_requests' as any)
+          .select('id', { count: 'exact', head: true })
+          .eq('requester_id', session.user.id);
+        if (!cancelled) {
+          setIsUnlistedFreelancer(false);
+          setPendingHireCount(0);
+          setBusinessHasHired((totalHires ?? 0) > 0);
+        }
+      } else if (!cancelled) {
+        setIsUnlistedFreelancer(false);
+        setPendingHireCount(0);
+        setBusinessHasHired(null);
+      }
     };
     check();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => check());
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, [location.pathname]);
 
-  // Escalate nag messages
+  // Escalate "you're unlisted" nag messages (only when no urgent hire is pending).
   useEffect(() => {
-    if (!isUnlistedFreelancer) return;
+    if (!isUnlistedFreelancer || pendingHireCount > 0) return;
     const interval = setInterval(() => {
       setNagIndex(prev => Math.min(prev + 1, NAG_MESSAGES.length - 1));
     }, 20000);
     return () => clearInterval(interval);
-  }, [isUnlistedFreelancer]);
+  }, [isUnlistedFreelancer, pendingHireCount]);
 
-  // Update guide config
+  // Update guide config with priority:
+  //   1. Urgent: pending hire request waiting (wizard screams to respond)
+  //   2. Nag: freelancer not listed yet
+  //   3. Business-specific: hire now / first hire prompts
+  //   4. Default: route-based messages
   useEffect(() => {
     const base = getPageGuide(location.pathname);
+    const quietPages = ['/complete-profile', '/choose-account-type', '/auth'];
+    const isQuiet = quietPages.some(p => location.pathname.startsWith(p));
 
-    if (isUnlistedFreelancer) {
-      const quietPages = ['/complete-profile', '/choose-account-type', '/auth'];
-      const isQuiet = quietPages.some(p => location.pathname.startsWith(p));
-      if (!isQuiet) {
-        if (!base.show.includes('wizard')) base.show.push('wizard');
-        base.wizardMessages = [NAG_MESSAGES[nagIndex]];
+    // 1. URGENT — freelancer has a pending hire waiting. Overrides everything.
+    if (userType === 'student' && pendingHireCount > 0 && !isQuiet) {
+      if (!base.show.includes('wizard')) base.show.push('wizard');
+      const countLabel = pendingHireCount === 1
+        ? '🎯 1 hire request waiting — respond NOW!'
+        : `🎯 ${pendingHireCount} hire requests waiting — respond NOW!`;
+      base.wizardMessages = [countLabel, ...WIZARD_URGENT_HIRE_MESSAGES];
+      // Don't show the dragon/knight on top — the freelancer has one job right now.
+      base.show = ['wizard'];
+      setGuide(base);
+      return;
+    }
+
+    // 2. Unlisted-freelancer nag
+    if (isUnlistedFreelancer && !isQuiet) {
+      if (!base.show.includes('wizard')) base.show.push('wizard');
+      base.wizardMessages = [NAG_MESSAGES[nagIndex]];
+    }
+
+    // 3. Business-specific messaging (only when user is confirmed business)
+    if (userType === 'business' && !isQuiet) {
+      const path = location.pathname;
+      // First-time business (no hire yet) on talent board / home / hire — make it obvious
+      if (businessHasHired === false && (path === '/' || path === '/hire' || path.startsWith('/students'))) {
+        base.dragonMessages = DRAGON_FIRST_HIRE_MESSAGES;
+        if (!base.show.includes('dragon')) base.show.push('dragon');
+      } else if (path.startsWith('/students')) {
+        base.dragonMessages = DRAGON_BUSINESS_MESSAGES['/students'];
+        if (!base.show.includes('dragon')) base.show.push('dragon');
+      } else if (!DRAGON_MESSAGES[path]) {
+        base.dragonMessages = DRAGON_BUSINESS_MESSAGES._default;
       }
     }
 
     setGuide(base);
-  }, [location.pathname, isUnlistedFreelancer, nagIndex]);
+  }, [location.pathname, isUnlistedFreelancer, nagIndex, pendingHireCount, userType, businessHasHired]);
 
   if (prefersReduced) return null;
 
-  const isAngry = isUnlistedFreelancer && nagIndex >= 3;
+  const hasUrgentHire = userType === 'student' && pendingHireCount > 0;
+  const isAngry = hasUrgentHire || (isUnlistedFreelancer && nagIndex >= 3);
   const showWizard = guide.show.includes('wizard');
   const showDragon = guide.show.includes('dragon');
+
+  // Wire contextual tap handlers:
+  // - Urgent pending hire → open inbox
+  // - Unlisted freelancer → open /profile to list
+  // - First-time business on talent board → scroll to top (stay in flow), default WhatsApp elsewhere
+  const wizardOnTap = hasUrgentHire
+    ? () => navigate('/hire-requests')
+    : isUnlistedFreelancer
+      ? () => navigate('/profile')
+      : undefined;
+  const wizardTitle = hasUrgentHire
+    ? 'You have hire requests waiting!'
+    : isUnlistedFreelancer
+      ? 'Finish your profile to get listed!'
+      : undefined;
+
+  const dragonOnTap =
+    userType === 'business' && businessHasHired === false && location.pathname === '/'
+      ? () => navigate('/students')
+      : undefined;
+  const dragonTitle =
+    userType === 'business' && businessHasHired === false
+      ? 'Browse freelancers now!'
+      : undefined;
+
+  // When both mascots are visible, stagger their bubbles by half a cycle so
+  // they speak back-to-back instead of overlapping in the middle of the screen.
+  const bothVisible = showWizard && showDragon;
+  const wizardOffset = 0;
+  const dragonOffset = bothVisible ? 3500 : 0;
 
   return (
     <>
@@ -309,7 +472,10 @@ export const MascotGuide: React.FC = () => {
           messages={guide.wizardMessages}
           side="left"
           isAngry={isAngry}
-          persistBubble={isUnlistedFreelancer}
+          persistBubble={isUnlistedFreelancer || hasUrgentHire}
+          onTap={wizardOnTap}
+          title={wizardTitle}
+          turnOffsetMs={wizardOffset}
         />
       )}
       {showDragon && (
@@ -317,6 +483,9 @@ export const MascotGuide: React.FC = () => {
           type="dragon"
           messages={guide.dragonMessages}
           side="right"
+          onTap={dragonOnTap}
+          title={dragonTitle}
+          turnOffsetMs={dragonOffset}
         />
       )}
     </>
