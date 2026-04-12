@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TagBadge } from './TagBadge';
 import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap } from 'lucide-react';
 import { QuoteModal } from './QuoteModal';
@@ -118,6 +118,19 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   // Hire-flow modal state (shared QuoteModal + HireNowModal)
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
+  // Current viewer id — used to hide hire buttons on your own card
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!cancelled) setViewerId(session?.user?.id ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (!cancelled) setViewerId(s?.user?.id ?? null);
+    });
+    return () => { cancelled = true; subscription.unsubscribe(); };
+  }, []);
+  const isOwnCard = !!viewerId && viewerId === student.user_id;
 
   // Admin remove listing state
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
@@ -339,28 +352,35 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* CTA — two rows so both conversion paths are visible without leaving the card */}
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/5 space-y-2">
-            {/* Row 1: Hire now (primary amber) + Ask for a quote (secondary) */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setHireOpen(true); }}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2.5 text-[12px] font-bold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-110 active:scale-[0.97]"
-              >
-                <Zap size={13} strokeWidth={2.5} />
-                Hire now
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/8 bg-foreground/[0.02] px-3 py-2.5 text-[12px] font-semibold text-foreground/70 transition-all duration-200 hover:border-primary/25 hover:bg-primary/6 hover:text-primary active:scale-[0.97]"
-              >
-                <MessageSquareQuote size={13} strokeWidth={2} />
-                Ask for a quote
-              </button>
-            </div>
-            {/* Row 2: View profile (tertiary — still discoverable, just de-emphasized) */}
-            <span className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/5 px-3 py-2 text-[11px] font-semibold text-primary/80 transition-all duration-300 ease-out-quint group-hover:bg-primary/10 group-hover:text-primary">
-              View profile <ArrowRight size={11} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
+            {/* Row 1: Hire now + Ask for a quote — hidden on your own card */}
+            {!isOwnCard && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setHireOpen(true); }}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2.5 text-[12px] font-bold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-110 active:scale-[0.97]"
+                >
+                  <Zap size={13} strokeWidth={2.5} />
+                  Hire now
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/8 bg-foreground/[0.02] px-3 py-2.5 text-[12px] font-semibold text-foreground/70 transition-all duration-200 hover:border-primary/25 hover:bg-primary/6 hover:text-primary active:scale-[0.97]"
+                >
+                  <MessageSquareQuote size={13} strokeWidth={2} />
+                  Ask for a quote
+                </button>
+              </div>
+            )}
+            {/* Row 2: View profile (always available) */}
+            <span className={cn(
+              'w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold transition-all duration-300 ease-out-quint',
+              isOwnCard
+                ? 'bg-primary/8 py-2.5 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
+                : 'bg-primary/5 py-2 text-primary/80 group-hover:bg-primary/10 group-hover:text-primary',
+            )}>
+              {isOwnCard ? 'View your profile' : 'View profile'} <ArrowRight size={11} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
             </span>
           </div>
         )}
