@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { WizardMascot } from './WizardMascot';
 import { DragonMascot } from './DragonMascot';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { supabase } from '@/integrations/supabase/client';
 import { gsap } from '@/lib/gsapSetup';
 import { cn } from '@/lib/utils';
 
@@ -57,9 +58,13 @@ interface FloatingMascotProps {
   message: string;
   targetSelector?: string;
   side: 'left' | 'right';
+  /** Wizard gets angry — shakes, bubble stays visible */
+  isAngry?: boolean;
+  /** Keep speech bubble visible most of the time (for nagging) */
+  persistBubble?: boolean;
 }
 
-const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSelector, side }) => {
+const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSelector, side, isAngry = false, persistBubble = false }) => {
   const mascotRef = useRef<HTMLDivElement>(null);
   const orbitRef = useRef<gsap.core.Timeline | null>(null);
   const [showBubble, setShowBubble] = useState(false);
@@ -247,19 +252,24 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
     };
   }, [moveToTarget, targetSelector, isNearTarget, returnToIdle, stopOrbit]);
 
-  // Show bubble periodically
+  // Show bubble periodically — persistent mode for nagging
   useEffect(() => {
     setShowBubble(false);
+
+    if (persistBubble) {
+      // Nagging mode: show quickly, brief hide, show again — always visible
+      const showTimer = setTimeout(() => setShowBubble(true), 800);
+      const hideTimer = setTimeout(() => setShowBubble(false), 8000);
+      const reshowTimer = setTimeout(() => setShowBubble(true), 9500);
+      return () => { clearTimeout(showTimer); clearTimeout(hideTimer); clearTimeout(reshowTimer); };
+    }
+
+    // Normal mode: show briefly, hide, occasional reshow
     const showTimer = setTimeout(() => setShowBubble(true), 1500);
     const hideTimer = setTimeout(() => setShowBubble(false), 6000);
     const reshowTimer = setTimeout(() => setShowBubble(true), 12000);
-
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-      clearTimeout(reshowTimer);
-    };
-  }, [message]);
+    return () => { clearTimeout(showTimer); clearTimeout(hideTimer); clearTimeout(reshowTimer); };
+  }, [message, persistBubble]);
 
   const mascotSize = isMobile ? 52 : 64;
 
@@ -314,12 +324,13 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
         )}
       </div>
 
-      {/* Mascot SVG — walks during transit, floats when idle */}
+      {/* Mascot SVG — walks during transit, floats when idle, shakes when angry */}
       <div className={cn(
         'transition-transform duration-200',
         'group-hover:scale-110 group-active:scale-95',
-        !prefersReduced && !isNearTarget && !isWalking && 'animate-[float_4s_ease-in-out_infinite]',
+        !prefersReduced && !isNearTarget && !isWalking && !isAngry && 'animate-[float_4s_ease-in-out_infinite]',
         isWalking && 'animate-[walk-left_0.3s_ease-in-out_infinite]',
+        isAngry && !isWalking && 'animate-[shake_0.5s_ease-in-out_infinite]',
       )}>
         {type === 'wizard' ? (
           <WizardMascot size={mascotSize} animate={!prefersReduced} />
@@ -339,21 +350,97 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
   );
 };
 
+/* ─── Nag messages for unlisted freelancers — escalate over time ─── */
+const NAG_MESSAGES = [
+  '👻 You\'re invisible! Get on the talent board!',
+  '😤 Businesses can\'t find you. List yourself!',
+  '⏰ Still not listed? It takes 2 minutes!',
+  '🔥 Your competitors are getting gigs. You\'re not.',
+  '😠 I\'m NOT leaving until you list yourself!',
+  '💀 Seriously?! STILL not listed?!',
+  '👇 The button is RIGHT THERE. Click it.',
+  '🏠 I live here now. List yourself or I stay forever.',
+];
+
 /* ─── Main persistent guide rendered in App.tsx ─── */
 
 export const MascotGuide: React.FC = () => {
   const location = useLocation();
   const [config, setConfig] = useState<GuideConfig>(getGuideConfig('/'));
+  const [isUnlistedFreelancer, setIsUnlistedFreelancer] = useState(false);
+  const [nagIndex, setNagIndex] = useState(0);
+  const [nagDismissCount, setNagDismissCount] = useState(0);
 
   const prefersReduced = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Update guide config when route changes
+  // Check if user is an unlisted freelancer
   useEffect(() => {
-    setConfig(getGuideConfig(location.pathname));
+    let cancelled = false;
+    const check = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) { if (!cancelled) setIsUnlistedFreelancer(false); return; }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (!profile || profile.user_type !== 'student') {
+        if (!cancelled) setIsUnlistedFreelancer(false);
+        return;
+      }
+
+      const { data: sp } = await supabase
+        .from('student_profiles')
+        .select('community_board_status')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (!cancelled) {
+        setIsUnlistedFreelancer(sp?.community_board_status !== 'approved');
+      }
+    };
+    check();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => check());
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, [location.pathname]);
 
+  // Escalate nag messages over time
+  useEffect(() => {
+    if (!isUnlistedFreelancer) return;
+    const interval = setInterval(() => {
+      setNagIndex(prev => Math.min(prev + 1, NAG_MESSAGES.length - 1));
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [isUnlistedFreelancer]);
+
+  // Update guide config when route changes — override wizard message if nagging
+  useEffect(() => {
+    const base = getGuideConfig(location.pathname);
+
+    if (isUnlistedFreelancer) {
+      // Skip nagging on pages where they're already taking action
+      const quietPages = ['/complete-profile', '/choose-account-type', '/auth'];
+      const isQuiet = quietPages.some(p => location.pathname.startsWith(p));
+
+      if (!isQuiet) {
+        base.wizard.message = NAG_MESSAGES[nagIndex];
+        // On profile page, target the "Get Listed" button
+        if (location.pathname === '/profile') {
+          base.wizard.target = '[data-mascot="get-listed"]';
+        }
+      }
+    }
+
+    setConfig(base);
+  }, [location.pathname, isUnlistedFreelancer, nagIndex]);
+
   if (prefersReduced) return null;
+
+  // Wizard gets angrier the longer they ignore it
+  const isAngry = isUnlistedFreelancer && nagIndex >= 3;
 
   return (
     <>
@@ -362,6 +449,8 @@ export const MascotGuide: React.FC = () => {
         message={config.wizard.message}
         targetSelector={config.wizard.target}
         side="left"
+        isAngry={isAngry}
+        persistBubble={isUnlistedFreelancer}
       />
       <FloatingMascot
         type="dragon"

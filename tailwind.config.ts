@@ -208,6 +208,13 @@ export default {
           "0%, 100%": { opacity: "1", transform: "scale(1)" },
           "50%": { opacity: "0.3", transform: "scale(0.6)" },
         },
+        "shake": {
+          "0%, 100%": { transform: "translateX(0) rotate(0deg)" },
+          "20%": { transform: "translateX(-3px) rotate(-3deg)" },
+          "40%": { transform: "translateX(3px) rotate(3deg)" },
+          "60%": { transform: "translateX(-2px) rotate(-2deg)" },
+          "80%": { transform: "translateX(2px) rotate(2deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

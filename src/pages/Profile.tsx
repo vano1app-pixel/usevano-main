@@ -470,6 +470,7 @@ const Profile = () => {
                       <Button
                         type="button"
                         size="lg"
+                        data-mascot="get-listed"
                         className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold shadow-md sm:h-12 sm:w-auto sm:min-w-[9.5rem] transition-all duration-200 hover:shadow-lg hover:-translate-y-[1px]"
                         onClick={() => setListCommunityOpen(true)}
                       >
