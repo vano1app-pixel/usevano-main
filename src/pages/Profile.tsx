@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
+import { HireRequestsInboxLink } from '@/components/HireRequestsInboxLink';
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
@@ -478,6 +479,11 @@ const Profile = () => {
                       </Button>
                     </div>
                   </div>
+                )}
+
+                {/* Hire requests inbox (freelancers with a live listing) */}
+                {studentProfile?.community_board_status === 'approved' && (
+                  <HireRequestsInboxLink />
                 )}
 
                 {/* ── Live listing editor card ── */}

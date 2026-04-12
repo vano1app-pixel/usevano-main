@@ -5,7 +5,9 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
-import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap } from 'lucide-react';
+import { QuoteModal } from '@/components/QuoteModal';
+import { HireNowModal } from '@/components/HireNowModal';
 import { useToast } from '@/hooks/use-toast';
 import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
@@ -33,6 +35,8 @@ const StudentProfile = () => {
   const tabRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [hireOpen, setHireOpen] = useState(false);
 
   const scrollToTab = useCallback((tab: 'about' | 'portfolio' | 'reviews') => {
     setActiveTab(tab);
@@ -164,31 +168,55 @@ const StudentProfile = () => {
   const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
   const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
 
+  // Freelancer-profile action buttons.
+  // - Viewer is NOT the freelancer themselves AND profile is a freelancer:
+  //     Primary: "Ask for a quote" (low-commitment, opens QuoteModal)
+  //     Secondary: "Hire now" (instant hire with 2hr timer, opens HireNowModal)
+  // - Viewer is signed out: "Sign in to hire" that preserves intent.
+  // - Viewer is the freelancer themselves (own profile): show "Full portfolio" only.
+  const viewerIsOwner = user?.id === id;
+  const canTakeHireAction = !isBusiness && !viewerIsOwner;
+  // Students viewing other students shouldn't see "hire"; only businesses or logged-out guests.
+  const showHireActions =
+    canTakeHireAction && (!user || currentUserType !== 'student' || profile?.user_type === 'business');
+
   const freelancerActions = (
     <>
-      {!user ? (
+      {showHireActions && !user && (
         <a
-          href="/auth"
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
+          href={`/auth?intent=quote&freelancer=${id}`}
+          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[11rem] sm:px-6 flex items-center justify-center gap-2"
         >
-          <MessageCircle size={18} strokeWidth={2} /> Sign in to message
+          <MessageSquareQuote size={18} strokeWidth={2} /> Sign in to hire
         </a>
-      ) : user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') && (
+      )}
+      {showHireActions && user && (
+        <>
+          <button
+            type="button"
+            onClick={() => setQuoteOpen(true)}
+            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[11rem] sm:px-6 flex items-center justify-center gap-2"
+          >
+            <MessageSquareQuote size={18} strokeWidth={2} /> Ask for a quote
+          </button>
+          <button
+            type="button"
+            onClick={() => setHireOpen(true)}
+            className="w-full rounded-xl border border-amber-500/50 bg-amber-500/10 py-3 text-sm font-semibold text-amber-700 dark:text-amber-300 shadow-sm transition-colors hover:bg-amber-500/15 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
+          >
+            <Zap size={18} strokeWidth={2} /> Hire now
+          </button>
+        </>
+      )}
+      {/* Keep the plain "Message" button available when hire actions don't apply
+          (e.g. freelancer viewing a business, business viewing business) */}
+      {!showHireActions && user && !viewerIsOwner && !(currentUserType === 'student' && profile?.user_type === 'business') && (
         <button
           type="button"
           onClick={handleMessage}
           className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
         >
           <MessageCircle size={18} strokeWidth={2} /> Message
-        </button>
-      )}
-      {user && currentUserType === 'business' && user.id !== id && !isBusiness && (
-        <button
-          type="button"
-          onClick={() => navigate('/hire')}
-          className="w-full rounded-xl border border-primary bg-primary/5 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/10 sm:w-auto sm:min-w-[9rem] sm:px-6 flex items-center justify-center gap-2"
-        >
-          <Briefcase size={18} strokeWidth={2} /> Hire
         </button>
       )}
       {!isBusiness && (
@@ -731,6 +759,26 @@ const StudentProfile = () => {
           </div>
         )}
       </div>
+
+      {/* Hire-flow modals — only mounted for freelancer profiles */}
+      {!isBusiness && id && (
+        <>
+          <QuoteModal
+            open={quoteOpen}
+            onOpenChange={setQuoteOpen}
+            freelancerId={id}
+            freelancerName={displayName}
+            category={categoryLabel}
+          />
+          <HireNowModal
+            open={hireOpen}
+            onOpenChange={setHireOpen}
+            freelancerId={id}
+            freelancerName={displayName}
+            category={categoryLabel}
+          />
+        </>
+      )}
     </div>
   );
 };
