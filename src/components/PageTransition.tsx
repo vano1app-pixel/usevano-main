@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { createLiquidWipe } from '@/lib/animations/morphTransitions';
 
 export type TransitionVariant = 'portal' | 'rise' | 'morph' | 'default' | 'liquid' | 'dissolve';
 
@@ -57,32 +56,56 @@ function LiquidWipeTransition({ children }: { children: ReactNode }) {
       return;
     }
 
-    const wipe = createLiquidWipe();
     let raf: number;
-    let start: number;
-    const duration = 700; // ms
+    let cancelled = false;
 
-    const animate = (timestamp: number) => {
-      if (!start) start = timestamp;
-      const elapsed = timestamp - start;
-      const progress = Math.min(elapsed / duration, 1);
+    // Lazy-import flubber to avoid top-level crash if the package fails to load
+    import('@/lib/animations/morphTransitions').then(({ createLiquidWipe }) => {
+      if (cancelled) return;
 
-      // Eased progress
-      const eased = 1 - Math.pow(1 - progress, 3);
-
-      if (svgRef.current) {
-        svgRef.current.setAttribute('d', wipe(eased));
-      }
-
-      if (progress < 1) {
-        raf = requestAnimationFrame(animate);
-      } else {
+      let wipe: (progress: number) => string;
+      try {
+        wipe = createLiquidWipe();
+      } catch {
         setRevealed(true);
+        return;
       }
-    };
 
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
+      let start: number;
+      const duration = 700;
+
+      const animate = (timestamp: number) => {
+        if (cancelled) return;
+        if (!start) start = timestamp;
+        const elapsed = timestamp - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+
+        if (svgRef.current) {
+          try {
+            svgRef.current.setAttribute('d', wipe(eased));
+          } catch {
+            setRevealed(true);
+            return;
+          }
+        }
+
+        if (progress < 1) {
+          raf = requestAnimationFrame(animate);
+        } else {
+          setRevealed(true);
+        }
+      };
+
+      raf = requestAnimationFrame(animate);
+    }).catch(() => {
+      setRevealed(true);
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   return (
