@@ -7,76 +7,152 @@ import { supabase } from '@/integrations/supabase/client';
 import { gsap } from '@/lib/gsapSetup';
 import { cn } from '@/lib/utils';
 
-/* ─── Page-aware guide config ─── */
+/* ─── Rotating message pools ─── */
+const DRAGON_MESSAGES: Record<string, string[]> = {
+  '/': [
+    'Need help? Text VANO directly!',
+    'Hire a freelancer in easy steps!',
+    'Just tell us what you need!',
+    'Affordable talent, right here!',
+    'Find the perfect freelancer!',
+  ],
+  '/hire': [
+    'Describe what you need!',
+    'We match you in 24 hours!',
+    'Zero commission — you keep it all!',
+    'Just tell us what you need!',
+    'Need help? Text VANO directly!',
+  ],
+  '/students': [
+    'Browse local talent!',
+    'Tap a category to explore!',
+    'Freelancers ready to work!',
+    'Need help? Text VANO directly!',
+  ],
+  '/auth': [
+    'Sign in to hire talent!',
+    'It takes 30 seconds!',
+    'Need help? Text VANO directly!',
+  ],
+  '/choose-account-type': [
+    'Pick business to hire!',
+    'Need help choosing? Tap me!',
+  ],
+  '/business-dashboard': [
+    'Manage your projects here!',
+    'Post a new gig!',
+    'Need help? Text VANO directly!',
+  ],
+  '/messages': [
+    'Chat with your freelancer!',
+    'Need help? Text VANO directly!',
+  ],
+  _default: [
+    'Need help? Text VANO directly!',
+    'Hire a freelancer in easy steps!',
+    'Questions? Tap me!',
+  ],
+};
+
+const WIZARD_MESSAGES: Record<string, string[]> = {
+  '/': [
+    'Show your skills to the world!',
+    'Join the talent board — it\'s free!',
+    'Get discovered by businesses!',
+    'Need help? Tap me!',
+    'Freelancers are getting gigs daily!',
+  ],
+  '/auth': [
+    'Join as a freelancer!',
+    'It takes 30 seconds!',
+    'Need help? Tap me!',
+  ],
+  '/choose-account-type': [
+    'Pick freelancer!',
+    'Show businesses what you can do!',
+  ],
+  '/profile': [
+    'Make your profile stand out!',
+    'Add skills to get discovered!',
+    'A good bio gets more gigs!',
+    'Need help? Tap me!',
+  ],
+  '/complete-profile': [
+    'Almost there!',
+    'Add your best skills!',
+    'Looking good!',
+  ],
+  '/messages': [
+    'Stay connected!',
+    'Quick replies get more gigs!',
+    'Need help? Tap me!',
+  ],
+  _default: [
+    'Need help? Tap me!',
+    'Get listed on the talent board!',
+    'Questions? Tap me!',
+  ],
+};
+
 type MascotType = 'wizard' | 'dragon';
 
 interface PageGuide {
   show: MascotType[];
-  wizard: { message: string; target?: string };
-  dragon: { message: string; target?: string };
+  wizardMessages: string[];
+  dragonMessages: string[];
+  wizardTarget?: string;
+  dragonTarget?: string;
 }
 
 function getPageGuide(path: string): PageGuide {
-  // Landing: both — wizard near freelancer CTA, dragon near hire CTA
+  const getMessages = (pool: Record<string, string[]>, p: string) => {
+    // Try exact match, then prefix match, then default
+    if (pool[p]) return pool[p];
+    const prefix = Object.keys(pool).find(k => k !== '_default' && p.startsWith(k));
+    if (prefix) return pool[prefix];
+    return pool._default;
+  };
+
+  const wMsgs = getMessages(WIZARD_MESSAGES, path);
+  const dMsgs = getMessages(DRAGON_MESSAGES, path);
+
   if (path === '/') return {
-    show: ['wizard', 'dragon'],
-    wizard: { message: 'Show your skills!', target: '[data-mascot="freelancer-cta"]' },
-    dragon: { message: 'Find talent here!', target: '[data-mascot="hire-cta"]' },
+    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
+    wizardTarget: '[data-mascot="freelancer-cta"]', dragonTarget: '[data-mascot="hire-cta"]',
   };
-  // Hire flow: dragon only
   if (path === '/hire') return {
-    show: ['dragon'],
-    wizard: { message: '' },
-    dragon: { message: 'Tell us what you need!', target: '[data-mascot="hire-submit"]' },
+    show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
+    dragonTarget: '[data-mascot="hire-submit"]',
   };
-  // Talent browsing: dragon only
   if (path === '/students' || path.startsWith('/students/')) return {
-    show: ['dragon'],
-    wizard: { message: '' },
-    dragon: { message: 'Browse the talent!', target: '[data-mascot="browse-cta"]' },
+    show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
+    dragonTarget: '[data-mascot="browse-cta"]',
   };
-  // Auth: both
   if (path === '/auth') return {
-    show: ['wizard', 'dragon'],
-    wizard: { message: 'Join as a freelancer!' },
-    dragon: { message: 'Sign in to hire!' },
+    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
   };
-  // Choose account type: both — each points to their side
   if (path === '/choose-account-type') return {
-    show: ['wizard', 'dragon'],
-    wizard: { message: 'Pick freelancer!', target: '[data-mascot="choose-student"]' },
-    dragon: { message: 'Pick business!', target: '[data-mascot="choose-business"]' },
+    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
+    wizardTarget: '[data-mascot="choose-student"]', dragonTarget: '[data-mascot="choose-business"]',
   };
-  // Freelancer profile/onboarding: wizard only
   if (path === '/profile' || path === '/complete-profile') return {
-    show: ['wizard'],
-    wizard: { message: 'Make your profile shine!' },
-    dragon: { message: '' },
+    show: ['wizard'], wizardMessages: wMsgs, dragonMessages: dMsgs,
   };
-  // Business dashboard: dragon only
   if (path === '/business-dashboard') return {
-    show: ['dragon'],
-    wizard: { message: '' },
-    dragon: { message: 'Manage your projects!' },
+    show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
   };
-  // Messages: both
   if (path === '/messages') return {
-    show: ['wizard', 'dragon'],
-    wizard: { message: 'Stay connected!' },
-    dragon: { message: 'Chat with talent!' },
+    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
   };
-  // Default: both with generic help
   return {
-    show: ['wizard', 'dragon'],
-    wizard: { message: 'Need help? Tap me!' },
-    dragon: { message: 'Questions? Tap me!' },
+    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
   };
 }
 
 /* ─── Single mascot component ─── */
 interface FloatingMascotProps {
   type: MascotType;
-  message: string;
+  messages: string[];
   targetSelector?: string;
   side: 'left' | 'right';
   isAngry?: boolean;
@@ -84,10 +160,12 @@ interface FloatingMascotProps {
 }
 
 const FloatingMascot: React.FC<FloatingMascotProps> = ({
-  type, message, targetSelector, side, isAngry = false, persistBubble = false,
+  type, messages, targetSelector, side, isAngry = false, persistBubble = false,
 }) => {
   const mascotRef = useRef<HTMLDivElement>(null);
   const [showBubble, setShowBubble] = useState(false);
+  const [currentMessage, setCurrentMessage] = useState(messages[0] || '');
+  const [msgIndex, setMsgIndex] = useState(0);
   const [isNearTarget, setIsNearTarget] = useState(false);
   const [isWalking, setIsWalking] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -218,20 +296,39 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
     };
   }, [moveToTarget, targetSelector, isNearTarget, returnToIdle]);
 
-  // Speech bubble timing
+  // Rotate through messages — show bubble, hide, show next message
   useEffect(() => {
+    setMsgIndex(0);
+    setCurrentMessage(messages[0] || '');
+  }, [messages]);
+
+  useEffect(() => {
+    if (!messages.length) return;
     setShowBubble(false);
-    if (persistBubble) {
-      const t1 = setTimeout(() => setShowBubble(true), 800);
-      const t2 = setTimeout(() => setShowBubble(false), 8000);
-      const t3 = setTimeout(() => setShowBubble(true), 9500);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    }
-    const t1 = setTimeout(() => setShowBubble(true), 1500);
-    const t2 = setTimeout(() => setShowBubble(false), 6000);
-    const t3 = setTimeout(() => setShowBubble(true), 14000);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [message, persistBubble]);
+
+    // Show first bubble after short delay
+    const showDelay = persistBubble ? 800 : 2000;
+    const visibleDuration = 4000;
+    const hideDuration = 2000;
+    const cycleDuration = visibleDuration + hideDuration;
+
+    const t1 = setTimeout(() => setShowBubble(true), showDelay);
+
+    // Cycle: show message -> hide -> next message -> show -> hide -> ...
+    const interval = setInterval(() => {
+      setShowBubble(false);
+      setTimeout(() => {
+        setMsgIndex(prev => {
+          const next = (prev + 1) % messages.length;
+          setCurrentMessage(messages[next]);
+          return next;
+        });
+        setShowBubble(true);
+      }, hideDuration);
+    }, cycleDuration);
+
+    return () => { clearTimeout(t1); clearInterval(interval); };
+  }, [messages, persistBubble]);
 
   const mascotSize = isMobile ? 52 : 64;
 
@@ -270,7 +367,7 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
           ...(isNearTarget && side === 'right' ? { right: 'auto', left: '100%', marginLeft: 8, marginRight: 0 } : {}),
         }}
       >
-        {message}
+        {currentMessage}
         {isNearTarget && (
           <span className="inline-block ml-1 animate-[arm-swing-right_0.6s_ease-in-out_infinite]">
             {side === 'left' ? '👉' : '👈'}
@@ -348,7 +445,7 @@ export const MascotGuide: React.FC = () => {
     return () => clearInterval(interval);
   }, [isUnlistedFreelancer]);
 
-  // Update guide config — override wizard if nagging
+  // Update guide config
   useEffect(() => {
     const base = getPageGuide(location.pathname);
 
@@ -356,11 +453,11 @@ export const MascotGuide: React.FC = () => {
       const quietPages = ['/complete-profile', '/choose-account-type', '/auth'];
       const isQuiet = quietPages.some(p => location.pathname.startsWith(p));
       if (!isQuiet) {
-        // Force wizard to show on every page for nagging
         if (!base.show.includes('wizard')) base.show.push('wizard');
-        base.wizard.message = NAG_MESSAGES[nagIndex];
+        // Override wizard messages with nag messages
+        base.wizardMessages = [NAG_MESSAGES[nagIndex]];
         if (location.pathname === '/profile') {
-          base.wizard.target = '[data-mascot="get-listed"]';
+          base.wizardTarget = '[data-mascot="get-listed"]';
         }
       }
     }
@@ -379,8 +476,8 @@ export const MascotGuide: React.FC = () => {
       {showWizard && (
         <FloatingMascot
           type="wizard"
-          message={guide.wizard.message}
-          targetSelector={guide.wizard.target}
+          messages={guide.wizardMessages}
+          targetSelector={guide.wizardTarget}
           side="left"
           isAngry={isAngry}
           persistBubble={isUnlistedFreelancer}
@@ -389,8 +486,8 @@ export const MascotGuide: React.FC = () => {
       {showDragon && (
         <FloatingMascot
           type="dragon"
-          message={guide.dragon.message}
-          targetSelector={guide.dragon.target}
+          messages={guide.dragonMessages}
+          targetSelector={guide.dragonTarget}
           side="right"
         />
       )}
