@@ -4,6 +4,7 @@ import { WizardMascot } from './WizardMascot';
 import { DragonMascot } from './DragonMascot';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuthContext';
 import { cn } from '@/lib/utils';
 
 /* ─── Rotating message pools ─── */
