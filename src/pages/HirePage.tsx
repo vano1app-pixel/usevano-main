@@ -612,7 +612,6 @@ const HirePage = () => {
         <JourneyMap
           currentStep={step}
           steps={HIRE_JOURNEY_STEPS}
-          title="Your hiring quest"
           className="mb-4"
         />
 
