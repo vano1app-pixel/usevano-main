@@ -24,6 +24,12 @@ import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { gsap, ScrollTrigger } from '@/lib/gsapSetup';
+import { ParticleBackground } from '@/components/ParticleBackground';
+import { InteractiveButton } from '@/components/InteractiveButton';
+import { useTextReveal } from '@/hooks/useTextReveal';
+import { useParticleBurst } from '@/hooks/useParticleBurst';
+import { animateNumberCounter } from '@/lib/animations/textEffects';
+import { createCursorGlow } from '@/lib/animations/cursorEffects';
 
 
 const Landing = () => {
@@ -33,6 +39,14 @@ const Landing = () => {
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
   const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
+
+  /* ─── Animation hooks ─── */
+  const whyHeadingRef = useTextReveal<HTMLHeadingElement>('cascade', { stagger: 0.08 });
+  const faqHeadingRef = useTextReveal<HTMLHeadingElement>('scramble');
+  const ctaHeadingRef = useTextReveal<HTMLHeadingElement>('cascade', { stagger: 0.1 });
+  const burst = useParticleBurst();
+  const counterRef = useRef<HTMLSpanElement>(null);
+  const counterAnimated = useRef(false);
 
   const catKeywords: Record<string, string[]> = {
     websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
@@ -119,6 +133,20 @@ const Landing = () => {
     };
   }, [navigate]);
 
+  /* ─── Cursor glow effect (desktop only) ─── */
+  useEffect(() => {
+    const cleanup = createCursorGlow({ size: 350, opacity: 0.05, blur: 100 });
+    return cleanup;
+  }, []);
+
+  /* ─── Number counter animation ─── */
+  useEffect(() => {
+    if (!studentsLoaded || featuredStudents.length === 0 || counterAnimated.current) return;
+    if (!counterRef.current) return;
+    counterAnimated.current = true;
+    animateNumberCounter(counterRef.current, featuredStudents.length, { duration: 1.8, suffix: '' });
+  }, [studentsLoaded, featuredStudents.length]);
+
   /* ─── GSAP cinematic scroll animations ─── */
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -152,7 +180,25 @@ const Landing = () => {
           '-=0.2'
         );
 
-      /* ── Hero orb: living breathing pulse with drift ── */
+      /* ── Hero scroll recession — content recedes as you scroll past ── */
+      const heroSection = document.querySelector('[data-hero-section]');
+      if (heroSection) {
+        gsap.to('[data-hero-content]', {
+          scrollTrigger: {
+            trigger: heroSection,
+            start: 'top top',
+            end: 'bottom top',
+            scrub: 1,
+          },
+          y: isMobile ? 40 : 100,
+          opacity: 0,
+          scale: isMobile ? 0.97 : 0.92,
+          filter: isMobile ? 'blur(2px)' : 'blur(8px)',
+          ease: 'none',
+        });
+      }
+
+      /* ── Hero orb: living breathing pulse with drift + scroll parallax ── */
       gsap.to('[data-hero-orb]', {
         scale: 1.2,
         opacity: 0.8,
@@ -162,6 +208,22 @@ const Landing = () => {
         yoyo: true,
         ease: 'sine.inOut',
       });
+
+      /* ── Hero orb scroll parallax — moves at different rate for depth ── */
+      if (heroSection) {
+        gsap.to('[data-hero-orb]', {
+          scrollTrigger: {
+            trigger: heroSection,
+            start: 'top top',
+            end: 'bottom top',
+            scrub: 1.5,
+          },
+          y: isMobile ? -60 : -150,
+          scale: 1.5,
+          opacity: 0,
+          ease: 'none',
+        });
+      }
 
       /* ── Category cards: flip in like playing cards dealt onto a table ── */
       gsap.fromTo('[data-cat-card]',
@@ -302,11 +364,14 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
+      <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
+        {/* Interactive particle field */}
+        <ParticleBackground variant="interactive" className="opacity-60" />
+
         {/* Breathing gradient orb */}
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
-        <div className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
+        <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
           <div data-hero-title>
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
               <span className="inline-block">Local talent,</span><br />
@@ -327,8 +392,11 @@ const Landing = () => {
             Connect with Galway's best freelancers for videography, photography, web design, and more.
           </p>
           <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                type="button"
+              <InteractiveButton
+                data-mascot="hire-cta"
+                burstType="sparkle"
+                particleCount={25}
+                magneticStrength={0.35}
                 onClick={() => navigate('/hire')}
                 className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
               >
@@ -336,15 +404,18 @@ const Landing = () => {
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>
-              </button>
+              </InteractiveButton>
               {!session ? (
-                <button
-                  type="button"
+                <InteractiveButton
+                  data-mascot="freelancer-cta"
+                  burstType="sparkle"
+                  particleCount={15}
+                  magneticStrength={0.25}
                   onClick={() => navigate('/auth?mode=signup')}
                   className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
                 >
                   Join as a freelancer
-                </button>
+                </InteractiveButton>
               ) : null}
             </div>
             {studentsLoaded && featuredStudents.length > 0 && (
@@ -354,7 +425,7 @@ const Landing = () => {
                   <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 </span>
                 <p className="text-xs font-medium text-muted-foreground">
-                  {featuredStudents.length} freelancers online now
+                  <span ref={counterRef}>0</span> freelancers online now
                 </p>
               </div>
             )}
@@ -378,7 +449,7 @@ const Landing = () => {
                   data-cat-card
                   key={item.cat}
                   type="button"
-                  onClick={() => navigate(`/hire?category=${item.cat}`)}
+                  onClick={(e) => { burst(e, 'sparkle', { particleCount: 20 }); navigate(`/hire?category=${item.cat}`); }}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
                 >
@@ -606,7 +677,7 @@ const Landing = () => {
         <div className="max-w-4xl lg:max-w-5xl mx-auto">
           <div className="text-center">
             <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</span>
-            <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
+            <h2 ref={whyHeadingRef} className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
             <p className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5">
@@ -682,7 +753,7 @@ const Landing = () => {
             <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.2em] mb-4">
               FAQ
             </span>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
+            <h2 ref={faqHeadingRef} className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
               Common questions
             </h2>
             <p className="mt-3 text-base text-muted-foreground">
@@ -744,12 +815,15 @@ const Landing = () => {
             <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
             <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
             <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Galway · Free · Local</span>
-            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
-              Need something done?<br />Tell us.
+            <h2 ref={ctaHeadingRef} className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
+              Need something done? Tell us.
             </h2>
             <p className="relative text-primary-foreground/60 mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
+              <InteractiveButton
+                burstType="confetti"
+                particleCount={35}
+                magneticStrength={0.4}
                 onClick={() => navigate('/hire')}
                 className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px] active:scale-[0.97]"
               >
@@ -757,13 +831,16 @@ const Landing = () => {
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>
-              </button>
-              <button
+              </InteractiveButton>
+              <InteractiveButton
+                burstType="sparkle"
+                particleCount={15}
+                magneticStrength={0.3}
                 onClick={() => navigate('/auth')}
                 className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Join as a freelancer
-              </button>
+              </InteractiveButton>
             </div>
           </div>
         </div>

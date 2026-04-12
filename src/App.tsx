@@ -9,6 +9,8 @@ import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { PageTransition } from "@/components/PageTransition";
+import { ScrollProgress } from "@/components/ScrollProgress";
+import { MascotGuide } from "@/components/MascotGuide";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -36,7 +38,8 @@ import { WhatsAppFloatingButton } from "./components/WhatsAppFloatingButton";
 import type { TransitionVariant } from "./components/PageTransition";
 
 function getVariant(path: string): TransitionVariant {
-  if (path === '/' || path === '/hire') return 'portal';
+  if (path === '/') return 'liquid';
+  if (path === '/hire') return 'dissolve';
   if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages'].includes(path)) return 'rise';
   if (path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
   return 'default';
@@ -49,6 +52,7 @@ const App = () => {
 
   return (
     <TooltipProvider>
+      <ScrollProgress />
       <ScrollToTop />
       <RedirectToAccountTypeIfNeeded />
       <Toaster />
@@ -124,6 +128,7 @@ const App = () => {
       </AnimatePresence>
       </div>
       <MobileBottomNav />
+      <MascotGuide />
       <WhatsAppFloatingButton />
       <CookieConsentBanner />
       <PWAInstallBanner />

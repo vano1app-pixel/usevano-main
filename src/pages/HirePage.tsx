@@ -16,6 +16,8 @@ import {
   Clock, Loader2, CheckCircle2, Euro,
   Shield, Zap, ChevronDown, Check,
 } from 'lucide-react';
+import { useParticleBurst } from '@/hooks/useParticleBurst';
+import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 
 /* ─── Constants ─── */
 
@@ -95,6 +97,7 @@ const HirePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const particleBurst = useParticleBurst();
 
   const [step, setStep] = useState(1);
   const [stepDirection, setStepDirection] = useState(1); // 1 = forward, -1 = backward
@@ -211,13 +214,15 @@ const HirePage = () => {
       toast({ title: 'Something went wrong', description: 'Please try again or message us on WhatsApp.', variant: 'destructive' });
     } else {
       setSubmitted(true);
-      // Celebration confetti burst
+      // Celebration confetti burst + particle fireworks
       const end = Date.now() + 600;
       const fire = () => {
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'] });
         if (Date.now() < end) requestAnimationFrame(fire);
       };
       fire();
+      // Particle firework burst at center
+      particleBurst({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 }, 'firework', { particleCount: 40 });
       // Auto-open WhatsApp with request details so the team can respond directly
       const catLabel = CATEGORIES.find(c => c.id === category)?.label || 'Not specified';
       const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || 'Not specified';
@@ -482,7 +487,7 @@ const HirePage = () => {
                 </div>
               </div>
 
-              <button type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
+              <button data-mascot="hire-submit" type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
                 {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
               </button>
               <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
@@ -603,20 +608,12 @@ const HirePage = () => {
         'max-w-2xl lg:max-w-3xl'
       )}>
 
-        {/* ── Progress dots ── */}
-        <div className="mb-6 flex items-center justify-center gap-2">
-          {[1, 2, 3].map(s => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => s < step ? goTo(s) : undefined}
-              className={cn(
-                'h-1.5 rounded-full transition-all duration-300',
-                s === step ? 'w-8 bg-primary' : s < step ? 'w-2 bg-primary/40 cursor-pointer hover:bg-primary/60' : 'w-2 bg-muted-foreground/20'
-              )}
-            />
-          ))}
-        </div>
+        {/* ── Journey map with animated character ── */}
+        <JourneyMap
+          currentStep={step}
+          steps={HIRE_JOURNEY_STEPS}
+          className="mb-4"
+        />
 
         {/* Render active step — simple fade transition, no pointer-event issues */}
         <AnimatePresence mode="wait" custom={stepDirection}>

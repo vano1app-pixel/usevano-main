@@ -154,6 +154,67 @@ export default {
           "0%": { transform: "scale(1)", opacity: "0.6" },
           "100%": { transform: "scale(2.5)", opacity: "0" },
         },
+        "walk-left": {
+          "0%, 100%": { transform: "rotate(-15deg)" },
+          "50%": { transform: "rotate(15deg)" },
+        },
+        "walk-right": {
+          "0%, 100%": { transform: "rotate(15deg)" },
+          "50%": { transform: "rotate(-15deg)" },
+        },
+        "arm-swing-left": {
+          "0%, 100%": { transform: "rotate(20deg)" },
+          "50%": { transform: "rotate(-20deg)" },
+        },
+        "arm-swing-right": {
+          "0%, 100%": { transform: "rotate(-20deg)" },
+          "50%": { transform: "rotate(20deg)" },
+        },
+        "wave": {
+          "0%, 100%": { transform: "rotate(-10deg)" },
+          "25%": { transform: "rotate(-40deg)" },
+          "75%": { transform: "rotate(-5deg)" },
+        },
+        "celebrate-left": {
+          "0%, 100%": { transform: "rotate(-60deg)" },
+          "50%": { transform: "rotate(-80deg)" },
+        },
+        "celebrate-right": {
+          "0%, 100%": { transform: "rotate(60deg)" },
+          "50%": { transform: "rotate(80deg)" },
+        },
+        "jump": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+        "head-bob": {
+          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "50%": { transform: "translateY(-3px) rotate(3deg)" },
+        },
+        "head-tilt": {
+          "0%, 100%": { transform: "rotate(0deg)" },
+          "50%": { transform: "rotate(8deg)" },
+        },
+        "think": {
+          "0%, 100%": { transform: "rotate(0deg) translateY(0)" },
+          "50%": { transform: "rotate(-15deg) translateY(-8px)" },
+        },
+        "build": {
+          "0%, 100%": { transform: "rotate(0deg)" },
+          "30%": { transform: "rotate(-30deg)" },
+          "60%": { transform: "rotate(5deg)" },
+        },
+        "sparkle": {
+          "0%, 100%": { opacity: "1", transform: "scale(1)" },
+          "50%": { opacity: "0.3", transform: "scale(0.6)" },
+        },
+        "shake": {
+          "0%, 100%": { transform: "translateX(0) rotate(0deg)" },
+          "20%": { transform: "translateX(-3px) rotate(-3deg)" },
+          "40%": { transform: "translateX(3px) rotate(3deg)" },
+          "60%": { transform: "translateX(-2px) rotate(-2deg)" },
+          "80%": { transform: "translateX(2px) rotate(2deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

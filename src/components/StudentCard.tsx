@@ -155,12 +155,25 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-tinted transition-all duration-300 ease-out-quint',
+        'relative overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-tinted transition-all duration-300 ease-out-quint',
         clickable && 'cursor-pointer hover:-translate-y-[3px] hover:border-primary/20 hover:shadow-tinted-lg active:scale-[0.98] group',
         !clickable && 'cursor-default',
       )}
       onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
     >
+      {/* Hover glow ring */}
+      {clickable && (
+        <div className="pointer-events-none absolute -inset-[1px] rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 z-10"
+          style={{
+            background: 'linear-gradient(135deg, hsl(221 83% 53% / 0.15), hsl(142 76% 36% / 0.1), hsl(221 83% 53% / 0.15))',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            maskComposite: 'exclude',
+            WebkitMaskComposite: 'xor',
+            padding: '2px',
+          }}
+        />
+      )}
       {/* Banner */}
       <div className="relative h-40 w-full overflow-hidden sm:h-48 md:h-56">
         {student.banner_url ? (
