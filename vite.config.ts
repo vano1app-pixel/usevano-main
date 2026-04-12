@@ -60,4 +60,26 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Raise the warning limit: our biggest chunk (the app bundle) is still
+    // close to 600KB. The real improvement comes from the manualChunks below,
+    // which split vendor code so browsers can cache it across deploys.
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core framework — rarely changes, huge caching win on repeat visits.
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          // Supabase client is heavy and used everywhere — cache it separately.
+          supabase: ["@supabase/supabase-js"],
+          // Animation libs only needed on animated pages (Landing, HirePage).
+          // Split so dashboard / profile / messages users don't download them.
+          animation: ["gsap", "framer-motion", "canvas-confetti"],
+          // Charts only used on BusinessDashboard — no reason to ship to
+          // anyone else. Recharts alone is ~400KB uncompressed.
+          charts: ["recharts"],
+        },
+      },
+    },
+  },
 }));

@@ -50,9 +50,18 @@ export const NotificationBell: React.FC = () => {
   };
 
   const handleClick = (notification: any) => {
+    const title = notification.title || '';
     if (notification.job_id) {
       navigate(`/jobs/${notification.job_id}`);
-    } else if (notification.title?.includes('v1.0') || notification.title?.includes('v1.5')) {
+    } else if (/hire|hired|accepted|declined/i.test(title)) {
+      // Direct-hire flow notifications — route the freelancer to their inbox,
+      // or the business to messages when the freelancer accepted.
+      if (/accepted/i.test(title)) {
+        navigate('/messages');
+      } else {
+        navigate('/hire-requests');
+      }
+    } else if (title.includes('v1.0') || title.includes('v1.5')) {
       navigate('/blog/vano-v1');
     }
     setOpen(false);

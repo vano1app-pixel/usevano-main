@@ -16,6 +16,10 @@ export const HireRequestsInboxLink: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    // Channel ref kept at effect scope so the useEffect cleanup can tear it down.
+    // Without this the realtime subscription leaks on every Profile-page unmount.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
@@ -28,12 +32,13 @@ export const HireRequestsInboxLink: React.FC = () => {
         .gt('expires_at', new Date().toISOString());
       if (!cancelled) setPendingCount(count ?? 0);
     };
-    load();
 
-    // Refresh on realtime change
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) return;
-      const ch = supabase
+    const wire = async () => {
+      await load();
+      if (cancelled) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user || cancelled) return;
+      channel = supabase
         .channel(`hire-inbox-link-${session.user.id}`)
         .on(
           'postgres_changes',
@@ -46,10 +51,13 @@ export const HireRequestsInboxLink: React.FC = () => {
           () => load(),
         )
         .subscribe();
-      return () => { supabase.removeChannel(ch); };
-    });
+    };
+    wire();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   const hasPending = (pendingCount ?? 0) > 0;

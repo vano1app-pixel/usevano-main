@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isEmailVerified } from '@/lib/authSession';
 import {
   HIRE_TIMELINES,
   HIRE_BUDGETS,
@@ -39,7 +40,7 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit =
-    brief.trim().length >= 10 && !!timeline && !!budget && !submitting;
+    brief.trim().length >= 5 && !!timeline && !!budget && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -48,6 +49,16 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         navigate(`/auth?intent=hire&freelancer=${freelancerId}`);
+        return;
+      }
+      // Mirror HirePage concierge guard — unverified accounts shouldn't send direct hires.
+      if (!isEmailVerified(session)) {
+        toast({
+          title: 'Verify your email first',
+          description: 'Check your inbox to confirm your account, then try again.',
+          variant: 'destructive',
+        });
+        setSubmitting(false);
         return;
       }
 
