@@ -68,7 +68,7 @@ export const JourneyCharacter: React.FC<JourneyCharacterProps> = ({
       <g className={cn(
         'origin-[52px_62px]',
         pose === 'walking' && 'animate-[walk-right_0.6s_ease-in-out_infinite]',
-        pose === 'celebrating' && 'animate-[jump_0.5s_ease-in-out_0.1s_infinite]',
+        pose === 'celebrating' && 'animate-[jump_0.5s_ease-in-out_infinite]',
       )}>
         <rect x="50" y="62" width="8" height="18" rx="4" fill="#1e3a5f" />
         {/* Right Shoe */}
@@ -182,8 +182,8 @@ export const JourneyCharacter: React.FC<JourneyCharacterProps> = ({
         {pose === 'celebrating' && (
           <g>
             <text x="28" y="14" fontSize="8" className="animate-[sparkle_0.8s_ease-in-out_infinite]">&#x2728;</text>
-            <text x="64" y="10" fontSize="6" className="animate-[sparkle_0.8s_ease-in-out_0.3s_infinite]">&#x2B50;</text>
-            <text x="20" y="28" fontSize="6" className="animate-[sparkle_0.8s_ease-in-out_0.6s_infinite]">&#x2728;</text>
+            <text x="64" y="10" fontSize="6" className="animate-[sparkle_0.8s_ease-in-out_infinite]" style={{ animationDelay: '0.3s' }}>&#x2B50;</text>
+            <text x="20" y="28" fontSize="6" className="animate-[sparkle_0.8s_ease-in-out_infinite]" style={{ animationDelay: '0.6s' }}>&#x2728;</text>
           </g>
         )}
       </g>

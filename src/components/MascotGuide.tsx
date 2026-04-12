@@ -67,16 +67,10 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
   const prefersReduced = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Idle floating position
-  const idlePos = {
-    left: side === 'left'
-      ? (isMobile ? 8 : 20)
-      : (isMobile ? undefined : undefined),
-    right: side === 'right'
-      ? (isMobile ? 8 : 20)
-      : undefined,
-    bottom: isMobile ? 80 : 100,
-  };
+  // Idle floating position (pixels)
+  const idleLeft = side === 'left' ? (isMobile ? 8 : 20) : undefined;
+  const idleRight = side === 'right' ? (isMobile ? 8 : 20) : undefined;
+  const idleBottom = isMobile ? 80 : 100;
 
   // Move toward target CTA button
   const moveToTarget = useCallback(() => {
@@ -86,13 +80,7 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
     if (!target) return;
 
     const targetRect = target.getBoundingClientRect();
-    const mascotSize = isMobile ? 52 : 64;
-
-    // Position mascot near the target button
-    const targetX = side === 'left'
-      ? targetRect.left - mascotSize - 8
-      : targetRect.right + 8;
-    const targetY = targetRect.top + targetRect.height / 2 - mascotSize / 2;
+    const mSize = isMobile ? 52 : 64;
 
     // Only move if target is visible on screen
     if (targetRect.top < 0 || targetRect.bottom > window.innerHeight) {
@@ -100,16 +88,29 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
       return;
     }
 
+    // Calculate position: mascot sits beside the target button
+    const targetY = targetRect.top + targetRect.height / 2 - mSize / 2;
+    const props: Record<string, unknown> = {
+      position: 'fixed',
+      bottom: 'auto',
+      top: targetY,
+      y: 0,
+      duration: 1.2,
+      ease: 'power3.inOut',
+    };
+
+    if (side === 'left') {
+      props.left = Math.max(4, targetRect.left - mSize - 12);
+      props.right = 'auto';
+    } else {
+      props.left = 'auto';
+      props.right = Math.max(4, window.innerWidth - targetRect.right - mSize - 12);
+    }
+
     setIsNearTarget(true);
 
     gsap.to(mascotRef.current, {
-      position: 'fixed',
-      left: side === 'left' ? targetX : 'auto',
-      right: side === 'right' ? (window.innerWidth - targetX - mascotSize) : 'auto',
-      bottom: 'auto',
-      top: targetY,
-      duration: 1.2,
-      ease: 'power3.inOut',
+      ...props,
       onComplete: () => {
         // Bounce near the target
         if (mascotRef.current && !prefersReduced) {
@@ -132,14 +133,14 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
     gsap.killTweensOf(mascotRef.current);
     gsap.to(mascotRef.current, {
       top: 'auto',
-      bottom: idlePos.bottom,
-      left: side === 'left' ? (idlePos.left ?? 'auto') : 'auto',
-      right: side === 'right' ? (idlePos.right ?? 'auto') : 'auto',
+      bottom: idleBottom,
+      left: side === 'left' ? (idleLeft ?? 'auto') : 'auto',
+      right: side === 'right' ? (idleRight ?? 'auto') : 'auto',
       y: 0,
       duration: 0.8,
       ease: 'power2.out',
     });
-  }, [side, idlePos]);
+  }, [side, idleLeft, idleRight, idleBottom]);
 
   // Try to find and move to target on mount and route change
   useEffect(() => {
@@ -179,10 +180,10 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
   return (
     <div
       ref={mascotRef}
-      className="fixed z-[1900] cursor-pointer group"
+      className="fixed z-[2100] cursor-pointer group"
       style={{
-        ...(side === 'left' ? { left: idlePos.left } : { right: idlePos.right }),
-        bottom: idlePos.bottom,
+        ...(side === 'left' ? { left: idleLeft } : { right: idleRight }),
+        bottom: idleBottom,
         width: mascotSize,
         height: mascotSize,
       }}
@@ -204,6 +205,7 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
       )}
         style={{
           bottom: mascotSize / 2,
+          ...(isNearTarget && side === 'left' ? { left: 'auto', right: '100%', marginRight: '8px', marginLeft: 0 } : {}),
           ...(isNearTarget && side === 'right' ? { right: 'auto', left: '100%', marginLeft: '8px', marginRight: 0 } : {}),
         }}
       >

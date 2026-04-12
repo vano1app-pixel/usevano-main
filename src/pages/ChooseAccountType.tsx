@@ -117,6 +117,7 @@ const ChooseAccountType = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
+              data-mascot="choose-student"
               onClick={() => setSelected('student')}
               disabled={saving}
               className={cn(
@@ -146,6 +147,7 @@ const ChooseAccountType = () => {
             </button>
             <button
               type="button"
+              data-mascot="choose-business"
               onClick={() => setSelected('business')}
               disabled={saving}
               className={cn(

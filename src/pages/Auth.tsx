@@ -225,7 +225,9 @@ const Auth = () => {
             </div>
           )}
 
-          <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+          <div data-mascot="signup-cta">
+            <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+          </div>
 
           {!isLogin && (
             <p className="text-center text-[11px] text-muted-foreground leading-relaxed">

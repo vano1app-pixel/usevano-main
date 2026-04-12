@@ -487,7 +487,7 @@ const HirePage = () => {
                 </div>
               </div>
 
-              <button type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
+              <button data-mascot="hire-submit" type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
                 {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
               </button>
               <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>

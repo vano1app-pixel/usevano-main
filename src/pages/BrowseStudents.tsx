@@ -92,6 +92,7 @@ const BrowseStudents = () => {
                   <button
                     key={item.cat}
                     type="button"
+                    data-mascot={idx === 0 ? "browse-cta" : undefined}
                     onClick={() => navigate(`/students/${item.cat}`)}
                     className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all duration-250 hover:border-primary/20 hover:shadow-lg hover:-translate-y-[2px] active:scale-[0.97] animate-fade-in opacity-0"
                     style={{ animationDelay: `${idx * 70}ms` }}
