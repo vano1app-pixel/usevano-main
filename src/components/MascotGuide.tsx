@@ -61,8 +61,10 @@ interface FloatingMascotProps {
 
 const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSelector, side }) => {
   const mascotRef = useRef<HTMLDivElement>(null);
+  const orbitRef = useRef<gsap.core.Timeline | null>(null);
   const [showBubble, setShowBubble] = useState(false);
   const [isNearTarget, setIsNearTarget] = useState(false);
+  const [isWalking, setIsWalking] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const prefersReduced = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -72,7 +74,61 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
   const idleRight = side === 'right' ? (isMobile ? 8 : 20) : undefined;
   const idleBottom = isMobile ? 80 : 100;
 
-  // Move toward target CTA button
+  // Stop any running orbit
+  const stopOrbit = useCallback(() => {
+    if (orbitRef.current) {
+      orbitRef.current.kill();
+      orbitRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Orbit/circle around the target button continuously.
+   * Creates an elliptical path around the button center.
+   */
+  const startOrbit = useCallback((targetRect: DOMRect) => {
+    if (!mascotRef.current || prefersReduced) return;
+    stopOrbit();
+
+    const mSize = isMobile ? 52 : 64;
+    const centerX = targetRect.left + targetRect.width / 2 - mSize / 2;
+    const centerY = targetRect.top + targetRect.height / 2 - mSize / 2;
+    // Orbit radius — wider horizontally, tighter vertically
+    const radiusX = isMobile ? 40 : 60;
+    const radiusY = isMobile ? 24 : 32;
+    const duration = isMobile ? 4 : 5;
+
+    const tl = gsap.timeline({ repeat: -1, ease: 'none' });
+    // Create a circular orbit using 4 keyframes
+    tl.to(mascotRef.current, {
+      left: centerX + radiusX,
+      top: centerY,
+      duration: duration * 0.25,
+      ease: 'sine.inOut',
+    })
+    .to(mascotRef.current, {
+      left: centerX,
+      top: centerY - radiusY,
+      duration: duration * 0.25,
+      ease: 'sine.inOut',
+    })
+    .to(mascotRef.current, {
+      left: centerX - radiusX,
+      top: centerY,
+      duration: duration * 0.25,
+      ease: 'sine.inOut',
+    })
+    .to(mascotRef.current, {
+      left: centerX,
+      top: centerY + radiusY,
+      duration: duration * 0.25,
+      ease: 'sine.inOut',
+    });
+
+    orbitRef.current = tl;
+  }, [isMobile, prefersReduced, stopOrbit]);
+
+  // Walk toward target CTA button with hopping motion, then orbit it
   const moveToTarget = useCallback(() => {
     if (!mascotRef.current || !targetSelector || prefersReduced) return;
 
@@ -88,47 +144,62 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
       return;
     }
 
-    // Calculate position: mascot sits beside the target button
-    const targetY = targetRect.top + targetRect.height / 2 - mSize / 2;
-    const props: Record<string, unknown> = {
-      position: 'fixed',
-      bottom: 'auto',
-      top: targetY,
-      y: 0,
-      duration: 1.2,
-      ease: 'power3.inOut',
-    };
-
+    // Target: arrive at the side of the button
+    const arriveY = targetRect.top + targetRect.height / 2 - mSize / 2;
+    let arriveX: number;
     if (side === 'left') {
-      props.left = Math.max(4, targetRect.left - mSize - 12);
-      props.right = 'auto';
+      arriveX = Math.max(4, targetRect.left - mSize - 16);
     } else {
-      props.left = 'auto';
-      props.right = Math.max(4, window.innerWidth - targetRect.right - mSize - 12);
+      arriveX = targetRect.right + 16;
     }
 
+    setIsWalking(true);
     setIsNearTarget(true);
+    stopOrbit();
 
-    gsap.to(mascotRef.current, {
-      ...props,
+    // Walk toward the target with hopping steps
+    const walkTl = gsap.timeline({
       onComplete: () => {
-        // Bounce near the target
-        if (mascotRef.current && !prefersReduced) {
-          gsap.to(mascotRef.current, {
-            y: -6,
-            duration: 0.4,
-            yoyo: true,
-            repeat: -1,
-            ease: 'sine.inOut',
-          });
-        }
+        setIsWalking(false);
+        // Once arrived, start orbiting the button
+        const freshRect = target.getBoundingClientRect();
+        startOrbit(freshRect);
       },
     });
-  }, [targetSelector, side, isMobile, prefersReduced]);
+
+    // Hop-walk: move forward while bouncing up and down
+    const hopCount = isMobile ? 4 : 6;
+    const totalDuration = 1.5;
+    const hopDuration = totalDuration / hopCount;
+
+    // Get current position
+    const currentRect = mascotRef.current.getBoundingClientRect();
+    const startX = currentRect.left;
+    const startY = currentRect.top;
+
+    for (let i = 0; i < hopCount; i++) {
+      const progress = (i + 1) / hopCount;
+      const hopX = startX + (arriveX - startX) * progress;
+      const hopY = startY + (arriveY - startY) * progress;
+      const isUp = i % 2 === 0;
+
+      walkTl.to(mascotRef.current, {
+        left: hopX,
+        right: 'auto',
+        bottom: 'auto',
+        top: hopY + (isUp ? -12 : 0),
+        position: 'fixed',
+        duration: hopDuration,
+        ease: isUp ? 'power2.out' : 'power2.in',
+      });
+    }
+  }, [targetSelector, side, isMobile, prefersReduced, startOrbit, stopOrbit]);
 
   const returnToIdle = useCallback(() => {
     if (!mascotRef.current) return;
     setIsNearTarget(false);
+    setIsWalking(false);
+    stopOrbit();
 
     gsap.killTweensOf(mascotRef.current);
     gsap.to(mascotRef.current, {
@@ -140,19 +211,41 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
       duration: 0.8,
       ease: 'power2.out',
     });
-  }, [side, idleLeft, idleRight, idleBottom]);
+  }, [side, idleLeft, idleRight, idleBottom, stopOrbit]);
 
-  // Try to find and move to target on mount and route change
+  // Walk to target on mount and route change, re-check on scroll
   useEffect(() => {
     const timer = setTimeout(() => {
       moveToTarget();
     }, 800); // Wait for page to render
 
+    // Re-check target position on scroll (target may scroll in/out of view)
+    let scrollRaf: number;
+    const onScroll = () => {
+      cancelAnimationFrame(scrollRaf);
+      scrollRaf = requestAnimationFrame(() => {
+        if (!targetSelector) return;
+        const target = document.querySelector(targetSelector);
+        if (!target) return;
+        const rect = target.getBoundingClientRect();
+        const visible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+        if (visible && !isNearTarget) {
+          moveToTarget();
+        } else if (!visible && isNearTarget) {
+          returnToIdle();
+        }
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
     return () => {
       clearTimeout(timer);
+      cancelAnimationFrame(scrollRaf);
+      window.removeEventListener('scroll', onScroll);
+      stopOrbit();
       if (mascotRef.current) gsap.killTweensOf(mascotRef.current);
     };
-  }, [moveToTarget]);
+  }, [moveToTarget, targetSelector, isNearTarget, returnToIdle, stopOrbit]);
 
   // Show bubble periodically
   useEffect(() => {
@@ -221,11 +314,12 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({ type, message, targetSe
         )}
       </div>
 
-      {/* Mascot SVG */}
+      {/* Mascot SVG — walks during transit, floats when idle */}
       <div className={cn(
         'transition-transform duration-200',
         'group-hover:scale-110 group-active:scale-95',
-        !prefersReduced && !isNearTarget && 'animate-[float_4s_ease-in-out_infinite]',
+        !prefersReduced && !isNearTarget && !isWalking && 'animate-[float_4s_ease-in-out_infinite]',
+        isWalking && 'animate-[walk-left_0.3s_ease-in-out_infinite]',
       )}>
         {type === 'wizard' ? (
           <WizardMascot size={mascotSize} animate={!prefersReduced} />
