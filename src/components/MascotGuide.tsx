@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { WizardMascot } from './WizardMascot';
 import { DragonMascot } from './DragonMascot';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { supabase } from '@/integrations/supabase/client';
-import { gsap } from '@/lib/gsapSetup';
 import { cn } from '@/lib/utils';
 
 /* ─── Rotating message pools ─── */
@@ -100,13 +99,10 @@ interface PageGuide {
   show: MascotType[];
   wizardMessages: string[];
   dragonMessages: string[];
-  wizardTarget?: string;
-  dragonTarget?: string;
 }
 
 function getPageGuide(path: string): PageGuide {
   const getMessages = (pool: Record<string, string[]>, p: string) => {
-    // Try exact match, then prefix match, then default
     if (pool[p]) return pool[p];
     const prefix = Object.keys(pool).find(k => k !== '_default' && p.startsWith(k));
     if (prefix) return pool[prefix];
@@ -116,197 +112,49 @@ function getPageGuide(path: string): PageGuide {
   const wMsgs = getMessages(WIZARD_MESSAGES, path);
   const dMsgs = getMessages(DRAGON_MESSAGES, path);
 
-  if (path === '/') return {
-    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-    wizardTarget: '[data-mascot="freelancer-cta"]', dragonTarget: '[data-mascot="hire-cta"]',
-  };
-  if (path === '/hire') return {
-    show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-    dragonTarget: '[data-mascot="hire-submit"]',
-  };
-  if (path === '/students' || path.startsWith('/students/')) return {
-    show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-    dragonTarget: '[data-mascot="browse-cta"]',
-  };
-  if (path === '/auth') return {
-    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-  };
-  if (path === '/choose-account-type') return {
-    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-    wizardTarget: '[data-mascot="choose-student"]', dragonTarget: '[data-mascot="choose-business"]',
-  };
-  if (path === '/profile' || path === '/complete-profile') return {
-    show: ['wizard'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-  };
-  if (path === '/business-dashboard') return {
-    show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-  };
-  if (path === '/messages') return {
-    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-  };
-  return {
-    show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs,
-  };
+  if (path === '/') return { show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  if (path === '/hire') return { show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  if (path === '/students' || path.startsWith('/students/')) return { show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  if (path === '/auth') return { show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  if (path === '/choose-account-type') return { show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  if (path === '/profile' || path === '/complete-profile') return { show: ['wizard'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  if (path === '/business-dashboard') return { show: ['dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  if (path === '/messages') return { show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
+  return { show: ['wizard', 'dragon'], wizardMessages: wMsgs, dragonMessages: dMsgs };
 }
 
-/* ─── Single mascot component ─── */
+/* ─── Single mascot — stays in corner, rotates messages ─── */
 interface FloatingMascotProps {
   type: MascotType;
   messages: string[];
-  targetSelector?: string;
   side: 'left' | 'right';
   isAngry?: boolean;
   persistBubble?: boolean;
 }
 
 const FloatingMascot: React.FC<FloatingMascotProps> = ({
-  type, messages, targetSelector, side, isAngry = false, persistBubble = false,
+  type, messages, side, isAngry = false, persistBubble = false,
 }) => {
-  const mascotRef = useRef<HTMLDivElement>(null);
   const [showBubble, setShowBubble] = useState(false);
   const [currentMessage, setCurrentMessage] = useState(messages[0] || '');
   const [msgIndex, setMsgIndex] = useState(0);
-  const [isNearTarget, setIsNearTarget] = useState(false);
-  const [isWalking, setIsWalking] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const prefersReduced = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const idleLeft = side === 'left' ? (isMobile ? 8 : 20) : undefined;
-  const idleRight = side === 'right' ? (isMobile ? 8 : 20) : undefined;
-  const idleBottom = isMobile ? 80 : 100;
+  const mascotSize = isMobile ? 52 : 64;
 
-  /**
-   * Gentle float near the target — NOT orbit, just a soft hover beside it
-   * with a slow up-down bobbing motion.
-   */
-  const startGentleFloat = useCallback(() => {
-    if (!mascotRef.current || prefersReduced) return;
-    gsap.to(mascotRef.current, {
-      y: '-=8',
-      duration: 1.5,
-      yoyo: true,
-      repeat: -1,
-      ease: 'sine.inOut',
-    });
-  }, [prefersReduced]);
-
-  // Walk toward target CTA button, then float gently beside it
-  const moveToTarget = useCallback(() => {
-    if (!mascotRef.current || !targetSelector || prefersReduced) return;
-
-    const target = document.querySelector(targetSelector);
-    if (!target) return;
-
-    const targetRect = target.getBoundingClientRect();
-    const mSize = isMobile ? 52 : 64;
-
-    if (targetRect.top < 0 || targetRect.bottom > window.innerHeight) {
-      returnToIdle();
-      return;
-    }
-
-    // Position ABOVE the button, offset to the side — never on top of it
-    const gap = isMobile ? 6 : 14;
-    const arriveY = Math.max(4, targetRect.top - mSize - gap);
-    let arriveX: number;
-    if (side === 'left') {
-      arriveX = Math.max(4, targetRect.left);
-    } else {
-      arriveX = Math.min(window.innerWidth - mSize - 4, targetRect.right - mSize);
-    }
-
-    setIsWalking(true);
-    setIsNearTarget(true);
-
-    // Hop-walk toward the target
-    const hopCount = isMobile ? 3 : 4;
-    const hopDuration = 1.2 / hopCount;
-    const currentRect = mascotRef.current.getBoundingClientRect();
-    const startX = currentRect.left;
-    const startY = currentRect.top;
-
-    const walkTl = gsap.timeline({
-      onComplete: () => {
-        setIsWalking(false);
-        startGentleFloat();
-      },
-    });
-
-    for (let i = 0; i < hopCount; i++) {
-      const progress = (i + 1) / hopCount;
-      const hopX = startX + (arriveX - startX) * progress;
-      const hopY = startY + (arriveY - startY) * progress;
-      const isUp = i % 2 === 0;
-
-      walkTl.to(mascotRef.current, {
-        left: hopX,
-        right: 'auto',
-        bottom: 'auto',
-        top: hopY + (isUp ? -10 : 0),
-        position: 'fixed',
-        duration: hopDuration,
-        ease: isUp ? 'power2.out' : 'power2.in',
-      });
-    }
-  }, [targetSelector, side, isMobile, prefersReduced, startGentleFloat]);
-
-  const returnToIdle = useCallback(() => {
-    if (!mascotRef.current) return;
-    setIsNearTarget(false);
-    setIsWalking(false);
-
-    gsap.killTweensOf(mascotRef.current);
-    gsap.to(mascotRef.current, {
-      top: 'auto',
-      bottom: idleBottom,
-      left: side === 'left' ? (idleLeft ?? 'auto') : 'auto',
-      right: side === 'right' ? (idleRight ?? 'auto') : 'auto',
-      y: 0,
-      duration: 0.8,
-      ease: 'power2.out',
-    });
-  }, [side, idleLeft, idleRight, idleBottom]);
-
-  // Move to target on mount/route change, follow on scroll
-  // Wait 5 seconds before walking to target — let users see the page first
-  useEffect(() => {
-    const timer = setTimeout(() => moveToTarget(), 5000);
-
-    let scrollRaf: number;
-    const onScroll = () => {
-      cancelAnimationFrame(scrollRaf);
-      scrollRaf = requestAnimationFrame(() => {
-        if (!targetSelector) return;
-        const target = document.querySelector(targetSelector);
-        if (!target) return;
-        const rect = target.getBoundingClientRect();
-        const visible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-        if (visible && !isNearTarget) moveToTarget();
-        else if (!visible && isNearTarget) returnToIdle();
-      });
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-
-    return () => {
-      clearTimeout(timer);
-      cancelAnimationFrame(scrollRaf);
-      window.removeEventListener('scroll', onScroll);
-      if (mascotRef.current) gsap.killTweensOf(mascotRef.current);
-    };
-  }, [moveToTarget, targetSelector, isNearTarget, returnToIdle]);
-
-  // Rotate through messages — show bubble, hide, show next message
+  // Reset messages when pool changes (route change)
   useEffect(() => {
     setMsgIndex(0);
     setCurrentMessage(messages[0] || '');
   }, [messages]);
 
+  // Rotate messages: show 4s -> hide 2s -> next -> repeat
   useEffect(() => {
     if (!messages.length) return;
     setShowBubble(false);
 
-    // Show first bubble after short delay
     const showDelay = persistBubble ? 800 : 2000;
     const visibleDuration = 4000;
     const hideDuration = 2000;
@@ -314,7 +162,6 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
 
     const t1 = setTimeout(() => setShowBubble(true), showDelay);
 
-    // Cycle: show message -> hide -> next message -> show -> hide -> ...
     const interval = setInterval(() => {
       setShowBubble(false);
       setTimeout(() => {
@@ -330,8 +177,6 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
     return () => { clearTimeout(t1); clearInterval(interval); };
   }, [messages, persistBubble]);
 
-  const mascotSize = isMobile ? 52 : 64;
-
   const handleClick = () => {
     const msgText = type === 'wizard'
       ? "Hi! I'm a freelancer interested in joining VANO!"
@@ -341,11 +186,10 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
 
   return (
     <div
-      ref={mascotRef}
       className="fixed z-[2100] cursor-pointer group"
       style={{
-        ...(side === 'left' ? { left: idleLeft } : { right: idleRight }),
-        bottom: idleBottom,
+        ...(side === 'left' ? { left: isMobile ? 8 : 20 } : { right: isMobile ? 8 : 20 }),
+        bottom: isMobile ? 80 : 100,
         width: mascotSize,
         height: mascotSize,
       }}
@@ -361,26 +205,16 @@ const FloatingMascot: React.FC<FloatingMascotProps> = ({
           : 'bg-red-50 dark:bg-red-950/80 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200',
         showBubble ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95',
       )}
-        style={{
-          bottom: mascotSize / 2,
-          ...(isNearTarget && side === 'left' ? { left: 'auto', right: '100%', marginRight: 8, marginLeft: 0 } : {}),
-          ...(isNearTarget && side === 'right' ? { right: 'auto', left: '100%', marginLeft: 8, marginRight: 0 } : {}),
-        }}
+        style={{ bottom: mascotSize / 2 }}
       >
         {currentMessage}
-        {isNearTarget && (
-          <span className="inline-block ml-1 animate-[arm-swing-right_0.6s_ease-in-out_infinite]">
-            {side === 'left' ? '👉' : '👈'}
-          </span>
-        )}
       </div>
 
-      {/* Mascot SVG */}
+      {/* Mascot SVG — floats in corner, shakes when angry */}
       <div className={cn(
         'transition-transform duration-200 group-hover:scale-110 group-active:scale-95',
-        !prefersReduced && !isNearTarget && !isWalking && !isAngry && 'animate-[float_4s_ease-in-out_infinite]',
-        isWalking && 'animate-[walk-left_0.3s_ease-in-out_infinite]',
-        isAngry && !isWalking && 'animate-[shake_0.5s_ease-in-out_infinite]',
+        !prefersReduced && !isAngry && 'animate-[float_4s_ease-in-out_infinite]',
+        isAngry && 'animate-[shake_0.5s_ease-in-out_infinite]',
       )}>
         {type === 'wizard' ? (
           <WizardMascot size={mascotSize} animate={!prefersReduced} />
@@ -454,11 +288,7 @@ export const MascotGuide: React.FC = () => {
       const isQuiet = quietPages.some(p => location.pathname.startsWith(p));
       if (!isQuiet) {
         if (!base.show.includes('wizard')) base.show.push('wizard');
-        // Override wizard messages with nag messages
         base.wizardMessages = [NAG_MESSAGES[nagIndex]];
-        if (location.pathname === '/profile') {
-          base.wizardTarget = '[data-mascot="get-listed"]';
-        }
       }
     }
 
@@ -477,7 +307,6 @@ export const MascotGuide: React.FC = () => {
         <FloatingMascot
           type="wizard"
           messages={guide.wizardMessages}
-          targetSelector={guide.wizardTarget}
           side="left"
           isAngry={isAngry}
           persistBubble={isUnlistedFreelancer}
@@ -487,7 +316,6 @@ export const MascotGuide: React.FC = () => {
         <FloatingMascot
           type="dragon"
           messages={guide.dragonMessages}
-          targetSelector={guide.dragonTarget}
           side="right"
         />
       )}
