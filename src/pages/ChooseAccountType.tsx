@@ -131,19 +131,15 @@ const ChooseAccountType = () => {
               onClick={() => setSelected('student')}
               disabled={saving}
               className={cn(
-                'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
+                'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 selected === 'student'
                   ? 'border-emerald-500/50 bg-emerald-500/[0.06] shadow-[0_0_0_1px_rgba(16,185,129,0.1)]'
                   : 'border-foreground/[0.06] bg-muted/30 hover:border-emerald-500/30 hover:bg-emerald-500/[0.03]',
               )}
             >
-              <div className={cn(
-                'pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 transition-opacity duration-500',
-                selected === 'student' ? 'opacity-100' : 'group-hover:opacity-60',
-              )} />
               <span className={cn(
-                'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
+                'relative flex h-10 w-10 items-center justify-center rounded-xl',
                 selected === 'student' ? 'bg-emerald-500/15' : 'bg-muted/60',
               )}>
                 <GraduationCap className="text-emerald-600" size={20} strokeWidth={1.8} />
@@ -161,19 +157,15 @@ const ChooseAccountType = () => {
               onClick={() => setSelected('business')}
               disabled={saving}
               className={cn(
-                'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
+                'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 selected === 'business'
                   ? 'border-sky-500/50 bg-sky-500/[0.06] shadow-[0_0_0_1px_rgba(14,165,233,0.1)]'
                   : 'border-foreground/[0.06] bg-muted/30 hover:border-sky-500/30 hover:bg-sky-500/[0.03]',
               )}
             >
-              <div className={cn(
-                'pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-500/10 to-transparent opacity-0 transition-opacity duration-500',
-                selected === 'business' ? 'opacity-100' : 'group-hover:opacity-60',
-              )} />
               <span className={cn(
-                'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
+                'relative flex h-10 w-10 items-center justify-center rounded-xl',
                 selected === 'business' ? 'bg-sky-500/15' : 'bg-muted/60',
               )}>
                 <Building2 className="text-sky-600" size={20} strokeWidth={1.8} />
