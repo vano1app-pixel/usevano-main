@@ -7,6 +7,10 @@ import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
 import {
   ArrowRight,
+  Clock,
+  Shield,
+  MapPin,
+  MessageSquare,
   Megaphone,
   Linkedin,
   CircleUser,
@@ -132,55 +136,59 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section data-hero-section className="relative min-h-[60dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4">
-        <div data-hero-content className="relative max-w-3xl mx-auto text-center">
+      <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
+        {/* Breathing gradient orb */}
+        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+
+        <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
           <div data-hero-title>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
               <span className="inline-block">Local talent,</span><br />
-              <span className="inline-block italic font-semibold text-primary">
+              <span
+                className="inline-block italic font-semibold text-primary"
+              >
                 instantly available.
               </span>
             </h1>
           </div>
           <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-8 leading-relaxed">
-            Hire through VANO or message freelancers directly — whatever's quickest for you.
+            Connect with Galway's best freelancers for videography, photography, web design, and more.
           </p>
           <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <InteractiveButton
-              data-mascot="hire-cta"
-              onClick={() => navigate('/hire')}
-              className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-sm transition-colors hover:bg-primary/90"
-            >
-              Hire through VANO
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
-                <ArrowRight size={14} />
-              </span>
-            </InteractiveButton>
-            <InteractiveButton
-              data-mascot="browse-cta"
-              onClick={() => navigate('/students')}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-base font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
-            >
-              Browse freelancers
-            </InteractiveButton>
-          </div>
-          {!session && (
-            <button
-              type="button"
-              onClick={() => navigate('/auth?mode=signup')}
-              className="mt-5 text-xs font-medium text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
-            >
-              Are you a freelancer? Join VANO
-            </button>
-          )}
-          {studentsLoaded && featuredStudents.length > 0 && (
-            <div data-hero-badge className="flex items-center justify-center gap-2 mt-6">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <p className="text-xs font-medium text-muted-foreground">
-                {featuredStudents.length} freelancers online now
-              </p>
+              <InteractiveButton
+                data-mascot="hire-cta"
+                burstType="sparkle"
+                particleCount={25}
+                magneticStrength={0.35}
+                onClick={() => navigate('/hire')}
+                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
+              >
+                Hire a freelancer
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5">
+                  <ArrowRight size={14} />
+                </span>
+              </InteractiveButton>
+              {!session ? (
+                <InteractiveButton
+                  data-mascot="freelancer-cta"
+                  burstType="sparkle"
+                  particleCount={15}
+                  magneticStrength={0.25}
+                  onClick={() => navigate('/auth?mode=signup')}
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
+                >
+                  Join as a freelancer
+                </InteractiveButton>
+              ) : null}
             </div>
-          )}
+            {studentsLoaded && featuredStudents.length > 0 && (
+              <div data-hero-badge className="flex items-center justify-center gap-2 mt-6">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                <p className="text-xs font-medium text-muted-foreground">
+                  {featuredStudents.length} freelancers online now
+                </p>
+              </div>
+            )}
         </div>
       </section>
 
@@ -440,6 +448,80 @@ const Landing = () => {
         </section>
       )}
 
+      {/* Why VANO */}
+      <section data-section-why className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+        <div className="max-w-4xl lg:max-w-5xl mx-auto">
+          <div className="text-center">
+            <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</span>
+            <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
+            <p className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5">
+            {/* Hyperlocal — 2 cols row 1 */}
+            <div
+              data-why-card
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-blue-500/[0.08] bg-blue-500/[0.02] dark:bg-blue-500/[0.04] p-7 sm:p-8 lg:p-10 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+            >
+              <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-blue-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-blue-500/[0.12]" />
+              <div>
+                <div data-why-icon className="mb-5 flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
+                  <MapPin size={22} className="text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                </div>
+                <h3 className="text-xl lg:text-2xl font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
+                <p className="text-base text-muted-foreground leading-relaxed max-w-sm lg:max-w-md">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
+              </div>
+            </div>
+
+            {/* Speed — 1 col row 1 */}
+            <div
+              data-why-card
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-emerald-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-emerald-500/[0.12]" />
+              <div>
+                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 transition-colors group-hover:bg-emerald-500/20">
+                  <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                </div>
+                <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Hire in minutes</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Describe what you need, get matched, pick someone — done.</p>
+              </div>
+            </div>
+
+            {/* Chat — 1 col row 2 */}
+            <div
+              data-why-card
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-violet-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-violet-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-violet-500/[0.12]" />
+              <div>
+                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 transition-colors group-hover:bg-violet-500/20">
+                  <MessageSquare size={18} className="text-violet-600 dark:text-violet-400" strokeWidth={2} />
+                </div>
+                <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Chat on platform</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
+              </div>
+            </div>
+
+            {/* Trust — 2 cols row 2 */}
+            <div
+              data-why-card
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/[0.08] bg-amber-500/[0.02] dark:bg-amber-500/[0.04] p-6 lg:p-8 flex items-center gap-5 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+            >
+              <div className="pointer-events-none absolute -left-8 -bottom-8 h-40 w-40 rounded-full bg-amber-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-amber-500/[0.12]" />
+              <div className="flex items-center gap-5">
+                <div data-why-icon className="flex h-12 w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/20">
+                  <Shield size={22} className="text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-base lg:text-lg font-semibold text-foreground mb-0.5">Built on trust</h3>
+                  <p className="text-base text-muted-foreground leading-relaxed">Profiles with portfolios, reviews, and verified gigs — so you know who you're dealing with before you hire.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
@@ -497,6 +579,45 @@ const Landing = () => {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section data-section-cta className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+        <div className="max-w-2xl lg:max-w-3xl mx-auto">
+          <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-5 py-10 sm:px-10 sm:py-14 lg:px-20 lg:py-20 text-center">
+            {/* Floating magic orbs */}
+            <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
+            <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
+            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Galway · Free · Local</span>
+            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
+              Need something done? Tell us.
+            </h2>
+            <p className="relative text-primary-foreground/60 mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
+            <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
+              <InteractiveButton
+                burstType="confetti"
+                particleCount={35}
+                magneticStrength={0.4}
+                onClick={() => navigate('/hire')}
+                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px] active:scale-[0.97]"
+              >
+                Hire a freelancer
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
+                  <ArrowRight size={14} />
+                </span>
+              </InteractiveButton>
+              <InteractiveButton
+                burstType="sparkle"
+                particleCount={15}
+                magneticStrength={0.3}
+                onClick={() => navigate('/auth')}
+                className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px] active:scale-[0.97]"
+              >
+                Join as a freelancer
+              </InteractiveButton>
+            </div>
           </div>
         </div>
       </section>
