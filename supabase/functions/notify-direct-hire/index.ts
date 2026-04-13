@@ -206,6 +206,44 @@ async function sendWebPush(
 
 /* ─── Handler ─── */
 
+/**
+ * Normalize a raw phone string into E.164 (e.g. "0899817111" -> "+353899817111").
+ * The freelancer phone comes from PhoneRequiredModal which doesn't enforce
+ * format, so we do best-effort cleanup here. Returns null if we can't make
+ * something that at least looks like E.164.
+ *
+ * Heuristics:
+ *  - Starts with "+" -> already E.164, trust it (after stripping whitespace)
+ *  - Starts with "00" -> convert to "+"
+ *  - 10 digits starting with "0" and second digit "8" -> Irish mobile without
+ *    the international prefix; drop the leading 0 and prepend "+353"
+ *  - 9 digits starting with "8" -> Irish mobile without leading 0; prepend "+353"
+ *  - Otherwise null (safer to skip SMS than to blast to the wrong country)
+ */
+function normalizeE164(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-()]/g, "").trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith("+")) {
+    // Must be + followed by only digits, at least 8 of them
+    return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  }
+  if (cleaned.startsWith("00")) {
+    const candidate = "+" + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(candidate) ? candidate : null;
+  }
+  // Irish mobile patterns
+  if (/^08[3-9]\d{7}$/.test(cleaned)) {
+    // e.g. 0899817111 -> +353899817111
+    return "+353" + cleaned.slice(1);
+  }
+  if (/^8[3-9]\d{7}$/.test(cleaned)) {
+    // e.g. 899817111 -> +353899817111
+    return "+353" + cleaned;
+  }
+  return null;
+}
+
 const budgetLabels: Record<string, string> = {
   under_100: "Under €100",
   "100_250": "€100–250",
@@ -340,12 +378,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Shared site URL for email links + SMS deep-link.
+    const siteUrl = (Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com").replace(/\/+$/, "");
+
     /* ── 3. Email via Resend ── */
     let emailed = false;
     const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
     if (resendKey && freelancerEmail) {
       const from = Deno.env.get("RESEND_FROM")?.trim() || "VANO <onboarding@resend.dev>";
-      const siteUrl = (Deno.env.get("SITE_URL")?.trim() || "https://vanojobs.com").replace(/\/+$/, "");
       const subject = `🎯 ${requesterName} wants to hire you on VANO`;
       const budget = budgetLabels[hr.budget_range || ""] || hr.budget_range || "Not specified";
       const timeline = timelineLabels[hr.timeline || ""] || hr.timeline || "Not specified";
@@ -379,8 +419,90 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    /* ── 4. SMS via Twilio (hedged: try alphanumeric sender first, fall back to number) ── */
+    //
+    // Freelancer phones live on `student_profiles.phone`. We try sending from
+    // TWILIO_FROM_NUMBER (typically "VANO" alphanumeric sender) first. Irish
+    // carriers sometimes reject unregistered alphanumeric senders — when that
+    // happens Twilio returns an error; we retry with TWILIO_FALLBACK_FROM_NUMBER
+    // (a real Twilio phone number owned by the account) so the SMS still lands.
+    //
+    // Failures are swallowed: SMS is fire-and-forget so a bad Twilio route
+    // never blocks the in-app/push/email chain above.
+    let smsSent = false;
+    let smsSender: string | null = null;
+    try {
+      const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
+      const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
+      const fromPrimary = Deno.env.get("TWILIO_FROM_NUMBER")?.trim();
+      const fromFallback = Deno.env.get("TWILIO_FALLBACK_FROM_NUMBER")?.trim();
+      const fromCandidates = [fromPrimary, fromFallback].filter(
+        (v): v is string => Boolean(v && v.length > 0),
+      );
+
+      if (accountSid && authToken && fromCandidates.length > 0) {
+        const { data: sp } = await svc
+          .from("student_profiles")
+          .select("phone")
+          .eq("user_id", hr.target_freelancer_id)
+          .maybeSingle();
+        const toPhone = normalizeE164(sp?.phone ?? null);
+
+        if (toPhone) {
+          const body = `🎯 ${requesterName} wants to hire you on VANO! Respond within 2 hours: ${siteUrl}/hire-requests`;
+          const basicAuth = "Basic " + btoa(`${accountSid}:${authToken}`);
+
+          for (const from of fromCandidates) {
+            try {
+              const twRes = await fetch(
+                `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: basicAuth,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                  },
+                  body: new URLSearchParams({
+                    From: from,
+                    To: toPhone,
+                    Body: body,
+                  }).toString(),
+                },
+              );
+              if (twRes.ok) {
+                smsSent = true;
+                smsSender = from;
+                break;
+              } else {
+                const errText = await twRes.text();
+                console.warn(
+                  `Twilio send failed from=${from} status=${twRes.status}: ${errText}`,
+                );
+              }
+            } catch (fetchErr) {
+              console.warn(`Twilio fetch error from=${from}:`, fetchErr);
+            }
+          }
+        } else {
+          console.log(
+            "Skipping SMS: freelancer phone missing or unparseable (user=" +
+              hr.target_freelancer_id + ")",
+          );
+        }
+      }
+    } catch (smsErr) {
+      // Never let SMS break the whole notification response.
+      console.warn("SMS block threw unexpectedly:", smsErr);
+    }
+
     return new Response(
-      JSON.stringify({ ok: true, in_app: true, push: pushesSent, email: emailed }),
+      JSON.stringify({
+        ok: true,
+        in_app: true,
+        push: pushesSent,
+        email: emailed,
+        sms: { sent: smsSent, sender: smsSender },
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
