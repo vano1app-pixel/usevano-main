@@ -218,7 +218,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
 
     setDraftReady(false);
-    setStep(startAtStep ?? 0);
+    // Skip the info-only intro step — land directly on the category picker.
+    // `startAtStep` (when provided by the caller) still takes precedence.
+    setStep(startAtStep ?? 1);
 
     const ep = initial.existingPost ?? null;
 
@@ -269,7 +271,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
       const draft = rawDraft ? parseDraft(rawDraft) : null;
       if (draft) {
-        setStep(draft.step);
+        // Clamp a saved step of 0 up to 1 — the intro is skipped now.
+        setStep(Math.max(1, draft.step));
         setCategory(draft.category);
         setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
         setTitle(draft.title);
@@ -1162,7 +1165,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         </div>
 
         <div className="flex gap-2 border-t border-border bg-background px-5 py-4">
-          {step > 0 ? (
+          {step > 1 ? (
             <Button
               type="button"
               variant="outline"

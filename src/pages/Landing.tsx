@@ -5,6 +5,9 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
+import { setGoogleOAuthIntent, clearGoogleOAuthIntent } from '@/lib/googleOAuth';
+import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { useToast } from '@/hooks/use-toast';
 import {
   ArrowRight,
   Clock,
@@ -28,7 +31,31 @@ import { InteractiveButton } from '@/components/InteractiveButton';
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const oauthHandledRef = useRef(false);
+
+  /**
+   * "Join as a freelancer" fires Google OAuth directly with an intent of
+   * 'student' — no detour through /auth. After return, tryFinishGoogleOAuthRedirect
+   * routes a freshly-created student straight to /profile.
+   */
+  const handleFreelancerSignup = async () => {
+    setGoogleOAuthIntent('student');
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: getGoogleOAuthRedirectUrl(),
+          queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+        },
+      });
+      if (error) throw error;
+    } catch {
+      clearGoogleOAuthIntent();
+      toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
+    }
+  };
+
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
@@ -174,7 +201,7 @@ const Landing = () => {
                   burstType="sparkle"
                   particleCount={15}
                   magneticStrength={0.25}
-                  onClick={() => navigate('/auth?mode=signup')}
+                  onClick={handleFreelancerSignup}
                   className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
                 >
                   Join as a freelancer
@@ -612,7 +639,7 @@ const Landing = () => {
                 burstType="sparkle"
                 particleCount={15}
                 magneticStrength={0.3}
-                onClick={() => navigate('/auth')}
+                onClick={handleFreelancerSignup}
                 className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Join as a freelancer
