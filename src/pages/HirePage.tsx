@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
@@ -9,6 +9,9 @@ import { isEmailVerified } from '@/lib/authSession';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { clearHireBrief, loadHireBrief, saveHireBrief } from '@/lib/hireFlow';
+import { setGoogleOAuthIntent } from '@/lib/googleOAuth';
+import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
 import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, Camera, Monitor, Megaphone, HelpCircle,
@@ -113,7 +116,22 @@ const HirePage = () => {
   const [matchLoading, setMatchLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
 
+  // On mount: restore a brief persisted across Google OAuth if one is pending.
+  // This lets signed-out hirers fill the whole wizard, bounce through auth, and
+  // land right back on Step 3 with every field intact — no re-entry, no extra
+  // clicks.
+  const briefRestoredRef = useRef(false);
   useEffect(() => {
+    const brief = loadHireBrief();
+    if (brief) {
+      briefRestoredRef.current = true;
+      setDescription(brief.description);
+      setCategory(brief.category);
+      setTimeline(brief.timeline);
+      setBudget(brief.budget);
+      setStep(3);
+      return;
+    }
     const cat = searchParams.get('category');
     if (cat) {
       const found = CATEGORIES.find(c => c.id === cat);
@@ -195,8 +213,32 @@ const HirePage = () => {
   };
 
   /* ── Submit Vano request ── */
-  const handleVanoSubmit = async () => {
-    if (!user) { navigate('/auth'); return; }
+  // `autoOpenWhatsApp` is false when this runs automatically after a Google
+  // OAuth resume — browsers block `window.open` without a direct user click,
+  // and the submitted-state UI already surfaces a WhatsApp button.
+  const handleVanoSubmit = async (autoOpenWhatsApp = true) => {
+    if (!user) {
+      // Persist the brief so it survives the OAuth round-trip, then kick off
+      // Google sign-in directly from here. No /auth page detour.
+      saveHireBrief({ description, category, timeline, budget });
+      setGoogleOAuthIntent('business');
+      setSubmitting(true);
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: getGoogleOAuthRedirectUrl(),
+            queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+          },
+        });
+        if (error) throw error;
+      } catch (err) {
+        clearHireBrief();
+        setSubmitting(false);
+        toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
+      }
+      return;
+    }
     if (!isEmailVerified({ user } as any)) {
       toast({ title: 'Please verify your email first', variant: 'destructive' });
       return;
@@ -209,25 +251,41 @@ const HirePage = () => {
       toast({ title: 'Something went wrong', description: 'Please try again or message us on WhatsApp.', variant: 'destructive' });
     } else {
       setSubmitted(true);
-      // Auto-open WhatsApp with request details so the team can respond directly
-      const catLabel = CATEGORIES.find(c => c.id === category)?.label || 'Not specified';
-      const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || 'Not specified';
-      const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || 'Not specified';
-      const waLines = [
-        `Hi! I just submitted a hire request on VANO.`,
-        ``,
-        `Project: ${description.trim()}`,
-        `Category: ${catLabel}`,
-        `Timeline: ${timelineLabel}`,
-        `Budget: ${budgetLabel}`,
-      ];
-      window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(waLines.join('\n'))}`, '_blank');
+      clearHireBrief();
+      if (autoOpenWhatsApp) {
+        // Auto-open WhatsApp with request details so the team can respond directly
+        const catLabel = CATEGORIES.find(c => c.id === category)?.label || 'Not specified';
+        const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || 'Not specified';
+        const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || 'Not specified';
+        const waLines = [
+          `Hi! I just submitted a hire request on VANO.`,
+          ``,
+          `Project: ${description.trim()}`,
+          `Category: ${catLabel}`,
+          `Timeline: ${timelineLabel}`,
+          `Budget: ${budgetLabel}`,
+        ];
+        window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(waLines.join('\n'))}`, '_blank');
+      }
       supabase.functions.invoke('notify-hire-request', {
         body: { description, category, budget_range: budget, timeline, requester_email: user.email },
       }).catch(() => {});
     }
     setSubmitting(false);
   };
+
+  /* Auto-submit once on post-OAuth return. Fires when the restored brief meets
+   * the freshly-loaded session. */
+  const autoSubmittedRef = useRef(false);
+  useEffect(() => {
+    if (!briefRestoredRef.current || autoSubmittedRef.current) return;
+    if (!user || submitting || submitted) return;
+    if (!description.trim()) return;
+    autoSubmittedRef.current = true;
+    void handleVanoSubmit(false);
+    // handleVanoSubmit depends on current field state; re-run only on user change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   /* ── Message freelancer with pre-filled draft ── */
   const messageFreelancer = (freelancerUserId: string) => {
@@ -239,6 +297,17 @@ const HirePage = () => {
   };
 
   useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
+
+  /* Auto-advance step 2 → step 3 once both picks are made, so a signed-in user
+   * can go Category → Continue → Timeline → Budget and land on options without
+   * a separate "See my options" click. */
+  useEffect(() => {
+    if (step !== 2) return;
+    if (timeline && budget) {
+      setStepDirection(1);
+      setStep(3);
+    }
+  }, [step, timeline, budget]);
 
   const canProceedStep1 = description.trim().length >= 5;
   const canProceedStep2 = !!timeline && !!budget;
