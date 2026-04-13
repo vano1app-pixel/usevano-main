@@ -1,63 +1,35 @@
-import React, { useRef } from 'react';
-import { useMagneticHover } from '@/hooks/useMagneticHover';
-import { useParticleBurst } from '@/hooks/useParticleBurst';
+import React from 'react';
 import type { ParticleBurstType } from '@/lib/animations/particles';
 import { cn } from '@/lib/utils';
 
-const isTouchDevice = () =>
-  typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-
 interface InteractiveButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  /** Particle burst type on click */
+  /** @deprecated Retained for backwards compatibility. No longer triggers a particle burst. */
   burstType?: ParticleBurstType;
-  /** Number of particles to emit */
+  /** @deprecated Retained for backwards compatibility. No longer triggers a particle burst. */
   particleCount?: number;
-  /** Magnetic hover strength (0 = disabled) */
+  /** @deprecated Retained for backwards compatibility. Magnetic hover has been removed. */
   magneticStrength?: number;
-  /** Whether to show particle burst on click */
+  /** @deprecated Retained for backwards compatibility. No longer triggers a particle burst. */
   showBurst?: boolean;
   children: React.ReactNode;
 }
 
 /**
- * Button with built-in particle burst on click + magnetic hover.
- * Drop-in replacement for any <button> element.
- *
- * Mobile: magnetic hover is auto-disabled (no-op on touch).
- * Particle burst auto-reduces count on mobile via useParticleBurst.
+ * Plain button that accepts the legacy InteractiveButton props so existing call
+ * sites keep compiling. The decorative particle burst and magnetic-hover
+ * effects were removed — this is now a straightforward button.
  */
 export const InteractiveButton: React.FC<InteractiveButtonProps> = ({
-  burstType = 'sparkle',
-  particleCount = 20,
-  magneticStrength = 0.3,
-  showBurst = true,
+  burstType: _burstType,
+  particleCount: _particleCount,
+  magneticStrength: _magneticStrength,
+  showBurst: _showBurst,
   children,
   className,
-  onClick,
   ...props
 }) => {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const burst = useParticleBurst();
-  const isTouch = isTouchDevice();
-
-  // Apply magnetic hover (auto no-op on touch devices via cursorEffects.ts)
-  useMagneticHover({ strength: isTouch ? 0 : magneticStrength }, buttonRef);
-
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (showBurst) {
-      // useParticleBurst auto-reduces on mobile
-      burst(e, burstType, { particleCount });
-    }
-    onClick?.(e);
-  };
-
   return (
-    <button
-      ref={buttonRef}
-      className={cn('relative', className)}
-      onClick={handleClick}
-      {...props}
-    >
+    <button className={cn('relative', className)} {...props}>
       {children}
     </button>
   );
