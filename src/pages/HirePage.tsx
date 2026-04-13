@@ -493,26 +493,24 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── "or" divider ── */}
-      <div className="my-5 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">or</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
+      {/* ── Soft divider — signals secondary alternate path, not equal choice ── */}
+      <p className="mt-5 mb-2.5 text-center text-[11px] text-muted-foreground/70">
+        Prefer to message a freelancer yourself?
+      </p>
 
-      {/* ── OPTION B — Message Freelancers Directly (always visible peer) ── */}
-      <div className="rounded-2xl border border-foreground/10 bg-card p-5 shadow-sm">
+      {/* ── OPTION B — Message Freelancers Directly (visible but secondary) ── */}
+      <div className="rounded-2xl border border-border/60 bg-card p-4">
         <div className="flex items-center gap-2 mb-1">
-          <MessageCircle size={16} className="text-primary" />
-          <h2 className="text-[15px] sm:text-base font-semibold text-foreground">Message a freelancer directly</h2>
+          <MessageCircle size={14} className="text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">Message a freelancer directly</h2>
         </div>
-        <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
-          Skip the middleman. Your brief is pre-filled — tap "Message" to start a conversation, compare quotes, and pick who fits best.
+        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+          Your brief is pre-filled — tap Message to start a conversation and pick who fits best.
         </p>
 
         {matchLoading ? (
           <div className="flex flex-col gap-3">
-            {[1, 2, 3].map(i => (
+            {[1, 2].map(i => (
               <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
                 <div className="h-32 w-full bg-muted/60" />
                 <div className="p-4 space-y-3">
@@ -529,7 +527,7 @@ const HirePage = () => {
           </div>
         ) : matchedStudents.length > 0 ? (
           <div className="flex flex-col gap-3">
-            {matchedStudents.slice(0, 3).map((student) => {
+            {matchedStudents.slice(0, 2).map((student) => {
               const ratingInfo = matchedReviews[student.user_id];
               return (
                 <div key={student.id}>
@@ -541,20 +539,20 @@ const HirePage = () => {
                     avgRating={ratingInfo?.avg ?? null}
                     reviewCount={ratingInfo?.count}
                   />
-                  <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10">
+                  <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2 text-[13px] font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10">
                     <MessageCircle size={14} /> Message with your brief
                   </button>
                 </div>
               );
             })}
-            {matchedStudents.length > 3 && (
-              <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition cursor-pointer">
+            {matchedStudents.length > 2 && (
+              <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2 text-[13px] font-medium text-foreground hover:bg-muted transition cursor-pointer">
                 View all {matchedStudents.length} freelancers <ArrowRight size={14} />
               </button>
             )}
           </div>
         ) : (
-          <div className="text-center py-8">
+          <div className="text-center py-5">
             <p className="text-sm text-muted-foreground">No matches found right now.</p>
             <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
               Browse all freelancers <ArrowRight size={14} />
