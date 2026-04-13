@@ -104,7 +104,7 @@ export const Navbar: React.FC = () => {
         <div className="max-w-7xl mx-auto px-3.5 sm:px-5 md:px-8 lg:px-10 h-14 sm:h-[3.75rem] flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
             <img src={logo} alt="VANO" className="h-8 w-8 rounded-[10px] shadow-sm transition-transform duration-200 group-hover:scale-105" />
-            <span className="text-[22px] font-bold tracking-tight text-primary">VANO</span>
+            <span className="text-lg sm:text-[22px] font-bold tracking-tight text-primary">VANO</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-0.5 lg:gap-1">

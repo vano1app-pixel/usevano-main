@@ -364,13 +364,13 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
+      <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 sm:px-6 md:px-8 lg:px-12 pt-12 sm:pt-16 md:pt-20 pb-4 overflow-hidden">
         {/* Breathing gradient orb */}
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
           <div data-hero-title>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-4 sm:mb-6 leading-[1.05] text-balance">
               <span className="inline-block">Local talent,</span><br />
               <span
                 className="inline-block italic font-semibold bg-clip-text text-transparent animate-shimmer"
@@ -395,7 +395,7 @@ const Landing = () => {
                 particleCount={25}
                 magneticStrength={0.35}
                 onClick={() => navigate('/hire')}
-                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
+                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-5 py-3 sm:px-7 sm:py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Hire a freelancer
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5">
@@ -409,7 +409,7 @@ const Landing = () => {
                   particleCount={15}
                   magneticStrength={0.25}
                   onClick={() => navigate('/auth?mode=signup')}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
+                  className="w-full sm:w-auto px-5 py-3 sm:px-7 sm:py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
                 >
                   Join as a freelancer
                 </InteractiveButton>
@@ -431,11 +431,11 @@ const Landing = () => {
 
 
       {/* What do you need? */}
-      <section data-section-categories className="py-14 md:py-20 px-4 md:px-8 lg:px-12">
+      <section data-section-categories className="py-10 sm:py-14 md:py-20 lg:py-24 px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="max-w-5xl lg:max-w-6xl mx-auto">
           <div>
           <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-4">What do you need?</span>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' },
               { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, cat: 'photography', image: '/cat-photography.png' },
@@ -451,7 +451,7 @@ const Landing = () => {
                   key={slug}
                   type="button"
                   onClick={(e) => { burst(e, 'sparkle', { particleCount: 20 }); navigate(`/hire?category=${slug}`); }}
-                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
+                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-3 sm:p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
                 >
                   <picture className="absolute inset-0 h-full w-full pointer-events-none">
@@ -512,7 +512,7 @@ const Landing = () => {
             {/* Featured freelancer of the day — full-width hero card */}
             {!studentsLoaded && (
               <div className="mb-4 flex gap-4 rounded-2xl border border-foreground/10 bg-card p-4 animate-pulse">
-                <div className="h-20 w-20 shrink-0 rounded-xl bg-muted" />
+                <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl bg-muted" />
                 <div className="flex-1 space-y-2 py-1">
                   <div className="h-3 w-1/3 rounded bg-muted" />
                   <div className="h-3.5 w-1/2 rounded bg-muted" />
@@ -528,7 +528,7 @@ const Landing = () => {
                 className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
               >
                 {/* Avatar */}
-                <div className="relative h-20 w-20 shrink-0 rounded-xl overflow-hidden bg-muted">
+                <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl overflow-hidden bg-muted">
                   {featured.avatar_url ? (
                     <img src={featured.avatar_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                   ) : (
@@ -571,7 +571,7 @@ const Landing = () => {
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
                         key={i}
-                        className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
+                        className="flex w-40 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
                       >
                         <div className="flex gap-2.5">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
@@ -601,7 +601,7 @@ const Landing = () => {
                           key={s.user_id}
                           type="button"
                           onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                          className="group flex w-40 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
                         >
                           <div className="flex items-start gap-2.5">
                             <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
@@ -667,7 +667,7 @@ const Landing = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/students')}
-                    className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
+                    className="flex w-40 sm:w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
                   >
                     <ArrowRight size={22} className="text-muted-foreground" />
                     <p className="text-center text-[12px] font-semibold text-muted-foreground">
@@ -686,22 +686,22 @@ const Landing = () => {
       )}
 
       {/* Why VANO */}
-      <section data-section-why className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+      <section data-section-why className="py-12 sm:py-16 md:py-24 lg:py-32 px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="max-w-4xl lg:max-w-5xl mx-auto">
           <div className="text-center">
             <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</span>
-            <h2 ref={whyHeadingRef} className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
-            <p className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
+            <h2 ref={whyHeadingRef} className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-4 sm:mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
+            <p className="text-center text-muted-foreground mb-10 sm:mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5">
             {/* Hyperlocal — 2 cols row 1 */}
             <div
               data-why-card
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-blue-500/[0.08] bg-blue-500/[0.02] dark:bg-blue-500/[0.04] p-7 sm:p-8 lg:p-10 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-blue-500/[0.08] bg-blue-500/[0.02] dark:bg-blue-500/[0.04] p-5 sm:p-7 md:p-8 lg:p-10 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-blue-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-blue-500/[0.12]" />
               <div>
-                <div data-why-icon className="mb-5 flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
+                <div data-why-icon className="mb-4 sm:mb-5 flex h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
                   <MapPin size={22} className="text-blue-600 dark:text-blue-400" strokeWidth={2} />
                 </div>
                 <h3 className="text-xl lg:text-2xl font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
@@ -712,7 +712,7 @@ const Landing = () => {
             {/* Speed — 1 col row 1 */}
             <div
               data-why-card
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/[0.08] bg-card p-4 sm:p-5 md:p-6 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-emerald-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-emerald-500/[0.12]" />
               <div>
@@ -727,7 +727,7 @@ const Landing = () => {
             {/* Chat — 1 col row 2 */}
             <div
               data-why-card
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-violet-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-violet-500/[0.08] bg-card p-4 sm:p-5 md:p-6 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-violet-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-violet-500/[0.12]" />
               <div>
@@ -742,11 +742,11 @@ const Landing = () => {
             {/* Trust — 2 cols row 2 */}
             <div
               data-why-card
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/[0.08] bg-amber-500/[0.02] dark:bg-amber-500/[0.04] p-6 lg:p-8 flex items-center gap-5 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/[0.08] bg-amber-500/[0.02] dark:bg-amber-500/[0.04] p-5 sm:p-6 md:p-7 lg:p-8 flex items-center gap-4 sm:gap-5 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
             >
               <div className="pointer-events-none absolute -left-8 -bottom-8 h-40 w-40 rounded-full bg-amber-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-amber-500/[0.12]" />
               <div className="flex items-center gap-5">
-                <div data-why-icon className="flex h-12 w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/20">
+                <div data-why-icon className="flex h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/20">
                   <Shield size={22} className="text-amber-600 dark:text-amber-400" strokeWidth={2} />
                 </div>
                 <div>
@@ -760,7 +760,7 @@ const Landing = () => {
       </section>
 
       {/* FAQ */}
-      <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
+      <section data-section-faq className="py-12 sm:py-16 md:py-24 lg:py-28 px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
           <div className="text-center mb-6">
             <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.2em] mb-4">
@@ -821,24 +821,24 @@ const Landing = () => {
       </section>
 
       {/* CTA */}
-      <section data-section-cta className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+      <section data-section-cta className="py-12 sm:py-16 md:py-24 lg:py-32 px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
-          <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-5 py-10 sm:px-10 sm:py-14 lg:px-20 lg:py-20 text-center">
+          <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-5 py-8 sm:px-10 sm:py-14 lg:px-20 lg:py-20 text-center">
             {/* Floating magic orbs */}
             <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
             <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
             <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Galway · Free · Local</span>
-            <h2 ref={ctaHeadingRef} className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
+            <h2 ref={ctaHeadingRef} className="relative text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
               Need something done? Tell us.
             </h2>
-            <p className="relative text-primary-foreground/60 mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
+            <p className="relative text-primary-foreground/60 mb-8 sm:mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
                 burstType="confetti"
                 particleCount={35}
                 magneticStrength={0.4}
                 onClick={() => navigate('/hire')}
-                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px] active:scale-[0.97]"
+                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-5 py-3 sm:px-7 sm:py-3.5 bg-primary-foreground text-primary rounded-full font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Hire a freelancer
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
@@ -850,7 +850,7 @@ const Landing = () => {
                 particleCount={15}
                 magneticStrength={0.3}
                 onClick={() => navigate('/auth')}
-                className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px] active:scale-[0.97]"
+                className="w-full sm:w-auto px-5 py-3 sm:px-7 sm:py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Join as a freelancer
               </InteractiveButton>
@@ -860,9 +860,9 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer data-section-footer className="border-t border-foreground/6 py-20 md:py-28 px-4 md:px-8 lg:px-12">
+      <footer data-section-footer className="border-t border-foreground/6 py-12 sm:py-16 md:py-24 lg:py-28 px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="max-w-5xl lg:max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row items-start justify-between gap-10 lg:gap-16 mb-10">
+          <div className="flex flex-col md:flex-row items-start justify-between gap-6 sm:gap-10 lg:gap-16 mb-8 sm:mb-10">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2.5">
                 <img src={logo} alt="VANO" className="h-8 w-8 rounded-lg" loading="lazy" decoding="async" />
@@ -873,7 +873,7 @@ const Landing = () => {
               </p>
             </div>
 
-            <div className="flex gap-12">
+            <div className="flex gap-8 sm:gap-12">
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Platform</h4>
                 <div className="flex flex-col gap-2.5 text-sm">

@@ -112,7 +112,7 @@ export const MobileBottomNav: React.FC = () => {
               key={href}
               type="button"
               onClick={() => handleNav(href)}
-              className="relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.95]"
+              className="relative flex min-h-[2.75rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.95]"
             >
               <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200">
                 {active && (
