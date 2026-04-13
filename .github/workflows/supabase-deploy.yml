@@ -9,6 +9,11 @@ name: Deploy Supabase Edge Functions
 #   - SUPABASE_ACCESS_TOKEN  (sbp_... personal access token)
 #   - SUPABASE_PROJECT_REF   (the 20-char project id from the project URL)
 #
+# The PROJECT_REF secret is deliberately "forgiving" — we strip whitespace
+# and common URL wrappers at runtime so mobile paste errors (trailing
+# newlines, zero-width chars, https:// prefixes, .supabase.co suffixes)
+# don't break the deploy. The CLI itself is very strict about format.
+#
 # Migrations are intentionally NOT auto-applied here — they stay manual via
 # the SQL Editor since a bad migration on prod is harder to roll back than a
 # bad edge function.
@@ -35,11 +40,45 @@ jobs:
       - name: Deploy every edge function
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RAW_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           set -euo pipefail
+
+          # --- Defensive project-ref cleaning ---
+          # Mobile paste can sneak in any of these: trailing newline, CR,
+          # zero-width space, full https://... URL, trailing /, trailing
+          # .supabase.co, surrounding quotes. Strip them all so the CLI
+          # gets a clean 20-char lowercase slug.
+          clean="$RAW_PROJECT_REF"
+          clean="${clean#https://}"
+          clean="${clean#http://}"
+          clean="${clean%%.supabase.co*}"
+          clean="${clean%/}"
+          # Strip anything that isn't [a-z0-9] — that also removes whitespace,
+          # CR/LF, zero-width chars, quotes, and accidental capitals are
+          # surfaced below so the user can fix them.
+          had_upper=0
+          if printf '%s' "$clean" | grep -q '[A-Z]'; then
+            had_upper=1
+          fi
+          clean_lc=$(printf '%s' "$clean" | tr -d ' \t\r\n' | tr -d '"' | tr -d "'")
+          # Length sanity — Supabase refs are always 20 chars
+          len=${#clean_lc}
+          echo "::group::Project ref validation"
+          echo "Resolved project ref length: $len (expected 20)"
+          if [ "$had_upper" -eq 1 ]; then
+            echo "⚠️ Stored value contained uppercase letters — Supabase refs must be lowercase."
+          fi
+          if [ "$len" -ne 20 ]; then
+            echo "❌ SUPABASE_PROJECT_REF is length $len after cleaning; expected 20."
+            echo "Make sure the secret is exactly the 20-char project slug — no URL, no slashes, no quotes."
+            exit 1
+          fi
+          echo "::endgroup::"
+
           # Iterate every directory under supabase/functions/ and deploy it.
-          # The conventional `_shared` folder (if we ever add one for shared
-          # code) is skipped — it isn't a function, just library code.
+          # The conventional _shared folder (if we add one for shared code)
+          # is skipped — it isn't a function, just library code.
           for dir in supabase/functions/*/; do
             name="$(basename "$dir")"
             if [ "$name" = "_shared" ]; then
@@ -48,6 +87,6 @@ jobs:
             fi
             echo "→ deploying $name"
             supabase functions deploy "$name" \
-              --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+              --project-ref "$clean_lc"
           done
           echo "✅ all functions deployed"
