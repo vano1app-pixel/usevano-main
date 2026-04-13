@@ -13,7 +13,7 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, Camera, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, ChevronDown, Check,
+  Shield, Zap, Check,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 
@@ -111,7 +111,6 @@ const HirePage = () => {
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
   const [matchLoading, setMatchLoading] = useState(false);
-  const [showDirectHire, setShowDirectHire] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -415,11 +414,11 @@ const HirePage = () => {
           Choose how to hire
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Let us handle everything, or message freelancers yourself.
+          Let Vano match you with a trusted freelancer, or message a freelancer directly.
         </p>
       </header>
 
-      {/* ── OPTION A — Let Vano Handle It (primary, full-width) ── */}
+      {/* ── OPTION A — Vano Match (primary, full-width) ── */}
       <div>
         {!submitted ? (
           <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg">
@@ -428,9 +427,9 @@ const HirePage = () => {
                 <Sparkles size={16} className="text-white" />
                 <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Recommended</span>
               </div>
-              <h2 className="text-lg font-bold text-white">Let Vano find your freelancer</h2>
+              <h2 className="text-lg font-bold text-white">Match with a trusted freelancer</h2>
               <p className="mt-1 text-[13px] leading-relaxed text-white/75">
-                Tell us what you need, we match you with the right person at the right price. You just approve.
+                Tailored to your brief — we pick a vetted freelancer at the right price. You just approve.
               </p>
             </div>
             <div className="space-y-3 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-3">
@@ -494,93 +493,74 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Message Freelancers Directly (collapsed by default) ── */}
-      <div className="mt-6">
-        <button
-          type="button"
-          onClick={() => setShowDirectHire(prev => !prev)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground hover:border-foreground/20 cursor-pointer select-none"
-        >
-          <MessageCircle size={14} />
-          Or browse & message freelancers yourself
-          <ChevronDown size={14} className={cn('transition-transform duration-200', showDirectHire && 'rotate-180')} />
-        </button>
+      {/* ── "or" divider ── */}
+      <div className="my-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">or</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
 
-        <AnimatePresence>
-          {showDirectHire && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="pt-4">
-                <div className="rounded-2xl border border-foreground/10 bg-card p-5 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MessageCircle size={16} className="text-muted-foreground" />
-                    <h2 className="text-[15px] sm:text-base font-semibold text-foreground">Message freelancers directly</h2>
+      {/* ── OPTION B — Message Freelancers Directly (always visible peer) ── */}
+      <div className="rounded-2xl border border-foreground/10 bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <MessageCircle size={16} className="text-primary" />
+          <h2 className="text-[15px] sm:text-base font-semibold text-foreground">Message a freelancer directly</h2>
+        </div>
+        <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
+          Skip the middleman. Your brief is pre-filled — tap "Message" to start a conversation, compare quotes, and pick who fits best.
+        </p>
+
+        {matchLoading ? (
+          <div className="flex flex-col gap-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
+                <div className="h-32 w-full bg-muted/60" />
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-28 rounded bg-muted" />
+                      <div className="h-2.5 w-20 rounded bg-muted" />
+                    </div>
                   </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
-                    Your brief is pre-filled — just tap "Message" to start a conversation. Compare quotes and pick who fits best.
-                  </p>
-
-                  {matchLoading ? (
-                    <div className="flex flex-col gap-3">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
-                          <div className="h-32 w-full bg-muted/60" />
-                          <div className="p-4 space-y-3">
-                            <div className="flex items-center gap-3">
-                              <div className="h-11 w-11 rounded-full bg-muted" />
-                              <div className="flex-1 space-y-2">
-                                <div className="h-3 w-28 rounded bg-muted" />
-                                <div className="h-2.5 w-20 rounded bg-muted" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : matchedStudents.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      {matchedStudents.slice(0, 3).map((student, idx) => {
-                        const ratingInfo = matchedReviews[student.user_id];
-                        return (
-                          <div key={student.id} className="animate-fade-in opacity-0" style={{ animationDelay: `${idx * 50}ms` }}>
-                            <StudentCard
-                              student={student}
-                              displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
-                              profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
-                              showFavourite={false}
-                              avgRating={ratingInfo?.avg ?? null}
-                              reviewCount={ratingInfo?.count}
-                            />
-                            <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10 active:scale-[0.98]">
-                              <MessageCircle size={14} /> Message with your brief
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {matchedStudents.length > 3 && (
-                        <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition cursor-pointer">
-                          View all {matchedStudents.length} freelancers <ArrowRight size={14} />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground">No matches found right now.</p>
-                      <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
-                        Browse all freelancers <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ))}
+          </div>
+        ) : matchedStudents.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {matchedStudents.slice(0, 3).map((student) => {
+              const ratingInfo = matchedReviews[student.user_id];
+              return (
+                <div key={student.id}>
+                  <StudentCard
+                    student={student}
+                    displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
+                    profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
+                    showFavourite={false}
+                    avgRating={ratingInfo?.avg ?? null}
+                    reviewCount={ratingInfo?.count}
+                  />
+                  <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10">
+                    <MessageCircle size={14} /> Message with your brief
+                  </button>
+                </div>
+              );
+            })}
+            {matchedStudents.length > 3 && (
+              <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition cursor-pointer">
+                View all {matchedStudents.length} freelancers <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-sm text-muted-foreground">No matches found right now.</p>
+            <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
+              Browse all freelancers <ArrowRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
