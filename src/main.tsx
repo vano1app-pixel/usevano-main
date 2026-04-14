@@ -7,6 +7,13 @@ import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import "./index.css";
 import "./lib/gsapSetup";
+import { applyDomSafeguards } from "./lib/domSafeguards";
+
+// Run before React mounts — patches removeChild/insertBefore to no-op when
+// the node has already been detached (browser-extension DOM meddling,
+// framer-motion AnimatePresence races, etc.). Prevents the "removeChild
+// on Node" crash class.
+applyDomSafeguards();
 
 window.googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
