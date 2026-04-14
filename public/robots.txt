@@ -1,8 +1,28 @@
+# Crawler rules for vanojobs.com
+# Public marketing, listings, and content pages are crawlable.
+# Authenticated dashboards and personal areas are not.
+
 User-agent: Googlebot
 Allow: /
+Disallow: /auth
+Disallow: /admin
+Disallow: /profile
+Disallow: /messages
+Disallow: /business-dashboard
+Disallow: /hire-requests
+Disallow: /complete-profile
+Disallow: /choose-account-type
 
 User-agent: Bingbot
 Allow: /
+Disallow: /auth
+Disallow: /admin
+Disallow: /profile
+Disallow: /messages
+Disallow: /business-dashboard
+Disallow: /hire-requests
+Disallow: /complete-profile
+Disallow: /choose-account-type
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +32,13 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /auth
+Disallow: /admin
+Disallow: /profile
+Disallow: /messages
+Disallow: /business-dashboard
+Disallow: /hire-requests
+Disallow: /complete-profile
+Disallow: /choose-account-type
+
+Sitemap: https://vanojobs.com/sitemap.xml

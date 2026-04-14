@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
+import { breadcrumbSchema } from '@/lib/structuredData';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
@@ -174,9 +175,10 @@ const Landing = () => {
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="VANO – Connect Galway Businesses with Students"
-        description="We connect Galway businesses with freelancers for local gigs. Simple, fast, local."
-        keywords="galway, freelance, gigs, jobs, web design, marketing, odd jobs, local"
+        title="Hire Galway Freelancers — Videography, Photography, Web & Social"
+        description="VANO connects Galway businesses with local freelancers for videography, photography, web design and social media. Post a shift and get the work done."
+        keywords="galway freelancers, hire students galway, videography galway, photography galway, web design galway, social media galway, gig work ireland"
+        jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
       <Navbar />
 

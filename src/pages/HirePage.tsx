@@ -634,7 +634,11 @@ const HirePage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <SEOHead title="Hire a Freelancer – VANO" description="Tell us what you need. Get matched with affordable, motivated talent in seconds." />
+      <SEOHead
+        title="Hire a Freelancer in Galway — Post a Gig"
+        description="Tell VANO what you need. Get matched with affordable, motivated freelance talent in Galway in seconds — videography, photography, web, social and more."
+        keywords="hire freelancer galway, post a gig galway, find videographer galway, find photographer galway, hire web designer galway"
+      />
       <Navbar />
 
       <div className={cn(

@@ -429,7 +429,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <SEOHead title="My Profile – VANO" description="Manage your VANO profile." />
+      <SEOHead title="My Profile – VANO" description="Manage your VANO profile." noindex />
       <Navbar />
       <div className="mx-auto max-w-lg px-4 pt-20 sm:max-w-xl sm:px-5 sm:pt-24 lg:max-w-4xl lg:px-8 pb-12 sm:pb-16">
         <div className="mb-6 sm:mb-8">

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
+import { breadcrumbSchema } from '@/lib/structuredData';
 import { Monitor, Video, Megaphone, Camera, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
@@ -71,8 +72,13 @@ const BrowseStudents = () => {
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Find Freelancers – VANO"
-        description="Browse freelancers and students with the skills you need in Galway."
+        title="Browse Galway Freelancers — Photography, Video, Web & Social"
+        description="Browse local freelancers and students in Galway by category. Hire trusted videographers, photographers, web designers and social media creators on VANO."
+        keywords="browse freelancers galway, find freelancer galway, galway photographers, galway videographers, galway web designers, galway social media"
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Freelancers', path: '/students' },
+        ])}
       />
       <Navbar />
 

@@ -3,6 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
+import { breadcrumbSchema } from '@/lib/structuredData';
 import { ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
@@ -104,8 +105,14 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title={`${meta.label} Freelancers – VANO`}
-        description={`Browse ${meta.label.toLowerCase()} freelancers available on VANO. ${meta.sub}.`}
+        title={`${meta.label} Freelancers in Galway`}
+        description={`Hire ${meta.label.toLowerCase()} freelancers in Galway on VANO. ${meta.sub}. Browse profiles, ratings and availability — and book in minutes.`}
+        keywords={`${meta.label.toLowerCase()} galway, hire ${meta.label.toLowerCase()} galway, freelance ${meta.label.toLowerCase()} ireland, ${meta.label.toLowerCase()} student galway`}
+        jsonLd={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Freelancers', path: '/students' },
+          { name: meta.label, path: `/students/${categoryId}` },
+        ])}
       />
       <Navbar />
 

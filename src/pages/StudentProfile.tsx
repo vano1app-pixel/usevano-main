@@ -5,6 +5,7 @@ import { TagBadge } from '@/components/TagBadge';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
+import { personSchema } from '@/lib/structuredData';
 import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap } from 'lucide-react';
 import { QuoteModal } from '@/components/QuoteModal';
 import { HireNowModal } from '@/components/HireNowModal';
@@ -288,6 +289,16 @@ const StudentProfile = () => {
         ].filter(Boolean).join(', ')}
         image={avatarUrl || undefined}
         url={shareUrl}
+        type={isBusiness ? 'website' : 'profile'}
+        jsonLd={!isBusiness ? personSchema({
+          displayName,
+          bio: bioText,
+          avatarUrl: avatarUrl,
+          skills: student?.skills,
+          university: student?.university,
+          category: student?.skills?.[0],
+          url: shareUrl,
+        }) : undefined}
       />
       <Navbar />
       <div className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 space-y-5 animate-fade-in">
