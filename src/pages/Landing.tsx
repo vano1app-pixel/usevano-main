@@ -210,7 +210,11 @@ const Landing = () => {
             </div>
             {studentsLoaded && featuredStudents.length > 0 && (
               <div data-hero-badge className="flex items-center justify-center gap-2 mt-6">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                </span>
                 <p className="text-xs font-medium text-muted-foreground">
                   {featuredStudents.length} freelancers online now
                 </p>

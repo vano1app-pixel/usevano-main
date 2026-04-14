@@ -16,6 +16,7 @@ import { FreelancerPublicHeader } from '@/components/FreelancerPublicHeader';
 import { cn } from '@/lib/utils';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
+import { computeProfilePercent, computeProfileTier } from '@/lib/profileCompleteness';
 
 const StudentProfile = () => {
   const { id } = useParams();
@@ -369,6 +370,44 @@ const StudentProfile = () => {
                       {categoryLabel}
                     </span>
                   )}
+                  {/* Quality-tier badge — only shown for 100% profiles.
+                      Gold for "top" (100% + 5+ reviews), emerald tick for
+                      "verified" (100%, fewer reviews). Never punishes new
+                      freelancers with a negative badge. */}
+                  {(() => {
+                    const percent = computeProfilePercent({
+                      displayName: profile?.display_name,
+                      avatarUrl: profile?.avatar_url,
+                      bio: student?.bio,
+                      bannerUrl: student?.banner_url,
+                      phone: student?.phone,
+                      university: student?.university,
+                      skills: student?.skills,
+                      portfolioCount: portfolioItems.length,
+                    });
+                    const tier = computeProfileTier(percent, reviews.length);
+                    if (tier === 'top') {
+                      return (
+                        <span
+                          title={`Top profile · ${reviews.length}+ reviews and a complete profile`}
+                          className="inline-flex items-center gap-1 rounded-full bg-amber-400/90 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-amber-950 shadow-sm ring-1 ring-amber-500/50"
+                        >
+                          <Award size={11} strokeWidth={2.5} /> Top profile
+                        </span>
+                      );
+                    }
+                    if (tier === 'verified') {
+                      return (
+                        <span
+                          title="Verified by Vano · complete profile"
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/30"
+                        >
+                          <CheckCircle2 size={11} strokeWidth={2.5} /> Verified by Vano
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                   <button
                     type="button"
                     onClick={handleShare}

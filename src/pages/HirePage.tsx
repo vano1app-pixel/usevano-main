@@ -489,20 +489,25 @@ const HirePage = () => {
         </p>
       </header>
 
-      {/* ── OPTION A — Vano Match (primary, full-width) ── */}
+      {/* ── OPTION A — Vano Match (primary, full-width) ──
+           Premium styling: amber-gold ring + gradient header signal
+           "concierge upgrade" so the recommended path looks chosen-for-you,
+           not just another primary button. */}
       <div>
         {!submitted ? (
-          <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg">
-            <div className="bg-primary px-5 py-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles size={16} className="text-white" />
-                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Recommended</span>
+          <div className="relative overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
+            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4">
+              {/* Subtle gold sheen in the corner — tiny, tasteful, premium */}
+              <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
+              <div className="relative flex items-center gap-2 mb-1">
+                <Sparkles size={16} className="text-amber-200" />
+                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">Recommended</span>
                 <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-50 ring-1 ring-emerald-300/40">
                   €0 platform fee
                 </span>
               </div>
-              <h2 className="text-lg font-bold text-white">Match with a trusted freelancer</h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-white/75">
+              <h2 className="relative text-lg font-bold text-white">Match with a trusted freelancer</h2>
+              <p className="relative mt-1 text-[13px] leading-relaxed text-white/75">
                 Tailored to your brief — we pick a vetted freelancer at the right price. You just approve.
                 <span className="mt-1 block font-semibold text-emerald-200">You pay the freelancer directly. No hidden fees, no commission.</span>
               </p>

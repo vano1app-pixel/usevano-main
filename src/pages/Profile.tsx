@@ -22,6 +22,7 @@ import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { cn } from '@/lib/utils';
+import { computeProfileChecks } from '@/lib/profileCompleteness';
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -469,36 +470,65 @@ const Profile = () => {
               <div className="space-y-6">
 
                 {/* ── Profile completeness meter ──
-                    Loss-aversion nudge: shows missing points rather than
-                    gained ones. Fades away once the freelancer hits 100%. */}
+                    Loss-aversion + operant reward: shows missing points
+                    rather than gained ones, and the fill bar shifts from
+                    rose → amber → emerald as the freelancer climbs out of
+                    the red zone. Fades away once they hit 100%. */}
                 {studentProfile && (() => {
-                  const checks: { key: string; label: string; done: boolean; weight: number; action: () => void }[] = [
-                    { key: 'name', label: 'Add your name', done: displayName.trim().length > 0, weight: 10, action: () => {
-                      document.querySelector<HTMLInputElement>('input[placeholder*="appear"]')?.focus();
-                    } },
-                    { key: 'avatar', label: 'Add a profile photo', done: !!avatarUrl, weight: 15, action: () => {
-                      document.querySelector('[data-avatar-upload]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    } },
-                    { key: 'bio', label: 'Write a short bio (50+ chars)', done: bio.trim().length >= 50, weight: 15, action: () => openWizardAtStep(2) },
-                    { key: 'banner', label: 'Upload a cover photo', done: !!bannerUrl, weight: 15, action: () => openWizardAtStep(1) },
-                    { key: 'phone', label: 'Add your phone number', done: phone.trim().length > 0, weight: 10, action: () => openWizardAtStep(2) },
-                    { key: 'university', label: 'Add your university', done: !!university.trim(), weight: 5, action: () => openWizardAtStep(2) },
-                    { key: 'skills', label: 'Pick at least 3 skills', done: skills.length >= 3, weight: 15, action: () => openWizardAtStep(3) },
-                    { key: 'portfolio', label: 'Upload 2+ portfolio photos', done: portfolioCount >= 2, weight: 15, action: () => openWizardAtStep(1) },
-                  ];
-                  const filled = checks.filter(c => c.done).reduce((sum, c) => sum + c.weight, 0);
-                  const missing = checks.filter(c => !c.done).sort((a, b) => b.weight - a.weight);
+                  const checks = computeProfileChecks({
+                    displayName,
+                    avatarUrl,
+                    bio,
+                    bannerUrl,
+                    phone,
+                    university,
+                    skills,
+                    portfolioCount,
+                  });
+                  // Per-check action — where to send the user when they tap a row
+                  const actionFor: Record<string, () => void> = {
+                    name: () => document.querySelector<HTMLInputElement>('input[placeholder*="appear"]')?.focus(),
+                    avatar: () => document.querySelector('[data-avatar-upload]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                    bio: () => openWizardAtStep(2),
+                    banner: () => openWizardAtStep(1),
+                    phone: () => openWizardAtStep(2),
+                    university: () => openWizardAtStep(2),
+                    skills: () => openWizardAtStep(3),
+                    portfolio: () => openWizardAtStep(1),
+                  };
+                  const filled = checks.filter((c) => c.done).reduce((sum, c) => sum + c.weight, 0);
+                  const missing = checks.filter((c) => !c.done).sort((a, b) => b.weight - a.weight);
                   if (filled >= 100 || missing.length === 0) return null;
 
+                  // Progressive fill color — rose (incomplete) → amber
+                  // (getting there) → emerald (almost done).
+                  const barClass = filled < 40
+                    ? 'bg-rose-500'
+                    : filled < 70
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500';
+                  const zoneTint = filled < 40
+                    ? 'border-rose-500/25 bg-rose-500/[0.04]'
+                    : filled < 70
+                    ? 'border-amber-500/25 bg-amber-500/[0.04]'
+                    : 'border-emerald-500/25 bg-emerald-500/[0.04]';
+                  const percentClass = filled < 40
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : filled < 70
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : 'text-emerald-700 dark:text-emerald-400';
+
                   return (
-                    <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-5 shadow-tinted-sm">
+                    <div className={cn('rounded-2xl border p-5 shadow-tinted-sm transition-colors duration-500', zoneTint)}>
                       <div className="flex items-baseline justify-between mb-2">
-                        <p className="text-sm font-semibold text-foreground">Your profile is {filled}% complete</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          Your profile is <span className={cn('font-bold', percentClass)}>{filled}% complete</span>
+                        </p>
                         <p className="text-[11px] font-medium text-muted-foreground">{missing.length} quick win{missing.length === 1 ? '' : 's'} left</p>
                       </div>
                       <div className="relative h-2 w-full overflow-hidden rounded-full bg-border">
                         <div
-                          className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                          className={cn('h-full rounded-full transition-all duration-500 ease-out', barClass)}
                           style={{ width: `${filled}%` }}
                         />
                       </div>
@@ -507,7 +537,7 @@ const Profile = () => {
                           <button
                             key={m.key}
                             type="button"
-                            onClick={m.action}
+                            onClick={actionFor[m.key]}
                             className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent bg-background/60 px-3 py-2 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/5"
                           >
                             <span>{m.label}</span>

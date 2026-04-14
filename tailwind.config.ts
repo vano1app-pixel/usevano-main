@@ -1,5 +1,27 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * VANO color-role codex
+ * ─────────────────────
+ * Every new UI component should pick colors based on what the color MEANS,
+ * not what looks nice in isolation. Users subconsciously learn these roles
+ * within 1–2 sessions and move faster because of them.
+ *
+ *   primary (blue)   → Main platform action. Hire / Send / Go live / Continue.
+ *                      Exactly ONE primary button per card / form.
+ *   emerald          → Trust, money, verified, available, success.
+ *                      Use for: €0 fee anchors, Verified by Vano badge,
+ *                      online dots, success toasts, completed checklist items.
+ *   amber            → Attention, scarcity, quality signal, premium.
+ *                      Use for: Hire-now urgency, Top profile badge,
+ *                      Recommended pill, quick-wins nudges, warnings-to-act.
+ *   rose             → Destructive actions ONLY (delete, remove, sign out).
+ *                      Never used for prompts or nudges.
+ *   muted / secondary → Supporting UI: Back, Cancel, borders, body copy.
+ *
+ * The completeness meter in Profile.tsx is the one exception: it ramps
+ * rose → amber → emerald as a deliberate operant-reward gradient.
+ */
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
