@@ -169,7 +169,6 @@ const StudentProfile = () => {
 
   const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
   const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
-  const linkedinPublic = !isBusiness ? (student as any)?.linkedin_url?.trim() : '';
   const expectedBonusLabel = (() => {
     const amount = (student as any)?.expected_bonus_amount;
     const unit = (student as any)?.expected_bonus_unit;
@@ -640,19 +639,10 @@ const StudentProfile = () => {
                       </div>
                     </div>
                   )}
-                  {(linkedinPublic || tiktokPublic || onlineWorkLinks.length > 0) && (
+                  {(tiktokPublic || onlineWorkLinks.length > 0) && (
                     <div>
                       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3"><ExternalLink size={14} className="text-primary/70" />Links &amp; social proof</h2>
                       <div className="grid gap-2 sm:grid-cols-2">
-                        {linkedinPublic && (
-                          <a href={linkedinPublic} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40">
-                            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-                              <ExternalLink size={16} className="shrink-0 text-primary" />
-                              <span className="truncate">LinkedIn</span>
-                            </span>
-                            <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                          </a>
-                        )}
                         {tiktokPublic && (
                           <a href={tiktokPublic} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40">
                             <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
@@ -674,7 +664,7 @@ const StudentProfile = () => {
                       </div>
                     </div>
                   )}
-                  {!bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && !linkedinPublic && onlineWorkLinks.length === 0 && (
+                  {!bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">Nothing added yet — check back soon.</p>
                   )}
                 </div>

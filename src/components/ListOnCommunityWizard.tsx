@@ -35,7 +35,7 @@ import {
 } from '@/lib/communityCategories';
 import { SKILLS_BY_CATEGORY, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { formatCommunityBudget } from '@/lib/communityBudget';
-import { normalizeLinkedInUrl, normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
+import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
@@ -90,7 +90,6 @@ const hourlyCapFor = (cat: CommunityCategoryId | null): number =>
 export interface ListOnCommunityInitial {
   bannerUrl: string;
   tiktokUrl: string;
-  linkedinUrl: string;
   workLinks: WorkLinkEntry[];
   skills: string[];
   serviceArea: string;
@@ -112,7 +111,6 @@ interface ListOnCommunityDraft {
   description: string;
   aboutMe: string;
   tiktokUrl: string;
-  linkedinUrl: string;
   workLinks: WorkLinkEntry[];
   serviceArea: string;
   university: string;
@@ -165,7 +163,6 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       description: typeof parsed.description === 'string' ? parsed.description : '',
       aboutMe: typeof parsed.aboutMe === 'string' ? parsed.aboutMe : '',
       tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
-      linkedinUrl: typeof parsed.linkedinUrl === 'string' ? parsed.linkedinUrl : '',
       workLinks: parseDraftWorkLinks(parsed.workLinks),
       serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
       university: typeof parsed.university === 'string' ? resolveUniversityKey(parsed.university) : '',
@@ -215,7 +212,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [description, setDescription] = useState('');
   const [aboutMe, setAboutMe] = useState('');
   const [tiktokUrl, setTiktokUrl] = useState('');
-  const [linkedinUrl, setLinkedinUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [serviceArea, setServiceArea] = useState('');
   const [university, setUniversity] = useState('');
@@ -264,7 +260,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setAboutMe(initial.bio || '');
     setUniversity(resolveUniversityKey(initial.university) || '');
     setTiktokUrl(initial.tiktokUrl || '');
-    setLinkedinUrl(initial.linkedinUrl || '');
     setWorkLinks(
       initial.workLinks.some((r) => r.url.trim() || r.label.trim())
         ? initial.workLinks.map((r) => ({ ...r }))
@@ -314,7 +309,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setUniversity(resolveUniversityKey(draft.university) || '');
         if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
         setTiktokUrl(draft.tiktokUrl);
-        setLinkedinUrl(draft.linkedinUrl || '');
         setWorkLinks(draft.workLinks);
         setServiceArea(draft.serviceArea);
         setRateUnit(draft.rateUnit);
@@ -348,7 +342,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       description,
       aboutMe,
       tiktokUrl,
-      linkedinUrl,
       workLinks,
       serviceArea,
       university,
@@ -381,7 +374,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     description,
     aboutMe,
     tiktokUrl,
-    linkedinUrl,
     workLinks,
     serviceArea,
     university,
@@ -615,7 +607,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
       const studentPatch: Record<string, unknown> = {
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
-        linkedin_url: normalizeLinkedInUrl(linkedinUrl),
         work_links: workLinksToJson(workLinks) as unknown,
         service_area: serviceArea.trim() || null,
         typical_budget_min: tbMin,
@@ -934,18 +925,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   onChange={(e) => setServiceArea(e.target.value)}
                 />
               </div>
-              {category === 'digital_sales' && (
-                <div>
-                  <Label>LinkedIn <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                  <Input
-                    className="mt-1.5 h-11"
-                    placeholder="https://linkedin.com/in/you or your-handle"
-                    value={linkedinUrl}
-                    onChange={(e) => setLinkedinUrl(e.target.value)}
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">Shown on your profile — adds credibility for B2B buyers.</p>
-                </div>
-              )}
               <div>
                 <Label>TikTok <span className="font-normal text-muted-foreground">(optional)</span></Label>
                 <Input

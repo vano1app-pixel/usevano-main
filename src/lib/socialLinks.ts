@@ -18,26 +18,6 @@ export function normalizeTikTokUrl(raw: string): string | null {
   return `https://www.tiktok.com/@${handle}`;
 }
 
-/** Accepts a LinkedIn profile URL, a "linkedin.com/in/handle" fragment, or a bare handle. */
-export function normalizeLinkedInUrl(raw: string): string | null {
-  const s = raw.trim();
-  if (!s) return null;
-  if (/^https?:\/\//i.test(s)) {
-    try {
-      const u = new URL(s);
-      if (!/linkedin\.com$/i.test(u.hostname.replace(/^www\./, ''))) return s;
-      return u.toString();
-    } catch {
-      return null;
-    }
-  }
-  // Accept "linkedin.com/in/foo" or just "foo"
-  const cleaned = s.replace(/^@+/, '').replace(/^linkedin\.com\//i, '').replace(/^in\//i, '');
-  const handle = cleaned.split(/[?#]/)[0].trim();
-  if (!handle) return null;
-  return `https://www.linkedin.com/in/${handle}`;
-}
-
 export function normalizeWebsiteUrl(raw: string): string | null {
   const s = raw.trim();
   if (!s) return null;

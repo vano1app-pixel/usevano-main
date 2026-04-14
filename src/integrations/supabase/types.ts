@@ -781,7 +781,6 @@ export type Database = {
           expected_bonus_unit: string | null
           initial_clients_brought: number
           is_available: boolean | null
-          linkedin_url: string | null
           payment_details: string | null
           phone: string | null
           service_area: string | null
@@ -808,7 +807,6 @@ export type Database = {
           id?: string
           initial_clients_brought?: number
           is_available?: boolean | null
-          linkedin_url?: string | null
           payment_details?: string | null
           phone?: string | null
           service_area?: string | null
@@ -835,7 +833,6 @@ export type Database = {
           id?: string
           initial_clients_brought?: number
           is_available?: boolean | null
-          linkedin_url?: string | null
           payment_details?: string | null
           phone?: string | null
           service_area?: string | null

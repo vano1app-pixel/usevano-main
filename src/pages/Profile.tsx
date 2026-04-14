@@ -52,7 +52,6 @@ const Profile = () => {
   const [myGigs, setMyGigs] = useState<any[]>([]);
   const [deletingGig, setDeletingGig] = useState<string | null>(null);
   const [tiktokUrl, setTiktokUrl] = useState('');
-  const [linkedinUrl, setLinkedinUrl] = useState('');
   const [expectedBonusAmount, setExpectedBonusAmount] = useState('');
   const [expectedBonusUnit, setExpectedBonusUnit] = useState<'percentage' | 'flat'>('percentage');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
@@ -72,7 +71,6 @@ const Profile = () => {
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
     bannerUrl,
     tiktokUrl,
-    linkedinUrl,
     workLinks,
     skills,
     serviceArea,
@@ -85,7 +83,7 @@ const Profile = () => {
     expectedBonusAmount,
     expectedBonusUnit,
     existingPost: existingPost ?? null,
-  }), [bannerUrl, tiktokUrl, linkedinUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, expectedBonusAmount, expectedBonusUnit, existingPost]);
+  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, expectedBonusAmount, expectedBonusUnit, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -138,7 +136,6 @@ const Profile = () => {
           setUniversity(resolveUniversityKey((sp as any).university) || '');
           setPaymentDetails((sp as any).payment_details || '');
           setTiktokUrl(sp.tiktok_url || '');
-          setLinkedinUrl((sp as any).linkedin_url || '');
           {
             const amt = (sp as any).expected_bonus_amount;
             setExpectedBonusAmount(amt != null && amt > 0 ? String(amt) : '');
