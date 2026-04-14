@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -24,7 +23,6 @@ import {
   ChevronLeft,
   ImagePlus,
   Loader2,
-  ClipboardList,
   X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,36 +40,42 @@ import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
+import { markUserActed } from '@/lib/userActivity';
 
 const STEP_LABELS = [
-  'Get started',
-  'What you do',
   'Your work',
-  'Your pitch',
-  'Your details',
+  'Your story',
   'Your price',
-  'Go live',
 ];
 
 const STEP_HEADINGS: Record<number, string> = {
-  0: 'Get listed in 5 minutes',
-  1: 'What do you do?',
-  2: 'Show your work',
-  3: 'Tell them about you',
-  4: 'Your details',
-  5: 'Set your price',
-  6: 'Review & go live',
+  1: 'Show what you do',
+  2: 'Tell them about you',
+  3: 'Set your price & go live',
 };
 
 const STEP_DESCRIPTIONS: Record<number, string> = {
-  0: 'Businesses in Galway are looking for people like you.',
-  1: 'Pick your main skill — this is how businesses find you.',
-  2: 'A strong cover photo makes businesses click. This is the first thing they see.',
-  3: 'Write a short pitch — what you do, what makes you different.',
-  4: 'Help businesses know where you\'re based and how to reach you.',
-  5: 'Be upfront — businesses prefer freelancers who are clear on pricing.',
-  6: 'Check everything looks good — you can always edit later.',
+  1: 'Pick your category, upload a cover photo, and share a few samples of your best work.',
+  2: 'Write a short pitch, add your contact details, and drop any links to past work.',
+  3: 'Set your price, pick your skills, and publish.',
 };
+
+// Percent shown at the top of each step. Numbers are intentionally
+// front-loaded — step 1 lands at 20% so the flow feels further along
+// than a literal 33% split, making the form feel lighter than it is.
+const STEP_PROGRESS: Record<number, number> = {
+  1: 20,
+  2: 55,
+  3: 85,
+};
+
+// Legacy drafts can have step values from the old 7-step flow (0-6).
+// Migrate them forward so a user mid-draft isn't stranded.
+function migrateDraftStep(old: number): number {
+  if (old <= 2) return 1;
+  if (old <= 4) return 2;
+  return 3;
+}
 
 /* ─── Student pricing caps ─── */
 const MAX_HOURLY_RATE = 20;              // €20/hr for social media, photo, video
@@ -204,8 +208,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
@@ -218,7 +220,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
 
     setDraftReady(false);
-    setStep(startAtStep ?? 0);
+    // Skip the info-only intro step — land directly on the category picker.
+    // `startAtStep` (when provided by the caller) still takes precedence.
+    setStep(startAtStep ?? 1);
 
     const ep = initial.existingPost ?? null;
 
@@ -269,7 +273,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
       const draft = rawDraft ? parseDraft(rawDraft) : null;
       if (draft) {
-        setStep(draft.step);
+        // Migrate legacy 0–6 step values to the 3-step flow.
+        setStep(migrateDraftStep(draft.step));
         setCategory(draft.category);
         setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
         setTitle(draft.title);
@@ -357,21 +362,20 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
   const totalSteps = STEP_LABELS.length;
   const canNext = (): boolean => {
+    const isEditing = !!(initial as any).existingPost;
     switch (step) {
-      case 0:
-        return true;
       case 1:
-        return category !== null;
+        // Your work: category + cover photo
+        return category !== null && !!(bannerFile || bannerUrl);
       case 2:
-        return !!(bannerFile || bannerUrl);
+        // Your story: title + description + (phone + university required on new listings)
+        return (
+          title.trim().length > 0 &&
+          description.trim().length > 0 &&
+          (isEditing || (university.trim().length > 0 && phone.trim().length > 0))
+        );
       case 3:
-        return title.trim().length > 0 && description.trim().length > 0;
-      case 4: {
-        // University + phone required for new listings, optional when editing existing
-        const isEditing = !!(initial as any).existingPost;
-        return isEditing || (university.trim().length > 0 && phone.trim().length > 0);
-      }
-      case 5:
+        // Your price + skills (at least 3 skills; price itself can be negotiable)
         return skills.length >= 3;
       default:
         return true;
@@ -636,6 +640,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         title: "You're live!",
         description: 'Your listing is now visible on the Community board.',
       });
+      markUserActed();
       try {
         localStorage.removeItem(listOnCommunityDraftKey(userId));
       } catch {
@@ -659,93 +664,73 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
             <DialogTitle className="text-xl font-semibold tracking-tight">{STEP_HEADINGS[step] ?? 'List yourself'}</DialogTitle>
-            <div className="flex gap-1 pt-1">
-              {STEP_LABELS.map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'h-1 flex-1 rounded-full transition-colors',
-                    i <= step ? 'bg-primary' : 'bg-border',
-                  )}
-                />
-              ))}
-            </div>
-            <p className="text-[11px] font-medium text-muted-foreground">
-              Step {step + 1} of {totalSteps}
-              {step > 0 ? ` · ${STEP_LABELS[step]}` : ''}
-            </p>
+            {/* Percent progress bar — front-loaded (step 1 lands at 20%) so
+                the form feels lighter than it is. The tick marks below show
+                the three sections at a glance. */}
+            {(() => {
+              const percent = submitting ? 100 : (STEP_PROGRESS[step] ?? 20);
+              return (
+                <>
+                  <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-medium">
+                    <span className="text-primary font-semibold">{percent}% complete</span>
+                    <span className="text-muted-foreground">
+                      {STEP_LABELS[step - 1] ?? ''}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
             <p className="text-xs text-muted-foreground leading-relaxed">{STEP_DESCRIPTIONS[step]}</p>
           </DialogHeader>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          {step === 0 && (
-            <div className="space-y-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
-                <ClipboardList className="h-5 w-5" strokeWidth={2} />
-              </div>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Your listing goes{' '}
-                <span className="font-medium text-foreground">live straight away</span>. Here&apos;s what we&apos;ll ask:
-              </p>
-              <ul className="space-y-2 text-sm text-foreground/90">
-                <li className="flex gap-2">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Your skill category &amp; a cover photo
-                </li>
-                <li className="flex gap-2">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  A short pitch about you and your work
-                </li>
-                <li className="flex gap-2">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                  Your rates, skills, and contact details
-                </li>
-              </ul>
-            </div>
-          )}
-
+          {/* ── Step 1: Your work — category + cover photo + work samples ── */}
           {step === 1 && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Which board fits you best?</p>
-              <div className="flex flex-col gap-2">
-                {COMMUNITY_CATEGORY_ORDER.map((id) => {
-                  const item = COMMUNITY_CATEGORIES[id];
-                  const Icon = item.icon;
-                  const sel = category === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setCategory(id)}
-                      className={cn(
-                        'flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all',
-                        sel
-                          ? 'border-primary bg-primary/8 shadow-sm ring-1 ring-primary/20'
-                          : 'border-border bg-card hover:border-primary/25',
-                      )}
-                    >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
-                        <Icon className="h-5 w-5" strokeWidth={2} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground">{item.label}</p>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                      </div>
-                      {sel && <Check className="ml-auto h-5 w-5 shrink-0 text-primary" strokeWidth={2.5} />}
-                    </button>
-                  );
-                })}
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Pick your category</Label>
+                <div className="flex flex-col gap-2">
+                  {COMMUNITY_CATEGORY_ORDER.map((id) => {
+                    const item = COMMUNITY_CATEGORIES[id];
+                    const Icon = item.icon;
+                    const sel = category === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setCategory(id)}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all',
+                          sel
+                            ? 'border-primary bg-primary/8 shadow-sm ring-1 ring-primary/20'
+                            : 'border-border bg-card hover:border-primary/25',
+                        )}
+                      >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
+                          <Icon className="h-5 w-5" strokeWidth={2} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        </div>
+                        {sel && <Check className="ml-auto h-5 w-5 shrink-0 text-primary" strokeWidth={2.5} />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
 
-          {step === 2 && (
-            <div className="space-y-5">
               <div>
                 <Label className="text-sm font-medium">Cover photo</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Your wide cover image — shown at the top of your public profile.
+                  Shown at the top of your public profile — the first thing a business sees.
                 </p>
                 <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerFile} />
                 {bannerUrl ? (
@@ -770,9 +755,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   </button>
                 )}
               </div>
+
               <div>
-                <Label className="text-sm font-medium">Sample work photos (optional)</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Up to {MAX_LISTING_IMAGES} photos of your work — shown in your portfolio and on your card.</p>
+                <Label className="text-sm font-medium">Sample work photos <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <p className="mt-1 text-xs text-muted-foreground">Up to {MAX_LISTING_IMAGES} photos of your work.</p>
                 <input ref={listingInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleListingFiles} />
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {listingPreviews.map((preview, i) => (
@@ -802,8 +788,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
             </div>
           )}
 
-          {step === 3 && (
-            <div className="space-y-4">
+          {/* ── Step 2: Your story — pitch + contact details in one place ── */}
+          {step === 2 && (
+            <div className="space-y-5">
               <div>
                 <Label htmlFor="lc-title">Your title</Label>
                 <Input
@@ -824,13 +811,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Label htmlFor="lc-desc">About your work</Label>
                 <Textarea
                   id="lc-desc"
-                  className="mt-1.5 min-h-[120px] text-sm"
+                  className="mt-1.5 min-h-[110px] text-sm"
                   placeholder={
                     category === 'websites'
-                      ? "What tech stack do you work with? Have you built e-commerce sites, portfolios, or landing pages? Any past client examples?"
+                      ? "What tech stack do you work with? Past clients or launches?"
                       : category === 'social_media'
-                      ? "What platforms do you manage? What content formats do you create? Have you run paid ads or grown accounts from scratch?"
-                      : "What do you shoot? What gear do you use (camera, drone, etc.)? What kind of events or clients have you worked with?"
+                      ? "Which platforms, formats, and past results?"
+                      : "What do you shoot, what gear, and what kind of clients?"
                   }
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -841,18 +828,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Label htmlFor="lc-about">A bit about you <span className="font-normal text-muted-foreground">(optional)</span></Label>
                 <Textarea
                   id="lc-about"
-                  className="mt-1.5 min-h-[80px] text-sm"
-                  placeholder="Where you're from, what you're passionate about, fun facts — helps clients get to know you."
+                  className="mt-1.5 min-h-[70px] text-sm"
+                  placeholder="Where you're from, what you're passionate about."
                   value={aboutMe}
                   onChange={(e) => setAboutMe(e.target.value)}
                   maxLength={500}
                 />
               </div>
-            </div>
-          )}
 
-          {step === 4 && (
-            <div className="space-y-4">
+              <div className="h-px bg-border" />
+
               <div>
                 <Label>Phone number {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
                 <Input
@@ -880,7 +865,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 </Select>
               </div>
               <div>
-                <Label>TikTok</Label>
+                <Label>Where you work</Label>
+                <Input
+                  className="mt-1.5 h-11"
+                  placeholder="e.g. Galway city · Remote OK"
+                  value={serviceArea}
+                  onChange={(e) => setServiceArea(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>TikTok <span className="font-normal text-muted-foreground">(optional)</span></Label>
                 <Input
                   className="mt-1.5 h-11"
                   placeholder="https://tiktok.com/@you or @you"
@@ -889,7 +883,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 />
               </div>
               <div>
-                <Label>Links to past work</Label>
+                <Label>Links to past work <span className="font-normal text-muted-foreground">(optional)</span></Label>
                 <p className="mt-1 text-xs text-muted-foreground">Portfolio site, Behance, Drive, etc.</p>
                 <div className="mt-2 space-y-2">
                   {workLinks.map((row, i) => (
@@ -916,19 +910,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   + Add link
                 </Button>
               </div>
-              <div>
-                <Label>Where you work</Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="e.g. Galway city · Remote OK"
-                  value={serviceArea}
-                  onChange={(e) => setServiceArea(e.target.value)}
-                />
-              </div>
             </div>
           )}
 
-          {step === 5 && (
+          {/* ── Step 3: Your price — pricing + skills + live preview + Go live ── */}
+          {step === 3 && (
             <div className="space-y-5">
               {category === 'websites' ? (
                 <>
@@ -1017,152 +1003,163 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   ))}
                 </div>
               </div>
-            </div>
-          )}
 
-          {step === 6 && category && (
-            <div className="space-y-4 text-sm">
-              <p className="font-medium text-foreground">Ready to go live</p>
-              <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Board</p>
-                <p className="font-medium">{COMMUNITY_CATEGORIES[category].label}</p>
-              </div>
-              <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Listing</p>
-                <p className="font-semibold">{title || '—'}</p>
-                <p className="line-clamp-4 text-muted-foreground">{description || '—'}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
-                We&apos;ll save your profile details (banner, links, location, skills, rates) and{' '}
-                <span className="font-medium text-foreground">publish your listing immediately</span>. It will be visible on the Community board right away.
-              </div>
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <Checkbox
-                    checked={agreedToTerms}
-                    onCheckedChange={(v) => setAgreedToTerms(v === true)}
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs text-muted-foreground leading-relaxed">
-                    I agree to the{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Terms of Service</a>
-                  </span>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <Checkbox
-                    checked={agreedToPrivacy}
-                    onCheckedChange={(v) => setAgreedToPrivacy(v === true)}
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs text-muted-foreground leading-relaxed">
-                    I agree to the{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>
-                  </span>
-                </label>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live preview</p>
-                    <p className="mt-1 text-sm text-muted-foreground">This is how businesses will roughly see your card.</p>
-                  </div>
-                  <div className="rounded-full border border-border bg-muted/50 px-3 py-1 text-[11px] font-medium text-muted-foreground">
-                    Autosaves on this device
-                  </div>
+              {category && (
+                <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
+                  Publishes to the <span className="font-medium text-foreground">{COMMUNITY_CATEGORIES[category].label}</span> board immediately — you can edit any field later.
                 </div>
+              )}
 
-                <div className="mt-4 overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]">
-                  <div className="relative h-40 overflow-hidden sm:h-48">
-                    {previewHero ? (
-                      <>
-                        <img
-                          src={previewHero}
-                          alt=""
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/80" />
-                      </>
-                    ) : (
-                      <>
-                        <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(248_62%_32%)_0%,hsl(270_58%_18%)_100%)]" />
-                        <div className="absolute -right-10 -top-8 h-40 w-40 rounded-full bg-fuchsia-300/35 blur-2xl" />
-                        <div className="absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-cyan-300/25 blur-2xl" />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/70" />
-                      </>
-                    )}
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                By clicking <span className="font-medium text-foreground">Go live</span>, you agree to our{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Terms of Service</a>{' '}
+                and{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>.
+              </p>
 
-                    {previewBudget.emphasis && (
-                      <div className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/45 px-3 py-1.5 backdrop-blur-sm">
-                        <p className="text-[11px] font-semibold text-white">{previewBudget.label}</p>
+              {/* Quick wins — conditional nudges that disappear as the user
+                  fills the high-impact fields. Each row is a tap-target that
+                  jumps back to the relevant screen so they don't get stuck. */}
+              {(() => {
+                const hasBanner = !!(bannerFile || bannerUrl);
+                const workSampleCount =
+                  listingFiles.length + listingPreviews.filter((p) => p.startsWith('http')).length;
+                const hasEnoughSamples = workSampleCount >= 3;
+                const hasEnoughDesc = description.trim().length >= 100;
+                const nudges: { key: string; msg: string; target: number }[] = [];
+                if (!hasBanner) nudges.push({ key: 'banner', msg: 'Listings with a cover photo get 3× more messages', target: 1 });
+                if (!hasEnoughSamples) nudges.push({ key: 'samples', msg: 'Profiles with 3+ work samples get 50% more clicks', target: 1 });
+                if (description.trim().length > 0 && !hasEnoughDesc) nudges.push({ key: 'desc', msg: 'Longer descriptions help businesses see your expertise', target: 2 });
+                if (nudges.length === 0) return null;
+                return (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400 mb-2">Quick wins</p>
+                    <ul className="space-y-1.5">
+                      {nudges.map((n) => (
+                        <li key={n.key} className="flex items-start gap-2">
+                          <span className="mt-0.5 text-amber-500">✦</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-foreground leading-relaxed">{n.msg}</p>
+                            <button
+                              type="button"
+                              onClick={() => setStep(n.target)}
+                              className="mt-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
+                            >
+                              Go back →
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
+              {category && (
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live preview</p>
+                      <p className="mt-1 text-sm text-muted-foreground">How your card looks to businesses.</p>
+                    </div>
+                    <div className="rounded-full border border-border bg-muted/50 px-3 py-1 text-[11px] font-medium text-muted-foreground">
+                      Autosaves
+                    </div>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.12)]">
+                    <div className="relative h-40 overflow-hidden sm:h-48">
+                      {previewHero ? (
+                        <>
+                          <img
+                            src={previewHero}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/80" />
+                        </>
+                      ) : (
+                        <>
+                          <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(248_62%_32%)_0%,hsl(270_58%_18%)_100%)]" />
+                          <div className="absolute -right-10 -top-8 h-40 w-40 rounded-full bg-fuchsia-300/35 blur-2xl" />
+                          <div className="absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-cyan-300/25 blur-2xl" />
+                          <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/70" />
+                        </>
+                      )}
+
+                      {previewBudget.emphasis && (
+                        <div className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/45 px-3 py-1.5 backdrop-blur-sm">
+                          <p className="text-[11px] font-semibold text-white">{previewBudget.label}</p>
+                        </div>
+                      )}
+
+                      <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-base font-bold text-white shadow-sm ring-2 ring-white/35 backdrop-blur-sm">
+                          Y
+                        </div>
+                        <div className="pb-0.5">
+                          <h3 className="text-base font-semibold leading-tight tracking-tight text-white">Your listing</h3>
+                          <p className="mt-0.5 text-[11px] text-white/70">
+                            {COMMUNITY_CATEGORIES[category].label}
+                            {serviceArea.trim() ? <><span className="mx-1.5 text-white/30">·</span>{serviceArea.trim()}</> : null}
+                          </p>
+                        </div>
                       </div>
-                    )}
+                    </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-base font-bold text-white shadow-sm ring-2 ring-white/35 backdrop-blur-sm">
-                        Y
-                      </div>
-                      <div className="pb-0.5">
-                        <h3 className="text-base font-semibold leading-tight tracking-tight text-white">Your listing</h3>
-                        <p className="mt-0.5 text-[11px] text-white/70">
-                          {COMMUNITY_CATEGORIES[category].label}
-                          {serviceArea.trim() ? <><span className="mx-1.5 text-white/30">·</span>{serviceArea.trim()}</> : null}
+                    <div className="space-y-3 px-4 pb-4 pt-4 sm:px-5">
+                      <div className="space-y-2">
+                        <p className="text-base font-semibold leading-snug tracking-tight text-foreground">
+                          {title.trim() || 'Your headline will appear here'}
+                        </p>
+                        <p className="text-[14px] leading-relaxed text-muted-foreground">
+                          {previewDescription || 'Write a short, specific pitch so businesses understand what you deliver.'}
                         </p>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="space-y-3 px-4 pb-4 pt-4 sm:px-5">
-                    <div className="space-y-2">
-                      <p className="text-base font-semibold leading-snug tracking-tight text-foreground">
-                        {title.trim() || 'Your headline will appear here'}
-                      </p>
-                      <p className="text-[14px] leading-relaxed text-muted-foreground">
-                        {previewDescription || 'Write a short, specific pitch so businesses understand what you deliver.'}
-                      </p>
-                    </div>
+                      {previewSkills.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {previewSkills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                          {skills.length > previewSkills.length && (
+                            <span className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+                              +{skills.length - previewSkills.length}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Add a few skills so businesses instantly know what you do.</p>
+                      )}
 
-                    {previewSkills.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {previewSkills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-foreground/75"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                        {skills.length > previewSkills.length && (
-                          <span className="rounded border border-foreground/10 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
-                            +{skills.length - previewSkills.length}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Add a few skills so businesses instantly know what you do.</p>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 border-t border-foreground/10 pt-3 text-[11px] text-muted-foreground">
-                      <span className="rounded-full bg-muted px-2.5 py-1">
-                        {previewBudget.label}
-                      </span>
-                      {listingPreviews.length > 0 ? (
-                        <span className="rounded-full bg-muted px-2.5 py-1">{listingPreviews.length} portfolio photo{listingPreviews.length === 1 ? '' : 's'}</span>
-                      ) : null}
-                      {workLinks.some((link) => link.url.trim()) ? (
+                      <div className="flex flex-wrap gap-2 border-t border-foreground/10 pt-3 text-[11px] text-muted-foreground">
                         <span className="rounded-full bg-muted px-2.5 py-1">
-                          {workLinks.filter((link) => link.url.trim()).length} work link{workLinks.filter((link) => link.url.trim()).length === 1 ? '' : 's'}
+                          {previewBudget.label}
                         </span>
-                      ) : null}
+                        {listingPreviews.length > 0 ? (
+                          <span className="rounded-full bg-muted px-2.5 py-1">{listingPreviews.length} portfolio photo{listingPreviews.length === 1 ? '' : 's'}</span>
+                        ) : null}
+                        {workLinks.some((link) => link.url.trim()) ? (
+                          <span className="rounded-full bg-muted px-2.5 py-1">
+                            {workLinks.filter((link) => link.url.trim()).length} work link{workLinks.filter((link) => link.url.trim()).length === 1 ? '' : 's'}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
 
         <div className="flex gap-2 border-t border-border bg-background px-5 py-4">
-          {step > 0 ? (
+          {step > 1 ? (
             <Button
               type="button"
               variant="outline"
@@ -1178,7 +1175,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               Cancel
             </Button>
           )}
-          {step < totalSteps - 1 ? (
+          {step < totalSteps ? (
             <Button
               type="button"
               className="h-11 flex-1 rounded-xl font-semibold"
@@ -1193,7 +1190,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               type="button"
               className="h-11 flex-1 rounded-xl font-semibold"
               onClick={publish}
-              disabled={submitting || !category || !title.trim() || !agreedToTerms || !agreedToPrivacy}
+              disabled={submitting || !category || !title.trim()}
             >
               {submitting ? (
                 <>

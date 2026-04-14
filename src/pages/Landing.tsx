@@ -1,10 +1,13 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
+import { setGoogleOAuthIntent, clearGoogleOAuthIntent, hasGoogleOAuthPending } from '@/lib/googleOAuth';
+import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { useToast } from '@/hooks/use-toast';
 import {
   ArrowRight,
   Clock,
@@ -17,35 +20,47 @@ import {
   Monitor,
   Video,
   Camera,
+  Loader2,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
-import { gsap, ScrollTrigger } from '@/lib/gsapSetup';
 import { InteractiveButton } from '@/components/InteractiveButton';
-import { useTextReveal } from '@/hooks/useTextReveal';
-import { useParticleBurst } from '@/hooks/useParticleBurst';
-import { animateNumberCounter } from '@/lib/animations/textEffects';
-import { createCursorGlow } from '@/lib/animations/cursorEffects';
 
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const oauthHandledRef = useRef(false);
+
+  /**
+   * "Join as a freelancer" fires Google OAuth directly with an intent of
+   * 'student' — no detour through /auth. After return, tryFinishGoogleOAuthRedirect
+   * routes a freshly-created student straight to /profile.
+   */
+  const handleFreelancerSignup = async () => {
+    setGoogleOAuthIntent('student');
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: getGoogleOAuthRedirectUrl(),
+          queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+        },
+      });
+      if (error) throw error;
+    } catch {
+      clearGoogleOAuthIntent();
+      toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
+    }
+  };
+
   const [session, setSession] = React.useState<Session | null | undefined>(undefined);
   const [featuredStudents, setFeaturedStudents] = React.useState<any[]>([]);
   const [studentsLoaded, setStudentsLoaded] = React.useState(false);
   const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
-
-  /* ─── Animation hooks ─── */
-  const whyHeadingRef = useTextReveal<HTMLHeadingElement>('cascade', { stagger: 0.08 });
-  const faqHeadingRef = useTextReveal<HTMLHeadingElement>('scramble');
-  const ctaHeadingRef = useTextReveal<HTMLHeadingElement>('cascade', { stagger: 0.1 });
-  const burst = useParticleBurst();
-  const counterRef = useRef<HTMLSpanElement>(null);
-  const counterAnimated = useRef(false);
 
   const catKeywords: Record<string, string[]> = {
     websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
@@ -133,226 +148,28 @@ const Landing = () => {
     };
   }, [navigate]);
 
-  /* ─── Cursor glow effect (desktop only) ─── */
-  useEffect(() => {
-    const cleanup = createCursorGlow({ size: 350, opacity: 0.05, blur: 100 });
-    return cleanup;
-  }, []);
-
-  /* ─── Number counter animation ─── */
-  useEffect(() => {
-    if (!studentsLoaded || featuredStudents.length === 0 || counterAnimated.current) return;
-    if (!counterRef.current) return;
-    counterAnimated.current = true;
-    animateNumberCounter(counterRef.current, featuredStudents.length, { duration: 1.8, suffix: '' });
-  }, [studentsLoaded, featuredStudents.length]);
-
-  /* ─── GSAP cinematic scroll animations ─── */
   const mainRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return;
+  // Decorative scroll-driven motion (GSAP timelines, parallax, cursor glow,
+  // number counter, text reveal) was removed to keep the landing page calm and
+  // focused. The structural layout is unchanged.
 
-    const isMobile = window.innerWidth < 768;
+  // Brief splash when returning from Google OAuth — prevents the hero from
+  // flashing for 100–300ms on mobile while Supabase restores the session
+  // and tryFinishGoogleOAuthRedirect navigates the user to their destination.
+  const [returningFromOAuth] = React.useState(
+    () => (typeof window !== 'undefined' && hasGoogleOAuthPending()),
+  );
 
-    const ctx = gsap.context(() => {
-      /* ── Hero: storybook opens — words cascade with 3D depth ── */
-      const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' } });
-      heroTl
-        .fromTo('[data-hero-title] > *',
-          { y: isMobile ? 40 : 80, opacity: 0, rotateX: isMobile ? 6 : 20, transformPerspective: isMobile ? 0 : 600 },
-          { y: 0, opacity: 1, rotateX: 0, stagger: isMobile ? 0.1 : 0.15, duration: isMobile ? 0.8 : 1.2, delay: 0.15 }
-        )
-        .fromTo('[data-hero-sub]',
-          { y: 40, opacity: 0, filter: 'blur(4px)' },
-          { y: 0, opacity: 1, filter: 'blur(0px)', duration: 0.8 },
-          '-=0.6'
-        )
-        .fromTo('[data-hero-cta] > *',
-          { y: 30, opacity: 0, scale: 0.8 },
-          { y: 0, opacity: 1, scale: 1, stagger: 0.12, duration: 0.8, ease: 'elastic.out(1, 0.5)' },
-          '-=0.4'
-        )
-        .fromTo('[data-hero-badge]',
-          { scale: 0, opacity: 0 },
-          { scale: 1, opacity: 1, duration: 0.5, ease: 'back.out(3)' },
-          '-=0.2'
-        );
-
-      /* ── Hero scroll recession — content recedes as you scroll past ── */
-      const heroSection = document.querySelector('[data-hero-section]');
-      if (heroSection) {
-        gsap.to('[data-hero-content]', {
-          scrollTrigger: {
-            trigger: heroSection,
-            start: 'top top',
-            end: 'bottom top',
-            scrub: 1,
-          },
-          y: isMobile ? 40 : 100,
-          opacity: 0,
-          scale: isMobile ? 0.97 : 0.92,
-          filter: isMobile ? 'blur(2px)' : 'blur(8px)',
-          ease: 'none',
-        });
-      }
-
-      /* ── Hero orb: living breathing pulse with drift + scroll parallax ── */
-      gsap.to('[data-hero-orb]', {
-        scale: 1.2,
-        opacity: 0.8,
-        rotation: 15,
-        duration: 5,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
-      });
-
-      /* ── Hero orb scroll parallax — moves at different rate for depth ── */
-      if (heroSection) {
-        gsap.to('[data-hero-orb]', {
-          scrollTrigger: {
-            trigger: heroSection,
-            start: 'top top',
-            end: 'bottom top',
-            scrub: 1.5,
-          },
-          y: isMobile ? -60 : -150,
-          scale: 1.5,
-          opacity: 0,
-          ease: 'none',
-        });
-      }
-
-      /* ── Category cards: flip in like playing cards dealt onto a table ── */
-      gsap.fromTo('[data-cat-card]',
-        { y: isMobile ? 50 : 100, opacity: 0, scale: isMobile ? 0.9 : 0.8, rotateY: isMobile ? 8 : 25, rotateX: isMobile ? 0 : 8, transformPerspective: isMobile ? 0 : 800 },
-        {
-          y: 0, opacity: 1, scale: 1, rotateY: 0, rotateX: 0,
-          scrollTrigger: { trigger: '[data-section-categories]', start: 'top 85%', toggleActions: 'play none none none' },
-          stagger: isMobile ? 0.1 : 0.15, duration: isMobile ? 0.6 : 0.9, ease: 'back.out(1.4)',
-        }
-      );
-
-      /* ── Category card images: deep parallax drift ── */
-      document.querySelectorAll<HTMLElement>('[data-cat-card]').forEach((card) => {
-        const img = card.querySelector<HTMLElement>('[data-cat-img]');
-        if (!img) return;
-        gsap.to(img, {
-          scrollTrigger: {
-            trigger: card,
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: 1,
-          },
-          y: -40,
-          scale: 1.12,
-          ease: 'none',
-        });
-      });
-
-      /* ── Freelancers: characters float onto the scene ── */
-      const freelancerTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: '[data-section-freelancers]',
-          start: 'top 75%',
-          toggleActions: 'play none none none',
-        },
-      });
-      freelancerTl
-        .fromTo('[data-section-freelancers] [data-section-label]',
-          { x: -60, opacity: 0 },
-          { x: 0, opacity: 1, duration: 0.7, ease: 'power3.out' }
-        )
-        .fromTo('[data-featured-card]',
-          { y: 50, opacity: 0, scale: 0.9, rotation: -1 },
-          { y: 0, opacity: 1, scale: 1, rotation: 0, duration: 0.9, ease: 'elastic.out(1, 0.6)' },
-          '-=0.3'
-        )
-        .fromTo('[data-freelancer-strip] > *',
-          { x: 100, opacity: 0, rotation: 3 },
-          { x: 0, opacity: 1, rotation: 0, stagger: 0.1, duration: 0.6, ease: 'power3.out' },
-          '-=0.4'
-        );
-
-      /* ── Why VANO: chapters unfold with 3D tilt ── */
-      gsap.fromTo('[data-why-card]',
-        { y: isMobile ? 40 : 80, opacity: 0, scale: isMobile ? 0.92 : 0.85, rotateX: isMobile ? 0 : 15, transformPerspective: isMobile ? 0 : 800 },
-        {
-          y: 0, opacity: 1, scale: 1, rotateX: 0,
-          scrollTrigger: { trigger: '[data-section-why]', start: 'top 85%', toggleActions: 'play none none none' },
-          stagger: isMobile ? 0.08 : 0.12, duration: isMobile ? 0.6 : 0.8, ease: 'back.out(1.5)',
-        }
-      );
-
-      /* ── Why icons: dramatic half-spin entrance ── */
-      document.querySelectorAll<HTMLElement>('[data-why-icon]').forEach((icon) => {
-        gsap.fromTo(icon,
-          { scale: 0, rotation: -180 },
-          {
-            scale: 1, rotation: 0,
-            scrollTrigger: { trigger: icon, start: 'top 90%', toggleActions: 'play none none none' },
-            duration: 0.7, ease: 'back.out(3)',
-          }
-        );
-      });
-
-      /* ── FAQ: scroll unfurls with depth ── */
-      gsap.fromTo('[data-section-faq] [data-faq-body]',
-        { y: 60, opacity: 0, scale: 0.95, rotateX: 5, transformPerspective: 800 },
-        {
-          y: 0, opacity: 1, scale: 1, rotateX: 0,
-          scrollTrigger: { trigger: '[data-section-faq]', start: 'top 85%', toggleActions: 'play none none none' },
-          duration: 0.9, ease: 'power3.out',
-        }
-      );
-
-      /* ── CTA: grand finale — dramatic entrance with staggered content ── */
-      const ctaTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: '[data-section-cta]',
-          start: 'top 80%',
-          toggleActions: 'play none none none',
-        },
-      });
-      ctaTl
-        .fromTo('[data-cta-box]',
-          { y: 100, opacity: 0, scale: 0.75, rotation: -2 },
-          { y: 0, opacity: 1, scale: 1, rotation: 0, duration: 1.1, ease: 'power4.out' }
-        )
-        .fromTo('[data-cta-box] > *',
-          { y: 30, opacity: 0 },
-          { y: 0, opacity: 1, stagger: 0.08, duration: 0.5, ease: 'power3.out' },
-          '-=0.4'
-        );
-
-      /* ── CTA orbs: floating magic with opacity pulse ── */
-      gsap.utils.toArray<HTMLElement>('[data-cta-orb]').forEach((orb, i) => {
-        gsap.to(orb, {
-          y: i % 2 === 0 ? -30 : 30,
-          x: i % 2 === 0 ? 20 : -15,
-          scale: 1.3,
-          opacity: 0.6,
-          duration: 3.5 + i * 1.5,
-          repeat: -1,
-          yoyo: true,
-          ease: 'sine.inOut',
-        });
-      });
-
-      /* ── Footer: children stagger in individually ── */
-      gsap.fromTo('[data-section-footer] > div > *',
-        { y: 40, opacity: 0 },
-        {
-          y: 0, opacity: 1,
-          scrollTrigger: { trigger: '[data-section-footer]', start: 'top 95%', toggleActions: 'play none none none' },
-          stagger: 0.08, duration: 0.6, ease: 'power3.out',
-      });
-    }, mainRef);
-
-    return () => ctx.revert();
-  }, []);
+  if (returningFromOAuth) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-background">
+        <img src={logo} alt="" className="h-12 w-12 rounded-xl" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+        <p className="text-sm text-muted-foreground">One sec…</p>
+      </div>
+    );
+  }
 
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
@@ -373,13 +190,7 @@ const Landing = () => {
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
               <span className="inline-block">Local talent,</span><br />
               <span
-                className="inline-block italic font-semibold bg-clip-text text-transparent animate-shimmer"
-                style={{
-                  backgroundImage: 'linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(221 83% 53%) 20%, hsl(200 70% 50%) 35%, hsl(var(--foreground)) 50%, hsl(38 80% 55%) 65%, hsl(221 83% 53%) 80%, hsl(var(--foreground)) 100%)',
-                  backgroundSize: '300% auto',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
+                className="inline-block italic font-semibold text-primary"
               >
                 instantly available.
               </span>
@@ -408,7 +219,7 @@ const Landing = () => {
                   burstType="sparkle"
                   particleCount={15}
                   magneticStrength={0.25}
-                  onClick={() => navigate('/auth?mode=signup')}
+                  onClick={handleFreelancerSignup}
                   className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
                 >
                   Join as a freelancer
@@ -417,12 +228,13 @@ const Landing = () => {
             </div>
             {studentsLoaded && featuredStudents.length > 0 && (
               <div data-hero-badge className="flex items-center justify-center gap-2 mt-6">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-pulse-ring" />
-                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 </span>
                 <p className="text-xs font-medium text-muted-foreground">
-                  <span ref={counterRef}>0</span> freelancers online now
+                  {featuredStudents.length} freelancers online now
                 </p>
               </div>
             )}
@@ -450,7 +262,7 @@ const Landing = () => {
                   data-cat-card
                   key={slug}
                   type="button"
-                  onClick={(e) => { burst(e, 'sparkle', { particleCount: 20 }); navigate(`/hire?category=${slug}`); }}
+                  onClick={() => { navigate(`/hire?category=${slug}`); }}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
                 >
@@ -690,7 +502,7 @@ const Landing = () => {
         <div className="max-w-4xl lg:max-w-5xl mx-auto">
           <div className="text-center">
             <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</span>
-            <h2 ref={whyHeadingRef} className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
+            <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
             <p className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5">
@@ -766,7 +578,7 @@ const Landing = () => {
             <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.2em] mb-4">
               FAQ
             </span>
-            <h2 ref={faqHeadingRef} className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
               Common questions
             </h2>
             <p className="mt-3 text-base text-muted-foreground">
@@ -828,7 +640,7 @@ const Landing = () => {
             <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
             <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
             <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Galway · Free · Local</span>
-            <h2 ref={ctaHeadingRef} className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
+            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
               Need something done? Tell us.
             </h2>
             <p className="relative text-primary-foreground/60 mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
@@ -849,7 +661,7 @@ const Landing = () => {
                 burstType="sparkle"
                 particleCount={15}
                 magneticStrength={0.3}
-                onClick={() => navigate('/auth')}
+                onClick={handleFreelancerSignup}
                 className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px] active:scale-[0.97]"
               >
                 Join as a freelancer

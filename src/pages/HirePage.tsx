@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
-import confetti from 'canvas-confetti';
 import { StudentCard } from '@/components/StudentCard';
 import { useToast } from '@/hooks/use-toast';
 import { isEmailVerified } from '@/lib/authSession';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { clearHireBrief, loadHireBrief, saveHireBrief } from '@/lib/hireFlow';
+import { setGoogleOAuthIntent } from '@/lib/googleOAuth';
+import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { markUserActed } from '@/lib/userActivity';
 import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, Camera, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, ChevronDown, Check,
+  Shield, Zap, Check,
 } from 'lucide-react';
-import { useParticleBurst } from '@/hooks/useParticleBurst';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 
 /* ─── Constants ─── */
@@ -97,8 +99,6 @@ const HirePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const particleBurst = useParticleBurst();
-
   const [step, setStep] = useState(1);
   const [stepDirection, setStepDirection] = useState(1); // 1 = forward, -1 = backward
 
@@ -115,10 +115,24 @@ const HirePage = () => {
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
   const [matchLoading, setMatchLoading] = useState(false);
-  const [showDirectHire, setShowDirectHire] = useState(false);
   const [user, setUser] = useState<any>(null);
 
+  // On mount: restore a brief persisted across Google OAuth if one is pending.
+  // This lets signed-out hirers fill the whole wizard, bounce through auth, and
+  // land right back on Step 3 with every field intact — no re-entry, no extra
+  // clicks.
+  const briefRestoredRef = useRef(false);
   useEffect(() => {
+    const brief = loadHireBrief();
+    if (brief) {
+      briefRestoredRef.current = true;
+      setDescription(brief.description);
+      setCategory(brief.category);
+      setTimeline(brief.timeline);
+      setBudget(brief.budget);
+      setStep(3);
+      return;
+    }
     const cat = searchParams.get('category');
     if (cat) {
       const found = CATEGORIES.find(c => c.id === cat);
@@ -200,8 +214,32 @@ const HirePage = () => {
   };
 
   /* ── Submit Vano request ── */
-  const handleVanoSubmit = async () => {
-    if (!user) { navigate('/auth'); return; }
+  // `autoOpenWhatsApp` is false when this runs automatically after a Google
+  // OAuth resume — browsers block `window.open` without a direct user click,
+  // and the submitted-state UI already surfaces a WhatsApp button.
+  const handleVanoSubmit = async (autoOpenWhatsApp = true) => {
+    if (!user) {
+      // Persist the brief so it survives the OAuth round-trip, then kick off
+      // Google sign-in directly from here. No /auth page detour.
+      saveHireBrief({ description, category, timeline, budget });
+      setGoogleOAuthIntent('business');
+      setSubmitting(true);
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: getGoogleOAuthRedirectUrl(),
+            queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+          },
+        });
+        if (error) throw error;
+      } catch (err) {
+        clearHireBrief();
+        setSubmitting(false);
+        toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
+      }
+      return;
+    }
     if (!isEmailVerified({ user } as any)) {
       toast({ title: 'Please verify your email first', variant: 'destructive' });
       return;
@@ -214,34 +252,42 @@ const HirePage = () => {
       toast({ title: 'Something went wrong', description: 'Please try again or message us on WhatsApp.', variant: 'destructive' });
     } else {
       setSubmitted(true);
-      // Celebration confetti burst + particle fireworks
-      const end = Date.now() + 600;
-      const fire = () => {
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'] });
-        if (Date.now() < end) requestAnimationFrame(fire);
-      };
-      fire();
-      // Particle firework burst at center
-      particleBurst({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 }, 'firework', { particleCount: 40 });
-      // Auto-open WhatsApp with request details so the team can respond directly
-      const catLabel = CATEGORIES.find(c => c.id === category)?.label || 'Not specified';
-      const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || 'Not specified';
-      const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || 'Not specified';
-      const waLines = [
-        `Hi! I just submitted a hire request on VANO.`,
-        ``,
-        `Project: ${description.trim()}`,
-        `Category: ${catLabel}`,
-        `Timeline: ${timelineLabel}`,
-        `Budget: ${budgetLabel}`,
-      ];
-      window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(waLines.join('\n'))}`, '_blank');
+      markUserActed();
+      clearHireBrief();
+      if (autoOpenWhatsApp) {
+        // Auto-open WhatsApp with request details so the team can respond directly
+        const catLabel = CATEGORIES.find(c => c.id === category)?.label || 'Not specified';
+        const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || 'Not specified';
+        const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || 'Not specified';
+        const waLines = [
+          `Hi! I just submitted a hire request on VANO.`,
+          ``,
+          `Project: ${description.trim()}`,
+          `Category: ${catLabel}`,
+          `Timeline: ${timelineLabel}`,
+          `Budget: ${budgetLabel}`,
+        ];
+        window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(waLines.join('\n'))}`, '_blank');
+      }
       supabase.functions.invoke('notify-hire-request', {
         body: { description, category, budget_range: budget, timeline, requester_email: user.email },
       }).catch(() => {});
     }
     setSubmitting(false);
   };
+
+  /* Auto-submit once on post-OAuth return. Fires when the restored brief meets
+   * the freshly-loaded session. */
+  const autoSubmittedRef = useRef(false);
+  useEffect(() => {
+    if (!briefRestoredRef.current || autoSubmittedRef.current) return;
+    if (!user || submitting || submitted) return;
+    if (!description.trim()) return;
+    autoSubmittedRef.current = true;
+    void handleVanoSubmit(false);
+    // handleVanoSubmit depends on current field state; re-run only on user change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   /* ── Message freelancer with pre-filled draft ── */
   const messageFreelancer = (freelancerUserId: string) => {
@@ -253,6 +299,17 @@ const HirePage = () => {
   };
 
   useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
+
+  /* Auto-advance step 2 → step 3 once both picks are made, so a signed-in user
+   * can go Category → Continue → Timeline → Budget and land on options without
+   * a separate "See my options" click. */
+  useEffect(() => {
+    if (step !== 2) return;
+    if (timeline && budget) {
+      setStepDirection(1);
+      setStep(3);
+    }
+  }, [step, timeline, budget]);
 
   const canProceedStep1 = description.trim().length >= 5;
   const canProceedStep2 = !!timeline && !!budget;
@@ -428,22 +485,31 @@ const HirePage = () => {
           Choose how to hire
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Let us handle everything, or message freelancers yourself.
+          Let Vano match you with a trusted freelancer, or message a freelancer directly.
         </p>
       </header>
 
-      {/* ── OPTION A — Let Vano Handle It (primary, full-width) ── */}
+      {/* ── OPTION A — Vano Match (primary, full-width) ──
+           Premium styling: amber-gold ring + gradient header signal
+           "concierge upgrade" so the recommended path looks chosen-for-you,
+           not just another primary button. */}
       <div>
         {!submitted ? (
-          <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg">
-            <div className="bg-primary px-5 py-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles size={16} className="text-white" />
-                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Recommended</span>
+          <div className="relative overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
+            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4">
+              {/* Subtle gold sheen in the corner — tiny, tasteful, premium */}
+              <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
+              <div className="relative flex items-center gap-2 mb-1">
+                <Sparkles size={16} className="text-amber-200" />
+                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">Recommended</span>
+                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-50 ring-1 ring-emerald-300/40">
+                  €0 platform fee
+                </span>
               </div>
-              <h2 className="text-lg font-bold text-white">Let Vano find your freelancer</h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-white/75">
-                Tell us what you need, we match you with the right person at the right price. You just approve.
+              <h2 className="relative text-lg font-bold text-white">Match with a trusted freelancer</h2>
+              <p className="relative mt-1 text-[13px] leading-relaxed text-white/75">
+                Tailored to your brief — we pick a vetted freelancer at the right price. You just approve.
+                <span className="mt-1 block font-semibold text-emerald-200">You pay the freelancer directly. No hidden fees, no commission.</span>
               </p>
             </div>
             <div className="space-y-3 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-3">
@@ -476,17 +542,6 @@ const HirePage = () => {
                 </div>
               </div>
 
-              {/* Fee */}
-              <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-400/20">
-                  <Euro size={14} className="text-emerald-300" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">0% commission</p>
-                  <p className="text-[10px] text-white/60">You only pay the freelancer — no hidden fees.</p>
-                </div>
-              </div>
-
               <button data-mascot="hire-submit" type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
                 {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
               </button>
@@ -507,93 +562,72 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Message Freelancers Directly (collapsed by default) ── */}
-      <div className="mt-6">
-        <button
-          type="button"
-          onClick={() => setShowDirectHire(prev => !prev)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground hover:border-foreground/20 cursor-pointer select-none"
-        >
-          <MessageCircle size={14} />
-          Or browse & message freelancers yourself
-          <ChevronDown size={14} className={cn('transition-transform duration-200', showDirectHire && 'rotate-180')} />
-        </button>
+      {/* ── Soft divider — signals secondary alternate path, not equal choice ── */}
+      <p className="mt-5 mb-2.5 text-center text-[11px] text-muted-foreground/70">
+        Prefer to message a freelancer yourself?
+      </p>
 
-        <AnimatePresence>
-          {showDirectHire && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="pt-4">
-                <div className="rounded-2xl border border-foreground/10 bg-card p-5 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MessageCircle size={16} className="text-muted-foreground" />
-                    <h2 className="text-[15px] sm:text-base font-semibold text-foreground">Message freelancers directly</h2>
+      {/* ── OPTION B — Message Freelancers Directly (visible but secondary) ── */}
+      <div className="rounded-2xl border border-border/60 bg-card p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <MessageCircle size={14} className="text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">Message a freelancer directly</h2>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+          Your brief is pre-filled — tap Message to start a conversation and pick who fits best.
+        </p>
+
+        {matchLoading ? (
+          <div className="flex flex-col gap-3">
+            {[1, 2].map(i => (
+              <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
+                <div className="h-32 w-full bg-muted/60" />
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-28 rounded bg-muted" />
+                      <div className="h-2.5 w-20 rounded bg-muted" />
+                    </div>
                   </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
-                    Your brief is pre-filled — just tap "Message" to start a conversation. Compare quotes and pick who fits best.
-                  </p>
-
-                  {matchLoading ? (
-                    <div className="flex flex-col gap-3">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
-                          <div className="h-32 w-full bg-muted/60" />
-                          <div className="p-4 space-y-3">
-                            <div className="flex items-center gap-3">
-                              <div className="h-11 w-11 rounded-full bg-muted" />
-                              <div className="flex-1 space-y-2">
-                                <div className="h-3 w-28 rounded bg-muted" />
-                                <div className="h-2.5 w-20 rounded bg-muted" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : matchedStudents.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      {matchedStudents.slice(0, 3).map((student, idx) => {
-                        const ratingInfo = matchedReviews[student.user_id];
-                        return (
-                          <div key={student.id} className="animate-fade-in opacity-0" style={{ animationDelay: `${idx * 50}ms` }}>
-                            <StudentCard
-                              student={student}
-                              displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
-                              profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
-                              showFavourite={false}
-                              avgRating={ratingInfo?.avg ?? null}
-                              reviewCount={ratingInfo?.count}
-                            />
-                            <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10 active:scale-[0.98]">
-                              <MessageCircle size={14} /> Message with your brief
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {matchedStudents.length > 3 && (
-                        <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition cursor-pointer">
-                          View all {matchedStudents.length} freelancers <ArrowRight size={14} />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground">No matches found right now.</p>
-                      <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
-                        Browse all freelancers <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ))}
+          </div>
+        ) : matchedStudents.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {matchedStudents.slice(0, 2).map((student) => {
+              const ratingInfo = matchedReviews[student.user_id];
+              return (
+                <div key={student.id}>
+                  <StudentCard
+                    student={student}
+                    displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
+                    profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
+                    showFavourite={false}
+                    avgRating={ratingInfo?.avg ?? null}
+                    reviewCount={ratingInfo?.count}
+                  />
+                  <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2 text-[13px] font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10">
+                    <MessageCircle size={14} /> Message with your brief
+                  </button>
+                </div>
+              );
+            })}
+            {matchedStudents.length > 2 && (
+              <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2 text-[13px] font-medium text-foreground hover:bg-muted transition cursor-pointer">
+                View all {matchedStudents.length} freelancers <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-5">
+            <p className="text-sm text-muted-foreground">No matches found right now.</p>
+            <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
+              Browse all freelancers <ArrowRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -633,7 +667,9 @@ const HirePage = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* ── Done-for-you pricing packages ── */}
+        {/* ── Done-for-you pricing packages (step 3 only — don't distract
+             from the brief while it's being filled in) ── */}
+        {step === 3 && (
         <div className="mt-14 border-t border-foreground/[0.06] pt-10 mb-4">
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Done for you
@@ -692,6 +728,7 @@ const HirePage = () => {
             ))}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

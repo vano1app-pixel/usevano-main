@@ -53,14 +53,28 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
         {bannerUrl ? (
           <img src={bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 hover:scale-[1.02]" />
         ) : (
-          <div
-            className="h-full w-full"
-            style={{
-              background: `linear-gradient(135deg, hsl(var(--primary) / 0.28) 0%, hsl(var(--primary) / 0.08) 50%, hsl(var(--muted)) 100%)`,
-              backgroundImage: `radial-gradient(ellipse 90% 80% at 15% 20%, hsl(var(--primary) / 0.22), transparent 55%),
-                radial-gradient(ellipse 60% 60% at 85% 75%, hsl(262 50% 55% / 0.14), transparent 50%)`,
-            }}
-          />
+          // Richer branded fallback — layered radial gradients + a subtle dot
+          // pattern so an un-uploaded banner still feels intentional, not empty.
+          <div className="relative h-full w-full">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                  radial-gradient(ellipse 65% 55% at 12% 18%, hsl(var(--primary) / 0.34), transparent 60%),
+                  radial-gradient(ellipse 55% 50% at 90% 30%, hsl(262 60% 55% / 0.22), transparent 60%),
+                  radial-gradient(ellipse 70% 60% at 70% 100%, hsl(186 70% 55% / 0.18), transparent 55%),
+                  linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--muted)) 100%)
+                `,
+              }}
+            />
+            <div
+              className="absolute inset-0 opacity-30 mix-blend-overlay"
+              style={{
+                backgroundImage: `radial-gradient(hsl(var(--foreground) / 0.14) 1px, transparent 1px)`,
+                backgroundSize: '22px 22px',
+              }}
+            />
+          </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-card/90 via-card/10 to-transparent" />
       </div>
@@ -93,6 +107,20 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
               )}
             </div>
 
+            {/* Prominent rating — only render when there are real reviews
+                (no fake social proof on brand-new profiles). This is the
+                single most persuasive thing a hirer reads, so it gets its
+                own line instead of being mixed into the micro-badges. */}
+            {avgRating && reviewCount != null && reviewCount > 0 && (
+              <div className="mt-2.5 flex items-center gap-1.5">
+                <Star size={18} className="shrink-0 fill-amber-400 text-amber-400" strokeWidth={0} />
+                <span className="text-base font-bold text-foreground sm:text-lg">{avgRating}</span>
+                <span className="text-sm text-muted-foreground">
+                  · {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                </span>
+              </div>
+            )}
+
             <div className="mt-3 flex flex-wrap gap-2">
               {/* Location — blue */}
               <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-400 transition-colors duration-200 hover:bg-blue-500/15">
@@ -123,17 +151,6 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground/70 transition-colors duration-200 hover:bg-foreground/5">
                   <GraduationCap size={13} className="shrink-0 text-foreground/50" />
                   {getUniversityLabel(university)}
-                </span>
-              )}
-
-              {/* Rating — amber with filled star */}
-              {avgRating && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 transition-colors duration-200 hover:bg-amber-500/15">
-                  <Star size={14} className="shrink-0 fill-amber-400 text-amber-400" />
-                  {avgRating}
-                  {reviewCount != null && reviewCount > 0 && (
-                    <span className="opacity-60">({reviewCount})</span>
-                  )}
                 </span>
               )}
             </div>
