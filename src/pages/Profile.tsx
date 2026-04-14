@@ -170,6 +170,19 @@ const Profile = () => {
           .limit(1)
           .maybeSingle();
         setExistingPost(postRow ?? null);
+
+        // First-time freelancers haven't listed yet — open the wizard for them
+        // so they don't have to hunt for a button. Scoped per-user and only
+        // fires once so a freelancer who closes the wizard isn't re-prompted.
+        const autoOpenKey = `vano_listing_wizard_auto_opened_${session.user.id}`;
+        try {
+          if (!postRow && !localStorage.getItem(autoOpenKey)) {
+            localStorage.setItem(autoOpenKey, '1');
+            setListCommunityOpen(true);
+          }
+        } catch {
+          /* ignore storage errors */
+        }
       }
     } catch (err) {
       console.error('Failed to load profile:', err);

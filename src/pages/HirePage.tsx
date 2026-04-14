@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { clearHireBrief, loadHireBrief, saveHireBrief } from '@/lib/hireFlow';
 import { setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { markUserActed } from '@/lib/userActivity';
 import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, Camera, Monitor, Megaphone, HelpCircle,
@@ -251,6 +252,7 @@ const HirePage = () => {
       toast({ title: 'Something went wrong', description: 'Please try again or message us on WhatsApp.', variant: 'destructive' });
     } else {
       setSubmitted(true);
+      markUserActed();
       clearHireBrief();
       if (autoOpenWhatsApp) {
         // Auto-open WhatsApp with request details so the team can respond directly

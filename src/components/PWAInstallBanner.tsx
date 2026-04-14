@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { hasUserActed } from '@/lib/userActivity';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -22,6 +23,9 @@ export const PWAInstallBanner: React.FC = () => {
 
   useEffect(() => {
     if (isStandaloneDisplay()) return;
+    // Don't prompt to install before the user has done anything useful —
+    // a fresh landing-page visitor has no reason to install yet.
+    if (!hasUserActed()) return;
 
     const dismissed = localStorage.getItem('pwa-banner-dismissed');
     if (dismissed) {
@@ -53,6 +57,7 @@ export const PWAInstallBanner: React.FC = () => {
   // iOS path: show when ready; Chromium path: show when we got the event (handled in listener)
   useEffect(() => {
     if (isStandaloneDisplay()) return;
+    if (!hasUserActed()) return;
     const dismissed = localStorage.getItem('pwa-banner-dismissed');
     if (dismissed) {
       const dismissedAt = parseInt(dismissed, 10);

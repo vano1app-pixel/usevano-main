@@ -42,6 +42,7 @@ import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
+import { markUserActed } from '@/lib/userActivity';
 
 const STEP_LABELS = [
   'Get started',
@@ -639,6 +640,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         title: "You're live!",
         description: 'Your listing is now visible on the Community board.',
       });
+      markUserActed();
       try {
         localStorage.removeItem(listOnCommunityDraftKey(userId));
       } catch {

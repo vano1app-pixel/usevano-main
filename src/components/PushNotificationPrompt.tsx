@@ -3,6 +3,7 @@ import { Bell, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/integrations/supabase/client';
+import { hasUserActed } from '@/lib/userActivity';
 
 export const PushNotificationPrompt: React.FC = () => {
   const { isSupported, isSubscribed, permission, loading, subscribe } = usePushNotifications();
@@ -21,7 +22,10 @@ export const PushNotificationPrompt: React.FC = () => {
 
   useEffect(() => {
     if (!isSupported || isSubscribed || permission === 'denied' || !user) return;
-    
+    // Don't pester first-time visitors — wait until they've actually used the
+    // product (submitted a hire request or published a listing).
+    if (!hasUserActed()) return;
+
     // Check if dismissed recently
     const dismissed = localStorage.getItem('push-prompt-dismissed');
     if (dismissed) {
