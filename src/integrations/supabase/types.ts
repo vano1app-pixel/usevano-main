@@ -777,8 +777,11 @@ export type Database = {
           created_at: string
           hourly_rate: number | null
           id: string
+          expected_bonus_amount: number | null
+          expected_bonus_unit: string | null
           initial_clients_brought: number
           is_available: boolean | null
+          linkedin_url: string | null
           payment_details: string | null
           phone: string | null
           service_area: string | null
@@ -799,10 +802,13 @@ export type Database = {
           bio?: string | null
           community_board_status?: string | null
           created_at?: string
+          expected_bonus_amount?: number | null
+          expected_bonus_unit?: string | null
           hourly_rate?: number | null
           id?: string
           initial_clients_brought?: number
           is_available?: boolean | null
+          linkedin_url?: string | null
           payment_details?: string | null
           phone?: string | null
           service_area?: string | null
@@ -823,10 +829,13 @@ export type Database = {
           bio?: string | null
           community_board_status?: string | null
           created_at?: string
+          expected_bonus_amount?: number | null
+          expected_bonus_unit?: string | null
           hourly_rate?: number | null
           id?: string
           initial_clients_brought?: number
           is_available?: boolean | null
+          linkedin_url?: string | null
           payment_details?: string | null
           phone?: string | null
           service_area?: string | null

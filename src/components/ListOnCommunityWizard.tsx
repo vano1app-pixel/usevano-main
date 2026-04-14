@@ -35,7 +35,7 @@ import {
 } from '@/lib/communityCategories';
 import { SKILLS_BY_CATEGORY, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { formatCommunityBudget } from '@/lib/communityBudget';
-import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
+import { normalizeLinkedInUrl, normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
@@ -78,13 +78,19 @@ function migrateDraftStep(old: number): number {
 }
 
 /* ─── Student pricing caps ─── */
-const MAX_HOURLY_RATE = 20;              // €20/hr for social media, photo, video
+const MAX_HOURLY_RATE = 20;              // €20/hr for videography, social media
+const MAX_DIGITAL_SALES_HOURLY = 10;     // €10/hr retainer for digital sales — rest of earnings come via expected bonus / commission
 const MAX_DAY_OR_PROJECT_RATE = 200;     // €200 per day / per project
 const MAX_PROJECT_BUDGET = 500;          // €500 for websites
+
+/** Returns the hourly-rate cap that applies to a given category. */
+const hourlyCapFor = (cat: CommunityCategoryId | null): number =>
+  cat === 'digital_sales' ? MAX_DIGITAL_SALES_HOURLY : MAX_HOURLY_RATE;
 
 export interface ListOnCommunityInitial {
   bannerUrl: string;
   tiktokUrl: string;
+  linkedinUrl: string;
   workLinks: WorkLinkEntry[];
   skills: string[];
   serviceArea: string;
@@ -94,6 +100,8 @@ export interface ListOnCommunityInitial {
   bio: string;
   university: string;
   phone?: string | null;
+  expectedBonusAmount?: string;
+  expectedBonusUnit?: 'percentage' | 'flat';
 }
 
 interface ListOnCommunityDraft {
@@ -104,6 +112,7 @@ interface ListOnCommunityDraft {
   description: string;
   aboutMe: string;
   tiktokUrl: string;
+  linkedinUrl: string;
   workLinks: WorkLinkEntry[];
   serviceArea: string;
   university: string;
@@ -116,6 +125,8 @@ interface ListOnCommunityDraft {
   typicalBudgetMax: string;
   skills: string[];
   initialClientsBrought: string;
+  expectedBonusAmount: string;
+  expectedBonusUnit: 'percentage' | 'flat';
 }
 
 const listOnCommunityDraftKey = (userId: string) => `vano:list-on-community-draft:${userId}`;
@@ -154,6 +165,7 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       description: typeof parsed.description === 'string' ? parsed.description : '',
       aboutMe: typeof parsed.aboutMe === 'string' ? parsed.aboutMe : '',
       tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
+      linkedinUrl: typeof parsed.linkedinUrl === 'string' ? parsed.linkedinUrl : '',
       workLinks: parseDraftWorkLinks(parsed.workLinks),
       serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
       university: typeof parsed.university === 'string' ? resolveUniversityKey(parsed.university) : '',
@@ -165,6 +177,8 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       typicalBudgetMax: typeof parsed.typicalBudgetMax === 'string' ? parsed.typicalBudgetMax : '',
       skills: Array.isArray(parsed.skills) ? parsed.skills.filter((s): s is string => typeof s === 'string') : [],
       initialClientsBrought: typeof parsed.initialClientsBrought === 'string' ? parsed.initialClientsBrought : '',
+      expectedBonusAmount: typeof parsed.expectedBonusAmount === 'string' ? parsed.expectedBonusAmount : '',
+      expectedBonusUnit: parsed.expectedBonusUnit === 'flat' ? 'flat' : 'percentage',
     };
   } catch {
     return null;
@@ -201,6 +215,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [description, setDescription] = useState('');
   const [aboutMe, setAboutMe] = useState('');
   const [tiktokUrl, setTiktokUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [serviceArea, setServiceArea] = useState('');
   const [university, setUniversity] = useState('');
@@ -213,6 +228,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [initialClientsBrought, setInitialClientsBrought] = useState('');
+  const [expectedBonusAmount, setExpectedBonusAmount] = useState('');
+  const [expectedBonusUnit, setExpectedBonusUnit] = useState<'percentage' | 'flat'>('percentage');
   const [submitting, setSubmitting] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -247,6 +264,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setAboutMe(initial.bio || '');
     setUniversity(resolveUniversityKey(initial.university) || '');
     setTiktokUrl(initial.tiktokUrl || '');
+    setLinkedinUrl(initial.linkedinUrl || '');
     setWorkLinks(
       initial.workLinks.some((r) => r.url.trim() || r.label.trim())
         ? initial.workLinks.map((r) => ({ ...r }))
@@ -271,6 +289,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         ? String((initial as unknown as { initialClientsBrought: number }).initialClientsBrought)
         : '',
     );
+    setExpectedBonusAmount(initial.expectedBonusAmount ?? '');
+    setExpectedBonusUnit(initial.expectedBonusUnit ?? 'percentage');
 
     // Skip draft restore when jumping to a specific step or editing an existing post
     if (!ep && startAtStep == null) {
@@ -294,6 +314,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setUniversity(resolveUniversityKey(draft.university) || '');
         if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
         setTiktokUrl(draft.tiktokUrl);
+        setLinkedinUrl(draft.linkedinUrl || '');
         setWorkLinks(draft.workLinks);
         setServiceArea(draft.serviceArea);
         setRateUnit(draft.rateUnit);
@@ -304,6 +325,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setTypicalBudgetMax(draft.typicalBudgetMax);
         setSkills(normalizeFreelancerSkills(draft.skills));
         setInitialClientsBrought(draft.initialClientsBrought || '');
+        setExpectedBonusAmount(draft.expectedBonusAmount || '');
+        setExpectedBonusUnit(draft.expectedBonusUnit ?? 'percentage');
         toast({
           title: 'Draft restored',
           description: 'We restored your listing draft on this device. Re-add photos if needed.',
@@ -325,6 +348,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       description,
       aboutMe,
       tiktokUrl,
+      linkedinUrl,
       workLinks,
       serviceArea,
       university,
@@ -337,6 +361,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       typicalBudgetMax,
       skills,
       initialClientsBrought,
+      expectedBonusAmount,
+      expectedBonusUnit,
     };
 
     try {
@@ -355,6 +381,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     description,
     aboutMe,
     tiktokUrl,
+    linkedinUrl,
     workLinks,
     serviceArea,
     university,
@@ -367,6 +394,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     typicalBudgetMax,
     skills,
     initialClientsBrought,
+    expectedBonusAmount,
+    expectedBonusUnit,
   ]);
 
   // Websites = project-only pricing; Digital sales = hourly-only pricing
@@ -547,10 +576,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       let rate_min: number | null = null;
       let rate_max: number | null = null;
       let rate_unit_out: string | null = rateUnit;
-      // Cap: €500 for websites, €20/hr hourly, €200 day/project for other categories
+      // Cap: €500 for websites, €50/hr for digital sales retainers, €20/hr for other hourly,
+      // €200 day/project for non-website categories
       const ratecap = category === 'websites'
         ? MAX_PROJECT_BUDGET
-        : rateUnit === 'hourly' ? MAX_HOURLY_RATE
+        : rateUnit === 'hourly' ? hourlyCapFor(category)
         : (rateUnit === 'day' || rateUnit === 'project') ? MAX_DAY_OR_PROJECT_RATE
         : null;
       if (rateUnit === 'negotiable') {
@@ -581,10 +611,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         ? (rate_max ?? null)
         : (typicalBudgetMax.trim() && parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null);
       const hourlyNum = parseFloat(profileHourly.replace(',', '.'));
-      const hourly_rate = !Number.isNaN(hourlyNum) && hourlyNum > 0 ? Math.min(hourlyNum, MAX_HOURLY_RATE) : 0;
+      const hourly_rate = !Number.isNaN(hourlyNum) && hourlyNum > 0 ? Math.min(hourlyNum, hourlyCapFor(category)) : 0;
 
       const studentPatch: Record<string, unknown> = {
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
+        linkedin_url: normalizeLinkedInUrl(linkedinUrl),
         work_links: workLinksToJson(workLinks) as unknown,
         service_area: serviceArea.trim() || null,
         typical_budget_min: tbMin,
@@ -597,6 +628,15 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       if (category === 'digital_sales') {
         const n = parseInt(initialClientsBrought, 10);
         studentPatch.initial_clients_brought = Number.isNaN(n) || n < 0 ? 0 : n;
+
+        const bonusNum = parseFloat(expectedBonusAmount.replace(',', '.'));
+        if (!Number.isNaN(bonusNum) && bonusNum > 0) {
+          studentPatch.expected_bonus_amount = bonusNum;
+          studentPatch.expected_bonus_unit = expectedBonusUnit;
+        } else {
+          studentPatch.expected_bonus_amount = null;
+          studentPatch.expected_bonus_unit = null;
+        }
       }
       if (university.trim()) studentPatch.university = university.trim();
       if (phone.trim()) studentPatch.phone = phone.trim();
@@ -894,6 +934,18 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   onChange={(e) => setServiceArea(e.target.value)}
                 />
               </div>
+              {category === 'digital_sales' && (
+                <div>
+                  <Label>LinkedIn <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Input
+                    className="mt-1.5 h-11"
+                    placeholder="https://linkedin.com/in/you or your-handle"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">Shown on your profile — adds credibility for B2B buyers.</p>
+                </div>
+              )}
               <div>
                 <Label>TikTok <span className="font-normal text-muted-foreground">(optional)</span></Label>
                 <Input
@@ -948,13 +1000,40 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                     <Input
                       className="mt-1.5 h-11"
                       inputMode="decimal"
-                      placeholder="e.g. 15"
+                      placeholder="e.g. 8"
                       value={profileHourly}
                       onChange={(e) => setProfileHourly(e.target.value)}
                     />
-                    {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
-                      <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_HOURLY_RATE}/hr</p>
+                    {parseFloat(profileHourly.replace(',', '.')) > MAX_DIGITAL_SALES_HOURLY && (
+                      <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_DIGITAL_SALES_HOURLY}/hr</p>
                     )}
+                  </div>
+                  <div>
+                    <Label>Expected bonus per closed deal</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      What you expect on top of the hourly retainer. Shown on your profile so businesses know what you're after.
+                    </p>
+                    <div className="mt-1.5 grid grid-cols-[1fr_auto] gap-2">
+                      <Input
+                        inputMode="decimal"
+                        placeholder={expectedBonusUnit === 'percentage' ? 'e.g. 10' : 'e.g. 50'}
+                        value={expectedBonusAmount}
+                        onChange={(e) => setExpectedBonusAmount(e.target.value)}
+                        className="h-11"
+                      />
+                      <Select
+                        value={expectedBonusUnit}
+                        onValueChange={(v) => setExpectedBonusUnit(v === 'flat' ? 'flat' : 'percentage')}
+                      >
+                        <SelectTrigger className="h-11 w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">% of deal</SelectItem>
+                          <SelectItem value="flat">€ per client</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div>
                     <Label>Clients you've already brought in <span className="font-normal text-muted-foreground">(optional)</span></Label>
