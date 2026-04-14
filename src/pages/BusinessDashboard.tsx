@@ -12,6 +12,7 @@ import {
   MessagesSquare,
   Heart,
 } from 'lucide-react';
+import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
 import {
   BarChart,
   Bar,
@@ -118,6 +119,7 @@ interface RecentConvo {
 export default function BusinessDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
@@ -139,6 +141,7 @@ export default function BusinessDashboard() {
         return;
       }
       const uid = session.user.id;
+      if (!cancelled) setUid(uid);
 
       // Profile
       const { data: prof } = await supabase
@@ -761,6 +764,23 @@ export default function BusinessDashboard() {
                     </div>
                   </CardContent>
                 </Card>
+              </motion.div>
+            </motion.section>
+          )}
+
+          {/* ── Sales Referrals ── */}
+          {uid && (
+            <motion.section
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-10"
+            >
+              <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+                Sales Referrals
+              </motion.p>
+              <motion.div variants={fadeUp}>
+                <SalesReferralsPanel mode="business" currentUserId={uid} />
               </motion.div>
             </motion.section>
           )}

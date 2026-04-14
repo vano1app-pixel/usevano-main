@@ -3,7 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { breadcrumbSchema } from '@/lib/structuredData';
-import { Monitor, Video, Megaphone, Camera, ArrowRight } from 'lucide-react';
+import { Monitor, Video, Megaphone, TrendingUp, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 
@@ -14,8 +14,8 @@ const TALENT_HUB_CATEGORIES: {
   icon: typeof Monitor;
   image?: string;
 }[] = [
+  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp, image: '/cat-digital_sales.png' },
   { cat: 'videography',  label: 'Videography',    sub: 'Filming, reels & promos',     icon: Video,     image: '/cat-videography.png' },
-  { cat: 'photography',  label: 'Photography',     sub: 'Events, brands & portraits',  icon: Camera,    image: '/cat-photography.png' },
   { cat: 'websites',     label: 'Website Design',  sub: 'Get a site built or fixed',   icon: Monitor,   image: '/cat-websites.png' },
   { cat: 'social_media', label: 'Social Media',    sub: 'Content, strategy & growth',  icon: Megaphone, image: '/cat-social_media.png' },
 ];
@@ -23,13 +23,13 @@ const TALENT_HUB_CATEGORIES: {
 const CAT_KEYWORDS: Record<CommunityCategoryId, string[]> = {
   websites:     ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify', 'react', 'next', 'figma', 'typescript', 'tailwind', 'supabase', 'webflow', 'framer'],
   videography:  ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo', 'colour grading', 'wedding film', 'corporate video'],
-  photography:  ['photo', 'photography', 'photographer', 'portrait', 'headshot', 'lightroom', 'product photo', 'brand photo', 'food photo', 'event photo', 'wedding photo'],
+  digital_sales: ['sales', 'sdr', 'bdr', 'cold call', 'cold email', 'outbound', 'lead gen', 'lead generation', 'prospect', 'closing', 'saas sales', 'b2b', 'appointment setting', 'linkedin prospecting', 'crm', 'hubspot', 'salesforce', 'negotiation'],
   social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy', 'linkedin', 'copywriting'],
 };
 
 function primaryCategoryForStudent(student: any, displayName: string): CommunityCategoryId {
   const text = `${displayName} ${student.bio || ''} ${(student.skills || []).join(' ')}`.toLowerCase();
-  const order: CommunityCategoryId[] = ['websites', 'videography', 'photography', 'social_media'];
+  const order: CommunityCategoryId[] = ['websites', 'videography', 'digital_sales', 'social_media'];
   let best: CommunityCategoryId = 'websites';
   let bestScore = 0;
   for (const cat of order) {
@@ -62,7 +62,7 @@ const BrowseStudents = () => {
   const getAvatarUrl = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.avatar_url || '';
 
   const countsByCategory = useMemo(() => {
-    const out: Record<CommunityCategoryId, number> = { videography: 0, photography: 0, websites: 0, social_media: 0 };
+    const out: Record<CommunityCategoryId, number> = { videography: 0, digital_sales: 0, websites: 0, social_media: 0 };
     for (const s of students) {
       out[primaryCategoryForStudent(s, getDisplayName(s.user_id))]++;
     }

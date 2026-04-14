@@ -729,6 +729,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_client_referrals: {
+        Row: {
+          business_user_id: string
+          commission_eur: number
+          created_at: string
+          deal_value_eur: number
+          disputed: boolean
+          id: string
+          note: string | null
+          sales_user_id: string
+          updated_at: string
+          verified_by_business: boolean
+        }
+        Insert: {
+          business_user_id: string
+          commission_eur?: number
+          created_at?: string
+          deal_value_eur?: number
+          disputed?: boolean
+          id?: string
+          note?: string | null
+          sales_user_id: string
+          updated_at?: string
+          verified_by_business?: boolean
+        }
+        Update: {
+          business_user_id?: string
+          commission_eur?: number
+          created_at?: string
+          deal_value_eur?: number
+          disputed?: boolean
+          id?: string
+          note?: string | null
+          sales_user_id?: string
+          updated_at?: string
+          verified_by_business?: boolean
+        }
+        Relationships: []
+      }
       student_profiles: {
         Row: {
           avatar_url: string | null
@@ -738,6 +777,7 @@ export type Database = {
           created_at: string
           hourly_rate: number | null
           id: string
+          initial_clients_brought: number
           is_available: boolean | null
           payment_details: string | null
           phone: string | null
@@ -761,6 +801,7 @@ export type Database = {
           created_at?: string
           hourly_rate?: number | null
           id?: string
+          initial_clients_brought?: number
           is_available?: boolean | null
           payment_details?: string | null
           phone?: string | null
@@ -784,6 +825,7 @@ export type Database = {
           created_at?: string
           hourly_rate?: number | null
           id?: string
+          initial_clients_brought?: number
           is_available?: boolean | null
           payment_details?: string | null
           phone?: string | null

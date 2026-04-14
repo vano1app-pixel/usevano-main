@@ -161,7 +161,7 @@ const StudentProfile = () => {
 
   const categoryLabels: Record<string, string> = {
     videography: 'Videography',
-    photography: 'Photography',
+    digital_sales: 'Digital Sales',
     websites: 'Web & Design',
     social_media: 'Social Media',
   };

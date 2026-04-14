@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image, LogOut } from 'lucide-react';
 import { PortfolioManager } from '@/components/PortfolioManager';
+import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
 import { ModBadge } from '@/components/ModBadge';
@@ -878,6 +879,13 @@ const Profile = () => {
                 <div>
                   <PortfolioManager userId={user.id} />
                 </div>
+
+                {/* ── Clients I brought (digital_sales only) ── */}
+                {existingPost?.category === 'digital_sales' && user?.id && (
+                  <div>
+                    <SalesReferralsPanel mode="sales" currentUserId={user.id} />
+                  </div>
+                )}
 
                 {/* Shareable profile link — sidebar on desktop */}
                 {displayName && (

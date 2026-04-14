@@ -115,6 +115,7 @@ interface ListOnCommunityDraft {
   typicalBudgetMin: string;
   typicalBudgetMax: string;
   skills: string[];
+  initialClientsBrought: string;
 }
 
 const listOnCommunityDraftKey = (userId: string) => `vano:list-on-community-draft:${userId}`;
@@ -142,9 +143,12 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
         typeof parsed.step === 'number'
           ? Math.max(0, Math.min(STEP_LABELS.length - 1, parsed.step))
           : 0,
-      category: isCommunityCategoryId(typeof parsed.category === 'string' ? parsed.category : null)
-        ? parsed.category
-        : null,
+      category: (() => {
+        const raw = typeof parsed.category === 'string' ? parsed.category : null;
+        // Legacy drafts may have category: 'photography' — coerce to null so the user re-picks.
+        if (raw === 'photography') return null;
+        return isCommunityCategoryId(raw) ? raw : null;
+      })(),
       bannerUrl: typeof parsed.bannerUrl === 'string' ? parsed.bannerUrl : '',
       title: typeof parsed.title === 'string' ? parsed.title : '',
       description: typeof parsed.description === 'string' ? parsed.description : '',
@@ -160,6 +164,7 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       typicalBudgetMin: typeof parsed.typicalBudgetMin === 'string' ? parsed.typicalBudgetMin : '',
       typicalBudgetMax: typeof parsed.typicalBudgetMax === 'string' ? parsed.typicalBudgetMax : '',
       skills: Array.isArray(parsed.skills) ? parsed.skills.filter((s): s is string => typeof s === 'string') : [],
+      initialClientsBrought: typeof parsed.initialClientsBrought === 'string' ? parsed.initialClientsBrought : '',
     };
   } catch {
     return null;
@@ -207,6 +212,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
+  const [initialClientsBrought, setInitialClientsBrought] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -260,6 +266,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setTypicalBudgetMin(initial.typicalBudgetMin || '');
     setTypicalBudgetMax(initial.typicalBudgetMax || '');
     setSkills(normalizeFreelancerSkills(initial.skills));
+    setInitialClientsBrought(
+      typeof (initial as unknown as { initialClientsBrought?: number | null }).initialClientsBrought === 'number'
+        ? String((initial as unknown as { initialClientsBrought: number }).initialClientsBrought)
+        : '',
+    );
 
     // Skip draft restore when jumping to a specific step or editing an existing post
     if (!ep && startAtStep == null) {
@@ -292,6 +303,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setTypicalBudgetMin(draft.typicalBudgetMin);
         setTypicalBudgetMax(draft.typicalBudgetMax);
         setSkills(normalizeFreelancerSkills(draft.skills));
+        setInitialClientsBrought(draft.initialClientsBrought || '');
         toast({
           title: 'Draft restored',
           description: 'We restored your listing draft on this device. Re-add photos if needed.',
@@ -324,6 +336,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       typicalBudgetMin,
       typicalBudgetMax,
       skills,
+      initialClientsBrought,
     };
 
     try {
@@ -353,11 +366,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     typicalBudgetMin,
     typicalBudgetMax,
     skills,
+    initialClientsBrought,
   ]);
 
-  // Websites = project-only pricing
+  // Websites = project-only pricing; Digital sales = hourly-only pricing
   useEffect(() => {
     if (category === 'websites') setRateUnit('project');
+    else if (category === 'digital_sales') setRateUnit('hourly');
   }, [category]);
 
   const totalSteps = STEP_LABELS.length;
@@ -579,6 +594,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         community_board_status: 'approved',
         bio: aboutMe.trim() || description.trim(),
       };
+      if (category === 'digital_sales') {
+        const n = parseInt(initialClientsBrought, 10);
+        studentPatch.initial_clients_brought = Number.isNaN(n) || n < 0 ? 0 : n;
+      }
       if (university.trim()) studentPatch.university = university.trim();
       if (phone.trim()) studentPatch.phone = phone.trim();
       if (uploadedBanner) {
@@ -799,7 +818,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   placeholder={
                     category === 'websites' ? 'e.g. Custom React websites & Shopify stores' :
                     category === 'social_media' ? 'e.g. Social media management & content creation' :
-                    category === 'photography' ? 'e.g. Wedding & event photography — Galway' :
+                    category === 'digital_sales' ? 'e.g. B2B sales & lead gen for SaaS' :
                     'e.g. Event videography & short-form reels'
                   }
                   value={title}
@@ -817,6 +836,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       ? "What tech stack do you work with? Past clients or launches?"
                       : category === 'social_media'
                       ? "Which platforms, formats, and past results?"
+                      : category === 'digital_sales'
+                      ? "Who do you sell to, what channels (cold email / LinkedIn / calls), and what results have you gotten?"
                       : "What do you shoot, what gear, and what kind of clients?"
                   }
                   value={description}
@@ -916,7 +937,43 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           {/* ── Step 3: Your price — pricing + skills + live preview + Go live ── */}
           {step === 3 && (
             <div className="space-y-5">
-              {category === 'websites' ? (
+              {category === 'digital_sales' ? (
+                <>
+                  <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                    Digital sales is priced per hour — set your retainer rate and your starting client track record below.
+                  </div>
+                  <div>
+                    <Label>Your hourly rate (€)</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Retainer rate businesses pay on top of commission.</p>
+                    <Input
+                      className="mt-1.5 h-11"
+                      inputMode="decimal"
+                      placeholder="e.g. 15"
+                      value={profileHourly}
+                      onChange={(e) => setProfileHourly(e.target.value)}
+                    />
+                    {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
+                      <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_HOURLY_RATE}/hr</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Clients you've already brought in <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Your starting track record — businesses see this on your profile. You can log individual deals later.
+                    </p>
+                    <Input
+                      className="mt-1.5 h-11"
+                      inputMode="numeric"
+                      placeholder="e.g. 3"
+                      value={initialClientsBrought}
+                      onChange={(e) => {
+                        const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                        setInitialClientsBrought(cleaned);
+                      }}
+                    />
+                  </div>
+                </>
+              ) : category === 'websites' ? (
                 <>
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                     Websites are priced per project — set the range you typically charge below.
