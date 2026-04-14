@@ -497,10 +497,14 @@ const HirePage = () => {
               <div className="flex items-center gap-2 mb-1">
                 <Sparkles size={16} className="text-white" />
                 <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Recommended</span>
+                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-50 ring-1 ring-emerald-300/40">
+                  €0 platform fee
+                </span>
               </div>
               <h2 className="text-lg font-bold text-white">Match with a trusted freelancer</h2>
               <p className="mt-1 text-[13px] leading-relaxed text-white/75">
                 Tailored to your brief — we pick a vetted freelancer at the right price. You just approve.
+                <span className="mt-1 block font-semibold text-emerald-200">You pay the freelancer directly. No hidden fees, no commission.</span>
               </p>
             </div>
             <div className="space-y-3 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-3">
@@ -530,17 +534,6 @@ const HirePage = () => {
                   ].filter(Boolean).map(tag => (
                     <span key={tag} className="inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/80">{tag}</span>
                   ))}
-                </div>
-              </div>
-
-              {/* Fee */}
-              <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-400/20">
-                  <Euro size={14} className="text-emerald-300" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">0% commission</p>
-                  <p className="text-[10px] text-white/60">You only pay the freelancer — no hidden fees.</p>
                 </div>
               </div>
 

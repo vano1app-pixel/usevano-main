@@ -1017,6 +1017,44 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>.
               </p>
 
+              {/* Quick wins — conditional nudges that disappear as the user
+                  fills the high-impact fields. Each row is a tap-target that
+                  jumps back to the relevant screen so they don't get stuck. */}
+              {(() => {
+                const hasBanner = !!(bannerFile || bannerUrl);
+                const workSampleCount =
+                  listingFiles.length + listingPreviews.filter((p) => p.startsWith('http')).length;
+                const hasEnoughSamples = workSampleCount >= 3;
+                const hasEnoughDesc = description.trim().length >= 100;
+                const nudges: { key: string; msg: string; target: number }[] = [];
+                if (!hasBanner) nudges.push({ key: 'banner', msg: 'Listings with a cover photo get 3× more messages', target: 1 });
+                if (!hasEnoughSamples) nudges.push({ key: 'samples', msg: 'Profiles with 3+ work samples get 50% more clicks', target: 1 });
+                if (description.trim().length > 0 && !hasEnoughDesc) nudges.push({ key: 'desc', msg: 'Longer descriptions help businesses see your expertise', target: 2 });
+                if (nudges.length === 0) return null;
+                return (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400 mb-2">Quick wins</p>
+                    <ul className="space-y-1.5">
+                      {nudges.map((n) => (
+                        <li key={n.key} className="flex items-start gap-2">
+                          <span className="mt-0.5 text-amber-500">✦</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-foreground leading-relaxed">{n.msg}</p>
+                            <button
+                              type="button"
+                              onClick={() => setStep(n.target)}
+                              className="mt-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
+                            >
+                              Go back →
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
               {category && (
                 <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">

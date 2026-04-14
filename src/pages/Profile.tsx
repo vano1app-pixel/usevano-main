@@ -468,6 +468,57 @@ const Profile = () => {
               {/* ── LEFT COLUMN: Main content ── */}
               <div className="space-y-6">
 
+                {/* ── Profile completeness meter ──
+                    Loss-aversion nudge: shows missing points rather than
+                    gained ones. Fades away once the freelancer hits 100%. */}
+                {studentProfile && (() => {
+                  const checks: { key: string; label: string; done: boolean; weight: number; action: () => void }[] = [
+                    { key: 'name', label: 'Add your name', done: displayName.trim().length > 0, weight: 10, action: () => {
+                      document.querySelector<HTMLInputElement>('input[placeholder*="appear"]')?.focus();
+                    } },
+                    { key: 'avatar', label: 'Add a profile photo', done: !!avatarUrl, weight: 15, action: () => {
+                      document.querySelector('[data-avatar-upload]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } },
+                    { key: 'bio', label: 'Write a short bio (50+ chars)', done: bio.trim().length >= 50, weight: 15, action: () => openWizardAtStep(2) },
+                    { key: 'banner', label: 'Upload a cover photo', done: !!bannerUrl, weight: 15, action: () => openWizardAtStep(1) },
+                    { key: 'phone', label: 'Add your phone number', done: phone.trim().length > 0, weight: 10, action: () => openWizardAtStep(2) },
+                    { key: 'university', label: 'Add your university', done: !!university.trim(), weight: 5, action: () => openWizardAtStep(2) },
+                    { key: 'skills', label: 'Pick at least 3 skills', done: skills.length >= 3, weight: 15, action: () => openWizardAtStep(3) },
+                    { key: 'portfolio', label: 'Upload 2+ portfolio photos', done: portfolioCount >= 2, weight: 15, action: () => openWizardAtStep(1) },
+                  ];
+                  const filled = checks.filter(c => c.done).reduce((sum, c) => sum + c.weight, 0);
+                  const missing = checks.filter(c => !c.done).sort((a, b) => b.weight - a.weight);
+                  if (filled >= 100 || missing.length === 0) return null;
+
+                  return (
+                    <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-5 shadow-tinted-sm">
+                      <div className="flex items-baseline justify-between mb-2">
+                        <p className="text-sm font-semibold text-foreground">Your profile is {filled}% complete</p>
+                        <p className="text-[11px] font-medium text-muted-foreground">{missing.length} quick win{missing.length === 1 ? '' : 's'} left</p>
+                      </div>
+                      <div className="relative h-2 w-full overflow-hidden rounded-full bg-border">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                          style={{ width: `${filled}%` }}
+                        />
+                      </div>
+                      <div className="mt-4 space-y-1.5">
+                        {missing.slice(0, 3).map((m) => (
+                          <button
+                            key={m.key}
+                            type="button"
+                            onClick={m.action}
+                            className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent bg-background/60 px-3 py-2 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/5"
+                          >
+                            <span>{m.label}</span>
+                            <span className="shrink-0 text-[11px] font-semibold text-primary">+{m.weight}%</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Not visible yet CTA — before listing editor */}
                 {studentProfile?.community_board_status !== 'approved' && (
                   <div className="rounded-2xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/15 px-5 py-4">
@@ -509,7 +560,7 @@ const Profile = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => openWizardAtStep(0)}
+                        onClick={() => openWizardAtStep(1)}
                         className="text-[12px] font-semibold text-primary transition-colors duration-200 hover:text-primary/80 hover:underline"
                       >
                         Edit full listing
@@ -575,7 +626,7 @@ const Profile = () => {
                       {/* ── ABOUT section ── */}
                       <button
                         type="button"
-                        onClick={() => openWizardAtStep(3)}
+                        onClick={() => openWizardAtStep(2)}
                         className="group w-full border-t border-foreground/8 px-4 pb-3 pt-2.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
                       >
                         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
@@ -602,7 +653,7 @@ const Profile = () => {
                       {/* ── SKILLS section (opens wizard) ── */}
                       <button
                         type="button"
-                        onClick={() => openWizardAtStep(5)}
+                        onClick={() => openWizardAtStep(3)}
                         className="group w-full border-t border-foreground/8 px-4 pb-3.5 pt-2.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
                       >
                         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
@@ -696,7 +747,7 @@ const Profile = () => {
                       {/* ── LINKS section ── */}
                       <button
                         type="button"
-                        onClick={() => openWizardAtStep(4)}
+                        onClick={() => openWizardAtStep(2)}
                         className="group w-full border-t border-foreground/8 px-4 pb-3.5 pt-2.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
                       >
                         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
@@ -721,10 +772,10 @@ const Profile = () => {
                 {studentProfile?.community_board_status !== 'approved' && (() => {
                   const steps: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
                     { id: 'photo', label: 'Profile photo', detail: 'Listings with a photo get far more clicks', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'skills', label: 'At least 3 skills', detail: 'Businesses search by skill — you won\'t show up without them', done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 5 },
-                    { id: 'rate', label: 'Hourly rate set', detail: 'People skip listings with no rate — they assume it\'s expensive', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 5 },
-                    { id: 'bio', label: 'Bio written', detail: 'A short intro builds trust before someone messages you', done: bio.trim().length >= 30, count: null, wizardStep: 3 },
-                    { id: 'link', label: 'Portfolio link', detail: 'Instagram, Behance, GitHub — link your actual work', done: workLinks.some(l => l.url.trim().length > 0), count: null, wizardStep: 4 },
+                    { id: 'skills', label: 'At least 3 skills', detail: 'Businesses search by skill — you won\'t show up without them', done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 3 },
+                    { id: 'rate', label: 'Hourly rate set', detail: 'People skip listings with no rate — they assume it\'s expensive', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 3 },
+                    { id: 'bio', label: 'Bio written', detail: 'A short intro builds trust before someone messages you', done: bio.trim().length >= 30, count: null, wizardStep: 2 },
+                    { id: 'link', label: 'Portfolio link', detail: 'Instagram, Behance, GitHub — link your actual work', done: workLinks.some(l => l.url.trim().length > 0), count: null, wizardStep: 2 },
                   ];
                   return renderChecklist(steps);
                 })()}
@@ -733,14 +784,14 @@ const Profile = () => {
                 {studentProfile?.community_board_status === 'approved' && (() => {
                   const qualityChecks: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
                     { id: 'photo', label: 'Profile photo', detail: 'Profiles with a real face get far more messages', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'banner', label: 'Cover photo', detail: 'No cover — your card looks plain without one', done: !!bannerUrl, count: null, wizardStep: 2 },
-                    { id: 'bio', label: 'Description', detail: bio.trim().length === 0 ? 'No description — businesses need to know what you offer' : `Too short (${bio.trim().length} chars — need 30+)`, done: bio.trim().length >= 30, count: null, wizardStep: 3 },
+                    { id: 'banner', label: 'Cover photo', detail: 'No cover — your card looks plain without one', done: !!bannerUrl, count: null, wizardStep: 1 },
+                    { id: 'bio', label: 'Description', detail: bio.trim().length === 0 ? 'No description — businesses need to know what you offer' : `Too short (${bio.trim().length} chars — need 30+)`, done: bio.trim().length >= 30, count: null, wizardStep: 2 },
                     { id: 'skills', label: 'At least 3 skills', detail: skills.length === 0 ? 'No skills — businesses search by skill to find you'
-                      : `${skills.length}/3 minimum — add ${3 - skills.length} more`, done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 5 },
-                    { id: 'rate', label: 'Rate set', detail: 'No rate shown — people skip listings with no price', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 5 },
-                    { id: 'link', label: 'Portfolio or social link', detail: 'Add a link to your Instagram, Behance, GitHub, etc.', done: workLinks.some((l) => l.url.trim().length > 0), count: null, wizardStep: 4 },
-                    { id: 'university', label: 'University', detail: 'Add your university — builds trust with businesses', done: !!university.trim(), count: null, wizardStep: 4 },
-                    { id: 'portfolio', label: 'Portfolio photos', detail: 'Add sample work photos — profiles with images get way more views', done: portfolioCount > 0, count: null, wizardStep: 2 },
+                      : `${skills.length}/3 minimum — add ${3 - skills.length} more`, done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 3 },
+                    { id: 'rate', label: 'Rate set', detail: 'No rate shown — people skip listings with no price', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 3 },
+                    { id: 'link', label: 'Portfolio or social link', detail: 'Add a link to your Instagram, Behance, GitHub, etc.', done: workLinks.some((l) => l.url.trim().length > 0), count: null, wizardStep: 2 },
+                    { id: 'university', label: 'University', detail: 'Add your university — builds trust with businesses', done: !!university.trim(), count: null, wizardStep: 2 },
+                    { id: 'portfolio', label: 'Portfolio photos', detail: 'Add sample work photos — profiles with images get way more views', done: portfolioCount > 0, count: null, wizardStep: 1 },
                   ];
                   return renderChecklist(qualityChecks);
                 })()}
@@ -903,7 +954,7 @@ const Profile = () => {
                     </div>
                   </div>
                 )}
-                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <div data-avatar-upload className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                   <AvatarUpload
                     userId={user.id}
                     currentUrl={avatarUrl}
