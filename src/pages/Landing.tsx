@@ -175,7 +175,7 @@ const Landing = () => {
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Hire Galway Freelancers — Videography, Photography, Web & Social"
+        title="Hire Galway Freelancers — Videography, Digital Sales, Web & Social"
         description="VANO connects Galway businesses with local freelancers for digital sales, videography, web design and social media. Post a shift and get the work done."
         keywords="galway freelancers, hire students galway, videography galway, digital sales galway, web design galway, social media galway, gig work ireland"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}

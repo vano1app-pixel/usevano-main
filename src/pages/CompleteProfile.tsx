@@ -11,7 +11,7 @@ import { OnboardingJourney } from '@/components/OnboardingJourney';
 
 const SKILL_OPTIONS = [
   'Video editing', 'Filming', 'Reels', 'Drone', 'Promo video', 'Wedding film', 'Corporate video',
-  'Photography', 'Portrait', 'Headshots', 'Product photos', 'Event photos', 'Wedding photo',
+  'Cold calling', 'Cold email', 'Lead gen', 'Closing', 'LinkedIn outreach', 'Appointment setting',
   'Web design', 'WordPress', 'React', 'Shopify', 'Figma', 'Webflow', 'Framer',
   'Social media', 'Content creation', 'Instagram', 'TikTok', 'Canva', 'Copywriting', 'Marketing',
 ];

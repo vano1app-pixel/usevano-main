@@ -83,7 +83,7 @@ const PRICING_PACKAGES = [
     price: '349',
     period: '/mo',
     features: [
-      'Professional photo shoot',
+      'Outbound sales campaign',
       'Short-form video content',
       'Editing & post-production',
       'Brand-ready deliverables',
