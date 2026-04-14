@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image, LogOut } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, Image, LogOut, ArrowRight } from 'lucide-react';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
@@ -304,128 +304,12 @@ const Profile = () => {
 
   const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors duration-200";
 
-  /* ── Progress Ring helper ── */
-  const ProgressRing = ({ done, total, size = 64, stroke = 5 }: { done: number; total: number; size?: number; stroke?: number }) => {
-    const r = (size - stroke) / 2;
-    const circ = 2 * Math.PI * r;
-    const pct = total > 0 ? done / total : 0;
-    const offset = circ * (1 - pct);
-    // Color shifts: red → amber → blue → green as completion grows
-    const ringColor = pct >= 1 ? '#10b981' : pct >= 0.75 ? '#3b82f6' : pct >= 0.4 ? '#f59e0b' : '#ef4444';
-    return (
-      <svg width={size} height={size} className="shrink-0 -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
-        <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={ringColor}
-          strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={circ} strokeDashoffset={offset}
-          className="animate-progress-ring"
-          style={{ '--ring-circumference': circ, '--ring-offset': offset } as React.CSSProperties}
-        />
-      </svg>
-    );
-  };
-
-  /* ── Shared quality / strength check renderer ── */
-  const renderChecklist = (checks: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[]) => {
-    const incomplete = checks.filter(c => !c.done);
-    const complete = checks.filter(c => c.done);
-    const doneCount = complete.length;
-    const pct = Math.round((doneCount / checks.length) * 100);
-
-    const motivationMsg = pct === 100
-      ? 'Looking great — fully set up!'
-      : pct >= 75
-        ? 'Almost there — just a few more!'
-        : pct >= 50
-          ? 'Halfway done — keep going!'
-          : pct > 0
-            ? 'Good start — complete your profile to get seen'
-            : 'Get started — fill in your profile to attract businesses';
-
-    return (
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        {/* Header with ring + percentage */}
-        <div className="flex items-center gap-4 px-5 py-4">
-          <div className="relative">
-            <ProgressRing done={doneCount} total={checks.length} size={64} stroke={5} />
-            <span className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-base font-bold tabular-nums text-foreground leading-none">{pct}%</span>
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Profile completeness
-            </p>
-            <p className="mt-0.5 text-sm font-semibold text-foreground">
-              {motivationMsg}
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-              {doneCount} of {checks.length} complete
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate(`/students/${user.id}`)}
-            className="shrink-0 rounded-xl border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground/70 transition-all duration-200 hover:border-foreground/20 hover:text-foreground hover:shadow-sm"
-          >
-            Preview
-          </button>
-        </div>
-
-        {/* Incomplete items — prominent */}
-        {incomplete.length > 0 && (
-          <ul className="border-t border-border/50">
-            {incomplete.map((check) => (
-              <li
-                key={check.id}
-                className="flex items-center gap-3 border-l-2 border-l-amber-400 bg-amber-50/50 px-5 py-3 dark:bg-amber-900/10"
-              >
-                <AlertCircle size={16} className="shrink-0 text-amber-500" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {check.label}
-                    {check.count && (
-                      <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        {check.count}
-                      </span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{check.detail}</p>
-                </div>
-                {check.wizardStep !== null ? (
-                  <button
-                    type="button"
-                    onClick={() => openWizardAtStep(check.wizardStep!)}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow"
-                  >
-                    Fix <ExternalLink size={10} />
-                  </button>
-                ) : (
-                  <span className="shrink-0 text-xs text-muted-foreground">{check.profileAction}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Completed items — compact */}
-        {complete.length > 0 && (
-          <div className={cn("border-t border-border/50", incomplete.length > 0 && "bg-muted/20")}>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 px-5 py-3">
-              {complete.map((check) => (
-                <span key={check.id} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CheckCircle2 size={12} className="text-emerald-500" />
-                  <span className="line-through">{check.label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  // The legacy ProgressRing + renderChecklist widgets (the 8-question
+  // quality checklist and 5-item profile-strength checklist) were removed
+  // in favor of the concise Profile completeness meter rendered inline
+  // below. The meter reads from the shared helper in
+  // src/lib/profileCompleteness.ts so the same weights drive the public
+  // profile's Top/Verified tier badge.
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -519,29 +403,34 @@ const Profile = () => {
                     : 'text-emerald-700 dark:text-emerald-400';
 
                   return (
-                    <div className={cn('rounded-2xl border p-5 shadow-tinted-sm transition-colors duration-500', zoneTint)}>
-                      <div className="flex items-baseline justify-between mb-2">
-                        <p className="text-sm font-semibold text-foreground">
+                    <div className={cn('rounded-2xl border p-5 shadow-tinted-sm transition-colors duration-500 sm:p-6', zoneTint)}>
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                        <p className="text-sm font-semibold text-foreground sm:text-base">
                           Your profile is <span className={cn('font-bold', percentClass)}>{filled}% complete</span>
                         </p>
-                        <p className="text-[11px] font-medium text-muted-foreground">{missing.length} quick win{missing.length === 1 ? '' : 's'} left</p>
+                        <p className="text-[11px] font-medium text-muted-foreground sm:text-xs">
+                          {missing.length} quick win{missing.length === 1 ? '' : 's'} left
+                        </p>
                       </div>
-                      <div className="relative h-2 w-full overflow-hidden rounded-full bg-border">
+                      <div className="relative mt-3 h-2 w-full overflow-hidden rounded-full bg-border">
                         <div
                           className={cn('h-full rounded-full transition-all duration-500 ease-out', barClass)}
                           style={{ width: `${filled}%` }}
                         />
                       </div>
-                      <div className="mt-4 space-y-1.5">
+                      <div className="mt-5 flex flex-col gap-2.5">
                         {missing.slice(0, 3).map((m) => (
                           <button
                             key={m.key}
                             type="button"
                             onClick={actionFor[m.key]}
-                            className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent bg-background/60 px-3 py-2 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/5"
+                            className="group flex w-full items-center justify-between gap-4 rounded-xl border border-border/70 bg-background px-4 py-3 text-left text-sm text-foreground shadow-tinted-sm transition-colors hover:border-primary/40 hover:bg-primary/[0.04]"
                           >
-                            <span>{m.label}</span>
-                            <span className="shrink-0 text-[11px] font-semibold text-primary">+{m.weight}%</span>
+                            <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                            <span className="shrink-0 inline-flex items-center gap-1.5">
+                              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">+{m.weight}%</span>
+                              <ArrowRight size={14} className="text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -797,34 +686,6 @@ const Profile = () => {
                     <p className="mt-1.5 text-[11px] text-muted-foreground">Tap any section to edit. Changes go live immediately.</p>
                   </div>
                 )}
-
-                {/* Profile strength (pre-approval) */}
-                {studentProfile?.community_board_status !== 'approved' && (() => {
-                  const steps: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
-                    { id: 'photo', label: 'Profile photo', detail: 'Listings with a photo get far more clicks', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'skills', label: 'At least 3 skills', detail: 'Businesses search by skill — you won\'t show up without them', done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 3 },
-                    { id: 'rate', label: 'Hourly rate set', detail: 'People skip listings with no rate — they assume it\'s expensive', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 3 },
-                    { id: 'bio', label: 'Bio written', detail: 'A short intro builds trust before someone messages you', done: bio.trim().length >= 30, count: null, wizardStep: 2 },
-                    { id: 'link', label: 'Portfolio link', detail: 'Instagram, Behance, GitHub — link your actual work', done: workLinks.some(l => l.url.trim().length > 0), count: null, wizardStep: 2 },
-                  ];
-                  return renderChecklist(steps);
-                })()}
-
-                {/* Profile quality (post-approval) */}
-                {studentProfile?.community_board_status === 'approved' && (() => {
-                  const qualityChecks: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
-                    { id: 'photo', label: 'Profile photo', detail: 'Profiles with a real face get far more messages', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'banner', label: 'Cover photo', detail: 'No cover — your card looks plain without one', done: !!bannerUrl, count: null, wizardStep: 1 },
-                    { id: 'bio', label: 'Description', detail: bio.trim().length === 0 ? 'No description — businesses need to know what you offer' : `Too short (${bio.trim().length} chars — need 30+)`, done: bio.trim().length >= 30, count: null, wizardStep: 2 },
-                    { id: 'skills', label: 'At least 3 skills', detail: skills.length === 0 ? 'No skills — businesses search by skill to find you'
-                      : `${skills.length}/3 minimum — add ${3 - skills.length} more`, done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 3 },
-                    { id: 'rate', label: 'Rate set', detail: 'No rate shown — people skip listings with no price', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 3 },
-                    { id: 'link', label: 'Portfolio or social link', detail: 'Add a link to your Instagram, Behance, GitHub, etc.', done: workLinks.some((l) => l.url.trim().length > 0), count: null, wizardStep: 2 },
-                    { id: 'university', label: 'University', detail: 'Add your university — builds trust with businesses', done: !!university.trim(), count: null, wizardStep: 2 },
-                    { id: 'portfolio', label: 'Portfolio photos', detail: 'Add sample work photos — profiles with images get way more views', done: portfolioCount > 0, count: null, wizardStep: 1 },
-                  ];
-                  return renderChecklist(qualityChecks);
-                })()}
 
                 {/* ── Your Details card ── */}
                 <div>
