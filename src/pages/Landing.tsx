@@ -5,7 +5,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
-import { setGoogleOAuthIntent, clearGoogleOAuthIntent } from '@/lib/googleOAuth';
+import { setGoogleOAuthIntent, clearGoogleOAuthIntent, hasGoogleOAuthPending } from '@/lib/googleOAuth';
 import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -20,6 +20,7 @@ import {
   Monitor,
   Video,
   Camera,
+  Loader2,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -152,6 +153,23 @@ const Landing = () => {
   // Decorative scroll-driven motion (GSAP timelines, parallax, cursor glow,
   // number counter, text reveal) was removed to keep the landing page calm and
   // focused. The structural layout is unchanged.
+
+  // Brief splash when returning from Google OAuth — prevents the hero from
+  // flashing for 100–300ms on mobile while Supabase restores the session
+  // and tryFinishGoogleOAuthRedirect navigates the user to their destination.
+  const [returningFromOAuth] = React.useState(
+    () => (typeof window !== 'undefined' && hasGoogleOAuthPending()),
+  );
+
+  if (returningFromOAuth) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-background">
+        <img src={logo} alt="" className="h-12 w-12 rounded-xl" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+        <p className="text-sm text-muted-foreground">One sec…</p>
+      </div>
+    );
+  }
 
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
