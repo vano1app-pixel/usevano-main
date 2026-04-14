@@ -231,8 +231,44 @@ const StudentProfile = () => {
     </>
   );
 
+  // Sticky mobile hire bar — always-visible primary actions on small screens
+  // so a hirer never has to scroll back up to the hero CTAs. Mirrors the
+  // same state/handlers used in the inline hero action row.
+  const stickyMobileBar = !isBusiness && showHireActions && !viewerIsOwner && (
+    <div
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-3 py-2.5 shadow-[0_-6px_20px_-12px_rgba(0,0,0,0.25)] backdrop-blur-md sm:hidden"
+      style={{ paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom, 0px))' }}
+    >
+      {!user ? (
+        <a
+          href={`/auth?intent=quote&freelancer=${id}`}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92"
+        >
+          <MessageSquareQuote size={16} strokeWidth={2} /> Sign in to hire
+        </a>
+      ) : (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setQuoteOpen(true)}
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92"
+          >
+            <MessageSquareQuote size={16} strokeWidth={2} /> Message
+          </button>
+          <button
+            type="button"
+            onClick={() => setHireOpen(true)}
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-amber-500/50 bg-amber-500/10 text-sm font-semibold text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/15"
+          >
+            <Zap size={16} strokeWidth={2} /> Hire now
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
+    <div className="min-h-[100dvh] bg-background pb-28 sm:pb-16 md:pb-0">
       <SEOHead
         title={!isBusiness
           ? `${displayName} — ${student?.skills?.[0] ?? 'Freelancer'} in Galway`
@@ -419,7 +455,7 @@ const StudentProfile = () => {
                     View all <ArrowRight size={12} />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 p-4 sm:p-5">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 p-4 sm:p-5">
                   {portfolioItems.filter((i) => i.image_url).slice(0, 6).map((item, idx) => (
                     <button
                       key={item.id}
@@ -779,6 +815,8 @@ const StudentProfile = () => {
           />
         </>
       )}
+
+      {stickyMobileBar}
     </div>
   );
 };
