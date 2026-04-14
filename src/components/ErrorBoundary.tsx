@@ -29,6 +29,12 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.href = '/';
   };
 
+  goTo = (path: string) => {
+    // Reset state before navigating so the user doesn't stay stuck in the boundary.
+    this.setState({ hasError: false, message: '' });
+    window.location.href = path;
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -44,6 +50,24 @@ export class ErrorBoundary extends Component<Props, State> {
           >
             Back to home
           </button>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+            <span className="text-muted-foreground">or</span>
+            <button
+              type="button"
+              onClick={() => this.goTo('/students')}
+              className="rounded-lg px-3 py-1.5 font-medium text-primary hover:bg-primary/5"
+            >
+              Browse freelancers
+            </button>
+            <span className="text-muted-foreground/50">·</span>
+            <button
+              type="button"
+              onClick={() => this.goTo('/hire')}
+              className="rounded-lg px-3 py-1.5 font-medium text-primary hover:bg-primary/5"
+            >
+              Hire someone
+            </button>
+          </div>
         </div>
       );
     }

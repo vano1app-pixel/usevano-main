@@ -816,6 +816,7 @@ const Profile = () => {
                         onClick={async () => {
                           await navigator.clipboard.writeText(`${getSiteOrigin()}/u/${nameToSlug(displayName)}`);
                           setLinkCopied(true);
+                          toast({ title: 'Link copied' });
                           setTimeout(() => setLinkCopied(false), 2000);
                         }}
                         className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground transition-all duration-200 hover:border-foreground/20 hover:shadow-sm inline-flex items-center justify-center gap-1.5"

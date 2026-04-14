@@ -37,6 +37,24 @@ const NotFound = () => {
         <ArrowLeft size={16} strokeWidth={2.5} />
         Back to home
       </button>
+      <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+        <span className="text-muted-foreground">or</span>
+        <button
+          type="button"
+          onClick={() => navigate('/students')}
+          className="rounded-lg px-3 py-1.5 font-medium text-primary hover:bg-primary/5"
+        >
+          Browse freelancers
+        </button>
+        <span className="text-muted-foreground/50">·</span>
+        <button
+          type="button"
+          onClick={() => navigate('/hire')}
+          className="rounded-lg px-3 py-1.5 font-medium text-primary hover:bg-primary/5"
+        >
+          Hire someone
+        </button>
+      </div>
     </div>
   );
 };
