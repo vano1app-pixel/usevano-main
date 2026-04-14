@@ -787,6 +787,9 @@ export type Database = {
           skills: string[] | null
           student_verified: boolean
           tiktok_url: string | null
+          instagram_url: string | null
+          linkedin_url: string | null
+          website_url: string | null
           typical_budget_max: number | null
           typical_budget_min: number | null
           university: string | null
@@ -813,6 +816,9 @@ export type Database = {
           skills?: string[] | null
           student_verified?: boolean
           tiktok_url?: string | null
+          instagram_url?: string | null
+          linkedin_url?: string | null
+          website_url?: string | null
           typical_budget_max?: number | null
           typical_budget_min?: number | null
           university?: string | null
@@ -839,6 +845,9 @@ export type Database = {
           skills?: string[] | null
           student_verified?: boolean
           tiktok_url?: string | null
+          instagram_url?: string | null
+          linkedin_url?: string | null
+          website_url?: string | null
           typical_budget_max?: number | null
           typical_budget_min?: number | null
           university?: string | null

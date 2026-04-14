@@ -20,7 +20,9 @@ import {
 import {
   ArrowRight,
   Check,
+  CheckCircle2,
   ChevronLeft,
+  Copy,
   ImagePlus,
   Loader2,
   X,
@@ -35,7 +37,14 @@ import {
 } from '@/lib/communityCategories';
 import { SKILLS_BY_CATEGORY, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { formatCommunityBudget } from '@/lib/communityBudget';
-import { normalizeTikTokUrl, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
+import {
+  normalizeTikTokUrl,
+  normalizeInstagramUrl,
+  normalizeLinkedInUrl,
+  normalizeWebsiteUrl,
+  workLinksToJson,
+  type WorkLinkEntry,
+} from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
@@ -46,35 +55,40 @@ const STEP_LABELS = [
   'Your work',
   'Your story',
   'Your price',
+  'Review',
 ];
 
 const STEP_HEADINGS: Record<number, string> = {
   1: 'Show what you do',
   2: 'Tell them about you',
-  3: 'Set your price & go live',
+  3: 'Set your price',
+  4: 'Looks good?',
 };
 
 const STEP_DESCRIPTIONS: Record<number, string> = {
   1: 'Pick your category, upload a cover photo, and share a few samples of your best work.',
   2: 'Write a short pitch, add your contact details, and drop any links to past work.',
-  3: 'Set your price, pick your skills, and publish.',
+  3: 'Set your price and pick your skills.',
+  4: 'Quick check before you go live.',
 };
 
 // Percent shown at the top of each step. Numbers are intentionally
-// front-loaded — step 1 lands at 20% so the flow feels further along
-// than a literal 33% split, making the form feel lighter than it is.
+// front-loaded — step 1 lands at 15% so the flow feels further along
+// than a literal 25% split, making the form feel lighter than it is.
 const STEP_PROGRESS: Record<number, number> = {
-  1: 20,
-  2: 55,
-  3: 85,
+  1: 15,
+  2: 45,
+  3: 75,
+  4: 95,
 };
 
-// Legacy drafts can have step values from the old 7-step flow (0-6).
-// Migrate them forward so a user mid-draft isn't stranded.
+// Legacy drafts can have step values from the old 7-step flow (0-6) or the
+// pre-review 3-step flow. Migrate them forward so a user mid-draft isn't stranded.
 function migrateDraftStep(old: number): number {
   if (old <= 2) return 1;
   if (old <= 4) return 2;
-  return 3;
+  if (old <= 6) return 3;
+  return Math.min(old, STEP_LABELS.length);
 }
 
 /* ─── Student pricing caps ─── */
@@ -90,6 +104,9 @@ const hourlyCapFor = (cat: CommunityCategoryId | null): number =>
 export interface ListOnCommunityInitial {
   bannerUrl: string;
   tiktokUrl: string;
+  instagramUrl?: string;
+  linkedinUrl?: string;
+  websiteUrl?: string;
   workLinks: WorkLinkEntry[];
   skills: string[];
   serviceArea: string;
@@ -111,6 +128,9 @@ interface ListOnCommunityDraft {
   description: string;
   aboutMe: string;
   tiktokUrl: string;
+  instagramUrl: string;
+  linkedinUrl: string;
+  websiteUrl: string;
   workLinks: WorkLinkEntry[];
   serviceArea: string;
   university: string;
@@ -163,6 +183,9 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       description: typeof parsed.description === 'string' ? parsed.description : '',
       aboutMe: typeof parsed.aboutMe === 'string' ? parsed.aboutMe : '',
       tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
+      instagramUrl: typeof parsed.instagramUrl === 'string' ? parsed.instagramUrl : '',
+      linkedinUrl: typeof parsed.linkedinUrl === 'string' ? parsed.linkedinUrl : '',
+      websiteUrl: typeof parsed.websiteUrl === 'string' ? parsed.websiteUrl : '',
       workLinks: parseDraftWorkLinks(parsed.workLinks),
       serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
       university: typeof parsed.university === 'string' ? resolveUniversityKey(parsed.university) : '',
@@ -212,6 +235,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [description, setDescription] = useState('');
   const [aboutMe, setAboutMe] = useState('');
   const [tiktokUrl, setTiktokUrl] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [serviceArea, setServiceArea] = useState('');
   const [university, setUniversity] = useState('');
@@ -227,6 +253,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [expectedBonusAmount, setExpectedBonusAmount] = useState('');
   const [expectedBonusUnit, setExpectedBonusUnit] = useState<'percentage' | 'flat'>('percentage');
   const [submitting, setSubmitting] = useState(false);
+  const [published, setPublished] = useState<{ category: CommunityCategoryId; phone: string } | null>(null);
+  const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
@@ -239,6 +267,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
 
     setDraftReady(false);
+    setPublished(null);
+    setProfileLinkCopied(false);
     // Skip the info-only intro step — land directly on the category picker.
     // `startAtStep` (when provided by the caller) still takes precedence.
     setStep(startAtStep ?? 1);
@@ -260,6 +290,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setAboutMe(initial.bio || '');
     setUniversity(resolveUniversityKey(initial.university) || '');
     setTiktokUrl(initial.tiktokUrl || '');
+    setInstagramUrl(initial.instagramUrl || '');
+    setLinkedinUrl(initial.linkedinUrl || '');
+    setWebsiteUrl(initial.websiteUrl || '');
     setWorkLinks(
       initial.workLinks.some((r) => r.url.trim() || r.label.trim())
         ? initial.workLinks.map((r) => ({ ...r }))
@@ -309,6 +342,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setUniversity(resolveUniversityKey(draft.university) || '');
         if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
         setTiktokUrl(draft.tiktokUrl);
+        setInstagramUrl(draft.instagramUrl || '');
+        setLinkedinUrl(draft.linkedinUrl || '');
+        setWebsiteUrl(draft.websiteUrl || '');
         setWorkLinks(draft.workLinks);
         setServiceArea(draft.serviceArea);
         setRateUnit(draft.rateUnit);
@@ -342,6 +378,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       description,
       aboutMe,
       tiktokUrl,
+      instagramUrl,
+      linkedinUrl,
+      websiteUrl,
       workLinks,
       serviceArea,
       university,
@@ -374,6 +413,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     description,
     aboutMe,
     tiktokUrl,
+    instagramUrl,
+    linkedinUrl,
+    websiteUrl,
     workLinks,
     serviceArea,
     university,
@@ -398,21 +440,24 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
   const totalSteps = STEP_LABELS.length;
   const canNext = (): boolean => {
-    const isEditing = !!(initial as any).existingPost;
     switch (step) {
       case 1:
         // Your work: category + cover photo
         return category !== null && !!(bannerFile || bannerUrl);
       case 2:
-        // Your story: title + description + (phone + university required on new listings)
+        // Your story: title + description + phone + university (always required, also on edit)
         return (
           title.trim().length > 0 &&
           description.trim().length > 0 &&
-          (isEditing || (university.trim().length > 0 && phone.trim().length > 0))
+          university.trim().length > 0 &&
+          phone.trim().length > 0
         );
       case 3:
         // Your price + skills (at least 3 skills; price itself can be negotiable)
         return skills.length >= 3;
+      case 4:
+        // Review step is just a summary — Go live button enables when category + title are present.
+        return !!category && title.trim().length > 0;
       default:
         return true;
     }
@@ -607,6 +652,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
       const studentPatch: Record<string, unknown> = {
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
+        instagram_url: normalizeInstagramUrl(instagramUrl),
+        linkedin_url: normalizeLinkedInUrl(linkedinUrl),
+        website_url: normalizeWebsiteUrl(websiteUrl),
         work_links: workLinksToJson(workLinks) as unknown,
         service_area: serviceArea.trim() || null,
         typical_budget_min: tbMin,
@@ -614,7 +662,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         skills,
         hourly_rate,
         community_board_status: 'approved',
-        bio: aboutMe.trim() || description.trim(),
+        // Bio is the freelancer's personal "About you" line — keep it distinct from
+        // the work pitch (community_posts.description). If they leave it blank we
+        // store NULL so the profile page doesn't echo their pitch as their bio.
+        bio: aboutMe.trim() || null,
       };
       if (category === 'digital_sales') {
         const n = parseInt(initialClientsBrought, 10);
@@ -686,18 +737,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         }
       }
 
-      toast({
-        title: "You're live!",
-        description: 'Your listing is now visible on the Community board.',
-      });
       markUserActed();
       try {
         localStorage.removeItem(listOnCommunityDraftKey(userId));
       } catch {
         // Ignore storage restrictions - successful publish is the important part.
       }
-      onOpenChange(false);
-      onSubmittedForReview(category);
+      // Render the in-dialog success screen instead of closing immediately so the
+      // freelancer gets a clear "you're live" moment + share link + next steps.
+      // onSubmittedForReview is deferred until the user dismisses the success screen
+      // — see closeAfterPublish.
+      setPublished({ category, phone: phone.trim() });
     } catch (err: unknown) {
       logSupabaseError('ListOnCommunityWizard: publish', err);
       const msg = getSupabaseErrorMessage(err);
@@ -707,9 +757,105 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
   };
 
+  const publicProfilePath = `/students/${userId}`;
+  const publicProfileUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}${publicProfilePath}` : publicProfilePath;
+
+  const closeAfterPublish = () => {
+    if (published) {
+      onSubmittedForReview(published.category);
+    }
+    setPublished(null);
+    onOpenChange(false);
+  };
+
+  const handleCopyProfileLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicProfileUrl);
+      setProfileLinkCopied(true);
+      setTimeout(() => setProfileLinkCopied(false), 2000);
+    } catch {
+      // Clipboard can be blocked (insecure context, denied permission). Surface a toast
+      // so the user can copy the URL manually from the visible input below.
+      toast({
+        title: 'Copy failed',
+        description: 'Select the link below to copy it manually.',
+      });
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) closeAfterPublish(); else onOpenChange(true); }}>
       <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full isolate bg-background">
+        {published ? (
+          <>
+            <DialogHeader className="sr-only">
+              <DialogTitle>You&apos;re live</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-10 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/12 ring-1 ring-emerald-500/25">
+                <CheckCircle2 className="h-9 w-9 text-emerald-500" strokeWidth={2.25} />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">
+                  You&apos;re live on the {COMMUNITY_CATEGORIES[published.category].label} board
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Businesses can now message you.
+                  {published.phone && <> We&apos;ll text <span className="font-medium text-foreground">{published.phone}</span> when they do.</>}
+                </p>
+              </div>
+
+              <div className="w-full max-w-sm space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground text-left">Your public profile</p>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
+                  <Input
+                    readOnly
+                    value={publicProfileUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="h-8 flex-1 border-0 bg-transparent px-0 text-xs focus-visible:ring-0"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shrink-0 px-2 text-xs"
+                    onClick={handleCopyProfileLink}
+                  >
+                    {profileLinkCopied ? (
+                      <>
+                        <Check className="mr-1 h-3.5 w-3.5" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-1 h-3.5 w-3.5" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 border-t border-border bg-background px-5 py-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 rounded-xl"
+                onClick={closeAfterPublish}
+              >
+                Done
+              </Button>
+              <Button asChild type="button" className="h-11 flex-1 rounded-xl font-semibold">
+                <Link to={publicProfilePath} onClick={closeAfterPublish}>
+                  View my profile
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </>
+        ) : (
+        <>
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
@@ -858,7 +1004,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="lc-desc">About your work</Label>
+                <Label htmlFor="lc-desc">What you do</Label>
+                <p className="mt-1 text-xs text-muted-foreground">Shown on your listing card and on the board.</p>
                 <Textarea
                   id="lc-desc"
                   className="mt-1.5 min-h-[110px] text-sm"
@@ -877,7 +1024,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="lc-about">A bit about you <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Label htmlFor="lc-about">About you <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Shown on your profile page above your work — your background, why you do this. If you leave this blank, your profile page will just show your work pitch.
+                </p>
                 <Textarea
                   id="lc-about"
                   className="mt-1.5 min-h-[70px] text-sm"
@@ -891,7 +1041,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <div className="h-px bg-border" />
 
               <div>
-                <Label>Phone number {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
+                <Label>Phone number <span className="text-rose-500">*</span></Label>
                 <Input
                   type="tel"
                   className="mt-1.5 h-11"
@@ -902,7 +1052,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
               </div>
               <div>
-                <Label>University {!(initial as any).existingPost && <span className="text-rose-500">*</span>}</Label>
+                <Label>University <span className="text-rose-500">*</span></Label>
                 <Select value={university} onValueChange={setUniversity}>
                   <SelectTrigger className="mt-1.5 h-11">
                     <SelectValue placeholder="Select your university" />
@@ -932,6 +1082,36 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   placeholder="https://tiktok.com/@you or @you"
                   value={tiktokUrl}
                   onChange={(e) => setTiktokUrl(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Instagram <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Input
+                  className="mt-1.5 h-11"
+                  placeholder="@yourhandle"
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>LinkedIn <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Input
+                  className="mt-1.5 h-11"
+                  placeholder="https://linkedin.com/in/you"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                />
+                {linkedinUrl.trim() && !normalizeLinkedInUrl(linkedinUrl) && (
+                  <p className="mt-1 text-[11px] font-medium text-rose-500">Needs to be a full linkedin.com URL.</p>
+                )}
+              </div>
+              <div>
+                <Label>Website / portfolio URL <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Input
+                  className="mt-1.5 h-11"
+                  placeholder="yourname.com"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
                 />
               </div>
               <div>
@@ -1125,13 +1305,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 </div>
               )}
 
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                By clicking <span className="font-medium text-foreground">Go live</span>, you agree to our{' '}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Terms of Service</a>{' '}
-                and{' '}
-                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>.
-              </p>
-
               {/* Quick wins — conditional nudges that disappear as the user
                   fills the high-impact fields. Each row is a tap-target that
                   jumps back to the relevant screen so they don't get stuck. */}
@@ -1271,6 +1444,166 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               )}
             </div>
           )}
+
+          {/* ── Step 4: Review — final summary before publish ── */}
+          {step === 4 && category && (
+            <div className="space-y-5">
+              <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                Here&apos;s how your listing reads. Tap any row to jump back and edit.
+              </div>
+
+              {/* Summary list — every row links back to the relevant step. */}
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Category</p>
+                      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{COMMUNITY_CATEGORIES[category].label}</p>
+                    </div>
+                    <span className="self-center text-xs font-semibold text-primary">Edit</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Title &amp; pitch</p>
+                      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{title.trim() || '—'}</p>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{description.trim() || '—'}</p>
+                    </div>
+                    <span className="self-center text-xs font-semibold text-primary">Edit</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Contact</p>
+                      <p className="mt-0.5 truncate text-sm font-medium text-foreground">
+                        {phone.trim() ? phone.trim().replace(/\d(?=\d{2})/g, '•') : 'No phone'}
+                        <span className="mx-1.5 text-muted-foreground/40">·</span>
+                        {university.trim() ? (
+                          <span className="text-foreground/80">{university.trim()}</span>
+                        ) : (
+                          <span className="text-rose-500">No university</span>
+                        )}
+                      </p>
+                    </div>
+                    <span className="self-center text-xs font-semibold text-primary">Edit</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Links</p>
+                      <p className="mt-0.5 text-sm text-foreground">
+                        {(() => {
+                          const parts: string[] = [];
+                          if (tiktokUrl.trim()) parts.push('TikTok');
+                          if (instagramUrl.trim()) parts.push('Instagram');
+                          if (linkedinUrl.trim()) parts.push('LinkedIn');
+                          if (websiteUrl.trim()) parts.push('Website');
+                          const workCount = workLinks.filter((l) => l.url.trim()).length;
+                          if (workCount > 0) parts.push(`${workCount} work link${workCount === 1 ? '' : 's'}`);
+                          return parts.length ? parts.join(' · ') : <span className="text-muted-foreground">None added</span>;
+                        })()}
+                      </p>
+                    </div>
+                    <span className="self-center text-xs font-semibold text-primary">Edit</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Pricing</p>
+                      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{previewBudget.label}</p>
+                    </div>
+                    <span className="self-center text-xs font-semibold text-primary">Edit</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Skills</p>
+                      <p className={cn(
+                        'mt-0.5 text-sm font-medium',
+                        skills.length >= 3 ? 'text-foreground' : 'text-rose-500',
+                      )}>
+                        {skills.length} selected{skills.length < 3 ? ` · need ${3 - skills.length} more` : ''}
+                      </p>
+                    </div>
+                    <span className="self-center text-xs font-semibold text-primary">Edit</span>
+                  </button>
+                </li>
+              </ul>
+
+              {/* Re-surface the same "Quick wins" warnings from Step 3 so users
+                  don't publish a half-finished listing without realising. */}
+              {(() => {
+                const hasBanner = !!(bannerFile || bannerUrl);
+                const workSampleCount =
+                  listingFiles.length + listingPreviews.filter((p) => p.startsWith('http')).length;
+                const hasEnoughSamples = workSampleCount >= 3;
+                const hasEnoughDesc = description.trim().length >= 100;
+                const nudges: { key: string; msg: string; target: number }[] = [];
+                if (!hasBanner) nudges.push({ key: 'banner', msg: 'No cover photo — listings with one get 3× more messages', target: 1 });
+                if (!hasEnoughSamples) nudges.push({ key: 'samples', msg: 'Fewer than 3 work samples — profiles with 3+ get 50% more clicks', target: 1 });
+                if (description.trim().length > 0 && !hasEnoughDesc) nudges.push({ key: 'desc', msg: 'Pitch is short — longer descriptions help businesses see your expertise', target: 2 });
+                if (nudges.length === 0) return null;
+                return (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400 mb-2">Worth fixing first</p>
+                    <ul className="space-y-1.5">
+                      {nudges.map((n) => (
+                        <li key={n.key} className="flex items-start gap-2">
+                          <span className="mt-0.5 text-amber-500">✦</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-foreground leading-relaxed">{n.msg}</p>
+                            <button
+                              type="button"
+                              onClick={() => setStep(n.target)}
+                              className="mt-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
+                            >
+                              Go fix →
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                By clicking <span className="font-medium text-foreground">Go live</span>, you agree to our{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Terms of Service</a>{' '}
+                and{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 border-t border-border bg-background px-5 py-4">
@@ -1297,7 +1630,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               onClick={() => setStep((s) => s + 1)}
               disabled={!canNext()}
             >
-              Continue
+              {step === totalSteps - 1 ? 'Review' : 'Continue'}
               <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
@@ -1305,7 +1638,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               type="button"
               className="h-11 flex-1 rounded-xl font-semibold"
               onClick={publish}
-              disabled={submitting || !category || !title.trim()}
+              disabled={submitting || !category || !title.trim() || skills.length < 3}
             >
               {submitting ? (
                 <>
@@ -1318,6 +1651,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
             </Button>
           )}
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );
