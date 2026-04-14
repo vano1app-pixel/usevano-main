@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image, LogOut } from 'lucide-react';
 import { PortfolioManager } from '@/components/PortfolioManager';
+import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
 import { ModBadge } from '@/components/ModBadge';
@@ -51,6 +52,8 @@ const Profile = () => {
   const [myGigs, setMyGigs] = useState<any[]>([]);
   const [deletingGig, setDeletingGig] = useState<string | null>(null);
   const [tiktokUrl, setTiktokUrl] = useState('');
+  const [expectedBonusAmount, setExpectedBonusAmount] = useState('');
+  const [expectedBonusUnit, setExpectedBonusUnit] = useState<'percentage' | 'flat'>('percentage');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [bannerUrl, setBannerUrl] = useState('');
   const [serviceArea, setServiceArea] = useState('');
@@ -77,8 +80,10 @@ const Profile = () => {
     bio,
     university,
     phone,
+    expectedBonusAmount,
+    expectedBonusUnit,
     existingPost: existingPost ?? null,
-  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, existingPost]);
+  }), [bannerUrl, tiktokUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, expectedBonusAmount, expectedBonusUnit, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -131,6 +136,12 @@ const Profile = () => {
           setUniversity(resolveUniversityKey((sp as any).university) || '');
           setPaymentDetails((sp as any).payment_details || '');
           setTiktokUrl(sp.tiktok_url || '');
+          {
+            const amt = (sp as any).expected_bonus_amount;
+            setExpectedBonusAmount(amt != null && amt > 0 ? String(amt) : '');
+            const unit = (sp as any).expected_bonus_unit;
+            setExpectedBonusUnit(unit === 'flat' ? 'flat' : 'percentage');
+          }
           setBannerUrl((sp as any).banner_url || '');
           setServiceArea((sp as any).service_area || '');
           setTypicalBudgetMin(
@@ -878,6 +889,13 @@ const Profile = () => {
                 <div>
                   <PortfolioManager userId={user.id} />
                 </div>
+
+                {/* ── Clients I brought (digital_sales only) ── */}
+                {existingPost?.category === 'digital_sales' && user?.id && (
+                  <div>
+                    <SalesReferralsPanel mode="sales" currentUserId={user.id} />
+                  </div>
+                )}
 
                 {/* Shareable profile link — sidebar on desktop */}
                 {displayName && (

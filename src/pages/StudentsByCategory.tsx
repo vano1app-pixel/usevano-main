@@ -4,14 +4,14 @@ import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { breadcrumbSchema } from '@/lib/structuredData';
-import { ArrowLeft, Monitor, Video, Megaphone, Camera } from 'lucide-react';
+import { ArrowLeft, Monitor, Video, Megaphone, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
 
 const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
-  photography: { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera },
+  digital_sales: { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp },
   websites:    { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor },
   social_media:{ label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone },
 };
@@ -19,13 +19,13 @@ const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; i
 const CAT_KEYWORDS: Record<CommunityCategoryId, string[]> = {
   websites:     ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify', 'react', 'next', 'figma', 'typescript', 'tailwind', 'supabase', 'webflow', 'framer'],
   videography:  ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo', 'colour grading', 'wedding film', 'corporate video'],
-  photography:  ['photo', 'photography', 'photographer', 'portrait', 'headshot', 'lightroom', 'product photo', 'brand photo', 'food photo', 'event photo', 'wedding photo'],
+  digital_sales: ['sales', 'sdr', 'bdr', 'cold call', 'cold email', 'outbound', 'lead gen', 'lead generation', 'prospect', 'closing', 'saas sales', 'b2b', 'appointment setting', 'linkedin prospecting', 'crm', 'hubspot', 'salesforce', 'negotiation'],
   social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy', 'linkedin', 'copywriting'],
 };
 
 function primaryCategoryForStudent(student: any, displayName: string): CommunityCategoryId {
   const text = `${displayName} ${student.bio || ''} ${(student.skills || []).join(' ')}`.toLowerCase();
-  const order: CommunityCategoryId[] = ['websites', 'videography', 'photography', 'social_media'];
+  const order: CommunityCategoryId[] = ['websites', 'videography', 'digital_sales', 'social_media'];
   let best: CommunityCategoryId = 'websites';
   let bestScore = 0;
   for (const cat of order) {

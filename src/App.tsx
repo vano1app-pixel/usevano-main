@@ -104,10 +104,11 @@ const App = () => {
             <Route path="/hire" element={<P><HirePage /></P>} />
             <Route path="/jobs/:id" element={<P><JobDetail /></P>} />
             <Route path="/students" element={<P><BrowseStudents /></P>} />
-            <Route path="/students/videography"  element={<P><StudentsByCategory categoryId="videography" /></P>} />
-            <Route path="/students/photography"  element={<P><StudentsByCategory categoryId="photography" /></P>} />
-            <Route path="/students/websites"     element={<P><StudentsByCategory categoryId="websites" /></P>} />
-            <Route path="/students/social_media" element={<P><StudentsByCategory categoryId="social_media" /></P>} />
+            <Route path="/students/videography"   element={<P><StudentsByCategory categoryId="videography" /></P>} />
+            <Route path="/students/digital_sales" element={<P><StudentsByCategory categoryId="digital_sales" /></P>} />
+            <Route path="/students/photography"   element={<Navigate to="/students/digital_sales" replace />} />
+            <Route path="/students/websites"      element={<P><StudentsByCategory categoryId="websites" /></P>} />
+            <Route path="/students/social_media"  element={<P><StudentsByCategory categoryId="social_media" /></P>} />
             <Route path="/students/:id" element={<P><StudentProfilePage /></P>} />
             <Route
               path="/profile"

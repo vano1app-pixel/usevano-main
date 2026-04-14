@@ -17,7 +17,7 @@ export function organizationSchema(): JsonLd {
     logo: `${ORIGIN}/pwa-512x512.png`,
     image: `${ORIGIN}/og.svg`,
     description:
-      "VANO connects Galway businesses with local freelancers and student talent for videography, photography, web design, social media and more.",
+      "VANO connects Galway businesses with local freelancers and student talent for digital sales, videography, web design, social media and more.",
     areaServed: {
       '@type': 'City',
       name: 'Galway',
@@ -47,7 +47,7 @@ export function websiteSchema(): JsonLd {
 
 export interface BreadcrumbItem {
   name: string;
-  /** Path relative to origin, e.g. "/students/photography". */
+  /** Path relative to origin, e.g. "/students/digital_sales". */
   path: string;
 }
 

@@ -15,7 +15,7 @@ import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
 import { markUserActed } from '@/lib/userActivity';
 import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
-  Video, Camera, Monitor, Megaphone, HelpCircle,
+  Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
   Shield, Zap, Check,
 } from 'lucide-react';
@@ -25,7 +25,7 @@ import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 
 const CATEGORIES = [
   { id: 'videography', label: 'Video', icon: Video, starter: 'I need a video for ', keywords: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo'] },
-  { id: 'photography', label: 'Photo', icon: Camera, starter: 'I need photos for ', keywords: ['photo', 'photography', 'photographer', 'portrait', 'headshot', 'lightroom', 'product photo', 'brand photo'] },
+  { id: 'digital_sales', label: 'Sales', icon: TrendingUp, starter: 'I need help selling / bringing clients for ', keywords: ['sales', 'sdr', 'bdr', 'cold call', 'cold email', 'outbound', 'lead gen', 'lead generation', 'prospect', 'closing', 'b2b', 'saas sales'] },
   { id: 'websites', label: 'Website', icon: Monitor, starter: 'I need a website for ', keywords: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'] },
   { id: 'social_media', label: 'Social Media', icon: Megaphone, starter: 'I need help with social media for ', keywords: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'] },
   { id: 'other', label: 'Other', icon: HelpCircle, starter: '', keywords: [] },
@@ -83,7 +83,7 @@ const PRICING_PACKAGES = [
     price: '349',
     period: '/mo',
     features: [
-      'Professional photo shoot',
+      'Outbound sales campaign',
       'Short-form video content',
       'Editing & post-production',
       'Brand-ready deliverables',
@@ -636,8 +636,8 @@ const HirePage = () => {
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       <SEOHead
         title="Hire a Freelancer in Galway — Post a Gig"
-        description="Tell VANO what you need. Get matched with affordable, motivated freelance talent in Galway in seconds — videography, photography, web, social and more."
-        keywords="hire freelancer galway, post a gig galway, find videographer galway, find photographer galway, hire web designer galway"
+        description="Tell VANO what you need. Get matched with affordable, motivated freelance talent in Galway in seconds — digital sales, videography, web, social and more."
+        keywords="hire freelancer galway, post a gig galway, find videographer galway, hire sales rep galway, hire web designer galway"
       />
       <Navbar />
 

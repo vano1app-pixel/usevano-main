@@ -161,7 +161,7 @@ const StudentProfile = () => {
 
   const categoryLabels: Record<string, string> = {
     videography: 'Videography',
-    photography: 'Photography',
+    digital_sales: 'Digital Sales',
     websites: 'Web & Design',
     social_media: 'Social Media',
   };
@@ -169,6 +169,15 @@ const StudentProfile = () => {
 
   const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
   const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
+  const expectedBonusLabel = (() => {
+    const amount = (student as any)?.expected_bonus_amount;
+    const unit = (student as any)?.expected_bonus_unit;
+    if (amount == null || Number(amount) <= 0) return null;
+    const n = Number(amount);
+    if (unit === 'flat') return `€${n.toFixed(0)} per closed client`;
+    if (unit === 'percentage') return `${n}% of each closed deal`;
+    return null;
+  })();
 
   // Freelancer-profile action buttons.
   // - Viewer is NOT the freelancer themselves AND profile is a freelancer:
@@ -379,6 +388,14 @@ const StudentProfile = () => {
                   {categoryLabel && (
                     <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/20">
                       {categoryLabel}
+                    </span>
+                  )}
+                  {expectedBonusLabel && (
+                    <span
+                      title="Bonus this rep expects on top of their hourly retainer"
+                      className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/20"
+                    >
+                      Expects {expectedBonusLabel}
                     </span>
                   )}
                   {/* Quality-tier badge — only shown for 100% profiles.

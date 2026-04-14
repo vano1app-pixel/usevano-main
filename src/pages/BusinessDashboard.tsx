@@ -12,6 +12,8 @@ import {
   MessagesSquare,
   Heart,
 } from 'lucide-react';
+import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
+import { MyTeamPanel } from '@/components/MyTeamPanel';
 import {
   BarChart,
   Bar,
@@ -85,6 +87,9 @@ interface JobRow {
   hourly_rate: number;
   fixed_price: number | null;
   payment_type: string | null;
+  payment_amount?: number | null;
+  completed_at?: string | null;
+  shift_date?: string | null;
   created_at: string;
 }
 
@@ -118,6 +123,7 @@ interface RecentConvo {
 export default function BusinessDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
@@ -139,6 +145,7 @@ export default function BusinessDashboard() {
         return;
       }
       const uid = session.user.id;
+      if (!cancelled) setUid(uid);
 
       // Profile
       const { data: prof } = await supabase
@@ -158,7 +165,7 @@ export default function BusinessDashboard() {
       // Jobs
       const { data: jobRows } = await supabase
         .from('jobs')
-        .select('id, title, status, hourly_rate, fixed_price, payment_type, created_at')
+        .select('id, title, status, hourly_rate, fixed_price, payment_type, payment_amount, completed_at, shift_date, created_at')
         .eq('posted_by', uid)
         .order('created_at', { ascending: false });
 
@@ -761,6 +768,40 @@ export default function BusinessDashboard() {
                     </div>
                   </CardContent>
                 </Card>
+              </motion.div>
+            </motion.section>
+          )}
+
+          {/* ── Sales Referrals ── */}
+          {uid && (
+            <motion.section
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-10"
+            >
+              <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+                Sales Referrals
+              </motion.p>
+              <motion.div variants={fadeUp}>
+                <SalesReferralsPanel mode="business" currentUserId={uid} />
+              </motion.div>
+            </motion.section>
+          )}
+
+          {/* ── My Team ── */}
+          {uid && (
+            <motion.section
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-10"
+            >
+              <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+                My Team
+              </motion.p>
+              <motion.div variants={fadeUp}>
+                <MyTeamPanel currentUserId={uid} jobs={jobs} applications={applications} />
               </motion.div>
             </motion.section>
           )}

@@ -20,7 +20,7 @@ import {
   CircleUser,
   Monitor,
   Video,
-  Camera,
+  TrendingUp,
   Loader2,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
@@ -66,7 +66,7 @@ const Landing = () => {
   const catKeywords: Record<string, string[]> = {
     websites: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
     videography: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo'],
-    photography: ['photo', 'photography', 'photographer', 'portrait', 'headshot', 'lightroom', 'product photo', 'brand photo'],
+    digital_sales: ['sales', 'sdr', 'bdr', 'cold call', 'cold email', 'outbound', 'lead gen', 'lead generation', 'prospect', 'closing', 'b2b', 'saas sales'],
     social_media: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
   };
 
@@ -175,9 +175,9 @@ const Landing = () => {
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Hire Galway Freelancers — Videography, Photography, Web & Social"
-        description="VANO connects Galway businesses with local freelancers for videography, photography, web design and social media. Post a shift and get the work done."
-        keywords="galway freelancers, hire students galway, videography galway, photography galway, web design galway, social media galway, gig work ireland"
+        title="Hire Galway Freelancers — Videography, Digital Sales, Web & Social"
+        description="VANO connects Galway businesses with local freelancers for digital sales, videography, web design and social media. Post a shift and get the work done."
+        keywords="galway freelancers, hire students galway, videography galway, digital sales galway, web design galway, social media galway, gig work ireland"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
       <Navbar />
@@ -199,7 +199,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-8 leading-relaxed">
-            Connect with Galway's best freelancers for videography, photography, web design, and more.
+            Connect with Galway's best freelancers for digital sales, videography, web design, and more.
           </p>
           <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -252,13 +252,16 @@ const Landing = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' },
-              { label: 'Photography', sub: 'Events, brands & portraits', icon: Camera, cat: 'photography', image: '/cat-photography.png' },
+              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-photography.png' },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' },
             ].map((item) => {
               // Image paths derived from the naming convention used in /public.
               // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.
+              // digital_sales reuses the photography image assets as a placeholder
+              // until a dedicated cat-digital_sales.png/webp set is uploaded.
               const slug = item.cat;
+              const imageSlug = item.cat === 'digital_sales' ? 'photography' : slug;
               return (
                 <button
                   data-cat-card
@@ -271,7 +274,7 @@ const Landing = () => {
                   <picture className="absolute inset-0 h-full w-full pointer-events-none">
                     <source
                       type="image/webp"
-                      srcSet={`/cat-${slug}-400.webp 400w, /cat-${slug}-800.webp 800w`}
+                      srcSet={`/cat-${imageSlug}-400.webp 400w, /cat-${imageSlug}-800.webp 800w`}
                       sizes="(max-width: 640px) 50vw, 25vw"
                     />
                     <img

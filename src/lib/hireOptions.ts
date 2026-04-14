@@ -18,7 +18,7 @@ export const HIRE_BUDGETS = [
 
 export const HIRE_CATEGORY_STARTERS: Record<string, string> = {
   videography: 'I need a video for ',
-  photography: 'I need photos for ',
+  digital_sales: 'I need help selling / bringing clients for ',
   websites: 'I need a website for ',
   social_media: 'I need help with social media for ',
 };
