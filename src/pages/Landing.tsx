@@ -252,13 +252,16 @@ const Landing = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' },
-              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-digital_sales.png' },
+              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-photography.png' },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' },
               { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' },
             ].map((item) => {
               // Image paths derived from the naming convention used in /public.
               // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.
+              // digital_sales reuses the photography image assets as a placeholder
+              // until a dedicated cat-digital_sales.png/webp set is uploaded.
               const slug = item.cat;
+              const imageSlug = item.cat === 'digital_sales' ? 'photography' : slug;
               return (
                 <button
                   data-cat-card
@@ -271,7 +274,7 @@ const Landing = () => {
                   <picture className="absolute inset-0 h-full w-full pointer-events-none">
                     <source
                       type="image/webp"
-                      srcSet={`/cat-${slug}-400.webp 400w, /cat-${slug}-800.webp 800w`}
+                      srcSet={`/cat-${imageSlug}-400.webp 400w, /cat-${imageSlug}-800.webp 800w`}
                       sizes="(max-width: 640px) 50vw, 25vw"
                     />
                     <img
