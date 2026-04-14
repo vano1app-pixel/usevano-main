@@ -669,7 +669,9 @@ const HirePage = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* ── Done-for-you pricing packages ── */}
+        {/* ── Done-for-you pricing packages (step 3 only — don't distract
+             from the brief while it's being filled in) ── */}
+        {step === 3 && (
         <div className="mt-14 border-t border-foreground/[0.06] pt-10 mb-4">
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Done for you
@@ -728,6 +730,7 @@ const HirePage = () => {
             ))}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

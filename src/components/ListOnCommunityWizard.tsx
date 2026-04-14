@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -205,8 +204,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
@@ -722,7 +719,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setCategory(id)}
+                      onClick={() => {
+                        setCategory(id);
+                        // Auto-advance to step 2 on pick — same pattern as
+                        // HirePage's timeline/budget chips. User can use
+                        // Back if they change their mind.
+                        setStep(2);
+                      }}
                       className={cn(
                         'flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all',
                         sel
@@ -1041,30 +1044,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 We&apos;ll save your profile details (banner, links, location, skills, rates) and{' '}
                 <span className="font-medium text-foreground">publish your listing immediately</span>. It will be visible on the Community board right away.
               </div>
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <Checkbox
-                    checked={agreedToTerms}
-                    onCheckedChange={(v) => setAgreedToTerms(v === true)}
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs text-muted-foreground leading-relaxed">
-                    I agree to the{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Terms of Service</a>
-                  </span>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <Checkbox
-                    checked={agreedToPrivacy}
-                    onCheckedChange={(v) => setAgreedToPrivacy(v === true)}
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs text-muted-foreground leading-relaxed">
-                    I agree to the{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>
-                  </span>
-                </label>
-              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                By clicking <span className="font-medium text-foreground">Go live</span>, you agree to our{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Terms of Service</a>{' '}
+                and{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-2">Privacy Policy</a>.
+              </p>
               <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -1198,7 +1183,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               type="button"
               className="h-11 flex-1 rounded-xl font-semibold"
               onClick={publish}
-              disabled={submitting || !category || !title.trim() || !agreedToTerms || !agreedToPrivacy}
+              disabled={submitting || !category || !title.trim()}
             >
               {submitting ? (
                 <>
