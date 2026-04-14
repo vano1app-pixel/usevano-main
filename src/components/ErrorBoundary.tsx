@@ -9,7 +9,21 @@ interface State {
   message: string;
 }
 
+// Recoverable DOM-race errors (browser extensions, AnimatePresence races).
+// applyDomSafeguards() in main.tsx catches these at the source, but we
+// belt-and-suspenders here: if one still slips through, auto-retry once
+// rather than crashing the user onto the fallback screen.
+function isRecoverableDomError(message: string): boolean {
+  return (
+    /removeChild/i.test(message) ||
+    /insertBefore/i.test(message) ||
+    /The node to be removed is not a child of this node/i.test(message)
+  );
+}
+
 export class ErrorBoundary extends Component<Props, State> {
+  private autoRetried = false;
+
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, message: '' };
@@ -21,7 +35,18 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: unknown, info: { componentStack: string }) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error('[ErrorBoundary]', error, info.componentStack);
+
+    // Transient DOM race — reset state once to re-render. If it happens
+    // again on the retry, the fallback UI will show.
+    if (!this.autoRetried && isRecoverableDomError(message)) {
+      this.autoRetried = true;
+      // Defer to the next microtask so the bad DOM state has a chance to settle.
+      queueMicrotask(() => {
+        this.setState({ hasError: false, message: '' });
+      });
+    }
   }
 
   handleReset = () => {
