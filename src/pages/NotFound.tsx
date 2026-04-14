@@ -17,6 +17,7 @@ const NotFound = () => {
       <SEOHead
         title="404 – Page not found · VANO"
         description="The page you're looking for doesn't exist. Return to the VANO home page."
+        noindex
       />
       <div className="flex items-center gap-2">
         <img src={logo} alt="VANO" className="h-9 w-9 rounded-xl" />

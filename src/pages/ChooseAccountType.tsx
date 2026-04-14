@@ -109,6 +109,7 @@ const ChooseAccountType = () => {
       <SEOHead
         title="Choose account type – VANO"
         description="Select whether you are joining as a freelancer or a business."
+        noindex
       />
       <div className="w-full max-w-md space-y-8">
         <OnboardingJourney currentPage={2} />

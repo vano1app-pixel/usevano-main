@@ -456,7 +456,7 @@ const Messages = () => {
 
   return (
     <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
-      <SEOHead title="Messages – VANO" description="Chat with businesses and students on VANO." />
+      <SEOHead title="Messages – VANO" description="Chat with businesses and students on VANO." noindex />
       <Navbar />
       <div className="max-w-5xl mx-auto px-0 sm:px-4 md:px-8 pt-16 sm:pt-20 pb-0 sm:pb-4">
         <div className="flex h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-6rem)] overflow-hidden border-0 bg-card sm:rounded-2xl sm:border sm:border-border">

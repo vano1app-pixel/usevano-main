@@ -132,7 +132,7 @@ const CompleteProfile = () => {
 
   return (
     <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-8">
-      <SEOHead title="Almost there – VANO" description="Tell us what you do so businesses can find you" />
+      <SEOHead title="Almost there – VANO" description="Tell us what you do so businesses can find you" noindex />
       <div className="w-full max-w-md">
         <OnboardingJourney currentPage={3} className="mb-4" />
         <div className="text-center mb-8">

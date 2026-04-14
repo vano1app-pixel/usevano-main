@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
+import { articleSchema } from '@/lib/structuredData';
+import { getCanonicalUrl } from '@/lib/siteUrl';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Target, LayoutDashboard, Trophy, MessageCircle, Shield, Users, Calendar, Briefcase, Image, CheckCheck, Bell, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -91,9 +93,18 @@ const BlogPost = () => {
   return (
     <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
       <SEOHead
-        title="VANO v1.5 — What's New"
-        description="Introducing VANO v1.5: smoother UI, Google sign-in, verified Community listings, and faster performance."
-        keywords="vano, v1.5, changelog, update, features, galway, freelance"
+        title="VANO v1.5 — What's New for Galway Freelancers"
+        description="Introducing VANO v1.5: smoother UI, Google sign-in, verified Community listings, and faster performance for Galway businesses and freelancers."
+        keywords="vano, v1.5, changelog, update, features, galway, freelance, release notes"
+        type="article"
+        publishedTime="2026-03-08T09:00:00+00:00"
+        jsonLd={articleSchema({
+          headline: 'Introducing VANO v1.5',
+          description: 'Smoother UI, Google sign-in, verified Community listings, and faster performance for Galway businesses and freelancers.',
+          url: getCanonicalUrl(),
+          datePublished: '2026-03-08T09:00:00+00:00',
+          authorName: 'VANO Team',
+        })}
       />
       <Navbar />
 

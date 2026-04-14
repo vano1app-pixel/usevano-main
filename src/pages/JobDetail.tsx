@@ -7,6 +7,8 @@ import { ReviewForm } from '@/components/ReviewForm';
 import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
+import { jobPostingSchema } from '@/lib/structuredData';
+import { getCanonicalUrl } from '@/lib/siteUrl';
 import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Trash2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -171,7 +173,22 @@ const JobDetail = () => {
 
   return (
     <div className="min-h-[100dvh] bg-background pb-16 md:pb-0">
-      <SEOHead title={`${job.title} – VANO`} description={job.description?.substring(0, 160)} />
+      <SEOHead
+        title={`${job.title} — Galway gig on VANO`}
+        description={(job.description || `Apply for ${job.title} on VANO — local freelance gig in Galway.`).substring(0, 160)}
+        keywords={`${job.title}, galway gig, freelance galway, ${job.is_urgent ? 'urgent gig galway, ' : ''}vano jobs`}
+        jsonLd={jobPostingSchema({
+          title: job.title,
+          description: job.description || job.title,
+          datePosted: job.created_at,
+          validThrough: job.shift_date,
+          hiringOrgName: poster?.display_name || null,
+          url: getCanonicalUrl(),
+          budget: job.hourly_rate ?? null,
+          budgetCurrency: 'EUR',
+          employmentType: 'CONTRACTOR',
+        })}
+      />
       <Navbar />
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
         <button onClick={() => navigate('/hire')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 transition-colors">

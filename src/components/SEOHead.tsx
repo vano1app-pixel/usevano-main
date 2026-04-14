@@ -1,12 +1,24 @@
 import { Helmet } from 'react-helmet-async';
 import { getCanonicalUrl, getSiteOrigin } from '@/lib/siteUrl';
 
+type OgType = 'website' | 'article' | 'profile';
+
 interface SEOHeadProps {
   title: string;
   description: string;
   keywords?: string;
   image?: string;
   url?: string;
+  /** When true, emits robots noindex,nofollow — use for auth/private pages. */
+  noindex?: boolean;
+  /** Open Graph type. Defaults to "website". */
+  type?: OgType;
+  /** ISO 8601 datetime — used for og:article:published_time on article pages. */
+  publishedTime?: string;
+  /** ISO 8601 datetime — used for og:article:modified_time on article pages. */
+  modifiedTime?: string;
+  /** One or more JSON-LD objects to inject as <script type="application/ld+json">. */
+  jsonLd?: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
 function toAbsoluteImage(image: string): string {
@@ -21,10 +33,16 @@ export const SEOHead = ({
   keywords = 'VANO, Galway, freelancers, gigs, local jobs, hire students, community',
   image = '/og.svg',
   url: urlProp,
+  noindex = false,
+  type = 'website',
+  publishedTime,
+  modifiedTime,
+  jsonLd,
 }: SEOHeadProps) => {
   const fullTitle = `${title} | VANO`;
   const url = urlProp ?? getCanonicalUrl();
   const ogImageAbsolute = toAbsoluteImage(image);
+  const jsonLdArray = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 
   return (
     <Helmet>
@@ -35,13 +53,25 @@ export const SEOHead = ({
       {keywords && <meta name="keywords" content={keywords} />}
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <link rel="canonical" href={url} />
+      <meta
+        name="robots"
+        content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1'}
+      />
 
       {/* Open Graph / Facebook */}
-      <meta property="og:type" content="website" />
+      <meta property="og:type" content={type} />
+      <meta property="og:site_name" content="VANO" />
+      <meta property="og:locale" content="en_IE" />
       <meta property="og:url" content={url} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={ogImageAbsolute} />
+      {type === 'article' && publishedTime && (
+        <meta property="article:published_time" content={publishedTime} />
+      )}
+      {type === 'article' && modifiedTime && (
+        <meta property="article:modified_time" content={modifiedTime} />
+      )}
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
@@ -49,6 +79,13 @@ export const SEOHead = ({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImageAbsolute} />
+
+      {/* Structured data */}
+      {jsonLdArray.map((schema, i) => (
+        <script key={i} type="application/ld+json">
+          {JSON.stringify(schema)}
+        </script>
+      ))}
     </Helmet>
   );
 };

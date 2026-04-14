@@ -78,6 +78,7 @@ const Auth = () => {
       <SEOHead
         title={`${isLogin ? 'Log in' : 'Create account'} – VANO`}
         description="Log in or sign up for VANO — local gigs and freelancers in Galway."
+        noindex
       />
       <div className="w-full max-w-md">
         {!isLogin && <OnboardingJourney currentPage={1} className="mb-4" />}

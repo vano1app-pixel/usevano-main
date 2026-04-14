@@ -187,6 +187,7 @@ const HireRequestsPage: React.FC = () => {
       <SEOHead
         title="Hire Requests — VANO"
         description="Respond to direct hire requests from businesses."
+        noindex
       />
       <Navbar />
 

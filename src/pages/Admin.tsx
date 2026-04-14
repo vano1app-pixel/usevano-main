@@ -428,7 +428,7 @@ const Admin = () => {
   if (needsAdminPassword && !passwordGateOk) {
     return (
       <div className="min-h-screen bg-background pb-16 md:pb-0">
-        <SEOHead title="Admin – VANO" description="Restricted" />
+        <SEOHead title="Admin – VANO" description="Restricted" noindex />
         <Navbar />
         <div className="max-w-sm mx-auto px-4 pt-28 pb-12">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
@@ -473,7 +473,7 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <SEOHead title="Mod Dashboard – VANO" description="Moderate users, gigs, and events" />
+      <SEOHead title="Mod Dashboard – VANO" description="Moderate users, gigs, and events" noindex />
       <Navbar />
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12">
