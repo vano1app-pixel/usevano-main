@@ -1,16 +1,22 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { useAuthSession } from '@/hooks/useAuthSession';
+import { useAuth } from '@/hooks/useAuthContext';
 
 /**
  * Renders children only when there is a session with a confirmed email.
  * Otherwise redirects to /auth (with state for OTP continuation).
+ *
+ * Reads from the shared AuthProvider (mounted once at app root) rather than
+ * spinning up a new supabase.auth.onAuthStateChange subscription per mount.
+ * The latter briefly flashed a full-screen "Loading…" spinner every time the
+ * user navigated into a protected route because `loading` started as `true`
+ * until the first INITIAL_SESSION event fired (~100–300ms).
  */
 export function RequireVerifiedSession({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, loading, isVerified } = useAuthSession();
+  const { session, loading, isVerified } = useAuth();
 
   useEffect(() => {
     if (loading) return;
