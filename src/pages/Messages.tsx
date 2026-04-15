@@ -32,6 +32,11 @@ interface Conversation {
   lastMessageText?: string;
   lastMessageTime?: string;
   unreadCount?: number;
+  /** Broadcast summary denormalised into the list item so the chip can render
+   *  without a per-row RPC. Populated in loadConversations when broadcast_id is set. */
+  broadcastStatus?: 'open' | 'filled' | 'cancelled' | 'expired';
+  broadcastTargetCount?: number;
+  broadcastFilledBy?: string | null;
 }
 
 /** Resolved view of a quote_broadcasts row plus the winner's display name. */
@@ -284,6 +289,24 @@ const Messages = () => {
       unreadMap[msg.conversation_id] = (unreadMap[msg.conversation_id] || 0) + 1;
     }
 
+    // Batch-fetch the broadcast rows referenced by these conversations so we
+    // can render a "Broadcast · 1 of N" / "Replied first ✓" chip in the list
+    // view without firing an RPC per row. NULL broadcast_id conversations
+    // contribute nothing here.
+    const broadcastIds = Array.from(
+      new Set((convos as any[]).map((c) => c.broadcast_id).filter(Boolean) as string[]),
+    );
+    let broadcastMap: Record<string, { status: string; target_count: number; filled_by: string | null }> = {};
+    if (broadcastIds.length > 0) {
+      const { data: bRows } = await supabase
+        .from('quote_broadcasts' as any)
+        .select('id, status, target_count, filled_by')
+        .in('id', broadcastIds);
+      for (const b of (bRows as any[]) || []) {
+        broadcastMap[b.id] = { status: b.status, target_count: b.target_count, filled_by: b.filled_by };
+      }
+    }
+
     const enriched = convos.map((c) => {
       const otherId = c.participant_1 === userId ? c.participant_2 : c.participant_1;
       const prof = profiles?.find((p) => p.user_id === otherId);
@@ -291,6 +314,8 @@ const Messages = () => {
       const lastText = last
         ? (last.image_url ? '📷 Photo' : last.content)
         : '';
+      const bId = (c as any).broadcast_id as string | null | undefined;
+      const bSummary = bId ? broadcastMap[bId] : undefined;
       return {
         ...c,
         otherUserId: otherId,
@@ -300,6 +325,9 @@ const Messages = () => {
         lastMessageText: lastText,
         lastMessageTime: last?.created_at || c.updated_at,
         unreadCount: unreadMap[c.id] || 0,
+        broadcastStatus: bSummary?.status as Conversation['broadcastStatus'],
+        broadcastTargetCount: bSummary?.target_count,
+        broadcastFilledBy: bSummary?.filled_by ?? null,
       };
     });
     setConversations(enriched);
@@ -631,6 +659,37 @@ const Messages = () => {
                             {formatConvoTime(convo.lastMessageTime || convo.updated_at)}
                           </span>
                         </div>
+                        {/* Broadcast chip — scannable at-a-glance state for multi-send
+                            threads. Previously users had to open each of three
+                            broadcast convos to figure out who replied first. */}
+                        {convo.broadcastStatus && (() => {
+                          const isViewerWinner =
+                            convo.broadcastStatus === 'filled' &&
+                            convo.broadcastFilledBy &&
+                            convo.broadcastFilledBy === user?.id;
+                          const isOtherWinner =
+                            convo.broadcastStatus === 'filled' &&
+                            convo.broadcastFilledBy &&
+                            convo.broadcastFilledBy === convo.otherUserId;
+                          let chip: { label: string; className: string };
+                          if (convo.broadcastStatus === 'open') {
+                            chip = {
+                              label: `Broadcast · 1 of ${convo.broadcastTargetCount ?? '?'}`,
+                              className: 'bg-amber-500/15 text-amber-800 dark:text-amber-200',
+                            };
+                          } else if (isOtherWinner) {
+                            chip = { label: 'Replied first ✓', className: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200' };
+                          } else if (isViewerWinner) {
+                            chip = { label: 'You replied first ✓', className: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200' };
+                          } else {
+                            chip = { label: 'Filled by another', className: 'bg-muted text-muted-foreground' };
+                          }
+                          return (
+                            <span className={cn('mt-0.5 inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold', chip.className)}>
+                              {chip.label}
+                            </span>
+                          );
+                        })()}
                         <div className="flex items-center justify-between gap-1 mt-0.5">
                           <p className={cn('truncate text-xs', hasUnread ? 'font-medium text-foreground/80' : 'text-muted-foreground')}>
                             {convo.lastMessageText || (convo.jobTitle ? `Re: ${convo.jobTitle}` : 'Start of conversation')}

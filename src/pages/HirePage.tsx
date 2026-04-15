@@ -380,9 +380,18 @@ const HirePage = () => {
         targetFreelancerIds: targets,
       });
       markUserActed();
+      // Surface partial-failure honestly — previously a broadcast that half-
+      // landed showed the full sent count, which is the wrong signal.
+      const intended = result.sentCount + result.failedCount;
+      const partial = result.failedCount > 0;
       toast({
-        title: `Sent to ${result.sentCount} freelancer${result.sentCount === 1 ? '' : 's'}`,
-        description: 'First to reply wins. We\'ll open Messages so you can watch.',
+        title: partial
+          ? `Sent to ${result.sentCount} of ${intended} freelancers`
+          : `Sent to ${result.sentCount} freelancer${result.sentCount === 1 ? '' : 's'}`,
+        description: partial
+          ? `${result.failedCount} couldn't receive the message — we opened Messages so you can see who got it.`
+          : "First to reply wins. We'll open Messages so you can watch.",
+        variant: partial ? 'destructive' : undefined,
       });
       navigate('/messages');
     } catch (err) {
@@ -725,9 +734,16 @@ const HirePage = () => {
         ) : (
           <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
             <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
-            <h2 className="text-lg font-bold text-foreground">Request sent!</h2>
+            <h2 className="text-lg font-bold text-foreground">Request sent — we're on it</h2>
             <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-              We're reviewing your brief and will match you with the best freelancer. Expect to hear back within 24 hours.
+              Your brief is with the Vano team. We'll match a freelancer and open a thread in your{' '}
+              <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
+              within 24h. You'll also get an email.
+            </p>
+            {/* Reinforce that the user isn't blocked — if they want instant replies
+                they can still broadcast to the matched freelancers below. */}
+            <p className="mt-3 text-xs text-muted-foreground/90 leading-relaxed max-w-sm mx-auto">
+              Want quotes faster? Use the <span className="font-semibold text-foreground">Get quotes from top {Math.min(3, Math.max(matchedStudents.length, 1))}</span> button below — you'll usually get a reply in under an hour.
             </p>
             <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
               <MessageCircle size={15} /> Chat with us on WhatsApp

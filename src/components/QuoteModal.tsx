@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { HIRE_TIMELINES, HIRE_BUDGETS, budgetLabel, timelineLabel } from '@/lib/hireOptions';
 import { cn } from '@/lib/utils';
 import { MessageSquareQuote, Loader2 } from 'lucide-react';
-import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
+import { sendFirstMessage } from '@/lib/conversation';
 import { track } from '@/lib/track';
 
 interface QuoteModalProps {
@@ -112,44 +112,14 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
       }
       const draft = msgParts.join('\n');
 
-      // Ensure a conversation exists (same pattern as StudentProfile.handleMessage)
-      const { data: existing } = await supabase
-        .from('conversations')
-        .select('id')
-        .or(
-          `and(participant_1.eq.${session.user.id},participant_2.eq.${freelancerId}),and(participant_1.eq.${freelancerId},participant_2.eq.${session.user.id})`,
-        )
-        .maybeSingle();
-
-      let convoId = existing?.id as string | undefined;
-      if (!convoId) {
-        const { data: created, error: convoErr } = await supabase
-          .from('conversations')
-          .insert({ participant_1: session.user.id, participant_2: freelancerId })
-          .select('id')
-          .single();
-        if (convoErr || !created) throw convoErr || new Error('Could not create conversation');
-        convoId = created.id;
-      }
-
-      // Actually send the first message — previously this only drafted the message
-      // in Messages and required the user to click Send. That step is removed.
-      const { error: msgErr } = await supabase
-        .from('messages')
-        .insert({ conversation_id: convoId, sender_id: session.user.id, content: draft });
-      if (msgErr) throw msgErr;
-
-      // Bump conversation timestamp + fire push notification (both fire-and-forget)
-      const nowIso = new Date().toISOString();
-      supabase.from('conversations').update({ updated_at: nowIso }).eq('id', convoId).then(() => {});
-      const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined) || getSupabaseProjectRef();
-      if (projectId && session.access_token) {
-        fetch(`https://${projectId}.supabase.co/functions/v1/notify-new-message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ recipient_id: freelancerId, message_preview: draft.slice(0, 140) }),
-        }).catch(() => {});
-      }
+      // find-or-create conversation + send first message + fire push —
+      // all three steps now live in lib/conversation.ts so QuoteModal,
+      // HireNowModal and the broadcast fan-out stay in lockstep.
+      await sendFirstMessage({
+        session,
+        recipientId: freelancerId,
+        content: draft,
+      });
 
       track('quote_sent', { freelancer_id: freelancerId, category: category || null, has_timeline: !!timeline, has_budget: !!budget });
 

@@ -16,7 +16,7 @@
  * RLS so it can only create broadcasts and conversations the user owns.
  */
 import { supabase } from '@/integrations/supabase/client';
-import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
+import { sendFirstMessage } from '@/lib/conversation';
 import { track } from '@/lib/track';
 
 export interface BroadcastInput {
@@ -38,6 +38,12 @@ export interface BroadcastResult {
   sentCount: number;
   /** Number of targets skipped because an existing conversation was found. */
   skippedExistingCount: number;
+  /**
+   * Number of targets that failed mid-send (conversation or message insert
+   * errored). Surfaced to the caller so the toast can tell the user
+   * "sent to 2 of 3" instead of pretending everything worked.
+   */
+  failedCount: number;
 }
 
 export class QuoteBroadcastError extends Error {}
@@ -101,51 +107,22 @@ export async function sendQuoteBroadcast(input: BroadcastInput): Promise<Broadca
   }
   const broadcastId = (broadcast as any).id as string;
 
-  // 2. For each target: create a conversation tagged with broadcast_id, then
-  //    insert the brief as the first message. We do these sequentially
-  //    rather than in parallel to keep RLS errors easy to attribute and to
-  //    sidestep unique-constraint surprises if a parallel write created the
-  //    conversation first.
-  const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined) || getSupabaseProjectRef();
+  // 2. For each target: create a broadcast-tagged conversation, post the
+  //    brief as the first message, fire push. Sequential (not Promise.all)
+  //    so RLS errors are easy to attribute and one failure doesn't cascade.
   let sentCount = 0;
+  let failedCount = 0;
   for (const freelancerId of freshTargets) {
     try {
-      const { data: convo, error: cErr } = await supabase
-        .from('conversations')
-        .insert({
-          participant_1: requesterId,
-          participant_2: freelancerId,
-          broadcast_id: broadcastId,
-        } as any)
-        .select('id')
-        .single();
-      if (cErr || !convo) {
-        // eslint-disable-next-line no-console
-        console.warn('Broadcast: convo create failed', freelancerId, cErr);
-        continue;
-      }
-      const conversationId = (convo as any).id as string;
-
-      const { error: mErr } = await supabase
-        .from('messages')
-        .insert({ conversation_id: conversationId, sender_id: requesterId, content: brief });
-      if (mErr) {
-        // eslint-disable-next-line no-console
-        console.warn('Broadcast: first message insert failed', freelancerId, mErr);
-        continue;
-      }
-
+      await sendFirstMessage({
+        session,
+        recipientId: freelancerId,
+        content: brief,
+        broadcastId,
+      });
       sentCount++;
-
-      // Push / email notification — fire and forget.
-      if (projectId && session.access_token) {
-        fetch(`https://${projectId}.supabase.co/functions/v1/notify-new-message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ recipient_id: freelancerId, message_preview: brief.slice(0, 140) }),
-        }).catch(() => {});
-      }
     } catch (err) {
+      failedCount++;
       // eslint-disable-next-line no-console
       console.warn('Broadcast: target failed', freelancerId, err);
     }
@@ -164,6 +141,7 @@ export async function sendQuoteBroadcast(input: BroadcastInput): Promise<Broadca
   track('quote_broadcast_sent', {
     broadcast_id: broadcastId,
     sent_count: sentCount,
+    failed_count: failedCount,
     target_count: freshTargets.length,
     category: input.category ?? null,
   });
@@ -172,5 +150,6 @@ export async function sendQuoteBroadcast(input: BroadcastInput): Promise<Broadca
     broadcastId,
     sentCount,
     skippedExistingCount: alreadyChattingWith.size,
+    failedCount,
   };
 }
