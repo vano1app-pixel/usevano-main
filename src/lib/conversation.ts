@@ -69,7 +69,14 @@ export async function insertMessage(
  * Fire the `notify-new-message` edge function for a recipient. Fire-and-forget
  * by design — push notifications are a nice-to-have, not a correctness
  * concern. Never throws.
+ *
+ * Retry logic: up to 3 attempts with exponential backoff (500ms, 1500ms) on
+ * network errors and 5xx responses. Was previously a single best-effort fetch,
+ * which meant one transient blip = permanently missed notification. 4xx
+ * responses (e.g. recipient has no active push subscription) are NOT retried.
  */
+const PUSH_RETRY_DELAYS_MS = [500, 1500];
+
 export function firePushNotification(
   session: Session | null,
   recipientId: string,
@@ -80,19 +87,33 @@ export function firePushNotification(
     (import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined) ||
     getSupabaseProjectRef();
   if (!projectId) return;
-  fetch(`https://${projectId}.supabase.co/functions/v1/notify-new-message`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({
-      recipient_id: recipientId,
-      message_preview: messagePreview.slice(0, 140),
-    }),
-  }).catch(() => {
-    /* swallow — notifications must never break the app */
+
+  const url = `https://${projectId}.supabase.co/functions/v1/notify-new-message`;
+  const body = JSON.stringify({
+    recipient_id: recipientId,
+    message_preview: messagePreview.slice(0, 140),
   });
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.access_token}`,
+  };
+
+  void (async () => {
+    for (let attempt = 0; attempt <= PUSH_RETRY_DELAYS_MS.length; attempt++) {
+      try {
+        const res = await fetch(url, { method: 'POST', headers, body });
+        // 2xx: done. 4xx: recipient likely lacks a push subscription —
+        // retrying won't help, give up silently. 5xx / network: retry.
+        if (res.ok) return;
+        if (res.status >= 400 && res.status < 500) return;
+      } catch {
+        /* network error — fall through to backoff */
+      }
+      const nextDelay = PUSH_RETRY_DELAYS_MS[attempt];
+      if (nextDelay === undefined) return; // exhausted
+      await new Promise((resolve) => setTimeout(resolve, nextDelay));
+    }
+  })();
 }
 
 /**
