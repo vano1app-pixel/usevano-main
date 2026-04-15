@@ -23,6 +23,8 @@ interface Conversation {
   participant_1: string;
   participant_2: string;
   updated_at: string;
+  /** Set when this conversation is part of a multi-send broadcast. NULL for normal 1:1s. */
+  broadcast_id?: string | null;
   otherUserId?: string;
   otherName?: string;
   otherAvatar?: string | null;
@@ -30,6 +32,16 @@ interface Conversation {
   lastMessageText?: string;
   lastMessageTime?: string;
   unreadCount?: number;
+}
+
+/** Resolved view of a quote_broadcasts row plus the winner's display name. */
+interface BroadcastInfo {
+  id: string;
+  requesterId: string;
+  status: 'open' | 'filled' | 'cancelled' | 'expired';
+  targetCount: number;
+  filledBy: string | null;
+  filledByName: string | null;
 }
 
 interface Message {
@@ -90,6 +102,10 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
   const [otherTyping, setOtherTyping] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  // Multi-send broadcast view of the currently-selected conversation. NULL when
+  // the conversation is a normal 1:1. Used to render the "1 of N — first to
+  // reply wins" / "✓ {Name} replied first" badge under the thread header.
+  const [broadcastInfo, setBroadcastInfo] = useState<BroadcastInfo | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,6 +124,45 @@ const Messages = () => {
       markAsRead(selectedConvo);
     }
   }, [selectedConvo]);
+
+  // Pull broadcast metadata for the selected conversation so the thread can
+  // show "1 of N being asked" / "✓ {Name} replied first" badges. Fetched on
+  // demand (per selection) to keep the conversation list payload small.
+  useEffect(() => {
+    if (!selectedConvo) { setBroadcastInfo(null); return; }
+    const convo = conversations.find((c) => c.id === selectedConvo);
+    const broadcastId = convo?.broadcast_id || null;
+    if (!broadcastId) { setBroadcastInfo(null); return; }
+    let cancelled = false;
+    void (async () => {
+      const { data: bRow } = await supabase
+        .from('quote_broadcasts' as any)
+        .select('id, requester_id, status, target_count, filled_by')
+        .eq('id', broadcastId)
+        .maybeSingle();
+      if (cancelled || !bRow) return;
+      const row = bRow as any;
+      let filledByName: string | null = null;
+      if (row.filled_by) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', row.filled_by)
+          .maybeSingle();
+        filledByName = prof?.display_name || null;
+      }
+      if (cancelled) return;
+      setBroadcastInfo({
+        id: row.id,
+        requesterId: row.requester_id,
+        status: row.status,
+        targetCount: row.target_count ?? 0,
+        filledBy: row.filled_by ?? null,
+        filledByName,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [selectedConvo, conversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -610,6 +665,50 @@ const Messages = () => {
                     {selectedConversation?.jobTitle && <p className="text-xs text-primary leading-tight">Re: {selectedConversation.jobTitle}</p>}
                   </div>
                 </div>
+
+                {/* Broadcast banner — only renders for multi-send conversations.
+                    Wording adapts to viewer (hirer vs freelancer) and status
+                    (open vs filled). Hidden for normal 1:1 threads. */}
+                {broadcastInfo && (() => {
+                  const viewerIsRequester = user?.id === broadcastInfo.requesterId;
+                  const filled = broadcastInfo.status === 'filled' && broadcastInfo.filledBy;
+                  const winnerIsThisFreelancer =
+                    filled && broadcastInfo.filledBy === selectedConversation?.otherUserId;
+                  const filledHere = filled && !viewerIsRequester && broadcastInfo.filledBy === user?.id;
+
+                  let label: string;
+                  let tone: 'open' | 'won' | 'lost';
+                  if (!filled) {
+                    tone = 'open';
+                    label = viewerIsRequester
+                      ? `Sent to ${broadcastInfo.targetCount} freelancers — waiting on first reply`
+                      : `You're 1 of ${broadcastInfo.targetCount} being asked — be the first to reply`;
+                  } else if (viewerIsRequester) {
+                    tone = 'won';
+                    label = winnerIsThisFreelancer
+                      ? `✓ ${selectedConversation?.otherName || 'They'} replied first`
+                      : `Filled — ${broadcastInfo.filledByName || 'another freelancer'} replied first (you can still chat here)`;
+                  } else if (filledHere) {
+                    tone = 'won';
+                    label = '✓ You replied first — this brief is yours to win';
+                  } else {
+                    tone = 'lost';
+                    label = `${broadcastInfo.filledByName || 'Another freelancer'} replied first — feel free to chat anyway`;
+                  }
+
+                  const toneClasses =
+                    tone === 'won'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                      : tone === 'lost'
+                      ? 'border-border bg-muted text-muted-foreground'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200';
+
+                  return (
+                    <div className={cn('flex items-start gap-2 border-b px-4 py-2 text-[11px] font-medium', toneClasses)}>
+                      <span>{label}</span>
+                    </div>
+                  );
+                })()}
 
                 {/* Messages */}
                 <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">

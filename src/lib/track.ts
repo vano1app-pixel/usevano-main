@@ -16,7 +16,9 @@ export type TrackEvent =
   | 'direct_hire_sent'
   | 'listing_published'
   | 'freelancer_card_clicked'
-  | 'vano_match_sent';
+  | 'vano_match_sent'
+  | 'quote_broadcast_sent'
+  | 'quote_broadcast_filled';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
   // Defer so we never block the calling render/handler.

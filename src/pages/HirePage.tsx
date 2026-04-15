@@ -17,10 +17,11 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check,
+  Shield, Zap, Check, Users,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { track } from '@/lib/track';
+import { sendQuoteBroadcast, QuoteBroadcastError } from '@/lib/quoteBroadcast';
 
 /* ─── Constants ─── */
 
@@ -328,6 +329,55 @@ const HirePage = () => {
     const ask = buildDescription();
     const draft = `Hi! I'm looking for help with: ${ask}${budgetLabel ? ` | Budget: ${budgetLabel}` : ''}${timelineLabel ? ` | Timeline: ${timelineLabel}` : ''}`;
     navigate(`/messages?with=${freelancerUserId}&draft=${encodeURIComponent(draft)}`);
+  };
+
+  /* ── Multi-send: fan the brief out to the top N matched freelancers. ──
+     The structural fix to the "single freelancer ghosted me" leak. We send
+     to up to 3 of the visible matches in parallel; the first to reply wins
+     (DB trigger handles the open → filled transition). */
+  const [broadcasting, setBroadcasting] = useState(false);
+  const broadcastTopMatches = async () => {
+    if (broadcasting) return;
+    if (!user) { navigate('/auth'); return; }
+    const targets = matchedStudents.slice(0, 3).map((s) => s.user_id).filter(Boolean);
+    if (targets.length === 0) {
+      toast({ title: 'No freelancers to send to yet', description: 'Wait for matches to load.', variant: 'destructive' });
+      return;
+    }
+    setBroadcasting(true);
+    try {
+      const ask = buildDescription();
+      const budgetLabel = BUDGETS.find((b) => b.id === budget)?.label || '';
+      const timelineLabel = TIMELINES.find((t) => t.id === timeline)?.label || '';
+      const briefLines = [
+        `Hi! I'm looking for help with: ${ask}`,
+      ];
+      const meta: string[] = [];
+      if (budgetLabel) meta.push(`Budget: ${budgetLabel}`);
+      if (timelineLabel) meta.push(`Timeline: ${timelineLabel}`);
+      if (meta.length) {
+        briefLines.push('');
+        briefLines.push(meta.join(' · '));
+      }
+      const result = await sendQuoteBroadcast({
+        brief: briefLines.join('\n'),
+        category,
+        budget,
+        timeline,
+        targetFreelancerIds: targets,
+      });
+      markUserActed();
+      toast({
+        title: `Sent to ${result.sentCount} freelancer${result.sentCount === 1 ? '' : 's'}`,
+        description: 'First to reply wins. We\'ll open Messages so you can watch.',
+      });
+      navigate('/messages');
+    } catch (err) {
+      const msg = err instanceof QuoteBroadcastError ? err.message : 'Could not send broadcast.';
+      toast({ title: 'Could not send', description: msg, variant: 'destructive' });
+    } finally {
+      setBroadcasting(false);
+    }
   };
 
   useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
@@ -679,10 +729,41 @@ const HirePage = () => {
            Now we render the top 3 matches inline below the Vano card so users
            who already know what they want can message directly in one tap.
            Vano-match remains the primary CTA above; this is a parallel path. */}
+      {/* ── Multi-send CTA — the structural fix to the "single freelancer
+           ghosted me" leak. One click sends the brief to the top 3 matches
+           in parallel. First to reply wins (DB trigger handles the status
+           transition). Hidden when there are no matches yet. */}
+      {!matchLoading && matchedStudents.length > 1 && (
+        <button
+          type="button"
+          onClick={broadcastTopMatches}
+          disabled={broadcasting}
+          className={cn(
+            'mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm sm:text-base font-bold text-white shadow-md transition-all',
+            'hover:shadow-lg hover:brightness-110 active:scale-[0.98]',
+            'disabled:opacity-60 disabled:cursor-not-allowed',
+          )}
+        >
+          {broadcasting ? (
+            <><Loader2 size={16} className="animate-spin" /> Sending to {Math.min(3, matchedStudents.length)}…</>
+          ) : (
+            <>
+              <Users size={16} strokeWidth={2.5} />
+              Get quotes from top {Math.min(3, matchedStudents.length)} matches
+            </>
+          )}
+        </button>
+      )}
+      {!matchLoading && matchedStudents.length > 1 && (
+        <p className="mt-1.5 px-1 text-center text-[11px] text-muted-foreground">
+          One brief, sent to {Math.min(3, matchedStudents.length)} freelancers in parallel — first to reply wins.
+        </p>
+      )}
+
       <div className="mt-4">
         <div className="flex items-baseline justify-between mb-2 px-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Or pick a freelancer yourself
+            Or pick one yourself
           </p>
           {matchedStudents.length > 3 && (
             <button
