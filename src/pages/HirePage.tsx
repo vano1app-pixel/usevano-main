@@ -439,17 +439,19 @@ const HirePage = () => {
         </p>
       </header>
 
-      {/* Category chips */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Category chips — intentionally the largest controls on this step.
+          These are the decision. Everything below (optional detail, value
+          props) should read as supporting material. */}
+      <div className="flex flex-wrap gap-2.5 mb-5">
         {CATEGORIES.map(cat => {
           const Icon = cat.icon;
           const active = category === cat.id;
           return (
             <button key={cat.id} type="button" onClick={() => handleCategoryPick(cat.id)} className={cn(
-              'flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs sm:text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
-              active ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
+              'flex items-center gap-2 rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
+              active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
             )}>
-              <Icon size={14} /> {cat.label}
+              <Icon size={18} /> {cat.label}
             </button>
           );
         })}
@@ -465,13 +467,13 @@ const HirePage = () => {
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               What kind of {cat.label.toLowerCase()}?
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {cat.subtypes.map(st => {
                 const active = subtype === st;
                 return (
                   <button key={st} type="button" onClick={() => setSubtype(st)} className={cn(
-                    'rounded-full border px-4 py-2.5 text-xs sm:text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
-                    active ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
+                    'rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
+                    active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
                   )}>
                     {st}
                   </button>
@@ -482,11 +484,17 @@ const HirePage = () => {
         );
       })()}
 
-      {/* Textarea — optional for chip-driven categories, still the only path
-          for "Other". Keep it visible so power users can add detail, but don't
-          steal focus or nag about character count. */}
-      <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden transition-all duration-300 focus-within:border-primary/20 focus-within:shadow-tinted-lg">
-        <div className="flex items-center justify-between px-5 pt-3">
+      {/* Optional scratch space for extra context. Intentionally de-emphasised
+          below the chips (dashed border, smaller text, shorter height) so it
+          reads as a footnote, not a required field. For "Other" it graduates
+          back to a solid card since it becomes the only input path. */}
+      <div className={cn(
+        'rounded-2xl bg-card overflow-hidden transition-all duration-300',
+        category === 'other'
+          ? 'border border-foreground/6 shadow-tinted focus-within:border-primary/20 focus-within:shadow-tinted-lg'
+          : 'border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid',
+      )}>
+        <div className="flex items-center justify-between px-4 pt-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {category === 'other' ? 'Tell us what you need' : 'Add any extra detail'}
             {category !== 'other' && <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>}
@@ -498,7 +506,12 @@ const HirePage = () => {
           placeholder={category === 'other'
             ? 'Describe what you need — the more specific, the better match we can find.'
             : "Anything the freelancer should know upfront (deadline context, brand, examples…)"}
-          className="w-full min-h-[96px] lg:min-h-[120px] resize-none bg-transparent px-5 pt-2 pb-4 text-[15px] sm:text-base leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
+          className={cn(
+            'w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none',
+            category === 'other'
+              ? 'min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base'
+              : 'min-h-[72px] lg:min-h-[88px] text-sm',
+          )}
         />
       </div>
 
