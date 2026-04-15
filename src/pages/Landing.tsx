@@ -6,6 +6,7 @@ import { breadcrumbSchema } from '@/lib/structuredData';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
+import { tryFinishMagicLinkRedirect } from '@/lib/magicLink';
 import { setGoogleOAuthIntent, clearGoogleOAuthIntent, hasGoogleOAuthPending } from '@/lib/googleOAuth';
 import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
 import { useToast } from '@/hooks/use-toast';
@@ -162,8 +163,13 @@ const Landing = () => {
   React.useEffect(() => {
     const finish = async () => {
       if (oauthHandledRef.current) return;
-      const done = await tryFinishGoogleOAuthRedirect(navigate);
-      if (done) oauthHandledRef.current = true;
+      // Try Google first (sessionStorage-scoped), then magic-link
+      // (localStorage-scoped, survives tab changes). Both are idempotent
+      // and short-circuit when their own flag isn't set.
+      const doneGoogle = await tryFinishGoogleOAuthRedirect(navigate);
+      if (doneGoogle) { oauthHandledRef.current = true; return; }
+      const doneMagic = await tryFinishMagicLinkRedirect(navigate);
+      if (doneMagic) oauthHandledRef.current = true;
     };
     void finish();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {

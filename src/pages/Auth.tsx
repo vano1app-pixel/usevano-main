@@ -14,6 +14,8 @@ import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { OnboardingJourney } from '@/components/OnboardingJourney';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
+import { sendMagicLink } from '@/lib/magicLink';
+import { Mail, Loader2, Check as CheckIcon } from 'lucide-react';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -21,6 +23,13 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const [existingUserId, setExistingUserId] = useState<string | null>(null);
+  // Magic-link state. `magicLinkSent` flips once Supabase accepts the send —
+  // we swap the form for a "Check your email" confirmation until the user
+  // clicks the link and lands back on Landing, which runs
+  // tryFinishMagicLinkRedirect() to finalise the sign-in.
+  const [magicLinkEmail, setMagicLinkEmail] = useState('');
+  const [magicLinkSending, setMagicLinkSending] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,6 +60,31 @@ const Auth = () => {
   useEffect(() => {
     redirectIfAlreadySignedIn();
   }, [redirectIfAlreadySignedIn]);
+
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (magicLinkSending) return;
+    setMagicLinkSending(true);
+    const result = await sendMagicLink(
+      magicLinkEmail,
+      isLogin ? null : userType,
+      isLogin,
+    );
+    setMagicLinkSending(false);
+    if (!result.ok) {
+      toast({
+        title: 'Could not send link',
+        description: result.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setMagicLinkSent(true);
+    track('auth_magic_link_sent', {
+      mode: isLogin ? 'login' : 'signup',
+      user_type: isLogin ? null : userType,
+    });
+  };
 
   const handleGoogleSignIn = async () => {
     // Google OAuth is blocked inside in-app browsers (Fiverr, Instagram,
@@ -242,6 +276,72 @@ const Auth = () => {
           )}
 
           <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+
+          {/* Magic-link alternative. Critical for users who land inside an
+              embedded in-app browser (Fiverr / Instagram / TikTok) where
+              Google OAuth is blocked by Google with a 403. The magic link
+              opens in their email app and can be clicked from any real
+              browser. Also: anyone who doesn't use Google. */}
+          {magicLinkSent ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+                <CheckIcon size={14} strokeWidth={2.5} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Check your email</p>
+                <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
+                  We sent a magic link to <span className="font-medium text-foreground">{magicLinkEmail}</span>. Click it on any device to finish signing {isLogin ? 'in' : 'up'}.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setMagicLinkSent(false); setMagicLinkEmail(''); }}
+                  className="mt-2 text-[11px] font-semibold text-primary hover:underline underline-offset-2"
+                >
+                  Use a different email
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  or with email
+                </span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <form onSubmit={handleMagicLink} className="space-y-2">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 focus-within:border-primary/40">
+                  <Mail size={16} className="shrink-0 text-muted-foreground" />
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    required
+                    value={magicLinkEmail}
+                    onChange={(e) => setMagicLinkEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    disabled={magicLinkSending}
+                    className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-60"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={magicLinkSending || magicLinkEmail.trim().length === 0}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {magicLinkSending ? (
+                    <><Loader2 size={14} className="animate-spin" /> Sending link…</>
+                  ) : (
+                    <>{isLogin ? 'Email me a sign-in link' : 'Email me a sign-up link'}</>
+                  )}
+                </button>
+                <p className="text-center text-[10.5px] text-muted-foreground/80">
+                  No password. We email a one-tap link. Works in Safari, Chrome, any browser.
+                </p>
+              </form>
+            </>
+          )}
 
           {!isLogin && (
             <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
