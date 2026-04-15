@@ -6,6 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { HIRE_TIMELINES, HIRE_BUDGETS, budgetLabel, timelineLabel } from '@/lib/hireOptions';
 import { cn } from '@/lib/utils';
 import { MessageSquareQuote, Loader2 } from 'lucide-react';
+import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
+import { track } from '@/lib/track';
 
 interface QuoteModalProps {
   open: boolean;
@@ -69,19 +71,45 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
         )
         .maybeSingle();
 
-      if (!existing) {
-        await supabase
+      let convoId = existing?.id as string | undefined;
+      if (!convoId) {
+        const { data: created, error: convoErr } = await supabase
           .from('conversations')
-          .insert({ participant_1: session.user.id, participant_2: freelancerId });
+          .insert({ participant_1: session.user.id, participant_2: freelancerId })
+          .select('id')
+          .single();
+        if (convoErr || !created) throw convoErr || new Error('Could not create conversation');
+        convoId = created.id;
       }
+
+      // Actually send the first message — previously this only drafted the message
+      // in Messages and required the user to click Send. That step is removed.
+      const { error: msgErr } = await supabase
+        .from('messages')
+        .insert({ conversation_id: convoId, sender_id: session.user.id, content: draft });
+      if (msgErr) throw msgErr;
+
+      // Bump conversation timestamp + fire push notification (both fire-and-forget)
+      const nowIso = new Date().toISOString();
+      supabase.from('conversations').update({ updated_at: nowIso }).eq('id', convoId).then(() => {});
+      const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined) || getSupabaseProjectRef();
+      if (projectId && session.access_token) {
+        fetch(`https://${projectId}.supabase.co/functions/v1/notify-new-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ recipient_id: freelancerId, message_preview: draft.slice(0, 140) }),
+        }).catch(() => {});
+      }
+
+      track('quote_sent', { freelancer_id: freelancerId, category: category || null, has_timeline: !!timeline, has_budget: !!budget });
 
       toast({
         title: 'Quote request sent!',
         description: `${freelancerName} will reply in Messages.`,
       });
 
-      // Hand off to Messages with the draft pre-filled so the user can review/edit/send.
-      navigate(`/messages?with=${freelancerId}&draft=${encodeURIComponent(draft)}`);
+      // Open the conversation so the user sees their sent message and can follow up.
+      navigate(`/messages?with=${freelancerId}`);
       onOpenChange(false);
     } catch (err) {
       console.error('QuoteModal submit error', err);

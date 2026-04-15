@@ -17,9 +17,10 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check, ChevronDown,
+  Shield, Zap, Check,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
+import { track } from '@/lib/track';
 
 /* ─── Constants ─── */
 
@@ -124,11 +125,6 @@ const HirePage = () => {
   const [subtype, setSubtype] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
-  // Step 3: freelancer list is collapsed behind a secondary button by default
-  // so the Vano concierge flow reads as the primary recommendation. Click the
-  // button and the matched-freelancers panel expands below it.
-  const [showDirectList, setShowDirectList] = useState(false);
-
   // Results
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -245,6 +241,13 @@ const HirePage = () => {
       // Google sign-in directly from here. No /auth page detour.
       saveHireBrief({ description, category, subtype, timeline, budget });
       setGoogleOAuthIntent('business');
+      // Reassure the user mid-redirect: the brief they just typed is saved and
+      // we'll resume on Step 3 once they're signed in. Without this the page
+      // disappears to Google with no signal that anything was preserved.
+      toast({
+        title: 'Saving your brief…',
+        description: "We'll bring you right back to finish.",
+      });
       setSubmitting(true);
       try {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -276,6 +279,7 @@ const HirePage = () => {
     } else {
       setSubmitted(true);
       markUserActed();
+      track('vano_match_sent', { category, timeline, budget });
       clearHireBrief();
       if (autoOpenWhatsApp) {
         // Auto-open WhatsApp with request details so the team can respond directly
@@ -317,6 +321,7 @@ const HirePage = () => {
 
   /* ── Message freelancer with pre-filled draft ── */
   const messageFreelancer = (freelancerUserId: string) => {
+    track('freelancer_card_clicked', { freelancer_id: freelancerUserId, source: 'hire_step3', category });
     if (!user) { navigate('/auth'); return; }
     const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || '';
     const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || '';
@@ -326,6 +331,12 @@ const HirePage = () => {
   };
 
   useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
+
+  // Funnel visibility: every step view is an event so we can see drop-off.
+  useEffect(() => {
+    track('hire_step_viewed', { step, category, has_subtype: !!subtype });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   /* Auto-advance step 2 → step 3 once both picks are made, so a signed-in user
    * can go Category → Continue → Timeline → Budget and land on options without
@@ -662,37 +673,31 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
-           Sits directly under the Vano card as a white / outline full-width
-           button so it reads as the clearly-secondary path. Tapping it expands
-           the matched-freelancer panel inline. */}
-      <button
-        type="button"
-        onClick={() => setShowDirectList((s) => !s)}
-        aria-expanded={showDirectList}
-        className={cn(
-          'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-card px-6 py-4 text-sm sm:text-base font-semibold text-foreground shadow-sm transition-all cursor-pointer select-none active:scale-[0.98]',
-          showDirectList ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/25 hover:bg-primary/5',
-        )}
-      >
-        <MessageCircle size={15} className="text-muted-foreground" />
-        Choose a freelancer yourself
-        <ChevronDown
-          size={15}
-          className={cn('text-muted-foreground transition-transform duration-200', showDirectList && 'rotate-180')}
-        />
-      </button>
-
-      {/* ── Collapsible freelancer panel ── */}
-      {showDirectList && (
-      <div className="mt-3 rounded-2xl border border-border/60 bg-card p-4 animate-fade-in">
-        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          Your brief is pre-filled — tap Message to start a conversation and pick who fits best.
-        </p>
+      {/* ── OPTION B — Inline top-3 matched freelancers ──
+           Previously the freelancer list lived behind a "Choose a freelancer
+           yourself" expander, which hid the most decisive shortcut on the page.
+           Now we render the top 3 matches inline below the Vano card so users
+           who already know what they want can message directly in one tap.
+           Vano-match remains the primary CTA above; this is a parallel path. */}
+      <div className="mt-4">
+        <div className="flex items-baseline justify-between mb-2 px-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Or pick a freelancer yourself
+          </p>
+          {matchedStudents.length > 3 && (
+            <button
+              type="button"
+              onClick={() => navigate('/students')}
+              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+            >
+              View all {matchedStudents.length} <ArrowRight size={12} />
+            </button>
+          )}
+        </div>
 
         {matchLoading ? (
           <div className="flex flex-col gap-3">
-            {[1, 2].map(i => (
+            {[1, 2, 3].map(i => (
               <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
                 <div className="h-32 w-full bg-muted/60" />
                 <div className="p-4 space-y-3">
@@ -709,7 +714,7 @@ const HirePage = () => {
           </div>
         ) : matchedStudents.length > 0 ? (
           <div className="flex flex-col gap-3">
-            {matchedStudents.slice(0, 2).map((student) => {
+            {matchedStudents.slice(0, 3).map((student) => {
               const ratingInfo = matchedReviews[student.user_id];
               return (
                 <div key={student.id}>
@@ -727,14 +732,9 @@ const HirePage = () => {
                 </div>
               );
             })}
-            {matchedStudents.length > 2 && (
-              <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2 text-[13px] font-medium text-foreground hover:bg-muted transition cursor-pointer">
-                View all {matchedStudents.length} freelancers <ArrowRight size={14} />
-              </button>
-            )}
           </div>
         ) : (
-          <div className="text-center py-5">
+          <div className="rounded-2xl border border-border/60 bg-card text-center py-5">
             <p className="text-sm text-muted-foreground">No matches found right now.</p>
             <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
               Browse all freelancers <ArrowRight size={14} />
@@ -742,7 +742,6 @@ const HirePage = () => {
           </div>
         )}
       </div>
-      )}
     </div>
   );
 

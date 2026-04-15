@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,8 @@ import {
   DIRECT_HIRE_EXPIRY_HOURS,
 } from '@/lib/hireOptions';
 import { cn } from '@/lib/utils';
-import { Zap, AlertTriangle, Loader2, Clock } from 'lucide-react';
+import { Zap, AlertTriangle, Loader2, Clock, MailWarning } from 'lucide-react';
+import { track } from '@/lib/track';
 
 interface HireNowModalProps {
   open: boolean;
@@ -38,9 +39,54 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Pre-flight verify state — checked when the modal opens so we can show an
+  // inline banner immediately, instead of letting the user fill the whole form
+  // and rejecting them on submit.
+  const [verifyState, setVerifyState] = useState<'unknown' | 'verified' | 'unverified' | 'anon'>('unknown');
+  const [resending, setResending] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (!session?.user) {
+        setVerifyState('anon');
+        setUserEmail(null);
+        return;
+      }
+      setUserEmail(session.user.email ?? null);
+      setVerifyState(isEmailVerified(session) ? 'verified' : 'unverified');
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const handleResend = async () => {
+    if (!userEmail || resending) return;
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email: userEmail });
+      if (error) throw error;
+      toast({
+        title: 'Verification email sent',
+        description: `Check ${userEmail} — then come back here.`,
+      });
+    } catch (err) {
+      console.error('Resend verify failed', err);
+      toast({
+        title: 'Could not resend',
+        description: 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResending(false);
+    }
+  };
 
   const canSubmit =
-    brief.trim().length >= 5 && !!timeline && !!budget && !submitting;
+    brief.trim().length >= 5 && !!timeline && !!budget && !submitting && verifyState !== 'unverified';
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -100,6 +146,13 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
         })
         .catch((err) => console.warn('notify-direct-hire failed', err));
 
+      track('direct_hire_sent', {
+        freelancer_id: freelancerId,
+        category: category || null,
+        timeline,
+        budget,
+      });
+
       toast({
         title: `Hire request sent to ${freelancerName}! ⚡`,
         description: `They have ${DIRECT_HIRE_EXPIRY_HOURS}h to accept. You'll get notified when they respond.`,
@@ -137,6 +190,31 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Pre-flight email-verification banner — surfaced before the user
+              fills the form so they don't get rejected at submit time. */}
+          {verifyState === 'unverified' && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2.5 flex items-start gap-2">
+              <MailWarning size={14} className="text-destructive mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-destructive">Verify your email to send instant hires</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-destructive/80">
+                  {userEmail ? <>We sent a link to <span className="font-medium">{userEmail}</span>. </> : null}
+                  Confirm it, then come back to send.
+                </p>
+                {userEmail && (
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    className="mt-1.5 text-[11px] font-semibold text-destructive underline underline-offset-2 hover:no-underline disabled:opacity-50"
+                  >
+                    {resending ? 'Sending…' : 'Resend verification email'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Urgency banner */}
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 flex items-start gap-2">
             <Clock size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />

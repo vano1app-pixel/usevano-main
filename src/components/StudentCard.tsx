@@ -4,6 +4,7 @@ import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash
 import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
+import { freelancerGradient, NOISE_BG_IMAGE } from '@/lib/categoryGradient';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { getUniversityStyle } from '@/lib/universities';
@@ -76,24 +77,10 @@ function getUniStyle(university: string | null | undefined): { color: string; ab
   return getUniversityStyle(university);
 }
 
-/** Deterministic banner gradient from user_id */
-function cardGradient(userId: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < userId.length; i++) {
-    h ^= userId.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const u = h >>> 0;
-  const palettes = [
-    ['hsl(var(--primary))', 'hsl(262 50% 52%)'],
-    ['hsl(200 70% 42%)', 'hsl(var(--primary))'],
-    ['hsl(152 48% 35%)', 'hsl(200 55% 38%)'],
-    ['hsl(262 42% 40%)', 'hsl(316 45% 38%)'],
-    ['hsl(22 55% 38%)', 'hsl(var(--primary))'],
-  ];
-  const [a, b] = palettes[u % palettes.length];
-  return `linear-gradient(135deg, ${a} 0%, ${b} 100%)`;
-}
+// Banner gradient is now category-aware (videography = warm reds, websites =
+// cool blues, sales = greens, social = purples). See `freelancerGradient` in
+// src/lib/categoryGradient.ts. Plus a subtle SVG noise overlay so flat colour
+// fields don't look like a default Tailwind class.
 
 export const StudentCard: React.FC<StudentCardProps> = ({
   student,
@@ -186,7 +173,16 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {student.banner_url ? (
           <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]" loading="lazy" decoding="async" />
         ) : (
-          <div className="h-full w-full transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]" style={{ background: cardGradient(student.user_id) }} />
+          <div
+            className="relative h-full w-full transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]"
+            style={{ background: freelancerGradient(student.user_id, { skills: student.skills }) }}
+          >
+            {/* Subtle noise overlay so flat gradients feel tactile, not generic. */}
+            <div
+              className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-60"
+              style={{ backgroundImage: NOISE_BG_IMAGE }}
+            />
+          </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/55" />
 
@@ -368,24 +364,27 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* CTA — two rows so both conversion paths are visible without leaving the card */}
         {clickable && (
           <div className="mt-4 pt-3 border-t border-foreground/5 space-y-2">
-            {/* Row 1: Hire now + Ask for a quote — hidden on your own card */}
+            {/* Row 1: Message (primary) + Hire now (secondary pill) — hidden on your own card.
+                Two equally-weighted buttons created choice paralysis. Message is the
+                lower-friction first action; Hire-now is reserved for users who already know. */}
             {!isOwnCard && (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setHireOpen(true); }}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2.5 text-[12px] font-bold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-110 active:scale-[0.97]"
-                >
-                  <Zap size={13} strokeWidth={2.5} />
-                  Hire now
-                </button>
+              <div className="flex items-stretch gap-2">
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setQuoteOpen(true); }}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-foreground/8 bg-foreground/[0.02] px-3 py-2.5 text-[12px] font-semibold text-foreground/70 transition-all duration-200 hover:border-primary/25 hover:bg-primary/6 hover:text-primary active:scale-[0.97]"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-[12px] font-bold text-primary-foreground shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-110 active:scale-[0.97]"
                 >
-                  <MessageSquareQuote size={13} strokeWidth={2} />
-                  Ask for a quote
+                  <MessageSquareQuote size={13} strokeWidth={2.5} />
+                  Message
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setHireOpen(true); }}
+                  title="Send an instant hire request with a 2hr lock"
+                  className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300 transition-all duration-200 hover:bg-amber-500/15 active:scale-[0.97]"
+                >
+                  <Zap size={12} strokeWidth={2.5} />
+                  Hire now
                 </button>
               </div>
             )}
