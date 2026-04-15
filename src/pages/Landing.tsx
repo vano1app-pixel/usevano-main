@@ -34,6 +34,7 @@ import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { InteractiveButton } from '@/components/InteractiveButton';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
+import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 
 
 const Landing = () => {
@@ -285,15 +286,21 @@ const Landing = () => {
               ) : null}
             </div>
             {studentsLoaded && featuredStudents.length > 0 && (
-              <div data-hero-badge className="flex items-center justify-center gap-2 mt-6">
-                {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
-                <span className="relative flex h-2.5 w-2.5 shrink-0">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-6">
+                <span className="inline-flex items-center gap-2">
+                  {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  </span>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {featuredStudents.length} freelancers online now
+                  </p>
                 </span>
-                <p className="text-xs font-medium text-muted-foreground">
-                  {featuredStudents.length} freelancers online now
-                </p>
+                {/* Social-proof counter. Self-gating: renders null until the
+                    RPC returns ≥3 so the platform doesn't advertise itself
+                    as dead when the table's empty. */}
+                <LiveMatchesCounter />
               </div>
             )}
         </div>

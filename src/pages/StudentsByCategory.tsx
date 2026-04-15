@@ -8,6 +8,7 @@ import { ArrowLeft, Monitor, Video, Megaphone, TrendingUp, Users, ArrowRight } f
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
+import { cn } from '@/lib/utils';
 
 const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
@@ -46,6 +47,11 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [isViewerAdmin, setIsViewerAdmin] = useState(false);
+  // Budget filter chips — "all" (default), "<€30/hr", "€30–60/hr", "€60+/hr".
+  // Filters in-memory against student_profiles.hourly_rate; students with a
+  // 0 or null rate are kept in all buckets because "negotiable" is common
+  // and we'd rather surface them than hide them.
+  const [rateFilter, setRateFilter] = useState<'all' | 'lt30' | '30to60' | 'gt60'>('all');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -115,6 +121,18 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   const getDisplayName = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.display_name || 'Student';
   const getProfileAvatar = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.avatar_url || null;
 
+  // Apply the budget-chip filter in memory. Negotiable / unset rates stay
+  // visible in every bucket so we don't hide willing-to-chat freelancers.
+  const visibleStudents = students.filter((s) => {
+    if (rateFilter === 'all') return true;
+    const r = Number(s.hourly_rate);
+    if (!r || Number.isNaN(r) || r <= 0) return true;
+    if (rateFilter === 'lt30') return r < 30;
+    if (rateFilter === '30to60') return r >= 30 && r <= 60;
+    if (rateFilter === 'gt60') return r > 60;
+    return true;
+  });
+
   const meta = CATEGORY_META[categoryId];
   const Icon = meta.icon;
 
@@ -158,7 +176,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           </div>
           {!loading && (
             <span className="ml-auto rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
-              {students.length} available
+              {visibleStudents.length} {rateFilter === 'all' ? 'available' : `of ${students.length}`}
             </span>
           )}
         </div>
@@ -168,6 +186,37 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           On VANO now
         </p>
+
+        {/* Budget filter chips — helps budget-constrained hirers narrow down
+            without bouncing on "too expensive" cards. Students with a 0 / null
+            rate stay visible in every bucket since "open to chat" is common. */}
+        {!loading && students.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {([
+              { id: 'all', label: 'All rates' },
+              { id: 'lt30', label: '< €30/hr' },
+              { id: '30to60', label: '€30–60/hr' },
+              { id: 'gt60', label: '€60+/hr' },
+            ] as const).map((chip) => {
+              const active = rateFilter === chip.id;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setRateFilter(chip.id)}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors',
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-foreground/70 hover:border-primary/40 hover:text-foreground',
+                  )}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Single-column card list */}
         {fetchError ? (
@@ -223,9 +272,24 @@ const StudentsByCategory = ({ categoryId }: Props) => {
               <ArrowRight size={13} strokeWidth={2.5} />
             </button>
           </div>
+        ) : visibleStudents.length === 0 ? (
+          // Empty state when the user narrowed by budget to nothing. Offer
+          // to widen the filter instead of leaving them on a dead end.
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
+            <p className="max-w-sm text-sm font-medium text-foreground">
+              No {meta.label.toLowerCase()} freelancers in this rate band.
+            </p>
+            <button
+              type="button"
+              onClick={() => setRateFilter('all')}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
+            >
+              Show all rates
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {students.map((student, idx) => {
+            {visibleStudents.map((student, idx) => {
               const name = getDisplayName(student.user_id);
               const ratingInfo = reviewMap[student.user_id];
               return (
