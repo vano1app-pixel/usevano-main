@@ -50,7 +50,7 @@ const BrowseStudents = () => {
 
   const fetchStudents = async () => {
     const [{ data: studentData }, { data: profileData }] = await Promise.all([
-      supabase.from('student_profiles').select('user_id, is_available, hourly_rate, avatar_url, skills, bio, tiktok_url, instagram_url, linkedin_url, website_url').eq('is_available', true).eq('community_board_status', 'approved').not('bio', 'is', null).not('skills', 'eq', '{}'),
+      supabase.from('student_profiles').select('user_id, is_available, hourly_rate, avatar_url, skills, bio, tiktok_url, instagram_url, linkedin_url, website_url').eq('is_available', true).eq('community_board_status', 'approved').not('skills', 'eq', '{}'),
       supabase.from('profiles').select('user_id, display_name, avatar_url'),
     ]);
     setStudents(studentData || []);

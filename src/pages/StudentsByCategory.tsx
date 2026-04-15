@@ -59,7 +59,10 @@ const StudentsByCategory = ({ categoryId }: Props) => {
 
   const fetchData = async () => {
     const [{ data: studentData, error: studentErr }, { data: profileData, error: profileErr }] = await Promise.all([
-      supabase.from('student_profiles').select('*').eq('is_available', true).eq('community_board_status', 'approved').not('bio', 'is', null).not('skills', 'eq', '{}'),
+      // community_board_status='approved' already guarantees they've completed
+      // the wizard; bio is now an optional personal line (null is fine), so we
+      // don't filter on it. Keep the skills check as a sanity filter.
+      supabase.from('student_profiles').select('*').eq('is_available', true).eq('community_board_status', 'approved').not('skills', 'eq', '{}'),
       supabase.from('profiles').select('user_id, display_name, avatar_url'),
     ]);
 

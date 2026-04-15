@@ -100,7 +100,6 @@ const Landing = () => {
         .select('user_id, skills, is_available, bio, hourly_rate, typical_budget_min, typical_budget_max, created_at')
         .eq('is_available', true)
         .eq('community_board_status', 'approved')
-        .not('bio', 'is', null)
         .not('skills', 'eq', '{}')
         .limit(20);
       if (!sprofs?.length) { setStudentsLoaded(true); return; }
