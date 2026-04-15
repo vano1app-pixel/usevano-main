@@ -3,8 +3,8 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { breadcrumbSchema } from '@/lib/structuredData';
-import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users, Search, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 
 const TALENT_HUB_CATEGORIES: {
@@ -41,10 +41,16 @@ function primaryCategoryForStudent(student: any, displayName: string): Community
 
 const BrowseStudents = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryParam = searchParams.get('q')?.trim() ?? '';
 
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // Live search input — initialised from `?q=` so a user landing here from the
+  // landing-page hero search sees their query in the box and can refine it.
+  const [searchInput, setSearchInput] = useState(queryParam);
+  useEffect(() => { setSearchInput(queryParam); }, [queryParam]);
 
   useEffect(() => { fetchStudents(); }, []);
 
@@ -69,6 +75,35 @@ const BrowseStudents = () => {
     return out;
   }, [students, profiles]);
 
+  // Apply the `?q=` text filter against name + bio + skills. Case-insensitive
+  // substring match — same fields BrowseStudents already pulled. When the
+  // query is empty we just return everything.
+  const filteredStudents = useMemo(() => {
+    const q = queryParam.toLowerCase();
+    if (!q) return students;
+    return students.filter((s) => {
+      const name = getDisplayName(s.user_id).toLowerCase();
+      const bio = (s.bio || '').toLowerCase();
+      const skills = (s.skills || []).join(' ').toLowerCase();
+      return name.includes(q) || bio.includes(q) || skills.includes(q);
+    });
+  }, [students, profiles, queryParam]);
+
+  const submitSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const next = new URLSearchParams(searchParams);
+    const v = searchInput.trim();
+    if (v) next.set('q', v);
+    else next.delete('q');
+    setSearchParams(next, { replace: true });
+  };
+  const clearSearch = () => {
+    setSearchInput('');
+    const next = new URLSearchParams(searchParams);
+    next.delete('q');
+    setSearchParams(next, { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
@@ -87,6 +122,39 @@ const BrowseStudents = () => {
         pt-[max(4.5rem,calc(env(safe-area-inset-top,0px)+3.25rem))]
         sm:pt-20 md:pt-24"
       >
+        {/* Search bar — mirrors the landing-page hero search and lets users
+            arriving via `?q=` see and refine their query. */}
+        <form
+          onSubmit={submitSearch}
+          className="mb-4 flex w-full items-center gap-2 rounded-full border border-border bg-card px-2 py-1.5 shadow-sm focus-within:border-primary/40 focus-within:shadow-md"
+        >
+          <Search size={16} className="ml-2 shrink-0 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by name, skill or keyword…"
+            className="flex-1 bg-transparent px-1 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none"
+            aria-label="Search freelancers"
+          />
+          {queryParam && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search"
+              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X size={14} />
+            </button>
+          )}
+          <button
+            type="submit"
+            className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.97]"
+          >
+            Search
+          </button>
+        </form>
+
         <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-sm sm:p-4">
           <div className="flex flex-col gap-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
@@ -161,16 +229,18 @@ const BrowseStudents = () => {
                 <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted/60" />
               ))}
             </div>
-          ) : students.length > 0 ? (
+          ) : filteredStudents.length > 0 ? (
             <>
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">On VANO now</p>
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  {queryParam ? <>Matches for "{queryParam}"</> : 'On VANO now'}
+                </p>
                 <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
-                  {students.length} available
+                  {filteredStudents.length} {queryParam ? 'match' : 'available'}{filteredStudents.length === 1 ? '' : (queryParam ? 'es' : '')}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {students.slice(0, 3).map((s, idx) => {
+                {filteredStudents.slice(0, queryParam ? 12 : 3).map((s, idx) => {
                   const name = getDisplayName(s.user_id);
                   return (
                     <div
@@ -196,8 +266,30 @@ const BrowseStudents = () => {
                   );
                 })}
               </div>
-              <p className="text-center text-xs text-muted-foreground">Pick a category above to browse all freelancers</p>
+              <p className="text-center text-xs text-muted-foreground">
+                {queryParam ? 'Click a category above to see everyone' : 'Pick a category above to browse all freelancers'}
+              </p>
             </>
+          ) : queryParam ? (
+            // Search returned zero — give the user a useful out instead of a dead end.
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Search size={20} strokeWidth={2} />
+              </div>
+              <p className="max-w-xs text-sm font-medium text-foreground">
+                No matches for "{queryParam}".
+              </p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                Try a broader keyword, pick a category above, or text our team and we'll match you.
+              </p>
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
+              >
+                Clear search
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">

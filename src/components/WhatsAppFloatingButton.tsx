@@ -1,15 +1,13 @@
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuthContext';
 import { teamWhatsAppHref } from '@/lib/contact';
 
 export function WhatsAppFloatingButton() {
   const { userType } = useAuth();
-  const { pathname } = useLocation();
-  const onTalentPage = pathname === '/students' || pathname.startsWith('/students/');
 
-  // Show for any authenticated user that has picked an account type,
-  // everywhere except the talent board.
-  if (!userType || onTalentPage) return null;
+  // Show for any authenticated user that has picked an account type. Previously
+  // this was hidden on /students and /students/* — the exact pages where stuck
+  // browsers most need a 1-tap "just text us" escape. Bringing it back there.
+  if (!userType) return null;
 
   return (
     <a

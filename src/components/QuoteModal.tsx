@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,6 +21,33 @@ interface QuoteModalProps {
  * Low-commitment quote request: sends a pre-filled message to the freelancer
  * (creates a conversation + first message). No timer, no pressure.
  */
+
+/**
+ * Category-aware brief scaffolds. Pre-filled into the textarea on first open
+ * so the hirer is editing blanks rather than staring at an empty box —
+ * empty-textarea is the single biggest typing barrier in this flow.
+ *
+ * Keep them short and use `___` as the obvious "fill me in" marker.
+ */
+const BRIEF_TEMPLATES: Record<string, string> = {
+  videography:
+    "Hi! I need a video for ___. About ___ minutes long, for ___ (Instagram / website / event). Can you help?",
+  digital_sales:
+    "Hi! I'm looking for help bringing in clients for ___. Mostly through ___ (cold email / calls / LinkedIn). Can you help?",
+  websites:
+    "Hi! I need a website for ___ — about ___ pages, with ___ (contact form / shop / booking). Can you help?",
+  social_media:
+    "Hi! I need help with social media for ___ on ___ (Instagram / TikTok). Looking for ___ (content / strategy / paid ads). Can you help?",
+  other:
+    "Hi! I need help with ___. Can you tell me what you'd charge and how long it'd take?",
+};
+
+function buildTemplate(category: string | null | undefined, freelancerName: string): string {
+  const tpl = (category && BRIEF_TEMPLATES[category]) || BRIEF_TEMPLATES.other;
+  // Personalise the greeting so it doesn't read as canned spam.
+  return tpl.replace(/^Hi!/, `Hi ${freelancerName}!`);
+}
+
 export const QuoteModal: React.FC<QuoteModalProps> = ({
   open,
   onOpenChange,
@@ -34,8 +61,31 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Track whether we've already seeded a template for this open-cycle so we
+  // don't overwrite the user's edits on every re-render.
+  const [seeded, setSeeded] = useState(false);
 
-  const canSubmit = brief.trim().length >= 5 && !submitting;
+  // Seed the textarea with a category-aware scaffold on each open. We only
+  // seed when the field is empty so we never blow away in-progress text.
+  useEffect(() => {
+    if (!open) {
+      setSeeded(false);
+      return;
+    }
+    if (seeded) return;
+    if (brief.trim().length === 0) {
+      setBrief(buildTemplate(category, freelancerName));
+    }
+    setSeeded(true);
+  }, [open, seeded, brief, category, freelancerName]);
+
+  // The template scaffolds the message but the user has to actually edit it
+  // — sending the verbatim template (with blanks intact) would just be spam.
+  const unedited = buildTemplate(category, freelancerName);
+  const canSubmit =
+    brief.trim().length >= 5 &&
+    brief.trim() !== unedited.trim() &&
+    !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -137,13 +187,20 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          <textarea
-            value={brief}
-            onChange={(e) => setBrief(e.target.value)}
-            placeholder="e.g. I need a 30-second promo video for my cafe's Instagram"
-            className="w-full min-h-[110px] resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
-            autoFocus
-          />
+          <div>
+            <textarea
+              value={brief}
+              onChange={(e) => setBrief(e.target.value)}
+              placeholder="e.g. I need a 30-second promo video for my cafe's Instagram"
+              className="w-full min-h-[110px] resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
+              autoFocus
+            />
+            {brief.includes('___') && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Tip: replace the <span className="font-mono text-foreground/80">___</span> blanks with your details, then send.
+              </p>
+            )}
+          </div>
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">

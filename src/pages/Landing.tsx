@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
@@ -23,6 +23,7 @@ import {
   Video,
   TrendingUp,
   Loader2,
+  Search,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -36,6 +37,14 @@ const Landing = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const oauthHandledRef = useRef(false);
+  // Hero search field — captures intent the moment a visitor lands. Submits
+  // to /students?q=… so the talent board filters down to matching freelancers.
+  const [heroQuery, setHeroQuery] = useState('');
+  const handleHeroSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const q = heroQuery.trim();
+    navigate(q ? `/students?q=${encodeURIComponent(q)}` : '/students');
+  };
 
   /**
    * "Join as a freelancer" fires Google OAuth directly with an intent of
@@ -198,9 +207,34 @@ const Landing = () => {
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-8 leading-relaxed">
+          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-6 leading-relaxed">
             Connect with Galway's best freelancers for digital sales, videography, web design, and more.
           </p>
+
+          {/* Hero search — type-and-go. Captures intent at the top of the
+              funnel: "I need a video editor" → Enter → filtered talent board.
+              Cuts landing→browse from 2 clicks to 1. */}
+          <form
+            onSubmit={handleHeroSearch}
+            className="mx-auto mb-6 flex w-full max-w-xl items-center gap-2 rounded-full border border-border bg-card px-2 py-2 shadow-sm focus-within:border-primary/40 focus-within:shadow-md"
+          >
+            <Search size={18} className="ml-2 shrink-0 text-muted-foreground" />
+            <input
+              type="text"
+              value={heroQuery}
+              onChange={(e) => setHeroQuery(e.target.value)}
+              placeholder="What do you need? e.g. video editor, web designer…"
+              className="flex-1 bg-transparent px-1 py-2 text-sm placeholder:text-muted-foreground/70 focus:outline-none"
+              aria-label="Search freelancers"
+            />
+            <button
+              type="submit"
+              className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.97]"
+            >
+              Search
+            </button>
+          </form>
+
           <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
                 data-mascot="hire-cta"
