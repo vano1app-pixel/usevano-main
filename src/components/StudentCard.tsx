@@ -247,8 +247,10 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           )}
         </div>
 
-        {/* Bottom-left: verified badge + category */}
-        <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5">
+        {/* Bottom-left: verified + category + location. Location moved onto
+            the banner so it's readable while scrolling the feed — previously
+            it was buried in a muted row below the avatar. */}
+        <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5 max-w-[calc(100%-7rem)]">
           {student.student_verified && (
             <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm">
               <ShieldCheck size={9} className="text-emerald-400" />
@@ -260,7 +262,35 @@ export const StudentCard: React.FC<StudentCardProps> = ({
               {category}
             </span>
           )}
+          {area && (
+            <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+              <MapPin size={9} className="shrink-0 text-white/80" />
+              <span className="truncate max-w-[120px]">{area}</span>
+            </span>
+          )}
         </div>
+
+        {/* Bottom-right: price tag. Intentionally high-contrast so a business
+            scrolling the feed can scan rates without opening profiles. Hourly
+            wins over typical-budget when both exist (more common mental
+            model); render nothing if neither is set. */}
+        {(student.hourly_rate > 0 || budgetLabel) && (
+          <div className="absolute bottom-2.5 right-3">
+            <span className="inline-flex items-baseline gap-1 rounded-lg bg-white/95 px-2.5 py-1 shadow-md backdrop-blur-sm">
+              {student.hourly_rate > 0 ? (
+                <>
+                  <span className="text-[13px] sm:text-sm font-bold text-emerald-600">€{student.hourly_rate}</span>
+                  <span className="text-[10px] font-semibold text-muted-foreground/80">/hr</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[13px] sm:text-sm font-bold text-emerald-600">{budgetLabel}</span>
+                  <span className="text-[10px] font-semibold text-muted-foreground/80">/project</span>
+                </>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="px-4 pb-4">
@@ -310,7 +340,11 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           <div className="flex flex-wrap items-center gap-1 pb-1">
             {isAdmin && <ModBadge size="sm" />}
             {student.is_available && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
                 Available
               </span>
             )}
@@ -333,27 +367,23 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         )}
 
-        {/* Location + rate row */}
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          {area && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin size={11} className="shrink-0 text-primary/70" />
-              {area}
+        {/* Typical-project budget — kept in the body as secondary context
+            because the banner's price tag prefers hourly. When hourly and
+            budget are both set, this row disambiguates (e.g. "€25/hr" on the
+            banner + "Typical project · €100–250" here). Rendered nothing when
+            there's no budget or when the banner already shows it. */}
+        {budgetLabel && student.hourly_rate > 0 && (
+          <div className="mt-1.5 flex items-baseline gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Typical project
             </span>
-          )}
-          {student.hourly_rate > 0 && (
-            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-              from €{student.hourly_rate}/hr
-            </span>
-          )}
-          {budgetLabel && (
-            <span className="text-xs font-medium text-foreground/60">{budgetLabel} projects</span>
-          )}
-        </div>
+            <span className="text-sm font-semibold text-foreground/80">{budgetLabel}</span>
+          </div>
+        )}
 
         {/* Bio */}
         {student.bio && (
-          <p className="mt-2.5 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mt-3 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
             {student.bio}
           </p>
         )}
