@@ -159,69 +159,65 @@ const BrowseStudents = () => {
           </button>
         </form>
 
-        <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-sm sm:p-4">
-          <div className="flex flex-col gap-4">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
-            <div className="grid grid-cols-2 gap-3">
-              {TALENT_HUB_CATEGORIES.map((item, idx) => {
-                const Icon = item.icon;
-                const count = countsByCategory[item.cat];
-                return (
-                  <button
-                    key={item.cat}
-                    type="button"
-                    data-mascot={idx === 0 ? "browse-cta" : undefined}
-                    onClick={() => navigate(`/students/${item.cat}`)}
-                    className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all duration-250 hover:border-primary/20 hover:shadow-lg hover:-translate-y-[2px] active:scale-[0.97] animate-fade-in opacity-0"
-                    style={{ animationDelay: `${idx * 70}ms` }}
-                  >
-                    {item.image && (
-                      <>
-                        <picture className="absolute inset-0 h-full w-full pointer-events-none">
-                          <source
-                            type="image/webp"
-                            srcSet={`/cat-${item.cat}-400.webp 400w, /cat-${item.cat}-800.webp 800w`}
-                            sizes="(max-width: 640px) 50vw, 25vw"
-                          />
-                          <img
-                            src={item.image}
-                            alt=""
-                            aria-hidden="true"
-                            loading="lazy"
-                            decoding="async"
-                            width="400"
-                            height="600"
-                            className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-transform duration-500 group-hover:scale-110"
-                          />
-                        </picture>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
-                      </>
-                    )}
-                    <div className="relative z-10 flex flex-col gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-                        <Icon size={22} strokeWidth={2} className="text-white" />
-                      </div>
-                      <div>
-                        <p className="text-[15px] font-bold leading-snug text-white drop-shadow-sm">{item.label}</p>
-                        <p className="mt-0.5 text-xs leading-snug text-white/90 font-medium drop-shadow-sm">{item.sub}</p>
-                      </div>
-                    </div>
-                    {/* Freelancer count — bottom left pill */}
-                    {!loading && count > 0 && (
-                      <span className="absolute bottom-4 left-5 z-10 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-foreground shadow-sm">
-                        {count} freelancer{count !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                    <ArrowRight size={14} className="absolute bottom-4 right-4 z-10 text-white/70 transition-all duration-200 group-hover:text-white group-hover:translate-x-0.5" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
+        <div className="grid grid-cols-2 gap-3">
+          {TALENT_HUB_CATEGORIES.map((item, idx) => {
+            const Icon = item.icon;
+            const count = countsByCategory[item.cat];
+            return (
+              <button
+                key={item.cat}
+                type="button"
+                data-mascot={idx === 0 ? "browse-cta" : undefined}
+                onClick={() => navigate(`/students/${item.cat}`)}
+                className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all duration-250 hover:border-primary/20 hover:shadow-lg hover:-translate-y-[2px] active:scale-[0.97] animate-fade-in opacity-0"
+                style={{ animationDelay: `${idx * 70}ms` }}
+              >
+                {item.image && (
+                  <>
+                    <picture className="absolute inset-0 h-full w-full pointer-events-none">
+                      <source
+                        type="image/webp"
+                        srcSet={`/cat-${item.cat}-400.webp 400w, /cat-${item.cat}-800.webp 800w`}
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                      />
+                      <img
+                        src={item.image}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                        width="400"
+                        height="600"
+                        className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-transform duration-500 group-hover:scale-110"
+                      />
+                    </picture>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 pointer-events-none" />
+                  </>
+                )}
+                <div className="relative z-10 flex flex-col gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                    <Icon size={22} strokeWidth={2} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[15px] font-bold leading-snug text-white drop-shadow-sm">{item.label}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-white/90 font-medium drop-shadow-sm">{item.sub}</p>
+                  </div>
+                </div>
+                {/* Freelancer count — bottom left pill */}
+                {!loading && count > 0 && (
+                  <span className="absolute bottom-4 left-5 z-10 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-foreground shadow-sm">
+                    {count} freelancer{count !== 1 ? 's' : ''}
+                  </span>
+                )}
+                <ArrowRight size={14} className="absolute bottom-4 right-4 z-10 text-white/70 transition-all duration-200 group-hover:text-white group-hover:translate-x-0.5" />
+              </button>
+            );
+          })}
         </div>
 
         {/* Freelancer preview strip */}
-        <div className="mt-6 flex flex-col gap-5">
+        <div className="mt-8 flex flex-col gap-5">
           {loading ? (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {[1, 2, 3].map((i) => (
