@@ -3,7 +3,11 @@ import * as React from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+// Was 1,000,000 ms (~16 min) — inherited from the shadcn snippet, which meant
+// success/error toasts effectively never auto-dismissed and stacked up. 4.5 s
+// is long enough to read a short message and see a confirmation, short enough
+// to not linger across page changes.
+const TOAST_REMOVE_DELAY = 4500;
 
 type ToasterToast = ToastProps & {
   id: string;

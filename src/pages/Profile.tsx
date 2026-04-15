@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
@@ -70,6 +70,24 @@ const Profile = () => {
   const [existingPost, setExistingPost] = useState<any>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [portfolioCount, setPortfolioCount] = useState(0);
+
+  // Sticky "Save Profile" floating bar — shows when the real Save button at
+  // the bottom of the long form scrolls out of view. Uses IntersectionObserver
+  // rather than dirty-state tracking because the form has 20+ fields; just
+  // mirroring the bottom button is simpler and equally useful for the "I've
+  // scrolled up and can't remember where Save is" problem.
+  const saveButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [saveButtonVisible, setSaveButtonVisible] = useState(true);
+  useEffect(() => {
+    const el = saveButtonRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => setSaveButtonVisible(entries[0]?.isIntersecting ?? true),
+      { rootMargin: '0px 0px -40px 0px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [existingPost, profile]);
   const bannerFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const listOnCommunityInitial = useMemo((): ListOnCommunityInitial => ({
@@ -269,7 +287,10 @@ const Profile = () => {
         const studentData = {
           bio,
           skills: normalizeFreelancerSkills(skills),
-          hourly_rate: Math.min(parseFloat(hourlyRate) || 0, 20),
+          // Clamp to [0, 20] — parseFloat accepts negatives and scientific
+          // notation (`-10`, `1e2`), so we guard both ends rather than just
+          // the upper cap.
+          hourly_rate: Math.max(0, Math.min(parseFloat(hourlyRate) || 0, 20)),
           phone,
           is_available: isAvailable,
           banner_url: bannerUrl || null,
@@ -928,6 +949,7 @@ const Profile = () => {
                         </div>
                       </div>
                       <button
+                        ref={saveButtonRef}
                         onClick={handleSave}
                         disabled={saving}
                         className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:brightness-105 disabled:opacity-50 disabled:hover:shadow-sm"
@@ -1086,6 +1108,7 @@ const Profile = () => {
                   </p>
                 </div>
                 <button
+                  ref={saveButtonRef}
                   onClick={handleSave}
                   disabled={saving}
                   className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:brightness-105 disabled:opacity-50 disabled:hover:shadow-sm"
@@ -1179,6 +1202,29 @@ const Profile = () => {
           </div>
         )}
       </div>
+
+      {/* Sticky save bar — mirrors the bottom Save button when it scrolls out
+          of view. Sits above the mobile bottom nav (which owns bottom: 0 on
+          mobile) so the two don't overlap. Hidden on /auth screens etc. via
+          the `!== approved` gate isn't needed — presence just follows the
+          existence of a saveButtonRef-attached button in the DOM. */}
+      {!saveButtonVisible && saveButtonRef.current && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/40 bg-card/95 px-4 py-3 shadow-[0_-6px_16px_-8px_rgba(0,0,0,0.12)] backdrop-blur-md md:bottom-0 safe-area-bottom pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem+3.25rem))] md:pb-3">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+            <p className="truncate text-[12px] font-medium text-muted-foreground">
+              Don't forget to save your changes
+            </p>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="shrink-0 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all duration-200 hover:brightness-110 hover:shadow-lg active:scale-[0.97] disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save Profile'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
