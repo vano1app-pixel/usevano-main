@@ -3,7 +3,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PageTransition } from "@/components/PageTransition";
 import { ScrollProgress } from "@/components/ScrollProgress";
@@ -97,7 +96,11 @@ const App = () => {
       <Toaster />
       <Sonner />
       <div className="md:pt-14 lg:pt-16" style={{ perspective: '1200px' }}>
-      <AnimatePresence mode="wait">
+      {/* AnimatePresence mode="wait" used to wrap these routes so outgoing
+          pages played an exit animation. It races with React's reconciler on
+          fast navigations and surfaced the "Failed to execute 'removeChild'
+          on 'Node'" error via the global ErrorBoundary. PageTransition still
+          plays an enter fade per page; exit is simply skipped. */}
         <Suspense fallback={null}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<P><Landing /></P>} />
@@ -175,7 +178,6 @@ const App = () => {
             <Route path="*" element={<P><NotFound /></P>} />
           </Routes>
         </Suspense>
-      </AnimatePresence>
       </div>
       <MobileBottomNav />
       {/* Floating/ambient UI — deferred, fallback silently on load failure */}
