@@ -93,12 +93,35 @@ const StudentProfile = () => {
       setCurrentUserType(myProf?.user_type || null);
     }
 
+    // Explicit column lists — this is a public page (any visitor can view it
+    // via /students/:id) so we never want `select('*')` returning future
+    // private-by-default columns (email, phone, notes, tokens, etc). Add a
+    // column here only after confirming it's safe to expose publicly.
     const [{ data: prof }, { data: sp }, { data: revs }, { data: badges }, { data: items }, { data: post }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('user_id', id!).maybeSingle(),
-      supabase.from('student_profiles').select('*').eq('user_id', id!).maybeSingle(),
-      supabase.from('reviews').select('*').eq('reviewee_id', id!).order('created_at', { ascending: false }),
-      supabase.from('student_achievements').select('*').eq('user_id', id!),
-      supabase.from('portfolio_items').select('*').eq('user_id', id!).order('created_at', { ascending: false }),
+      supabase
+        .from('profiles')
+        .select('user_id, user_type, display_name, avatar_url, bio, work_description')
+        .eq('user_id', id!)
+        .maybeSingle(),
+      supabase
+        .from('student_profiles')
+        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links, expected_bonus_amount, expected_bonus_unit')
+        .eq('user_id', id!)
+        .maybeSingle(),
+      supabase
+        .from('reviews')
+        .select('id, reviewer_id, rating, comment, photos, created_at')
+        .eq('reviewee_id', id!)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('student_achievements')
+        .select('id, badge_key, badge_label')
+        .eq('user_id', id!),
+      supabase
+        .from('portfolio_items')
+        .select('id, title, image_url, created_at')
+        .eq('user_id', id!)
+        .order('created_at', { ascending: false }),
       supabase.from('community_posts').select('title, description, category').eq('user_id', id!).eq('moderation_status', 'approved').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
@@ -440,12 +463,18 @@ const StudentProfile = () => {
                       "verified" (100%, fewer reviews). Never punishes new
                       freelancers with a negative badge. */}
                   {(() => {
+                    // Public page never fetches the freelancer's phone (PII).
+                    // Since every freelancer must provide one at sign-up, we
+                    // treat the phone slot as "present" here so the tier badge
+                    // on the public view can still match the owner's Profile
+                    // page. If we ever expose phone-visible states on the
+                    // backend, replace the placeholder with the real flag.
                     const percent = computeProfilePercent({
                       displayName: profile?.display_name,
                       avatarUrl: profile?.avatar_url,
                       bio: student?.bio,
                       bannerUrl: student?.banner_url,
-                      phone: student?.phone,
+                      phone: 'on-file',
                       university: student?.university,
                       skills: student?.skills,
                       portfolioCount: portfolioItems.length,

@@ -45,6 +45,12 @@ export const NotificationBell: React.FC = () => {
   const markAllRead = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    // Optimistically clear the badge + each row's unread highlight so the
+    // user sees an immediate response when they open the bell — the
+    // subsequent loadNotifications() refetch used to race this update and
+    // caused a brief flicker of the old "3" badge before it disappeared.
+    setUnreadCount(0);
+    setNotifications((prev) => prev.map((n) => (n.read ? n : { ...n, read: true })));
     await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id).eq('read', false);
     loadNotifications();
   };
@@ -84,7 +90,11 @@ export const NotificationBell: React.FC = () => {
       {open && (
         <>
           <div className="fixed inset-0 z-[1998]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 sm:right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-card border border-border rounded-xl shadow-lg z-[1999] overflow-hidden -translate-x-1/4 sm:translate-x-0">
+          {/* Anchor to the right of the bell on all breakpoints. On mobile we
+              cap width at "viewport minus 2rem" so the dropdown never pokes
+              past the left edge; the previous -translate-x-1/4 hack shoved it
+              off-screen on narrow phones. */}
+          <div className="absolute right-0 top-full mt-2 w-[min(calc(100vw-2rem),20rem)] max-w-sm bg-card border border-border rounded-xl shadow-lg z-[1999] overflow-hidden">
             <div className="p-3 border-b border-border flex items-center justify-between">
               <span className="text-sm font-semibold">Notifications</span>
               {unreadCount > 0 && (

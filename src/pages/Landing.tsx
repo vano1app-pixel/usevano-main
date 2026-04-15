@@ -24,7 +24,6 @@ import {
   Video,
   TrendingUp,
   Loader2,
-  Search,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -41,14 +40,6 @@ const Landing = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const oauthHandledRef = useRef(false);
-  // Hero search field — captures intent the moment a visitor lands. Submits
-  // to /students?q=… so the talent board filters down to matching freelancers.
-  const [heroQuery, setHeroQuery] = useState('');
-  const handleHeroSearch = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const q = heroQuery.trim();
-    navigate(q ? `/students?q=${encodeURIComponent(q)}` : '/students');
-  };
 
   /**
    * "Join as a freelancer" fires Google OAuth directly with an intent of
@@ -234,29 +225,41 @@ const Landing = () => {
             Connect with Galway's best freelancers for digital sales, videography, web design, and more.
           </p>
 
-          {/* Hero search — type-and-go. Captures intent at the top of the
-              funnel: "I need a video editor" → Enter → filtered talent board.
-              Cuts landing→browse from 2 clicks to 1. */}
-          <form
-            onSubmit={handleHeroSearch}
-            className="mx-auto mb-6 flex w-full max-w-xl items-center gap-2 rounded-full border border-border bg-card px-2 py-2 shadow-sm focus-within:border-primary/40 focus-within:shadow-md"
+          {/* Hero tag cloud — replaces the old hero search bar. Clicking a tag
+              deep-links into /hire with both ?category and ?subtype preset, so
+              HirePage auto-advances past Step 1 to timeline/budget. Each tag
+              maps to an existing subtype in HirePage.tsx's CATEGORIES array,
+              so what's shown here is exactly what businesses pick manually on
+              Step 1 of the hire flow. Curated 12 (3 per category) to keep the
+              hero from going visually busy. */}
+          <div
+            data-hero-tags
+            className="mx-auto mb-7 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-2 sm:gap-x-2.5"
           >
-            <Search size={18} className="ml-2 shrink-0 text-muted-foreground" />
-            <input
-              type="text"
-              value={heroQuery}
-              onChange={(e) => setHeroQuery(e.target.value)}
-              placeholder="What do you need? e.g. video editor, web designer…"
-              className="flex-1 bg-transparent px-1 py-2 text-sm placeholder:text-muted-foreground/70 focus:outline-none"
-              aria-label="Search freelancers"
-            />
-            <button
-              type="submit"
-              className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.97]"
-            >
-              Search
-            </button>
-          </form>
+            {[
+              { category: 'digital_sales', subtype: 'Cold calling / SDR',   label: 'Cold calling' },
+              { category: 'social_media',  subtype: 'Content / posts',      label: 'Content creation' },
+              { category: 'videography',   subtype: 'Reel / short-form',    label: 'Short-form video' },
+              { category: 'websites',      subtype: 'Landing page',         label: 'Landing page' },
+              { category: 'digital_sales', subtype: 'Lead generation',      label: 'Lead gen' },
+              { category: 'social_media',  subtype: 'Paid ads',             label: 'Paid ads' },
+              { category: 'videography',   subtype: 'Promo / ad',           label: 'Promo / ad' },
+              { category: 'websites',      subtype: 'Full website',         label: 'Full website' },
+              { category: 'digital_sales', subtype: 'Cold email outreach',  label: 'Cold email' },
+              { category: 'social_media',  subtype: 'Strategy & growth',    label: 'Social strategy' },
+              { category: 'videography',   subtype: 'Event / wedding',      label: 'Event filming' },
+              { category: 'websites',      subtype: 'Shopify / e-commerce', label: 'Shopify store' },
+            ].map((t) => (
+              <button
+                key={`${t.category}:${t.subtype}`}
+                type="button"
+                onClick={() => navigate(`/hire?category=${t.category}&subtype=${encodeURIComponent(t.subtype)}`)}
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-[12.5px] font-medium text-muted-foreground shadow-sm transition-all duration-150 hover:border-primary/40 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
           <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -314,17 +317,17 @@ const Landing = () => {
           <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-4">What do you need?</span>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
-              { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' },
-              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-photography.png' },
-              { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' },
-              { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' },
+              { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' as string | null },
+              // Digital Sales has no dedicated hero artwork yet — leaving
+              // image as null renders the gradient + icon treatment instead
+              // of the misleading photography stock shot that was here.
+              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: null as string | null },
+              { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' as string | null },
+              { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
             ].map((item) => {
               // Image paths derived from the naming convention used in /public.
               // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.
-              // digital_sales reuses the photography image assets as a placeholder
-              // until a dedicated cat-digital_sales.png/webp set is uploaded.
               const slug = item.cat;
-              const imageSlug = item.cat === 'digital_sales' ? 'photography' : slug;
               return (
                 <button
                   data-cat-card
@@ -334,24 +337,31 @@ const Landing = () => {
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
                 >
-                  <picture className="absolute inset-0 h-full w-full pointer-events-none">
-                    <source
-                      type="image/webp"
-                      srcSet={`/cat-${imageSlug}-400.webp 400w, /cat-${imageSlug}-800.webp 800w`}
-                      sizes="(max-width: 640px) 50vw, 25vw"
-                    />
-                    <img
-                      data-cat-img
-                      src={item.image}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                      width="400"
-                      height="600"
-                      className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-all duration-500 group-hover:opacity-50 group-hover:scale-105"
-                    />
-                  </picture>
+                  {item.image ? (
+                    <picture className="absolute inset-0 h-full w-full pointer-events-none">
+                      <source
+                        type="image/webp"
+                        srcSet={`/cat-${slug}-400.webp 400w, /cat-${slug}-800.webp 800w`}
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                      />
+                      <img
+                        data-cat-img
+                        src={item.image}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                        width="400"
+                        height="600"
+                        className="absolute inset-0 h-full w-full object-cover opacity-40 pointer-events-none select-none transition-all duration-500 group-hover:opacity-50 group-hover:scale-105"
+                      />
+                    </picture>
+                  ) : (
+                    // Fallback backdrop when there's no dedicated hero image
+                    // (e.g. digital_sales). Warm neutral gradient + category
+                    // icon avoids the blank-white card look.
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-emerald-500/20 pointer-events-none" />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none" />
                   <div className="relative z-10 flex flex-col gap-3 md:gap-4">
                     <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm transition-all duration-200 group-hover:bg-white/25">

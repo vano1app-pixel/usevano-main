@@ -6,7 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image, LogOut, Sparkles, X as XIcon, ArrowRight } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image, LogOut, MapPin } from 'lucide-react';
+import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
 import { nameToSlug } from '@/lib/slugify';
@@ -63,18 +64,6 @@ const Profile = () => {
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
-  // Persistent onboarding nudge for students who finished profile but never
-  // published a listing. Dismissible per session (sessionStorage) — survives
-  // navigation within the tab but re-appears on new tabs so the signal isn't
-  // permanently silenced. Hides once they publish.
-  const [listingNudgeDismissed, setListingNudgeDismissed] = useState(false);
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem('vano_listing_nudge_dismissed') === '1') {
-        setListingNudgeDismissed(true);
-      }
-    } catch { /* ignore */ }
-  }, []);
   const [wizardStartStep, setWizardStartStep] = useState<number | undefined>(undefined);
   const [linkCopied, setLinkCopied] = useState(false);
   const [qualityExpanded, setQualityExpanded] = useState(false);
@@ -218,7 +207,7 @@ const Profile = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to load profile:', err);
+      if (import.meta.env.DEV) console.error('Failed to load profile:', err);
       toast({ title: 'Something went wrong', description: 'Could not load your profile. Try refreshing.', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -302,7 +291,7 @@ const Profile = () => {
       }
       toast({ title: 'Profile saved!' });
     } catch (err: any) {
-      console.error('Failed to save profile:', err);
+      if (import.meta.env.DEV) console.error('Failed to save profile:', err);
       toast({ title: 'Could not save', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -486,45 +475,13 @@ const Profile = () => {
 
         {profile?.user_type === 'student' && user && (
           <>
-            {/* Onboarding nudge — shown when a freelancer has completed their
-                profile but not yet published a community listing. Businesses
-                can't find them on the talent board until they do. The forced
-                /list-on-community redirect on sign-in catches most of them;
-                this banner is the fallback for users who explicitly skipped. */}
-            {!existingPost && !listingNudgeDismissed && (
-              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.08] via-card to-card p-4 shadow-sm">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <Sparkles size={16} strokeWidth={2} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    You&apos;re not on the talent board yet
-                  </p>
-                  <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
-                    Publish a listing so businesses in Galway can find and hire you. Takes 2 minutes.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/list-on-community')}
-                    className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
-                  >
-                    List on talent board
-                    <ArrowRight size={12} strokeWidth={2.5} />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Dismiss"
-                  onClick={() => {
-                    setListingNudgeDismissed(true);
-                    try { sessionStorage.setItem('vano_listing_nudge_dismissed', '1'); } catch { /* ignore */ }
-                  }}
-                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <XIcon size={14} strokeWidth={2} />
-                </button>
-              </div>
-            )}
+            {/* The old "You're not on the talent board yet" nudge banner was
+                removed here — it duplicated the amber "Not visible yet" card
+                rendered further down (with its "Get listed" button), and the
+                two had different behaviours: the nudge navigated away to
+                /list-on-community, while the amber card opens the wizard
+                inline as a modal. Keeping one path (the modal) per the
+                user's note about "two different edit profile things". */}
 
             {/* Hidden file input for quick banner change */}
             <input
@@ -706,6 +663,47 @@ const Profile = () => {
                               }
                             </div>
                           )}
+                          {/* Location chip — mirrors the StudentCard banner so
+                              freelancers see exactly what buyers see on the
+                              talent board. Only renders when set. */}
+                          {(existingPost.image_url || bannerUrl) && serviceArea && (
+                            <div className="absolute left-3 top-3">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+                                <MapPin size={9} className="shrink-0 text-white/80" />
+                                <span className="max-w-[120px] truncate">{serviceArea}</span>
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Price pill — right side, high-contrast, same
+                              treatment as the live StudentCard. Hourly wins
+                              when set; otherwise shows typical-project budget. */}
+                          {(existingPost.image_url || bannerUrl) && (() => {
+                            const rate = parseFloat(hourlyRate.replace(',', '.'));
+                            const budgetLabel = formatTypicalBudget(
+                              typicalBudgetMin ? parseInt(typicalBudgetMin, 10) : null,
+                              typicalBudgetMax ? parseInt(typicalBudgetMax, 10) : null,
+                            );
+                            if (!(rate > 0) && !budgetLabel) return null;
+                            return (
+                              <div className="absolute right-3 top-3">
+                                <span className="inline-flex items-baseline gap-1 rounded-lg bg-white/95 px-2.5 py-1 shadow-md backdrop-blur-sm">
+                                  {rate > 0 ? (
+                                    <>
+                                      <span className="text-[13px] font-bold text-emerald-600">€{rate}</span>
+                                      <span className="text-[10px] font-semibold text-muted-foreground/80">/hr</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-[13px] font-bold text-emerald-600">{budgetLabel}</span>
+                                      <span className="text-[10px] font-semibold text-muted-foreground/80">/project</span>
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })()}
+
                           {/* Name / category overlay at bottom */}
                           {(existingPost.image_url || bannerUrl) && (
                             <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 px-4 pb-3">

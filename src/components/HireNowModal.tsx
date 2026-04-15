@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,7 @@ import {
   DIRECT_HIRE_EXPIRY_HOURS,
 } from '@/lib/hireOptions';
 import { cn } from '@/lib/utils';
-import { Zap, AlertTriangle, Loader2, Clock, MailWarning } from 'lucide-react';
+import { Zap, AlertTriangle, Loader2, Clock, MailWarning, CheckCircle2 } from 'lucide-react';
 import { track } from '@/lib/track';
 
 interface HireNowModalProps {
@@ -39,6 +39,12 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  // Synchronous guard against a fast double-click: `setSubmitting(true)` in
+  // handleSubmit is asynchronous, so a second click landing before React
+  // re-renders could otherwise slip past the `if (!canSubmit) return` check
+  // and fire a second `.insert`. A ref flips instantly.
+  const submitLockRef = useRef(false);
   // Pre-flight verify state — checked when the modal opens so we can show an
   // inline banner immediately, instead of letting the user fill the whole form
   // and rejecting them on submit.
@@ -90,6 +96,8 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -105,6 +113,7 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
           variant: 'destructive',
         });
         setSubmitting(false);
+        submitLockRef.current = false;
         return;
       }
 
@@ -136,6 +145,7 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
           variant: 'destructive',
         });
         setSubmitting(false);
+        submitLockRef.current = false;
         return;
       }
 
@@ -158,11 +168,18 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
         description: `They have ${DIRECT_HIRE_EXPIRY_HOURS}h to accept. You'll get notified when they respond.`,
       });
 
-      onOpenChange(false);
-      // Reset for next time
-      setBrief('');
-      setTimeline(null);
-      setBudget(null);
+      // Brief in-modal success state so the interaction doesn't feel like
+      // the app simply ate the click. Modal auto-closes after 1.2s.
+      setSuccess(true);
+      window.setTimeout(() => {
+        onOpenChange(false);
+        // Reset for next time
+        setBrief('');
+        setTimeline(null);
+        setBudget(null);
+        setSuccess(false);
+        submitLockRef.current = false;
+      }, 1200);
     } catch (err) {
       console.error('HireNowModal error', err);
       toast({
@@ -170,6 +187,7 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
         description: 'Please try again.',
         variant: 'destructive',
       });
+      submitLockRef.current = false;
     } finally {
       setSubmitting(false);
     }
@@ -295,16 +313,22 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
 
           <button
             type="button"
-            disabled={!canSubmit}
+            disabled={!canSubmit || success}
             onClick={handleSubmit}
             className={cn(
-              'w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-bold text-white shadow-lg transition-all',
-              'hover:shadow-xl hover:brightness-110',
+              'w-full rounded-xl py-3 text-sm font-bold text-white shadow-lg transition-all',
+              success
+                ? 'bg-gradient-to-r from-emerald-500 to-green-600'
+                : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:shadow-xl hover:brightness-110',
               'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:hover:brightness-100',
               'flex items-center justify-center gap-2',
             )}
           >
-            {submitting ? (
+            {success ? (
+              <>
+                <CheckCircle2 size={16} /> Sent!
+              </>
+            ) : submitting ? (
               <>
                 <Loader2 size={16} className="animate-spin" /> Sending…
               </>

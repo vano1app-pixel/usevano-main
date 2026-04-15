@@ -17,11 +17,10 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check, Users,
+  Shield, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { track } from '@/lib/track';
-import { sendQuoteBroadcast, QuoteBroadcastError } from '@/lib/quoteBroadcast';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 
 /* ─── Constants ─── */
@@ -156,7 +155,16 @@ const HirePage = () => {
     const cat = searchParams.get('category');
     if (cat) {
       const found = CATEGORIES.find(c => c.id === cat);
-      if (found) setCategory(cat);
+      if (found) {
+        setCategory(cat);
+        // Optional ?subtype=… from Landing tag cloud lets us skip Step 1
+        // entirely. We validate against the known subtypes for the matching
+        // category so a hand-typed bad param can't poison the brief.
+        const st = searchParams.get('subtype');
+        if (st && found.subtypes.includes(st)) {
+          setSubtype(st);
+        }
+      }
     }
   }, []);
 
@@ -348,59 +356,11 @@ const HirePage = () => {
      The structural fix to the "single freelancer ghosted me" leak. We send
      to up to 3 of the visible matches in parallel; the first to reply wins
      (DB trigger handles the open → filled transition). */
-  const [broadcasting, setBroadcasting] = useState(false);
-  const broadcastTopMatches = async () => {
-    if (broadcasting) return;
-    if (!user) { navigate('/auth'); return; }
-    const targets = matchedStudents.slice(0, 3).map((s) => s.user_id).filter(Boolean);
-    if (targets.length === 0) {
-      toast({ title: 'No freelancers to send to yet', description: 'Wait for matches to load.', variant: 'destructive' });
-      return;
-    }
-    setBroadcasting(true);
-    try {
-      const ask = buildDescription();
-      const budgetLabel = BUDGETS.find((b) => b.id === budget)?.label || '';
-      const timelineLabel = TIMELINES.find((t) => t.id === timeline)?.label || '';
-      const briefLines = [
-        `Hi! I'm looking for help with: ${ask}`,
-      ];
-      const meta: string[] = [];
-      if (budgetLabel) meta.push(`Budget: ${budgetLabel}`);
-      if (timelineLabel) meta.push(`Timeline: ${timelineLabel}`);
-      if (meta.length) {
-        briefLines.push('');
-        briefLines.push(meta.join(' · '));
-      }
-      const result = await sendQuoteBroadcast({
-        brief: briefLines.join('\n'),
-        category,
-        budget,
-        timeline,
-        targetFreelancerIds: targets,
-      });
-      markUserActed();
-      // Surface partial-failure honestly — previously a broadcast that half-
-      // landed showed the full sent count, which is the wrong signal.
-      const intended = result.sentCount + result.failedCount;
-      const partial = result.failedCount > 0;
-      toast({
-        title: partial
-          ? `Sent to ${result.sentCount} of ${intended} freelancers`
-          : `Sent to ${result.sentCount} freelancer${result.sentCount === 1 ? '' : 's'}`,
-        description: partial
-          ? `${result.failedCount} couldn't receive the message — we opened Messages so you can see who got it.`
-          : "First to reply wins. We'll open Messages so you can watch.",
-        variant: partial ? 'destructive' : undefined,
-      });
-      navigate('/messages');
-    } catch (err) {
-      const msg = err instanceof QuoteBroadcastError ? err.message : 'Could not send broadcast.';
-      toast({ title: 'Could not send', description: msg, variant: 'destructive' });
-    } finally {
-      setBroadcasting(false);
-    }
-  };
+  // Toggles the inline freelancer list on Step 3. Collapsed by default so
+  // the Vano-match card above reads as the primary CTA; users who want to
+  // pick directly open the list with the "Choose a freelancer yourself"
+  // button.
+  const [showDirectList, setShowDirectList] = useState(false);
 
   useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
 
@@ -479,17 +439,19 @@ const HirePage = () => {
         </p>
       </header>
 
-      {/* Category chips */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Category chips — intentionally the largest controls on this step.
+          These are the decision. Everything below (optional detail, value
+          props) should read as supporting material. */}
+      <div className="flex flex-wrap gap-2.5 mb-5">
         {CATEGORIES.map(cat => {
           const Icon = cat.icon;
           const active = category === cat.id;
           return (
             <button key={cat.id} type="button" onClick={() => handleCategoryPick(cat.id)} className={cn(
-              'flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs sm:text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
-              active ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
+              'flex items-center gap-2 rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
+              active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
             )}>
-              <Icon size={14} /> {cat.label}
+              <Icon size={18} /> {cat.label}
             </button>
           );
         })}
@@ -505,13 +467,13 @@ const HirePage = () => {
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               What kind of {cat.label.toLowerCase()}?
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {cat.subtypes.map(st => {
                 const active = subtype === st;
                 return (
                   <button key={st} type="button" onClick={() => setSubtype(st)} className={cn(
-                    'rounded-full border px-4 py-2.5 text-xs sm:text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
-                    active ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
+                    'rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
+                    active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
                   )}>
                     {st}
                   </button>
@@ -522,11 +484,17 @@ const HirePage = () => {
         );
       })()}
 
-      {/* Textarea — optional for chip-driven categories, still the only path
-          for "Other". Keep it visible so power users can add detail, but don't
-          steal focus or nag about character count. */}
-      <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden transition-all duration-300 focus-within:border-primary/20 focus-within:shadow-tinted-lg">
-        <div className="flex items-center justify-between px-5 pt-3">
+      {/* Optional scratch space for extra context. Intentionally de-emphasised
+          below the chips (dashed border, smaller text, shorter height) so it
+          reads as a footnote, not a required field. For "Other" it graduates
+          back to a solid card since it becomes the only input path. */}
+      <div className={cn(
+        'rounded-2xl bg-card overflow-hidden transition-all duration-300',
+        category === 'other'
+          ? 'border border-foreground/6 shadow-tinted focus-within:border-primary/20 focus-within:shadow-tinted-lg'
+          : 'border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid',
+      )}>
+        <div className="flex items-center justify-between px-4 pt-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {category === 'other' ? 'Tell us what you need' : 'Add any extra detail'}
             {category !== 'other' && <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>}
@@ -538,7 +506,12 @@ const HirePage = () => {
           placeholder={category === 'other'
             ? 'Describe what you need — the more specific, the better match we can find.'
             : "Anything the freelancer should know upfront (deadline context, brand, examples…)"}
-          className="w-full min-h-[96px] lg:min-h-[120px] resize-none bg-transparent px-5 pt-2 pb-4 text-[15px] sm:text-base leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
+          className={cn(
+            'w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none',
+            category === 'other'
+              ? 'min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base'
+              : 'min-h-[72px] lg:min-h-[88px] text-sm',
+          )}
         />
       </div>
 
@@ -740,10 +713,10 @@ const HirePage = () => {
               <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
               within 24h. You'll also get an email.
             </p>
-            {/* Reinforce that the user isn't blocked — if they want instant replies
-                they can still broadcast to the matched freelancers below. */}
+            {/* Reinforce that the user isn't blocked — they can also browse and
+                message a freelancer directly from the list below. */}
             <p className="mt-3 text-xs text-muted-foreground/90 leading-relaxed max-w-sm mx-auto">
-              Want quotes faster? Use the <span className="font-semibold text-foreground">Get quotes from top {Math.min(3, Math.max(matchedStudents.length, 1))}</span> button below — you'll usually get a reply in under an hour.
+              Want a reply faster? Tap <span className="font-semibold text-foreground">Choose a freelancer yourself</span> below and message one directly — most reply within the hour.
             </p>
             <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
               <MessageCircle size={15} /> Chat with us on WhatsApp
@@ -752,47 +725,34 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Inline top-3 matched freelancers ──
-           Previously the freelancer list lived behind a "Choose a freelancer
-           yourself" expander, which hid the most decisive shortcut on the page.
-           Now we render the top 3 matches inline below the Vano card so users
-           who already know what they want can message directly in one tap.
-           Vano-match remains the primary CTA above; this is a parallel path. */}
-      {/* ── Multi-send CTA — the structural fix to the "single freelancer
-           ghosted me" leak. One click sends the brief to the top 3 matches
-           in parallel. First to reply wins (DB trigger handles the status
-           transition). Hidden when there are no matches yet. */}
-      {!matchLoading && matchedStudents.length > 1 && (
-        <button
-          type="button"
-          onClick={broadcastTopMatches}
-          disabled={broadcasting}
-          className={cn(
-            'mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm sm:text-base font-bold text-white shadow-md transition-all',
-            'hover:shadow-lg hover:brightness-110 active:scale-[0.98]',
-            'disabled:opacity-60 disabled:cursor-not-allowed',
-          )}
-        >
-          {broadcasting ? (
-            <><Loader2 size={16} className="animate-spin" /> Sending to {Math.min(3, matchedStudents.length)}…</>
-          ) : (
-            <>
-              <Users size={16} strokeWidth={2.5} />
-              Get quotes from top {Math.min(3, matchedStudents.length)} matches
-            </>
-          )}
-        </button>
-      )}
-      {!matchLoading && matchedStudents.length > 1 && (
-        <p className="mt-1.5 px-1 text-center text-[11px] text-muted-foreground">
-          One brief, sent to {Math.min(3, matchedStudents.length)} freelancers in parallel — first to reply wins.
-        </p>
-      )}
+      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
+           Sits directly under the Vano card as a white / outline full-width
+           button so it reads as the clearly-secondary path. Tapping it expands
+           the matched-freelancer panel inline. The previous green "Get quotes
+           from top 3" broadcast CTA was removed — users preferred the simpler
+           "pick yourself" interaction. */}
+      <button
+        type="button"
+        onClick={() => setShowDirectList((s) => !s)}
+        aria-expanded={showDirectList}
+        className={cn(
+          'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-card px-6 py-4 text-sm sm:text-base font-semibold text-foreground shadow-sm transition-all cursor-pointer select-none active:scale-[0.98]',
+          showDirectList ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/25 hover:bg-primary/5',
+        )}
+      >
+        <MessageCircle size={15} className="text-muted-foreground" />
+        Choose a freelancer yourself
+        <ChevronDown
+          size={15}
+          className={cn('text-muted-foreground transition-transform duration-200', showDirectList && 'rotate-180')}
+        />
+      </button>
 
-      <div className="mt-4">
+      {showDirectList && (
+      <div className="mt-4 animate-fade-in">
         <div className="flex items-baseline justify-between mb-2 px-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Or pick one yourself
+            Or pick a freelancer yourself
           </p>
           {matchedStudents.length > 3 && (
             <button
@@ -852,6 +812,7 @@ const HirePage = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 
