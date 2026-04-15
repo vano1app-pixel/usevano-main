@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2 } from 'lucide-react';
+import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import {
   TEAM_CONTACT_EMAIL,
@@ -16,6 +17,7 @@ import {
 } from '@/lib/contact';
 import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface Conversation {
   id: string;
@@ -111,6 +113,14 @@ const Messages = () => {
   // the conversation is a normal 1:1. Used to render the "1 of N — first to
   // reply wins" / "✓ {Name} replied first" badge under the thread header.
   const [broadcastInfo, setBroadcastInfo] = useState<BroadcastInfo | null>(null);
+  // Active hire agreement for the selected conversation (one row in
+  // hire_agreements). When set, the "Mark as hired" button swaps for a
+  // "✓ Hired" chip and the thread is considered formally closed.
+  const [hireAgreement, setHireAgreement] = useState<{ id: string; business_id: string; freelancer_id: string; created_at: string } | null>(null);
+  const [hiringInProgress, setHiringInProgress] = useState(false);
+  // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
+  const [viewerUserType, setViewerUserType] = useState<string | null>(null);
+  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,6 +138,46 @@ const Messages = () => {
       loadMessages(selectedConvo);
       markAsRead(selectedConvo);
     }
+  }, [selectedConvo]);
+
+  // Fetch the viewer's user_type once so we can gate the "Mark as hired"
+  // button — only businesses see it.
+  useEffect(() => {
+    if (!user?.id) { setViewerUserType(null); return; }
+    void supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setViewerUserType(data?.user_type || null));
+  }, [user?.id]);
+
+  // Active hire agreement lookup for the selected conversation. Realtime on
+  // the table so the chip updates the moment the business hits the button
+  // in another tab or the trigger fires.
+  useEffect(() => {
+    if (!selectedConvo) { setHireAgreement(null); return; }
+    let cancelled = false;
+    void (async () => {
+      const agreement = await getActiveHireAgreement(selectedConvo);
+      if (!cancelled) setHireAgreement(agreement);
+    })();
+    const channel = supabase
+      .channel(`hire-agreement-${selectedConvo}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'hire_agreements',
+        filter: `conversation_id=eq.${selectedConvo}`,
+      }, async () => {
+        const agreement = await getActiveHireAgreement(selectedConvo);
+        if (!cancelled) setHireAgreement(agreement);
+      })
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
   }, [selectedConvo]);
 
   // Pull broadcast metadata for the selected conversation so the thread can
@@ -719,10 +769,58 @@ const Messages = () => {
                     ? <img src={selectedConversation.otherAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />
                     : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">{(selectedConversation?.otherName || '?')[0].toUpperCase()}</div>
                   }
-                  <div>
-                    <p className="text-sm font-semibold leading-tight">{selectedConversation?.otherName}</p>
-                    {selectedConversation?.jobTitle && <p className="text-xs text-primary leading-tight">Re: {selectedConversation.jobTitle}</p>}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-tight truncate">{selectedConversation?.otherName}</p>
+                    {selectedConversation?.jobTitle && <p className="text-xs text-primary leading-tight truncate">Re: {selectedConversation.jobTitle}</p>}
                   </div>
+                  {/* Hire finalization — the one click that turns "chatting"
+                      into "formally hired." Business-only, hidden once an
+                      agreement exists. The DB trigger posts a system message
+                      when they hit it, so both sides see the confirmation
+                      land in-thread without refresh. */}
+                  {selectedConversation && user && viewerUserType === 'business' && !hireAgreement && (
+                    <button
+                      type="button"
+                      disabled={hiringInProgress}
+                      onClick={async () => {
+                        if (!selectedConversation || hiringInProgress) return;
+                        setHiringInProgress(true);
+                        try {
+                          await createHireAgreement({
+                            businessId: user.id,
+                            freelancerId: selectedConversation.otherUserId || (
+                              selectedConversation.participant_1 === user.id
+                                ? selectedConversation.participant_2
+                                : selectedConversation.participant_1
+                            ),
+                            conversationId: selectedConversation.id,
+                          });
+                          toast({
+                            title: 'Marked as hired ✓',
+                            description: `Confirmation message posted in the thread. Leave a review when the work wraps up.`,
+                          });
+                        } catch (err) {
+                          toast({
+                            title: 'Could not mark as hired',
+                            description: err instanceof HireAgreementError ? err.message : 'Please try again.',
+                            variant: 'destructive',
+                          });
+                        } finally {
+                          setHiringInProgress(false);
+                        }
+                      }}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {hiringInProgress ? <Loader2 size={12} className="animate-spin" /> : <BadgeCheck size={12} strokeWidth={2.5} />}
+                      Mark as hired
+                    </button>
+                  )}
+                  {hireAgreement && (
+                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                      <BadgeCheck size={12} strokeWidth={2.5} />
+                      Hired
+                    </span>
+                  )}
                 </div>
 
                 {/* Broadcast banner — only renders for multi-send conversations.

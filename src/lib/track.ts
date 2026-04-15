@@ -19,7 +19,8 @@ export type TrackEvent =
   | 'vano_match_sent'
   | 'quote_broadcast_sent'
   | 'quote_broadcast_filled'
-  | 'in_app_browser_blocked';
+  | 'in_app_browser_blocked'
+  | 'hire_agreement_created';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
   // Defer so we never block the calling render/handler.
