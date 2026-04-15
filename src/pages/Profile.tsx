@@ -218,7 +218,7 @@ const Profile = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to load profile:', err);
+      if (import.meta.env.DEV) console.error('Failed to load profile:', err);
       toast({ title: 'Something went wrong', description: 'Could not load your profile. Try refreshing.', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -302,7 +302,7 @@ const Profile = () => {
       }
       toast({ title: 'Profile saved!' });
     } catch (err: any) {
-      console.error('Failed to save profile:', err);
+      if (import.meta.env.DEV) console.error('Failed to save profile:', err);
       toast({ title: 'Could not save', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
       setSaving(false);

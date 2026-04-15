@@ -85,7 +85,8 @@ const CompleteProfile = () => {
       toast({ title: 'Phone number is required', variant: 'destructive' });
       return;
     }
-    // Phone is optional here — collected later in the listing wizard
+    // Freelancers collect phone later in the listing wizard; businesses must
+    // provide it here (guard above).
 
     setLoading(true);
     try {
@@ -197,6 +198,10 @@ const CompleteProfile = () => {
                 onChange={(e) => setPhone(e.target.value)}
                 className={inputClass}
                 placeholder="e.g. 089 123 4567"
+                autoComplete="tel"
+                inputMode="tel"
+                required={!isStudent}
+                aria-required={!isStudent}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 {isStudent ? 'Only shared with VANO team, not displayed publicly' : 'So we can reach you quickly'}

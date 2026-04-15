@@ -171,7 +171,25 @@ export const StudentCard: React.FC<StudentCardProps> = ({
       {/* Banner */}
       <div className="relative h-40 w-full overflow-hidden sm:h-48 md:h-56">
         {student.banner_url ? (
-          <img src={student.banner_url} alt="" className="h-full w-full object-cover transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]" loading="lazy" decoding="async" />
+          <img
+            src={student.banner_url}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]"
+            loading="lazy"
+            decoding="async"
+            // If the banner CDN 404s or the URL is stale, swap for the
+            // per-freelancer gradient so the card never renders with a blank
+            // white banner.
+            onError={(e) => {
+              const el = e.currentTarget as HTMLImageElement;
+              el.style.display = 'none';
+              const parent = el.parentElement;
+              if (parent && !parent.dataset.bannerFallback) {
+                parent.dataset.bannerFallback = '1';
+                parent.style.background = freelancerGradient(student.user_id, { skills: student.skills });
+              }
+            }}
+          />
         ) : (
           <div
             className="relative h-full w-full transition-transform duration-700 ease-out-quint group-hover:scale-[1.03]"

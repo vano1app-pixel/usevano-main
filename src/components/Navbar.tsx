@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/useAuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { AuthSheet } from './AuthSheet';
 import { NotificationBell } from './NotificationBell';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';

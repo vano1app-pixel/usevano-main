@@ -39,7 +39,7 @@ export const HireRequestsInboxLink: React.FC = () => {
         // Don't block the card from rendering — fall back to the "0" state so
         // the freelancer still sees the entry point, but log so real RLS /
         // network failures don't stay invisible.
-        console.error('HireRequestsInboxLink: count query failed', error);
+        if (import.meta.env.DEV) console.error('HireRequestsInboxLink: count query failed', error);
         setPendingCount(0);
         return;
       }

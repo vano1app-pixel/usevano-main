@@ -122,6 +122,11 @@ const Messages = () => {
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Per-tab suffix on every realtime channel name. Without it, opening the
+  // same conversation in two tabs collides on channel names like
+  // `messages-${convoId}` — closing one tab unsubscribes the shared channel
+  // and the other tab stops receiving realtime events.
+  const sessionSuffixRef = useRef(Math.random().toString(36).slice(2, 10));
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -163,7 +168,7 @@ const Messages = () => {
       if (!cancelled) setHireAgreement(agreement);
     })();
     const channel = supabase
-      .channel(`hire-agreement-${selectedConvo}`)
+      .channel(`hire-agreement-${selectedConvo}-${sessionSuffixRef.current}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -235,7 +240,7 @@ const Messages = () => {
   useEffect(() => {
     if (!selectedConvo || !user) return;
     const channel = supabase
-      .channel(`messages-${selectedConvo}`)
+      .channel(`messages-${selectedConvo}-${sessionSuffixRef.current}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedConvo}` }, (payload) => {
         const newMsg = payload.new as Message;
         setMessages((prev) => {
@@ -458,9 +463,16 @@ const Messages = () => {
     const { data: realMsg, error } = await supabase.from('messages').insert(insertData).select().single();
 
     if (error || !realMsg) {
-      // Rollback
+      // Rollback: yank the optimistic bubble, restore the draft in the
+      // textarea, and surface the failure so the user doesn't think their
+      // message made it through (it didn't — RLS, network, or similar).
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setNewMessage(content);
+      toast({
+        title: "Couldn't send message",
+        description: 'Check your connection and try again.',
+        variant: 'destructive',
+      });
       return;
     }
 

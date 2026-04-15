@@ -17,11 +17,10 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check, Users,
+  Shield, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { track } from '@/lib/track';
-import { sendQuoteBroadcast, QuoteBroadcastError } from '@/lib/quoteBroadcast';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 
 /* ─── Constants ─── */
@@ -156,7 +155,16 @@ const HirePage = () => {
     const cat = searchParams.get('category');
     if (cat) {
       const found = CATEGORIES.find(c => c.id === cat);
-      if (found) setCategory(cat);
+      if (found) {
+        setCategory(cat);
+        // Optional ?subtype=… from Landing tag cloud lets us skip Step 1
+        // entirely. We validate against the known subtypes for the matching
+        // category so a hand-typed bad param can't poison the brief.
+        const st = searchParams.get('subtype');
+        if (st && found.subtypes.includes(st)) {
+          setSubtype(st);
+        }
+      }
     }
   }, []);
 
@@ -348,59 +356,11 @@ const HirePage = () => {
      The structural fix to the "single freelancer ghosted me" leak. We send
      to up to 3 of the visible matches in parallel; the first to reply wins
      (DB trigger handles the open → filled transition). */
-  const [broadcasting, setBroadcasting] = useState(false);
-  const broadcastTopMatches = async () => {
-    if (broadcasting) return;
-    if (!user) { navigate('/auth'); return; }
-    const targets = matchedStudents.slice(0, 3).map((s) => s.user_id).filter(Boolean);
-    if (targets.length === 0) {
-      toast({ title: 'No freelancers to send to yet', description: 'Wait for matches to load.', variant: 'destructive' });
-      return;
-    }
-    setBroadcasting(true);
-    try {
-      const ask = buildDescription();
-      const budgetLabel = BUDGETS.find((b) => b.id === budget)?.label || '';
-      const timelineLabel = TIMELINES.find((t) => t.id === timeline)?.label || '';
-      const briefLines = [
-        `Hi! I'm looking for help with: ${ask}`,
-      ];
-      const meta: string[] = [];
-      if (budgetLabel) meta.push(`Budget: ${budgetLabel}`);
-      if (timelineLabel) meta.push(`Timeline: ${timelineLabel}`);
-      if (meta.length) {
-        briefLines.push('');
-        briefLines.push(meta.join(' · '));
-      }
-      const result = await sendQuoteBroadcast({
-        brief: briefLines.join('\n'),
-        category,
-        budget,
-        timeline,
-        targetFreelancerIds: targets,
-      });
-      markUserActed();
-      // Surface partial-failure honestly — previously a broadcast that half-
-      // landed showed the full sent count, which is the wrong signal.
-      const intended = result.sentCount + result.failedCount;
-      const partial = result.failedCount > 0;
-      toast({
-        title: partial
-          ? `Sent to ${result.sentCount} of ${intended} freelancers`
-          : `Sent to ${result.sentCount} freelancer${result.sentCount === 1 ? '' : 's'}`,
-        description: partial
-          ? `${result.failedCount} couldn't receive the message — we opened Messages so you can see who got it.`
-          : "First to reply wins. We'll open Messages so you can watch.",
-        variant: partial ? 'destructive' : undefined,
-      });
-      navigate('/messages');
-    } catch (err) {
-      const msg = err instanceof QuoteBroadcastError ? err.message : 'Could not send broadcast.';
-      toast({ title: 'Could not send', description: msg, variant: 'destructive' });
-    } finally {
-      setBroadcasting(false);
-    }
-  };
+  // Toggles the inline freelancer list on Step 3. Collapsed by default so
+  // the Vano-match card above reads as the primary CTA; users who want to
+  // pick directly open the list with the "Choose a freelancer yourself"
+  // button.
+  const [showDirectList, setShowDirectList] = useState(false);
 
   useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
 
@@ -740,10 +700,10 @@ const HirePage = () => {
               <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
               within 24h. You'll also get an email.
             </p>
-            {/* Reinforce that the user isn't blocked — if they want instant replies
-                they can still broadcast to the matched freelancers below. */}
+            {/* Reinforce that the user isn't blocked — they can also browse and
+                message a freelancer directly from the list below. */}
             <p className="mt-3 text-xs text-muted-foreground/90 leading-relaxed max-w-sm mx-auto">
-              Want quotes faster? Use the <span className="font-semibold text-foreground">Get quotes from top {Math.min(3, Math.max(matchedStudents.length, 1))}</span> button below — you'll usually get a reply in under an hour.
+              Want a reply faster? Tap <span className="font-semibold text-foreground">Choose a freelancer yourself</span> below and message one directly — most reply within the hour.
             </p>
             <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
               <MessageCircle size={15} /> Chat with us on WhatsApp
@@ -752,47 +712,34 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Inline top-3 matched freelancers ──
-           Previously the freelancer list lived behind a "Choose a freelancer
-           yourself" expander, which hid the most decisive shortcut on the page.
-           Now we render the top 3 matches inline below the Vano card so users
-           who already know what they want can message directly in one tap.
-           Vano-match remains the primary CTA above; this is a parallel path. */}
-      {/* ── Multi-send CTA — the structural fix to the "single freelancer
-           ghosted me" leak. One click sends the brief to the top 3 matches
-           in parallel. First to reply wins (DB trigger handles the status
-           transition). Hidden when there are no matches yet. */}
-      {!matchLoading && matchedStudents.length > 1 && (
-        <button
-          type="button"
-          onClick={broadcastTopMatches}
-          disabled={broadcasting}
-          className={cn(
-            'mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm sm:text-base font-bold text-white shadow-md transition-all',
-            'hover:shadow-lg hover:brightness-110 active:scale-[0.98]',
-            'disabled:opacity-60 disabled:cursor-not-allowed',
-          )}
-        >
-          {broadcasting ? (
-            <><Loader2 size={16} className="animate-spin" /> Sending to {Math.min(3, matchedStudents.length)}…</>
-          ) : (
-            <>
-              <Users size={16} strokeWidth={2.5} />
-              Get quotes from top {Math.min(3, matchedStudents.length)} matches
-            </>
-          )}
-        </button>
-      )}
-      {!matchLoading && matchedStudents.length > 1 && (
-        <p className="mt-1.5 px-1 text-center text-[11px] text-muted-foreground">
-          One brief, sent to {Math.min(3, matchedStudents.length)} freelancers in parallel — first to reply wins.
-        </p>
-      )}
+      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
+           Sits directly under the Vano card as a white / outline full-width
+           button so it reads as the clearly-secondary path. Tapping it expands
+           the matched-freelancer panel inline. The previous green "Get quotes
+           from top 3" broadcast CTA was removed — users preferred the simpler
+           "pick yourself" interaction. */}
+      <button
+        type="button"
+        onClick={() => setShowDirectList((s) => !s)}
+        aria-expanded={showDirectList}
+        className={cn(
+          'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-card px-6 py-4 text-sm sm:text-base font-semibold text-foreground shadow-sm transition-all cursor-pointer select-none active:scale-[0.98]',
+          showDirectList ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/25 hover:bg-primary/5',
+        )}
+      >
+        <MessageCircle size={15} className="text-muted-foreground" />
+        Choose a freelancer yourself
+        <ChevronDown
+          size={15}
+          className={cn('text-muted-foreground transition-transform duration-200', showDirectList && 'rotate-180')}
+        />
+      </button>
 
-      <div className="mt-4">
+      {showDirectList && (
+      <div className="mt-4 animate-fade-in">
         <div className="flex items-baseline justify-between mb-2 px-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Or pick one yourself
+            Or pick a freelancer yourself
           </p>
           {matchedStudents.length > 3 && (
             <button
@@ -852,6 +799,7 @@ const HirePage = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 

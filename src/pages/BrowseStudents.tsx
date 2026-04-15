@@ -14,7 +14,11 @@ const TALENT_HUB_CATEGORIES: {
   icon: typeof Monitor;
   image?: string;
 }[] = [
-  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp, image: '/cat-photography.png' },
+  // Digital Sales has no dedicated hero artwork yet — we previously reused
+  // the photography image as a placeholder which was confusing (the preview
+  // looked like a camera/photographer). Leaving `image` unset lets the
+  // `{item.image && …}` guard fall through to the gradient + icon treatment.
+  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp },
   { cat: 'videography',  label: 'Videography',    sub: 'Filming, reels & promos',     icon: Video,     image: '/cat-videography.png' },
   { cat: 'websites',     label: 'Website Design',  sub: 'Get a site built or fixed',   icon: Monitor,   image: '/cat-websites.png' },
   { cat: 'social_media', label: 'Social Media',    sub: 'Content, strategy & growth',  icon: Megaphone, image: '/cat-social_media.png' },
@@ -176,12 +180,7 @@ const BrowseStudents = () => {
                         <picture className="absolute inset-0 h-full w-full pointer-events-none">
                           <source
                             type="image/webp"
-                            srcSet={(() => {
-                              // digital_sales reuses photography assets as a placeholder until a
-                              // dedicated cat-digital_sales image set is uploaded.
-                              const s = item.cat === 'digital_sales' ? 'photography' : item.cat;
-                              return `/cat-${s}-400.webp 400w, /cat-${s}-800.webp 800w`;
-                            })()}
+                            srcSet={`/cat-${item.cat}-400.webp 400w, /cat-${item.cat}-800.webp 800w`}
                             sizes="(max-width: 640px) 50vw, 25vw"
                           />
                           <img

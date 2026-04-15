@@ -27,11 +27,12 @@ interface RequesterProfile {
   avatar_url: string | null;
 }
 
-/** Countdown renderer — updates every 15s for the pending list. */
+/** Countdown renderer — ticks every second so the "X minutes left" badge
+ * decrements smoothly instead of jumping in 15-second steps near expiry. */
 const CountdownBadge: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 15_000);
+    const t = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(t);
   }, []);
   const ms = new Date(expiresAt).getTime() - now;
@@ -339,7 +340,7 @@ const HireRequestsPage: React.FC = () => {
                     return (
                       <article
                         key={req.id}
-                        className="rounded-xl border border-foreground/6 bg-muted/30 p-3 flex items-center gap-3"
+                        className="rounded-2xl border border-foreground/6 bg-muted/30 p-3 flex items-center gap-3"
                       >
                         {p?.avatar_url ? (
                           <img
