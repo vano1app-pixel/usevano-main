@@ -37,7 +37,7 @@ const BRIEF_TEMPLATES: Record<string, string> = {
   websites:
     "Hi! I need a website for ___ — about ___ pages, with ___ (contact form / shop / booking). Can you help?",
   social_media:
-    "Hi! I need help with social media for ___ on ___ (Instagram / TikTok). Looking for ___ (content / strategy / paid ads). Can you help?",
+    "Hi! I need help with content creation for ___ (UGC / social media / brand promo). Looking for ___ on ___ (Instagram / TikTok). Can you help?",
   other:
     "Hi! I need help with ___. Can you tell me what you'd charge and how long it'd take?",
 };

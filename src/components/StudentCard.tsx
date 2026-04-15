@@ -229,20 +229,20 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onToggleFavourite(student.user_id); }}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm transition-all duration-150 hover:bg-black/50 active:scale-90"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm transition-all duration-150 hover:bg-black/50 active:scale-90"
               title={isFavourite ? 'Remove favourite' : 'Save'}
             >
-              <Heart size={13} className={isFavourite ? 'fill-white text-white' : 'text-white'} />
+              <Heart size={15} className={isFavourite ? 'fill-white text-white' : 'text-white'} />
             </button>
           )}
           {viewerIsAdmin && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setRemoveConfirmOpen(true); }}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600/70 backdrop-blur-sm transition-all duration-150 hover:bg-red-600 active:scale-90"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600/70 backdrop-blur-sm transition-all duration-150 hover:bg-red-600 active:scale-90"
               title="Remove listing"
             >
-              <Trash2 size={13} className="text-white" />
+              <Trash2 size={15} className="text-white" />
             </button>
           )}
         </div>

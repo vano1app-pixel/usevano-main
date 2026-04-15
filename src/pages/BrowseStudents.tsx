@@ -3,8 +3,8 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { breadcrumbSchema } from '@/lib/structuredData';
-import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users, Search, X } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 
 const TALENT_HUB_CATEGORIES: {
@@ -14,14 +14,10 @@ const TALENT_HUB_CATEGORIES: {
   icon: typeof Monitor;
   image?: string;
 }[] = [
-  // Digital Sales has no dedicated hero artwork yet — we previously reused
-  // the photography image as a placeholder which was confusing (the preview
-  // looked like a camera/photographer). Leaving `image` unset lets the
-  // `{item.image && …}` guard fall through to the gradient + icon treatment.
-  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp },
+  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp, image: '/cat-digital_sales.png' },
   { cat: 'videography',  label: 'Videography',    sub: 'Filming, reels & promos',     icon: Video,     image: '/cat-videography.png' },
   { cat: 'websites',     label: 'Website Design',  sub: 'Get a site built or fixed',   icon: Monitor,   image: '/cat-websites.png' },
-  { cat: 'social_media', label: 'Social Media',    sub: 'Content, strategy & growth',  icon: Megaphone, image: '/cat-social_media.png' },
+  { cat: 'social_media', label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, image: '/cat-social_media.png' },
 ];
 
 const CAT_KEYWORDS: Record<CommunityCategoryId, string[]> = {
@@ -45,16 +41,10 @@ function primaryCategoryForStudent(student: any, displayName: string): Community
 
 const BrowseStudents = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const queryParam = searchParams.get('q')?.trim() ?? '';
 
   const [students, setStudents] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  // Live search input — initialised from `?q=` so a user landing here from the
-  // landing-page hero search sees their query in the box and can refine it.
-  const [searchInput, setSearchInput] = useState(queryParam);
-  useEffect(() => { setSearchInput(queryParam); }, [queryParam]);
 
   useEffect(() => { fetchStudents(); }, []);
 
@@ -79,41 +69,12 @@ const BrowseStudents = () => {
     return out;
   }, [students, profiles]);
 
-  // Apply the `?q=` text filter against name + bio + skills. Case-insensitive
-  // substring match — same fields BrowseStudents already pulled. When the
-  // query is empty we just return everything.
-  const filteredStudents = useMemo(() => {
-    const q = queryParam.toLowerCase();
-    if (!q) return students;
-    return students.filter((s) => {
-      const name = getDisplayName(s.user_id).toLowerCase();
-      const bio = (s.bio || '').toLowerCase();
-      const skills = (s.skills || []).join(' ').toLowerCase();
-      return name.includes(q) || bio.includes(q) || skills.includes(q);
-    });
-  }, [students, profiles, queryParam]);
-
-  const submitSearch = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const next = new URLSearchParams(searchParams);
-    const v = searchInput.trim();
-    if (v) next.set('q', v);
-    else next.delete('q');
-    setSearchParams(next, { replace: true });
-  };
-  const clearSearch = () => {
-    setSearchInput('');
-    const next = new URLSearchParams(searchParams);
-    next.delete('q');
-    setSearchParams(next, { replace: true });
-  };
-
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="Browse Galway Freelancers — Digital Sales, Video, Web & Social"
-        description="Browse local freelancers and students in Galway by category. Hire trusted videographers, sales reps, web designers and social media creators on VANO."
-        keywords="browse freelancers galway, find freelancer galway, galway sales reps, galway videographers, galway web designers, galway social media"
+        description="Browse local freelancers and students in Galway by category. Hire trusted videographers, sales reps, web designers and UGC / content creators on VANO."
+        keywords="browse freelancers galway, find freelancer galway, galway sales reps, galway videographers, galway web designers, galway content creation, galway ugc"
         jsonLd={breadcrumbSchema([
           { name: 'Home', path: '/' },
           { name: 'Freelancers', path: '/students' },
@@ -126,39 +87,6 @@ const BrowseStudents = () => {
         pt-[max(4.5rem,calc(env(safe-area-inset-top,0px)+3.25rem))]
         sm:pt-20 md:pt-24"
       >
-        {/* Search bar — mirrors the landing-page hero search and lets users
-            arriving via `?q=` see and refine their query. */}
-        <form
-          onSubmit={submitSearch}
-          className="mb-4 flex w-full items-center gap-2 rounded-full border border-border bg-card px-2 py-1.5 shadow-sm focus-within:border-primary/40 focus-within:shadow-md"
-        >
-          <Search size={16} className="ml-2 shrink-0 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by name, skill or keyword…"
-            className="flex-1 bg-transparent px-1 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none"
-            aria-label="Search freelancers"
-          />
-          {queryParam && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              aria-label="Clear search"
-              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <X size={14} />
-            </button>
-          )}
-          <button
-            type="submit"
-            className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.97]"
-          >
-            Search
-          </button>
-        </form>
-
         <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
         <div className="grid grid-cols-2 gap-3">
           {TALENT_HUB_CATEGORIES.map((item, idx) => {
@@ -221,21 +149,33 @@ const BrowseStudents = () => {
           {loading ? (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted/60" />
+                <div key={i} className="overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-sm">
+                  {/* Banner placeholder — uses a soft gradient instead of flat
+                      grey so the skeleton hints at the real card's colourful
+                      banner zone. */}
+                  <div className="h-20 w-full animate-pulse bg-gradient-to-br from-muted via-muted/70 to-muted/50" />
+                  <div className="flex items-center gap-3 p-3">
+                    <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted/70" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-2/3 animate-pulse rounded-full bg-muted/70" />
+                      <div className="h-2 w-1/3 animate-pulse rounded-full bg-muted/50" />
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-          ) : filteredStudents.length > 0 ? (
+          ) : students.length > 0 ? (
             <>
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  {queryParam ? <>Matches for "{queryParam}"</> : 'On VANO now'}
+                  On VANO now
                 </p>
                 <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
-                  {filteredStudents.length} {queryParam ? 'match' : 'available'}{filteredStudents.length === 1 ? '' : (queryParam ? 'es' : '')}
+                  {students.length} available
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {filteredStudents.slice(0, queryParam ? 12 : 3).map((s, idx) => {
+                {students.slice(0, 3).map((s, idx) => {
                   const name = getDisplayName(s.user_id);
                   return (
                     <div
@@ -262,29 +202,9 @@ const BrowseStudents = () => {
                 })}
               </div>
               <p className="text-center text-xs text-muted-foreground">
-                {queryParam ? 'Click a category above to see everyone' : 'Pick a category above to browse all freelancers'}
+                Pick a category above to browse all freelancers
               </p>
             </>
-          ) : queryParam ? (
-            // Search returned zero — give the user a useful out instead of a dead end.
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Search size={20} strokeWidth={2} />
-              </div>
-              <p className="max-w-xs text-sm font-medium text-foreground">
-                No matches for "{queryParam}".
-              </p>
-              <p className="max-w-sm text-xs text-muted-foreground">
-                Try a broader keyword, pick a category above, or text our team and we'll match you.
-              </p>
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="mt-1 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
-              >
-                Clear search
-              </button>
-            </div>
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
