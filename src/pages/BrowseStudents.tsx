@@ -14,11 +14,7 @@ const TALENT_HUB_CATEGORIES: {
   icon: typeof Monitor;
   image?: string;
 }[] = [
-  // Digital Sales has no dedicated hero artwork yet — we previously reused
-  // the photography image as a placeholder which was confusing (the preview
-  // looked like a camera/photographer). Leaving `image` unset lets the
-  // `{item.image && …}` guard fall through to the gradient + icon treatment.
-  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp },
+  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp, image: '/cat-digital_sales.png' },
   { cat: 'videography',  label: 'Videography',    sub: 'Filming, reels & promos',     icon: Video,     image: '/cat-videography.png' },
   { cat: 'websites',     label: 'Website Design',  sub: 'Get a site built or fixed',   icon: Monitor,   image: '/cat-websites.png' },
   { cat: 'social_media', label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, image: '/cat-social_media.png' },

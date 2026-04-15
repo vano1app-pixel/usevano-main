@@ -318,10 +318,7 @@ const Landing = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' as string | null },
-              // Digital Sales has no dedicated hero artwork yet — leaving
-              // image as null renders the gradient + icon treatment instead
-              // of the misleading photography stock shot that was here.
-              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: null as string | null },
+              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-digital_sales.png' as string | null },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' as string | null },
               { label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
             ].map((item) => {
