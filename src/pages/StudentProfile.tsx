@@ -105,7 +105,7 @@ const StudentProfile = () => {
         .maybeSingle(),
       supabase
         .from('student_profiles')
-        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links')
+        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links, expected_bonus_amount, expected_bonus_unit')
         .eq('user_id', id!)
         .maybeSingle(),
       supabase
