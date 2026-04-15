@@ -29,6 +29,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
 const ChooseAccountType = lazy(() => import("./pages/ChooseAccountType"));
+const ListOnCommunity = lazy(() => import("./pages/ListOnCommunity"));
 const Admin = lazy(() => import("./pages/Admin"));
 const BusinessDashboard = lazy(() => import("./pages/BusinessDashboard"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
@@ -125,6 +126,17 @@ const App = () => {
               element={
                 <RequireVerifiedSession>
                   <P><Profile /></P>
+                </RequireVerifiedSession>
+              }
+            />
+            {/* Forced onboarding step — post-auth routing sends any freelancer
+                who hasn't published a listing here. See
+                resolvePostGoogleAuthDestination in authSession.ts. */}
+            <Route
+              path="/list-on-community"
+              element={
+                <RequireVerifiedSession>
+                  <P><ListOnCommunity /></P>
                 </RequireVerifiedSession>
               }
             />
