@@ -67,6 +67,10 @@ const PwaUpdateToast = lazy(() =>
 );
 
 import type { TransitionVariant } from "./components/PageTransition";
+// Eagerly import the in-app browser banner — it's ~2KB and the whole point
+// is to warn users BEFORE they try to sign in with Google, so a lazy-load
+// flash would defeat the purpose.
+import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'liquid';
@@ -93,6 +97,9 @@ const App = () => {
       <ScrollProgress />
       <ScrollToTop />
       <RedirectToAccountTypeIfNeeded />
+      {/* Self-gating: renders null on real browsers. Warns users in Fiverr /
+          Instagram / TikTok / etc in-app browsers that Google OAuth will fail. */}
+      <InAppBrowserBanner />
       <Toaster />
       <Sonner />
       <div className="md:pt-14 lg:pt-16" style={{ perspective: '1200px' }}>

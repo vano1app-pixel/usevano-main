@@ -10,6 +10,10 @@ export const MobileBottomNav: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [userType, setUserType] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  // Pending direct-hire requests for freelancers. Surfaced as a dot on the
+  // Profile tab so freelancers don't need to open the app and scroll to
+  // /profile → HireRequestsInboxLink to discover an offer is waiting.
+  const [pendingHireCount, setPendingHireCount] = useState(0);
 
   useEffect(() => {
     const fetchUserType = async (userId: string | undefined) => {
@@ -26,6 +30,7 @@ export const MobileBottomNav: React.FC = () => {
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUnread(session.user.id);
+        loadPendingHires(session.user.id);
         fetchUserType(session.user.id);
       }
     });
@@ -33,9 +38,11 @@ export const MobileBottomNav: React.FC = () => {
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUnread(session.user.id);
+        loadPendingHires(session.user.id);
         fetchUserType(session.user.id);
       } else {
         setUnreadCount(0);
+        setPendingHireCount(0);
         setUserType(null);
       }
     });
@@ -54,7 +61,23 @@ export const MobileBottomNav: React.FC = () => {
         loadUnread(user.id);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // Separate channel for hire_requests so a push notification arriving
+    // while the freelancer has the app open also updates the red dot live.
+    const hireChannel = supabase
+      .channel('nav-pending-hires')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'hire_requests',
+        filter: `target_freelancer_id=eq.${user.id}`,
+      }, () => {
+        loadPendingHires(user.id);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(hireChannel);
+    };
   }, [user]);
 
   const loadUnread = async (userId: string) => {
@@ -64,6 +87,17 @@ export const MobileBottomNav: React.FC = () => {
       .neq('sender_id', userId)
       .eq('read', false);
     setUnreadCount(count || 0);
+  };
+
+  const loadPendingHires = async (userId: string) => {
+    const { count } = await supabase
+      .from('hire_requests' as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('kind', 'direct')
+      .eq('target_freelancer_id', userId)
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString());
+    setPendingHireCount(count || 0);
   };
 
   const navItems = useMemo(() => [
@@ -126,6 +160,14 @@ export const MobileBottomNav: React.FC = () => {
                 {href === '/messages' && unreadCount > 0 && (
                   <span className="absolute -right-1.5 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full border-2 border-card bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
                     {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+                {/* Freelancer-only: pending direct-hire count on the Profile tab.
+                    Only shows when the active nav actually includes Profile
+                    (businesses get Dashboard instead). */}
+                {href === '/profile' && pendingHireCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full border-2 border-card bg-amber-500 px-1 text-[10px] font-bold leading-none text-white">
+                    {pendingHireCount > 9 ? '9+' : pendingHireCount}
                   </span>
                 )}
               </span>

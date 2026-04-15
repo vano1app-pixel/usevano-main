@@ -17,9 +17,12 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check, ChevronDown,
+  Shield, Zap, Check, Users,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
+import { track } from '@/lib/track';
+import { sendQuoteBroadcast, QuoteBroadcastError } from '@/lib/quoteBroadcast';
+import { isInAppBrowser } from '@/lib/inAppBrowser';
 
 /* ─── Constants ─── */
 
@@ -124,11 +127,6 @@ const HirePage = () => {
   const [subtype, setSubtype] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
-  // Step 3: freelancer list is collapsed behind a secondary button by default
-  // so the Vano concierge flow reads as the primary recommendation. Click the
-  // button and the matched-freelancers panel expands below it.
-  const [showDirectList, setShowDirectList] = useState(false);
-
   // Results
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -244,7 +242,26 @@ const HirePage = () => {
       // Persist the brief so it survives the OAuth round-trip, then kick off
       // Google sign-in directly from here. No /auth page detour.
       saveHireBrief({ description, category, subtype, timeline, budget });
+      // Short-circuit Google OAuth inside in-app browsers (Fiverr, Instagram,
+      // TikTok, …). Brief stays saved via saveHireBrief so when they re-open
+      // in Safari/Chrome and sign in, Step 3 resumes as before.
+      if (isInAppBrowser()) {
+        track('in_app_browser_blocked', { source: 'hire_vano_submit' });
+        toast({
+          title: "Can't sign in here",
+          description: "Open this page in Safari or Chrome first — your brief is saved.",
+          variant: 'destructive',
+        });
+        return;
+      }
       setGoogleOAuthIntent('business');
+      // Reassure the user mid-redirect: the brief they just typed is saved and
+      // we'll resume on Step 3 once they're signed in. Without this the page
+      // disappears to Google with no signal that anything was preserved.
+      toast({
+        title: 'Saving your brief…',
+        description: "We'll bring you right back to finish.",
+      });
       setSubmitting(true);
       try {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -276,6 +293,7 @@ const HirePage = () => {
     } else {
       setSubmitted(true);
       markUserActed();
+      track('vano_match_sent', { category, timeline, budget });
       clearHireBrief();
       if (autoOpenWhatsApp) {
         // Auto-open WhatsApp with request details so the team can respond directly
@@ -317,6 +335,7 @@ const HirePage = () => {
 
   /* ── Message freelancer with pre-filled draft ── */
   const messageFreelancer = (freelancerUserId: string) => {
+    track('freelancer_card_clicked', { freelancer_id: freelancerUserId, source: 'hire_step3', category });
     if (!user) { navigate('/auth'); return; }
     const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || '';
     const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || '';
@@ -325,7 +344,71 @@ const HirePage = () => {
     navigate(`/messages?with=${freelancerUserId}&draft=${encodeURIComponent(draft)}`);
   };
 
+  /* ── Multi-send: fan the brief out to the top N matched freelancers. ──
+     The structural fix to the "single freelancer ghosted me" leak. We send
+     to up to 3 of the visible matches in parallel; the first to reply wins
+     (DB trigger handles the open → filled transition). */
+  const [broadcasting, setBroadcasting] = useState(false);
+  const broadcastTopMatches = async () => {
+    if (broadcasting) return;
+    if (!user) { navigate('/auth'); return; }
+    const targets = matchedStudents.slice(0, 3).map((s) => s.user_id).filter(Boolean);
+    if (targets.length === 0) {
+      toast({ title: 'No freelancers to send to yet', description: 'Wait for matches to load.', variant: 'destructive' });
+      return;
+    }
+    setBroadcasting(true);
+    try {
+      const ask = buildDescription();
+      const budgetLabel = BUDGETS.find((b) => b.id === budget)?.label || '';
+      const timelineLabel = TIMELINES.find((t) => t.id === timeline)?.label || '';
+      const briefLines = [
+        `Hi! I'm looking for help with: ${ask}`,
+      ];
+      const meta: string[] = [];
+      if (budgetLabel) meta.push(`Budget: ${budgetLabel}`);
+      if (timelineLabel) meta.push(`Timeline: ${timelineLabel}`);
+      if (meta.length) {
+        briefLines.push('');
+        briefLines.push(meta.join(' · '));
+      }
+      const result = await sendQuoteBroadcast({
+        brief: briefLines.join('\n'),
+        category,
+        budget,
+        timeline,
+        targetFreelancerIds: targets,
+      });
+      markUserActed();
+      // Surface partial-failure honestly — previously a broadcast that half-
+      // landed showed the full sent count, which is the wrong signal.
+      const intended = result.sentCount + result.failedCount;
+      const partial = result.failedCount > 0;
+      toast({
+        title: partial
+          ? `Sent to ${result.sentCount} of ${intended} freelancers`
+          : `Sent to ${result.sentCount} freelancer${result.sentCount === 1 ? '' : 's'}`,
+        description: partial
+          ? `${result.failedCount} couldn't receive the message — we opened Messages so you can see who got it.`
+          : "First to reply wins. We'll open Messages so you can watch.",
+        variant: partial ? 'destructive' : undefined,
+      });
+      navigate('/messages');
+    } catch (err) {
+      const msg = err instanceof QuoteBroadcastError ? err.message : 'Could not send broadcast.';
+      toast({ title: 'Could not send', description: msg, variant: 'destructive' });
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
   useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
+
+  // Funnel visibility: every step view is an event so we can see drop-off.
+  useEffect(() => {
+    track('hire_step_viewed', { step, category, has_subtype: !!subtype });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   /* Auto-advance step 2 → step 3 once both picks are made, so a signed-in user
    * can go Category → Continue → Timeline → Budget and land on options without
@@ -651,9 +734,16 @@ const HirePage = () => {
         ) : (
           <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
             <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
-            <h2 className="text-lg font-bold text-foreground">Request sent!</h2>
+            <h2 className="text-lg font-bold text-foreground">Request sent — we're on it</h2>
             <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-              We're reviewing your brief and will match you with the best freelancer. Expect to hear back within 24 hours.
+              Your brief is with the Vano team. We'll match a freelancer and open a thread in your{' '}
+              <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
+              within 24h. You'll also get an email.
+            </p>
+            {/* Reinforce that the user isn't blocked — if they want instant replies
+                they can still broadcast to the matched freelancers below. */}
+            <p className="mt-3 text-xs text-muted-foreground/90 leading-relaxed max-w-sm mx-auto">
+              Want quotes faster? Use the <span className="font-semibold text-foreground">Get quotes from top {Math.min(3, Math.max(matchedStudents.length, 1))}</span> button below — you'll usually get a reply in under an hour.
             </p>
             <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
               <MessageCircle size={15} /> Chat with us on WhatsApp
@@ -662,37 +752,62 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
-           Sits directly under the Vano card as a white / outline full-width
-           button so it reads as the clearly-secondary path. Tapping it expands
-           the matched-freelancer panel inline. */}
-      <button
-        type="button"
-        onClick={() => setShowDirectList((s) => !s)}
-        aria-expanded={showDirectList}
-        className={cn(
-          'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-card px-6 py-4 text-sm sm:text-base font-semibold text-foreground shadow-sm transition-all cursor-pointer select-none active:scale-[0.98]',
-          showDirectList ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/25 hover:bg-primary/5',
-        )}
-      >
-        <MessageCircle size={15} className="text-muted-foreground" />
-        Choose a freelancer yourself
-        <ChevronDown
-          size={15}
-          className={cn('text-muted-foreground transition-transform duration-200', showDirectList && 'rotate-180')}
-        />
-      </button>
-
-      {/* ── Collapsible freelancer panel ── */}
-      {showDirectList && (
-      <div className="mt-3 rounded-2xl border border-border/60 bg-card p-4 animate-fade-in">
-        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          Your brief is pre-filled — tap Message to start a conversation and pick who fits best.
+      {/* ── OPTION B — Inline top-3 matched freelancers ──
+           Previously the freelancer list lived behind a "Choose a freelancer
+           yourself" expander, which hid the most decisive shortcut on the page.
+           Now we render the top 3 matches inline below the Vano card so users
+           who already know what they want can message directly in one tap.
+           Vano-match remains the primary CTA above; this is a parallel path. */}
+      {/* ── Multi-send CTA — the structural fix to the "single freelancer
+           ghosted me" leak. One click sends the brief to the top 3 matches
+           in parallel. First to reply wins (DB trigger handles the status
+           transition). Hidden when there are no matches yet. */}
+      {!matchLoading && matchedStudents.length > 1 && (
+        <button
+          type="button"
+          onClick={broadcastTopMatches}
+          disabled={broadcasting}
+          className={cn(
+            'mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm sm:text-base font-bold text-white shadow-md transition-all',
+            'hover:shadow-lg hover:brightness-110 active:scale-[0.98]',
+            'disabled:opacity-60 disabled:cursor-not-allowed',
+          )}
+        >
+          {broadcasting ? (
+            <><Loader2 size={16} className="animate-spin" /> Sending to {Math.min(3, matchedStudents.length)}…</>
+          ) : (
+            <>
+              <Users size={16} strokeWidth={2.5} />
+              Get quotes from top {Math.min(3, matchedStudents.length)} matches
+            </>
+          )}
+        </button>
+      )}
+      {!matchLoading && matchedStudents.length > 1 && (
+        <p className="mt-1.5 px-1 text-center text-[11px] text-muted-foreground">
+          One brief, sent to {Math.min(3, matchedStudents.length)} freelancers in parallel — first to reply wins.
         </p>
+      )}
+
+      <div className="mt-4">
+        <div className="flex items-baseline justify-between mb-2 px-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Or pick one yourself
+          </p>
+          {matchedStudents.length > 3 && (
+            <button
+              type="button"
+              onClick={() => navigate('/students')}
+              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+            >
+              View all {matchedStudents.length} <ArrowRight size={12} />
+            </button>
+          )}
+        </div>
 
         {matchLoading ? (
           <div className="flex flex-col gap-3">
-            {[1, 2].map(i => (
+            {[1, 2, 3].map(i => (
               <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
                 <div className="h-32 w-full bg-muted/60" />
                 <div className="p-4 space-y-3">
@@ -709,7 +824,7 @@ const HirePage = () => {
           </div>
         ) : matchedStudents.length > 0 ? (
           <div className="flex flex-col gap-3">
-            {matchedStudents.slice(0, 2).map((student) => {
+            {matchedStudents.slice(0, 3).map((student) => {
               const ratingInfo = matchedReviews[student.user_id];
               return (
                 <div key={student.id}>
@@ -727,14 +842,9 @@ const HirePage = () => {
                 </div>
               );
             })}
-            {matchedStudents.length > 2 && (
-              <button type="button" onClick={() => navigate('/students')} className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2 text-[13px] font-medium text-foreground hover:bg-muted transition cursor-pointer">
-                View all {matchedStudents.length} freelancers <ArrowRight size={14} />
-              </button>
-            )}
           </div>
         ) : (
-          <div className="text-center py-5">
+          <div className="rounded-2xl border border-border/60 bg-card text-center py-5">
             <p className="text-sm text-muted-foreground">No matches found right now.</p>
             <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
               Browse all freelancers <ArrowRight size={14} />
@@ -742,7 +852,6 @@ const HirePage = () => {
           </div>
         )}
       </div>
-      )}
     </div>
   );
 

@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
 import { markUserActed } from '@/lib/userActivity';
+import { track } from '@/lib/track';
 
 const STEP_LABELS = [
   'Your work',
@@ -256,6 +257,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [published, setPublished] = useState<{ category: CommunityCategoryId; phone: string } | null>(null);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
+  // Step 2 social fields are optional but visually heavy (4 empty inputs).
+  // Hide them behind an "Add social links" toggle so the required fields
+  // (bio + phone + university) read as the focus.
+  const [showSocialFields, setShowSocialFields] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
   const MAX_LISTING_IMAGES = 5;
@@ -442,8 +447,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const canNext = (): boolean => {
     switch (step) {
       case 1:
-        // Your work: category + cover photo
-        return category !== null && !!(bannerFile || bannerUrl);
+        // Your work: category only. Banner used to be required but it gates
+        // every first-time listing on a file picker — moved to a "Strong
+        // listing" suggestion on the review step instead.
+        return category !== null;
       case 2:
         // Your story: title + description + phone + university (always required, also on edit)
         return (
@@ -453,8 +460,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           phone.trim().length > 0
         );
       case 3:
-        // Your price + skills (at least 3 skills; price itself can be negotiable)
-        return skills.length >= 3;
+        // Your price + skills. Lowered from 3 to 1 — getting live with one
+        // honest tag beats abandoning the form trying to invent two more.
+        return skills.length >= 1;
       case 4:
         // Review step is just a summary — Go live button enables when category + title are present.
         return !!category && title.trim().length > 0;
@@ -738,6 +746,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       }
 
       markUserActed();
+      track('listing_published', {
+        category,
+        has_banner: !!uploadedBanner || !!(initial.bannerUrl?.startsWith('http')),
+        has_socials: !!(tiktokUrl || instagramUrl || linkedinUrl || websiteUrl),
+        has_work_links: workLinks.length > 0,
+        skills_count: skills.length,
+      });
       try {
         localStorage.removeItem(listOnCommunityDraftKey(userId));
       } catch {
@@ -1075,45 +1090,67 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   onChange={(e) => setServiceArea(e.target.value)}
                 />
               </div>
-              <div>
-                <Label>TikTok <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="https://tiktok.com/@you or @you"
-                  value={tiktokUrl}
-                  onChange={(e) => setTiktokUrl(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Instagram <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="@yourhandle"
-                  value={instagramUrl}
-                  onChange={(e) => setInstagramUrl(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>LinkedIn <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="https://linkedin.com/in/you"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                />
-                {linkedinUrl.trim() && !normalizeLinkedInUrl(linkedinUrl) && (
-                  <p className="mt-1 text-[11px] font-medium text-rose-500">Needs to be a full linkedin.com URL.</p>
-                )}
-              </div>
-              <div>
-                <Label>Website / portfolio URL <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="yourname.com"
-                  value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                />
-              </div>
+              {/* Socials — optional, collapsed by default to lighten the form.
+                  Auto-expands if any social value is already filled (returning
+                  drafts) so users don't lose sight of what they entered. */}
+              {(() => {
+                const anyFilled = !!(tiktokUrl || instagramUrl || linkedinUrl || websiteUrl);
+                const expanded = showSocialFields || anyFilled;
+                if (!expanded) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setShowSocialFields(true)}
+                      className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                    >
+                      + Add social links <span className="text-xs font-normal">(optional — TikTok, Instagram, LinkedIn, website)</span>
+                    </button>
+                  );
+                }
+                return (
+                  <>
+                    <div>
+                      <Label>TikTok <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <Input
+                        className="mt-1.5 h-11"
+                        placeholder="https://tiktok.com/@you or @you"
+                        value={tiktokUrl}
+                        onChange={(e) => setTiktokUrl(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Instagram <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <Input
+                        className="mt-1.5 h-11"
+                        placeholder="@yourhandle"
+                        value={instagramUrl}
+                        onChange={(e) => setInstagramUrl(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>LinkedIn <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <Input
+                        className="mt-1.5 h-11"
+                        placeholder="https://linkedin.com/in/you"
+                        value={linkedinUrl}
+                        onChange={(e) => setLinkedinUrl(e.target.value)}
+                      />
+                      {linkedinUrl.trim() && !normalizeLinkedInUrl(linkedinUrl) && (
+                        <p className="mt-1 text-[11px] font-medium text-rose-500">Needs to be a full linkedin.com URL.</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Website / portfolio URL <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <Input
+                        className="mt-1.5 h-11"
+                        placeholder="yourname.com"
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
               <div>
                 <Label>Links to past work <span className="font-normal text-muted-foreground">(optional)</span></Label>
                 <p className="mt-1 text-xs text-muted-foreground">Portfolio site, Behance, Drive, etc.</p>
@@ -1638,7 +1675,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               type="button"
               className="h-11 flex-1 rounded-xl font-semibold"
               onClick={publish}
-              disabled={submitting || !category || !title.trim() || skills.length < 3}
+              disabled={submitting || !category || !title.trim() || skills.length < 1}
             >
               {submitting ? (
                 <>

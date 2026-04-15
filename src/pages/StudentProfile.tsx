@@ -6,7 +6,7 @@ import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { personSchema } from '@/lib/structuredData';
-import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap, Instagram, Linkedin, Globe, Music2 } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap, Instagram, Linkedin, Globe, Music2, Clock } from 'lucide-react';
 import { QuoteModal } from '@/components/QuoteModal';
 import { HireNowModal } from '@/components/HireNowModal';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +39,11 @@ const StudentProfile = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
+  // Reply-time trust signal: median seconds across the freelancer's last 50
+  // sent messages, computed by an RPC (messages.RLS hides cross-conversation
+  // reads from public viewers). `undefined` while loading, `null` when too few
+  // data points (we render "New on Vano" instead).
+  const [replySeconds, setReplySeconds] = useState<number | null | undefined>(undefined);
 
   const scrollToTab = useCallback((tab: 'about' | 'portfolio' | 'reviews') => {
     setActiveTab(tab);
@@ -49,6 +54,34 @@ const StudentProfile = () => {
   useEffect(() => {
     if (id) loadAll();
   }, [id]);
+
+  // Fetch median reply time for the trust badge. Fire-and-forget; never blocks
+  // the page render, defaults to "New on Vano" if the call fails or returns null.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc(
+          'freelancer_median_reply_seconds' as any,
+          { p_freelancer_id: id } as any,
+        );
+        if (cancelled) return;
+        if (error) { setReplySeconds(null); return; }
+        setReplySeconds(typeof data === 'number' ? data : null);
+      } catch {
+        if (!cancelled) setReplySeconds(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id]);
+
+  /** Format median reply seconds as "~Xm" / "~Xh" / "within a day". */
+  const formatReplyTime = (secs: number): string => {
+    if (secs < 60 * 60) return `~${Math.max(1, Math.round(secs / 60))}m`;
+    if (secs < 60 * 60 * 24) return `~${Math.max(1, Math.round(secs / 3600))}h`;
+    return 'within a day';
+  };
 
   const loadAll = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -465,6 +498,19 @@ const StudentProfile = () => {
               university={student?.university}
               actionRow={freelancerActions}
             />
+
+            {/* Trust badge — reply-time is the #1 conversion signal on
+                marketplaces. Hidden until the RPC resolves so we never flash. */}
+            {!isBusiness && replySeconds !== undefined && (
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                <Clock size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <p className="text-[12px] font-medium text-emerald-800 dark:text-emerald-200">
+                  {replySeconds != null
+                    ? <>Usually replies in <span className="font-bold">{formatReplyTime(replySeconds)}</span></>
+                    : <>New on Vano</>}
+                </p>
+              </div>
+            )}
 
             {/* Stats row — foxpop style */}
             <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
@@ -6,6 +6,7 @@ import { breadcrumbSchema } from '@/lib/structuredData';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
+import { tryFinishMagicLinkRedirect } from '@/lib/magicLink';
 import { setGoogleOAuthIntent, clearGoogleOAuthIntent, hasGoogleOAuthPending } from '@/lib/googleOAuth';
 import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +24,7 @@ import {
   Video,
   TrendingUp,
   Loader2,
+  Search,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -30,12 +32,23 @@ import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { InteractiveButton } from '@/components/InteractiveButton';
+import { isInAppBrowser } from '@/lib/inAppBrowser';
+import { track } from '@/lib/track';
+import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 
 
 const Landing = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const oauthHandledRef = useRef(false);
+  // Hero search field — captures intent the moment a visitor lands. Submits
+  // to /students?q=… so the talent board filters down to matching freelancers.
+  const [heroQuery, setHeroQuery] = useState('');
+  const handleHeroSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const q = heroQuery.trim();
+    navigate(q ? `/students?q=${encodeURIComponent(q)}` : '/students');
+  };
 
   /**
    * "Join as a freelancer" fires Google OAuth directly with an intent of
@@ -43,6 +56,20 @@ const Landing = () => {
    * routes a freshly-created student straight to /profile.
    */
   const handleFreelancerSignup = async () => {
+    // Short-circuit if the user is in an embedded in-app browser (Fiverr,
+    // Instagram, TikTok, etc). Google blocks OAuth there with a 403
+    // "disallowed_useragent" page — routing them to their real browser first
+    // is the only way through. InAppBrowserBanner at the top of the page
+    // carries the "Open in Safari/Chrome" action.
+    if (isInAppBrowser()) {
+      track('in_app_browser_blocked', { source: 'landing_freelancer_signup' });
+      toast({
+        title: "Can't sign in here",
+        description: "Open this page in Safari or Chrome first — see the banner at the top.",
+        variant: 'destructive',
+      });
+      return;
+    }
     setGoogleOAuthIntent('student');
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -137,8 +164,13 @@ const Landing = () => {
   React.useEffect(() => {
     const finish = async () => {
       if (oauthHandledRef.current) return;
-      const done = await tryFinishGoogleOAuthRedirect(navigate);
-      if (done) oauthHandledRef.current = true;
+      // Try Google first (sessionStorage-scoped), then magic-link
+      // (localStorage-scoped, survives tab changes). Both are idempotent
+      // and short-circuit when their own flag isn't set.
+      const doneGoogle = await tryFinishGoogleOAuthRedirect(navigate);
+      if (doneGoogle) { oauthHandledRef.current = true; return; }
+      const doneMagic = await tryFinishMagicLinkRedirect(navigate);
+      if (doneMagic) oauthHandledRef.current = true;
     };
     void finish();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
@@ -198,9 +230,34 @@ const Landing = () => {
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-8 leading-relaxed">
+          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-6 leading-relaxed">
             Connect with Galway's best freelancers for digital sales, videography, web design, and more.
           </p>
+
+          {/* Hero search — type-and-go. Captures intent at the top of the
+              funnel: "I need a video editor" → Enter → filtered talent board.
+              Cuts landing→browse from 2 clicks to 1. */}
+          <form
+            onSubmit={handleHeroSearch}
+            className="mx-auto mb-6 flex w-full max-w-xl items-center gap-2 rounded-full border border-border bg-card px-2 py-2 shadow-sm focus-within:border-primary/40 focus-within:shadow-md"
+          >
+            <Search size={18} className="ml-2 shrink-0 text-muted-foreground" />
+            <input
+              type="text"
+              value={heroQuery}
+              onChange={(e) => setHeroQuery(e.target.value)}
+              placeholder="What do you need? e.g. video editor, web designer…"
+              className="flex-1 bg-transparent px-1 py-2 text-sm placeholder:text-muted-foreground/70 focus:outline-none"
+              aria-label="Search freelancers"
+            />
+            <button
+              type="submit"
+              className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 active:scale-[0.97]"
+            >
+              Search
+            </button>
+          </form>
+
           <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
                 data-mascot="hire-cta"
@@ -229,15 +286,21 @@ const Landing = () => {
               ) : null}
             </div>
             {studentsLoaded && featuredStudents.length > 0 && (
-              <div data-hero-badge className="flex items-center justify-center gap-2 mt-6">
-                {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
-                <span className="relative flex h-2.5 w-2.5 shrink-0">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-6">
+                <span className="inline-flex items-center gap-2">
+                  {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  </span>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {featuredStudents.length} freelancers online now
+                  </p>
                 </span>
-                <p className="text-xs font-medium text-muted-foreground">
-                  {featuredStudents.length} freelancers online now
-                </p>
+                {/* Social-proof counter. Self-gating: renders null until the
+                    RPC returns ≥3 so the platform doesn't advertise itself
+                    as dead when the table's empty. */}
+                <LiveMatchesCounter />
               </div>
             )}
         </div>

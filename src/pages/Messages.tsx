@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2 } from 'lucide-react';
+import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import {
   TEAM_CONTACT_EMAIL,
@@ -16,6 +17,7 @@ import {
 } from '@/lib/contact';
 import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface Conversation {
   id: string;
@@ -23,6 +25,8 @@ interface Conversation {
   participant_1: string;
   participant_2: string;
   updated_at: string;
+  /** Set when this conversation is part of a multi-send broadcast. NULL for normal 1:1s. */
+  broadcast_id?: string | null;
   otherUserId?: string;
   otherName?: string;
   otherAvatar?: string | null;
@@ -30,6 +34,21 @@ interface Conversation {
   lastMessageText?: string;
   lastMessageTime?: string;
   unreadCount?: number;
+  /** Broadcast summary denormalised into the list item so the chip can render
+   *  without a per-row RPC. Populated in loadConversations when broadcast_id is set. */
+  broadcastStatus?: 'open' | 'filled' | 'cancelled' | 'expired';
+  broadcastTargetCount?: number;
+  broadcastFilledBy?: string | null;
+}
+
+/** Resolved view of a quote_broadcasts row plus the winner's display name. */
+interface BroadcastInfo {
+  id: string;
+  requesterId: string;
+  status: 'open' | 'filled' | 'cancelled' | 'expired';
+  targetCount: number;
+  filledBy: string | null;
+  filledByName: string | null;
 }
 
 interface Message {
@@ -90,6 +109,18 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
   const [otherTyping, setOtherTyping] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  // Multi-send broadcast view of the currently-selected conversation. NULL when
+  // the conversation is a normal 1:1. Used to render the "1 of N — first to
+  // reply wins" / "✓ {Name} replied first" badge under the thread header.
+  const [broadcastInfo, setBroadcastInfo] = useState<BroadcastInfo | null>(null);
+  // Active hire agreement for the selected conversation (one row in
+  // hire_agreements). When set, the "Mark as hired" button swaps for a
+  // "✓ Hired" chip and the thread is considered formally closed.
+  const [hireAgreement, setHireAgreement] = useState<{ id: string; business_id: string; freelancer_id: string; created_at: string } | null>(null);
+  const [hiringInProgress, setHiringInProgress] = useState(false);
+  // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
+  const [viewerUserType, setViewerUserType] = useState<string | null>(null);
+  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,6 +139,85 @@ const Messages = () => {
       markAsRead(selectedConvo);
     }
   }, [selectedConvo]);
+
+  // Fetch the viewer's user_type once so we can gate the "Mark as hired"
+  // button — only businesses see it.
+  useEffect(() => {
+    if (!user?.id) { setViewerUserType(null); return; }
+    void supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setViewerUserType(data?.user_type || null));
+  }, [user?.id]);
+
+  // Active hire agreement lookup for the selected conversation. Realtime on
+  // the table so the chip updates the moment the business hits the button
+  // in another tab or the trigger fires.
+  useEffect(() => {
+    if (!selectedConvo) { setHireAgreement(null); return; }
+    let cancelled = false;
+    void (async () => {
+      const agreement = await getActiveHireAgreement(selectedConvo);
+      if (!cancelled) setHireAgreement(agreement);
+    })();
+    const channel = supabase
+      .channel(`hire-agreement-${selectedConvo}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'hire_agreements',
+        filter: `conversation_id=eq.${selectedConvo}`,
+      }, async () => {
+        const agreement = await getActiveHireAgreement(selectedConvo);
+        if (!cancelled) setHireAgreement(agreement);
+      })
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConvo]);
+
+  // Pull broadcast metadata for the selected conversation so the thread can
+  // show "1 of N being asked" / "✓ {Name} replied first" badges. Fetched on
+  // demand (per selection) to keep the conversation list payload small.
+  useEffect(() => {
+    if (!selectedConvo) { setBroadcastInfo(null); return; }
+    const convo = conversations.find((c) => c.id === selectedConvo);
+    const broadcastId = convo?.broadcast_id || null;
+    if (!broadcastId) { setBroadcastInfo(null); return; }
+    let cancelled = false;
+    void (async () => {
+      const { data: bRow } = await supabase
+        .from('quote_broadcasts' as any)
+        .select('id, requester_id, status, target_count, filled_by')
+        .eq('id', broadcastId)
+        .maybeSingle();
+      if (cancelled || !bRow) return;
+      const row = bRow as any;
+      let filledByName: string | null = null;
+      if (row.filled_by) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', row.filled_by)
+          .maybeSingle();
+        filledByName = prof?.display_name || null;
+      }
+      if (cancelled) return;
+      setBroadcastInfo({
+        id: row.id,
+        requesterId: row.requester_id,
+        status: row.status,
+        targetCount: row.target_count ?? 0,
+        filledBy: row.filled_by ?? null,
+        filledByName,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [selectedConvo, conversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -229,6 +339,24 @@ const Messages = () => {
       unreadMap[msg.conversation_id] = (unreadMap[msg.conversation_id] || 0) + 1;
     }
 
+    // Batch-fetch the broadcast rows referenced by these conversations so we
+    // can render a "Broadcast · 1 of N" / "Replied first ✓" chip in the list
+    // view without firing an RPC per row. NULL broadcast_id conversations
+    // contribute nothing here.
+    const broadcastIds = Array.from(
+      new Set((convos as any[]).map((c) => c.broadcast_id).filter(Boolean) as string[]),
+    );
+    let broadcastMap: Record<string, { status: string; target_count: number; filled_by: string | null }> = {};
+    if (broadcastIds.length > 0) {
+      const { data: bRows } = await supabase
+        .from('quote_broadcasts' as any)
+        .select('id, status, target_count, filled_by')
+        .in('id', broadcastIds);
+      for (const b of (bRows as any[]) || []) {
+        broadcastMap[b.id] = { status: b.status, target_count: b.target_count, filled_by: b.filled_by };
+      }
+    }
+
     const enriched = convos.map((c) => {
       const otherId = c.participant_1 === userId ? c.participant_2 : c.participant_1;
       const prof = profiles?.find((p) => p.user_id === otherId);
@@ -236,6 +364,8 @@ const Messages = () => {
       const lastText = last
         ? (last.image_url ? '📷 Photo' : last.content)
         : '';
+      const bId = (c as any).broadcast_id as string | null | undefined;
+      const bSummary = bId ? broadcastMap[bId] : undefined;
       return {
         ...c,
         otherUserId: otherId,
@@ -245,6 +375,9 @@ const Messages = () => {
         lastMessageText: lastText,
         lastMessageTime: last?.created_at || c.updated_at,
         unreadCount: unreadMap[c.id] || 0,
+        broadcastStatus: bSummary?.status as Conversation['broadcastStatus'],
+        broadcastTargetCount: bSummary?.target_count,
+        broadcastFilledBy: bSummary?.filled_by ?? null,
       };
     });
     setConversations(enriched);
@@ -576,6 +709,37 @@ const Messages = () => {
                             {formatConvoTime(convo.lastMessageTime || convo.updated_at)}
                           </span>
                         </div>
+                        {/* Broadcast chip — scannable at-a-glance state for multi-send
+                            threads. Previously users had to open each of three
+                            broadcast convos to figure out who replied first. */}
+                        {convo.broadcastStatus && (() => {
+                          const isViewerWinner =
+                            convo.broadcastStatus === 'filled' &&
+                            convo.broadcastFilledBy &&
+                            convo.broadcastFilledBy === user?.id;
+                          const isOtherWinner =
+                            convo.broadcastStatus === 'filled' &&
+                            convo.broadcastFilledBy &&
+                            convo.broadcastFilledBy === convo.otherUserId;
+                          let chip: { label: string; className: string };
+                          if (convo.broadcastStatus === 'open') {
+                            chip = {
+                              label: `Broadcast · 1 of ${convo.broadcastTargetCount ?? '?'}`,
+                              className: 'bg-amber-500/15 text-amber-800 dark:text-amber-200',
+                            };
+                          } else if (isOtherWinner) {
+                            chip = { label: 'Replied first ✓', className: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200' };
+                          } else if (isViewerWinner) {
+                            chip = { label: 'You replied first ✓', className: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200' };
+                          } else {
+                            chip = { label: 'Filled by another', className: 'bg-muted text-muted-foreground' };
+                          }
+                          return (
+                            <span className={cn('mt-0.5 inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold', chip.className)}>
+                              {chip.label}
+                            </span>
+                          );
+                        })()}
                         <div className="flex items-center justify-between gap-1 mt-0.5">
                           <p className={cn('truncate text-xs', hasUnread ? 'font-medium text-foreground/80' : 'text-muted-foreground')}>
                             {convo.lastMessageText || (convo.jobTitle ? `Re: ${convo.jobTitle}` : 'Start of conversation')}
@@ -605,11 +769,103 @@ const Messages = () => {
                     ? <img src={selectedConversation.otherAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />
                     : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">{(selectedConversation?.otherName || '?')[0].toUpperCase()}</div>
                   }
-                  <div>
-                    <p className="text-sm font-semibold leading-tight">{selectedConversation?.otherName}</p>
-                    {selectedConversation?.jobTitle && <p className="text-xs text-primary leading-tight">Re: {selectedConversation.jobTitle}</p>}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-tight truncate">{selectedConversation?.otherName}</p>
+                    {selectedConversation?.jobTitle && <p className="text-xs text-primary leading-tight truncate">Re: {selectedConversation.jobTitle}</p>}
                   </div>
+                  {/* Hire finalization — the one click that turns "chatting"
+                      into "formally hired." Business-only, hidden once an
+                      agreement exists. The DB trigger posts a system message
+                      when they hit it, so both sides see the confirmation
+                      land in-thread without refresh. */}
+                  {selectedConversation && user && viewerUserType === 'business' && !hireAgreement && (
+                    <button
+                      type="button"
+                      disabled={hiringInProgress}
+                      onClick={async () => {
+                        if (!selectedConversation || hiringInProgress) return;
+                        setHiringInProgress(true);
+                        try {
+                          await createHireAgreement({
+                            businessId: user.id,
+                            freelancerId: selectedConversation.otherUserId || (
+                              selectedConversation.participant_1 === user.id
+                                ? selectedConversation.participant_2
+                                : selectedConversation.participant_1
+                            ),
+                            conversationId: selectedConversation.id,
+                          });
+                          toast({
+                            title: 'Marked as hired ✓',
+                            description: `Confirmation message posted in the thread. Leave a review when the work wraps up.`,
+                          });
+                        } catch (err) {
+                          toast({
+                            title: 'Could not mark as hired',
+                            description: err instanceof HireAgreementError ? err.message : 'Please try again.',
+                            variant: 'destructive',
+                          });
+                        } finally {
+                          setHiringInProgress(false);
+                        }
+                      }}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {hiringInProgress ? <Loader2 size={12} className="animate-spin" /> : <BadgeCheck size={12} strokeWidth={2.5} />}
+                      Mark as hired
+                    </button>
+                  )}
+                  {hireAgreement && (
+                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                      <BadgeCheck size={12} strokeWidth={2.5} />
+                      Hired
+                    </span>
+                  )}
                 </div>
+
+                {/* Broadcast banner — only renders for multi-send conversations.
+                    Wording adapts to viewer (hirer vs freelancer) and status
+                    (open vs filled). Hidden for normal 1:1 threads. */}
+                {broadcastInfo && (() => {
+                  const viewerIsRequester = user?.id === broadcastInfo.requesterId;
+                  const filled = broadcastInfo.status === 'filled' && broadcastInfo.filledBy;
+                  const winnerIsThisFreelancer =
+                    filled && broadcastInfo.filledBy === selectedConversation?.otherUserId;
+                  const filledHere = filled && !viewerIsRequester && broadcastInfo.filledBy === user?.id;
+
+                  let label: string;
+                  let tone: 'open' | 'won' | 'lost';
+                  if (!filled) {
+                    tone = 'open';
+                    label = viewerIsRequester
+                      ? `Sent to ${broadcastInfo.targetCount} freelancers — waiting on first reply`
+                      : `You're 1 of ${broadcastInfo.targetCount} being asked — be the first to reply`;
+                  } else if (viewerIsRequester) {
+                    tone = 'won';
+                    label = winnerIsThisFreelancer
+                      ? `✓ ${selectedConversation?.otherName || 'They'} replied first`
+                      : `Filled — ${broadcastInfo.filledByName || 'another freelancer'} replied first (you can still chat here)`;
+                  } else if (filledHere) {
+                    tone = 'won';
+                    label = '✓ You replied first — this brief is yours to win';
+                  } else {
+                    tone = 'lost';
+                    label = `${broadcastInfo.filledByName || 'Another freelancer'} replied first — feel free to chat anyway`;
+                  }
+
+                  const toneClasses =
+                    tone === 'won'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                      : tone === 'lost'
+                      ? 'border-border bg-muted text-muted-foreground'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200';
+
+                  return (
+                    <div className={cn('flex items-start gap-2 border-b px-4 py-2 text-[11px] font-medium', toneClasses)}>
+                      <span>{label}</span>
+                    </div>
+                  );
+                })()}
 
                 {/* Messages */}
                 <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
