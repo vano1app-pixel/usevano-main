@@ -18,6 +18,12 @@ interface State {
  * next render cycle succeeds because the offending node has already been
  * detached by whichever system won the race. We recover silently instead of
  * blowing up the whole app with the "Something went wrong" screen.
+ *
+ * The `reading 'add'` and `reading 'remove'` variants come from Framer Motion's
+ * internal AnimationControls trying to add/remove an effect on a fiber whose
+ * DOM node has already been unmounted by React. Same root cause as the
+ * removeChild/insertBefore races — the component is already gone by the time
+ * the animation system reaches for it. Recovery path is identical.
  */
 function isTransientDomError(message: string): boolean {
   const m = message.toLowerCase();
@@ -28,7 +34,11 @@ function isTransientDomError(message: string): boolean {
     m.includes('the node before which the new node is to be inserted') ||
     m.includes("reading 'removechild'") ||
     m.includes("reading 'insertbefore'") ||
-    m.includes("reading 'nextsibling'")
+    m.includes("reading 'nextsibling'") ||
+    m.includes("reading 'add'") ||
+    m.includes("reading 'remove'") ||
+    m.includes("reading 'parentnode'") ||
+    m.includes("reading 'contains'")
   );
 }
 
