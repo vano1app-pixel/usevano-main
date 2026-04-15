@@ -14,7 +14,7 @@ const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; i
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
   digital_sales: { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp },
   websites:    { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor },
-  social_media:{ label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone },
+  social_media:{ label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone },
 };
 
 const CAT_KEYWORDS: Record<CommunityCategoryId, string[]> = {

@@ -93,7 +93,7 @@ function migrateDraftStep(old: number): number {
 }
 
 /* ─── Student pricing caps ─── */
-const MAX_HOURLY_RATE = 20;              // €20/hr for videography, social media
+const MAX_HOURLY_RATE = 20;              // €20/hr for videography, content creation (social_media id)
 const MAX_DIGITAL_SALES_HOURLY = 10;     // €10/hr retainer for digital sales — rest of earnings come via expected bonus / commission
 const MAX_DAY_OR_PROJECT_RATE = 200;     // €200 per day / per project
 const MAX_PROJECT_BUDGET = 500;          // €500 for websites

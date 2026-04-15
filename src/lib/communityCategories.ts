@@ -25,8 +25,11 @@ export const COMMUNITY_CATEGORIES: Record<
     icon: Globe,
   },
   social_media: {
-    label: 'Social media',
-    description: 'Content, strategy, community management, and growth.',
+    // Display label broadened from "Social media" so it also speaks to UGC
+    // creators and brand-promo work. The ID stays `social_media` so every
+    // existing freelancer row, URL slug, and deep link keeps working.
+    label: 'Content creation',
+    description: 'UGC, social media management, content & brand promotion.',
     icon: Share2,
   },
 };

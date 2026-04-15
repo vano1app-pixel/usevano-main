@@ -21,7 +21,7 @@ const TALENT_HUB_CATEGORIES: {
   { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp },
   { cat: 'videography',  label: 'Videography',    sub: 'Filming, reels & promos',     icon: Video,     image: '/cat-videography.png' },
   { cat: 'websites',     label: 'Website Design',  sub: 'Get a site built or fixed',   icon: Monitor,   image: '/cat-websites.png' },
-  { cat: 'social_media', label: 'Social Media',    sub: 'Content, strategy & growth',  icon: Megaphone, image: '/cat-social_media.png' },
+  { cat: 'social_media', label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, image: '/cat-social_media.png' },
 ];
 
 const CAT_KEYWORDS: Record<CommunityCategoryId, string[]> = {
@@ -77,8 +77,8 @@ const BrowseStudents = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="Browse Galway Freelancers — Digital Sales, Video, Web & Social"
-        description="Browse local freelancers and students in Galway by category. Hire trusted videographers, sales reps, web designers and social media creators on VANO."
-        keywords="browse freelancers galway, find freelancer galway, galway sales reps, galway videographers, galway web designers, galway social media"
+        description="Browse local freelancers and students in Galway by category. Hire trusted videographers, sales reps, web designers and UGC / content creators on VANO."
+        keywords="browse freelancers galway, find freelancer galway, galway sales reps, galway videographers, galway web designers, galway content creation, galway ugc"
         jsonLd={breadcrumbSchema([
           { name: 'Home', path: '/' },
           { name: 'Freelancers', path: '/students' },

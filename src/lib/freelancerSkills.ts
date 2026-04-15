@@ -13,8 +13,14 @@ export const SKILLS_BY_CATEGORY: Record<CommunityCategoryId, readonly string[]> 
     'Graphic Design',
   ],
   social_media: [
+    // 'Social Media' is kept in the list for backward-compat: existing
+    // freelancers have it selected on live rows. The category is now labelled
+    // 'Content Creation' elsewhere in the UI so 'UGC' and 'Brand Promotion'
+    // are surfaced as first-class picker options.
     'Social Media',
     'Content Creation',
+    'UGC',
+    'Brand Promotion',
     'Marketing',
     'Copywriting',
     'Email Marketing',

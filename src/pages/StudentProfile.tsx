@@ -219,7 +219,7 @@ const StudentProfile = () => {
     videography: 'Videography',
     digital_sales: 'Digital Sales',
     websites: 'Web & Design',
-    social_media: 'Social Media',
+    social_media: 'Content Creation',
   };
   const categoryLabel = communityPost?.category ? categoryLabels[communityPost.category] : null;
 

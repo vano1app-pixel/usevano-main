@@ -199,8 +199,8 @@ const Landing = () => {
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="Hire Galway Freelancers — Videography, Digital Sales, Web & Social"
-        description="VANO connects Galway businesses with local freelancers for digital sales, videography, web design and social media. Post a shift and get the work done."
-        keywords="galway freelancers, hire students galway, videography galway, digital sales galway, web design galway, social media galway, gig work ireland"
+        description="VANO connects Galway businesses with local freelancers for digital sales, videography, web design and content creation. Post a shift and get the work done."
+        keywords="galway freelancers, hire students galway, videography galway, digital sales galway, web design galway, content creation galway, ugc galway, gig work ireland"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
       <Navbar />
@@ -323,7 +323,7 @@ const Landing = () => {
               // of the misleading photography stock shot that was here.
               { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: null as string | null },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' as string | null },
-              { label: 'Social Media', sub: 'Content, strategy & growth', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
+              { label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
             ].map((item) => {
               // Image paths derived from the naming convention used in /public.
               // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.

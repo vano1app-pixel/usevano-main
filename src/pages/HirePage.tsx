@@ -35,7 +35,7 @@ const CATEGORIES = [
   { id: 'websites', label: 'Website', icon: Monitor, starter: 'I need a website for ',
     keywords: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
     subtypes: ['Landing page', 'Full website', 'Shopify / e-commerce', 'Fix / improve existing', 'Web app / dashboard'] },
-  { id: 'social_media', label: 'Social Media', icon: Megaphone, starter: 'I need help with social media for ',
+  { id: 'social_media', label: 'Content Creation', icon: Megaphone, starter: 'I need help with content for ',
     keywords: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
     subtypes: ['Content / posts', 'Strategy & growth', 'Paid ads', 'Community management', 'Short-form (TikTok / Reels)'] },
   { id: 'other', label: 'Other', icon: HelpCircle, starter: '', keywords: [], subtypes: [] as string[] },
@@ -74,7 +74,7 @@ const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
 
 const PRICING_PACKAGES = [
   {
-    name: 'Social Media',
+    name: 'Content Creation',
     price: '249',
     period: '/mo',
     features: [
