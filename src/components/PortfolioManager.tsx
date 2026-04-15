@@ -3,6 +3,16 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Image } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface PortfolioManagerProps {
   userId: string;
@@ -17,6 +27,9 @@ export const PortfolioManager: React.FC<PortfolioManagerProps> = ({ userId }) =>
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [adding, setAdding] = useState(false);
+  // Holds the id of the item the user has tapped the trash icon on, until
+  // they confirm or dismiss the AlertDialog. `null` means no confirm open.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadItems();
@@ -110,7 +123,7 @@ export const PortfolioManager: React.FC<PortfolioManagerProps> = ({ userId }) =>
                   {item.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
                 </div>
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={() => setConfirmDeleteId(item.id)}
                   className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all duration-150"
                   title="Remove item"
                 >
@@ -157,6 +170,33 @@ export const PortfolioManager: React.FC<PortfolioManagerProps> = ({ userId }) =>
           </button>
         </div>
       </div>
+
+      {/* Delete confirmation — prevents accidental wipes on the hover
+          trash button. Dialog controls an AlertDialog that closes cleanly
+          on confirm/cancel; the actual row removal only fires from the
+          destructive action. */}
+      <AlertDialog open={!!confirmDeleteId} onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}>
+        <AlertDialogContent className="sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this portfolio item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This can't be undone. The image and description will be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmDeleteId) handleDelete(confirmDeleteId);
+                setConfirmDeleteId(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

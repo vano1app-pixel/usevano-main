@@ -26,19 +26,19 @@ import { isInAppBrowser } from '@/lib/inAppBrowser';
 /* ─── Constants ─── */
 
 const CATEGORIES = [
-  { id: 'videography', label: 'Video', icon: Video, starter: 'I need a video for ',
+  { id: 'videography', label: 'Video', icon: Video,
     keywords: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo'],
     subtypes: ['Reel / short-form', 'Promo / ad', 'Event / wedding', 'Corporate / explainer', 'Podcast / interview'] },
-  { id: 'digital_sales', label: 'Sales', icon: TrendingUp, starter: 'I need help selling / bringing clients for ',
+  { id: 'digital_sales', label: 'Sales', icon: TrendingUp,
     keywords: ['sales', 'sdr', 'bdr', 'cold call', 'cold email', 'outbound', 'lead gen', 'lead generation', 'prospect', 'closing', 'b2b', 'saas sales'],
     subtypes: ['Cold email outreach', 'Cold calling / SDR', 'Lead generation', 'Appointment setting', 'Sales closing'] },
-  { id: 'websites', label: 'Website', icon: Monitor, starter: 'I need a website for ',
+  { id: 'websites', label: 'Website', icon: Monitor,
     keywords: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
     subtypes: ['Landing page', 'Full website', 'Shopify / e-commerce', 'Fix / improve existing', 'Web app / dashboard'] },
-  { id: 'social_media', label: 'Content Creation', icon: Megaphone, starter: 'I need help with content for ',
+  { id: 'social_media', label: 'Content Creation', icon: Megaphone,
     keywords: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
     subtypes: ['Content / posts', 'Strategy & growth', 'Paid ads', 'Community management', 'Short-form (TikTok / Reels)'] },
-  { id: 'other', label: 'Other', icon: HelpCircle, starter: '', keywords: [], subtypes: [] as string[] },
+  { id: 'other', label: 'Other', icon: HelpCircle, keywords: [], subtypes: [] as string[] },
 ] as const;
 
 const CATEGORY_LABEL: Record<string, string> = {

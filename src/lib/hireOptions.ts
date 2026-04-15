@@ -16,12 +16,11 @@ export const HIRE_BUDGETS = [
   { id: 'unsure', label: 'Not sure yet', sub: "We'll advise" },
 ] as const;
 
-export const HIRE_CATEGORY_STARTERS: Record<string, string> = {
-  videography: 'I need a video for ',
-  digital_sales: 'I need help selling / bringing clients for ',
-  websites: 'I need a website for ',
-  social_media: 'I need help with content for ',
-};
+// Previously `HIRE_CATEGORY_STARTERS` — auto-filled the hire textarea with
+// "I need a video for " / "I need help with content for " etc. Removed because
+// nothing ever imported it and the pre-fill pattern had been abandoned in
+// favour of a plain placeholder. The `starter:` fields on HirePage's
+// CATEGORIES array are gone for the same reason.
 
 export const budgetLabel = (id: string | null | undefined) =>
   HIRE_BUDGETS.find((b) => b.id === id)?.label ?? null;

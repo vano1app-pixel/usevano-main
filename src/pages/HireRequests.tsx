@@ -265,7 +265,7 @@ const HireRequestsPage: React.FC = () => {
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-semibold truncate">{name} wants to hire you</p>
+                              <p className="flex-1 min-w-0 truncate text-sm font-semibold" title={name}>{name} wants to hire you</p>
                               <CountdownBadge expiresAt={req.expires_at} />
                             </div>
                             <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
@@ -354,8 +354,8 @@ const HireRequestsPage: React.FC = () => {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{req.description}</p>
+                          <p className="truncate text-sm font-medium" title={name}>{name}</p>
+                          <p className="truncate text-xs text-muted-foreground" title={req.description || undefined}>{req.description}</p>
                         </div>
                         <span
                           className={cn(

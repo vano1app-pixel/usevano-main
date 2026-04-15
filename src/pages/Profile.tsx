@@ -363,7 +363,16 @@ const Profile = () => {
           strokeWidth={stroke} strokeLinecap="round"
           strokeDasharray={circ} strokeDashoffset={offset}
           className="animate-progress-ring"
-          style={{ '--ring-circumference': circ, '--ring-offset': offset } as React.CSSProperties}
+          // One-shot `progress-ring-fill` keyframe handles the first-mount
+          // sweep; the transition handles subsequent value changes (e.g.,
+          // user saves a field and % bumps from 70 → 80). Without the
+          // transition the strokeDashoffset prop jumps instantly on
+          // re-render, which looks glitchy.
+          style={{
+            '--ring-circumference': circ,
+            '--ring-offset': offset,
+            transition: 'stroke-dashoffset 600ms cubic-bezier(0.16, 1, 0.3, 1), stroke 300ms ease-out',
+          } as React.CSSProperties}
         />
       </svg>
     );

@@ -175,7 +175,43 @@ const StudentProfile = () => {
     navigate('/messages');
   };
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="mx-auto max-w-3xl px-3 sm:px-4 md:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16 space-y-5">
+        {/* Banner skeleton */}
+        <div className="overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-tinted">
+          <div className="h-40 w-full animate-pulse bg-gradient-to-br from-muted via-muted/70 to-muted/50 sm:h-48 md:h-56" />
+          <div className="px-4 pb-4">
+            {/* Avatar + name */}
+            <div className="flex items-end gap-3 -mt-9 mb-3">
+              <div className="h-20 w-20 animate-pulse rounded-full border-2 border-card bg-muted/70" />
+              <div className="flex-1 space-y-2 pb-2">
+                <div className="h-4 w-2/3 animate-pulse rounded-full bg-muted/70" />
+                <div className="h-3 w-1/3 animate-pulse rounded-full bg-muted/50" />
+              </div>
+            </div>
+            {/* Bio lines */}
+            <div className="space-y-2 mt-3">
+              <div className="h-3 w-full animate-pulse rounded-full bg-muted/50" />
+              <div className="h-3 w-4/5 animate-pulse rounded-full bg-muted/50" />
+            </div>
+            {/* Skill pills */}
+            <div className="mt-4 flex gap-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-6 w-20 animate-pulse rounded-full bg-muted/60" />
+              ))}
+            </div>
+            {/* CTA placeholders */}
+            <div className="mt-5 flex gap-2">
+              <div className="h-11 flex-1 animate-pulse rounded-xl bg-muted/60" />
+              <div className="h-11 flex-1 animate-pulse rounded-xl bg-muted/50" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   if (!profile) return (
     <div className="min-h-screen bg-background">
@@ -505,7 +541,7 @@ const StudentProfile = () => {
                   <button
                     type="button"
                     onClick={handleShare}
-                    title="Copy profile link"
+                    title="Share profile"
                     className="ml-1 inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-semibold text-foreground/70 shadow-sm transition-colors hover:border-foreground/20 hover:text-foreground"
                   >
                     {copied ? <Check size={11} className="text-emerald-500" /> : <Share2 size={11} />}
