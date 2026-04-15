@@ -17,7 +17,7 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check,
+  Shield, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 
@@ -124,6 +124,10 @@ const HirePage = () => {
   const [subtype, setSubtype] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
+  // Step 3: freelancer list is collapsed behind a secondary button by default
+  // so the Vano concierge flow reads as the primary recommendation. Click the
+  // button and the matched-freelancers panel expands below it.
+  const [showDirectList, setShowDirectList] = useState(false);
 
   // Results
   const [submitting, setSubmitting] = useState(false);
@@ -658,17 +662,30 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── Soft divider — signals secondary alternate path, not equal choice ── */}
-      <p className="mt-5 mb-2.5 text-center text-[11px] text-muted-foreground/70">
-        Prefer to message a freelancer yourself?
-      </p>
+      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
+           Sits directly under the Vano card as a white / outline full-width
+           button so it reads as the clearly-secondary path. Tapping it expands
+           the matched-freelancer panel inline. */}
+      <button
+        type="button"
+        onClick={() => setShowDirectList((s) => !s)}
+        aria-expanded={showDirectList}
+        className={cn(
+          'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-card px-6 py-4 text-sm sm:text-base font-semibold text-foreground shadow-sm transition-all cursor-pointer select-none active:scale-[0.98]',
+          showDirectList ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/25 hover:bg-primary/5',
+        )}
+      >
+        <MessageCircle size={15} className="text-muted-foreground" />
+        Choose a freelancer yourself
+        <ChevronDown
+          size={15}
+          className={cn('text-muted-foreground transition-transform duration-200', showDirectList && 'rotate-180')}
+        />
+      </button>
 
-      {/* ── OPTION B — Message Freelancers Directly (visible but secondary) ── */}
-      <div className="rounded-2xl border border-border/60 bg-card p-4">
-        <div className="flex items-center gap-2 mb-1">
-          <MessageCircle size={14} className="text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Message a freelancer directly</h2>
-        </div>
+      {/* ── Collapsible freelancer panel ── */}
+      {showDirectList && (
+      <div className="mt-3 rounded-2xl border border-border/60 bg-card p-4 animate-fade-in">
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
           Your brief is pre-filled — tap Message to start a conversation and pick who fits best.
         </p>
@@ -725,6 +742,7 @@ const HirePage = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 
