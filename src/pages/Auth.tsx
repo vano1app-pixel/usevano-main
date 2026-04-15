@@ -12,6 +12,8 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { OnboardingJourney } from '@/components/OnboardingJourney';
+import { isInAppBrowser } from '@/lib/inAppBrowser';
+import { track } from '@/lib/track';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -51,6 +53,19 @@ const Auth = () => {
   }, [redirectIfAlreadySignedIn]);
 
   const handleGoogleSignIn = async () => {
+    // Google OAuth is blocked inside in-app browsers (Fiverr, Instagram,
+    // TikTok, …) with a 403 "disallowed_useragent" page. Intercept before
+    // the redirect so the user gets a readable message instead of a cryptic
+    // Google error. The banner at the top has the "Open in Safari" escape.
+    if (isInAppBrowser()) {
+      track('in_app_browser_blocked', { source: 'auth_google_button' });
+      toast({
+        title: "Can't sign in here",
+        description: "Open this page in Safari or Chrome first — see the banner at the top.",
+        variant: 'destructive',
+      });
+      return;
+    }
     setLoading(true);
     try {
       setGoogleOAuthIntent(isLogin ? null : userType);

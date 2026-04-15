@@ -31,6 +31,8 @@ import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { InteractiveButton } from '@/components/InteractiveButton';
+import { isInAppBrowser } from '@/lib/inAppBrowser';
+import { track } from '@/lib/track';
 
 
 const Landing = () => {
@@ -52,6 +54,20 @@ const Landing = () => {
    * routes a freshly-created student straight to /profile.
    */
   const handleFreelancerSignup = async () => {
+    // Short-circuit if the user is in an embedded in-app browser (Fiverr,
+    // Instagram, TikTok, etc). Google blocks OAuth there with a 403
+    // "disallowed_useragent" page — routing them to their real browser first
+    // is the only way through. InAppBrowserBanner at the top of the page
+    // carries the "Open in Safari/Chrome" action.
+    if (isInAppBrowser()) {
+      track('in_app_browser_blocked', { source: 'landing_freelancer_signup' });
+      toast({
+        title: "Can't sign in here",
+        description: "Open this page in Safari or Chrome first — see the banner at the top.",
+        variant: 'destructive',
+      });
+      return;
+    }
     setGoogleOAuthIntent('student');
     try {
       const { error } = await supabase.auth.signInWithOAuth({

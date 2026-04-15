@@ -22,6 +22,7 @@ import {
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { track } from '@/lib/track';
 import { sendQuoteBroadcast, QuoteBroadcastError } from '@/lib/quoteBroadcast';
+import { isInAppBrowser } from '@/lib/inAppBrowser';
 
 /* ─── Constants ─── */
 
@@ -241,6 +242,18 @@ const HirePage = () => {
       // Persist the brief so it survives the OAuth round-trip, then kick off
       // Google sign-in directly from here. No /auth page detour.
       saveHireBrief({ description, category, subtype, timeline, budget });
+      // Short-circuit Google OAuth inside in-app browsers (Fiverr, Instagram,
+      // TikTok, …). Brief stays saved via saveHireBrief so when they re-open
+      // in Safari/Chrome and sign in, Step 3 resumes as before.
+      if (isInAppBrowser()) {
+        track('in_app_browser_blocked', { source: 'hire_vano_submit' });
+        toast({
+          title: "Can't sign in here",
+          description: "Open this page in Safari or Chrome first — your brief is saved.",
+          variant: 'destructive',
+        });
+        return;
+      }
       setGoogleOAuthIntent('business');
       // Reassure the user mid-redirect: the brief they just typed is saved and
       // we'll resume on Step 3 once they're signed in. Without this the page
