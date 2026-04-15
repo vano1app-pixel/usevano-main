@@ -27,14 +27,23 @@ export const HireRequestsInboxLink: React.FC = () => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const load = async () => {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from('hire_requests' as any)
         .select('id', { count: 'exact', head: true })
         .eq('kind', 'direct')
         .eq('target_freelancer_id', uid)
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString());
-      if (!cancelled) setPendingCount(count ?? 0);
+      if (cancelled) return;
+      if (error) {
+        // Don't block the card from rendering — fall back to the "0" state so
+        // the freelancer still sees the entry point, but log so real RLS /
+        // network failures don't stay invisible.
+        console.error('HireRequestsInboxLink: count query failed', error);
+        setPendingCount(0);
+        return;
+      }
+      setPendingCount(count ?? 0);
     };
 
     void load();

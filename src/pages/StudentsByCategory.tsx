@@ -4,7 +4,7 @@ import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { breadcrumbSchema } from '@/lib/structuredData';
-import { ArrowLeft, Monitor, Video, Megaphone, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Monitor, Video, Megaphone, TrendingUp, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
@@ -63,7 +63,20 @@ const StudentsByCategory = ({ categoryId }: Props) => {
       supabase.from('profiles').select('user_id, display_name, avatar_url'),
     ]);
 
-    if (studentErr || profileErr) { setFetchError(true); setLoading(false); return; }
+    // Only surface a hard error when the primary query (the list itself) fails.
+    // A profiles-enrichment failure is non-fatal — the cards still render with
+    // a default display name, so there's no reason to scare the user with a
+    // banner when they can see the list fine.
+    if (studentErr) {
+      console.error('StudentsByCategory: failed to load student_profiles', studentErr);
+      setFetchError(true);
+      setLoading(false);
+      return;
+    }
+    if (profileErr) {
+      console.warn('StudentsByCategory: profile enrichment failed, continuing with defaults', profileErr);
+    }
+    setFetchError(false);
 
     const rows = studentData || [];
     const profs = profileData || [];
@@ -153,14 +166,22 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           On VANO now
         </p>
 
-        {fetchError && (
-          <p className="mb-4 text-center text-sm text-muted-foreground">
-            Could not load all profiles — please try again.
-          </p>
-        )}
-
         {/* Single-column card list */}
-        {loading ? (
+        {fetchError ? (
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-12 text-center">
+            <p className="text-sm font-medium text-foreground">Couldn&apos;t load the board</p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Check your connection and try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setFetchError(false); setLoading(true); fetchData(); }}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
+            >
+              Retry
+            </button>
+          </div>
+        ) : loading ? (
           <div className="flex flex-col gap-4" aria-busy aria-label="Loading freelancers">
             {[1, 2, 3].map((i) => (
               <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
@@ -180,9 +201,25 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             ))}
           </div>
         ) : students.length === 0 ? (
-          <p className="py-12 text-center text-muted-foreground">
-            No freelancers in this category yet — check back soon.
-          </p>
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Users size={20} strokeWidth={2} />
+            </div>
+            <p className="max-w-xs text-sm font-medium text-foreground">
+              No {meta.label.toLowerCase()} freelancers yet — be the first.
+            </p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Build your profile and businesses can hire you straight from this board.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
+            >
+              List yourself
+              <ArrowRight size={13} strokeWidth={2.5} />
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
             {students.map((student, idx) => {

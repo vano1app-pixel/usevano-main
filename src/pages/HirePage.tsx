@@ -17,19 +17,35 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check,
+  Shield, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 
 /* ─── Constants ─── */
 
 const CATEGORIES = [
-  { id: 'videography', label: 'Video', icon: Video, starter: 'I need a video for ', keywords: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo'] },
-  { id: 'digital_sales', label: 'Sales', icon: TrendingUp, starter: 'I need help selling / bringing clients for ', keywords: ['sales', 'sdr', 'bdr', 'cold call', 'cold email', 'outbound', 'lead gen', 'lead generation', 'prospect', 'closing', 'b2b', 'saas sales'] },
-  { id: 'websites', label: 'Website', icon: Monitor, starter: 'I need a website for ', keywords: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'] },
-  { id: 'social_media', label: 'Social Media', icon: Megaphone, starter: 'I need help with social media for ', keywords: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'] },
-  { id: 'other', label: 'Other', icon: HelpCircle, starter: '', keywords: [] },
+  { id: 'videography', label: 'Video', icon: Video, starter: 'I need a video for ',
+    keywords: ['video', 'film', 'filming', 'videography', 'reel', 'drone', 'premiere', 'davinci', 'motion', 'promo'],
+    subtypes: ['Reel / short-form', 'Promo / ad', 'Event / wedding', 'Corporate / explainer', 'Podcast / interview'] },
+  { id: 'digital_sales', label: 'Sales', icon: TrendingUp, starter: 'I need help selling / bringing clients for ',
+    keywords: ['sales', 'sdr', 'bdr', 'cold call', 'cold email', 'outbound', 'lead gen', 'lead generation', 'prospect', 'closing', 'b2b', 'saas sales'],
+    subtypes: ['Cold email outreach', 'Cold calling / SDR', 'Lead generation', 'Appointment setting', 'Sales closing'] },
+  { id: 'websites', label: 'Website', icon: Monitor, starter: 'I need a website for ',
+    keywords: ['web', 'website', 'wordpress', 'html', 'css', 'developer', 'coding', 'design', 'frontend', 'shopify'],
+    subtypes: ['Landing page', 'Full website', 'Shopify / e-commerce', 'Fix / improve existing', 'Web app / dashboard'] },
+  { id: 'social_media', label: 'Social Media', icon: Megaphone, starter: 'I need help with social media for ',
+    keywords: ['social', 'marketing', 'content', 'instagram', 'tiktok', 'facebook', 'twitter', 'media', 'canva', 'strategy'],
+    subtypes: ['Content / posts', 'Strategy & growth', 'Paid ads', 'Community management', 'Short-form (TikTok / Reels)'] },
+  { id: 'other', label: 'Other', icon: HelpCircle, starter: '', keywords: [], subtypes: [] as string[] },
 ] as const;
+
+const CATEGORY_LABEL: Record<string, string> = {
+  videography: 'Video',
+  digital_sales: 'Sales',
+  websites: 'Website',
+  social_media: 'Social media',
+  other: 'Other',
+};
 
 const TIMELINES = [
   { id: 'this_week', label: 'This week', sub: 'Rush job' },
@@ -105,8 +121,13 @@ const HirePage = () => {
   // Brief
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string | null>(searchParams.get('category'));
+  const [subtype, setSubtype] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
+  // Step 3: freelancer list is collapsed behind a secondary button by default
+  // so the Vano concierge flow reads as the primary recommendation. Click the
+  // button and the matched-freelancers panel expands below it.
+  const [showDirectList, setShowDirectList] = useState(false);
 
   // Results
   const [submitting, setSubmitting] = useState(false);
@@ -128,6 +149,7 @@ const HirePage = () => {
       briefRestoredRef.current = true;
       setDescription(brief.description);
       setCategory(brief.category);
+      setSubtype(brief.subtype);
       setTimeline(brief.timeline);
       setBudget(brief.budget);
       setStep(3);
@@ -136,7 +158,7 @@ const HirePage = () => {
     const cat = searchParams.get('category');
     if (cat) {
       const found = CATEGORIES.find(c => c.id === cat);
-      if (found) { setCategory(cat); if (!description) setDescription(found.starter); }
+      if (found) setCategory(cat);
     }
   }, []);
 
@@ -152,10 +174,10 @@ const HirePage = () => {
   };
 
   const handleCategoryPick = (id: string) => {
-    const cat = CATEGORIES.find(c => c.id === id);
     setCategory(id);
-    const starters = CATEGORIES.map(c => c.starter);
-    if (!description.trim() || starters.includes(description)) setDescription(cat?.starter || '');
+    // Always reset sub-type when switching categories — stale chips from a
+    // different category would silently feed into the synthesized description.
+    setSubtype(null);
   };
 
   /* ── Fetch matched freelancers ── */
@@ -221,7 +243,7 @@ const HirePage = () => {
     if (!user) {
       // Persist the brief so it survives the OAuth round-trip, then kick off
       // Google sign-in directly from here. No /auth page detour.
-      saveHireBrief({ description, category, timeline, budget });
+      saveHireBrief({ description, category, subtype, timeline, budget });
       setGoogleOAuthIntent('business');
       setSubmitting(true);
       try {
@@ -245,8 +267,9 @@ const HirePage = () => {
       return;
     }
     setSubmitting(true);
+    const finalDescription = buildDescription();
     const { error } = await supabase.from('hire_requests' as any).insert({
-      requester_id: user.id, description, category, budget_range: budget, timeline, status: 'pending',
+      requester_id: user.id, description: finalDescription, category, budget_range: budget, timeline, status: 'pending',
     } as any);
     if (error) {
       toast({ title: 'Something went wrong', description: 'Please try again or message us on WhatsApp.', variant: 'destructive' });
@@ -262,7 +285,7 @@ const HirePage = () => {
         const waLines = [
           `Hi! I just submitted a hire request on VANO.`,
           ``,
-          `Project: ${description.trim()}`,
+          `Project: ${finalDescription}`,
           `Category: ${catLabel}`,
           `Timeline: ${timelineLabel}`,
           `Budget: ${budgetLabel}`,
@@ -270,7 +293,7 @@ const HirePage = () => {
         window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(waLines.join('\n'))}`, '_blank');
       }
       supabase.functions.invoke('notify-hire-request', {
-        body: { description, category, budget_range: budget, timeline, requester_email: user.email },
+        body: { description: finalDescription, category, budget_range: budget, timeline, requester_email: user.email },
       }).catch(() => {});
     }
     setSubmitting(false);
@@ -282,7 +305,10 @@ const HirePage = () => {
   useEffect(() => {
     if (!briefRestoredRef.current || autoSubmittedRef.current) return;
     if (!user || submitting || submitted) return;
-    if (!description.trim()) return;
+    // Post-OAuth auto-submit guard: accept either a typed description OR a
+    // category + sub-type pick, matching the new click-only Step 1.
+    const hasChipBrief = !!category && !!subtype;
+    if (!description.trim() && !hasChipBrief) return;
     autoSubmittedRef.current = true;
     void handleVanoSubmit(false);
     // handleVanoSubmit depends on current field state; re-run only on user change
@@ -294,7 +320,8 @@ const HirePage = () => {
     if (!user) { navigate('/auth'); return; }
     const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || '';
     const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || '';
-    const draft = `Hi! I'm looking for help with: ${description.trim()}${budgetLabel ? ` | Budget: ${budgetLabel}` : ''}${timelineLabel ? ` | Timeline: ${timelineLabel}` : ''}`;
+    const ask = buildDescription();
+    const draft = `Hi! I'm looking for help with: ${ask}${budgetLabel ? ` | Budget: ${budgetLabel}` : ''}${timelineLabel ? ` | Timeline: ${timelineLabel}` : ''}`;
     navigate(`/messages?with=${freelancerUserId}&draft=${encodeURIComponent(draft)}`);
   };
 
@@ -311,8 +338,50 @@ const HirePage = () => {
     }
   }, [step, timeline, budget]);
 
-  const canProceedStep1 = description.trim().length >= 5;
+  /* Auto-advance step 1 → step 2 once both category + sub-type are picked.
+   * Happy path becomes literally two clicks on step 1. Skip for "Other" since
+   * there's no sub-type row — the user must type + click Continue themselves. */
+  useEffect(() => {
+    if (step !== 1) return;
+    if (!category || category === 'other') return;
+    if (!subtype) return;
+    const t = window.setTimeout(() => {
+      setStepDirection(1);
+      setStep(2);
+    }, 220);
+    return () => window.clearTimeout(t);
+  }, [step, category, subtype]);
+
+  // Step 1 unlocks when the user has chosen a category AND either picked a
+  // sub-type chip (frictionless click path) or typed a short free-form hint
+  // for the "Other" branch which has no sub-types.
+  const canProceedStep1 = !!category && (
+    !!subtype ||
+    (category === 'other' && description.trim().length >= 5)
+  );
   const canProceedStep2 = !!timeline && !!budget;
+
+  // Canonical description built from the chips. The textarea is optional
+  // extra detail; if it's empty, downstream consumers still get
+  // "Video — Reel / short-form" etc. Satisfies the NOT NULL constraint on
+  // hire_requests.description.
+  const buildDescription = (): string => {
+    const catLabel = category ? CATEGORY_LABEL[category] : '';
+    const parts: string[] = [];
+    if (catLabel && subtype) parts.push(`${catLabel} — ${subtype}`);
+    else if (catLabel) parts.push(catLabel);
+    const extra = description.trim();
+    if (extra) parts.push(extra);
+    return parts.join('. ') || extra || catLabel || 'New hire request';
+  };
+
+  // Short recap shown on Steps 2 and 3 above the header.
+  const recap = (() => {
+    const catLabel = category ? CATEGORY_LABEL[category] : '';
+    const extra = description.trim();
+    if (catLabel && subtype) return `${catLabel} — ${subtype}${extra ? ` · ${extra}` : ''}`;
+    return extra || catLabel || '';
+  })();
 
   /* ── Render helpers ── */
 
@@ -323,7 +392,7 @@ const HirePage = () => {
           What do you need done?
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Describe your project like you'd text a friend. We'll match you with the right person at the right price.
+          Pick a category, pick what you need — we'll take it from there.
         </p>
       </header>
 
@@ -343,20 +412,51 @@ const HirePage = () => {
         })}
       </div>
 
-      {/* Textarea */}
+      {/* Sub-type chips — the click path that replaces typing. Only renders
+          for categories that have sub-types defined (skips "Other"). */}
+      {(() => {
+        const cat = CATEGORIES.find(c => c.id === category);
+        if (!cat || cat.subtypes.length === 0) return null;
+        return (
+          <div className="mb-5">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              What kind of {cat.label.toLowerCase()}?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {cat.subtypes.map(st => {
+                const active = subtype === st;
+                return (
+                  <button key={st} type="button" onClick={() => setSubtype(st)} className={cn(
+                    'rounded-full border px-4 py-2.5 text-xs sm:text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
+                    active ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
+                  )}>
+                    {st}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Textarea — optional for chip-driven categories, still the only path
+          for "Other". Keep it visible so power users can add detail, but don't
+          steal focus or nag about character count. */}
       <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden transition-all duration-300 focus-within:border-primary/20 focus-within:shadow-tinted-lg">
+        <div className="flex items-center justify-between px-5 pt-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {category === 'other' ? 'Tell us what you need' : 'Add any extra detail'}
+            {category !== 'other' && <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>}
+          </p>
+        </div>
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
-          placeholder={'e.g. "I need a 30-second promo video for my cafe\'s Instagram"'}
-          className="w-full min-h-[130px] lg:min-h-[160px] resize-none bg-transparent px-5 pt-5 pb-2 text-[15px] sm:text-base leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
-          autoFocus
+          placeholder={category === 'other'
+            ? 'Describe what you need — the more specific, the better match we can find.'
+            : "Anything the freelancer should know upfront (deadline context, brand, examples…)"}
+          className="w-full min-h-[96px] lg:min-h-[120px] resize-none bg-transparent px-5 pt-2 pb-4 text-[15px] sm:text-base leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
         />
-        <div className="flex items-center justify-between px-5 pb-3">
-          <p className={cn('text-[11px] transition-colors duration-200', description.trim().length >= 5 ? 'text-emerald-600/70' : 'text-muted-foreground/50')}>
-            {description.trim().length < 5 ? 'Tell us a little more...' : 'Looks good'}
-          </p>
-        </div>
       </div>
 
       {/* Value props */}
@@ -405,7 +505,7 @@ const HirePage = () => {
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
           {category ? (() => { const C = CATEGORIES.find(c => c.id === category); return C ? <C.icon size={14} className="text-primary" /> : <Sparkles size={14} className="text-primary" />; })() : <Sparkles size={14} className="text-primary" />}
         </div>
-        <p className="text-sm text-foreground leading-relaxed line-clamp-2 pt-0.5">{description}</p>
+        <p className="text-sm text-foreground leading-relaxed line-clamp-2 pt-0.5">{recap || 'Your request'}</p>
       </div>
 
       {/* Timeline */}
@@ -530,7 +630,7 @@ const HirePage = () => {
               {/* Brief summary */}
               <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">Your request</p>
-                <p className="text-xs text-white/80 line-clamp-2">{description}</p>
+                <p className="text-xs text-white/80 line-clamp-2">{recap || 'Your request'}</p>
                 <div className="flex gap-1.5 mt-2 flex-wrap">
                   {[
                     category && CATEGORIES.find(c => c.id === category)?.label,
@@ -562,17 +662,30 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── Soft divider — signals secondary alternate path, not equal choice ── */}
-      <p className="mt-5 mb-2.5 text-center text-[11px] text-muted-foreground/70">
-        Prefer to message a freelancer yourself?
-      </p>
+      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
+           Sits directly under the Vano card as a white / outline full-width
+           button so it reads as the clearly-secondary path. Tapping it expands
+           the matched-freelancer panel inline. */}
+      <button
+        type="button"
+        onClick={() => setShowDirectList((s) => !s)}
+        aria-expanded={showDirectList}
+        className={cn(
+          'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-card px-6 py-4 text-sm sm:text-base font-semibold text-foreground shadow-sm transition-all cursor-pointer select-none active:scale-[0.98]',
+          showDirectList ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/25 hover:bg-primary/5',
+        )}
+      >
+        <MessageCircle size={15} className="text-muted-foreground" />
+        Choose a freelancer yourself
+        <ChevronDown
+          size={15}
+          className={cn('text-muted-foreground transition-transform duration-200', showDirectList && 'rotate-180')}
+        />
+      </button>
 
-      {/* ── OPTION B — Message Freelancers Directly (visible but secondary) ── */}
-      <div className="rounded-2xl border border-border/60 bg-card p-4">
-        <div className="flex items-center gap-2 mb-1">
-          <MessageCircle size={14} className="text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Message a freelancer directly</h2>
-        </div>
+      {/* ── Collapsible freelancer panel ── */}
+      {showDirectList && (
+      <div className="mt-3 rounded-2xl border border-border/60 bg-card p-4 animate-fade-in">
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
           Your brief is pre-filled — tap Message to start a conversation and pick who fits best.
         </p>
@@ -629,6 +742,7 @@ const HirePage = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 

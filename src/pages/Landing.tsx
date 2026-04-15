@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Megaphone,
   Linkedin,
+  Instagram,
   CircleUser,
   Monitor,
   Video,
@@ -701,6 +702,15 @@ const Landing = () => {
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Connect</h4>
                 <div className="flex flex-col gap-2.5 text-sm">
+                  <a
+                    href="https://www.instagram.com/vano.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-foreground/70 hover:text-primary transition-colors"
+                  >
+                    <Instagram className="h-3.5 w-3.5" strokeWidth={2} />
+                    Instagram
+                  </a>
                   <a
                     href="https://www.linkedin.com/company/vano-app/"
                     target="_blank"

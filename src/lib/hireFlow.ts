@@ -10,6 +10,7 @@ const HIRE_BRIEF_KEY = 'vano_hire_brief_v1';
 export type HireBrief = {
   description: string;
   category: string | null;
+  subtype: string | null;
   timeline: string | null;
   budget: string | null;
 };
@@ -31,6 +32,7 @@ export function loadHireBrief(): HireBrief | null {
     return {
       description: parsed.description,
       category: typeof parsed.category === 'string' ? parsed.category : null,
+      subtype: typeof parsed.subtype === 'string' ? parsed.subtype : null,
       timeline: typeof parsed.timeline === 'string' ? parsed.timeline : null,
       budget: typeof parsed.budget === 'string' ? parsed.budget : null,
     };

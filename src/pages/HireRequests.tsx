@@ -67,6 +67,7 @@ const HireRequestsPage: React.FC = () => {
   const [requesters, setRequesters] = useState<Record<string, RequesterProfile>>({});
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -85,10 +86,14 @@ const HireRequestsPage: React.FC = () => {
 
     if (error) {
       console.error('Failed to load hire requests', error);
-      toast({ title: 'Could not load requests', variant: 'destructive' });
+      // Show an inline error + retry rather than a destructive toast — the
+      // toast flashed every time the user landed on the page during a
+      // transient network blip, even though the inbox is often simply empty.
+      setLoadError(true);
       setLoading(false);
       return;
     }
+    setLoadError(false);
 
     const reqs = (data || []) as unknown as HireRequest[];
     setRequests(reqs);
@@ -205,6 +210,20 @@ const HireRequestsPage: React.FC = () => {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 size={24} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border p-10 text-center">
+            <p className="text-sm font-semibold">Couldn&apos;t load your hire requests</p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Check your connection and try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setLoadError(false); setLoading(true); load(); }}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
+            >
+              Retry
+            </button>
           </div>
         ) : pending.length === 0 && past.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-10 text-center">

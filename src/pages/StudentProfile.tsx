@@ -6,7 +6,7 @@ import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { personSchema } from '@/lib/structuredData';
-import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap, Instagram, Linkedin, Globe, Music2 } from 'lucide-react';
 import { QuoteModal } from '@/components/QuoteModal';
 import { HireNowModal } from '@/components/HireNowModal';
 import { useToast } from '@/hooks/use-toast';
@@ -169,6 +169,10 @@ const StudentProfile = () => {
 
   const onlineWorkLinks = !isBusiness && student ? parseWorkLinksJson(student.work_links) : [];
   const tiktokPublic = !isBusiness ? student?.tiktok_url?.trim() : '';
+  const instagramPublic = !isBusiness ? (student as any)?.instagram_url?.trim() : '';
+  const linkedinPublic = !isBusiness ? (student as any)?.linkedin_url?.trim() : '';
+  const websitePublic = !isBusiness ? (student as any)?.website_url?.trim() : '';
+  const hasAnySocial = !!(tiktokPublic || instagramPublic || linkedinPublic || websitePublic);
   const expectedBonusLabel = (() => {
     const amount = (student as any)?.expected_bonus_amount;
     const unit = (student as any)?.expected_bonus_unit;
@@ -639,15 +643,42 @@ const StudentProfile = () => {
                       </div>
                     </div>
                   )}
-                  {(tiktokPublic || onlineWorkLinks.length > 0) && (
+                  {(hasAnySocial || onlineWorkLinks.length > 0) && (
                     <div>
                       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3"><ExternalLink size={14} className="text-primary/70" />Links &amp; social proof</h2>
                       <div className="grid gap-2 sm:grid-cols-2">
+                        {instagramPublic && (
+                          <a href={instagramPublic} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40">
+                            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                              <Instagram size={16} className="shrink-0 text-primary" />
+                              <span className="truncate">Instagram</span>
+                            </span>
+                            <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                          </a>
+                        )}
                         {tiktokPublic && (
                           <a href={tiktokPublic} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40">
                             <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-                              <ExternalLink size={16} className="shrink-0 text-primary" />
+                              <Music2 size={16} className="shrink-0 text-primary" />
                               <span className="truncate">TikTok</span>
+                            </span>
+                            <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                          </a>
+                        )}
+                        {linkedinPublic && (
+                          <a href={linkedinPublic} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40">
+                            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                              <Linkedin size={16} className="shrink-0 text-primary" />
+                              <span className="truncate">LinkedIn</span>
+                            </span>
+                            <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                          </a>
+                        )}
+                        {websitePublic && (
+                          <a href={websitePublic} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3.5 transition-all hover:border-primary/35 hover:bg-secondary/40">
+                            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                              <Globe size={16} className="shrink-0 text-primary" />
+                              <span className="truncate">Website</span>
                             </span>
                             <ArrowUpRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                           </a>
@@ -664,7 +695,7 @@ const StudentProfile = () => {
                       </div>
                     </div>
                   )}
-                  {!bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !tiktokPublic && onlineWorkLinks.length === 0 && (
+                  {!bioText && !workDesc && student?.skills?.length === 0 && achievements.length === 0 && !hasAnySocial && onlineWorkLinks.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">Nothing added yet — check back soon.</p>
                   )}
                 </div>

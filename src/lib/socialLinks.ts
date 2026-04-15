@@ -18,6 +18,39 @@ export function normalizeTikTokUrl(raw: string): string | null {
   return `https://www.tiktok.com/@${handle}`;
 }
 
+/** Accepts profile URL, @handle, or handle only */
+export function normalizeInstagramUrl(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) {
+    try {
+      const u = new URL(s);
+      if (!/instagram\.com$/i.test(u.hostname.replace(/^www\./, ''))) return s;
+      return u.toString();
+    } catch {
+      return null;
+    }
+  }
+  const handle = s.replace(/^@+/, '').replace(/[^a-zA-Z0-9._-]/g, '');
+  if (!handle) return null;
+  return `https://www.instagram.com/${handle}`;
+}
+
+/** Full URL only — LinkedIn has too many path shapes (/in/, /company/, /pub/) to guess from a handle. */
+export function normalizeLinkedInUrl(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const withProto = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  try {
+    const u = new URL(withProto);
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    if (host !== 'linkedin.com' && !host.endsWith('.linkedin.com')) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeWebsiteUrl(raw: string): string | null {
   const s = raw.trim();
   if (!s) return null;

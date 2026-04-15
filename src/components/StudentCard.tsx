@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2 } from 'lucide-react';
 import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
@@ -35,6 +35,10 @@ interface StudentProfile {
   typical_budget_max?: number | null;
   university?: string | null;
   student_verified?: boolean | null;
+  tiktok_url?: string | null;
+  instagram_url?: string | null;
+  linkedin_url?: string | null;
+  website_url?: string | null;
 }
 
 interface StudentCardProps {
@@ -346,6 +350,18 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             {student.skills.slice(0, 4).map((skill) => (
               <TagBadge key={skill} tag={skill} />
             ))}
+          </div>
+        )}
+
+        {/* Social signals — pure visual indicators (the whole card already
+            navigates to the profile page, so don't fight the click target with
+            link-outs here). Only renders when at least one is present. */}
+        {(student.instagram_url || student.tiktok_url || student.linkedin_url || student.website_url) && (
+          <div className="mt-2.5 flex items-center gap-2 text-muted-foreground">
+            {student.instagram_url && <Instagram size={14} className="shrink-0 transition-colors group-hover:text-foreground" aria-label="Instagram" />}
+            {student.tiktok_url && <Music2 size={14} className="shrink-0 transition-colors group-hover:text-foreground" aria-label="TikTok" />}
+            {student.linkedin_url && <Linkedin size={14} className="shrink-0 transition-colors group-hover:text-foreground" aria-label="LinkedIn" />}
+            {student.website_url && <Globe size={14} className="shrink-0 transition-colors group-hover:text-foreground" aria-label="Website" />}
           </div>
         )}
 
