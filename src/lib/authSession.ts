@@ -71,12 +71,34 @@ export function isEmailVerified(session: Session | null): boolean {
 }
 
 /**
- * Where to send a signed-in user: students always go to /profile (modal handles missing fields);
- * business → dashboard or complete-profile if incomplete.
+ * True when a freelancer has at least one published (or awaiting-moderation)
+ * community listing. Used by the post-auth router to decide whether to send a
+ * student to /profile (already listed) or to force them through the wizard at
+ * /list-on-community (not listed yet). Keeps new freelancers from completing
+ * sign-up and vanishing without ever appearing on the talent board.
+ */
+async function studentHasListing(userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('community_posts')
+    .select('id')
+    .eq('user_id', userId)
+    .in('moderation_status', ['approved', 'pending'])
+    .limit(1)
+    .maybeSingle();
+  return !!data?.id;
+}
+
+/**
+ * Where to send a signed-in user:
+ *   - no user_type → /choose-account-type
+ *   - student WITH a listing → /profile
+ *   - student WITHOUT a listing → /list-on-community (forced wizard)
+ *   - business complete → /business-dashboard
+ *   - business incomplete → /complete-profile
  */
 export async function getPostAuthPath(
   userId: string,
-): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard'> {
+): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard' | '/list-on-community'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
@@ -84,8 +106,9 @@ export async function getPostAuthPath(
     .maybeSingle();
   if (!profile?.user_type?.trim()) return '/choose-account-type';
 
-  // Students go straight to /profile — onboarding modal handles missing fields
-  if (profile.user_type === 'student') return '/profile';
+  if (profile.user_type === 'student') {
+    return (await studentHasListing(userId)) ? '/profile' : '/list-on-community';
+  }
 
   // Business only needs display_name (no avatar required)
   const done = !!profile?.display_name?.trim();
@@ -93,12 +116,13 @@ export async function getPostAuthPath(
 }
 
 /**
- * After Google OAuth: no user_type → picker; students → /profile (modal handles rest);
- * business incomplete → /complete-profile; complete → /business-dashboard.
+ * After Google OAuth — same routing as getPostAuthPath but distinct function
+ * because historically Google-post-auth had its own codepath. Both now share
+ * the listing check for students.
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard'> {
+): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
@@ -106,10 +130,10 @@ export async function getPostGoogleAuthPath(
     .maybeSingle();
   if (!profile?.user_type?.trim()) return '/choose-account-type';
 
-  // Students go straight to /profile — onboarding modal handles missing fields
-  if (profile.user_type === 'student') return '/profile';
+  if (profile.user_type === 'student') {
+    return (await studentHasListing(userId)) ? '/profile' : '/list-on-community';
+  }
 
-  // Business only needs display_name (no avatar required)
   const done = !!profile?.display_name?.trim();
   if (!done) return '/complete-profile';
   return '/business-dashboard';
