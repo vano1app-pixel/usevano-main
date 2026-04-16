@@ -115,6 +115,11 @@ const App = () => {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<P><Landing /></P>} />
             <Route path="/hire" element={<P><HirePage /></P>} />
+            {/* /jobs (no ID) used to 404 — redirect to /hire so people
+                who type or land on it from old links hit the right page
+                instead of a dead end. /jobs/:id still serves the
+                individual job detail view below. */}
+            <Route path="/jobs" element={<Navigate to="/hire" replace />} />
             <Route path="/jobs/:id" element={<P><JobDetail /></P>} />
             <Route path="/students" element={<P><BrowseStudents /></P>} />
             <Route path="/students/videography"   element={<P><StudentsByCategory categoryId="videography" /></P>} />
