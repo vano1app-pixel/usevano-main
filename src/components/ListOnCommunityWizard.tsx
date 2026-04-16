@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import confetti from 'canvas-confetti';
 import { useToast } from '@/hooks/use-toast';
 import {
   COMMUNITY_CATEGORY_ORDER,
@@ -450,6 +451,36 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     if (category === 'websites') setRateUnit('project');
     else if (category === 'digital_sales') setRateUnit('hourly');
   }, [category]);
+
+  // ── Celebration on first publish ──
+  // Fires a two-burst confetti sweep the instant `published` flips to a
+  // truthy value. The wizard's "You're live" screen mounts at the same
+  // time, so the animation feels rooted in that panel rather than floating
+  // over the whole page. Respects `prefers-reduced-motion` — users who opt
+  // out get the success screen without the particles.
+  useEffect(() => {
+    if (!published) return;
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    // Two symmetrical bursts from the bottom-left and bottom-right of the
+    // viewport sweep up toward the center of the dialog, so the particles
+    // arc across the success panel rather than raining down from above.
+    const defaults = {
+      startVelocity: 40,
+      spread: 70,
+      ticks: 200,
+      zIndex: 100,
+      colors: ['#3b82f6', '#10b981', '#f59e0b', '#ffffff'],
+    };
+    confetti({ ...defaults, particleCount: 60, angle: 60, origin: { x: 0, y: 0.9 } });
+    confetti({ ...defaults, particleCount: 60, angle: 120, origin: { x: 1, y: 0.9 } });
+    // Trailing sparkle from the center for a softer second beat.
+    const t = window.setTimeout(() => {
+      confetti({ ...defaults, particleCount: 30, spread: 100, startVelocity: 30, origin: { x: 0.5, y: 0.7 } });
+    }, 220);
+    return () => window.clearTimeout(t);
+  }, [published]);
 
   const totalSteps = STEP_LABELS.length;
   const canNext = (): boolean => {

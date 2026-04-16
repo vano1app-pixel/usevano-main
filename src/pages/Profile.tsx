@@ -6,7 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2 } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { ShareCardFrame } from '@/components/ShareCardFrame';
+import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
@@ -66,6 +69,12 @@ const Profile = () => {
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
   const [wizardStartStep, setWizardStartStep] = useState<number | undefined>(undefined);
   const [linkCopied, setLinkCopied] = useState(false);
+  // "Share as image" flow. The ShareCardFrame is only mounted while
+  // `sharingState === 'rendering'` — an off-screen 1080×1080 DOM node that
+  // html-to-image rasterises to PNG. The frame is unmounted as soon as the
+  // capture finishes so it doesn't sit in the tree permanently.
+  const [sharingState, setSharingState] = useState<'idle' | 'rendering'>('idle');
+  const shareFrameRef = useRef<HTMLDivElement | null>(null);
   const [qualityExpanded, setQualityExpanded] = useState(false);
   const [existingPost, setExistingPost] = useState<any>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
@@ -111,6 +120,75 @@ const Profile = () => {
   }), [bannerUrl, tiktokUrl, instagramUrl, linkedinUrl, websiteUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, expectedBonusAmount, expectedBonusUnit, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
+
+  /* ── Share-as-image capture effect ──
+     Watches `sharingState`. When it flips to 'rendering', the off-screen
+     ShareCardFrame has just mounted; we wait briefly for remote avatar/banner
+     images to settle, rasterise the node with html-to-image, then either open
+     the Web Share sheet (mobile) or trigger a PNG download (desktop). Must
+     live here above the `if (loading) return` early exit below so the hook
+     order stays stable. */
+  useEffect(() => {
+    if (sharingState !== 'rendering') return;
+    let cancelled = false;
+
+    const t = window.setTimeout(async () => {
+      if (cancelled) return;
+      const node = shareFrameRef.current;
+      if (!node) {
+        setSharingState('idle');
+        return;
+      }
+      try {
+        const dataUrl = await toPng(node, {
+          cacheBust: true,
+          pixelRatio: 1,
+          backgroundColor: '#ffffff',
+        });
+        if (cancelled) return;
+
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], `vano-${nameToSlug(displayName) || 'profile'}.png`, { type: 'image/png' });
+        const shareUrl = `${getSiteOrigin()}/u/${nameToSlug(displayName)}`;
+
+        const nav = navigator as unknown as {
+          canShare?: (data: { files?: File[] }) => boolean;
+          share?: (data: { files?: File[]; title?: string; text?: string; url?: string }) => Promise<void>;
+        };
+        const canShareFiles = typeof nav.canShare === 'function' && nav.canShare({ files: [file] });
+        if (canShareFiles && typeof nav.share === 'function') {
+          try {
+            await nav.share({
+              files: [file],
+              title: 'Find me on Vano',
+              text: `I'm on Vano — ${shareUrl}`,
+              url: shareUrl,
+            });
+          } catch {
+            // User dismissed the share sheet — not an error.
+          }
+        } else {
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          toast({ title: 'Saved to your device', description: 'Post it on Instagram, TikTok, or WhatsApp.' });
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.error('share card render failed', err);
+        toast({ title: 'Could not create image', description: 'Try again in a moment.', variant: 'destructive' });
+      } finally {
+        if (!cancelled) setSharingState('idle');
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [sharingState, displayName, toast]);
 
   const loadProfile = async () => {
     try {
@@ -345,6 +423,21 @@ const Profile = () => {
   );
 
   const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors duration-200";
+
+  /* ── Share-as-image handler ──
+     Click → flip sharingState to 'rendering' which mounts the off-screen
+     ShareCardFrame. The effect (hoisted above the `if (loading)` early return
+     so rules-of-hooks is satisfied) waits a tick for images to load, then
+     captures the frame to PNG and hands it to the native share sheet (mobile)
+     or triggers a download (desktop / unsupported browsers). */
+  const handleShareAsImage = () => {
+    if (sharingState !== 'idle') return;
+    if (!displayName) {
+      toast({ title: 'Add your name first', description: 'So we know what to put on the card.' });
+      return;
+    }
+    setSharingState('rendering');
+  };
 
   /* ── Progress Ring helper ── */
   const ProgressRing = ({ done, total, size = 64, stroke = 5 }: { done: number; total: number; size?: number; stroke?: number }) => {
@@ -980,21 +1073,33 @@ const Profile = () => {
                           {getSiteOrigin()}/u/{nameToSlug(displayName)}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await navigator.clipboard.writeText(`${getSiteOrigin()}/u/${nameToSlug(displayName)}`);
-                          setLinkCopied(true);
-                          toast({ title: 'Link copied' });
-                          setTimeout(() => setLinkCopied(false), 2000);
-                        }}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground transition-all duration-200 hover:border-foreground/20 hover:shadow-sm inline-flex items-center justify-center gap-1.5"
-                      >
-                        {linkCopied ? <><Check size={14} className="text-emerald-500" />Copied!</> : <><Link2 size={14} />Copy link</>}
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(`${getSiteOrigin()}/u/${nameToSlug(displayName)}`);
+                            setLinkCopied(true);
+                            toast({ title: 'Link copied' });
+                            setTimeout(() => setLinkCopied(false), 2000);
+                          }}
+                          className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground transition-all duration-200 hover:border-foreground/20 hover:shadow-sm inline-flex items-center justify-center gap-1.5"
+                        >
+                          {linkCopied ? <><Check size={14} className="text-emerald-500" />Copied!</> : <><Link2 size={14} />Copy link</>}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleShareAsImage}
+                          disabled={sharingState === 'rendering'}
+                          className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground transition-all duration-200 hover:border-foreground/20 hover:shadow-sm inline-flex items-center justify-center gap-1.5 disabled:cursor-progress disabled:opacity-70"
+                        >
+                          {sharingState === 'rendering'
+                            ? <><Loader2 size={14} className="animate-spin" />Creating…</>
+                            : <><Share2 size={14} />Share as image</>}
+                        </button>
+                      </div>
                       <div className="rounded-xl bg-muted/40 px-3.5 py-2.5">
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Put this in your Instagram bio, TikTok, or WhatsApp status so people can find you.
+                          Put the link in your Instagram bio, or share the image on Stories & WhatsApp.
                         </p>
                       </div>
                     </div>
@@ -1043,6 +1148,38 @@ const Profile = () => {
                 void loadProfile();
               }}
             />
+
+            {/* Off-screen share-card frame. Mounted only while the capture
+                is in flight; otherwise not in the tree at all. Positioned
+                top:-99999px so it doesn't paint into the layout but still
+                has real computed dimensions for html-to-image to rasterise. */}
+            {sharingState === 'rendering' && (
+              <div
+                style={{ position: 'fixed', left: -99999, top: -99999, pointerEvents: 'none' }}
+                aria-hidden
+              >
+                <ShareCardFrame
+                  ref={shareFrameRef}
+                  displayName={displayName}
+                  bannerUrl={existingPost?.image_url || bannerUrl || null}
+                  avatarUrl={avatarUrl || null}
+                  bio={(existingPost?.description as string | null) || bio || null}
+                  skills={skills}
+                  categoryLabel={(() => {
+                    const id = existingPost?.category;
+                    return id && isCommunityCategoryId(id) ? COMMUNITY_CATEGORIES[id].label : undefined;
+                  })()}
+                  categoryId={(existingPost?.category as string | null) || null}
+                  hourlyRate={hourlyRate ? Number(hourlyRate) : null}
+                  budgetLabel={formatTypicalBudget(
+                    typicalBudgetMin ? parseInt(typicalBudgetMin, 10) : null,
+                    typicalBudgetMax ? parseInt(typicalBudgetMax, 10) : null,
+                  )}
+                  serviceArea={serviceArea || null}
+                  profileUrl={`${getSiteOrigin().replace(/^https?:\/\//, '')}/u/${nameToSlug(displayName)}`}
+                />
+              </div>
+            )}
 
           </>
         )}
