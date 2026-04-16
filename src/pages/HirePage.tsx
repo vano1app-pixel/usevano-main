@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clearHireBrief, loadHireBrief, saveHireBrief } from '@/lib/hireFlow';
 import { setGoogleOAuthIntent } from '@/lib/googleOAuth';
-import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { markUserActed } from '@/lib/userActivity';
 import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
@@ -315,7 +315,7 @@ const HirePage = () => {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: getGoogleOAuthRedirectUrl(),
+            redirectTo: getAuthRedirectUrl(),
             queryParams: { access_type: 'offline', prompt: 'consent select_account' },
           },
         });

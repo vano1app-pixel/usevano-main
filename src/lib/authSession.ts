@@ -92,7 +92,9 @@ async function studentHasListing(userId: string): Promise<boolean> {
  * Where to send a signed-in user:
  *   - no user_type → /choose-account-type
  *   - student WITH a listing → /profile
- *   - student WITHOUT a listing → /list-on-community (forced wizard)
+ *   - student WITHOUT a listing → /list-on-community (wizard captures
+ *     everything; display_name is already seeded by the handle_new_user
+ *     trigger from OAuth metadata, so no separate /complete-profile step)
  *   - business complete → /business-dashboard
  *   - business incomplete → /complete-profile
  */
@@ -116,27 +118,12 @@ export async function getPostAuthPath(
 }
 
 /**
- * After Google OAuth — same routing as getPostAuthPath but distinct function
- * because historically Google-post-auth had its own codepath. Both now share
- * the listing check for students.
+ * After Google OAuth — same routing as getPostAuthPath.
  */
 export async function getPostGoogleAuthPath(
   userId: string,
 ): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community'> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, avatar_url, user_type')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!profile?.user_type?.trim()) return '/choose-account-type';
-
-  if (profile.user_type === 'student') {
-    return (await studentHasListing(userId)) ? '/profile' : '/list-on-community';
-  }
-
-  const done = !!profile?.display_name?.trim();
-  if (!done) return '/complete-profile';
-  return '/business-dashboard';
+  return getPostAuthPath(userId);
 }
 
 /**

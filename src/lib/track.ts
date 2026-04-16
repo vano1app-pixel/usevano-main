@@ -28,7 +28,8 @@ export type TrackEvent =
   | 'quote_broadcast_filled'
   | 'in_app_browser_blocked'
   | 'hire_agreement_created'
-  | 'auth_magic_link_sent';
+  | 'auth_magic_link_sent'
+  | 'auth_magic_link_resent';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
   // PostHog mirror — synchronous and safe; SDK internally queues if it

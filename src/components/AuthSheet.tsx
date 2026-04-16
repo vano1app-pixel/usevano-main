@@ -11,7 +11,7 @@ import {
   hasGoogleOAuthPending,
   setGoogleOAuthIntent,
 } from '@/lib/googleOAuth';
-import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +51,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: getGoogleOAuthRedirectUrl(),
+          redirectTo: getAuthRedirectUrl(),
           queryParams: { access_type: 'offline', prompt: 'consent select_account' },
         },
       });

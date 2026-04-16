@@ -9,7 +9,7 @@ import { isEmailVerified, rememberTalentBoardReturn, resolvePostAuthDestination 
 import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
-import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { OnboardingJourney } from '@/components/OnboardingJourney';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
@@ -30,6 +30,9 @@ const Auth = () => {
   const [magicLinkEmail, setMagicLinkEmail] = useState('');
   const [magicLinkSending, setMagicLinkSending] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  // Resend cooldown — prevents accidental spam and gives users feedback that
+  // their first click registered. 30s matches Supabase's per-email throttle.
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,6 +64,12 @@ const Auth = () => {
     redirectIfAlreadySignedIn();
   }, [redirectIfAlreadySignedIn]);
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (magicLinkSending) return;
@@ -80,7 +89,33 @@ const Auth = () => {
       return;
     }
     setMagicLinkSent(true);
+    setResendCooldown(30);
     track('auth_magic_link_sent', {
+      mode: isLogin ? 'login' : 'signup',
+      user_type: isLogin ? null : userType,
+    });
+  };
+
+  const handleResendMagicLink = async () => {
+    if (resendCooldown > 0 || magicLinkSending || !magicLinkEmail) return;
+    setMagicLinkSending(true);
+    const result = await sendMagicLink(
+      magicLinkEmail,
+      isLogin ? null : userType,
+      isLogin,
+    );
+    setMagicLinkSending(false);
+    if (!result.ok) {
+      toast({
+        title: 'Could not resend link',
+        description: result.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setResendCooldown(30);
+    toast({ title: 'Sent again', description: `A fresh link is on its way to ${magicLinkEmail}.` });
+    track('auth_magic_link_resent', {
       mode: isLogin ? 'login' : 'signup',
       user_type: isLogin ? null : userType,
     });
@@ -106,7 +141,7 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: getGoogleOAuthRedirectUrl(),
+          redirectTo: getAuthRedirectUrl(),
           queryParams: { access_type: 'offline', prompt: 'consent select_account' },
         },
       });
@@ -292,13 +327,31 @@ const Auth = () => {
                 <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
                   We sent a magic link to <span className="font-medium text-foreground">{magicLinkEmail}</span>. Click it on any device to finish signing {isLogin ? 'in' : 'up'}.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => { setMagicLinkSent(false); setMagicLinkEmail(''); }}
-                  className="mt-2 text-[11px] font-semibold text-primary hover:underline underline-offset-2"
-                >
-                  Use a different email
-                </button>
+                <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/80">
+                  Didn&apos;t get it? Check spam, then resend.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleResendMagicLink}
+                    disabled={resendCooldown > 0 || magicLinkSending}
+                    className="text-[11px] font-semibold text-primary hover:underline underline-offset-2 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
+                  >
+                    {magicLinkSending
+                      ? 'Resending…'
+                      : resendCooldown > 0
+                      ? `Resend in ${resendCooldown}s`
+                      : 'Resend link'}
+                  </button>
+                  <span aria-hidden className="text-muted-foreground/50">·</span>
+                  <button
+                    type="button"
+                    onClick={() => { setMagicLinkSent(false); setMagicLinkEmail(''); setResendCooldown(0); }}
+                    className="text-[11px] font-semibold text-primary hover:underline underline-offset-2"
+                  >
+                    Use a different email
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -317,6 +370,7 @@ const Auth = () => {
                     type="email"
                     inputMode="email"
                     autoComplete="email"
+                    autoFocus
                     required
                     value={magicLinkEmail}
                     onChange={(e) => setMagicLinkEmail(e.target.value)}

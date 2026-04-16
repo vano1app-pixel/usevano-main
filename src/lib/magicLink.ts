@@ -23,7 +23,7 @@ import type { NavigateFunction } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { isEmailVerified, resolvePostGoogleAuthDestination } from '@/lib/authSession';
 import { ensureProfileAfterAuth } from '@/lib/googleOAuth';
-import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { hasPendingHireBrief } from '@/lib/hireFlow';
 
 const MAGIC_LINK_PENDING_KEY = 'vano_magiclink_pending';
@@ -84,11 +84,15 @@ export async function sendMagicLink(
   const { error } = await supabase.auth.signInWithOtp({
     email: trimmed,
     options: {
-      emailRedirectTo: getGoogleOAuthRedirectUrl(),
+      emailRedirectTo: getAuthRedirectUrl(),
       // On login we don't want to silently create a new account if the
       // email is wrong — shouldCreateUser=false surfaces that as an error.
       // On signup we do want auto-create (it's the whole point).
       shouldCreateUser: !isLogin,
+      // Also persist the user_type on the auth.users row itself so a user
+      // who opens the email on a different device (where localStorage is
+      // empty) still gets routed correctly after the click.
+      data: userType ? { user_type: userType } : undefined,
     },
   });
 
