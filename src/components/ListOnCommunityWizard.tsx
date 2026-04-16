@@ -53,6 +53,7 @@ import { GhostStudentCard } from '@/components/GhostStudentCard';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
+import { IRELAND_COUNTIES, isIrelandCounty } from '@/lib/irelandCounties';
 import { markUserActed } from '@/lib/userActivity';
 import { track } from '@/lib/track';
 
@@ -114,7 +115,15 @@ export interface ListOnCommunityInitial {
   websiteUrl?: string;
   workLinks: WorkLinkEntry[];
   skills: string[];
+  /** Legacy free-text location; superseded by `county` + `remoteOk` below
+   *  but kept so older callers compile until they migrate. */
   serviceArea: string;
+  /** Ireland-county slug (e.g. "Galway"), populated when the freelancer
+   *  already chose one. Empty string when unknown. */
+  county?: string;
+  /** Whether the freelancer accepts work from outside their county.
+   *  Defaults to true for digital categories, false for local. */
+  remoteOk?: boolean;
   typicalBudgetMin: string;
   typicalBudgetMax: string;
   hourlyRate: string;
@@ -244,7 +253,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
+  // Legacy free-text service_area kept for back-compat (old drafts,
+  // legacy readers) but no longer the primary location signal — `county`
+  // and `remoteOk` below are what the new matcher and Ireland-wide
+  // display read.
   const [serviceArea, setServiceArea] = useState('');
+  // Stage 3 Ireland-scale location. `county` is required when the picked
+  // category is local (videography); hidden and `remoteOk = true` for
+  // digital categories.
+  const [county, setCounty] = useState<string>('');
+  const [remoteOk, setRemoteOk] = useState<boolean>(true);
   const [university, setUniversity] = useState('');
   const [phone, setPhone] = useState(initial.phone ?? '');
   const [rateUnit, setRateUnit] = useState('hourly');
@@ -313,6 +331,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         : [{ url: '', label: '' }],
     );
     setServiceArea(initial.serviceArea || '');
+    // Stage 3: prefer the structured county/remoteOk when the caller
+    // supplies them; otherwise stay empty/true so the auto-default
+    // effect (keyed on category) picks sensible values after the user
+    // lands on step 1. `isIrelandCounty` silently drops junk values.
+    setCounty(isIrelandCounty(initial.county) ? initial.county : '');
+    setRemoteOk(initial.remoteOk !== undefined ? !!initial.remoteOk : true);
     if (ep) {
       setRateUnit(ep.rate_unit ?? 'hourly');
       setRateMin(ep.rate_min != null ? String(ep.rate_min) : '');
@@ -452,6 +476,22 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     else if (category === 'digital_sales') setRateUnit('hourly');
   }, [category]);
 
+  // Stage 2/3 — location defaults follow the category's location model.
+  // Digital categories are remote-by-default across Ireland, so we clear
+  // `county` (it's not asked) and force `remoteOk = true`. Local
+  // categories (videography) default to `remoteOk = false` on first
+  // pick so the freelancer actively toggles it if they travel.
+  useEffect(() => {
+    if (!category) return;
+    const model = COMMUNITY_CATEGORIES[category].locationModel;
+    if (model === 'digital') {
+      setCounty('');
+      setRemoteOk(true);
+    } else {
+      setRemoteOk(false);
+    }
+  }, [category]);
+
   // ── Celebration on first publish ──
   // Fires a two-burst confetti sweep the instant `published` flips to a
   // truthy value. The wizard's "You're live" screen mounts at the same
@@ -491,13 +531,23 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         // listing" suggestion on the review step instead.
         return category !== null;
       case 2:
-        // Your story: title + description + phone + university (always required, also on edit)
-        return (
-          title.trim().length > 0 &&
-          description.trim().length > 0 &&
-          university.trim().length > 0 &&
-          phone.trim().length > 0
-        );
+        // Your story: title + description + phone + (county if local
+        // category). University used to be required here — it was a
+        // Galway-leaning trust signal that fights an Ireland-wide
+        // rollout, so it's now optional. For local categories
+        // (videography) the freelancer's county is required so the
+        // matcher can route jobs correctly; digital categories skip
+        // the location question entirely.
+        {
+          const cat = category ? COMMUNITY_CATEGORIES[category] : null;
+          const needsCounty = cat?.locationModel === 'local';
+          return (
+            title.trim().length > 0 &&
+            description.trim().length > 0 &&
+            phone.trim().length > 0 &&
+            (!needsCounty || county.trim().length > 0)
+          );
+        }
       case 3:
         // Your price + skills. Lowered from 3 to 1 — getting live with one
         // honest tag beats abandoning the form trying to invent two more.
@@ -703,7 +753,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         linkedin_url: normalizeLinkedInUrl(linkedinUrl),
         website_url: normalizeWebsiteUrl(websiteUrl),
         work_links: workLinksToJson(workLinks) as unknown,
-        service_area: serviceArea.trim() || null,
+        // Keep writing `service_area` as a free-text mirror of `county`
+        // for legacy readers; the structured `county` + `remote_ok`
+        // pair below is the source of truth for the matcher and the
+        // new display helpers.
+        service_area: (county && county.trim()) || serviceArea.trim() || null,
+        county: (county && county.trim()) || null,
+        remote_ok: remoteOk,
         typical_budget_min: tbMin,
         typical_budget_max: tbMax,
         skills,
@@ -1168,7 +1224,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
               </div>
               <div>
-                <Label>University <span className="text-rose-500">*</span></Label>
+                <Label>University <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
                 <Select value={university} onValueChange={setUniversity}>
                   <SelectTrigger className="mt-1.5 h-11">
                     <SelectValue placeholder="Select your university" />
@@ -1182,15 +1238,43 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Where you work</Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="e.g. Galway city · Remote OK"
-                  value={serviceArea}
-                  onChange={(e) => setServiceArea(e.target.value)}
-                />
-              </div>
+              {/* Location question — structured and category-aware. Local
+                  categories (videography) require a county so the matcher
+                  can route jobs to nearby freelancers; digital categories
+                  (websites / digital_sales / social_media) skip the
+                  question entirely and default to remote across Ireland.
+                  Replaces the old free-text "Where you work" input. */}
+              {category && COMMUNITY_CATEGORIES[category].locationModel === 'local' ? (
+                <div className="space-y-2">
+                  <div>
+                    <Label>Which county do you cover? <span className="text-rose-500">*</span></Label>
+                    <Select value={county} onValueChange={setCounty}>
+                      <SelectTrigger className="mt-1.5 h-11">
+                        <SelectValue placeholder="Select your county" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {IRELAND_COUNTIES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-border"
+                      checked={remoteOk}
+                      onChange={(e) => setRemoteOk(e.target.checked)}
+                    />
+                    Willing to travel / take remote work from other counties
+                  </label>
+                </div>
+              ) : category ? (
+                <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">Remote across Ireland.</span>{' '}
+                  {COMMUNITY_CATEGORIES[category].label} work is digital-first — businesses anywhere in Ireland can hire you, so we won&apos;t ask for a county.
+                </div>
+              ) : null}
               {/* Socials — optional, collapsed by default to lighten the form.
                   Auto-expands if any social value is already filled (returning
                   drafts) so users don't lose sight of what they entered. */}

@@ -15,28 +15,37 @@ export type ProfileCompletenessSource = {
   bio: string | null | undefined;
   bannerUrl: string | null | undefined;
   phone: string | null | undefined;
-  university: string | null | undefined;
+  /**
+   * Retained in the type for call-site compatibility (the wizard and
+   * profile page still collect it as a decorative field) but no longer
+   * scored — the completeness % intentionally doesn't include it now
+   * that we're Ireland-wide and university is a Galway-leaning optional
+   * field rather than a required trust signal.
+   */
+  university?: string | null | undefined;
   skills: string[] | null | undefined;
   portfolioCount: number;
 };
 
 export type CompletenessCheck = {
-  key: 'name' | 'avatar' | 'bio' | 'banner' | 'phone' | 'university' | 'skills' | 'portfolio';
+  key: 'name' | 'avatar' | 'bio' | 'banner' | 'phone' | 'skills' | 'portfolio';
   label: string;
   done: boolean;
   weight: number;
 };
 
 export function computeProfileChecks(src: ProfileCompletenessSource): CompletenessCheck[] {
+  // Weights sum to 100. University's old 5% was absorbed into `portfolio`
+  // (15 → 20) because portfolio is the scarcest and most-lifting signal on
+  // a marketplace card today.
   return [
     { key: 'name', label: 'Add your name', done: !!src.displayName?.trim(), weight: 10 },
     { key: 'avatar', label: 'Add a profile photo', done: !!src.avatarUrl?.trim(), weight: 15 },
     { key: 'bio', label: 'Write a short bio (50+ chars)', done: (src.bio?.trim().length ?? 0) >= 50, weight: 15 },
     { key: 'banner', label: 'Upload a cover photo', done: !!src.bannerUrl?.trim(), weight: 15 },
     { key: 'phone', label: 'Add your phone number', done: !!src.phone?.trim(), weight: 10 },
-    { key: 'university', label: 'Add your university', done: !!src.university?.trim(), weight: 5 },
     { key: 'skills', label: 'Pick at least 3 skills', done: (src.skills?.length ?? 0) >= 3, weight: 15 },
-    { key: 'portfolio', label: 'Upload 2+ portfolio photos', done: src.portfolioCount >= 2, weight: 15 },
+    { key: 'portfolio', label: 'Upload 2+ portfolio photos', done: src.portfolioCount >= 2, weight: 20 },
   ];
 }
 
