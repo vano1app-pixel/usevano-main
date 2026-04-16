@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   Copy,
   ImagePlus,
@@ -46,6 +47,8 @@ import {
   type WorkLinkEntry,
 } from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
+import { StudentCardPreview } from '@/components/StudentCardPreview';
+import { GhostStudentCard } from '@/components/GhostStudentCard';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
@@ -261,6 +264,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // Hide them behind an "Add social links" toggle so the required fields
   // (bio + phone + university) read as the focus.
   const [showSocialFields, setShowSocialFields] = useState(false);
+  // Mobile-only: the live card preview collapses to a slim sticky header to
+  // keep the form readable on small screens. Tap to toggle expanded. On
+  // desktop (lg+) the preview is always visible in its own column and this
+  // flag is ignored.
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
   const MAX_LISTING_IMAGES = 5;
@@ -801,9 +809,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) closeAfterPublish(); else onOpenChange(true); }}>
-      <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full isolate bg-background">
+      <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full isolate bg-background lg:max-w-[64rem] lg:max-h-[min(92dvh,52rem)] lg:flex-row">
         {published ? (
-          <>
+          // Wrapped in a flex-col box so the celebration screen stays
+          // stacked vertically even though the parent DialogContent is
+          // lg:flex-row (which the wizard form uses for its two-column
+          // edit/preview split). Without this wrapper the "You're live"
+          // card and the action bar would sit side-by-side on desktop.
+          <div className="flex min-h-0 flex-1 flex-col">
             <DialogHeader className="sr-only">
               <DialogTitle>You&apos;re live</DialogTitle>
             </DialogHeader>
@@ -868,9 +881,15 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 </Link>
               </Button>
             </div>
-          </>
+          </div>
         ) : (
         <>
+        {/* LEFT column (or full width on mobile): header + scrollable body
+            + sticky nav footer. On lg+ this shares the dialog horizontally
+            with the live-preview stage to the right. `min-w-0` matters
+            here because flex children default to min-width:auto, which
+            would let long skill tags push the column wider than its share. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:border-r lg:border-border">
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
@@ -901,7 +920,58 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           </DialogHeader>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 lg:py-6">
+          {/* Mobile-only live preview drawer. Tap the sticky header strip to
+              expand the full card inline. Hidden on lg+ because the desktop
+              layout shows the preview in its own right column. Uses the same
+              StudentCardPreview so there's no second synthetic-profile path
+              to maintain. */}
+          <div className="lg:hidden mb-5 overflow-hidden rounded-2xl border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setMobilePreviewOpen((v) => !v)}
+              aria-expanded={mobilePreviewOpen}
+              className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
+                  {(title?.[0] || 'Y').toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Live preview</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {mobilePreviewOpen ? 'Hide what businesses will see' : 'See what businesses will see'}
+                  </p>
+                </div>
+              </div>
+              <ChevronDown
+                size={16}
+                className={cn('shrink-0 text-muted-foreground transition-transform duration-200', mobilePreviewOpen && 'rotate-180')}
+              />
+            </button>
+            {mobilePreviewOpen && (
+              <div className="border-t border-border/60 bg-gradient-to-br from-muted/30 via-background to-muted/20 p-4">
+                <StudentCardPreview
+                  userId={userId}
+                  category={category}
+                  bannerUrl={bannerUrl}
+                  title={title}
+                  description={description}
+                  skills={skills}
+                  serviceArea={serviceArea}
+                  university={university}
+                  hourlyRate={rateUnit === 'hourly' ? rateMin : profileHourly}
+                  rateMin={typicalBudgetMin || rateMin}
+                  rateMax={typicalBudgetMax || rateMax}
+                  tiktokUrl={tiktokUrl}
+                  instagramUrl={instagramUrl}
+                  linkedinUrl={linkedinUrl}
+                  websiteUrl={websiteUrl}
+                />
+              </div>
+            )}
+          </div>
+
           {/* ── Step 1: Your work — category + cover photo + work samples ── */}
           {step === 1 && (
             <div className="space-y-6">
@@ -1687,6 +1757,64 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               )}
             </Button>
           )}
+        </div>
+        </div>
+        {/* RIGHT column — desktop-only live preview stage. Static 2×2 mock
+            gallery: three muted GhostStudentCards fill the "other freelancers"
+            slots, the user's live StudentCardPreview sits in the hero slot and
+            updates keystroke-by-keystroke. The backdrop makes the listing
+            look like it's joining a curated marketplace even when the real
+            talent board is small. Hidden below lg — on mobile we show a
+            collapsible mini preview inside the form body instead. */}
+        <div className="hidden lg:flex lg:w-[26rem] lg:flex-col lg:bg-gradient-to-br lg:from-muted/40 lg:via-background lg:to-muted/20">
+          <div className="border-b border-border/60 px-5 py-3">
+            <p className="text-xs font-semibold text-foreground">Live preview</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              What businesses see on the talent board.
+            </p>
+          </div>
+          <div className="relative flex-1 overflow-hidden px-5 py-6">
+            <div className="grid grid-cols-2 gap-3">
+              {(() => {
+                // Pick three ghost categories that differ from the user's
+                // choice so the backdrop doesn't duplicate what they're
+                // building. Order is stable per category so the card they
+                // see stays consistent as they edit.
+                const ghostOrder: Array<'videography' | 'websites' | 'social_media' | 'digital_sales'> = [
+                  'videography', 'websites', 'social_media', 'digital_sales',
+                ];
+                const ghosts = ghostOrder.filter((g) => g !== category).slice(0, 3);
+                return (
+                  <>
+                    <GhostStudentCard variant={ghosts[0]} />
+                    {/* Live card in hero slot — scale-up + shadow so it
+                        reads as the focus of the mock gallery. */}
+                    <div className="relative z-10 row-span-2 scale-[1.02] shadow-xl transition-all duration-300">
+                      <StudentCardPreview
+                        userId={userId}
+                        category={category}
+                        bannerUrl={bannerUrl}
+                        title={title}
+                        description={description}
+                        skills={skills}
+                        serviceArea={serviceArea}
+                        university={university}
+                        hourlyRate={rateUnit === 'hourly' ? rateMin : profileHourly}
+                        rateMin={typicalBudgetMin || rateMin}
+                        rateMax={typicalBudgetMax || rateMax}
+                        tiktokUrl={tiktokUrl}
+                        instagramUrl={instagramUrl}
+                        linkedinUrl={linkedinUrl}
+                        websiteUrl={websiteUrl}
+                      />
+                    </div>
+                    <GhostStudentCard variant={ghosts[1]} />
+                    <GhostStudentCard variant={ghosts[2]} />
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         </div>
         </>
         )}
