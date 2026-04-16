@@ -7,6 +7,7 @@ import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { resolveUniversityKey } from '@/lib/universities';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
+import { useAuth } from '@/hooks/useAuthContext';
 import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 
 /**
@@ -18,9 +19,11 @@ import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
  * freelancer without a published listing straight here, where the wizard
  * opens on mount.
  *
- * Escape hatch: users can dismiss the wizard and hit "Skip for now" — they
- * land on /profile and see a persistent nudge banner until they publish.
- * So skipping is annoying, publishing is effortless.
+ * Escape hatch: the "Skip for now" button navigates to /profile, but the
+ * top-level RedirectUnlistedFreelancerToWizard guard immediately bounces
+ * any student without a listing back here. Skipping is effectively a
+ * no-op; publishing is the only way forward. The button is kept as a
+ * familiar control; it just doesn't go anywhere.
  *
  * This page is NOT routed to for anyone who already has a published or
  * pending community_posts row — those users go to /profile as before. See
@@ -28,6 +31,7 @@ import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
  */
 export default function ListOnCommunity() {
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
 
   const [userId, setUserId] = useState<string | null>(null);
   const [initial, setInitial] = useState<ListOnCommunityInitial | null>(null);
@@ -108,9 +112,14 @@ export default function ListOnCommunity() {
     return () => { cancelled = true; };
   }, [navigate]);
 
-  const handlePublished = () => {
-    // Route to Profile. A query flag lets the Profile page show a brief
-    // "your listing is live" toast if we want to wire that up later.
+  const handlePublished = async () => {
+    // Refresh the cached auth profile so `hasListing` flips to true before
+    // we navigate away. Without this, the RedirectUnlistedFreelancerToWizard
+    // guard would see stale `hasListing: false` on the /profile mount and
+    // bounce the user straight back here.
+    await refreshProfile();
+    // A query flag lets the Profile page show a brief "your listing is live"
+    // toast if we want to wire that up later.
     navigate('/profile?listed=1', { replace: true });
   };
 
