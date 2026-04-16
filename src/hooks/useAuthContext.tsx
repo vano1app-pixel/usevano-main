@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import posthog from 'posthog-js';
+import * as Sentry from '@sentry/react';
 import { supabase } from '@/integrations/supabase/client';
 import { isEmailVerified } from '@/lib/authSession';
 
@@ -114,11 +115,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // browsers when localStorage is disabled (private mode
           // Safari, etc.) and auth must not fail on analytics errors.
           try { if (posthog.__loaded) posthog.identify(uid); } catch { /* ignore */ }
+          // Attach the Supabase user id to every Sentry event that
+          // follows — makes "it only errors for this one freelancer"
+          // actually debuggable. Also a no-op if Sentry isn't init'd.
+          try { Sentry.setUser({ id: uid }); } catch { /* ignore */ }
           void fetchProfile(uid);
         } else {
           // Sign-out: clear the distinct_id so the next anonymous
           // events don't get mis-attributed to the previous user.
           try { if (posthog.__loaded) posthog.reset(); } catch { /* ignore */ }
+          try { Sentry.setUser(null); } catch { /* ignore */ }
           setProfile(null);
           setProfileLoading(false);
         }

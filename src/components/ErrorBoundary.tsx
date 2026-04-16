@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import * as Sentry from '@sentry/react';
 
 interface Props {
   children: ReactNode;
@@ -58,7 +59,9 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: unknown, info: { componentStack: string }) {
     if (this.state.transient) {
       // Don't surface the error UI — log and reset on the next tick so React
-      // finishes the crashed commit before we re-render.
+      // finishes the crashed commit before we re-render. Not reported to
+      // Sentry: these race-condition recoveries are expected and already
+      // self-heal, so alerting on them would only create noise.
       console.warn('[ErrorBoundary] transient DOM error recovered', error);
       this.transientRecoveryTimer = window.setTimeout(() => {
         this.setState({ hasError: false, message: '', transient: false });
@@ -66,6 +69,13 @@ export class ErrorBoundary extends Component<Props, State> {
       return;
     }
     console.error('[ErrorBoundary]', error, info.componentStack);
+    // Real crash — report to Sentry with the React component stack so we
+    // can pin it to the tree path. SDK is a no-op when VITE_SENTRY_DSN
+    // isn't set (e.g. local dev without the env var).
+    Sentry.captureException(error, {
+      extra: { componentStack: info.componentStack },
+      tags: { source: 'ErrorBoundary' },
+    });
   }
 
   componentWillUnmount() {

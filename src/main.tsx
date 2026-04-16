@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from 'react-helmet-async';
 import posthog from 'posthog-js';
+import * as Sentry from '@sentry/react';
 import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import "./index.css";
@@ -31,6 +32,41 @@ if (posthogKey) {
     },
     respect_dnt: true,
     persistence: 'localStorage+cookie',
+  });
+}
+
+// Sentry — automatic error + crash reporting. Same guard pattern as
+// PostHog above: without VITE_SENTRY_DSN the SDK no-ops so dev boxes
+// and CI don't spam the production Sentry project. The auth context
+// attaches the Supabase user id to every event via Sentry.setUser()
+// on login and clears it on logout.
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: import.meta.env.MODE,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+    ],
+    // 10% of transactions — plenty at our traffic, trivially tunable.
+    tracesSampleRate: 0.1,
+    // No IP / cookie / user-agent by default; only the explicit user id
+    // attached by the auth hook.
+    sendDefaultPii: false,
+    ignoreErrors: [
+      // Benign Chrome quirk; not actionable.
+      'ResizeObserver loop limit exceeded',
+      'ResizeObserver loop completed with undelivered notifications',
+      // Non-Error throws — usually from third-party scripts, nothing
+      // we can debug without a proper stack.
+      'Non-Error promise rejection captured',
+    ],
+    denyUrls: [
+      // User's own browser extensions — not Vano's problem.
+      /extensions\//i,
+      /^chrome:\/\//i,
+      /^moz-extension:\/\//i,
+    ],
   });
 }
 
