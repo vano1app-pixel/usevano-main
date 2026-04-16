@@ -554,6 +554,8 @@ const StudentProfile = () => {
               avatarUrl={avatarUrl}
               isAvailable={student.is_available}
               serviceArea={student.service_area}
+              county={student.county ?? null}
+              remoteOk={student.remote_ok ?? null}
               hourlyRate={student.hourly_rate}
               typicalBudgetMin={student.typical_budget_min}
               typicalBudgetMax={student.typical_budget_max}

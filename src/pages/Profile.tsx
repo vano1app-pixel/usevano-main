@@ -10,6 +10,7 @@ import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, Exter
 import { toPng } from 'html-to-image';
 import { ShareCardFrame } from '@/components/ShareCardFrame';
 import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
+import { isIrelandCounty, formatLocation } from '@/lib/irelandCounties';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
@@ -64,6 +65,13 @@ const Profile = () => {
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
   const [bannerUrl, setBannerUrl] = useState('');
   const [serviceArea, setServiceArea] = useState('');
+  // Stage 3 structured location — county (Ireland-wide enum) + remote
+  // flag. Written through to student_profiles alongside service_area
+  // for back-compat while legacy readers migrate off the free-text
+  // field. Digital-category freelancers auto-get remote_ok = true;
+  // local (videography) freelancers pick a county and toggle remote.
+  const [county, setCounty] = useState<string>('');
+  const [remoteOk, setRemoteOk] = useState<boolean>(true);
   const [typicalBudgetMin, setTypicalBudgetMin] = useState('');
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
@@ -108,6 +116,8 @@ const Profile = () => {
     workLinks,
     skills,
     serviceArea,
+    county,
+    remoteOk,
     typicalBudgetMin,
     typicalBudgetMax,
     hourlyRate,
@@ -117,7 +127,7 @@ const Profile = () => {
     expectedBonusAmount,
     expectedBonusUnit,
     existingPost: existingPost ?? null,
-  }), [bannerUrl, tiktokUrl, instagramUrl, linkedinUrl, websiteUrl, workLinks, skills, serviceArea, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, expectedBonusAmount, expectedBonusUnit, existingPost]);
+  }), [bannerUrl, tiktokUrl, instagramUrl, linkedinUrl, websiteUrl, workLinks, skills, serviceArea, county, remoteOk, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, expectedBonusAmount, expectedBonusUnit, existingPost]);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -250,6 +260,11 @@ const Profile = () => {
           }
           setBannerUrl((sp as any).banner_url || '');
           setServiceArea((sp as any).service_area || '');
+          // Prefer the structured county; ignore junk legacy values so
+          // a malformed backfill doesn't wedge the dropdown.
+          const loadedCounty = (sp as any).county;
+          setCounty(isIrelandCounty(loadedCounty) ? loadedCounty : '');
+          setRemoteOk((sp as any).remote_ok !== false);
           setTypicalBudgetMin(
             (sp as any).typical_budget_min != null && (sp as any).typical_budget_min > 0
               ? String((sp as any).typical_budget_min)
@@ -372,7 +387,11 @@ const Profile = () => {
           phone,
           is_available: isAvailable,
           banner_url: bannerUrl || null,
-          service_area: serviceArea.trim() || null,
+          // Keep writing service_area as a mirror of county for legacy
+          // readers that haven't migrated to the structured pair yet.
+          service_area: county.trim() || serviceArea.trim() || null,
+          county: county.trim() || null,
+          remote_ok: remoteOk,
           typical_budget_min: parseInt(typicalBudgetMin, 10) > 0 ? Math.min(parseInt(typicalBudgetMin, 10), 500) : null,
           typical_budget_max: parseInt(typicalBudgetMax, 10) > 0 ? Math.min(parseInt(typicalBudgetMax, 10), 500) : null,
           payment_details: paymentDetails,
@@ -790,15 +809,23 @@ const Profile = () => {
                           )}
                           {/* Location chip — mirrors the StudentCard banner so
                               freelancers see exactly what buyers see on the
-                              talent board. Only renders when set. */}
-                          {(existingPost.image_url || bannerUrl) && serviceArea && (
-                            <div className="absolute left-3 top-3">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
-                                <MapPin size={9} className="shrink-0 text-white/80" />
-                                <span className="max-w-[120px] truncate">{serviceArea}</span>
-                              </span>
-                            </div>
-                          )}
+                              talent board. Uses the structured
+                              county + remote_ok pair via formatLocation;
+                              falls back to legacy service_area only for
+                              rows that haven't migrated yet. */}
+                          {(() => {
+                            if (!(existingPost.image_url || bannerUrl)) return null;
+                            const label = formatLocation({ county, remote_ok: remoteOk }) ?? (serviceArea.trim() || null);
+                            if (!label) return null;
+                            return (
+                              <div className="absolute left-3 top-3">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+                                  <MapPin size={9} className="shrink-0 text-white/80" />
+                                  <span className="max-w-[160px] truncate">{label}</span>
+                                </span>
+                              </div>
+                            );
+                          })()}
 
                           {/* Price pill — right side, high-contrast, same
                               treatment as the live StudentCard. Hourly wins
@@ -1175,7 +1202,7 @@ const Profile = () => {
                     typicalBudgetMin ? parseInt(typicalBudgetMin, 10) : null,
                     typicalBudgetMax ? parseInt(typicalBudgetMax, 10) : null,
                   )}
-                  serviceArea={serviceArea || null}
+                  serviceArea={formatLocation({ county, remote_ok: remoteOk }) ?? serviceArea ?? null}
                   profileUrl={`${getSiteOrigin().replace(/^https?:\/\//, '')}/u/${nameToSlug(displayName)}`}
                 />
               </div>

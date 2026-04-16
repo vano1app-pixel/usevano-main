@@ -22,6 +22,15 @@ import {
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { track } from '@/lib/track';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
+import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
+import { IRELAND_COUNTIES, isIrelandCounty } from '@/lib/irelandCounties';
+import {
+  Select as UiSelect,
+  SelectContent as UiSelectContent,
+  SelectItem as UiSelectItem,
+  SelectTrigger as UiSelectTrigger,
+  SelectValue as UiSelectValue,
+} from '@/components/ui/select';
 
 /* ─── Constants ─── */
 
@@ -124,6 +133,9 @@ const HirePage = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string | null>(searchParams.get('category'));
   const [subtype, setSubtype] = useState<string | null>(null);
+  // Stage 5 Ireland-scale: only asked for local categories (videography).
+  // Digital categories skip the question entirely — zero added clicks.
+  const [hirerCounty, setHirerCounty] = useState<string>('');
   const [timeline, setTimeline] = useState<string | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
   // Results
@@ -200,6 +212,33 @@ const HirePage = () => {
       const keywords = catObj?.keywords || [];
       const budgetRange = budget ? BUDGET_TO_RANGE[budget] : null;
 
+      // Stage 5 Ireland-scale location filter — wrapped in a helper so
+      // both branches below share the exact same policy.
+      // • Local category (videography) + hirerCounty chosen → keep
+      //   freelancers whose county matches OR who opt into remote work
+      //   from other counties (`remote_ok = true`). This means a
+      //   Galway videographer willing to travel still matches a Cork
+      //   hire — the explicit opt-in is what makes it sensible.
+      // • Local category but hirerCounty blank → no location filter
+      //   (preserves today's behaviour on the first render before the
+      //   user picks a county).
+      // • Digital category → require `remote_ok` is not false. Matches
+      //   the wizard's auto-set default of `true` for digital categories
+      //   and still respects a freelancer who explicitly flipped it off.
+      const catLocationModel = category && isCommunityCategoryId(category)
+        ? COMMUNITY_CATEGORIES[category].locationModel
+        : null;
+      const passesLocation = (s: any): boolean => {
+        if (catLocationModel === 'local') {
+          if (!hirerCounty) return true;
+          return s.county === hirerCounty || s.remote_ok === true;
+        }
+        if (catLocationModel === 'digital') {
+          return s.remote_ok !== false;
+        }
+        return true;
+      };
+
       let matched: any[];
       if (keywords.length > 0) {
         matched = students.filter(s => {
@@ -208,6 +247,7 @@ const HirePage = () => {
           if (budgetRange && s.typical_budget_min != null && s.typical_budget_max != null) {
             if (budgetRange.max < s.typical_budget_min || budgetRange.min > s.typical_budget_max) return false;
           }
+          if (!passesLocation(s)) return false;
           return true;
         });
         if (matched.length === 0) matched = students;
@@ -362,7 +402,10 @@ const HirePage = () => {
   // button.
   const [showDirectList, setShowDirectList] = useState(false);
 
-  useEffect(() => { if (step === 3) fetchMatches(); }, [step]);
+  useEffect(() => {
+    if (step === 3) fetchMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, hirerCounty]);
 
   // Funnel visibility: every step view is an event so we can see drop-off.
   useEffect(() => {
@@ -456,6 +499,40 @@ const HirePage = () => {
           );
         })}
       </div>
+
+      {/* County picker — only rendered for local categories (videography).
+          Digital categories get nothing (zero added clicks) because they
+          match across all of Ireland via the remote_ok filter. */}
+      {(() => {
+        if (!category || !isCommunityCategoryId(category)) return null;
+        const model = COMMUNITY_CATEGORIES[category].locationModel;
+        if (model === 'digital') {
+          return (
+            <div className="mb-5 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Remote across Ireland.</span>{' '}
+              {COMMUNITY_CATEGORIES[category].label} freelancers work online, so we&apos;ll match from anywhere in Ireland.
+            </div>
+          );
+        }
+        // Local category — ask for the hirer's county.
+        return (
+          <div className="mb-5">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Where do you need them?
+            </p>
+            <UiSelect value={hirerCounty} onValueChange={setHirerCounty}>
+              <UiSelectTrigger className="h-11">
+                <UiSelectValue placeholder="Pick your county" />
+              </UiSelectTrigger>
+              <UiSelectContent>
+                {IRELAND_COUNTIES.map((c) => (
+                  <UiSelectItem key={c} value={c}>{c}</UiSelectItem>
+                ))}
+              </UiSelectContent>
+            </UiSelect>
+          </div>
+        );
+      })()}
 
       {/* Sub-type chips — the click path that replaces typing. Only renders
           for categories that have sub-types defined (skips "Other"). */}

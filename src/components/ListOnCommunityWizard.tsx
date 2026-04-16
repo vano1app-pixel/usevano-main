@@ -1046,6 +1046,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   description={description}
                   skills={skills}
                   serviceArea={serviceArea}
+                  county={county}
+                  remoteOk={remoteOk}
                   university={university}
                   hourlyRate={rateUnit === 'hourly' ? rateMin : profileHourly}
                   rateMin={typicalBudgetMin || rateMin}
@@ -1913,6 +1915,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         description={description}
                         skills={skills}
                         serviceArea={serviceArea}
+                        county={county}
+                        remoteOk={remoteOk}
                         university={university}
                         hourlyRate={rateUnit === 'hourly' ? rateMin : profileHourly}
                         rateMin={typicalBudgetMin || rateMin}

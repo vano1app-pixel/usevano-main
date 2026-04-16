@@ -24,6 +24,10 @@ interface StudentCardPreviewProps {
   description?: string;
   skills?: string[];
   serviceArea?: string;
+  /** Structured Ireland-wide county — rendered via formatLocation in the card. */
+  county?: string;
+  /** Whether the freelancer accepts remote work outside their county. */
+  remoteOk?: boolean;
   university?: string;
   /** Hourly rate as a free-form string — parsed defensively. */
   hourlyRate?: string;
@@ -57,6 +61,8 @@ export const StudentCardPreview: React.FC<StudentCardPreviewProps> = ({
   description,
   skills,
   serviceArea,
+  county,
+  remoteOk,
   university,
   hourlyRate,
   rateMin,
@@ -98,6 +104,8 @@ export const StudentCardPreview: React.FC<StudentCardPreviewProps> = ({
     avatar_url: avatarUrl,
     banner_url: bannerUrl || null,
     service_area: serviceArea || null,
+    county: county || null,
+    remote_ok: remoteOk ?? null,
     typical_budget_min: toNumberOrNull(rateMin),
     typical_budget_max: toNumberOrNull(rateMax),
     university: university || null,
