@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
+import posthog from 'posthog-js';
 import { supabase } from '@/integrations/supabase/client';
 import { isEmailVerified } from '@/lib/authSession';
 
@@ -106,8 +107,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (uid !== lastFetchedUserId.current) {
         lastFetchedUserId.current = uid;
         if (uid) {
+          // Tell PostHog who this is so every event from here on is
+          // attributed to the Supabase user id, and earlier anonymous
+          // events in the same session get stitched to them too.
+          // Wrapped in try/catch because PostHog throws on some
+          // browsers when localStorage is disabled (private mode
+          // Safari, etc.) and auth must not fail on analytics errors.
+          try { if (posthog.__loaded) posthog.identify(uid); } catch { /* ignore */ }
           void fetchProfile(uid);
         } else {
+          // Sign-out: clear the distinct_id so the next anonymous
+          // events don't get mis-attributed to the previous user.
+          try { if (posthog.__loaded) posthog.reset(); } catch { /* ignore */ }
           setProfile(null);
           setProfileLoading(false);
         }
