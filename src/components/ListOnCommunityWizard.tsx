@@ -815,27 +815,24 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         throw spErr;
       }
 
-      const { error: delErr } = await supabase.from('community_posts').delete().eq('user_id', userId);
-      if (delErr) {
-        logSupabaseError('ListOnCommunityWizard: community_posts delete', delErr);
-        // Non-fatal for first-time listings (nothing to delete), fatal for edits
-      }
-
-      const { error: postErr } = await supabase
-        .from('community_posts')
-        .insert({
-          user_id: userId,
-          category,
-          title: title.trim(),
-          description: description.trim(),
-          image_url,
-          rate_min,
-          rate_max,
-          rate_unit: rate_unit_out,
-          moderation_status: 'approved',
-        });
+      // Publish via the SECURITY DEFINER RPC — direct INSERT into
+      // community_posts with moderation_status='approved' is blocked by
+      // the 20260411 security-hardening RLS (users can't self-approve
+      // posts). The RPC verifies the caller is the row's student owner
+      // and runs the delete+insert with elevated privileges, preserving
+      // "instant go-live" without reopening the RLS hole. See migration
+      // 20260416130000_publish_community_listing_rpc.sql.
+      const { error: postErr } = await supabase.rpc('publish_community_listing' as any, {
+        _category: category,
+        _title: title.trim(),
+        _description: description.trim(),
+        _image_url: image_url,
+        _rate_min: rate_min,
+        _rate_max: rate_max,
+        _rate_unit: rate_unit_out,
+      });
       if (postErr) {
-        logSupabaseError('ListOnCommunityWizard: community_posts insert', postErr);
+        logSupabaseError('ListOnCommunityWizard: publish_community_listing rpc', postErr);
         throw postErr;
       }
 
