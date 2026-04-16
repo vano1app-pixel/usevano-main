@@ -476,6 +476,19 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     else if (category === 'digital_sales') setRateUnit('hourly');
   }, [category]);
 
+  // Auto-advance step 1 → 2 once a category is picked. Saves one click on
+  // every wizard run — the happy path now registers the pick and moves
+  // automatically, same pattern HirePage step 1 already uses. 350ms delay
+  // so the user perceives their selection register before the jump.
+  // Cover photo is optional and can be added later from /profile, so
+  // skipping straight past it is fine.
+  useEffect(() => {
+    if (step !== 1) return;
+    if (!category) return;
+    const t = window.setTimeout(() => setStep(2), 350);
+    return () => window.clearTimeout(t);
+  }, [step, category]);
+
   // Stage 2/3 — location defaults follow the category's location model.
   // Digital categories are remote-by-default across Ireland, so we clear
   // `county` (it's not asked) and force `remoteOk = true`. Local
