@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   Copy,
   ImagePlus,
@@ -28,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import confetti from 'canvas-confetti';
 import { useToast } from '@/hooks/use-toast';
 import {
   COMMUNITY_CATEGORY_ORDER,
@@ -46,9 +48,12 @@ import {
   type WorkLinkEntry,
 } from '@/lib/socialLinks';
 import { TagBadge } from '@/components/TagBadge';
+import { StudentCardPreview } from '@/components/StudentCardPreview';
+import { GhostStudentCard } from '@/components/GhostStudentCard';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
 import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
+import { IRELAND_COUNTIES, isIrelandCounty } from '@/lib/irelandCounties';
 import { markUserActed } from '@/lib/userActivity';
 import { track } from '@/lib/track';
 
@@ -110,7 +115,15 @@ export interface ListOnCommunityInitial {
   websiteUrl?: string;
   workLinks: WorkLinkEntry[];
   skills: string[];
+  /** Legacy free-text location; superseded by `county` + `remoteOk` below
+   *  but kept so older callers compile until they migrate. */
   serviceArea: string;
+  /** Ireland-county slug (e.g. "Galway"), populated when the freelancer
+   *  already chose one. Empty string when unknown. */
+  county?: string;
+  /** Whether the freelancer accepts work from outside their county.
+   *  Defaults to true for digital categories, false for local. */
+  remoteOk?: boolean;
   typicalBudgetMin: string;
   typicalBudgetMax: string;
   hourlyRate: string;
@@ -240,7 +253,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [workLinks, setWorkLinks] = useState<WorkLinkEntry[]>([{ url: '', label: '' }]);
+  // Legacy free-text service_area kept for back-compat (old drafts,
+  // legacy readers) but no longer the primary location signal — `county`
+  // and `remoteOk` below are what the new matcher and Ireland-wide
+  // display read.
   const [serviceArea, setServiceArea] = useState('');
+  // Stage 3 Ireland-scale location. `county` is required when the picked
+  // category is local (videography); hidden and `remoteOk = true` for
+  // digital categories.
+  const [county, setCounty] = useState<string>('');
+  const [remoteOk, setRemoteOk] = useState<boolean>(true);
   const [university, setUniversity] = useState('');
   const [phone, setPhone] = useState(initial.phone ?? '');
   const [rateUnit, setRateUnit] = useState('hourly');
@@ -261,6 +283,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // Hide them behind an "Add social links" toggle so the required fields
   // (bio + phone + university) read as the focus.
   const [showSocialFields, setShowSocialFields] = useState(false);
+  // Mobile-only: the live card preview collapses to a slim sticky header to
+  // keep the form readable on small screens. Tap to toggle expanded. On
+  // desktop (lg+) the preview is always visible in its own column and this
+  // flag is ignored.
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
   const MAX_LISTING_IMAGES = 5;
@@ -304,6 +331,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         : [{ url: '', label: '' }],
     );
     setServiceArea(initial.serviceArea || '');
+    // Stage 3: prefer the structured county/remoteOk when the caller
+    // supplies them; otherwise stay empty/true so the auto-default
+    // effect (keyed on category) picks sensible values after the user
+    // lands on step 1. `isIrelandCounty` silently drops junk values.
+    setCounty(isIrelandCounty(initial.county) ? initial.county : '');
+    setRemoteOk(initial.remoteOk !== undefined ? !!initial.remoteOk : true);
     if (ep) {
       setRateUnit(ep.rate_unit ?? 'hourly');
       setRateMin(ep.rate_min != null ? String(ep.rate_min) : '');
@@ -443,6 +476,65 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     else if (category === 'digital_sales') setRateUnit('hourly');
   }, [category]);
 
+  // Auto-advance step 1 → 2 once a category is picked. Saves one click on
+  // every wizard run — the happy path now registers the pick and moves
+  // automatically, same pattern HirePage step 1 already uses. 350ms delay
+  // so the user perceives their selection register before the jump.
+  // Cover photo is optional and can be added later from /profile, so
+  // skipping straight past it is fine.
+  useEffect(() => {
+    if (step !== 1) return;
+    if (!category) return;
+    const t = window.setTimeout(() => setStep(2), 350);
+    return () => window.clearTimeout(t);
+  }, [step, category]);
+
+  // Stage 2/3 — location defaults follow the category's location model.
+  // Digital categories are remote-by-default across Ireland, so we clear
+  // `county` (it's not asked) and force `remoteOk = true`. Local
+  // categories (videography) default to `remoteOk = false` on first
+  // pick so the freelancer actively toggles it if they travel.
+  useEffect(() => {
+    if (!category) return;
+    const model = COMMUNITY_CATEGORIES[category].locationModel;
+    if (model === 'digital') {
+      setCounty('');
+      setRemoteOk(true);
+    } else {
+      setRemoteOk(false);
+    }
+  }, [category]);
+
+  // ── Celebration on first publish ──
+  // Fires a two-burst confetti sweep the instant `published` flips to a
+  // truthy value. The wizard's "You're live" screen mounts at the same
+  // time, so the animation feels rooted in that panel rather than floating
+  // over the whole page. Respects `prefers-reduced-motion` — users who opt
+  // out get the success screen without the particles.
+  useEffect(() => {
+    if (!published) return;
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    // Two symmetrical bursts from the bottom-left and bottom-right of the
+    // viewport sweep up toward the center of the dialog, so the particles
+    // arc across the success panel rather than raining down from above.
+    const defaults = {
+      startVelocity: 40,
+      spread: 70,
+      ticks: 200,
+      zIndex: 100,
+      colors: ['#3b82f6', '#10b981', '#f59e0b', '#ffffff'],
+    };
+    confetti({ ...defaults, particleCount: 60, angle: 60, origin: { x: 0, y: 0.9 } });
+    confetti({ ...defaults, particleCount: 60, angle: 120, origin: { x: 1, y: 0.9 } });
+    // Trailing sparkle from the center for a softer second beat.
+    const t = window.setTimeout(() => {
+      confetti({ ...defaults, particleCount: 30, spread: 100, startVelocity: 30, origin: { x: 0.5, y: 0.7 } });
+    }, 220);
+    return () => window.clearTimeout(t);
+  }, [published]);
+
   const totalSteps = STEP_LABELS.length;
   const canNext = (): boolean => {
     switch (step) {
@@ -452,13 +544,23 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         // listing" suggestion on the review step instead.
         return category !== null;
       case 2:
-        // Your story: title + description + phone + university (always required, also on edit)
-        return (
-          title.trim().length > 0 &&
-          description.trim().length > 0 &&
-          university.trim().length > 0 &&
-          phone.trim().length > 0
-        );
+        // Your story: title + description + phone + (county if local
+        // category). University used to be required here — it was a
+        // Galway-leaning trust signal that fights an Ireland-wide
+        // rollout, so it's now optional. For local categories
+        // (videography) the freelancer's county is required so the
+        // matcher can route jobs correctly; digital categories skip
+        // the location question entirely.
+        {
+          const cat = category ? COMMUNITY_CATEGORIES[category] : null;
+          const needsCounty = cat?.locationModel === 'local';
+          return (
+            title.trim().length > 0 &&
+            description.trim().length > 0 &&
+            phone.trim().length > 0 &&
+            (!needsCounty || county.trim().length > 0)
+          );
+        }
       case 3:
         // Your price + skills. Lowered from 3 to 1 — getting live with one
         // honest tag beats abandoning the form trying to invent two more.
@@ -664,7 +766,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         linkedin_url: normalizeLinkedInUrl(linkedinUrl),
         website_url: normalizeWebsiteUrl(websiteUrl),
         work_links: workLinksToJson(workLinks) as unknown,
-        service_area: serviceArea.trim() || null,
+        // Keep writing `service_area` as a free-text mirror of `county`
+        // for legacy readers; the structured `county` + `remote_ok`
+        // pair below is the source of truth for the matcher and the
+        // new display helpers.
+        service_area: (county && county.trim()) || serviceArea.trim() || null,
+        county: (county && county.trim()) || null,
+        remote_ok: remoteOk,
         typical_budget_min: tbMin,
         typical_budget_max: tbMax,
         skills,
@@ -707,27 +815,24 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         throw spErr;
       }
 
-      const { error: delErr } = await supabase.from('community_posts').delete().eq('user_id', userId);
-      if (delErr) {
-        logSupabaseError('ListOnCommunityWizard: community_posts delete', delErr);
-        // Non-fatal for first-time listings (nothing to delete), fatal for edits
-      }
-
-      const { error: postErr } = await supabase
-        .from('community_posts')
-        .insert({
-          user_id: userId,
-          category,
-          title: title.trim(),
-          description: description.trim(),
-          image_url,
-          rate_min,
-          rate_max,
-          rate_unit: rate_unit_out,
-          moderation_status: 'approved',
-        });
+      // Publish via the SECURITY DEFINER RPC — direct INSERT into
+      // community_posts with moderation_status='approved' is blocked by
+      // the 20260411 security-hardening RLS (users can't self-approve
+      // posts). The RPC verifies the caller is the row's student owner
+      // and runs the delete+insert with elevated privileges, preserving
+      // "instant go-live" without reopening the RLS hole. See migration
+      // 20260416130000_publish_community_listing_rpc.sql.
+      const { error: postErr } = await supabase.rpc('publish_community_listing' as any, {
+        _category: category,
+        _title: title.trim(),
+        _description: description.trim(),
+        _image_url: image_url,
+        _rate_min: rate_min,
+        _rate_max: rate_max,
+        _rate_unit: rate_unit_out,
+      });
       if (postErr) {
-        logSupabaseError('ListOnCommunityWizard: community_posts insert', postErr);
+        logSupabaseError('ListOnCommunityWizard: publish_community_listing rpc', postErr);
         throw postErr;
       }
 
@@ -801,9 +906,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) closeAfterPublish(); else onOpenChange(true); }}>
-      <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full isolate bg-background">
+      <DialogContent className="flex max-h-[min(92dvh,44rem)] w-[calc(100vw-1.25rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl border p-0 sm:w-full isolate bg-background lg:max-w-[64rem] lg:max-h-[min(92dvh,52rem)] lg:flex-row">
         {published ? (
-          <>
+          // Wrapped in a flex-col box so the celebration screen stays
+          // stacked vertically even though the parent DialogContent is
+          // lg:flex-row (which the wizard form uses for its two-column
+          // edit/preview split). Without this wrapper the "You're live"
+          // card and the action bar would sit side-by-side on desktop.
+          <div className="flex min-h-0 flex-1 flex-col">
             <DialogHeader className="sr-only">
               <DialogTitle>You&apos;re live</DialogTitle>
             </DialogHeader>
@@ -868,9 +978,15 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 </Link>
               </Button>
             </div>
-          </>
+          </div>
         ) : (
         <>
+        {/* LEFT column (or full width on mobile): header + scrollable body
+            + sticky nav footer. On lg+ this shares the dialog horizontally
+            with the live-preview stage to the right. `min-w-0` matters
+            here because flex children default to min-width:auto, which
+            would let long skill tags push the column wider than its share. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:border-r lg:border-border">
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
@@ -901,7 +1017,60 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           </DialogHeader>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 lg:py-6">
+          {/* Mobile-only live preview drawer. Tap the sticky header strip to
+              expand the full card inline. Hidden on lg+ because the desktop
+              layout shows the preview in its own right column. Uses the same
+              StudentCardPreview so there's no second synthetic-profile path
+              to maintain. */}
+          <div className="lg:hidden mb-5 overflow-hidden rounded-2xl border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setMobilePreviewOpen((v) => !v)}
+              aria-expanded={mobilePreviewOpen}
+              className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
+                  {(title?.[0] || 'Y').toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Live preview</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {mobilePreviewOpen ? 'Hide what businesses will see' : 'See what businesses will see'}
+                  </p>
+                </div>
+              </div>
+              <ChevronDown
+                size={16}
+                className={cn('shrink-0 text-muted-foreground transition-transform duration-200', mobilePreviewOpen && 'rotate-180')}
+              />
+            </button>
+            {mobilePreviewOpen && (
+              <div className="border-t border-border/60 bg-gradient-to-br from-muted/30 via-background to-muted/20 p-4">
+                <StudentCardPreview
+                  userId={userId}
+                  category={category}
+                  bannerUrl={bannerUrl}
+                  title={title}
+                  description={description}
+                  skills={skills}
+                  serviceArea={serviceArea}
+                  county={county}
+                  remoteOk={remoteOk}
+                  university={university}
+                  hourlyRate={rateUnit === 'hourly' ? rateMin : profileHourly}
+                  rateMin={typicalBudgetMin || rateMin}
+                  rateMax={typicalBudgetMax || rateMax}
+                  tiktokUrl={tiktokUrl}
+                  instagramUrl={instagramUrl}
+                  linkedinUrl={linkedinUrl}
+                  websiteUrl={websiteUrl}
+                />
+              </div>
+            )}
+          </div>
+
           {/* ── Step 1: Your work — category + cover photo + work samples ── */}
           {step === 1 && (
             <div className="space-y-6">
@@ -1067,7 +1236,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
               </div>
               <div>
-                <Label>University <span className="text-rose-500">*</span></Label>
+                <Label>University <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
                 <Select value={university} onValueChange={setUniversity}>
                   <SelectTrigger className="mt-1.5 h-11">
                     <SelectValue placeholder="Select your university" />
@@ -1081,15 +1250,43 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Where you work</Label>
-                <Input
-                  className="mt-1.5 h-11"
-                  placeholder="e.g. Galway city · Remote OK"
-                  value={serviceArea}
-                  onChange={(e) => setServiceArea(e.target.value)}
-                />
-              </div>
+              {/* Location question — structured and category-aware. Local
+                  categories (videography) require a county so the matcher
+                  can route jobs to nearby freelancers; digital categories
+                  (websites / digital_sales / social_media) skip the
+                  question entirely and default to remote across Ireland.
+                  Replaces the old free-text "Where you work" input. */}
+              {category && COMMUNITY_CATEGORIES[category].locationModel === 'local' ? (
+                <div className="space-y-2">
+                  <div>
+                    <Label>Which county do you cover? <span className="text-rose-500">*</span></Label>
+                    <Select value={county} onValueChange={setCounty}>
+                      <SelectTrigger className="mt-1.5 h-11">
+                        <SelectValue placeholder="Select your county" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {IRELAND_COUNTIES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-border"
+                      checked={remoteOk}
+                      onChange={(e) => setRemoteOk(e.target.checked)}
+                    />
+                    Willing to travel / take remote work from other counties
+                  </label>
+                </div>
+              ) : category ? (
+                <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">Remote across Ireland.</span>{' '}
+                  {COMMUNITY_CATEGORIES[category].label} work is digital-first — businesses anywhere in Ireland can hire you, so we won&apos;t ask for a county.
+                </div>
+              ) : null}
               {/* Socials — optional, collapsed by default to lighten the form.
                   Auto-expands if any social value is already filled (returning
                   drafts) so users don't lose sight of what they entered. */}
@@ -1687,6 +1884,66 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               )}
             </Button>
           )}
+        </div>
+        </div>
+        {/* RIGHT column — desktop-only live preview stage. Static 2×2 mock
+            gallery: three muted GhostStudentCards fill the "other freelancers"
+            slots, the user's live StudentCardPreview sits in the hero slot and
+            updates keystroke-by-keystroke. The backdrop makes the listing
+            look like it's joining a curated marketplace even when the real
+            talent board is small. Hidden below lg — on mobile we show a
+            collapsible mini preview inside the form body instead. */}
+        <div className="hidden lg:flex lg:w-[26rem] lg:flex-col lg:bg-gradient-to-br lg:from-muted/40 lg:via-background lg:to-muted/20">
+          <div className="border-b border-border/60 px-5 py-3">
+            <p className="text-xs font-semibold text-foreground">Live preview</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              What businesses see on the talent board.
+            </p>
+          </div>
+          <div className="relative flex-1 overflow-hidden px-5 py-6">
+            <div className="grid grid-cols-2 gap-3">
+              {(() => {
+                // Pick three ghost categories that differ from the user's
+                // choice so the backdrop doesn't duplicate what they're
+                // building. Order is stable per category so the card they
+                // see stays consistent as they edit.
+                const ghostOrder: Array<'videography' | 'websites' | 'social_media' | 'digital_sales'> = [
+                  'videography', 'websites', 'social_media', 'digital_sales',
+                ];
+                const ghosts = ghostOrder.filter((g) => g !== category).slice(0, 3);
+                return (
+                  <>
+                    <GhostStudentCard variant={ghosts[0]} />
+                    {/* Live card in hero slot — scale-up + shadow so it
+                        reads as the focus of the mock gallery. */}
+                    <div className="relative z-10 row-span-2 scale-[1.02] shadow-xl transition-all duration-300">
+                      <StudentCardPreview
+                        userId={userId}
+                        category={category}
+                        bannerUrl={bannerUrl}
+                        title={title}
+                        description={description}
+                        skills={skills}
+                        serviceArea={serviceArea}
+                        county={county}
+                        remoteOk={remoteOk}
+                        university={university}
+                        hourlyRate={rateUnit === 'hourly' ? rateMin : profileHourly}
+                        rateMin={typicalBudgetMin || rateMin}
+                        rateMax={typicalBudgetMax || rateMax}
+                        tiktokUrl={tiktokUrl}
+                        instagramUrl={instagramUrl}
+                        linkedinUrl={linkedinUrl}
+                        websiteUrl={websiteUrl}
+                      />
+                    </div>
+                    <GhostStudentCard variant={ghosts[1]} />
+                    <GhostStudentCard variant={ghosts[2]} />
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         </div>
         </>
         )}

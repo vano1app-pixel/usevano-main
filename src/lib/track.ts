@@ -1,13 +1,20 @@
 /**
- * Minimal in-house analytics. Inserts an event row into `analytics_events`.
+ * In-house analytics with an optional PostHog mirror.
+ *
+ * Every event is written to the Supabase `analytics_events` table
+ * (existing behaviour — admin-queryable via RLS) AND, when the
+ * PostHog SDK is loaded, mirrored to `posthog.capture()` so the same
+ * event lands in the PostHog dashboard for funnels / retention /
+ * session-replay joins. The two sinks are independent — if either
+ * fails the other still runs, and the caller never sees an error.
  *
  * - Fire-and-forget: never throws, never blocks UX.
  * - Resolves the current user_id from the active session (or NULL if anon).
- * - No third-party SDK, no PII beyond auth user_id.
+ * - No PII beyond auth user_id is ever added automatically.
  *
  * Backed by the `analytics_events` table (migration 20260415130000_analytics_events.sql).
- * Read access is admin-only via RLS.
  */
+import posthog from 'posthog-js';
 import { supabase } from '@/integrations/supabase/client';
 
 export type TrackEvent =
@@ -24,7 +31,19 @@ export type TrackEvent =
   | 'auth_magic_link_sent';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
-  // Defer so we never block the calling render/handler.
+  // PostHog mirror — synchronous and safe; SDK internally queues if it
+  // hasn't finished init. Wrapped in try/catch because PostHog can
+  // throw when localStorage is blocked (private-mode Safari, cookie
+  // policies) and analytics must never break the call site.
+  try {
+    if (posthog.__loaded) {
+      posthog.capture(event, props);
+    }
+  } catch {
+    /* swallow */
+  }
+
+  // Defer the Supabase insert so we never block the calling render/handler.
   void (async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();

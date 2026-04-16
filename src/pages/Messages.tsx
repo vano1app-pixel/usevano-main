@@ -98,6 +98,46 @@ function formatConvoTime(dateStr: string): string {
   return format(date, 'dd MMM');
 }
 
+/**
+ * Tap-to-fill quick replies shown above the compose textarea once a
+ * conversation is selected. The freelancer side is a single universal set
+ * that fits almost any incoming hire message. The business side is keyed
+ * to the freelancer's community category so the suggestion matches the
+ * actual trade on the other end of the conversation (a videography-shop
+ * opener doesn't make sense for a websites freelancer).
+ *
+ * Chips never auto-send — tapping fills the textarea and focuses it, the
+ * user still hits Enter / Send.
+ */
+const QUICK_REPLIES_FREELANCER = [
+  'Thanks — interested, tell me more',
+  'Can you share more details?',
+  "I'll send a quote by end of day",
+];
+
+const QUICK_REPLIES_BUSINESS_BY_CATEGORY: Record<string, string[]> = {
+  videography: [
+    'Can I see a recent reel?',
+    "What's your turnaround on a 30s edit?",
+    'Do you film events?',
+  ],
+  websites: [
+    "Can I see a site you've built?",
+    'How long for a 3-page site?',
+    'Do you work in Next.js / Webflow / WordPress?',
+  ],
+  digital_sales: [
+    "What's your typical close rate?",
+    'Outbound or inbound?',
+    'Can you work on commission?',
+  ],
+  social_media: [
+    "Can you show me UGC you've made?",
+    'Do you manage content calendars?',
+    "What's your rate for 10 TikToks a month?",
+  ],
+};
+
 const Messages = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -120,6 +160,12 @@ const Messages = () => {
   const [hiringInProgress, setHiringInProgress] = useState(false);
   // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
+  // Other-party metadata for the active conversation — used by the
+  // quick-reply chip row to pick the right suggestion bucket. Business
+  // viewers get category-keyed opener chips keyed to this; freelancer
+  // viewers ignore it.
+  const [otherUserType, setOtherUserType] = useState<string | null>(null);
+  const [otherCategory, setOtherCategory] = useState<string | null>(null);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Per-tab suffix on every realtime channel name. Without it, opening the
@@ -156,6 +202,38 @@ const Messages = () => {
       .maybeSingle()
       .then(({ data }) => setViewerUserType(data?.user_type || null));
   }, [user?.id]);
+
+  // Fetch other-party metadata for the quick-reply chip row. Runs in parallel
+  // so we don't stack two round trips. Reset state immediately on convo
+  // change so a chip set from a previous thread doesn't flash into view on
+  // the new one before this effect settles.
+  useEffect(() => {
+    if (!selectedConvo) {
+      setOtherUserType(null);
+      setOtherCategory(null);
+      return;
+    }
+    const conv = conversations.find((c) => c.id === selectedConvo);
+    const otherId = conv?.otherUserId;
+    if (!otherId) {
+      setOtherUserType(null);
+      setOtherCategory(null);
+      return;
+    }
+    setOtherUserType(null);
+    setOtherCategory(null);
+    let cancelled = false;
+    void (async () => {
+      const [profileRes, postRes] = await Promise.all([
+        supabase.from('profiles').select('user_type').eq('user_id', otherId).maybeSingle(),
+        supabase.from('community_posts').select('category').eq('user_id', otherId).limit(1).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      setOtherUserType((profileRes.data?.user_type as string | null) ?? null);
+      setOtherCategory((postRes.data?.category as string | null) ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedConvo, conversations]);
 
   // Active hire agreement lookup for the selected conversation. Realtime on
   // the table so the chip updates the moment the business hits the button
@@ -911,6 +989,55 @@ const Messages = () => {
                   {otherTyping && <TypingIndicator />}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* Quick-reply chips — audience-aware. Freelancers get a
+                    universal follow-up bucket; businesses get openers keyed
+                    to the freelancer's community category. Renders nothing
+                    when no bucket applies (e.g. business↔business, or
+                    before the other-party fetch resolves). Tap → fills the
+                    compose box and focuses it; user still hits Send. */}
+                {(() => {
+                  let chips: string[] | null = null;
+                  if (viewerUserType === 'student') {
+                    chips = QUICK_REPLIES_FREELANCER;
+                  } else if (viewerUserType === 'business' && otherUserType === 'student' && otherCategory) {
+                    chips = QUICK_REPLIES_BUSINESS_BY_CATEGORY[otherCategory] ?? null;
+                  }
+                  if (!chips || chips.length === 0) return null;
+                  const handleChip = (text: string) => {
+                    setNewMessage(text);
+                    // Focus the textarea and drop the caret at the end so
+                    // the user can keep typing to append. Running after a
+                    // microtask so React's state flush lands before we set
+                    // selection — otherwise the caret snaps back to 0 on
+                    // some browsers.
+                    queueMicrotask(() => {
+                      const ta = textareaRef.current;
+                      if (!ta) return;
+                      ta.focus();
+                      const end = text.length;
+                      try { ta.setSelectionRange(end, end); } catch { /* no-op */ }
+                    });
+                  };
+                  return (
+                    <div
+                      role="group"
+                      aria-label="Quick replies"
+                      className="border-t border-border/60 bg-background px-3 py-2 flex flex-wrap gap-1.5"
+                    >
+                      {chips.map((text) => (
+                        <button
+                          key={text}
+                          type="button"
+                          onClick={() => handleChip(text)}
+                          className="rounded-full border border-border bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:border-foreground/20 hover:bg-muted/60"
+                        >
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Input */}
                 <div className="border-t border-border px-3 py-3">

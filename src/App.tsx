@@ -10,6 +10,7 @@ import { ScrollProgress } from "@/components/ScrollProgress";
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { RedirectToAccountTypeIfNeeded } from "@/components/RedirectToAccountTypeIfNeeded";
+import { RedirectUnlistedFreelancerToWizard } from "@/components/RedirectUnlistedFreelancerToWizard";
 import { AuthProvider } from "@/hooks/useAuthContext";
 
 // Landing stays eager: it's the most common first-visit page so keeping it in
@@ -98,6 +99,7 @@ const App = () => {
       <ScrollProgress />
       <ScrollToTop />
       <RedirectToAccountTypeIfNeeded />
+      <RedirectUnlistedFreelancerToWizard />
       {/* Self-gating: renders null on real browsers. Warns users in Fiverr /
           Instagram / TikTok / etc in-app browsers that Google OAuth will fail. */}
       <InAppBrowserBanner />

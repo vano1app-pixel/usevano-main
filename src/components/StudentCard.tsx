@@ -5,6 +5,7 @@ import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { freelancerGradient, NOISE_BG_IMAGE } from '@/lib/categoryGradient';
+import { formatLocation } from '@/lib/irelandCounties';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { getUniversityStyle } from '@/lib/universities';
@@ -31,7 +32,12 @@ interface StudentProfile {
   is_available: boolean;
   avatar_url: string;
   banner_url?: string | null;
+  /** Legacy free-text location, used as fallback if structured county is empty. */
   service_area?: string | null;
+  /** Ireland-wide county (one of the 26 ROI counties). */
+  county?: string | null;
+  /** Freelancer accepts work outside their county. */
+  remote_ok?: boolean | null;
   typical_budget_min?: number | null;
   typical_budget_max?: number | null;
   university?: string | null;
@@ -102,7 +108,11 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const isAdmin = useIsAdmin(student.user_id);
   const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
-  const area = student.service_area?.trim();
+  // Prefer structured county/remote_ok; fall back to legacy service_area
+  // for rows that haven't been migrated yet. Returns null when neither
+  // is set, which hides the location chip entirely rather than showing
+  // a stale placeholder.
+  const area = formatLocation({ county: student.county, remote_ok: student.remote_ok }) ?? (student.service_area?.trim() || undefined);
   const uniStyle = getUniStyle(student.university);
   const clickable = !demoExample;
 

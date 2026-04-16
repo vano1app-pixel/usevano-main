@@ -2,6 +2,7 @@ import React from 'react';
 import { MapPin, Star, Clock, Wallet, GraduationCap } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { getUniversityLabel } from '@/lib/universities';
+import { formatLocation } from '@/lib/irelandCounties';
 
 export interface FreelancerPublicHeaderProps {
   displayName: string;
@@ -9,8 +10,13 @@ export interface FreelancerPublicHeaderProps {
   bannerUrl?: string | null;
   avatarUrl?: string | null;
   isAvailable?: boolean | null;
-  /** Shown on profile; defaults to a Galway-oriented line if empty */
+  /** Legacy free-text location. Used only as a fallback when the
+   *  structured `county` + `remoteOk` pair is absent (pre-migration rows). */
   serviceArea?: string | null;
+  /** Ireland-wide county enum (one of the 26 ROI counties). */
+  county?: string | null;
+  /** Whether the freelancer accepts work from outside their county. */
+  remoteOk?: boolean | null;
   hourlyRate?: number | null;
   typicalBudgetMin?: number | null;
   typicalBudgetMax?: number | null;
@@ -32,6 +38,8 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
   avatarUrl,
   isAvailable,
   serviceArea,
+  county,
+  remoteOk,
   hourlyRate,
   typicalBudgetMin,
   typicalBudgetMax,
@@ -43,7 +51,11 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
   actionRow,
   footnote,
 }) => {
-  const locationLine = serviceArea?.trim() || 'Galway area · Ireland';
+  // Ireland-wide: prefer the structured county/remote pair, fall back
+  // to legacy free-text service_area, or hide the chip entirely if
+  // nothing is set (was previously a hard-coded "Galway area · Ireland"
+  // default, which lied for any Cork/Dublin/etc. freelancer).
+  const locationLine = formatLocation({ county, remote_ok: remoteOk }) || (serviceArea?.trim() || null);
   const budgetLabel = formatTypicalBudget(typicalBudgetMin, typicalBudgetMax);
   const showHourly = hourlyRate != null && hourlyRate > 0;
 
@@ -100,7 +112,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
               <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl md:text-3xl">{displayName}</h1>
               {nameAccessory}
               {isAvailable && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/12 px-3 py-1 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/[0.06] px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20 dark:text-emerald-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   Available
                 </span>
@@ -121,34 +133,44 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
               </div>
             )}
 
+            {/* At-a-glance info chips — unified shell, identity
+                carried by the colored lucide icon rather than four
+                separate color washes. Previously each chip had its own
+                bg/border/text triple (blue, emerald, amber, neutral)
+                which made the row read as four different widgets; this
+                version scans as one row with typed accents. */}
             <div className="mt-3 flex flex-wrap gap-2">
-              {/* Location — blue */}
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-400 transition-colors duration-200 hover:bg-blue-500/15">
-                <MapPin size={14} className="shrink-0 text-blue-500" />
-                {locationLine}
-              </span>
-
-              {/* Hourly rate — green */}
-              {showHourly && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 transition-colors duration-200 hover:bg-emerald-500/15">
-                  <Clock size={14} className="shrink-0 text-emerald-500" />
-                  €{Number(hourlyRate).toLocaleString('en-IE', { maximumFractionDigits: 2 })}/hr
-                  <span className="opacity-60">· hourly</span>
+              {/* Location — only renders when we have a real signal.
+                  No more "Galway area · Ireland" fallback for out-of-
+                  Galway freelancers. */}
+              {locationLine && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors duration-200 hover:bg-muted/50">
+                  <MapPin size={14} className="shrink-0 text-blue-500" />
+                  {locationLine}
                 </span>
               )}
 
-              {/* Typical project budget — amber */}
+              {/* Hourly rate */}
+              {showHourly && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors duration-200 hover:bg-muted/50">
+                  <Clock size={14} className="shrink-0 text-emerald-500" />
+                  €{Number(hourlyRate).toLocaleString('en-IE', { maximumFractionDigits: 2 })}/hr
+                  <span className="text-muted-foreground">· hourly</span>
+                </span>
+              )}
+
+              {/* Typical project budget */}
               {budgetLabel && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 transition-colors duration-200 hover:bg-amber-500/15">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors duration-200 hover:bg-muted/50">
                   <Wallet size={14} className="shrink-0 text-amber-500" />
-                  <span className="opacity-70">Typical project</span>
+                  <span className="text-muted-foreground">Typical project</span>
                   {budgetLabel}
                 </span>
               )}
 
               {/* University */}
               {university && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground/70 transition-colors duration-200 hover:bg-foreground/5">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors duration-200 hover:bg-muted/50">
                   <GraduationCap size={13} className="shrink-0 text-foreground/50" />
                   {getUniversityLabel(university)}
                 </span>

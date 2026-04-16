@@ -309,9 +309,9 @@ const StudentProfile = () => {
           <button
             type="button"
             onClick={() => setHireOpen(true)}
-            className="w-full rounded-xl border border-amber-500/50 bg-amber-500/10 py-3 text-sm font-semibold text-amber-700 dark:text-amber-300 shadow-sm transition-colors hover:bg-amber-500/15 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
+            className="w-full rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted/50 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
           >
-            <Zap size={18} strokeWidth={2} /> Hire now
+            <Zap size={18} strokeWidth={2} className="text-amber-500" /> Hire now
           </button>
         </>
       )}
@@ -365,9 +365,9 @@ const StudentProfile = () => {
           <button
             type="button"
             onClick={() => setHireOpen(true)}
-            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-amber-500/50 bg-amber-500/10 text-sm font-semibold text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/15"
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-background text-sm font-semibold text-foreground transition-colors hover:bg-muted/50"
           >
-            <Zap size={16} strokeWidth={2} /> Hire now
+            <Zap size={16} strokeWidth={2} className="text-amber-500" /> Hire now
           </button>
         </div>
       )}
@@ -489,8 +489,9 @@ const StudentProfile = () => {
                   {expectedBonusLabel && (
                     <span
                       title="Bonus this rep expects on top of their hourly retainer"
-                      className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/20"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-semibold text-foreground/80"
                     >
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       Expects {expectedBonusLabel}
                     </span>
                   )}
@@ -520,7 +521,7 @@ const StudentProfile = () => {
                       return (
                         <span
                           title={`Top profile · ${reviews.length}+ reviews and a complete profile`}
-                          className="inline-flex items-center gap-1 rounded-full bg-amber-400/90 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-amber-950 shadow-sm ring-1 ring-amber-500/50"
+                          className="inline-flex items-center gap-1 rounded-full bg-amber-400/90 px-2.5 py-0.5 text-[11px] font-bold text-amber-950 shadow-sm ring-1 ring-amber-500/50"
                         >
                           <Award size={11} strokeWidth={2.5} /> Top profile
                         </span>
@@ -530,7 +531,7 @@ const StudentProfile = () => {
                       return (
                         <span
                           title="Verified by Vano · complete profile"
-                          className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/30"
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-500/[0.06] px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/20"
                         >
                           <CheckCircle2 size={11} strokeWidth={2.5} /> Verified by Vano
                         </span>
@@ -553,6 +554,8 @@ const StudentProfile = () => {
               avatarUrl={avatarUrl}
               isAvailable={student.is_available}
               serviceArea={student.service_area}
+              county={student.county ?? null}
+              remoteOk={student.remote_ok ?? null}
               hourlyRate={student.hourly_rate}
               typicalBudgetMin={student.typical_budget_min}
               typicalBudgetMax={student.typical_budget_max}
@@ -863,7 +866,7 @@ const StudentProfile = () => {
               {activeTab === 'reviews' && (
                 <div className="p-5 sm:p-6">
                   {reviews.length > 0 && (
-                    <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">What clients say</h2>
+                    <h2 className="mb-4 text-sm font-semibold text-foreground">What clients say</h2>
                   )}
                   {reviews.length > 0 ? (
                     <ReviewList reviews={reviews} />
