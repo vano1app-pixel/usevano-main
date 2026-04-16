@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { Briefcase, Trash2, CheckCircle2, Circle, Link2, Check, ImagePlus, Pencil, AlertCircle, ExternalLink, Plus, Camera, Image, LogOut, MapPin } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { PortfolioManager } from '@/components/PortfolioManager';
 import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
@@ -378,42 +378,70 @@ const Profile = () => {
     );
   };
 
-  /* ── Shared quality / strength check renderer ── */
-  const renderChecklist = (checks: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[]) => {
-    const incomplete = checks.filter(c => !c.done);
-    const complete = checks.filter(c => c.done);
-    const doneCount = complete.length;
-    const pct = Math.round((doneCount / checks.length) * 100);
+  /* ── Unified profile progress card ──
+     Single source of truth for "how done is this profile". Replaces the
+     earlier pair of widgets (inline % bar + big checklist card) which
+     duplicated the same information and together made the page feel
+     alarm-y. Uses the weighted checks from `computeProfileChecks` so the
+     percentage matches what's shown on the public profile tier badge. */
+  const renderProgressCard = (
+    checks: { key: string; label: string; done: boolean; weight: number }[],
+    actionFor: Record<string, () => void>,
+  ) => {
+    const filled = checks.filter((c) => c.done).reduce((sum, c) => sum + c.weight, 0);
+    const incomplete = checks
+      .filter((c) => !c.done)
+      .sort((a, b) => b.weight - a.weight);
+    const complete = checks.filter((c) => c.done);
 
-    const motivationMsg = pct === 100
-      ? 'Looking great — fully set up!'
-      : pct >= 75
+    // 100% — fold down to a calm emerald pill so the reward stays once
+    // and doesn't keep drawing attention after the work is done.
+    if (filled >= 100 || incomplete.length === 0) {
+      return (
+        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/[0.06] px-3.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 size={14} className="text-emerald-500" />
+          Profile complete — you're all set
+        </div>
+      );
+    }
+
+    const motivationMsg =
+      filled >= 75
         ? 'Almost there — just a few more!'
-        : pct >= 50
+        : filled >= 50
           ? 'Halfway done — keep going!'
-          : pct > 0
+          : filled > 0
             ? 'Good start — complete your profile to get seen'
             : 'Get started — fill in your profile to attract businesses';
 
+    // Short second-line hints per check. Kept here (rather than inside
+    // `computeProfileChecks`) so the shared scoring helper stays neutral
+    // and the editor-only copy lives with the editor.
+    const detailFor: Record<string, string> = {
+      name: 'Businesses see your name in search results',
+      avatar: 'Profiles with a real face get far more messages',
+      bio: 'A short intro builds trust before someone messages you',
+      banner: 'Cover photos make your card stand out on the talent board',
+      phone: 'So businesses can reach you when they hire',
+      university: 'Adds trust — businesses prefer verified students',
+      skills: 'Businesses search by skill to find you',
+      portfolio: 'Profiles with work samples get way more views',
+    };
+
     return (
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        {/* Header with ring + percentage */}
+        {/* Header: ring + motivation + preview */}
         <div className="flex items-center gap-4 px-5 py-4">
           <div className="relative">
-            <ProgressRing done={doneCount} total={checks.length} size={64} stroke={5} />
-            <span className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-base font-bold tabular-nums text-foreground leading-none">{pct}%</span>
+            <ProgressRing done={filled} total={100} size={64} stroke={5} />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="text-base font-bold tabular-nums text-foreground leading-none">{filled}%</span>
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Profile completeness
-            </p>
-            <p className="mt-0.5 text-sm font-semibold text-foreground">
-              {motivationMsg}
-            </p>
+            <p className="text-sm font-semibold text-foreground">{motivationMsg}</p>
             <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-              {doneCount} of {checks.length} complete
+              {complete.length} of {checks.length} complete
             </p>
           </div>
           <button
@@ -425,53 +453,69 @@ const Profile = () => {
           </button>
         </div>
 
-        {/* Incomplete items — prominent */}
-        {incomplete.length > 0 && (
-          <ul className="border-t border-border/50">
-            {incomplete.map((check) => (
-              <li
-                key={check.id}
-                className="flex items-center gap-3 border-l-2 border-l-amber-400 bg-amber-50/50 px-5 py-3 dark:bg-amber-900/10"
-              >
-                <AlertCircle size={16} className="shrink-0 text-amber-500" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {check.label}
-                    {check.count && (
-                      <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        {check.count}
-                      </span>
+        {/* Incomplete rows — neutral card background with a small amber
+            dot per row. The heavy `border-l-amber-400 bg-amber-50/50`
+            wash the previous design used made the whole page feel
+            alarm-y; the dot still reads as "needs attention" without
+            overwhelming. */}
+        <ul className="border-t border-border/50">
+          {incomplete.map((check) => {
+            const handler = actionFor[check.key];
+            return (
+              <li key={check.key}>
+                <button
+                  type="button"
+                  onClick={handler}
+                  disabled={!handler}
+                  className="group flex w-full items-center gap-3 border-b border-border/50 px-5 py-3 text-left last:border-b-0 transition-colors hover:bg-muted/30 disabled:cursor-default disabled:hover:bg-transparent"
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{check.label}</p>
+                    {detailFor[check.key] && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{detailFor[check.key]}</p>
                     )}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{check.detail}</p>
-                </div>
-                {check.wizardStep !== null ? (
-                  <button
-                    type="button"
-                    onClick={() => openWizardAtStep(check.wizardStep!)}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow"
-                  >
-                    Fix <ExternalLink size={10} />
-                  </button>
-                ) : (
-                  <span className="shrink-0 text-xs text-muted-foreground">{check.profileAction}</span>
-                )}
+                  </div>
+                  <span className="shrink-0 text-[11px] font-semibold tabular-nums text-muted-foreground">+{check.weight}%</span>
+                  {handler && (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-transparent px-2.5 py-1 text-xs font-semibold text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary/5">
+                      Fix
+                    </span>
+                  )}
+                </button>
               </li>
-            ))}
-          </ul>
-        )}
+            );
+          })}
+        </ul>
 
-        {/* Completed items — compact */}
+        {/* Collapsed "completed" drawer. Hidden by default so the card
+            stays compact; reassurance is a click away. */}
         {complete.length > 0 && (
-          <div className={cn("border-t border-border/50", incomplete.length > 0 && "bg-muted/20")}>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 px-5 py-3">
-              {complete.map((check) => (
-                <span key={check.id} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CheckCircle2 size={12} className="text-emerald-500" />
-                  <span className="line-through">{check.label}</span>
-                </span>
-              ))}
-            </div>
+          <div className="border-t border-border/50">
+            <button
+              type="button"
+              onClick={() => setQualityExpanded((v) => !v)}
+              className="flex w-full items-center justify-between gap-3 px-5 py-2.5 text-left transition-colors hover:bg-muted/30"
+              aria-expanded={qualityExpanded}
+            >
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 size={12} className="text-emerald-500" />
+                {complete.length} done
+              </span>
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                {qualityExpanded ? 'Hide' : 'Show'}
+              </span>
+            </button>
+            {qualityExpanded && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border/50 bg-muted/20 px-5 py-3">
+                {complete.map((c) => (
+                  <span key={c.key} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CheckCircle2 size={12} className="text-emerald-500" />
+                    <span className="line-through">{c.label}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -528,11 +572,14 @@ const Profile = () => {
               {/* ── LEFT COLUMN: Main content ── */}
               <div className="space-y-6">
 
-                {/* ── Profile completeness meter ──
-                    Loss-aversion + operant reward: shows missing points
-                    rather than gained ones, and the fill bar shifts from
-                    rose → amber → emerald as the freelancer climbs out of
-                    the red zone. Fades away once they hit 100%. */}
+                {/* ── Unified profile completeness card ──
+                    One widget for the whole page. Replaces the earlier
+                    pair (inline % bar + big checklist card) which showed
+                    the same weighted checks twice and together dominated
+                    the layout. Uses the shared `computeProfileChecks`
+                    helper so the percentage matches the public profile
+                    tier badge exactly. Collapses to a small emerald pill
+                    once the profile hits 100%. */}
                 {studentProfile && (() => {
                   const checks = computeProfileChecks({
                     displayName,
@@ -544,9 +591,10 @@ const Profile = () => {
                     skills,
                     portfolioCount,
                   });
-                  // Per-check action — where to send the user when they tap a row
+                  // Per-check action — where to send the user when they
+                  // tap a row. Keys match the CompletenessCheck.key union.
                   const actionFor: Record<string, () => void> = {
-                    name: () => document.querySelector<HTMLInputElement>('input[placeholder*="appear"]')?.focus(),
+                    name: () => document.querySelector<HTMLInputElement>('input[placeholder*="Your name"]')?.focus(),
                     avatar: () => document.querySelector('[data-avatar-upload]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
                     bio: () => openWizardAtStep(2),
                     banner: () => openWizardAtStep(1),
@@ -555,62 +603,17 @@ const Profile = () => {
                     skills: () => openWizardAtStep(3),
                     portfolio: () => openWizardAtStep(1),
                   };
-                  const filled = checks.filter((c) => c.done).reduce((sum, c) => sum + c.weight, 0);
-                  const missing = checks.filter((c) => !c.done).sort((a, b) => b.weight - a.weight);
-                  if (filled >= 100 || missing.length === 0) return null;
-
-                  // Progressive fill color — rose (incomplete) → amber
-                  // (getting there) → emerald (almost done).
-                  const barClass = filled < 40
-                    ? 'bg-rose-500'
-                    : filled < 70
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500';
-                  const zoneTint = filled < 40
-                    ? 'border-rose-500/25 bg-rose-500/[0.04]'
-                    : filled < 70
-                    ? 'border-amber-500/25 bg-amber-500/[0.04]'
-                    : 'border-emerald-500/25 bg-emerald-500/[0.04]';
-                  const percentClass = filled < 40
-                    ? 'text-rose-600 dark:text-rose-400'
-                    : filled < 70
-                    ? 'text-amber-700 dark:text-amber-400'
-                    : 'text-emerald-700 dark:text-emerald-400';
-
-                  return (
-                    <div className={cn('rounded-2xl border p-5 shadow-tinted-sm transition-colors duration-500', zoneTint)}>
-                      <div className="flex items-baseline justify-between mb-2">
-                        <p className="text-sm font-semibold text-foreground">
-                          Your profile is <span className={cn('font-bold', percentClass)}>{filled}% complete</span>
-                        </p>
-                        <p className="text-[11px] font-medium text-muted-foreground">{missing.length} quick win{missing.length === 1 ? '' : 's'} left</p>
-                      </div>
-                      <div className="relative h-2 w-full overflow-hidden rounded-full bg-border">
-                        <div
-                          className={cn('h-full rounded-full transition-all duration-500 ease-out', barClass)}
-                          style={{ width: `${filled}%` }}
-                        />
-                      </div>
-                      <div className="mt-4 space-y-1.5">
-                        {missing.slice(0, 3).map((m) => (
-                          <button
-                            key={m.key}
-                            type="button"
-                            onClick={actionFor[m.key]}
-                            className="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent bg-background/60 px-3 py-2 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/5"
-                          >
-                            <span>{m.label}</span>
-                            <span className="shrink-0 text-[11px] font-semibold text-primary">+{m.weight}%</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
+                  return renderProgressCard(checks, actionFor);
                 })()}
 
-                {/* Not visible yet CTA — before listing editor */}
+                {/* Not visible yet CTA — calm card treatment. Uses the
+                    same neutral bg-card shell as the rest of the page;
+                    the amber status dot still signals "needs attention"
+                    without a full amber wash. Primary CTA ("Get listed")
+                    keeps its gradient so it remains the page's most
+                    prominent action. */}
                 {studentProfile?.community_board_status !== 'approved' && (
-                  <div className="rounded-2xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/15 px-5 py-4">
+                  <div className="rounded-2xl border border-border bg-card px-5 py-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -657,17 +660,16 @@ const Profile = () => {
                     </div>
 
                     <div className="overflow-hidden rounded-2xl border border-foreground/10 bg-card">
-                      {/* ── COVER section ── */}
+                      {/* ── COVER section ── The cover image itself is a
+                          strong visual signal; the uppercase "Cover"
+                          header was removed so the card reads cleanly
+                          and the preview dominates. */}
                       <div>
-                        <p className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                          <span className={cn("h-1.5 w-1.5 rounded-full", (existingPost.image_url || bannerUrl) ? "bg-emerald-500" : "bg-amber-400")} />
-                          Cover
-                        </p>
                         <button
                           type="button"
                           onClick={() => bannerFileInputRef.current?.click()}
                           disabled={bannerUploading}
-                          className="group relative mt-1.5 block h-36 w-full overflow-hidden"
+                          className="group relative block h-36 w-full overflow-hidden"
                           title="Tap to change cover photo"
                         >
                           {existingPost.image_url || bannerUrl ? (
@@ -753,16 +755,16 @@ const Profile = () => {
                         </button>
                       </div>
 
-                      {/* ── ABOUT section ── */}
+                      {/* ── ABOUT section ── The in-card placeholder
+                          copy ("Add a headline…") already signals the
+                          empty state, so the redundant uppercase "About"
+                          header was dropped. Padding bumped to py-3.5
+                          for a calmer vertical rhythm. */}
                       <button
                         type="button"
                         onClick={() => openWizardAtStep(2)}
-                        className="group w-full border-t border-foreground/8 px-4 pb-3 pt-2.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
+                        className="group w-full border-t border-foreground/8 px-4 py-3.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
                       >
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                          <span className={cn("h-1.5 w-1.5 rounded-full", (existingPost.title || existingPost.description) ? "bg-emerald-500" : "bg-amber-400")} />
-                          About
-                        </p>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 space-y-1">
                             {existingPost.title ? (
@@ -780,16 +782,14 @@ const Profile = () => {
                         </div>
                       </button>
 
-                      {/* ── SKILLS section (opens wizard) ── */}
+                      {/* ── SKILLS section (opens wizard) ── Dashed
+                          placeholder pills signal empty state; the
+                          uppercase "Skills" header was redundant. */}
                       <button
                         type="button"
                         onClick={() => openWizardAtStep(3)}
-                        className="group w-full border-t border-foreground/8 px-4 pb-3.5 pt-2.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
+                        className="group w-full border-t border-foreground/8 px-4 py-3.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
                       >
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                          <span className={cn("h-1.5 w-1.5 rounded-full", skills.length > 0 ? "bg-emerald-500" : "bg-amber-400")} />
-                          Skills
-                        </p>
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             {skills.length > 0 ? (
@@ -822,9 +822,13 @@ const Profile = () => {
                         </div>
                       </button>
 
-                      {/* ── PRICING section (inline editable) ── */}
-                      <div className="border-t border-foreground/8 px-4 pb-3.5 pt-2.5">
-                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                      {/* ── PRICING section (inline editable) ── Kept
+                          a heading here because, unlike the other
+                          sub-sections, this one shows form inputs and
+                          needs a label to scan. Sentence-case to match
+                          the rest of the page. */}
+                      <div className="border-t border-foreground/8 px-4 py-3.5">
+                        <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
                           <span className={cn("h-1.5 w-1.5 rounded-full", (hourlyRate && Number(hourlyRate) > 0) ? "bg-emerald-500" : "bg-amber-400")} />
                           Pricing
                         </p>
@@ -874,16 +878,14 @@ const Profile = () => {
                         </div>
                       </div>
 
-                      {/* ── LINKS section ── */}
+                      {/* ── LINKS section ── Placeholder copy ("Add
+                          portfolio links…") carries the empty state, so
+                          the uppercase header was dropped. */}
                       <button
                         type="button"
                         onClick={() => openWizardAtStep(2)}
-                        className="group w-full border-t border-foreground/8 px-4 pb-3.5 pt-2.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
+                        className="group w-full border-t border-foreground/8 px-4 py-3.5 text-left transition-all duration-200 hover:bg-muted/30 active:bg-muted/40"
                       >
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                          <span className={cn("h-1.5 w-1.5 rounded-full", workLinks.some(l => l.url.trim()) ? "bg-emerald-500" : "bg-amber-400")} />
-                          Links
-                        </p>
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[12px] text-muted-foreground">
                             {workLinks.some(l => l.url.trim())
@@ -898,39 +900,17 @@ const Profile = () => {
                   </div>
                 )}
 
-                {/* Profile strength (pre-approval) */}
-                {studentProfile?.community_board_status !== 'approved' && (() => {
-                  const steps: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
-                    { id: 'photo', label: 'Profile photo', detail: 'Listings with a photo get far more clicks', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'skills', label: 'At least 3 skills', detail: 'Businesses search by skill — you won\'t show up without them', done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 3 },
-                    { id: 'rate', label: 'Hourly rate set', detail: 'People skip listings with no rate — they assume it\'s expensive', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 3 },
-                    { id: 'bio', label: 'Bio written', detail: 'A short intro builds trust before someone messages you', done: bio.trim().length >= 30, count: null, wizardStep: 2 },
-                    { id: 'link', label: 'Portfolio link', detail: 'Instagram, Behance, GitHub — link your actual work', done: workLinks.some(l => l.url.trim().length > 0), count: null, wizardStep: 2 },
-                  ];
-                  return renderChecklist(steps);
-                })()}
-
-                {/* Profile quality (post-approval) */}
-                {studentProfile?.community_board_status === 'approved' && (() => {
-                  const qualityChecks: { id: string; label: string; detail: string; done: boolean; count: string | null; wizardStep: number | null; profileAction?: string }[] = [
-                    { id: 'photo', label: 'Profile photo', detail: 'Profiles with a real face get far more messages', done: !!avatarUrl, count: null, wizardStep: null, profileAction: 'Upload in details' },
-                    { id: 'banner', label: 'Cover photo', detail: 'No cover — your card looks plain without one', done: !!bannerUrl, count: null, wizardStep: 1 },
-                    { id: 'bio', label: 'Description', detail: bio.trim().length === 0 ? 'No description — businesses need to know what you offer' : `Too short (${bio.trim().length} chars — need 30+)`, done: bio.trim().length >= 30, count: null, wizardStep: 2 },
-                    { id: 'skills', label: 'At least 3 skills', detail: skills.length === 0 ? 'No skills — businesses search by skill to find you'
-                      : `${skills.length}/3 minimum — add ${3 - skills.length} more`, done: skills.length >= 3, count: skills.length < 3 ? `${skills.length}/3` : null, wizardStep: 3 },
-                    { id: 'rate', label: 'Rate set', detail: 'No rate shown — people skip listings with no price', done: !!hourlyRate && Number(hourlyRate) > 0, count: null, wizardStep: 3 },
-                    { id: 'link', label: 'Portfolio or social link', detail: 'Add a link to your Instagram, Behance, GitHub, etc.', done: workLinks.some((l) => l.url.trim().length > 0), count: null, wizardStep: 2 },
-                    { id: 'university', label: 'University', detail: 'Add your university — builds trust with businesses', done: !!university.trim(), count: null, wizardStep: 2 },
-                    { id: 'portfolio', label: 'Portfolio photos', detail: 'Add sample work photos — profiles with images get way more views', done: portfolioCount > 0, count: null, wizardStep: 1 },
-                  ];
-                  return renderChecklist(qualityChecks);
-                })()}
+                {/* Pre- and post-approval quality checklists used to
+                    live here as two separate `renderChecklist` cards.
+                    Both were collapsed into the single progress card at
+                    the top of the column so the page shows one widget
+                    for "how done is my profile" instead of two. */}
 
                 {/* ── Your Details card ── */}
                 <div>
                   <div className="overflow-hidden rounded-2xl border border-border bg-card">
                     <div className="border-b border-border/50 px-5 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your details</p>
+                      <p className="text-sm font-semibold text-foreground">Your details</p>
                     </div>
                     <div className="space-y-5 p-5">
                       {!avatarUrl && (
@@ -991,7 +971,7 @@ const Profile = () => {
                 {displayName && (
                   <div className="overflow-hidden rounded-2xl border border-border bg-card">
                     <div className="border-b border-border/50 px-5 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your profile link</p>
+                      <p className="text-sm font-semibold text-foreground">Your profile link</p>
                     </div>
                     <div className="p-5 space-y-3">
                       <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
@@ -1038,7 +1018,7 @@ const Profile = () => {
                       });
                       window.location.href = '/auth?mode=signup';
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-xs font-semibold text-blue-700 transition-all duration-200 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50 dark:hover:border-blue-600"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground/20 hover:bg-muted/50 hover:text-foreground"
                   >
                     <LogOut size={12} />
                     Sign out / switch account
@@ -1202,7 +1182,7 @@ const Profile = () => {
                   });
                   window.location.href = '/auth?mode=signup';
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-xs font-semibold text-blue-700 transition-all duration-200 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50 dark:hover:border-blue-600"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground/20 hover:bg-muted/50 hover:text-foreground"
               >
                 <LogOut size={12} />
                 Sign out / switch account
