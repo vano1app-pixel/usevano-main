@@ -37,6 +37,7 @@ type AiFindRow = {
   timeline: string | null;
   location: string | null;
   status: string;
+  stripe_payment_intent_id: string | null;
 };
 
 type VanoCandidate = {
@@ -71,16 +72,60 @@ type WebCandidate = {
   match_score: number;
 };
 
+// Auto-refund a payment via the Stripe API. Returns true on success.
+// We use the payment_intent form so Stripe picks up the underlying
+// charge automatically — safer than tracking charge_id separately.
+async function refundViaStripe(
+  paymentIntentId: string,
+  stripeKey: string,
+): Promise<boolean> {
+  try {
+    const resp = await fetch('https://api.stripe.com/v1/refunds', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${stripeKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `payment_intent=${encodeURIComponent(paymentIntentId)}`,
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      console.error('[ai-find-freelancer] stripe refund failed', resp.status, text.slice(0, 300));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[ai-find-freelancer] refund threw', err);
+    return false;
+  }
+}
+
+// Marks the request failed AND tries to auto-refund via Stripe. If the
+// refund goes through, status flips to 'refunded' and the UI shows
+// "Your €1 has been refunded". If the refund call fails (Stripe
+// outage, missing payment intent id), status stays 'failed' with a
+// note appended to error_message so ops can refund manually.
 async function markFailed(
   supabase: ReturnType<typeof createClient>,
   requestId: string,
+  paymentIntentId: string | null,
+  stripeKey: string | null,
   message: string,
 ): Promise<void> {
+  let refunded = false;
+  if (paymentIntentId && stripeKey) {
+    refunded = await refundViaStripe(paymentIntentId, stripeKey);
+  }
+
+  const errorMessage = refunded
+    ? message.slice(0, 500)
+    : `${message.slice(0, 450)} (manual refund required)`;
+
   await supabase
     .from('ai_find_requests')
     .update({
-      status: 'failed',
-      error_message: message.slice(0, 500),
+      status: refunded ? 'refunded' : 'failed',
+      error_message: errorMessage,
       completed_at: new Date().toISOString(),
     })
     .eq('id', requestId);
@@ -358,6 +403,10 @@ serve(async (req) => {
   try {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
+    // STRIPE_SECRET_KEY is optional here — only needed for auto-refund
+    // on failure. If missing, a failed request flips to 'failed' with
+    // the "manual refund required" note so ops can handle it.
+    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY') ?? null;
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), { status: 500 });
     }
@@ -382,7 +431,7 @@ serve(async (req) => {
       .update({ status: 'scouting' })
       .eq('id', requestId)
       .eq('status', 'paid')
-      .select('id, requester_id, brief, category, budget_range, timeline, location, status')
+      .select('id, requester_id, brief, category, budget_range, timeline, location, status, stripe_payment_intent_id')
       .maybeSingle();
 
     if (!flipped) {
@@ -443,9 +492,10 @@ serve(async (req) => {
 
     // Complete even if only one side found something. Only mark failed
     // when BOTH sides turned up empty — the client paid €1, we owe
-    // them at least one real lead or a refund path.
+    // them at least one real lead or a refund path. markFailed will
+    // attempt the Stripe refund automatically.
     if (!vanoUserId && !webScoutId) {
-      await markFailed(supabase, requestId, 'no_matches_found');
+      await markFailed(supabase, requestId, row.stripe_payment_intent_id, STRIPE_SECRET_KEY, 'no_matches_found');
       return new Response(JSON.stringify({ ok: false, reason: 'no_matches' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
