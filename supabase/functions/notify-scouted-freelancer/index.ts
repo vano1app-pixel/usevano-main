@@ -120,7 +120,7 @@ serve(async (req) => {
 
     const text =
       `Hi ${greetingName},\n\n` +
-      `A client on Vano (usevano.com) just searched for a freelancer and our AI picked you out of the open web. ` +
+      `A client on Vano (${siteUrl}) just searched for a freelancer and our AI picked you out of the open web. ` +
       `You don't have a Vano profile yet — if you'd like to respond to them, claim one in under a minute:\n\n` +
       `${claimUrl}\n\n` +
       (briefSnippet ? `What they're looking for:\n"${briefSnippet}"\n\n` : '') +
