@@ -28,3 +28,9 @@ project_id = "puomfwjtpvqedwxjxogh"
   # idempotency guard, so we skip JWT verification at the edge.
   [functions.ai-find-freelancer]
     verify_jwt = false
+  # Outreach email to a newly-scouted web freelancer. Called internally
+  # by ai-find-freelancer with the service-role key; the idempotent
+  # status='new' update inside the function prevents duplicate sends
+  # if this is ever invoked twice for the same scout.
+  [functions.notify-scouted-freelancer]
+    verify_jwt = false

@@ -417,6 +417,30 @@ serve(async (req) => {
       webScoutId = await insertWebScout(supabase, row, webCandidate);
     }
 
+    // Fire the outreach email in the background. The notify function
+    // has its own idempotency guard (status='new' only), so a deduped
+    // scout that was already emailed earlier is a no-op. We don't
+    // await — email sends are slow and the results page polling can
+    // move on without us.
+    if (webScoutId) {
+      const notifyUrl = `${supabaseUrl}/functions/v1/notify-scouted-freelancer`;
+      const notifyPromise = fetch(notifyUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ scout_id: webScoutId }),
+      }).catch((err) => console.error('[ai-find-freelancer] notify trigger failed', err));
+
+      const runtime = (globalThis as unknown as {
+        EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+      }).EdgeRuntime;
+      if (runtime?.waitUntil) {
+        runtime.waitUntil(notifyPromise);
+      }
+    }
+
     // Complete even if only one side found something. Only mark failed
     // when BOTH sides turned up empty — the client paid €5, we owe
     // them at least one real lead or a refund path.
