@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { cn } from '@/lib/utils';
 import { computeProfileChecks } from '@/lib/profileCompleteness';
+import { VanoPaySetupCard } from '@/components/VanoPaySetupCard';
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -1131,6 +1132,13 @@ const Profile = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Vano Pay setup — lets the freelancer receive
+                    payments from clients through the "Pay via Vano"
+                    button on the conversation screen. Progressive
+                    onboarding: we don't force anyone to set this up;
+                    they opt in from here when they're ready. */}
+                <VanoPaySetupCard userId={user.id} />
 
               </div>
               {/* ── END LEFT COLUMN ── */}

@@ -5,11 +5,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // (Stripe can't send JWTs); authenticity is proven by verifying the
 // Stripe-Signature header against STRIPE_WEBHOOK_SECRET using HMAC-SHA256.
 //
-// Only `checkout.session.completed` is handled right now. Idempotent
-// on replay: the "flip awaiting_payment → paid" update is guarded by a
-// WHERE clause so duplicate events don't re-trigger the AI find.
+// Dispatches three event types:
+//   1. checkout.session.completed with metadata.ai_find_request_id →
+//      marks ai_find_requests as paid and kicks off AI scouting.
+//   2. checkout.session.completed with metadata.vano_payment_id →
+//      marks vano_payments as paid (Stripe has already transferred
+//      funds to the freelancer; no further action needed).
+//   3. account.updated → flips student_profiles.stripe_payouts_enabled
+//      when the freelancer's Connect Express account is ready to
+//      receive transfers.
+//
+// All handlers are idempotent on replay.
 
-const TOLERANCE_SECONDS = 300; // Stripe's recommended window.
+const TOLERANCE_SECONDS = 300;
 
 function hex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf))
@@ -29,7 +37,6 @@ async function verifyStripeSignature(
   signatureHeader: string,
   secret: string,
 ): Promise<boolean> {
-  // Stripe-Signature looks like "t=1234567890,v1=hex,v1=hex".
   const parts: Record<string, string[]> = {};
   for (const piece of signatureHeader.split(',')) {
     const [k, v] = piece.split('=');
@@ -57,6 +64,144 @@ async function verifyStripeSignature(
   return candidateSigs.some((s) => constantTimeEqual(s, expected));
 }
 
+type SupabaseClient = ReturnType<typeof createClient>;
+
+// --- Handler: AI Find checkout completed ----------------------------------
+async function handleAiFindCheckoutCompleted(
+  supabase: SupabaseClient,
+  supabaseUrl: string,
+  serviceKey: string,
+  session: StripeCheckoutSession,
+  requestId: string,
+): Promise<Response> {
+  const { data: flipped, error: flipError } = await supabase
+    .from('ai_find_requests')
+    .update({
+      status: 'paid',
+      stripe_payment_status: session.payment_status ?? 'paid',
+      stripe_payment_intent_id: session.payment_intent ?? null,
+      paid_at: new Date().toISOString(),
+    })
+    .eq('id', requestId)
+    .eq('stripe_session_id', session.id)
+    .eq('status', 'awaiting_payment')
+    .select('id')
+    .maybeSingle();
+
+  if (flipError) {
+    console.error('[stripe-webhook] ai_find flip failed', flipError);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!flipped) {
+    return new Response(JSON.stringify({ received: true, replay: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const triggerPromise = fetch(`${supabaseUrl}/functions/v1/ai-find-freelancer`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ request_id: requestId }),
+  }).catch((err) => console.error('[stripe-webhook] ai-find trigger failed', err));
+
+  const runtime = (globalThis as unknown as {
+    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(triggerPromise);
+
+  return new Response(JSON.stringify({ received: true, triggered: 'ai_find' }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// --- Handler: Vano Pay checkout completed ---------------------------------
+// Stripe Checkout with destination charges has already split the funds
+// between the platform (application_fee_amount) and the freelancer
+// (transfer_data.destination) by the time this fires. Our job is just
+// to stamp the row so the UI can reflect "Paid".
+async function handleVanoPayCheckoutCompleted(
+  supabase: SupabaseClient,
+  session: StripeCheckoutSession,
+  paymentId: string,
+): Promise<Response> {
+  const { data: flipped, error: flipError } = await supabase
+    .from('vano_payments')
+    .update({
+      status: 'transferred',
+      stripe_payment_intent_id: session.payment_intent ?? null,
+      paid_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', paymentId)
+    .eq('stripe_session_id', session.id)
+    .eq('status', 'awaiting_payment')
+    .select('id')
+    .maybeSingle();
+
+  if (flipError) {
+    console.error('[stripe-webhook] vano_payments flip failed', flipError);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!flipped) {
+    return new Response(JSON.stringify({ received: true, replay: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(JSON.stringify({ received: true, triggered: 'vano_pay' }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// --- Handler: Connect account.updated -------------------------------------
+// Fires every time a freelancer's Connect Express account changes:
+// onboarding complete, new capability enabled, or a restriction
+// triggered. We care about charges_enabled && payouts_enabled being
+// the gate for whether Vano Pay is usable against this freelancer.
+async function handleAccountUpdated(
+  supabase: SupabaseClient,
+  account: StripeAccount,
+): Promise<Response> {
+  if (!account?.id) {
+    return new Response('Missing account id', { status: 400 });
+  }
+
+  const ready = !!(account.charges_enabled && account.payouts_enabled);
+
+  const { error } = await supabase
+    .from('student_profiles')
+    .update({ stripe_payouts_enabled: ready })
+    .eq('stripe_account_id', account.id);
+
+  if (error) {
+    console.error('[stripe-webhook] account.updated DB write failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+
+  return new Response(JSON.stringify({ received: true, updated: 'connect_account', ready }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// --- Types ----------------------------------------------------------------
+type StripeCheckoutSession = {
+  id?: string;
+  payment_status?: string;
+  payment_intent?: string;
+  client_reference_id?: string;
+  metadata?: Record<string, string | undefined>;
+};
+
+type StripeAccount = {
+  id?: string;
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+};
+
+// --- Entry point ----------------------------------------------------------
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -83,88 +228,51 @@ serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  // We only care about the one event right now. Acknowledge others
-  // with 200 so Stripe doesn't retry — they're legitimate, just
-  // ignored.
-  if (event.type !== 'checkout.session.completed') {
-    return new Response(JSON.stringify({ received: true, ignored: event.type }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const session = event.data?.object as {
-    id?: string;
-    payment_status?: string;
-    payment_intent?: string;
-    client_reference_id?: string;
-    metadata?: Record<string, string | undefined>;
-  } | undefined;
-
-  const sessionId = session?.id;
-  const requestId = session?.metadata?.ai_find_request_id || session?.client_reference_id;
-
-  if (!sessionId || !requestId) {
-    console.error('[stripe-webhook] missing session id or request id', { sessionId, requestId });
-    return new Response('Missing identifiers', { status: 400 });
-  }
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // Idempotent flip: only proceed when the row is still awaiting_payment.
-  // A second delivery of the same event will update zero rows and the
-  // downstream AI find will not be re-triggered.
-  const { data: flipped, error: flipError } = await supabase
-    .from('ai_find_requests')
-    .update({
-      status: 'paid',
-      stripe_payment_status: session?.payment_status ?? 'paid',
-      stripe_payment_intent_id: session?.payment_intent ?? null,
-      paid_at: new Date().toISOString(),
-    })
-    .eq('id', requestId)
-    .eq('stripe_session_id', sessionId)
-    .eq('status', 'awaiting_payment')
-    .select('id')
-    .maybeSingle();
+  const eventType = event.type ?? '';
 
-  if (flipError) {
-    console.error('[stripe-webhook] flip failed', flipError);
-    // 500 so Stripe retries. Transient DB errors shouldn't lose the payment.
-    return new Response('DB error', { status: 500 });
-  }
+  if (eventType === 'checkout.session.completed') {
+    const session = event.data?.object as StripeCheckoutSession | undefined;
+    if (!session?.id) {
+      return new Response('Missing session id', { status: 400 });
+    }
 
-  // No-op on replay. Still ack 200 — this is by design.
-  if (!flipped) {
-    return new Response(JSON.stringify({ received: true, replay: true }), {
+    const aiFindId = session.metadata?.ai_find_request_id;
+    const vanoPayId = session.metadata?.vano_payment_id;
+
+    if (aiFindId) {
+      return handleAiFindCheckoutCompleted(supabase, supabaseUrl, serviceKey, session, aiFindId);
+    }
+    if (vanoPayId) {
+      return handleVanoPayCheckoutCompleted(supabase, session, vanoPayId);
+    }
+
+    // Fallback: look at client_reference_id as an AI Find request id
+    // (legacy behaviour before we started setting metadata). If it
+    // doesn't match anything, 200 + log and move on — Stripe's happy.
+    const fallback = session.client_reference_id;
+    if (fallback) {
+      return handleAiFindCheckoutCompleted(supabase, supabaseUrl, serviceKey, session, fallback);
+    }
+
+    console.warn('[stripe-webhook] session.completed without a recognised id', { sessionId: session.id });
+    return new Response(JSON.stringify({ received: true, ignored: 'no_id' }), {
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // Kick off the AI find. We intentionally do NOT await — ai-find can
-  // take 10-30s and Stripe expects a webhook response within 10. Fire
-  // it off; the edge runtime will keep the request alive long enough.
-  const aiFindUrl = `${supabaseUrl}/functions/v1/ai-find-freelancer`;
-  const triggerPromise = fetch(aiFindUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${serviceKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ request_id: requestId }),
-  }).catch((err) => console.error('[stripe-webhook] ai-find trigger failed', err));
-
-  // Supabase edge runtime exposes waitUntil for background work; if
-  // present, use it so the kickoff isn't cut short.
-  const runtime = (globalThis as unknown as {
-    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
-  }).EdgeRuntime;
-  if (runtime?.waitUntil) {
-    runtime.waitUntil(triggerPromise);
+  if (eventType === 'account.updated') {
+    const account = event.data?.object as StripeAccount | undefined;
+    return handleAccountUpdated(supabase, account ?? {});
   }
 
-  return new Response(JSON.stringify({ received: true, triggered: true }), {
+  // Any other event type: 200 + move on. We only subscribe to the
+  // ones above in the Stripe Dashboard, but a future subscription
+  // change shouldn't flood Stripe with retries.
+  return new Response(JSON.stringify({ received: true, ignored: eventType }), {
     headers: { 'Content-Type': 'application/json' },
   });
 });
