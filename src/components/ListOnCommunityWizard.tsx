@@ -107,6 +107,20 @@ const MAX_PROJECT_BUDGET = 500;          // €500 for websites
 const hourlyCapFor = (cat: CommunityCategoryId | null): number =>
   cat === 'digital_sales' ? MAX_DIGITAL_SALES_HOURLY : MAX_HOURLY_RATE;
 
+/** True if a Supabase/PostgREST error is most likely caused by an expired or
+ *  invalid JWT — used to decide whether to refresh-and-retry the publish RPC.
+ *  Long-form fillout means a user can sit on Step 4 for 30+ min with a stale
+ *  token; one auto-refresh saves the publish without forcing them to re-auth. */
+function isLikelyAuthError(err: unknown): boolean {
+  const e = err as { status?: unknown; code?: unknown; message?: unknown } | null;
+  if (!e) return false;
+  if (e.status === 401 || e.status === 403) return true;
+  const code = String(e.code ?? '');
+  if (code === 'PGRST301' || code === 'PGRST302' || code === '401') return true;
+  const msg = String(e.message ?? '').toLowerCase();
+  return msg.includes('jwt expired') || msg.includes('invalid jwt') || msg.includes('token is expired');
+}
+
 export interface ListOnCommunityInitial {
   bannerUrl: string;
   tiktokUrl: string;
@@ -691,29 +705,35 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
       let uploadedBanner: string | null = null;
       if (bannerFile) {
-        const ext = bannerFile.name.split('.').pop() || 'jpg';
-        const path = `${userId}/banner.${ext}`;
-        const { error: upErr } = await supabase.storage.from('avatars').upload(path, bannerFile, { upsert: true });
-        if (upErr) {
-          logSupabaseError('ListOnCommunityWizard: avatars upload', upErr);
-          throw upErr;
+        try {
+          const ext = bannerFile.name.split('.').pop() || 'jpg';
+          const path = `${userId}/banner.${ext}`;
+          const { error: upErr } = await supabase.storage.from('avatars').upload(path, bannerFile, { upsert: true });
+          if (upErr) throw upErr;
+          const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+          uploadedBanner = `${pub.publicUrl}?t=${Date.now()}`;
+        } catch (e) {
+          logSupabaseError('ListOnCommunityWizard: avatars upload', e);
+          // Re-throw with a user-facing message so the catch block downstream
+          // shows "Couldn't upload your banner" instead of a generic publish failure.
+          throw new Error(`Couldn't upload your banner — ${getSupabaseErrorMessage(e)}`);
         }
-        const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
-        uploadedBanner = `${pub.publicUrl}?t=${Date.now()}`;
       }
 
       // Upload all new listing images to portfolio-images bucket
       const uploadedImageUrls: string[] = [];
       for (const file of listingFiles) {
-        const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-        const { error: liErr } = await supabase.storage.from('portfolio-images').upload(path, file);
-        if (liErr) {
-          logSupabaseError('ListOnCommunityWizard: portfolio-images upload', liErr);
-          throw liErr;
+        try {
+          const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+          const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+          const { error: liErr } = await supabase.storage.from('portfolio-images').upload(path, file);
+          if (liErr) throw liErr;
+          const { data: pub } = supabase.storage.from('portfolio-images').getPublicUrl(path);
+          uploadedImageUrls.push(pub.publicUrl);
+        } catch (e) {
+          logSupabaseError('ListOnCommunityWizard: portfolio-images upload', e);
+          throw new Error(`Couldn't upload "${file.name}" — ${getSupabaseErrorMessage(e)}`);
         }
-        const { data: pub } = supabase.storage.from('portfolio-images').getPublicUrl(path);
-        uploadedImageUrls.push(pub.publicUrl);
       }
       // Combine existing URL previews (kept from previous edit) with newly uploaded
       const existingUrls = listingPreviews.filter(p => p.startsWith('http'));
@@ -822,7 +842,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       // and runs the delete+insert with elevated privileges, preserving
       // "instant go-live" without reopening the RLS hole. See migration
       // 20260416130000_publish_community_listing_rpc.sql.
-      const { error: postErr } = await supabase.rpc('publish_community_listing' as any, {
+      const rpcArgs = {
         _category: category,
         _title: title.trim(),
         _description: description.trim(),
@@ -830,7 +850,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         _rate_min: rate_min,
         _rate_max: rate_max,
         _rate_unit: rate_unit_out,
-      });
+      };
+      let { error: postErr } = await supabase.rpc('publish_community_listing' as any, rpcArgs);
+      // If the JWT expired between page load and Publish (long-form fillout
+      // is the common case), refresh once and retry before showing an error.
+      if (postErr && isLikelyAuthError(postErr)) {
+        const { error: refreshErr } = await supabase.auth.refreshSession();
+        if (!refreshErr) {
+          ({ error: postErr } = await supabase.rpc('publish_community_listing' as any, rpcArgs));
+        }
+      }
       if (postErr) {
         logSupabaseError('ListOnCommunityWizard: publish_community_listing rpc', postErr);
         throw postErr;
@@ -870,8 +899,23 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       setPublished({ category, phone: phone.trim() });
     } catch (err: unknown) {
       logSupabaseError('ListOnCommunityWizard: publish', err);
-      const msg = getSupabaseErrorMessage(err);
-      toast({ title: 'Could not publish', description: msg, variant: 'destructive' });
+      const e = err as Record<string, unknown> | Error | null;
+      const detail = {
+        name: (e as { name?: unknown })?.name ?? null,
+        code: (e as { code?: unknown })?.code ?? null,
+        status: (e as { status?: unknown })?.status ?? null,
+        details: (e as { details?: unknown })?.details ?? null,
+        hint: (e as { hint?: unknown })?.hint ?? null,
+        message: (e as { message?: unknown })?.message ?? null,
+      };
+      // Always log the full payload so support has something to grep for.
+      console.error('[publish] failed', detail);
+      track('publish_failed', { category, ...detail });
+      // Surface the real message (truncated) so users can copy/paste it back to us
+      // rather than the previous generic "Could not publish" which told us nothing.
+      const raw = getSupabaseErrorMessage(err) || 'Unknown error.';
+      const description = raw.length > 140 ? raw.slice(0, 140) + '…' : raw;
+      toast({ title: 'Could not publish', description, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
