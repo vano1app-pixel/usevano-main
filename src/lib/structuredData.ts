@@ -17,11 +17,14 @@ export function organizationSchema(): JsonLd {
     logo: `${ORIGIN}/pwa-512x512.png`,
     image: `${ORIGIN}/og.svg`,
     description:
-      "VANO connects Galway businesses with local freelancers and student talent for digital sales, videography, web design, content creation and more.",
+      "VANO connects businesses with trusted freelancers for digital sales, videography, web design, content creation and more. Based in Galway, serving Ireland and beyond.",
+    // Galway stays as the HQ address (it's where the company is legally
+    // registered — see Terms), but areaServed widens to Ireland so
+    // national searches like "hire videographer Dublin" can pick VANO
+    // up without us writing per-city landing pages.
     areaServed: {
-      '@type': 'City',
-      name: 'Galway',
-      containedInPlace: { '@type': 'Country', name: 'Ireland' },
+      '@type': 'Country',
+      name: 'Ireland',
     },
     address: {
       '@type': 'PostalAddress',
@@ -39,7 +42,7 @@ export function websiteSchema(): JsonLd {
     '@id': `${ORIGIN}/#website`,
     url: `${ORIGIN}/`,
     name: 'VANO',
-    description: 'Post a shift and get the work done — Galway freelancers, hired in minutes.',
+    description: 'Post a brief and get the work done — trusted freelancers, hired in minutes.',
     publisher: { '@id': `${ORIGIN}/#organization` },
     inLanguage: 'en-IE',
   };

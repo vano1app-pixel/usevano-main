@@ -198,9 +198,9 @@ const Landing = () => {
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Hire Galway Freelancers — Videography, Digital Sales, Web & Social"
-        description="VANO connects Galway businesses with local freelancers for digital sales, videography, web design and content creation. Post a shift and get the work done."
-        keywords="galway freelancers, hire students galway, videography galway, digital sales galway, web design galway, content creation galway, ugc galway, gig work ireland"
+        title="Hire a Trusted Freelancer — Videography, Digital Sales, Web & Social"
+        description="VANO connects businesses with trusted freelancers for digital sales, videography, web design and content creation. Describe what you need and we'll match you."
+        keywords="hire freelancer, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
       <Navbar />
@@ -222,7 +222,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-6 leading-relaxed">
-            Connect with Galway's best freelancers for digital sales, videography, web design, and more.
+            Connect with trusted freelancers for digital sales, videography, web design, and more.
           </p>
 
           {/* Hero tag cloud — replaces the old hero search bar. Clicking a tag
@@ -667,7 +667,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO connects businesses with freelancers in Galway. Browse talent, hire for projects, and message in-app — all in one place.
+                  VANO connects businesses with trusted freelancers. Browse talent, hire for projects, and message in-app — all in one place.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -691,7 +691,7 @@ const Landing = () => {
                   Is VANO only for Galway?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  We are built around Galway first — local gigs and talent are the focus. You can still use remote-friendly setups; each gig shows location where it matters.
+                  VANO started in Galway and that's still our home base, but freelancers and clients outside Galway are welcome too. Each gig shows location so you can filter for local, nationwide, or remote work.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="freelancer" className="border-border/80 px-2 border-b-0">
@@ -714,7 +714,7 @@ const Landing = () => {
             {/* Floating magic orbs */}
             <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
             <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
-            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Galway · Free · Local</span>
+            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Free · No commission · AI matched</span>
             <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
               Need something done? Tell us.
             </h2>
@@ -756,7 +756,7 @@ const Landing = () => {
                 <span className="text-xl font-bold text-foreground">VANO</span>
               </div>
               <p className="text-base text-muted-foreground max-w-xs lg:max-w-sm leading-relaxed">
-                Connecting businesses with freelancers for gigs across Galway. Fast and simple.
+                Connecting businesses with trusted freelancers, anywhere. Fast and simple.
               </p>
             </div>
 

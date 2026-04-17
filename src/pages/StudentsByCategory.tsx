@@ -139,9 +139,9 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title={`${meta.label} Freelancers in Galway`}
-        description={`Hire ${meta.label.toLowerCase()} freelancers in Galway on VANO. ${meta.sub}. Browse profiles, ratings and availability — and book in minutes.`}
-        keywords={`${meta.label.toLowerCase()} galway, hire ${meta.label.toLowerCase()} galway, freelance ${meta.label.toLowerCase()} ireland, ${meta.label.toLowerCase()} student galway`}
+        title={`${meta.label} Freelancers on VANO`}
+        description={`Hire ${meta.label.toLowerCase()} freelancers on VANO. ${meta.sub}. Browse profiles, ratings and availability — and book in minutes.`}
+        keywords={`${meta.label.toLowerCase()}, hire ${meta.label.toLowerCase()}, freelance ${meta.label.toLowerCase()}, ${meta.label.toLowerCase()} ireland, ${meta.label.toLowerCase()} galway`}
         jsonLd={breadcrumbSchema([
           { name: 'Home', path: '/' },
           { name: 'Freelancers', path: '/students' },

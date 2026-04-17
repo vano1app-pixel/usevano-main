@@ -378,19 +378,19 @@ const StudentProfile = () => {
     <div className="min-h-[100dvh] bg-background pb-28 sm:pb-16 md:pb-0">
       <SEOHead
         title={!isBusiness
-          ? `${displayName} — ${student?.skills?.[0] ?? 'Freelancer'} in Galway`
+          ? `${displayName} — ${student?.skills?.[0] ?? 'Freelancer'} on VANO`
           : `${displayName} — Hiring on VANO`}
         description={(() => {
-          if (isBusiness) return bioText?.substring(0, 160) || `${displayName} is hiring on VANO — Galway's student freelancer platform.`;
+          if (isBusiness) return bioText?.substring(0, 160) || `${displayName} is hiring on VANO — the trusted freelancer platform.`;
           const skills = (student?.skills || []).slice(0, 4).join(', ');
           const rate = student?.hourly_rate ? `€${student.hourly_rate}/hr. ` : '';
           const avail = student?.is_available ? 'Available now. ' : '';
-          return `${avail}${rate}${skills ? `Skills: ${skills}. ` : ''}${bioText ? bioText.substring(0, 100) : `Find ${displayName} on VANO, Galway's freelancer platform.`}`;
+          return `${avail}${rate}${skills ? `Skills: ${skills}. ` : ''}${bioText ? bioText.substring(0, 100) : `Find ${displayName} on VANO, the trusted freelancer platform.`}`;
         })()}
         keywords={[
           displayName,
           ...(student?.skills || []).slice(0, 6),
-          'Galway', 'freelancer', 'VANO', student?.university || '',
+          'freelancer', 'VANO', 'Ireland', 'Galway', student?.university || '',
         ].filter(Boolean).join(', ')}
         image={avatarUrl || undefined}
         url={shareUrl}

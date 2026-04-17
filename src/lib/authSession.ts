@@ -4,6 +4,30 @@ import { supabase } from '@/integrations/supabase/client';
 import { isCommunityCategoryId } from '@/lib/communityCategories';
 
 const TALENT_BOARD_RETURN_KEY = 'vano_post_auth_talent_return';
+const PENDING_CLAIM_TOKEN_KEY = 'vano_pending_claim_token';
+
+/**
+ * A UUID v4 that the /claim/:token page sets before redirecting to /auth,
+ * so the post-auth router knows to bounce the user back to finish the
+ * scouted-freelancer claim instead of dropping them on /profile.
+ */
+function isUuidV4Like(token: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+}
+
+export function rememberPendingClaimToken(token: string): void {
+  if (!isUuidV4Like(token)) return;
+  sessionStorage.setItem(PENDING_CLAIM_TOKEN_KEY, token);
+}
+
+function peekPendingClaimToken(): string | null {
+  const t = sessionStorage.getItem(PENDING_CLAIM_TOKEN_KEY);
+  return t && isUuidV4Like(t) ? t : null;
+}
+
+export function clearPendingClaimToken(): void {
+  sessionStorage.removeItem(PENDING_CLAIM_TOKEN_KEY);
+}
 
 /**
  * Safe in-app return path after auth: talent hub `/students` or `/students?cat=…` only.
@@ -40,6 +64,13 @@ function clearTalentBoardReturn(): void {
  * Same as getPostAuthPath, but if the user meant to return to the talent board, send them there instead of /profile.
  */
 export async function resolvePostAuthDestination(userId: string): Promise<string> {
+  // A pending scouted-freelancer claim takes priority over every other
+  // post-auth destination — the visitor literally clicked a claim link
+  // and then got funneled through /auth. Send them straight back so
+  // /claim/:token can finish the claim RPC.
+  const claimToken = peekPendingClaimToken();
+  if (claimToken) return `/claim/${claimToken}`;
+
   const base = await getPostAuthPath(userId);
   const returnTo = peekTalentBoardReturn();
   if (base === '/profile' && returnTo) {
@@ -54,6 +85,9 @@ export async function resolvePostAuthDestination(userId: string): Promise<string
  * Same as getPostGoogleAuthPath, with talent-board return preference when landing on /profile.
  */
 export async function resolvePostGoogleAuthDestination(userId: string): Promise<string> {
+  const claimToken = peekPendingClaimToken();
+  if (claimToken) return `/claim/${claimToken}`;
+
   const base = await getPostGoogleAuthPath(userId);
   const returnTo = peekTalentBoardReturn();
   if (base === '/profile' && returnTo) {

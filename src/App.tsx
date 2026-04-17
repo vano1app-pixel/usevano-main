@@ -38,6 +38,8 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const UserSlugRedirect = lazy(() => import("./pages/UserSlugRedirect"));
 const HireRequests = lazy(() => import("./pages/HireRequests"));
+const ClaimProfile = lazy(() => import("./pages/ClaimProfile"));
+const AiFindResults = lazy(() => import("./pages/AiFindResults"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -194,6 +196,21 @@ const App = () => {
               element={
                 <RequireVerifiedSession>
                   <P><Admin /></P>
+                </RequireVerifiedSession>
+              }
+            />
+            {/* AI-Find claim link — public route (no session required to
+                load the preview). The page itself handles the unauth →
+                /auth → back-to-claim round-trip via sessionStorage. */}
+            <Route path="/claim/:token" element={<P><ClaimProfile /></P>} />
+            {/* AI Find results page. Requires a verified session because
+                contact info on the web pick is RLS-gated to the
+                requester and the polling UX relies on a real user. */}
+            <Route
+              path="/ai-find/:id"
+              element={
+                <RequireVerifiedSession>
+                  <P><AiFindResults /></P>
                 </RequireVerifiedSession>
               }
             />
