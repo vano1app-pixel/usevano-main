@@ -1,0 +1,341 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Loader2, Sparkles, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
+
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { SEOHead } from '@/components/SEOHead';
+import { rememberPendingClaimToken, clearPendingClaimToken } from '@/lib/authSession';
+import logo from '@/assets/logo.png';
+
+// Landing page for the one-time claim link we send to scouted freelancers.
+// Preview data is fetched via a SECURITY DEFINER RPC so the visitor sees
+// who they've been matched to before signing in. The actual claim (which
+// writes to profiles + student_profiles) requires an authed session, so
+// unauthenticated visitors are bounced through /auth with the token
+// stashed in sessionStorage; resolvePostAuthDestination routes them back
+// here.
+
+type ScoutPreview = {
+  name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  skills: string[] | null;
+  location: string | null;
+  portfolio_url: string | null;
+  source_platform: string;
+  brief_snapshot: string | null;
+  claimed: boolean;
+  expired: boolean;
+};
+
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'invalid_token' }
+  | { kind: 'not_found' }
+  | { kind: 'expired' }
+  | { kind: 'already_claimed_other' }
+  | { kind: 'ready'; scout: ScoutPreview };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// The two RPCs below aren't in the generated supabase types yet (this is
+// their introducing migration). Casting through this minimal shape keeps
+// the call sites typed without widening the whole client to any.
+type RpcFn = (
+  name: string,
+  args?: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+const ClaimProfile = () => {
+  const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const { session, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [claiming, setClaiming] = useState(false);
+
+  const tokenValid = useMemo(() => !!token && UUID_RE.test(token), [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (!tokenValid) {
+      setState({ kind: 'invalid_token' });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase.rpc as unknown as RpcFn)(
+        'get_scouted_freelancer_by_token',
+        { p_token: token },
+      );
+      if (cancelled) return;
+      if (error) {
+        setState({ kind: 'not_found' });
+        return;
+      }
+
+      // Supabase returns an array for RETURNS TABLE functions.
+      const row = (Array.isArray(data) ? data[0] : data) as ScoutPreview | null | undefined;
+      if (!row) {
+        setState({ kind: 'not_found' });
+        return;
+      }
+      if (row.expired) {
+        setState({ kind: 'expired' });
+        return;
+      }
+      // Surface "already claimed" only when it wasn't *this* user — the
+      // claim RPC below handles the same-user idempotent case cleanly.
+      if (row.claimed && !session) {
+        setState({ kind: 'already_claimed_other' });
+        return;
+      }
+      setState({ kind: 'ready', scout: row });
+    })();
+
+    return () => { cancelled = true; };
+  }, [token, tokenValid, session]);
+
+  const handleSignInToClaim = () => {
+    if (!token) return;
+    rememberPendingClaimToken(token);
+    navigate('/auth');
+  };
+
+  const handleClaim = async () => {
+    if (!token || claiming) return;
+    setClaiming(true);
+    try {
+      const { data, error } = await (supabase.rpc as unknown as RpcFn)(
+        'claim_scouted_freelancer',
+        { p_token: token },
+      );
+      if (error) throw error;
+
+      const result = data as { ok: boolean; error?: string; already_claimed?: boolean } | null;
+      if (!result?.ok) {
+        const code = result?.error ?? 'unknown';
+        const msg =
+          code === 'business_account'
+            ? 'This link is for freelancers. Sign out of the business account and try again.'
+          : code === 'expired'
+            ? 'This claim link has expired.'
+          : code === 'already_claimed'
+            ? 'This link has already been claimed by another account.'
+          : 'Something went wrong. Please try again.';
+        toast({ title: "Couldn't claim profile", description: msg, variant: 'destructive' });
+        return;
+      }
+
+      clearPendingClaimToken();
+      toast({
+        title: 'Profile claimed!',
+        description: "Let's finish your listing so clients can hire you.",
+      });
+      // Send them straight into the listing wizard — student_profiles has
+      // already been seeded with the scouted bio/skills/phone, so fields
+      // will appear pre-filled.
+      navigate('/list-on-community', { replace: true });
+    } catch (err) {
+      toast({
+        title: "Couldn't claim profile",
+        description: 'Network error. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  return (
+    <>
+      <SEOHead title="Claim your Vano profile" description="A client wanted to hire you — claim your free Vano profile in one minute." />
+      <div className="min-h-[100dvh] bg-background px-4 py-10 sm:py-16">
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-8 flex items-center justify-center">
+            <img src={logo} alt="Vano" className="h-10 w-auto" />
+          </div>
+
+          {state.kind === 'loading' || authLoading ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <p className="text-sm">Loading your match...</p>
+            </div>
+          ) : state.kind === 'invalid_token' || state.kind === 'not_found' ? (
+            <ErrorCard
+              title="Link not found"
+              body="This claim link doesn't look right. Double-check the URL in the message we sent you — or reach out and we'll resend it."
+            />
+          ) : state.kind === 'expired' ? (
+            <ErrorCard
+              title="Link expired"
+              body="This claim link has expired. If you'd still like to join Vano, sign up directly and we'll re-match you with new briefs."
+              actionLabel="Sign up to Vano"
+              onAction={() => navigate('/auth')}
+            />
+          ) : state.kind === 'already_claimed_other' ? (
+            <ErrorCard
+              title="Already claimed"
+              body="Looks like this profile has already been claimed. If that wasn't you, contact support."
+            />
+          ) : (
+            <ReadyCard
+              scout={state.scout}
+              hasSession={!!session}
+              claiming={claiming}
+              onSignIn={handleSignInToClaim}
+              onClaim={handleClaim}
+            />
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+const ErrorCard = ({
+  title,
+  body,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  body: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) => (
+  <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+      <AlertCircle className="h-5 w-5" />
+    </div>
+    <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+    <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+    {actionLabel && onAction ? (
+      <button
+        type="button"
+        onClick={onAction}
+        className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 active:scale-[0.98]"
+      >
+        {actionLabel}
+      </button>
+    ) : null}
+  </div>
+);
+
+const ReadyCard = ({
+  scout,
+  hasSession,
+  claiming,
+  onSignIn,
+  onClaim,
+}: {
+  scout: ScoutPreview;
+  hasSession: boolean;
+  claiming: boolean;
+  onSignIn: () => void;
+  onClaim: () => void;
+}) => (
+  <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-5 text-primary-foreground">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
+      <div className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/80">
+        <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+        You've been scouted
+      </div>
+      <h1 className="relative mt-2 text-xl font-bold">A client wanted to hire you.</h1>
+      <p className="relative mt-1 text-[13px] leading-relaxed text-white/80">
+        Claim your free Vano profile to respond. 0% platform fee — clients pay you directly.
+      </p>
+    </div>
+
+    <div className="space-y-4 p-5">
+      <div className="flex items-start gap-3 rounded-xl border border-border bg-background px-4 py-3">
+        {scout.avatar_url ? (
+          <img
+            src={scout.avatar_url}
+            alt=""
+            className="h-11 w-11 flex-shrink-0 rounded-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+            {scout.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{scout.name}</p>
+          {scout.location ? (
+            <p className="truncate text-xs text-muted-foreground">{scout.location}</p>
+          ) : null}
+          {scout.portfolio_url ? (
+            <a
+              href={scout.portfolio_url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              View your portfolio <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : null}
+        </div>
+      </div>
+
+      {scout.skills && scout.skills.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {scout.skills.slice(0, 6).map((s) => (
+            <span
+              key={s}
+              className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-foreground"
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {scout.brief_snapshot ? (
+        <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">The request</p>
+          <p className="mt-1 text-sm text-foreground line-clamp-4">{scout.brief_snapshot}</p>
+        </div>
+      ) : null}
+
+      {hasSession ? (
+        <button
+          type="button"
+          onClick={onClaim}
+          disabled={claiming}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+        >
+          {claiming ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Claiming...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-4 w-4" /> Claim my profile
+            </>
+          )}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onSignIn}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+        >
+          Sign in to claim
+        </button>
+      )}
+
+      <p className="text-center text-[11px] text-muted-foreground">
+        Takes about 60 seconds. You can edit or delete your profile anytime.
+      </p>
+    </div>
+  </div>
+);
+
+export default ClaimProfile;

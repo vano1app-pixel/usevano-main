@@ -24,6 +24,10 @@ const SKIP_PREFIXES = [
   '/privacy',
   '/terms',
   '/blog',
+  // Scouted-freelancer claim flow owns its own onboarding hand-off — it
+  // navigates to /list-on-community itself on success. Letting this guard
+  // fire first would redirect mid-RPC and drop the token context.
+  '/claim',
 ];
 
 export function RedirectUnlistedFreelancerToWizard() {
