@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
 import { SEOHead } from '@/components/SEOHead';
 
-// Results page for the €5 AI Find flow. Polls ai_find_requests until
+// Results page for the €1 AI Find flow. Polls ai_find_requests until
 // status='complete' (or 'failed'), then loads the Vano + web picks and
 // renders the two-card UI. Access is RLS-gated to the requester, so an
 // unrelated user hitting a random /ai-find/:id URL sees nothing.
@@ -249,8 +249,8 @@ const AiFindResults = () => {
               title="We couldn't find a match"
               body={
                 row.error_message === 'no_matches_found'
-                  ? "Sorry — we didn't find a great fit this time. We'll refund your €5 within 24 hours, no action needed."
-                  : 'Something went wrong on our side. We\'ll refund your €5 within 24 hours, no action needed.'
+                  ? "Sorry — we didn't find a great fit this time. We'll refund your €1 within 24 hours, no action needed."
+                  : 'Something went wrong on our side. We\'ll refund your €1 within 24 hours, no action needed.'
               }
               action={{ label: 'Back to /hire', onClick: () => navigate('/hire') }}
             />
@@ -258,7 +258,7 @@ const AiFindResults = () => {
             <StatusCard
               tone="neutral"
               title="Refunded"
-              body="Your €5 has been refunded."
+              body="Your €1 has been refunded."
               action={{ label: 'Back to /hire', onClick: () => navigate('/hire') }}
             />
           ) : (

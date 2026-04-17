@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Runs the €5 AI Find for a single ai_find_requests row. Invoked by
+// Runs the €1 AI Find for a single ai_find_requests row. Invoked by
 // stripe-webhook once payment is confirmed (service role auth). Does:
 //   1. Load + lock-flip paid → scouting (idempotent on double-call).
 //   2. Vano pick: query community_posts + student_profiles, let Gemini
@@ -442,7 +442,7 @@ serve(async (req) => {
     }
 
     // Complete even if only one side found something. Only mark failed
-    // when BOTH sides turned up empty — the client paid €5, we owe
+    // when BOTH sides turned up empty — the client paid €1, we owe
     // them at least one real lead or a refund path.
     if (!vanoUserId && !webScoutId) {
       await markFailed(supabase, requestId, 'no_matches_found');

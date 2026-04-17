@@ -141,7 +141,7 @@ const HirePage = () => {
   // Results
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  // Separate loading flag so the €5 AI Find button can spin without
+  // Separate loading flag so the €1 AI Find button can spin without
   // freezing the primary "Send request to Vano" CTA.
   const [aiFindLoading, setAiFindLoading] = useState(false);
   const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
@@ -368,7 +368,7 @@ const HirePage = () => {
     setSubmitting(false);
   };
 
-  // €5 AI Find — secondary CTA on Step 3. Creates an ai_find_requests
+  // €1 AI Find — secondary CTA on Step 3. Creates an ai_find_requests
   // row via the create-ai-find-checkout edge function, then bounces the
   // user to Stripe Checkout. Payment confirmation happens server-side
   // in stripe-webhook; the success_url drops them on /ai-find/:id which
@@ -830,7 +830,7 @@ const HirePage = () => {
               </button>
               <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
 
-              {/* €5 AI Find — secondary CTA. Quieter styling so it reads
+              {/* €1 AI Find — secondary CTA. Quieter styling so it reads
                   as a beta alternative, not the primary path. Only
                   offered to signed-in users; the main CTA above handles
                   the auth round-trip if needed. */}
@@ -846,7 +846,7 @@ const HirePage = () => {
                   ) : (
                     <>
                       <Sparkles size={13} className="text-amber-200" />
-                      Or try AI Find — €5, results in 60 seconds
+                      Or try AI Find — €1, results in 60 seconds
                     </>
                   )}
                 </button>
