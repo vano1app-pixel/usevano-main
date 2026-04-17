@@ -110,11 +110,31 @@ export async function ensureProfileAfterAuth(
     const { error: upErr } = await supabase.from('profiles').update(patch).eq('user_id', userId);
     if (upErr) throw upErr;
   }
-  if ((!existing.user_type && intent === 'student') || (existing.user_type === 'student' && avatarUrl)) {
-    const { error: spErr } = await supabase
+
+  // Student-side row. Make sure it exists (idempotent insert), and only seed
+  // avatar_url when the row is missing one — never overwrite a custom upload
+  // with OAuth metadata on re-login.
+  const isOrBecomingStudent =
+    (!existing.user_type && intent === 'student') || existing.user_type === 'student';
+  if (isOrBecomingStudent) {
+    const { data: spExisting } = await supabase
       .from('student_profiles')
-      .upsert({ user_id: userId, avatar_url: avatarUrl ?? undefined }, { onConflict: 'user_id' });
-    if (spErr) throw spErr;
+      .select('user_id, avatar_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!spExisting) {
+      const { error: spErr } = await supabase
+        .from('student_profiles')
+        .insert({ user_id: userId, avatar_url: avatarUrl ?? undefined });
+      if (spErr) throw spErr;
+    } else if (!spExisting.avatar_url && avatarUrl) {
+      const { error: spErr } = await supabase
+        .from('student_profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('user_id', userId);
+      if (spErr) throw spErr;
+    }
   }
 }
 

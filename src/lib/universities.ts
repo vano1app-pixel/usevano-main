@@ -45,9 +45,12 @@ export function resolveUniversityKey(value: string | null | undefined): string {
     }
   }
 
-  // Unmatched legacy value — bucket under 'Other' so the Radix Select trigger
-  // shows a real option instead of an orphaned value the dropdown can't render.
-  return 'Other';
+  // Unmatched legacy value — return '' so the Radix Select trigger shows
+  // its placeholder rather than an orphaned value it can't render. The
+  // wizard's save path skips writing university when the field is empty,
+  // so the user's original (unrecognised) DB value is preserved unless they
+  // explicitly pick a new one from the dropdown.
+  return '';
 }
 
 /** Look up a university by its canonical key (e.g. 'UGalway'). */
