@@ -161,7 +161,7 @@ const Auth = () => {
     <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-10">
       <SEOHead
         title={`${isLogin ? 'Log in' : 'Create account'} – VANO`}
-        description="Log in or sign up for VANO — local gigs and freelancers in Galway."
+        description="Log in or sign up for VANO — gigs and trusted freelancers."
         noindex
       />
       <div className="w-full max-w-md">

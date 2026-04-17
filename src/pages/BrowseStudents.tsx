@@ -72,9 +72,9 @@ const BrowseStudents = () => {
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Browse Galway Freelancers — Digital Sales, Video, Web & Social"
-        description="Browse local freelancers and students in Galway by category. Hire trusted videographers, sales reps, web designers and UGC / content creators on VANO."
-        keywords="browse freelancers galway, find freelancer galway, galway sales reps, galway videographers, galway web designers, galway content creation, galway ugc"
+        title="Browse Trusted Freelancers — Digital Sales, Video, Web & Social"
+        description="Browse freelancers by category. Hire trusted videographers, sales reps, web designers and UGC / content creators on VANO."
+        keywords="browse freelancers, find freelancer, sales reps, videographers, web designers, content creation, ugc, ireland, galway"
         jsonLd={breadcrumbSchema([
           { name: 'Home', path: '/' },
           { name: 'Freelancers', path: '/students' },
