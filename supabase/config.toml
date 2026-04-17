@@ -19,3 +19,12 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.ai-review-summary]
     verify_jwt = false
+  # Stripe can't send a JWT — we verify the Stripe-Signature header instead
+  # inside the function. Do NOT flip this to true; it would break every webhook.
+  [functions.stripe-webhook]
+    verify_jwt = false
+  # Called by stripe-webhook with the service-role key. We still pass the
+  # service role JWT, but the row status check in the function is the real
+  # idempotency guard, so we skip JWT verification at the edge.
+  [functions.ai-find-freelancer]
+    verify_jwt = false

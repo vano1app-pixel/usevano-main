@@ -141,6 +141,9 @@ const HirePage = () => {
   // Results
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Separate loading flag so the €5 AI Find button can spin without
+  // freezing the primary "Send request to Vano" CTA.
+  const [aiFindLoading, setAiFindLoading] = useState(false);
   const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
@@ -363,6 +366,53 @@ const HirePage = () => {
       }).catch(() => {});
     }
     setSubmitting(false);
+  };
+
+  // €5 AI Find — secondary CTA on Step 3. Creates an ai_find_requests
+  // row via the create-ai-find-checkout edge function, then bounces the
+  // user to Stripe Checkout. Payment confirmation happens server-side
+  // in stripe-webhook; the success_url drops them on /ai-find/:id which
+  // polls until the AI picks are ready.
+  const handleAiFind = async () => {
+    if (!user) {
+      toast({ title: 'Please sign in first', description: "Use the primary Vano button above — it'll bring you back here." });
+      return;
+    }
+    if (!isEmailVerified({ user } as any)) {
+      toast({ title: 'Please verify your email first', variant: 'destructive' });
+      return;
+    }
+    if (aiFindLoading) return;
+
+    setAiFindLoading(true);
+    try {
+      const finalDescription = buildDescription();
+      const { data, error } = await supabase.functions.invoke('create-ai-find-checkout', {
+        body: {
+          brief: finalDescription,
+          category,
+          budget_range: budget,
+          timeline,
+        },
+      });
+
+      if (error) throw error;
+      const url = (data as { url?: string } | null)?.url;
+      if (!url) throw new Error('No checkout URL returned');
+
+      track('ai_find_checkout_started', { category, timeline, budget });
+      // Hand off to Stripe — do NOT clear the brief; if they cancel
+      // checkout they'll land back on /hire and expect the form intact.
+      window.location.href = url;
+    } catch (err) {
+      console.error('[ai-find] checkout failed', err);
+      toast({
+        title: "Couldn't start AI Find",
+        description: 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+      setAiFindLoading(false);
+    }
   };
 
   /* Auto-submit once on post-OAuth return. Fires when the restored brief meets
@@ -779,6 +829,28 @@ const HirePage = () => {
                 {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
               </button>
               <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
+
+              {/* €5 AI Find — secondary CTA. Quieter styling so it reads
+                  as a beta alternative, not the primary path. Only
+                  offered to signed-in users; the main CTA above handles
+                  the auth round-trip if needed. */}
+              {user ? (
+                <button
+                  type="button"
+                  onClick={handleAiFind}
+                  disabled={aiFindLoading}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-4 py-3 text-xs font-semibold text-white/90 transition hover:bg-white/10 active:scale-[0.98] disabled:opacity-60"
+                >
+                  {aiFindLoading ? (
+                    <><Loader2 size={13} className="animate-spin" /> Starting AI Find…</>
+                  ) : (
+                    <>
+                      <Sparkles size={13} className="text-amber-200" />
+                      Or try AI Find — €5, results in 60 seconds
+                    </>
+                  )}
+                </button>
+              ) : null}
             </div>
           </div>
         ) : (

@@ -28,6 +28,11 @@ const SKIP_PREFIXES = [
   // navigates to /list-on-community itself on success. Letting this guard
   // fire first would redirect mid-RPC and drop the token context.
   '/claim',
+  // AI Find results belong to business accounts (requesters), but the
+  // guard only fires for students anyway; this is belt-and-braces in
+  // case a student ever pays for an AI Find (different signed-in
+  // account, same device).
+  '/ai-find',
 ];
 
 export function RedirectUnlistedFreelancerToWizard() {
