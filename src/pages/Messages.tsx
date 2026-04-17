@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
+import { VanoPayModal } from '@/components/VanoPayModal';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import {
   TEAM_CONTACT_EMAIL,
@@ -158,6 +159,7 @@ const Messages = () => {
   // "✓ Hired" chip and the thread is considered formally closed.
   const [hireAgreement, setHireAgreement] = useState<{ id: string; business_id: string; freelancer_id: string; created_at: string } | null>(null);
   const [hiringInProgress, setHiringInProgress] = useState(false);
+  const [vanoPayOpen, setVanoPayOpen] = useState(false);
   // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
   // Other-party metadata for the active conversation — used by the
@@ -911,6 +913,21 @@ const Messages = () => {
                       Hired
                     </span>
                   )}
+                  {/* Pay via Vano — only makes sense for businesses
+                      paying freelancers. Modal validates the rest
+                      (freelancer's Connect onboarding status, amount
+                      bounds) server-side before redirecting to Stripe
+                      Checkout. */}
+                  {selectedConversation && user && viewerUserType === 'business' && (
+                    <button
+                      type="button"
+                      onClick={() => setVanoPayOpen(true)}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition-colors hover:brightness-110"
+                    >
+                      <Banknote size={12} strokeWidth={2.5} />
+                      Pay via Vano
+                    </button>
+                  )}
                 </div>
 
                 {/* Broadcast banner — only renders for multi-send conversations.
@@ -1082,6 +1099,17 @@ const Messages = () => {
           </div>
         </div>
       </div>
+      {/* Vano Pay modal. Keyed on selectedConversation.id so changing
+          conversations while the modal is open cleanly resets state. */}
+      {selectedConversation && (
+        <VanoPayModal
+          key={selectedConversation.id}
+          open={vanoPayOpen}
+          onClose={() => setVanoPayOpen(false)}
+          conversationId={selectedConversation.id}
+          freelancerName={selectedConversation.otherName || 'this freelancer'}
+        />
+      )}
     </div>
   );
 };
