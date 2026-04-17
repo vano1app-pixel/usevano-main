@@ -34,12 +34,15 @@ export function getSiteOrigin(): string {
 }
 
 /**
- * `signInWithOAuth({ options: { redirectTo } })` must match a URL in Supabase → Authentication → URL Configuration → Redirect URLs.
+ * Auth redirect for both `signInWithOAuth({ options: { redirectTo } })` and
+ * `signInWithOtp({ options: { emailRedirectTo } })`. Must match a URL in
+ * Supabase → Authentication → URL Configuration → Redirect URLs.
  * Production: `https://vanojobs.com` (site root; session is restored from the URL hash on load).
  */
-export function getGoogleOAuthRedirectUrl(): string {
+export function getAuthRedirectUrl(): string {
   return getSiteOrigin();
 }
+
 
 /** Full URL for the current path on the canonical origin (SEO / sharing). */
 export function getCanonicalUrl(): string {

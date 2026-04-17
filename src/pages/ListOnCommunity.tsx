@@ -19,15 +19,13 @@ import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
  * freelancer without a published listing straight here, where the wizard
  * opens on mount.
  *
- * Escape hatch: the "Skip for now" button navigates to /profile, but the
- * top-level RedirectUnlistedFreelancerToWizard guard immediately bounces
- * any student without a listing back here. Skipping is effectively a
- * no-op; publishing is the only way forward. The button is kept as a
- * familiar control; it just doesn't go anywhere.
- *
  * This page is NOT routed to for anyone who already has a published or
  * pending community_posts row — those users go to /profile as before. See
  * `resolvePostGoogleAuthDestination` in authSession.ts for the routing rule.
+ *
+ * No "Skip for now" button: the guard in RedirectUnlistedFreelancerToWizard
+ * would bounce the user right back, so the skip was always a UX lie.
+ * Publishing is the only way forward; load-error retry is the only escape.
  */
 export default function ListOnCommunity() {
   const navigate = useNavigate();
@@ -123,8 +121,6 @@ export default function ListOnCommunity() {
     navigate('/profile?listed=1', { replace: true });
   };
 
-  const skip = () => navigate('/profile', { replace: true });
-
   return (
     <div className="min-h-screen bg-background pb-12">
       <SEOHead
@@ -144,13 +140,6 @@ export default function ListOnCommunity() {
               className="mt-1 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
             >
               Reload
-            </button>
-            <button
-              type="button"
-              onClick={skip}
-              className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-            >
-              Skip for now
             </button>
           </div>
         ) : !userId || !initial ? (
@@ -187,13 +176,6 @@ export default function ListOnCommunity() {
                     >
                       {initial.skills.length > 0 ? 'Continue setup' : 'Open the wizard'}
                       <ArrowRight size={14} strokeWidth={2.5} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={skip}
-                      className="text-[12px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
-                    >
-                      Skip for now
                     </button>
                   </div>
                 </div>

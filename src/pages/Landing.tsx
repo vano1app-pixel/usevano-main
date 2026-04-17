@@ -8,7 +8,7 @@ import type { Session } from '@supabase/supabase-js';
 import { tryFinishGoogleOAuthRedirect } from '@/lib/finishGoogleOAuthRedirect';
 import { tryFinishMagicLinkRedirect } from '@/lib/magicLink';
 import { setGoogleOAuthIntent, clearGoogleOAuthIntent, hasGoogleOAuthPending } from '@/lib/googleOAuth';
-import { getGoogleOAuthRedirectUrl } from '@/lib/siteUrl';
+import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { useToast } from '@/hooks/use-toast';
 import {
   ArrowRight,
@@ -66,7 +66,7 @@ const Landing = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: getGoogleOAuthRedirectUrl(),
+          redirectTo: getAuthRedirectUrl(),
           queryParams: { access_type: 'offline', prompt: 'consent select_account' },
         },
       });

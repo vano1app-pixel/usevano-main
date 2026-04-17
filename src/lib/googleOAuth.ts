@@ -52,16 +52,37 @@ export async function ensureProfileAfterAuth(
   resolvedFromIntent: 'student' | 'business' | null,
 ): Promise<void> {
   const userId = session.user.id;
+  const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+
+  // If the caller couldn't recover the intent (common on cross-device
+  // magic-link clicks where the other device's localStorage is empty),
+  // fall back to what we stashed on auth.users.raw_user_meta_data via
+  // signInWithOtp's `options.data.user_type`.
+  const metaUserType = meta.user_type;
+  const intent: 'student' | 'business' | null =
+    resolvedFromIntent
+    ?? (metaUserType === 'student' ? 'student'
+      : metaUserType === 'business' ? 'business'
+      : null);
 
   const name =
-    (session.user.user_metadata?.full_name as string | undefined) ||
-    (session.user.user_metadata?.name as string | undefined) ||
+    (meta.full_name as string | undefined) ||
+    (meta.name as string | undefined) ||
     session.user.email?.split('@')[0] ||
     'User';
 
+  // Google provides a profile picture on `user_metadata.avatar_url`; some
+  // providers use `picture`. Seeding this means freelancers don't need a
+  // separate avatar-upload step before the wizard — they can still replace
+  // it later from /profile.
+  const avatarUrl =
+    (typeof meta.avatar_url === 'string' && meta.avatar_url.trim()) ? meta.avatar_url.trim()
+    : (typeof meta.picture === 'string' && meta.picture.trim()) ? meta.picture.trim()
+    : null;
+
   const { data: existing } = await supabase
     .from('profiles')
-    .select('user_id, user_type')
+    .select('user_id, user_type, avatar_url')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -69,21 +90,49 @@ export async function ensureProfileAfterAuth(
     const { error: insErr } = await supabase.from('profiles').insert({
       user_id: userId,
       display_name: name,
-      user_type: resolvedFromIntent,
+      user_type: intent ?? undefined,
+      avatar_url: avatarUrl ?? undefined,
     });
     if (insErr) throw insErr;
-    if (resolvedFromIntent === 'student') {
-      const { error: spErr } = await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+    if (intent === 'student') {
+      const { error: spErr } = await supabase
+        .from('student_profiles')
+        .upsert({ user_id: userId, avatar_url: avatarUrl ?? undefined }, { onConflict: 'user_id' });
       if (spErr) throw spErr;
     }
     return;
   }
 
-  if (!existing.user_type && resolvedFromIntent) {
-    const { error: upErr } = await supabase.from('profiles').update({ user_type: resolvedFromIntent }).eq('user_id', userId);
+  const patch: { user_type?: string; avatar_url?: string } = {};
+  if (!existing.user_type && intent) patch.user_type = intent;
+  if (!existing.avatar_url && avatarUrl) patch.avatar_url = avatarUrl;
+  if (Object.keys(patch).length > 0) {
+    const { error: upErr } = await supabase.from('profiles').update(patch).eq('user_id', userId);
     if (upErr) throw upErr;
-    if (resolvedFromIntent === 'student') {
-      const { error: spErr } = await supabase.from('student_profiles').upsert({ user_id: userId }, { onConflict: 'user_id' });
+  }
+
+  // Student-side row. Make sure it exists (idempotent insert), and only seed
+  // avatar_url when the row is missing one — never overwrite a custom upload
+  // with OAuth metadata on re-login.
+  const isOrBecomingStudent =
+    (!existing.user_type && intent === 'student') || existing.user_type === 'student';
+  if (isOrBecomingStudent) {
+    const { data: spExisting } = await supabase
+      .from('student_profiles')
+      .select('user_id, avatar_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!spExisting) {
+      const { error: spErr } = await supabase
+        .from('student_profiles')
+        .insert({ user_id: userId, avatar_url: avatarUrl ?? undefined });
+      if (spErr) throw spErr;
+    } else if (!spExisting.avatar_url && avatarUrl) {
+      const { error: spErr } = await supabase
+        .from('student_profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('user_id', userId);
       if (spErr) throw spErr;
     }
   }

@@ -35,6 +35,22 @@ const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   return isAdmin ? <ModBadge /> : null;
 };
 
+/** Reject after `ms` if the underlying promise hasn't settled. Prevents
+ *  a single hung Supabase query from leaving the page on a perpetual
+ *  spinner — particularly painful on flaky 3G/mobile sessions. */
+function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+    Promise.resolve(p).then(
+      (v) => { window.clearTimeout(t); resolve(v); },
+      (e) => { window.clearTimeout(t); reject(e); },
+    );
+  });
+}
+
 const Profile = () => {
   const navigate = useNavigate();
   useProfileCompletion();
@@ -129,7 +145,16 @@ const Profile = () => {
     existingPost: existingPost ?? null,
   }), [bannerUrl, tiktokUrl, instagramUrl, linkedinUrl, websiteUrl, workLinks, skills, serviceArea, county, remoteOk, typicalBudgetMin, typicalBudgetMax, hourlyRate, bio, university, phone, expectedBonusAmount, expectedBonusUnit, existingPost]);
 
-  useEffect(() => { loadProfile(); }, []);
+  // Bumped on every loadProfile() call; any in-flight load whose id no
+  // longer matches the current one short-circuits before touching state.
+  // Bumped again in the cleanup so a load that started right before unmount
+  // can't fire setLoading(false) on a dead component.
+  const loadIdRef = useRef(0);
+
+  useEffect(() => {
+    void loadProfile();
+    return () => { loadIdRef.current += 1; };
+  }, []);
 
   /* ── Share-as-image capture effect ──
      Watches `sharingState`. When it flips to 'rendering', the off-screen
@@ -201,15 +226,26 @@ const Profile = () => {
   }, [sharingState, displayName, toast]);
 
   const loadProfile = async () => {
+    const myId = ++loadIdRef.current;
+    const stale = () => loadIdRef.current !== myId;
+
+    setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(), 8000, 'auth session',
+      );
+      if (stale()) return;
       if (!session) {
         navigate('/auth');
         return;
       }
       setUser(session.user);
 
-      let { data: prof } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+      let { data: prof } = await withTimeout(
+        supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
+        10000, 'profile',
+      );
+      if (stale()) return;
 
       // Auto-create profile if missing
       if (!prof) {
@@ -217,6 +253,7 @@ const Profile = () => {
           user_id: session.user.id,
           display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
         }).select().single();
+        if (stale()) return;
         prof = newProf;
       }
 
@@ -232,13 +269,21 @@ const Profile = () => {
       if (prof?.user_type === 'business') {
         setBio(prof?.bio || '');
         setWorkDescription('');
-        const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
+        const { data: gigs } = await withTimeout(
+          supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false }),
+          10000, 'business jobs',
+        );
+        if (stale()) return;
         setMyGigs(gigs || []);
       }
 
       if (prof?.user_type === 'student') {
         setWorkDescription(prof?.work_description || '');
-        const { data: sp } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+        const { data: sp } = await withTimeout(
+          supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
+          10000, 'student profile',
+        );
+        if (stale()) return;
         if (sp) {
           setStudentProfile(sp);
           setBio(sp.bio || '');
@@ -283,25 +328,38 @@ const Profile = () => {
           );
         }
 
-        // Portfolio item count for quality widget
-        const { count: piCount } = await supabase
-          .from('portfolio_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', session.user.id);
-        setPortfolioCount(piCount ?? 0);
-
-        const { data: gigs } = await supabase.from('jobs').select('*').eq('posted_by', session.user.id).order('created_at', { ascending: false });
-        setMyGigs(gigs || []);
-
-        // Load existing community post so wizard can pre-fill and inline card can render
-        const { data: postRow } = await supabase
-          .from('community_posts')
-          .select('id, category, title, description, image_url, rate_min, rate_max, rate_unit, likes_count, created_at')
-          .eq('user_id', session.user.id)
-          .eq('moderation_status', 'approved')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        // Three independent queries — parallelise so total wait time is the
+        // slowest single one, not the sum. Each has its own timeout so a
+        // single hung query can't lock the page.
+        const [piRes, gigsRes, postRes] = await Promise.all([
+          withTimeout(
+            supabase.from('portfolio_items')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', session.user.id),
+            10000, 'portfolio count',
+          ),
+          withTimeout(
+            supabase.from('jobs')
+              .select('*')
+              .eq('posted_by', session.user.id)
+              .order('created_at', { ascending: false }),
+            10000, 'student jobs',
+          ),
+          withTimeout(
+            supabase.from('community_posts')
+              .select('id, category, title, description, image_url, rate_min, rate_max, rate_unit, likes_count, created_at')
+              .eq('user_id', session.user.id)
+              .eq('moderation_status', 'approved')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            10000, 'community post',
+          ),
+        ]);
+        if (stale()) return;
+        setPortfolioCount(piRes.count ?? 0);
+        setMyGigs(gigsRes.data || []);
+        const postRow = postRes.data;
         setExistingPost(postRow ?? null);
 
         // First-time freelancers haven't listed yet — open the wizard for them
@@ -318,10 +376,15 @@ const Profile = () => {
         }
       }
     } catch (err) {
+      if (stale()) return;
       if (import.meta.env.DEV) console.error('Failed to load profile:', err);
-      toast({ title: 'Something went wrong', description: 'Could not load your profile. Try refreshing.', variant: 'destructive' });
+      toast({
+        title: "Couldn't load your profile",
+        description: 'Pull to refresh, or check your connection.',
+        variant: 'destructive',
+      });
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
   };
 

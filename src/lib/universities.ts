@@ -35,17 +35,22 @@ export function resolveUniversityKey(value: string | null | undefined): string {
   // Already a canonical key?
   if (UNIVERSITIES.some((u) => u.key === value)) return value;
 
-  // Fuzzy match against aliases
+  // Fuzzy match against aliases. Don't skip 'Other' — a stored "Other" string
+  // should still match itself.
   const lower = value.toLowerCase();
   for (const uni of UNIVERSITIES) {
-    if (uni.key === 'Other') continue;
     if (lower.includes(uni.key.toLowerCase())) return uni.key;
     for (const alias of uni.aliases) {
       if (lower.includes(alias)) return uni.key;
     }
   }
 
-  return value; // Unknown — keep as-is
+  // Unmatched legacy value — return '' so the Radix Select trigger shows
+  // its placeholder rather than an orphaned value it can't render. The
+  // wizard's save path skips writing university when the field is empty,
+  // so the user's original (unrecognised) DB value is preserved unless they
+  // explicitly pick a new one from the dropdown.
+  return '';
 }
 
 /** Look up a university by its canonical key (e.g. 'UGalway'). */
