@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
+import {
+  VANO_PAY_CURRENCY,
+  VANO_PAY_FEE_BPS,
+  VANO_PAY_MAX_CENTS,
+  VANO_PAY_MIN_CENTS,
+} from "../_shared/vanoPayConfig.ts";
 
 // Business-side entry point for Vano Pay. Given a conversation id and
 // an amount, creates a vano_payments row and a Stripe Checkout Session
@@ -15,10 +21,12 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 //     Stripe splits off the application fee and transfers the rest to
 //     the freelancer's connected account. No escrow; it's a pass-through.
 
-const VANO_FEE_BPS = 300; // 3.00% in basis points.
-const MIN_AMOUNT_CENTS = 100;
-const MAX_AMOUNT_CENTS = 500000; // €5,000 ceiling for MVP. Adjust as needed.
-const CURRENCY = 'eur';
+// Fee/bounds live in _shared/vanoPayConfig.ts so the public
+// get-vano-pay-config endpoint reads the same values.
+const VANO_FEE_BPS = VANO_PAY_FEE_BPS;
+const MIN_AMOUNT_CENTS = VANO_PAY_MIN_CENTS;
+const MAX_AMOUNT_CENTS = VANO_PAY_MAX_CENTS;
+const CURRENCY = VANO_PAY_CURRENCY;
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)

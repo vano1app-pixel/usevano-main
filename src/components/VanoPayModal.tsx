@@ -3,6 +3,7 @@ import { X, Loader2, Sparkles } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useVanoPayConfig } from '@/lib/vanoPayConfig';
 
 // Business-side modal for initiating a Vano Pay payment inside a
 // conversation. Collects amount (€) + optional description, shows a
@@ -11,9 +12,9 @@ import { useToast } from '@/hooks/use-toast';
 //
 // The edge function does all the validation (freelancer must have
 // Vano Pay enabled, amount bounds, etc.) — we surface its errors
-// via toast so the modal stays dumb.
-
-const VANO_FEE_BPS = 300; // mirrors backend
+// via toast so the modal stays dumb. Fee / bounds are fetched from
+// get-vano-pay-config so a server-side fee change needs no frontend
+// redeploy.
 
 export function VanoPayModal({
   open,
@@ -27,6 +28,8 @@ export function VanoPayModal({
   freelancerName: string;
 }) {
   const { toast } = useToast();
+  const { feeBps, minCents } = useVanoPayConfig();
+  const feePercentLabel = `${(feeBps / 100).toFixed(feeBps % 100 === 0 ? 0 : 1)}%`;
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -53,9 +56,9 @@ export function VanoPayModal({
 
   const amountNumber = Number.parseFloat(amount);
   const amountCents = Number.isFinite(amountNumber) && amountNumber > 0 ? Math.round(amountNumber * 100) : 0;
-  const feeCents = amountCents > 0 ? Math.max(1, Math.round((amountCents * VANO_FEE_BPS) / 10000)) : 0;
+  const feeCents = amountCents > 0 ? Math.max(1, Math.round((amountCents * feeBps) / 10000)) : 0;
   const freelancerCents = amountCents - feeCents;
-  const canSubmit = amountCents >= 100 && !submitting;
+  const canSubmit = amountCents >= minCents && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -137,7 +140,7 @@ export function VanoPayModal({
             />
           </div>
 
-          {amountCents >= 100 ? (
+          {amountCents >= minCents ? (
             <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">You pay</span>
@@ -150,13 +153,13 @@ export function VanoPayModal({
                 </span>
               </div>
               <div className="mt-1.5 flex items-center justify-between border-t border-border pt-1.5">
-                <span className="text-muted-foreground">Vano fee (3%)</span>
+                <span className="text-muted-foreground">Vano fee ({feePercentLabel})</span>
                 <span className="font-medium text-muted-foreground">€{(feeCents / 100).toFixed(2)}</span>
               </div>
             </div>
           ) : (
             <p className="text-[11px] text-muted-foreground">
-              Minimum €1.00 — Vano takes 3%, freelancer gets the rest.
+              Minimum €{(minCents / 100).toFixed(2)} — Vano takes {feePercentLabel}, freelancer gets the rest.
             </p>
           )}
 
@@ -169,7 +172,7 @@ export function VanoPayModal({
             {submitting ? (
               <><Loader2 size={14} className="animate-spin" /> Opening Stripe…</>
             ) : (
-              amountCents >= 100
+              amountCents >= minCents
                 ? <>Pay €{(amountCents / 100).toFixed(2)} now</>
                 : 'Enter an amount'
             )}
