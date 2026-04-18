@@ -17,8 +17,8 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 // spoofed calls only ever re-process rows, which is bounded by the
 // status check.
 
-const GEMINI_MODEL = 'google/gemini-3-flash-preview';
-const GEMINI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const SERPER_URL = 'https://google.serper.dev/search';
 const VANO_CANDIDATE_LIMIT = 20;
 const SERPER_RESULT_LIMIT = 10;
@@ -426,14 +426,14 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
     // STRIPE_SECRET_KEY is optional here — only needed for auto-refund
     // on failure. If missing, a failed request flips to 'failed' with
     // the "manual refund required" note so ops can handle it.
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY') ?? null;
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), { status: 500 });
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), { status: 500 });
     }
     if (!SERPER_API_KEY) {
       return new Response(JSON.stringify({ error: 'SERPER_API_KEY not configured' }), { status: 500 });
@@ -471,15 +471,15 @@ serve(async (req) => {
 
     // Run Vano and web picks in parallel — they're independent.
     const [vanoPick, webCandidate] = await Promise.all([
-      pickVanoMatch(supabase, row, LOVABLE_API_KEY).catch((err) => {
+      pickVanoMatch(supabase, row, GEMINI_API_KEY).catch((err) => {
         console.error('[ai-find-freelancer] vano pick crashed', err);
         return null;
       }),
       (async () => {
-        const query = await buildSearchQuery(row, LOVABLE_API_KEY);
+        const query = await buildSearchQuery(row, GEMINI_API_KEY);
         if (!query) return null;
         const results = await serperSearch(query, SERPER_API_KEY);
-        return extractWebCandidate(row, results, LOVABLE_API_KEY);
+        return extractWebCandidate(row, results, GEMINI_API_KEY);
       })().catch((err) => {
         console.error('[ai-find-freelancer] web pick crashed', err);
         return null;

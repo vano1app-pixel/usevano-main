@@ -21,8 +21,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid session' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
     const { bio, skills, hourlyRate, university, hasPortfolio, reviewCount } = await req.json();
 
@@ -37,14 +37,14 @@ Number of Reviews: ${reviewCount || 0}
 
 Return tips as a JSON array of strings. Each tip should be 1-2 sentences max.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         messages: [
           { role: "system", content: "You are a career coach helping freelancers optimize their VANO profiles. Return structured output via the provided tool." },
           { role: "user", content: prompt },

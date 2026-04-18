@@ -12,8 +12,8 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 // the old pick into rejected_*. The client just polls the same id and
 // sees the new card.
 
-const GEMINI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-const GEMINI_MODEL = 'google/gemini-3-flash-preview';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 const SERPER_URL = 'https://google.serper.dev/search';
 const VANO_CANDIDATE_LIMIT = 20;
 const SERPER_RESULT_LIMIT = 10;
@@ -243,9 +243,9 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
-    if (!LOVABLE_API_KEY || !SERPER_API_KEY) return bad(500, 'Missing keys');
+    if (!GEMINI_API_KEY || !SERPER_API_KEY) return bad(500, 'Missing keys');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -285,7 +285,7 @@ serve(async (req) => {
       const rejected = [...(row.rejected_vano_user_ids ?? [])];
       if (row.vano_match_user_id) rejected.push(row.vano_match_user_id);
 
-      const pick = await retryVano(supabase, row, rejected, LOVABLE_API_KEY);
+      const pick = await retryVano(supabase, row, rejected, GEMINI_API_KEY);
       if (!pick) return bad(404, 'No alternative Vano match found');
 
       await supabase
@@ -317,7 +317,7 @@ serve(async (req) => {
       if (currentScout?.portfolio_url) rejectedUrls.push(currentScout.portfolio_url);
     }
 
-    const pick = await retryWeb(supabase, row, rejectedUrls, LOVABLE_API_KEY, SERPER_API_KEY);
+    const pick = await retryWeb(supabase, row, rejectedUrls, GEMINI_API_KEY, SERPER_API_KEY);
     if (!pick) return bad(404, 'No alternative web match found');
 
     const newScoutId = await insertOrFindWebScout(supabase, row, pick);
