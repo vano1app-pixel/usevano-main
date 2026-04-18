@@ -11,7 +11,12 @@ import {
   Mail,
   Instagram,
   Linkedin,
+  ThumbsUp,
+  ThumbsDown,
+  RotateCcw,
 } from 'lucide-react';
+
+import { useToast } from '@/hooks/use-toast';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
@@ -36,6 +41,10 @@ type AiFindRow = {
   vano_match_reason: string | null;
   web_scout_id: string | null;
   error_message: string | null;
+  vano_match_feedback: 'up' | 'down' | null;
+  web_match_feedback: 'up' | 'down' | null;
+  vano_retry_count: number;
+  web_retry_count: number;
 };
 
 type VanoPick = {
@@ -82,12 +91,77 @@ const AiFindResults = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { toast } = useToast();
 
   const [row, setRow] = useState<AiFindRow | null>(null);
   const [vanoPick, setVanoPick] = useState<VanoPick | null>(null);
   const [webPick, setWebPick] = useState<WebPick | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pollingStartedAt] = useState(() => Date.now());
+  // UI state for retry-in-flight so the button spinner is per-side,
+  // not global (both cards could hypothetically retry at once).
+  const [retryingSide, setRetryingSide] = useState<'vano' | 'web' | null>(null);
+
+  // Save the thumbs verdict via the SECURITY DEFINER RPC. Optimistic
+  // UI: flip the local row immediately so the thumb fills, revert on
+  // RPC error.
+  const submitFeedback = async (side: 'vano' | 'web', verdict: 'up' | 'down') => {
+    if (!row) return;
+    setRow((prev) => prev && ({
+      ...prev,
+      [side === 'vano' ? 'vano_match_feedback' : 'web_match_feedback']: verdict,
+    }));
+    const { error } = await supabase.rpc('submit_ai_find_feedback' as never, {
+      p_request_id: row.id, p_side: side, p_verdict: verdict,
+    } as never);
+    if (error) {
+      toast({ title: "Couldn't save feedback", description: 'Try again in a moment.', variant: 'destructive' });
+      setRow((prev) => prev && ({
+        ...prev,
+        [side === 'vano' ? 'vano_match_feedback' : 'web_match_feedback']: null,
+      }));
+    }
+  };
+
+  // Retry: calls the ai-find-retry edge function which mutates the
+  // same row in place with a new pick. We wait for success then force
+  // a re-poll so the new vano/web pick hydrates into state.
+  const retry = async (side: 'vano' | 'web') => {
+    if (!row || retryingSide) return;
+    setRetryingSide(side);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-find-retry', {
+        body: { request_id: row.id, side },
+      });
+      if (error) throw error;
+      const result = data as { ok?: boolean } | null;
+      if (!result?.ok) throw new Error('Retry did not return ok');
+      // Bust the stale row by re-selecting. The useEffect poller will
+      // also refresh on its next tick, but this makes the UI snap
+      // faster.
+      const { data: refreshed } = await supabase
+        .from('ai_find_requests')
+        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
+        .eq('id', row.id)
+        .maybeSingle();
+      if (refreshed) setRow(refreshed as AiFindRow);
+    } catch (err) {
+      const ctxErr = (err as { context?: { error?: string } })?.context?.error;
+      const msg = (err as { message?: string })?.message || '';
+      toast({
+        title: "Couldn't get a different match",
+        description:
+          ctxErr === 'Retry limit reached for this side' || msg.includes('Retry limit')
+            ? "You've already tried once on this side — that's the cap for this brief."
+          : ctxErr === 'No alternative Vano match found' || ctxErr === 'No alternative web match found'
+            ? "We couldn't find a different one that fits — try another brief."
+          : 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRetryingSide(null);
+    }
+  };
   // Tracks how long the caller has been on the scouting screen so the
   // loading copy can progress through "scanning Vano → searching web →
   // picking best match". Updated every second only while we're in a
@@ -111,7 +185,7 @@ const AiFindResults = () => {
       // is identical.
       const { data, error } = await (supabase as unknown as UntypedSupabase)
         .from('ai_find_requests')
-        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message')
+        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
         .eq('id', id)
         .maybeSingle();
 
@@ -291,11 +365,25 @@ const AiFindResults = () => {
                 <VanoPickCard
                   pick={vanoPick}
                   reason={row.vano_match_reason ?? null}
+                  feedback={row.vano_match_feedback}
+                  retryCount={row.vano_retry_count}
+                  retrying={retryingSide === 'vano'}
                   onMessage={() => navigate(`/messages?with=${vanoPick.user_id}`)}
+                  onFeedback={(verdict) => submitFeedback('vano', verdict)}
+                  onRetry={() => retry('vano')}
                 />
               ) : null}
 
-              {webPick ? <WebPickCard pick={webPick} /> : null}
+              {webPick ? (
+                <WebPickCard
+                  pick={webPick}
+                  feedback={row.web_match_feedback}
+                  retryCount={row.web_retry_count}
+                  retrying={retryingSide === 'web'}
+                  onFeedback={(verdict) => submitFeedback('web', verdict)}
+                  onRetry={() => retry('web')}
+                />
+              ) : null}
 
               {!vanoPick && !webPick ? (
                 <StatusCard
@@ -317,6 +405,65 @@ const AiFindResults = () => {
         </div>
       </div>
     </>
+  );
+};
+
+// Shared thumbs row + retry button that sits at the bottom of both
+// the Vano pick and the web pick cards. Clicking thumbs down reveals
+// the retry button (once per side per brief) so clients don't feel
+// trapped with one pick.
+const FeedbackRow = ({
+  feedback, retryCount, retrying, onFeedback, onRetry,
+}: {
+  feedback: 'up' | 'down' | null;
+  retryCount: number;
+  retrying: boolean;
+  onFeedback: (verdict: 'up' | 'down') => void;
+  onRetry: () => void;
+}) => {
+  const canRetry = retryCount < 1 && feedback === 'down';
+
+  return (
+    <div className="flex items-center gap-2 border-t border-border pt-3">
+      <p className="text-[11px] font-medium text-muted-foreground">How's this match?</p>
+      <button
+        type="button"
+        onClick={() => onFeedback('up')}
+        aria-label="Good match"
+        className={[
+          'ml-auto flex h-7 w-7 items-center justify-center rounded-full border transition',
+          feedback === 'up'
+            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700'
+            : 'border-border bg-card text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-700',
+        ].join(' ')}
+      >
+        <ThumbsUp size={13} strokeWidth={2.2} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onFeedback('down')}
+        aria-label="Not a great match"
+        className={[
+          'flex h-7 w-7 items-center justify-center rounded-full border transition',
+          feedback === 'down'
+            ? 'border-amber-500 bg-amber-500/10 text-amber-700'
+            : 'border-border bg-card text-muted-foreground hover:border-amber-500/40 hover:text-amber-700',
+        ].join(' ')}
+      >
+        <ThumbsDown size={13} strokeWidth={2.2} />
+      </button>
+      {canRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={retrying}
+          className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:brightness-110 disabled:opacity-60"
+        >
+          {retrying ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} strokeWidth={2.5} />}
+          {retrying ? 'Finding…' : 'Show another'}
+        </button>
+      ) : null}
+    </div>
   );
 };
 
@@ -357,7 +504,18 @@ const StatusCard = ({
   </div>
 );
 
-const VanoPickCard = ({ pick, reason, onMessage }: { pick: VanoPick; reason: string | null; onMessage: () => void }) => (
+const VanoPickCard = ({
+  pick, reason, feedback, retryCount, retrying, onMessage, onFeedback, onRetry,
+}: {
+  pick: VanoPick;
+  reason: string | null;
+  feedback: 'up' | 'down' | null;
+  retryCount: number;
+  retrying: boolean;
+  onMessage: () => void;
+  onFeedback: (verdict: 'up' | 'down') => void;
+  onRetry: () => void;
+}) => (
   <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
     <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4 text-primary-foreground">
       <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
@@ -421,11 +579,27 @@ const VanoPickCard = ({ pick, reason, onMessage }: { pick: VanoPick; reason: str
       >
         <MessageCircle className="h-4 w-4" /> Message now
       </button>
+      <FeedbackRow
+        feedback={feedback}
+        retryCount={retryCount}
+        retrying={retrying}
+        onFeedback={onFeedback}
+        onRetry={onRetry}
+      />
     </div>
   </div>
 );
 
-const WebPickCard = ({ pick }: { pick: WebPick }) => {
+const WebPickCard = ({
+  pick, feedback, retryCount, retrying, onFeedback, onRetry,
+}: {
+  pick: WebPick;
+  feedback: 'up' | 'down' | null;
+  retryCount: number;
+  retrying: boolean;
+  onFeedback: (verdict: 'up' | 'down') => void;
+  onRetry: () => void;
+}) => {
   const hasContact =
     !!pick.contact_email || !!pick.contact_instagram || !!pick.contact_linkedin || !!pick.portfolio_url;
 
@@ -532,6 +706,13 @@ const WebPickCard = ({ pick }: { pick: WebPick }) => {
         <p className="text-[11px] text-muted-foreground">
           Reach out directly. Vano hasn't reviewed this person — verify their work before sending money.
         </p>
+        <FeedbackRow
+          feedback={feedback}
+          retryCount={retryCount}
+          retrying={retrying}
+          onFeedback={onFeedback}
+          onRetry={onRetry}
+        />
       </div>
     </div>
   );

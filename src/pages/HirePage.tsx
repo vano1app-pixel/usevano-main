@@ -201,6 +201,68 @@ const HirePage = () => {
     setSubtype(null);
   };
 
+  // Example chips at the top of step 1. Each one pre-fills the whole
+  // brief (category, subtype, description, timeline, budget) and jumps
+  // straight to step 3 so a typical hirer can go from "I need X" to
+  // "Choose how to hire" in one tap. Cures blank-page freeze for
+  // first-time users who can't be bothered filling free-text fields.
+  const EXAMPLE_BRIEFS: Array<{
+    emoji: string;
+    label: string;
+    category: string;
+    subtype: string;
+    description: string;
+    timeline: string;
+    budget: string;
+  }> = [
+    {
+      emoji: '🎥',
+      label: '30-second TikTok edit',
+      category: 'videography',
+      subtype: 'short_form',
+      description: 'Need a 30-second TikTok edit — short-form, punchy, with captions.',
+      timeline: 'this_week',
+      budget: '100_250',
+    },
+    {
+      emoji: '🌐',
+      label: 'New website for my business',
+      category: 'websites',
+      subtype: 'marketing',
+      description: 'New website for my business — a few pages, mobile-friendly, easy to update.',
+      timeline: 'this_month',
+      budget: '500_plus',
+    },
+    {
+      emoji: '📣',
+      label: 'Social media manager for 3 months',
+      category: 'social_media',
+      subtype: 'management',
+      description: 'Looking for someone to run my Instagram + TikTok for 3 months — content, posting, engagement.',
+      timeline: 'ongoing',
+      budget: '500_plus',
+    },
+    {
+      emoji: '💼',
+      label: 'Cold caller for my business',
+      category: 'digital_sales',
+      subtype: 'outbound',
+      description: 'Need a cold caller / outbound sales rep for my business — commission OK.',
+      timeline: 'ongoing',
+      budget: '250_500',
+    },
+  ];
+
+  const applyExampleBrief = (ex: typeof EXAMPLE_BRIEFS[number]) => {
+    setCategory(ex.category);
+    setSubtype(ex.subtype);
+    setDescription(ex.description);
+    setTimeline(ex.timeline);
+    setBudget(ex.budget);
+    track('hire_step_viewed', { step: 3, source: 'example_chip', label: ex.label });
+    goTo(3);
+  };
+
   /* ── Fetch matched freelancers ── */
   const fetchMatches = async () => {
     setMatchLoading(true);
@@ -531,6 +593,30 @@ const HirePage = () => {
           Pick a category, pick what you need — we'll take it from there.
         </p>
       </header>
+
+      {/* Example-brief chips. Tappable seeds that pre-fill category,
+          subtype, description, timeline, AND budget in one go, then
+          jump straight to step 3. For first-time hirers staring at
+          the category grid wondering where to start, this is the
+          "just give me something that looks like what I want" path. */}
+      <div className="mb-5 rounded-2xl border border-primary/20 bg-primary/[0.03] p-4">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+          Or skip ahead — common asks
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {EXAMPLE_BRIEFS.map((ex) => (
+            <button
+              key={ex.label}
+              type="button"
+              onClick={() => applyExampleBrief(ex)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 active:scale-[0.97]"
+            >
+              <span>{ex.emoji}</span>
+              <span>{ex.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Category chips — intentionally the largest controls on this step.
           These are the decision. Everything below (optional detail, value

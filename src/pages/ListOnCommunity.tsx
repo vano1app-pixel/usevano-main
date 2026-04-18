@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
+import { ListOnCommunityQuickStart } from '@/components/ListOnCommunityQuickStart';
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { resolveUniversityKey } from '@/lib/universities';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
@@ -33,8 +34,25 @@ export default function ListOnCommunity() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [initial, setInitial] = useState<ListOnCommunityInitial | null>(null);
-  const [wizardOpen, setWizardOpen] = useState(true);
+  // Default the modal wizard to closed now that the Quick-start flow is
+  // the primary path. The wizard still opens (a) from the Quick-start's
+  // "customise everything" link and (b) for users who already have
+  // partial data to preserve the old editing flow.
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // Freelancers who already have some data pre-filled from an abandoned
+  // prior session are better served by jumping straight into the full
+  // wizard (their work wouldn't fit in a 30-second form anyway). Cold
+  // first-timers start with the Quick-start.
+  const isFirstTimer = useMemo(() => {
+    if (!initial) return true;
+    return (
+      initial.skills.length === 0 &&
+      !initial.bio.trim() &&
+      !initial.phone.trim() &&
+      initial.workLinks.every((w) => !w.url?.trim())
+    );
+  }, [initial]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,15 +128,15 @@ export default function ListOnCommunity() {
     return () => { cancelled = true; };
   }, [navigate]);
 
-  const handlePublished = async () => {
-    // Refresh the cached auth profile so `hasListing` flips to true before
-    // we navigate away. Without this, the RedirectUnlistedFreelancerToWizard
-    // guard would see stale `hasListing: false` on the /profile mount and
-    // bounce the user straight back here.
+  // Accepts either no args (legacy full-wizard onSubmittedForReview call)
+  // or a payload from the Quick-start path with the new post id. The
+  // Profile page reads the ?listed=1 flag; we also pass ?welcome=1 on the
+  // Quick-start path so the celebratory "you're live" moment (confetti +
+  // share-link copy) renders there on landing.
+  const handlePublished = async (_payload?: { postId?: string; category?: string }) => {
     await refreshProfile();
-    // A query flag lets the Profile page show a brief "your listing is live"
-    // toast if we want to wire that up later.
-    navigate('/profile?listed=1', { replace: true });
+    const quickFlag = _payload ? '&welcome=1' : '';
+    navigate(`/profile?listed=1${quickFlag}`, { replace: true });
   };
 
   return (
@@ -147,43 +165,20 @@ export default function ListOnCommunity() {
             <Loader2 size={20} className="animate-spin" />
             <p className="text-xs">Loading your details…</p>
           </div>
-        ) : (
+        ) : isFirstTimer ? (
           <>
-            {/* Hero card — shown behind / below the wizard modal.
-                This is what the user sees if they close the wizard without
-                publishing. Re-open the wizard or skip. */}
-            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <Sparkles size={18} strokeWidth={2} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                    One more step
-                  </p>
-                  <h1 className="mt-1 text-xl font-bold text-foreground">
-                    Show businesses what you do
-                  </h1>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    Publish your talent board listing so businesses in Galway can find and hire you.
-                    Takes about 2 minutes — we auto-save as you go, so you can always come back.
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setWizardOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
-                    >
-                      {initial.skills.length > 0 ? 'Continue setup' : 'Open the wizard'}
-                      <ArrowRight size={14} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* First-time Quick-start. No multi-step wizard, no side
+                preview, no social fields. Category chip + pitch +
+                phone → live. The full wizard is one tap away via the
+                "customise everything" escape hatch. */}
+            <ListOnCommunityQuickStart
+              userId={userId}
+              onPublished={handlePublished}
+              onOpenFullWizard={() => setWizardOpen(true)}
+            />
 
-            {/* Three-point value pitch under the hero so the page isn't a
-                blank void when the wizard is closed. Pure content. */}
+            {/* Three-point value pitch sits below so the page still has
+                reassurance copy while the user is thinking. */}
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               {[
                 { title: 'Get hired directly', body: 'Businesses message you without any commission.' },
@@ -195,6 +190,49 @@ export default function ListOnCommunity() {
                   <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{item.body}</p>
                 </div>
               ))}
+            </div>
+
+            <ListOnCommunityWizard
+              open={wizardOpen}
+              onOpenChange={setWizardOpen}
+              userId={userId}
+              initial={initial}
+              onSubmittedForReview={handlePublished}
+            />
+          </>
+        ) : (
+          <>
+            {/* Returning user with partial data — skip the Quick-start
+                and take them straight back into the full wizard so
+                their in-progress fields aren't thrown away. */}
+            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Sparkles size={18} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                    Pick up where you left off
+                  </p>
+                  <h1 className="mt-1 text-xl font-bold text-foreground">
+                    Continue your listing
+                  </h1>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    We saved your progress — open the wizard to finish publishing.
+                    Auto-saves as you go.
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setWizardOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
+                    >
+                      Continue setup
+                      <ArrowRight size={14} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <ListOnCommunityWizard

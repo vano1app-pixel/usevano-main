@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { FreshListingCelebration } from '@/components/FreshListingCelebration';
 import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { ShareCardFrame } from '@/components/ShareCardFrame';
@@ -61,6 +62,14 @@ const Profile = () => {
   const [studentProfile, setStudentProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // "You're live" celebration — only fires once, when ListOnCommunity
+  // redirects here with ?welcome=1 right after the Quick-start publish.
+  // We strip the flag on dismiss so a browser back/refresh doesn't
+  // re-open it.
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('welcome') === '1';
+  });
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [workDescription, setWorkDescription] = useState('');
@@ -701,6 +710,20 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead title="My Profile – VANO" description="Manage your VANO profile." noindex />
+      <FreshListingCelebration
+        open={showWelcome}
+        shareUrl={`${getSiteOrigin()}/u/${nameToSlug(displayName || 'profile')}`}
+        onClose={() => {
+          setShowWelcome(false);
+          // Strip the flag so refresh / back doesn't re-open the overlay.
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('welcome');
+            url.searchParams.delete('listed');
+            window.history.replaceState({}, '', url.toString());
+          }
+        }}
+      />
       <Navbar />
       <div className="mx-auto max-w-lg px-4 pt-20 sm:max-w-xl sm:px-5 sm:pt-24 lg:max-w-4xl lg:px-8 pb-12 sm:pb-16">
         <div className="mb-6 sm:mb-8">
