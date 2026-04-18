@@ -587,6 +587,38 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
   };
 
+  // Mirrors canNext but returns the user-facing names of the fields
+  // that are still empty. Rendered under the disabled Continue button
+  // so people aren't left guessing which field is blocking them. This
+  // is the single biggest reason freelancers bounced on the wizard —
+  // the old UX just greyed the button out silently.
+  const missingFields = (): string[] => {
+    switch (step) {
+      case 1:
+        return category === null ? ['Category'] : [];
+      case 2: {
+        const cat = category ? COMMUNITY_CATEGORIES[category] : null;
+        const needsCounty = cat?.locationModel === 'local';
+        const missing: string[] = [];
+        if (title.trim().length === 0) missing.push('Headline');
+        if (description.trim().length === 0) missing.push('What you do');
+        if (phone.trim().length === 0) missing.push('Phone number');
+        if (needsCounty && county.trim().length === 0) missing.push('County');
+        return missing;
+      }
+      case 3:
+        return skills.length < 1 ? ['at least one skill'] : [];
+      case 4: {
+        const missing: string[] = [];
+        if (!category) missing.push('Category');
+        if (title.trim().length === 0) missing.push('Headline');
+        return missing;
+      }
+      default:
+        return [];
+    }
+  };
+
   const addWorkLinkRow = () => {
     if (workLinks.length >= 12) return;
     setWorkLinks((p) => [...p, { url: '', label: '' }]);
@@ -1884,7 +1916,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           )}
         </div>
 
-        <div className="flex gap-2 border-t border-border bg-background px-5 py-4">
+        <div className="flex flex-col gap-2 border-t border-border bg-background px-5 py-4">
+          {/* Inline hint when Continue is gated: spell out which required
+              fields are still empty so users aren't left guessing. The
+              old UX just greyed the button out silently — by far the
+              #1 reason freelancers bounced mid-wizard. */}
+          {step < totalSteps && !canNext() && missingFields().length > 0 ? (
+            <p className="text-center text-xs text-amber-700 dark:text-amber-400">
+              Fill in <span className="font-semibold">{missingFields().join(', ')}</span> to continue.
+            </p>
+          ) : null}
+          <div className="flex gap-2">
           {step > 1 ? (
             <Button
               type="button"
@@ -1928,6 +1970,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               )}
             </Button>
           )}
+          </div>
         </div>
         </div>
         {/* RIGHT column — desktop-only live preview stage. Static 2×2 mock
