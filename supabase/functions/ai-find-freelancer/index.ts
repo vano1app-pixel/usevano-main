@@ -177,12 +177,14 @@ async function pickVanoMatch(
   row: AiFindRow,
   lovableKey: string,
 ): Promise<string | null> {
-  // Pull the top N approved community listings, optionally filtered by
-  // category. RLS is irrelevant here — we're on the service role. Skills
-  // come from student_profiles (a listing row doesn't store them).
-  let query = supabase
-    .from('community_posts')
-    .select(`
+  // Pull the top N approved community listings. Try the brief's
+  // category first; if that returns zero rows (e.g. a category with
+  // no published freelancers yet, or a typo in the DB), fall back to
+  // the full approved pool and let Gemini filter by the brief's
+  // context. Without this fallback, a popular-category brief hitting
+  // an under-filled category would silently return null and only the
+  // web pick would show.
+  const selectCols = `
       user_id,
       title,
       description,
@@ -191,18 +193,35 @@ async function pickVanoMatch(
       rate_max,
       rate_unit,
       student_profiles:student_profiles!inner(skills, bio)
-    `)
-    .eq('moderation_status', 'approved')
-    .limit(VANO_CANDIDATE_LIMIT);
+    `;
+
+  let rows: unknown[] | null = null;
 
   if (row.category) {
-    query = query.eq('category', row.category);
+    const { data, error } = await supabase
+      .from('community_posts')
+      .select(selectCols)
+      .eq('moderation_status', 'approved')
+      .eq('category', row.category)
+      .limit(VANO_CANDIDATE_LIMIT);
+    if (error) {
+      console.error('[ai-find-freelancer] vano query (filtered) failed', error);
+    } else if (data && data.length > 0) {
+      rows = data as unknown[];
+    }
   }
 
-  const { data: rows, error } = await query;
-  if (error) {
-    console.error('[ai-find-freelancer] vano query failed', error);
-    return null;
+  if (!rows) {
+    const { data, error } = await supabase
+      .from('community_posts')
+      .select(selectCols)
+      .eq('moderation_status', 'approved')
+      .limit(VANO_CANDIDATE_LIMIT);
+    if (error) {
+      console.error('[ai-find-freelancer] vano query (fallback) failed', error);
+      return null;
+    }
+    rows = (data ?? []) as unknown[];
   }
 
   const candidates: VanoCandidate[] = (rows ?? []).map((r: Record<string, unknown>) => {
