@@ -176,7 +176,7 @@ async function pickVanoMatch(
   supabase: ReturnType<typeof createClient>,
   row: AiFindRow,
   lovableKey: string,
-): Promise<string | null> {
+): Promise<{ userId: string; reason: string | null } | null> {
   // Pull the top N approved community listings. Try the brief's
   // category first; if that returns zero rows (e.g. a category with
   // no published freelancers yet, or a typo in the DB), fall back to
@@ -261,11 +261,12 @@ async function pickVanoMatch(
   if (!parsed) return null;
   const userId = typeof parsed.user_id === 'string' ? parsed.user_id : null;
   const score = typeof parsed.match_score === 'number' ? parsed.match_score : 0;
+  const reason = typeof parsed.reason === 'string' ? parsed.reason.trim().slice(0, 280) : null;
   if (!userId || score < 40) return null;
   // Sanity-check the returned id against the candidate list to catch
   // hallucinations.
   if (!candidates.some((c) => c.user_id === userId)) return null;
-  return userId;
+  return { userId, reason: reason || null };
 }
 
 async function buildSearchQuery(
@@ -464,7 +465,7 @@ serve(async (req) => {
     const row = flipped as AiFindRow;
 
     // Run Vano and web picks in parallel — they're independent.
-    const [vanoUserId, webCandidate] = await Promise.all([
+    const [vanoPick, webCandidate] = await Promise.all([
       pickVanoMatch(supabase, row, LOVABLE_API_KEY).catch((err) => {
         console.error('[ai-find-freelancer] vano pick crashed', err);
         return null;
@@ -479,6 +480,8 @@ serve(async (req) => {
         return null;
       }),
     ]);
+    const vanoUserId = vanoPick?.userId ?? null;
+    const vanoReason = vanoPick?.reason ?? null;
 
     let webScoutId: string | null = null;
     if (webCandidate) {
@@ -526,6 +529,7 @@ serve(async (req) => {
       .update({
         status: 'complete',
         vano_match_user_id: vanoUserId,
+        vano_match_reason: vanoReason,
         web_scout_id: webScoutId,
         completed_at: new Date().toISOString(),
       })
