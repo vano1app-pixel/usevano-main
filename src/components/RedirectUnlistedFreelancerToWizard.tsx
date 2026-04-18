@@ -33,6 +33,12 @@ const SKIP_PREFIXES = [
   // case a student ever pays for an AI Find (different signed-in
   // account, same device).
   '/ai-find',
+  // Freelancers are allowed to hire other freelancers. The guard was
+  // bouncing them off /hire mid-flow — they'd fill the brief, tap
+  // "Send request to Vano", and land back on /list-on-community with
+  // a "Continue your listing" card, zero indication their hire
+  // request ever went through.
+  '/hire',
 ];
 
 export function RedirectUnlistedFreelancerToWizard() {

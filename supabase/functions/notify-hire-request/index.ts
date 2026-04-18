@@ -85,6 +85,7 @@ serve(async (req) => {
       `Admin dashboard: ${siteUrl}/admin\n` +
       `Reply to client: ${body.requester_email || user.email || ""}\n`;
 
+    // 1) Team inbox — tells the Vano team a new brief came in.
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -100,7 +101,52 @@ serve(async (req) => {
       console.warn(`Resend error ${res.status}: ${errText}`);
     }
 
-    return new Response(JSON.stringify({ ok: true, emailed }), {
+    // 2) Hirer confirmation — tells the person who submitted that we
+    //    actually received it. Previously they only got the WhatsApp
+    //    auto-open; if their phone blocked the popup they had no
+    //    signal the request landed. Silent-fail: if Resend can't
+    //    reach them we still return ok=true for the team email.
+    const hirerEmail = (body.requester_email || user.email || "").trim();
+    let hirerEmailed = false;
+    if (hirerEmail) {
+      const hirerSubject = `We got your Vano brief — we'll be in touch within 24h`;
+      const catLabel = body.category ? `${body.category}` : "freelancer";
+      const hirerText =
+        `Thanks — we've got your brief.\n\n` +
+        `The Vano team is picking the best ${catLabel} for your project and will open a thread in your Messages within 24 hours (usually faster).\n\n` +
+        `What we saw:\n` +
+        `  Project: ${(body.description || "").slice(0, 300)}\n` +
+        `  Budget: ${budgetMap[body.budget_range || ""] || body.budget_range || "not specified"}\n` +
+        `  Timeline: ${timelineMap[body.timeline || ""] || body.timeline || "not specified"}\n\n` +
+        `You can reply to this email or message us on WhatsApp — whichever is easier.\n\n` +
+        `Your dashboard: ${siteUrl}/messages\n\n` +
+        `— The Vano team\n`;
+
+      try {
+        const hirerRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from,
+            to: [hirerEmail],
+            reply_to: notifyTo,
+            subject: hirerSubject,
+            text: hirerText,
+          }),
+        });
+        hirerEmailed = hirerRes.ok;
+        if (!hirerEmailed) {
+          console.warn(`Resend (hirer confirmation) ${hirerRes.status}: ${await hirerRes.text()}`);
+        }
+      } catch (e) {
+        console.warn(`Resend (hirer confirmation) threw:`, e);
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, emailed, hirerEmailed }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

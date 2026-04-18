@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // "Show me a different match" retry for the AI Find results page.
 // Runs one side (vano OR web) again with an exclusion list so we
@@ -11,25 +12,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // the old pick into rejected_*. The client just polls the same id and
 // sees the new card.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-const GEMINI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-const GEMINI_MODEL = 'google/gemini-3-flash-preview';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 const SERPER_URL = 'https://google.serper.dev/search';
 const VANO_CANDIDATE_LIMIT = 20;
 const SERPER_RESULT_LIMIT = 10;
 const BRIEF_MAX_CHARS = 2000;
 const MAX_RETRIES_PER_SIDE = 1;
-
-function bad(status, error) {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
 
 async function callGemini(apiKey, systemPrompt, userPrompt, toolName, toolSchema) {
   const resp = await fetch(GEMINI_URL, {
@@ -239,17 +228,24 @@ async function insertOrFindWebScout(supabase, row, candidate) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const bad = (status: number, error: string) => new Response(
+    JSON.stringify({ error }),
+    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
-    if (!LOVABLE_API_KEY || !SERPER_API_KEY) return bad(500, 'Missing keys');
+    if (!GEMINI_API_KEY || !SERPER_API_KEY) return bad(500, 'Missing keys');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -289,7 +285,7 @@ serve(async (req) => {
       const rejected = [...(row.rejected_vano_user_ids ?? [])];
       if (row.vano_match_user_id) rejected.push(row.vano_match_user_id);
 
-      const pick = await retryVano(supabase, row, rejected, LOVABLE_API_KEY);
+      const pick = await retryVano(supabase, row, rejected, GEMINI_API_KEY);
       if (!pick) return bad(404, 'No alternative Vano match found');
 
       await supabase
@@ -321,7 +317,7 @@ serve(async (req) => {
       if (currentScout?.portfolio_url) rejectedUrls.push(currentScout.portfolio_url);
     }
 
-    const pick = await retryWeb(supabase, row, rejectedUrls, LOVABLE_API_KEY, SERPER_API_KEY);
+    const pick = await retryWeb(supabase, row, rejectedUrls, GEMINI_API_KEY, SERPER_API_KEY);
     if (!pick) return bad(404, 'No alternative web match found');
 
     const newScoutId = await insertOrFindWebScout(supabase, row, pick);

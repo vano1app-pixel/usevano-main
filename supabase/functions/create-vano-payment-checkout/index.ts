@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
+import {
+  VANO_PAY_CURRENCY,
+  VANO_PAY_FEE_BPS,
+  VANO_PAY_MAX_CENTS,
+  VANO_PAY_MIN_CENTS,
+} from "../_shared/vanoPayConfig.ts";
 
 // Business-side entry point for Vano Pay. Given a conversation id and
 // an amount, creates a vano_payments row and a Stripe Checkout Session
@@ -14,22 +21,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //     Stripe splits off the application fee and transfers the rest to
 //     the freelancer's connected account. No escrow; it's a pass-through.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-const VANO_FEE_BPS = 300; // 3.00% in basis points.
-const MIN_AMOUNT_CENTS = 100;
-const MAX_AMOUNT_CENTS = 500000; // €5,000 ceiling for MVP. Adjust as needed.
-const CURRENCY = 'eur';
-
-function bad(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
+// Fee/bounds live in _shared/vanoPayConfig.ts so the public
+// get-vano-pay-config endpoint reads the same values.
+const VANO_FEE_BPS = VANO_PAY_FEE_BPS;
+const MIN_AMOUNT_CENTS = VANO_PAY_MIN_CENTS;
+const MAX_AMOUNT_CENTS = VANO_PAY_MAX_CENTS;
+const CURRENCY = VANO_PAY_CURRENCY;
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -38,9 +35,16 @@ function formEncode(obj: Record<string, string>): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const bad = (status: number, error: string): Response => new Response(
+    JSON.stringify({ error }),
+    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
     const authHeader = req.headers.get('Authorization');

@@ -97,7 +97,10 @@ const AiFindResults = () => {
   const [vanoPick, setVanoPick] = useState<VanoPick | null>(null);
   const [webPick, setWebPick] = useState<WebPick | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pollingStartedAt] = useState(() => Date.now());
+  // pollingStartedAt is stateful (not a const initializer) so the
+  // "Check again" button can reset the window after a timeout.
+  const [pollingStartedAt, setPollingStartedAt] = useState(() => Date.now());
+  const [timedOut, setTimedOut] = useState(false);
   // UI state for retry-in-flight so the button spinner is per-side,
   // not global (both cards could hypothetically retry at once).
   const [retryingSide, setRetryingSide] = useState<'vano' | 'web' | null>(null);
@@ -198,14 +201,18 @@ const AiFindResults = () => {
     };
 
     void pollOnce();
+    setTimedOut(false);
 
     const timer = setInterval(() => {
       // Stop polling once terminal OR once we've exceeded the cap —
       // the backend function has a much shorter budget than 2 min.
+      // The scouting status handler below flips to the timed-out
+      // card so the user isn't stranded on "Just a moment more…".
       if (cancelled) return;
       const elapsed = (Date.now() - pollingStartedAt) / 1000;
       if (elapsed > MAX_POLL_SECONDS) {
         clearInterval(timer);
+        setTimedOut(true);
         return;
       }
       void pollOnce();
@@ -327,6 +334,20 @@ const AiFindResults = () => {
             <LoadingCard
               label="Finalising your payment…"
               hint="If this takes more than a minute, check back later — your request is safe."
+            />
+          ) : (row.status === 'paid' || row.status === 'scouting') && timedOut ? (
+            <StatusCard
+              tone="neutral"
+              title="Still working on it"
+              body="The search is taking longer than usual. Your €1 is safe — check again in a minute, or come back later. If it can't find a match, we'll refund you automatically."
+              action={{
+                label: 'Check again',
+                onClick: () => {
+                  setTimedOut(false);
+                  setElapsedSec(0);
+                  setPollingStartedAt(Date.now());
+                },
+              }}
             />
           ) : row.status === 'paid' || row.status === 'scouting' ? (
             <LoadingCard

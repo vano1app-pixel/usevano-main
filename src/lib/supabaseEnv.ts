@@ -1,6 +1,8 @@
 /**
  * Central place for Vite-exposed Supabase settings (Vercel / local .env).
- * Use VITE_SUPABASE_PUBLISHABLE_KEY (dashboard name) or legacy VITE_SUPABASE_ANON_KEY — same key value.
+ * Canonical name: VITE_SUPABASE_PUBLISHABLE_KEY. VITE_SUPABASE_ANON_KEY is
+ * a legacy alias kept so older Vercel projects don't 500 on deploy; it
+ * emits a dev-only warning so the rename gets done.
  */
 
 export function getSupabaseUrl(): string {
@@ -8,11 +10,19 @@ export function getSupabaseUrl(): string {
   return (raw || '').trim().replace(/\/+$/, '');
 }
 
+let warnedLegacyKey = false;
+
 /** Publishable (anon) JWT from Supabase → Project Settings → API */
 export function getSupabaseAnonKey(): string {
-  const a = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim();
-  const b = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
-  return a || b || '';
+  const canonical = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim();
+  const legacy = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+  if (!canonical && legacy && import.meta.env.DEV && !warnedLegacyKey) {
+    warnedLegacyKey = true;
+    console.warn(
+      '[supabaseEnv] VITE_SUPABASE_ANON_KEY is deprecated; rename to VITE_SUPABASE_PUBLISHABLE_KEY in Vercel env.',
+    );
+  }
+  return canonical || legacy || '';
 }
 
 /**

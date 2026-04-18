@@ -34,3 +34,8 @@ project_id = "puomfwjtpvqedwxjxogh"
   # if this is ever invoked twice for the same scout.
   [functions.notify-scouted-freelancer]
     verify_jwt = false
+  # Returns public Vano Pay fee / amount bounds so the frontend modal
+  # preview stays in sync with the authoritative charge on the server.
+  # No secrets — safe to call pre-auth.
+  [functions.get-vano-pay-config]
+    verify_jwt = false
