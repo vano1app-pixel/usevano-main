@@ -162,6 +162,12 @@ const Messages = () => {
   const [vanoPayOpen, setVanoPayOpen] = useState(false);
   // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
+  // Freelancer's own Vano Pay readiness — drives the in-thread "Enable
+  // Vano Pay" banner shown to students who have a chat with a business
+  // but haven't linked a Stripe account yet. Null while loading so the
+  // banner doesn't flash before we know.
+  const [viewerPayoutsEnabled, setViewerPayoutsEnabled] = useState<boolean | null>(null);
+  const [vanoPayBannerDismissed, setVanoPayBannerDismissed] = useState(false);
   // Other-party metadata for the active conversation — used by the
   // quick-reply chip row to pick the right suggestion bucket. Business
   // viewers get category-keyed opener chips keyed to this; freelancer
@@ -204,6 +210,22 @@ const Messages = () => {
       .maybeSingle()
       .then(({ data }) => setViewerUserType(data?.user_type || null));
   }, [user?.id]);
+
+  // Pull the viewer's own stripe_payouts_enabled so the "Enable Vano
+  // Pay" banner can gate itself. Only relevant for students; skip the
+  // round-trip entirely for business viewers.
+  useEffect(() => {
+    if (!user?.id || viewerUserType !== 'student') {
+      setViewerPayoutsEnabled(null);
+      return;
+    }
+    void supabase
+      .from('student_profiles')
+      .select('stripe_payouts_enabled')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setViewerPayoutsEnabled(!!data?.stripe_payouts_enabled));
+  }, [user?.id, viewerUserType]);
 
   // Fetch other-party metadata for the quick-reply chip row. Runs in parallel
   // so we don't stack two round trips. Reset state immediately on convo
@@ -973,6 +995,45 @@ const Messages = () => {
                     </div>
                   );
                 })()}
+
+                {/* Vano Pay nudge — shown only to freelancers who are
+                    chatting with a business but haven't linked a Stripe
+                    payout account yet. Progressive onboarding so they
+                    don't set it up until the money is actually close. */}
+                {viewerUserType === 'student'
+                  && otherUserType === 'business'
+                  && viewerPayoutsEnabled === false
+                  && !vanoPayBannerDismissed ? (
+                  <div className="flex items-start gap-3 border-b border-amber-200/60 bg-amber-50/70 px-4 py-3 dark:border-amber-800/40 dark:bg-amber-900/20">
+                    <Banknote size={16} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                        Want to get paid through Vano?
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
+                        Set up once (about 5 minutes) and this client can tap a
+                        "Pay via Vano" button — money lands in your bank in
+                        1–2 days, 3% fee.
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/profile')}
+                          className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700"
+                        >
+                          Set up Vano Pay
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVanoPayBannerDismissed(true)}
+                          className="text-[11px] font-medium text-amber-800/80 transition hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-200"
+                        >
+                          Not now
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 {/* Messages */}
                 <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">

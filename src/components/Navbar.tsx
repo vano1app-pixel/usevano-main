@@ -23,6 +23,11 @@ export const Navbar: React.FC = () => {
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const showAdminLink = isAdminOwnerEmail(user?.email);
   const [scrolled, setScrolled] = useState(false);
+  // Unread message count surfaced as a red pill next to "Messages" so
+  // hirers don't miss freelancer replies (and vice versa). Mirrors the
+  // existing MobileBottomNav pattern — same query, separate channel
+  // name so both nav surfaces can mount without stepping on each other.
+  const [unreadCount, setUnreadCount] = useState(0);
 
   /* ── Glass effect on scroll ── */
   const handleScroll = useCallback(() => {
@@ -47,6 +52,30 @@ export const Navbar: React.FC = () => {
       setIsAuthOpen(false);
     }
   }, [user, pendingRoute, navigate]);
+
+  // Unread messages: count + realtime refresh. Skips when logged out.
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return; }
+
+    const load = async () => {
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .neq('sender_id', user.id)
+        .eq('read', false);
+      setUnreadCount(count || 0);
+    };
+
+    void load();
+
+    const channel = supabase
+      .channel('navbar-unread')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => load())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => load())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const navItems = [
     { label: 'Home', href: '/', requiresAuth: false, isNew: false },
@@ -131,13 +160,21 @@ export const Navbar: React.FC = () => {
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
+                  "relative px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
                   isActiveRoute(item.href)
                     ? "text-primary bg-primary/10 font-semibold"
                     : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]"
                 )}
               >
                 {item.label}
+                {item.href === '/messages' && unreadCount > 0 ? (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground shadow-sm"
+                    aria-label={`${unreadCount} unread messages`}
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                ) : null}
               </Link>
             ))}
             {user && showAdminLink && (

@@ -253,24 +253,47 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             ))}
           </div>
         ) : students.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-12 text-center">
+          // Dual-audience empty state. The old copy assumed the viewer
+          // was a freelancer ("be the first") — reads oddly for hirers
+          // who just landed on an empty category and came here to hire.
+          // Now we show both paths: freelancer can list themselves,
+          // hirer can go straight to the AI Find flow (pre-filled with
+          // this category) instead of backing out.
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-12 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Users size={20} strokeWidth={2} />
             </div>
             <p className="max-w-xs text-sm font-medium text-foreground">
-              No {meta.label.toLowerCase()} freelancers yet — be the first.
+              No {meta.label.toLowerCase()} freelancers listed yet.
             </p>
-            <p className="max-w-sm text-xs text-muted-foreground">
-              Build your profile and businesses can hire you straight from this board.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/profile')}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
-            >
-              List yourself
-              <ArrowRight size={13} strokeWidth={2.5} />
-            </button>
+            <div className="grid w-full max-w-md grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {/* Freelancer path */}
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-4">
+                <p className="text-xs font-semibold text-foreground">Are you a {meta.label.toLowerCase()}?</p>
+                <p className="text-[11px] text-muted-foreground">Be the first on the board.</p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/profile')}
+                  className="mt-auto inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-[11px] font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
+                >
+                  List yourself
+                  <ArrowRight size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+              {/* Hirer path */}
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-4">
+                <p className="text-xs font-semibold text-foreground">Looking to hire?</p>
+                <p className="text-[11px] text-muted-foreground">Vano finds one for you in 60 seconds.</p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/hire?category=${encodeURIComponent(categoryId)}`)}
+                  className="mt-auto inline-flex items-center gap-1.5 rounded-xl border border-primary bg-primary/5 px-3.5 py-2 text-[11px] font-semibold text-primary transition hover:bg-primary/10"
+                >
+                  Try AI Find
+                  <ArrowRight size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
           </div>
         ) : visibleStudents.length === 0 ? (
           // Empty state when the user narrowed by budget to nothing. Offer
