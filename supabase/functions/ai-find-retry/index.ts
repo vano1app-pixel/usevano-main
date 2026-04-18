@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // "Show me a different match" retry for the AI Find results page.
 // Runs one side (vano OR web) again with an exclusion list so we
@@ -11,11 +12,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // the old pick into rejected_*. The client just polls the same id and
 // sees the new card.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
 const GEMINI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GEMINI_MODEL = 'google/gemini-3-flash-preview';
 const SERPER_URL = 'https://google.serper.dev/search';
@@ -23,13 +19,6 @@ const VANO_CANDIDATE_LIMIT = 20;
 const SERPER_RESULT_LIMIT = 10;
 const BRIEF_MAX_CHARS = 2000;
 const MAX_RETRIES_PER_SIDE = 1;
-
-function bad(status, error) {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
 
 async function callGemini(apiKey, systemPrompt, userPrompt, toolName, toolSchema) {
   const resp = await fetch(GEMINI_URL, {
@@ -239,9 +228,16 @@ async function insertOrFindWebScout(supabase, row, candidate) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const bad = (status: number, error: string) => new Response(
+    JSON.stringify({ error }),
+    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
     const authHeader = req.headers.get('Authorization');

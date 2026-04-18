@@ -1,25 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // Creates a Stripe Checkout Session for the €1 AI Find purchase and an
 // ai_find_requests row to track it. Returns { url } which the frontend
 // redirects to. Payment confirmation happens in stripe-webhook, not on
 // the success_url return — never trust the browser's word on "paid".
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
 const AI_FIND_AMOUNT_CENTS = 100; // €1.00
 const AI_FIND_CURRENCY = 'eur';
-
-function bad(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
 
 // Stripe requires form-urlencoded for REST calls. Arrays / nested
 // objects use the square-bracket notation below (line_items[0][...]).
@@ -30,9 +19,16 @@ function formEncode(obj: Record<string, string>): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const bad = (status: number, error: string): Response => new Response(
+    JSON.stringify({ error }),
+    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
     const authHeader = req.headers.get('Authorization');

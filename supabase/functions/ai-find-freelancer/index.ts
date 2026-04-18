@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // Runs the €1 AI Find for a single ai_find_requests row. Invoked by
 // stripe-webhook once payment is confirmed (service role auth). Does:
@@ -15,11 +16,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // don't re-verify it here because the only trigger is the webhook and
 // spoofed calls only ever re-process rows, which is bounded by the
 // status check.
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const GEMINI_MODEL = 'google/gemini-3-flash-preview';
 const GEMINI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
@@ -416,8 +412,17 @@ async function insertWebScout(
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+  // Server-to-server invocations (stripe-webhook, ai-find-retry) have no
+  // Origin header so isOriginAllowed returns true; a browser trying to
+  // directly hit this endpoint off-origin would be rejected here.
+  if (!isOriginAllowed(req)) {
+    return new Response(JSON.stringify({ error: 'Forbidden origin' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {

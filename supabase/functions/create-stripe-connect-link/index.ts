@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // Creates (or retrieves) a Stripe Connect Express account for the
 // calling freelancer and returns a hosted onboarding URL. The
@@ -13,18 +14,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // onboarding link — useful when the user bails halfway through and
 // comes back.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-function bad(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -32,9 +21,16 @@ function formEncode(obj: Record<string, string>): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+  const bad = (status: number, error: string): Response => new Response(
+    JSON.stringify({ error }),
+    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
     const authHeader = req.headers.get('Authorization');
