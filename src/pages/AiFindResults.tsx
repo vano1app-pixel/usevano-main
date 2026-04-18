@@ -33,6 +33,7 @@ type AiFindRow = {
   brief: string;
   category: string | null;
   vano_match_user_id: string | null;
+  vano_match_reason: string | null;
   web_scout_id: string | null;
   error_message: string | null;
 };
@@ -87,6 +88,11 @@ const AiFindResults = () => {
   const [webPick, setWebPick] = useState<WebPick | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pollingStartedAt] = useState(() => Date.now());
+  // Tracks how long the caller has been on the scouting screen so the
+  // loading copy can progress through "scanning Vano → searching web →
+  // picking best match". Updated every second only while we're in a
+  // non-terminal status so we don't thrash React after completion.
+  const [elapsedSec, setElapsedSec] = useState(0);
 
   const isTerminal = useMemo(
     () => row?.status === 'complete' || row?.status === 'failed' || row?.status === 'refunded',
@@ -105,7 +111,7 @@ const AiFindResults = () => {
       // is identical.
       const { data, error } = await (supabase as unknown as UntypedSupabase)
         .from('ai_find_requests')
-        .select('id, status, brief, category, vano_match_user_id, web_scout_id, error_message')
+        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message')
         .eq('id', id)
         .maybeSingle();
 
@@ -144,6 +150,16 @@ const AiFindResults = () => {
     // next-tick `isTerminal` check below. We keep this effect for
     // future-facing signals (e.g. posthog terminal event).
   }, [isTerminal]);
+
+  // 1-second tick to drive the staged loading copy. Only runs during
+  // non-terminal polling so a completed request doesn't thrash React.
+  useEffect(() => {
+    if (isTerminal) return;
+    const tick = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - pollingStartedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [isTerminal, pollingStartedAt]);
 
   // Load the Vano pick profile when the row resolves with a match.
   useEffect(() => {
@@ -240,8 +256,16 @@ const AiFindResults = () => {
             />
           ) : row.status === 'paid' || row.status === 'scouting' ? (
             <LoadingCard
-              label="Finding your freelancer…"
-              hint="We're scanning Vano's pool and the open web. Usually under a minute."
+              label={
+                elapsedSec < 15
+                  ? "Scanning your Vano pool…"
+                  : elapsedSec < 30
+                    ? "Searching the open web for candidates…"
+                    : elapsedSec < 60
+                      ? "Picking the best match…"
+                      : "Just a moment more…"
+              }
+              hint={elapsedSec < 60 ? "Usually under a minute." : "Taking a little longer than usual — hang tight."}
             />
           ) : row.status === 'failed' ? (
             <StatusCard
@@ -264,7 +288,11 @@ const AiFindResults = () => {
           ) : (
             <div className="space-y-4">
               {vanoPick ? (
-                <VanoPickCard pick={vanoPick} onMessage={() => navigate(`/messages?with=${vanoPick.user_id}`)} />
+                <VanoPickCard
+                  pick={vanoPick}
+                  reason={row.vano_match_reason ?? null}
+                  onMessage={() => navigate(`/messages?with=${vanoPick.user_id}`)}
+                />
               ) : null}
 
               {webPick ? <WebPickCard pick={webPick} /> : null}
@@ -329,7 +357,7 @@ const StatusCard = ({
   </div>
 );
 
-const VanoPickCard = ({ pick, onMessage }: { pick: VanoPick; onMessage: () => void }) => (
+const VanoPickCard = ({ pick, reason, onMessage }: { pick: VanoPick; reason: string | null; onMessage: () => void }) => (
   <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
     <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4 text-primary-foreground">
       <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
@@ -360,6 +388,17 @@ const VanoPickCard = ({ pick, onMessage }: { pick: VanoPick; onMessage: () => vo
           ) : null}
         </div>
       </div>
+
+      {reason ? (
+        <div className="rounded-xl border border-amber-300/40 bg-amber-50/50 px-3.5 py-2.5 dark:border-amber-800/30 dark:bg-amber-900/10">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+            Why Vano picked them
+          </p>
+          <p className="mt-1 text-sm italic text-foreground leading-relaxed">
+            "{reason}"
+          </p>
+        </div>
+      ) : null}
 
       {pick.bio ? (
         <p className="text-sm text-foreground leading-relaxed line-clamp-4">{pick.bio}</p>
