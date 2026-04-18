@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ExternalLink, AlertTriangle, X, Copy, Check } from 'lucide-react';
 import {
   detectInAppBrowser,
@@ -13,13 +14,40 @@ import {
  * browsers with a 403 "disallowed_useragent" page, so we warn them before
  * they press Sign-in with Google.
  *
- * Self-gating: renders null on any real browser.
+ * Self-gating:
+ *   1. Renders null on any real browser.
+ *   2. Only renders on auth-critical routes — previously it fired on
+ *      every page, which meant a freelancer sharing their profile link
+ *      in an Instagram bio scared off every cold visitor with a scary
+ *      amber warning the moment they clicked through. Now we warn them
+ *      only when they're about to need Google OAuth.
+ *
  * Session-dismissible so it doesn't nag a user who ignored it once, but
  * re-appears on a fresh tab so the signal isn't permanently lost.
  */
 const DISMISS_KEY = 'vano_iab_dismissed';
 
+// Paths where the banner still matters. These are the surfaces that
+// depend on Google OAuth (directly or downstream) — signing in,
+// completing profile, publishing a listing, claiming a scouted profile.
+// Everything else (browsing the talent board, reading the landing
+// page, etc.) gets the banner suppressed so in-app viewers aren't
+// scared off.
+const AUTH_CRITICAL_PREFIXES = [
+  '/auth',
+  '/choose-account-type',
+  '/complete-profile',
+  '/list-on-community',
+  '/claim',
+  '/reset-password',
+];
+
+function isAuthCriticalPath(pathname: string): boolean {
+  return AUTH_CRITICAL_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export const InAppBrowserBanner: React.FC = () => {
+  const location = useLocation();
   // `undefined` = not yet checked (SSR / first paint), keeps us from flashing
   // the banner before detection runs.
   const [browser, setBrowser] = useState<ReturnType<typeof detectInAppBrowser> | undefined>(undefined);
@@ -51,6 +79,10 @@ export const InAppBrowserBanner: React.FC = () => {
   };
 
   if (!browser || dismissed) return null;
+  // Only show on auth-critical routes. Browsing pages stay clean so
+  // Instagram / TikTok visitors clicking a shared Vano link don't get
+  // a scary amber warning before they've even seen the page.
+  if (!isAuthCriticalPath(location.pathname)) return null;
   const appLabel = IN_APP_BROWSER_LABEL[browser];
 
   return (
