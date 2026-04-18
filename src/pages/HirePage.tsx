@@ -425,7 +425,12 @@ const HirePage = () => {
       }
       supabase.functions.invoke('notify-hire-request', {
         body: { description: finalDescription, category, budget_range: budget, timeline, requester_email: user.email },
-      }).catch(() => {});
+      }).catch((err) => {
+        // Don't toast — the hire_requests row already landed, WhatsApp
+        // already opened. This is just the team's admin email/push;
+        // surface to Sentry so we notice if it's silently broken.
+        console.warn('[HirePage] notify-hire-request failed', err);
+      });
     }
     setSubmitting(false);
   };

@@ -602,7 +602,12 @@ const Messages = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({ recipient_id: recipientId, message_preview: tempMsg.content }),
-        }).catch(() => {});
+        }).catch((err) => {
+          // Message already landed in DB — recipient will see it on
+          // next chat open. Push notification is extra; log so we can
+          // spot a broken VAPID setup without hiding it from the user.
+          console.warn('[Messages] notify-new-message failed', err);
+        });
       });
 
       // Notify admin about business↔freelancer messages (in-app + email)
@@ -648,7 +653,9 @@ const Messages = () => {
                     message_preview: tempMsg.content,
                     freelancer_phone: spPhone?.phone || null,
                   }),
-                }).catch(() => {});
+                }).catch((err) => {
+                  console.warn('[Messages] notify-admin-message failed', err);
+                });
               }
             }
           }
