@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
-import { OnboardingJourney } from '@/components/OnboardingJourney';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
 import { sendMagicLink } from '@/lib/magicLink';
@@ -165,7 +164,6 @@ const Auth = () => {
         noindex
       />
       <div className="w-full max-w-md">
-        {!isLogin && <OnboardingJourney currentPage={1} className="mb-4" />}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2.5 mb-5">
             <img src={logo} alt="VANO" className="h-11 w-11 rounded-xl shadow-tinted-sm" />
@@ -175,7 +173,9 @@ const Auth = () => {
             {isLogin ? 'Welcome back' : 'Join VANO'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
-            {isLogin ? 'Sign in to your account.' : 'Pick your role and continue with Google.'}
+            {isLogin
+              ? 'Sign in to your account.'
+              : 'Pick your role, then sign in. Listing yourself takes about 30 seconds after — everything else can wait.'}
           </p>
         </div>
 

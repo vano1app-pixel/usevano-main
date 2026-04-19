@@ -1594,14 +1594,25 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Skills</Label>
+                  {/* Counter colours match the actual gate (1+ to publish).
+                      3+ is the recommendation that maximises matching, so we
+                      go amber until then but never red — red on a button
+                      that's already enabled was the old "why won't it
+                      submit?" trap. */}
                   <span className={cn(
                     'text-[11px] font-semibold',
-                    skills.length < 3 ? 'text-rose-500' : 'text-emerald-600',
+                    skills.length === 0 ? 'text-rose-500'
+                      : skills.length < 3 ? 'text-amber-600'
+                      : 'text-emerald-600',
                   )}>
-                    {skills.length} selected{skills.length < 3 ? ` · need ${3 - skills.length} more` : ' ✓'}
+                    {skills.length === 0
+                      ? 'Pick at least 1'
+                      : skills.length < 3
+                        ? `${skills.length} selected · ${3 - skills.length} more for top matches`
+                        : `${skills.length} selected ✓`}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Pick at least 3 so businesses can find you.</p>
+                <p className="mt-1 text-xs text-muted-foreground">One is enough to publish — three or more helps businesses find you faster.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(category ? SKILLS_BY_CATEGORY[category] : []).map((s) => (
                     <TagBadge key={s} tag={s} selected={skills.includes(s)} onClick={() => toggleSkill(s)} />

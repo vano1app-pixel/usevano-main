@@ -792,17 +792,96 @@ const Profile = () => {
                   });
                   // Per-check action — where to send the user when they
                   // tap a row. Keys match the CompletenessCheck.key union.
+                  // Banner goes to the existing inline file picker so users
+                  // don't have to re-open a 4-step wizard for one upload;
+                  // the rest still open the wizard at the right step.
                   const actionFor: Record<string, () => void> = {
                     name: () => document.querySelector<HTMLInputElement>('input[placeholder*="Your name"]')?.focus(),
                     avatar: () => document.querySelector('[data-avatar-upload]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
                     bio: () => openWizardAtStep(2),
-                    banner: () => openWizardAtStep(1),
+                    banner: () => bannerFileInputRef.current?.click(),
                     phone: () => openWizardAtStep(2),
                     university: () => openWizardAtStep(2),
                     skills: () => openWizardAtStep(3),
                     portfolio: () => openWizardAtStep(1),
                   };
-                  return renderProgressCard(checks, actionFor);
+
+                  // Hand-picked "high-impact basics" panel that surfaces for
+                  // freshly-published freelancers (Quick Start path leaves
+                  // banner / phone / skills empty by design). Renders ABOVE
+                  // the full completeness card and only when there's at
+                  // least one easy win to nail. Disappears once everything
+                  // important is filled in — no permanent nag.
+                  const isLive = studentProfile?.community_board_status === 'approved';
+                  const basics = [
+                    {
+                      key: 'banner',
+                      done: !!bannerUrl,
+                      label: 'Add a cover photo',
+                      hint: 'Listings with a cover get 3× more messages.',
+                      action: () => bannerFileInputRef.current?.click(),
+                      cta: 'Upload photo',
+                    },
+                    {
+                      key: 'phone',
+                      done: !!phone?.trim(),
+                      label: 'Add your phone number',
+                      hint: "We'll text you the second a business reaches out.",
+                      action: () => openWizardAtStep(2),
+                      cta: 'Add phone',
+                    },
+                    {
+                      key: 'skills',
+                      done: skills.length >= 3,
+                      label: skills.length === 0
+                        ? 'Pick a few skills'
+                        : 'Add a few more skills',
+                      hint: 'Three or more lets businesses find you in search.',
+                      action: () => openWizardAtStep(3),
+                      cta: skills.length === 0 ? 'Pick skills' : 'Add skills',
+                    },
+                  ];
+                  const remainingBasics = basics.filter((b) => !b.done);
+                  const showBasicsPanel = isLive && remainingBasics.length > 0;
+
+                  return (
+                    <>
+                      {showBasicsPanel && (
+                        <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] via-card to-card p-5 shadow-sm">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                            Finish setting up
+                          </p>
+                          <h3 className="mt-1 text-base font-semibold text-foreground sm:text-lg">
+                            You&apos;re live — now make your listing pop
+                          </h3>
+                          <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                            Quick wins that take a minute each. Skip what you don&apos;t need.
+                          </p>
+                          <ul className="mt-3 space-y-2">
+                            {remainingBasics.map((b) => (
+                              <li
+                                key={b.key}
+                                className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-background/60 px-3.5 py-3"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[13px] font-semibold text-foreground">{b.label}</p>
+                                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{b.hint}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={b.action}
+                                  className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.97]"
+                                >
+                                  {b.cta}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {renderProgressCard(checks, actionFor)}
+                    </>
+                  );
                 })()}
 
                 {/* Not visible yet CTA — calm card treatment. Uses the
