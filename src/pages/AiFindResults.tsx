@@ -554,7 +554,7 @@ const VanoPickCard = ({
     <div className="space-y-4 bg-card p-5">
       <div className="flex items-start gap-3">
         {pick.avatar_url ? (
-          <img src={pick.avatar_url} alt="" className="h-14 w-14 flex-shrink-0 rounded-full object-cover" />
+          <img src={pick.avatar_url} alt={pick.display_name} className="h-14 w-14 flex-shrink-0 rounded-full object-cover" />
         ) : (
           <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-base font-semibold text-muted-foreground">
             {pick.display_name.charAt(0).toUpperCase()}
@@ -643,7 +643,7 @@ const WebPickCard = ({
           {pick.avatar_url ? (
             <img
               src={pick.avatar_url}
-              alt=""
+              alt={pick.name}
               className="h-14 w-14 flex-shrink-0 rounded-full object-cover"
               referrerPolicy="no-referrer"
             />

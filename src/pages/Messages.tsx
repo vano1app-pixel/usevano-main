@@ -212,7 +212,14 @@ const Messages = () => {
       .select('user_type')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => setViewerUserType(data?.user_type || null));
+      .then(({ data, error }) => {
+        if (error) {
+          if (import.meta.env.DEV) console.warn('[Messages] viewer user_type fetch failed', error);
+          setViewerUserType(null);
+          return;
+        }
+        setViewerUserType(data?.user_type || null);
+      });
   }, [user?.id]);
 
   // Pull the viewer's own stripe_payouts_enabled so the "Enable Vano
@@ -228,7 +235,14 @@ const Messages = () => {
       .select('stripe_payouts_enabled')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => setViewerPayoutsEnabled(!!data?.stripe_payouts_enabled));
+      .then(({ data, error }) => {
+        if (error) {
+          if (import.meta.env.DEV) console.warn('[Messages] stripe_payouts_enabled fetch failed', error);
+          setViewerPayoutsEnabled(null);
+          return;
+        }
+        setViewerPayoutsEnabled(!!data?.stripe_payouts_enabled);
+      });
   }, [user?.id, viewerUserType]);
 
   // Fetch other-party metadata for the quick-reply chip row. Runs in parallel
@@ -764,7 +778,7 @@ const Messages = () => {
                   {userResults.map((u) => (
                     <button key={u.user_id} type="button" onClick={() => startConvoWith(u.user_id)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-secondary">
                       {u.avatar_url
-                        ? <img src={u.avatar_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                        ? <img src={u.avatar_url} alt={u.display_name || 'User'} className="h-9 w-9 shrink-0 rounded-full object-cover" />
                         : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">{(u.display_name || '?')[0].toUpperCase()}</div>
                       }
                       <span className="text-sm font-medium">{u.display_name || 'User'}</span>
@@ -834,7 +848,7 @@ const Messages = () => {
                     >
                       {/* Avatar */}
                       {convo.otherAvatar
-                        ? <img src={convo.otherAvatar} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" loading="lazy" />
+                        ? <img src={convo.otherAvatar} alt={convo.otherName || 'User'} className="h-11 w-11 shrink-0 rounded-full object-cover" loading="lazy" />
                         : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground">{(convo.otherName || '?')[0].toUpperCase()}</div>
                       }
                       <div className="min-w-0 flex-1">
@@ -903,7 +917,7 @@ const Messages = () => {
                 <div className="flex items-center gap-3 border-b border-border px-4 py-3">
                   <button onClick={() => setSelectedConvo(null)} className="text-sm text-muted-foreground transition-colors hover:text-foreground md:hidden">← Back</button>
                   {selectedConversation?.otherAvatar
-                    ? <img src={selectedConversation.otherAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    ? <img src={selectedConversation.otherAvatar} alt={selectedConversation.otherName || 'User'} className="h-8 w-8 rounded-full object-cover" />
                     : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">{(selectedConversation?.otherName || '?')[0].toUpperCase()}</div>
                   }
                   <div className="flex-1 min-w-0">

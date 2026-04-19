@@ -185,7 +185,7 @@ const BrowseStudents = () => {
                       style={{ animationDelay: `${idx * 100}ms` }}
                     >
                       {getAvatarUrl(s.user_id) ? (
-                        <img src={getAvatarUrl(s.user_id)} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />
+                        <img src={getAvatarUrl(s.user_id)} alt={name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />
                       ) : (
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 ring-card">
                           {name[0].toUpperCase()}

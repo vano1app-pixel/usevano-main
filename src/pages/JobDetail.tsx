@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { jobPostingSchema } from '@/lib/structuredData';
 import { getCanonicalUrl } from '@/lib/siteUrl';
-import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Trash2, XCircle } from 'lucide-react';
+import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Trash2, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatJobScheduleDetail } from '@/lib/jobSchedule';
@@ -160,7 +160,14 @@ const JobDetail = () => {
   const isShiftPast = job ? new Date(job.shift_date) < new Date() : false;
   const canReview = user && isShiftPast && !hasReviewed && job && user.id !== job.posted_by;
 
-  if (loading) return <div className="min-h-[100dvh] bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (loading) return (
+    <div className="min-h-[100dvh] bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-muted-foreground text-sm">Loading gig…</p>
+      </div>
+    </div>
+  );
   if (!job) return (
     <div className="min-h-[100dvh] bg-background">
       <Navbar />
@@ -199,7 +206,7 @@ const JobDetail = () => {
           {poster && (
             <div className="flex items-center gap-3 border-b border-foreground/6 bg-muted/25 px-4 py-3 sm:px-6">
               {poster.avatar_url ? (
-                <img src={poster.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
+                <img src={poster.avatar_url} alt={poster.display_name || 'Client'} className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
               ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold ring-2 ring-background">
                   {(poster.display_name || 'C')[0].toUpperCase()}
@@ -316,9 +323,10 @@ const JobDetail = () => {
               <button
                 onClick={handleApply}
                 disabled={applying}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {applying ? 'Applying...' : 'Apply Now'}
+                {applying && <Loader2 size={16} className="animate-spin" />}
+                {applying ? 'Applying…' : 'Apply Now'}
               </button>
             </div>
           ) : null}
