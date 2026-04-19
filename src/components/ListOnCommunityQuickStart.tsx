@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -33,6 +33,19 @@ export function ListOnCommunityQuickStart({
   const [pitch, setPitch] = useState('');
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const pitchInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus the pitch input once the user picks a category. On mobile
+  // this saves an extra tap (the next thing they need to do is type); on
+  // desktop it visually hands the flow forward without ambiguity about
+  // "what do I do now?". Skipped on first mount so the page doesn't
+  // yank focus before the user has looked at the category grid.
+  useEffect(() => {
+    if (!category) return;
+    // Short delay so the soft-keyboard-friendly layout is stable.
+    const t = window.setTimeout(() => pitchInputRef.current?.focus(), 80);
+    return () => window.clearTimeout(t);
+  }, [category]);
 
   // Phone is optional — businesses can always reach a freelancer through
   // in-app messages. Forcing a phone upfront was the #1 abandonment point;
@@ -147,6 +160,7 @@ export function ListOnCommunityQuickStart({
             One-line pitch
           </label>
           <input
+            ref={pitchInputRef}
             id="qs-pitch"
             type="text"
             value={pitch}

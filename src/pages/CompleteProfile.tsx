@@ -6,7 +6,6 @@ import { SEOHead } from '@/components/SEOHead';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
 import { Phone, UserCircle } from 'lucide-react';
-import { OnboardingJourney } from '@/components/OnboardingJourney';
 
 // Businesses only. Freelancers are routed straight to /list-on-community by
 // getPostAuthPath — the wizard captures bio, phone, skills, banner, etc., and
@@ -102,7 +101,6 @@ const CompleteProfile = () => {
     <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-8">
       <SEOHead title="Almost there – VANO" description="Tell us a bit about your business" noindex />
       <div className="w-full max-w-md">
-        <OnboardingJourney currentPage={3} className="mb-4" />
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <img src={logo} alt="VANO" className="h-10 w-10 rounded-xl" />

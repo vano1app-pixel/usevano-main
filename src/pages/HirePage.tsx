@@ -144,6 +144,13 @@ const HirePage = () => {
   // Separate loading flag so the €1 AI Find button can spin without
   // freezing the primary "Send request to Vano" CTA.
   const [aiFindLoading, setAiFindLoading] = useState(false);
+  // Step 1 "Add any extra detail" textarea is optional and chips already
+  // build a usable description from category + subtype. We collapse it
+  // behind a disclosure for known categories so happy-path hirers see a
+  // shorter step. For "Other" the textarea is the only input path and
+  // stays always-visible below. Auto-expands on HirePage load if a
+  // restored brief already contains typed text so we never swallow it.
+  const [showExtraContext, setShowExtraContext] = useState(false);
   const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
@@ -749,36 +756,56 @@ const HirePage = () => {
         );
       })()}
 
-      {/* Optional scratch space for extra context. Intentionally de-emphasised
-          below the chips (dashed border, smaller text, shorter height) so it
-          reads as a footnote, not a required field. For "Other" it graduates
-          back to a solid card since it becomes the only input path. */}
-      <div className={cn(
-        'rounded-2xl bg-card overflow-hidden transition-all duration-300',
-        category === 'other'
-          ? 'border border-foreground/6 shadow-tinted focus-within:border-primary/20 focus-within:shadow-tinted-lg'
-          : 'border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid',
-      )}>
-        <div className="flex items-center justify-between px-4 pt-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {category === 'other' ? 'Tell us what you need' : 'Add any extra detail'}
-            {category !== 'other' && <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>}
-          </p>
+      {/* Optional scratch space for extra context.
+          - "Other" category → always visible, solid card (it IS the input).
+          - Known category → collapsed behind a disclosure so the chips +
+            Continue read as the full flow. Auto-expands if the user has
+            already typed (e.g. restored brief). */}
+      {category === 'other' ? (
+        <div className="rounded-2xl bg-card overflow-hidden transition-all duration-300 border border-foreground/6 shadow-tinted focus-within:border-primary/20 focus-within:shadow-tinted-lg">
+          <div className="flex items-center justify-between px-4 pt-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Tell us what you need
+            </p>
+          </div>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Describe what you need — the more specific, the better match we can find."
+            className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base"
+          />
         </div>
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder={category === 'other'
-            ? 'Describe what you need — the more specific, the better match we can find.'
-            : "Anything the freelancer should know upfront (deadline context, brand, examples…)"}
-          className={cn(
-            'w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none',
-            category === 'other'
-              ? 'min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base'
-              : 'min-h-[72px] lg:min-h-[88px] text-sm',
-          )}
-        />
-      </div>
+      ) : (() => {
+        const expanded = showExtraContext || description.trim().length > 0;
+        if (!expanded) {
+          return (
+            <button
+              type="button"
+              onClick={() => setShowExtraContext(true)}
+              className="w-full rounded-xl border border-dashed border-foreground/10 bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+            >
+              + Add context <span className="text-xs font-normal">(optional — deadlines, examples, brand…)</span>
+            </button>
+          );
+        }
+        return (
+          <div className="rounded-2xl bg-card overflow-hidden border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid">
+            <div className="flex items-center justify-between px-4 pt-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Add any extra detail
+                <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>
+              </p>
+            </div>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Anything the freelancer should know upfront (deadline context, brand, examples…)"
+              className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-sm text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[72px] lg:min-h-[88px]"
+              autoFocus={showExtraContext}
+            />
+          </div>
+        );
+      })()}
 
       {/* Value props */}
       <div className="mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
