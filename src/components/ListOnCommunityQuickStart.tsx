@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -33,25 +33,42 @@ export function ListOnCommunityQuickStart({
   const [pitch, setPitch] = useState('');
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const pitchInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-focus the pitch input once the user picks a category. On mobile
+  // this saves an extra tap (the next thing they need to do is type); on
+  // desktop it visually hands the flow forward without ambiguity about
+  // "what do I do now?". Skipped on first mount so the page doesn't
+  // yank focus before the user has looked at the category grid.
+  useEffect(() => {
+    if (!category) return;
+    // Short delay so the soft-keyboard-friendly layout is stable.
+    const t = window.setTimeout(() => pitchInputRef.current?.focus(), 80);
+    return () => window.clearTimeout(t);
+  }, [category]);
+
+  // Phone is optional — businesses can always reach a freelancer through
+  // in-app messages. Forcing a phone upfront was the #1 abandonment point;
+  // dropping the requirement lets uncertain users get listed in seconds and
+  // add their number later when a real client conversation is happening.
+  const trimmedPhone = phone.trim();
+  const phoneLooksValid = trimmedPhone.length === 0 || trimmedPhone.length >= 6;
   const canPublish =
     category !== null &&
     pitch.trim().length >= 6 &&
-    phone.trim().length >= 6;
+    phoneLooksValid;
 
   const publish = async () => {
     if (!canPublish || submitting || !category) return;
     setSubmitting(true);
     try {
-      // Upsert the phone + empty defaults on student_profiles so the
-      // user's profile row exists before the community_posts INSERT
-      // (the wizard's normal flow also does this).
+      // Upsert empty defaults on student_profiles (and phone if the user
+      // gave one) so the row exists before the community_posts INSERT.
+      const upsertPayload: { user_id: string; phone?: string } = { user_id: userId };
+      if (trimmedPhone) upsertPayload.phone = trimmedPhone;
       await supabase
         .from('student_profiles')
-        .upsert(
-          { user_id: userId, phone: phone.trim() },
-          { onConflict: 'user_id' },
-        );
+        .upsert(upsertPayload, { onConflict: 'user_id' });
 
       // Call the same publish RPC the full wizard uses. Description is
       // empty on purpose — the user can polish later. Rates default to 0
@@ -99,8 +116,8 @@ export function ListOnCommunityQuickStart({
               Show businesses what you do
             </h1>
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
-              Just the basics — pick a category, write one line about yourself, drop your phone.
-              You can polish the rest later.
+              Just the basics — pick a category and write one line about yourself.
+              Phone is optional. You can polish the rest later.
             </p>
           </div>
         </div>
@@ -143,6 +160,7 @@ export function ListOnCommunityQuickStart({
             One-line pitch
           </label>
           <input
+            ref={pitchInputRef}
             id="qs-pitch"
             type="text"
             value={pitch}
@@ -164,8 +182,11 @@ export function ListOnCommunityQuickStart({
 
         {/* Phone */}
         <div>
-          <label htmlFor="qs-phone" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Phone number
+          <label htmlFor="qs-phone" className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Phone number</span>
+            <span className="font-normal normal-case tracking-normal text-muted-foreground/70">
+              Optional
+            </span>
           </label>
           <input
             id="qs-phone"
@@ -176,7 +197,7 @@ export function ListOnCommunityQuickStart({
             className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            We'll text you when a business reaches out. Never shared publicly.
+            Skip if you'd rather chat in-app first. We'll text you when a business reaches out — never shared publicly.
           </p>
         </div>
 

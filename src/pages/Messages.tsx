@@ -174,6 +174,10 @@ const Messages = () => {
   // viewers ignore it.
   const [otherUserType, setOtherUserType] = useState<string | null>(null);
   const [otherCategory, setOtherCategory] = useState<string | null>(null);
+  // Other party's Vano Pay readiness — drives the "Pay via Vano" button
+  // gating for businesses. null = unknown (button hidden until we know
+  // so businesses don't click into a confusing error toast).
+  const [otherPayoutsEnabled, setOtherPayoutsEnabled] = useState<boolean | null>(null);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Per-tab suffix on every realtime channel name. Without it, opening the
@@ -235,6 +239,7 @@ const Messages = () => {
     if (!selectedConvo) {
       setOtherUserType(null);
       setOtherCategory(null);
+      setOtherPayoutsEnabled(null);
       return;
     }
     const conv = conversations.find((c) => c.id === selectedConvo);
@@ -242,19 +247,30 @@ const Messages = () => {
     if (!otherId) {
       setOtherUserType(null);
       setOtherCategory(null);
+      setOtherPayoutsEnabled(null);
       return;
     }
     setOtherUserType(null);
     setOtherCategory(null);
+    setOtherPayoutsEnabled(null);
     let cancelled = false;
     void (async () => {
-      const [profileRes, postRes] = await Promise.all([
+      const [profileRes, postRes, payoutsRes] = await Promise.all([
         supabase.from('profiles').select('user_type').eq('user_id', otherId).maybeSingle(),
         supabase.from('community_posts').select('category').eq('user_id', otherId).limit(1).maybeSingle(),
+        // We need this only when viewer is business, but it's a single
+        // tiny query and gates a destructive UX (clicking into an error
+        // toast) so we always fetch and let the render decide. Cast
+        // through `never` because stripe_payouts_enabled isn't in the
+        // generated supabase types yet (same workaround as
+        // VanoPaySetupCard).
+        supabase.from('student_profiles' as never).select('stripe_payouts_enabled' as never).eq('user_id' as never, otherId as never).maybeSingle(),
       ]);
       if (cancelled) return;
       setOtherUserType((profileRes.data?.user_type as string | null) ?? null);
       setOtherCategory((postRes.data?.category as string | null) ?? null);
+      const payoutsRow = payoutsRes.data as { stripe_payouts_enabled?: boolean } | null;
+      setOtherPayoutsEnabled(!!payoutsRow?.stripe_payouts_enabled);
     })();
     return () => { cancelled = true; };
   }, [selectedConvo, conversations]);
@@ -943,19 +959,47 @@ const Messages = () => {
                     </span>
                   )}
                   {/* Pay via Vano — only makes sense for businesses
-                      paying freelancers. Modal validates the rest
-                      (freelancer's Connect onboarding status, amount
-                      bounds) server-side before redirecting to Stripe
-                      Checkout. */}
-                  {selectedConversation && user && viewerUserType === 'business' && (
-                    <button
-                      type="button"
-                      onClick={() => setVanoPayOpen(true)}
-                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition-colors hover:brightness-110"
-                    >
-                      <Banknote size={12} strokeWidth={2.5} />
-                      Pay via Vano
-                    </button>
+                      paying freelancers whose Stripe Connect account is
+                      ready. The modal still re-validates server-side,
+                      but gating the button up here means we don't hand
+                      users a confusing error toast after a click on a
+                      freelancer who hasn't enabled Vano Pay yet. */}
+                  {selectedConversation && user && viewerUserType === 'business' && otherUserType === 'student' && (
+                    otherPayoutsEnabled ? (
+                      <button
+                        type="button"
+                        onClick={() => setVanoPayOpen(true)}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition-colors hover:brightness-110"
+                      >
+                        <Banknote size={12} strokeWidth={2.5} />
+                        Pay via Vano
+                      </button>
+                    ) : otherPayoutsEnabled === false ? (
+                      <button
+                        type="button"
+                        title={`${selectedConversation.otherName || 'This freelancer'} hasn't enabled Vano Pay yet — tap to ask them to set it up.`}
+                        onClick={() => {
+                          // Drop a friendly, templated ask into the textbox so
+                          // the business can send it with one more tap. This
+                          // is the shortest path from "I want to pay safely"
+                          // to an activated freelancer (= future commission).
+                          const name = selectedConversation.otherName?.split(' ')[0] || 'there';
+                          const draft = `Hey ${name}! Could you enable Vano Pay on your profile when you get a minute? It's a quick one-off Stripe setup and lets me pay you safely through Vano — money lands in your bank in 1–2 days. Thanks!`;
+                          setNewMessage(draft);
+                          requestAnimationFrame(() => {
+                            const ta = textareaRef.current;
+                            if (ta) {
+                              ta.focus();
+                              ta.selectionStart = ta.selectionEnd = draft.length;
+                            }
+                          });
+                        }}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+                      >
+                        <Banknote size={12} strokeWidth={2.5} />
+                        Ask to enable Vano Pay
+                      </button>
+                    ) : null
                   )}
                 </div>
 

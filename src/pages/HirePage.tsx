@@ -70,7 +70,7 @@ const BUDGETS = [
   { id: '100_250', label: '€100–250', sub: 'Most popular' },
   { id: '250_500', label: '€250–500', sub: 'Bigger project' },
   { id: '500_plus', label: '€500+', sub: 'Full project' },
-  { id: 'unsure', label: 'Not sure yet', sub: "We'll advise" },
+  { id: 'unsure', label: 'I want a quote', sub: "We'll advise" },
 ] as const;
 
 const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
@@ -144,6 +144,13 @@ const HirePage = () => {
   // Separate loading flag so the €1 AI Find button can spin without
   // freezing the primary "Send request to Vano" CTA.
   const [aiFindLoading, setAiFindLoading] = useState(false);
+  // Step 1 "Add any extra detail" textarea is optional and chips already
+  // build a usable description from category + subtype. We collapse it
+  // behind a disclosure for known categories so happy-path hirers see a
+  // shorter step. For "Other" the textarea is the only input path and
+  // stays always-visible below. Auto-expands on HirePage load if a
+  // restored brief already contains typed text so we never swallow it.
+  const [showExtraContext, setShowExtraContext] = useState(false);
   const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
@@ -442,7 +449,38 @@ const HirePage = () => {
   // polls until the AI picks are ready.
   const handleAiFind = async () => {
     if (!user) {
-      toast({ title: 'Please sign in first', description: "Use the primary Vano button above — it'll bring you back here." });
+      // Same OAuth round-trip as Vano Match so signed-out hirers can
+      // discover the €1 product without the friction of bouncing
+      // through /auth manually. Brief is saved and Step 3 resumes
+      // intact on return; they tap AI Find again to go to Stripe.
+      saveHireBrief({ description, category, subtype, timeline, budget });
+      if (isInAppBrowser()) {
+        track('in_app_browser_blocked', { source: 'hire_ai_find_signedout' });
+        toast({
+          title: "Can't sign in here",
+          description: "Open this page in Safari or Chrome — your brief is saved.",
+          variant: 'destructive',
+        });
+        return;
+      }
+      setGoogleOAuthIntent('business');
+      toast({
+        title: 'Saving your brief…',
+        description: "We'll bring you right back to finish.",
+      });
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: getAuthRedirectUrl(),
+            queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+          },
+        });
+        if (error) throw error;
+      } catch {
+        clearHireBrief();
+        toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
+      }
       return;
     }
     if (!isEmailVerified({ user } as any)) {
@@ -454,6 +492,10 @@ const HirePage = () => {
     setAiFindLoading(true);
     try {
       const finalDescription = buildDescription();
+      // Persist the brief before the redirect so a Stripe failure
+      // (3DS abandon, network drop, payment declined) lands the user
+      // back on /hire with their work intact instead of a blank wizard.
+      saveHireBrief({ description, category, subtype, timeline, budget });
       const { data, error } = await supabase.functions.invoke('create-ai-find-checkout', {
         body: {
           brief: finalDescription,
@@ -468,14 +510,26 @@ const HirePage = () => {
       if (!url) throw new Error('No checkout URL returned');
 
       track('ai_find_checkout_started', { category, timeline, budget });
-      // Hand off to Stripe — do NOT clear the brief; if they cancel
-      // checkout they'll land back on /hire and expect the form intact.
       window.location.href = url;
     } catch (err) {
       console.error('[ai-find] checkout failed', err);
+      // Surface the real error from the edge function. Common cases:
+      //  - "STRIPE_SECRET_KEY not configured" → ops issue, contact support
+      //  - "Brief is too short" → user needs to write more
+      //  - opaque network failures → generic retry message
+      const ctxErr = (err as { context?: { error?: string } })?.context?.error;
+      const rawMsg = ctxErr || (err as { message?: string })?.message || '';
+      const friendly =
+        rawMsg.includes('STRIPE_SECRET_KEY')
+          ? "Payments aren't configured yet — message us on WhatsApp and we'll find your match manually."
+        : rawMsg.toLowerCase().includes('brief')
+          ? rawMsg
+        : rawMsg.toLowerCase().includes('unauthorized')
+          ? 'Please sign out and back in, then try again.'
+        : 'Please try again in a moment, or use the free Vano Match button above.';
       toast({
         title: "Couldn't start AI Find",
-        description: 'Please try again in a moment.',
+        description: friendly,
         variant: 'destructive',
       });
       setAiFindLoading(false);
@@ -702,36 +756,56 @@ const HirePage = () => {
         );
       })()}
 
-      {/* Optional scratch space for extra context. Intentionally de-emphasised
-          below the chips (dashed border, smaller text, shorter height) so it
-          reads as a footnote, not a required field. For "Other" it graduates
-          back to a solid card since it becomes the only input path. */}
-      <div className={cn(
-        'rounded-2xl bg-card overflow-hidden transition-all duration-300',
-        category === 'other'
-          ? 'border border-foreground/6 shadow-tinted focus-within:border-primary/20 focus-within:shadow-tinted-lg'
-          : 'border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid',
-      )}>
-        <div className="flex items-center justify-between px-4 pt-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {category === 'other' ? 'Tell us what you need' : 'Add any extra detail'}
-            {category !== 'other' && <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>}
-          </p>
+      {/* Optional scratch space for extra context.
+          - "Other" category → always visible, solid card (it IS the input).
+          - Known category → collapsed behind a disclosure so the chips +
+            Continue read as the full flow. Auto-expands if the user has
+            already typed (e.g. restored brief). */}
+      {category === 'other' ? (
+        <div className="rounded-2xl bg-card overflow-hidden transition-all duration-300 border border-foreground/6 shadow-tinted focus-within:border-primary/20 focus-within:shadow-tinted-lg">
+          <div className="flex items-center justify-between px-4 pt-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Tell us what you need
+            </p>
+          </div>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Describe what you need — the more specific, the better match we can find."
+            className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base"
+          />
         </div>
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder={category === 'other'
-            ? 'Describe what you need — the more specific, the better match we can find.'
-            : "Anything the freelancer should know upfront (deadline context, brand, examples…)"}
-          className={cn(
-            'w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none',
-            category === 'other'
-              ? 'min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base'
-              : 'min-h-[72px] lg:min-h-[88px] text-sm',
-          )}
-        />
-      </div>
+      ) : (() => {
+        const expanded = showExtraContext || description.trim().length > 0;
+        if (!expanded) {
+          return (
+            <button
+              type="button"
+              onClick={() => setShowExtraContext(true)}
+              className="w-full rounded-xl border border-dashed border-foreground/10 bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+            >
+              + Add context <span className="text-xs font-normal">(optional — deadlines, examples, brand…)</span>
+            </button>
+          );
+        }
+        return (
+          <div className="rounded-2xl bg-card overflow-hidden border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid">
+            <div className="flex items-center justify-between px-4 pt-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Add any extra detail
+                <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>
+              </p>
+            </div>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Anything the freelancer should know upfront (deadline context, brand, examples…)"
+              className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-sm text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[72px] lg:min-h-[88px]"
+              autoFocus={showExtraContext}
+            />
+          </div>
+        );
+      })()}
 
       {/* Value props */}
       <div className="mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
@@ -856,55 +930,59 @@ const HirePage = () => {
 
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
-          Choose how to hire
+          Match me with a freelancer
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Let Vano match you with a trusted freelancer, or message a freelancer directly.
+          €1 now, vetted match in 60 seconds. Refunded if we don't find one.
         </p>
       </header>
 
-      {/* ── OPTION A — Vano Match (primary, full-width) ──
-           Premium styling: amber-gold ring + gradient header signal
-           "concierge upgrade" so the recommended path looks chosen-for-you,
-           not just another primary button. */}
+      {/* ── PRIMARY HERO — €1 AI Find ──
+           This is the offer the whole site narrates toward. Big, confident,
+           amber-gold premium ring. Spells out the full pipeline
+           (pay → match → chat → pay via Vano) inside the card so hirers
+           know where €1 sits in the story before they commit. */}
       <div>
         {!submitted ? (
           <div className="relative overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
-            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4">
-              {/* Subtle gold sheen in the corner — tiny, tasteful, premium */}
+            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-5">
               <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-              <div className="relative flex items-center gap-2 mb-1">
+              <div className="relative flex flex-wrap items-center gap-2 mb-2">
                 <Sparkles size={16} className="text-amber-200" />
-                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">Recommended</span>
+                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">The €1 match</span>
                 <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-50 ring-1 ring-emerald-300/40">
-                  €0 platform fee
+                  Refunded if no match
                 </span>
               </div>
-              <h2 className="relative text-lg font-bold text-white">Match with a trusted freelancer</h2>
-              <p className="relative mt-1 text-[13px] leading-relaxed text-white/75">
-                Tailored to your brief — we pick a vetted freelancer at the right price. You just approve.
-                <span className="mt-1 block font-semibold text-emerald-200">You pay the freelancer directly. No hidden fees, no commission.</span>
+              <h2 className="relative text-xl font-bold text-white sm:text-2xl">
+                Match me with the perfect freelancer for €1
+              </h2>
+              <p className="relative mt-1.5 text-[13px] leading-relaxed text-white/80">
+                Pay €1, we find your match in 60 seconds. Chat, agree a price together, pay them securely through Vano. We only take 3% when they get paid — that's it.
               </p>
             </div>
-            <div className="space-y-3 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-3">
-              {/* How it works */}
-              <div className="grid grid-cols-3 gap-2">
+
+            <div className="space-y-4 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-4">
+              {/* Four-step pipeline strip — makes the full story visible so
+                   the €1 CTA reads as "start the thing" not "gamble €1". */}
+              <div className="grid grid-cols-4 gap-1.5">
                 {[
-                  { num: '1', text: 'You describe it' },
-                  { num: '2', text: 'We find the match' },
-                  { num: '3', text: 'You approve & pay' },
+                  { num: '1', text: 'Pay €1' },
+                  { num: '2', text: '60s match' },
+                  { num: '3', text: 'Chat + agree' },
+                  { num: '4', text: 'Pay via Vano' },
                 ].map(s => (
-                  <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-2 py-2.5">
+                  <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-1.5 py-2">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold text-white">{s.num}</span>
-                    <p className="text-[10px] font-medium text-white/80 text-center leading-tight">{s.text}</p>
+                    <p className="text-[10px] font-medium text-white/85 text-center leading-tight">{s.text}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Brief summary */}
+              {/* Brief summary — reminds the hirer what they're about to match for */}
               <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">Your request</p>
-                <p className="text-xs text-white/80 line-clamp-2">{recap || 'Your request'}</p>
+                <p className="text-xs text-white/85 line-clamp-2">{recap || 'Your request'}</p>
                 <div className="flex gap-1.5 mt-2 flex-wrap">
                   {[
                     category && CATEGORIES.find(c => c.id === category)?.label,
@@ -916,32 +994,24 @@ const HirePage = () => {
                 </div>
               </div>
 
-              <button data-mascot="hire-submit" type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
-                {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
+              {/* Primary CTA — the €1 button. Large, white-on-primary, fills
+                   the card. Kept distinct from any secondary paths below. */}
+              <button
+                data-mascot="hire-submit"
+                type="button"
+                onClick={handleAiFind}
+                disabled={aiFindLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-4 text-base font-bold text-primary shadow-md cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+              >
+                {aiFindLoading ? (
+                  <><Loader2 size={16} className="animate-spin" /> Starting your match…</>
+                ) : (
+                  <><Sparkles size={16} className="text-amber-500" /> Match me now — €1</>
+                )}
               </button>
-              <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
-
-              {/* €1 AI Find — secondary CTA. Quieter styling so it reads
-                  as a beta alternative, not the primary path. Only
-                  offered to signed-in users; the main CTA above handles
-                  the auth round-trip if needed. */}
-              {user ? (
-                <button
-                  type="button"
-                  onClick={handleAiFind}
-                  disabled={aiFindLoading}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-4 py-3 text-xs font-semibold text-white/90 transition hover:bg-white/10 active:scale-[0.98] disabled:opacity-60"
-                >
-                  {aiFindLoading ? (
-                    <><Loader2 size={13} className="animate-spin" /> Starting AI Find…</>
-                  ) : (
-                    <>
-                      <Sparkles size={13} className="text-amber-200" />
-                      Or try AI Find — €1, results in 60 seconds
-                    </>
-                  )}
-                </button>
-              ) : null}
+              <p className="text-center text-[11px] text-white/65">
+                Secure checkout via Stripe · Refunded if no match · No commitment
+              </p>
             </div>
           </div>
         ) : (
@@ -965,12 +1035,33 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
-           Sits directly under the Vano card as a white / outline full-width
-           button so it reads as the clearly-secondary path. Tapping it expands
-           the matched-freelancer panel inline. The previous green "Get quotes
-           from top 3" broadcast CTA was removed — users preferred the simpler
-           "pick yourself" interaction. */}
+      {/* ── SECONDARY — Free Vano Match (the "wait 24h" alternative) ──
+           Previously this was the primary, but "€1 + refund" is a stronger
+           offer than "free + wait". Slim card, outlined, reads as the
+           "prefer to wait" alternative so it doesn't compete. Hidden after
+           submit (free request already sent). */}
+      {!submitted && (
+        <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Prefer to wait? Free match in 24h</p>
+              <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+                We&apos;ll hand-pick a freelancer and message you. No AI, no €1.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleVanoSubmit}
+              disabled={submitting}
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-muted active:scale-[0.98] disabled:opacity-60"
+            >
+              {submitting ? <><Loader2 size={13} className="animate-spin" /> Sending…</> : <><Send size={13} /> Send free</>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TERTIARY — Pick a freelancer yourself (reveal list on click) ── */}
       <button
         type="button"
         onClick={() => setShowDirectList((s) => !s)}

@@ -297,6 +297,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // Hide them behind an "Add social links" toggle so the required fields
   // (bio + phone + university) read as the focus.
   const [showSocialFields, setShowSocialFields] = useState(false);
+  // About-you + University + Work-links are all optional and previously
+  // lived inline on Step 2, blowing it out to 10+ visible fields. Now
+  // collapsed behind a single "Add more about you" disclosure so the
+  // core Step 2 is title + description + phone + (county if local).
+  // Auto-expands for returning drafts so restored data isn't invisible.
+  const [showOptionalDetails, setShowOptionalDetails] = useState(false);
   // Mobile-only: the live card preview collapses to a slim sticky header to
   // keep the form readable on small screens. Tap to toggle expanded. On
   // desktop (lg+) the preview is always visible in its own column and this
@@ -1283,21 +1289,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   maxLength={2000}
                 />
               </div>
-              <div>
-                <Label htmlFor="lc-about">About you <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Shown on your profile page above your work — your background, why you do this. If you leave this blank, your profile page will just show your work pitch.
-                </p>
-                <Textarea
-                  id="lc-about"
-                  className="mt-1.5 min-h-[70px] text-sm"
-                  placeholder="Where you're from, what you're passionate about."
-                  value={aboutMe}
-                  onChange={(e) => setAboutMe(e.target.value)}
-                  maxLength={500}
-                />
-              </div>
-
               <div className="h-px bg-border" />
 
               <div>
@@ -1310,21 +1301,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   onChange={(e) => setPhone(e.target.value)}
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
-              </div>
-              <div>
-                <Label>University <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                <Select value={university} onValueChange={setUniversity}>
-                  <SelectTrigger className="mt-1.5 h-11">
-                    <SelectValue placeholder="Select your university" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNIVERSITIES.map((uni) => (
-                      <SelectItem key={uni.key} value={uni.key}>
-                        {uni.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               {/* Location question — structured and category-aware. Local
                   categories (videography) require a county so the matcher
@@ -1424,34 +1400,89 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   </>
                 );
               })()}
-              <div>
-                <Label>Links to past work <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <p className="mt-1 text-xs text-muted-foreground">Portfolio site, Behance, Drive, etc.</p>
-                <div className="mt-2 space-y-2">
-                  {workLinks.map((row, i) => (
-                    <div key={i} className="flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        placeholder="Label"
-                        value={row.label}
-                        onChange={(e) => updateWorkLink(i, 'label', e.target.value)}
-                        className="h-10"
+              {/* "Add more about you" — collapses About bio, University,
+                  and past-work links behind one disclosure so Step 2 lands
+                  at 4 visible fields (title, desc, phone, county). Auto-
+                  expands if a returning draft has any of these filled so
+                  the user can see their previous work. Each field saves
+                  to the same profile row as before — no data loss. */}
+              {(() => {
+                const hasWorkLink = workLinks.some((w) => !!w.url?.trim());
+                const anyOptionalFilled = !!aboutMe.trim() || !!university || hasWorkLink;
+                const expanded = showOptionalDetails || anyOptionalFilled;
+                if (!expanded) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setShowOptionalDetails(true)}
+                      className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                    >
+                      + Add more about you <span className="text-xs font-normal">(optional — bio, university, past work links)</span>
+                    </button>
+                  );
+                }
+                return (
+                  <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                    <div>
+                      <Label htmlFor="lc-about">About you <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Shown on your profile page above your work.
+                      </p>
+                      <Textarea
+                        id="lc-about"
+                        className="mt-1.5 min-h-[70px] text-sm"
+                        placeholder="Where you're from, what you're passionate about."
+                        value={aboutMe}
+                        onChange={(e) => setAboutMe(e.target.value)}
+                        maxLength={500}
                       />
-                      <Input
-                        placeholder="https://…"
-                        value={row.url}
-                        onChange={(e) => updateWorkLink(i, 'url', e.target.value)}
-                        className="h-10 flex-1"
-                      />
-                      <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" onClick={() => removeWorkLink(i)}>
-                        Remove
+                    </div>
+                    <div>
+                      <Label>University <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                      <Select value={university} onValueChange={setUniversity}>
+                        <SelectTrigger className="mt-1.5 h-11">
+                          <SelectValue placeholder="Select your university" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {UNIVERSITIES.map((uni) => (
+                            <SelectItem key={uni.key} value={uni.key}>
+                              {uni.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Links to past work <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <p className="mt-1 text-xs text-muted-foreground">Portfolio site, Behance, Drive, etc.</p>
+                      <div className="mt-2 space-y-2">
+                        {workLinks.map((row, i) => (
+                          <div key={i} className="flex flex-col gap-2 sm:flex-row">
+                            <Input
+                              placeholder="Label"
+                              value={row.label}
+                              onChange={(e) => updateWorkLink(i, 'label', e.target.value)}
+                              className="h-10"
+                            />
+                            <Input
+                              placeholder="https://…"
+                              value={row.url}
+                              onChange={(e) => updateWorkLink(i, 'url', e.target.value)}
+                              className="h-10 flex-1"
+                            />
+                            <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" onClick={() => removeWorkLink(i)}>
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" className="mt-2 h-9 text-xs" onClick={addWorkLinkRow}>
+                        + Add link
                       </Button>
                     </div>
-                  ))}
-                </div>
-                <Button type="button" variant="ghost" size="sm" className="mt-2 h-9 text-xs" onClick={addWorkLinkRow}>
-                  + Add link
-                </Button>
-              </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1594,14 +1625,25 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Skills</Label>
+                  {/* Counter colours match the actual gate (1+ to publish).
+                      3+ is the recommendation that maximises matching, so we
+                      go amber until then but never red — red on a button
+                      that's already enabled was the old "why won't it
+                      submit?" trap. */}
                   <span className={cn(
                     'text-[11px] font-semibold',
-                    skills.length < 3 ? 'text-rose-500' : 'text-emerald-600',
+                    skills.length === 0 ? 'text-rose-500'
+                      : skills.length < 3 ? 'text-amber-600'
+                      : 'text-emerald-600',
                   )}>
-                    {skills.length} selected{skills.length < 3 ? ` · need ${3 - skills.length} more` : ' ✓'}
+                    {skills.length === 0
+                      ? 'Pick at least 1'
+                      : skills.length < 3
+                        ? `${skills.length} selected · ${3 - skills.length} more for top matches`
+                        : `${skills.length} selected ✓`}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Pick at least 3 so businesses can find you.</p>
+                <p className="mt-1 text-xs text-muted-foreground">One is enough to publish — three or more helps businesses find you faster.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(category ? SKILLS_BY_CATEGORY[category] : []).map((s) => (
                     <TagBadge key={s} tag={s} selected={skills.includes(s)} onClick={() => toggleSkill(s)} />
