@@ -454,6 +454,10 @@ const HirePage = () => {
     setAiFindLoading(true);
     try {
       const finalDescription = buildDescription();
+      // Persist the brief before the redirect so a Stripe failure
+      // (3DS abandon, network drop, payment declined) lands the user
+      // back on /hire with their work intact instead of a blank wizard.
+      saveHireBrief({ description, category, subtype, timeline, budget });
       const { data, error } = await supabase.functions.invoke('create-ai-find-checkout', {
         body: {
           brief: finalDescription,
@@ -468,14 +472,26 @@ const HirePage = () => {
       if (!url) throw new Error('No checkout URL returned');
 
       track('ai_find_checkout_started', { category, timeline, budget });
-      // Hand off to Stripe — do NOT clear the brief; if they cancel
-      // checkout they'll land back on /hire and expect the form intact.
       window.location.href = url;
     } catch (err) {
       console.error('[ai-find] checkout failed', err);
+      // Surface the real error from the edge function. Common cases:
+      //  - "STRIPE_SECRET_KEY not configured" → ops issue, contact support
+      //  - "Brief is too short" → user needs to write more
+      //  - opaque network failures → generic retry message
+      const ctxErr = (err as { context?: { error?: string } })?.context?.error;
+      const rawMsg = ctxErr || (err as { message?: string })?.message || '';
+      const friendly =
+        rawMsg.includes('STRIPE_SECRET_KEY')
+          ? "Payments aren't configured yet — message us on WhatsApp and we'll find your match manually."
+        : rawMsg.toLowerCase().includes('brief')
+          ? rawMsg
+        : rawMsg.toLowerCase().includes('unauthorized')
+          ? 'Please sign out and back in, then try again.'
+        : 'Please try again in a moment, or use the free Vano Match button above.';
       toast({
         title: "Couldn't start AI Find",
-        description: 'Please try again in a moment.',
+        description: friendly,
         variant: 'destructive',
       });
       setAiFindLoading(false);
