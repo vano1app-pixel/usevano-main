@@ -19,11 +19,15 @@ name: Deploy Supabase Edge Functions
 # bad edge function.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'supabase/functions/**'
-      - '.github/workflows/supabase-deploy.yml'
+  # Auto-deploy on push is commented out. Functions are deployed on
+  # demand via the Supabase MCP from the AI agent session instead.
+  # To re-enable: add SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF to
+  # the repo's Actions secrets, then uncomment the push: block below.
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'supabase/functions/**'
+  #     - '.github/workflows/supabase-deploy.yml'
   workflow_dispatch:
 
 jobs:
