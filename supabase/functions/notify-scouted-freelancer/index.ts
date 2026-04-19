@@ -116,12 +116,15 @@ serve(async (req) => {
       ? scout.brief_snapshot.slice(0, 240).trim()
       : null;
 
-    const subject = `A client on Vano wanted to hire you`;
+    // Lead with the urgency + financial commitment so the subject line
+    // cuts through — "a client paid €1 to match with YOU" is a stronger
+    // open-rate hook than a generic "someone wanted to hire you".
+    const subject = `A client paid €1 to match with you on Vano`;
 
     const text =
       `Hi ${greetingName},\n\n` +
-      `A client on Vano (${siteUrl}) just searched for a freelancer and our AI picked you out of the open web. ` +
-      `You don't have a Vano profile yet — if you'd like to respond to them, claim one in under a minute:\n\n` +
+      `A client on Vano (${siteUrl}) just paid €1 to be matched with a freelancer — and our AI picked you out of the open web. ` +
+      `You don't have a Vano profile yet. Claim one in under a minute to respond:\n\n` +
       `${claimUrl}\n\n` +
       (briefSnippet ? `What they're looking for:\n"${briefSnippet}"\n\n` : '') +
       `How Vano works for you:\n` +
@@ -134,8 +137,8 @@ serve(async (req) => {
 
     const html =
       `<p>Hi ${escapeHtml(greetingName)},</p>` +
-      `<p>A client on <a href="${siteUrl}">Vano</a> just searched for a freelancer, and our AI picked you out of the open web. ` +
-      `You don't have a Vano profile yet — if you'd like to respond to them, claim one in under a minute:</p>` +
+      `<p>A client on <a href="${siteUrl}">Vano</a> just paid €1 to be matched with a freelancer — and our AI picked you out of the open web. ` +
+      `You don't have a Vano profile yet. Claim one in under a minute to respond:</p>` +
       `<p><a href="${claimUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#000;color:#fff;text-decoration:none;font-weight:600;">Claim my profile</a></p>` +
       (briefSnippet
         ? `<p style="color:#555"><strong>What they're looking for:</strong><br>"${escapeHtml(briefSnippet)}"</p>`

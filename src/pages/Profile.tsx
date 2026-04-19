@@ -31,6 +31,7 @@ import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { cn } from '@/lib/utils';
 import { computeProfileChecks } from '@/lib/profileCompleteness';
 import { VanoPaySetupCard } from '@/components/VanoPaySetupCard';
+import { AiFindPickedBanner } from '@/components/AiFindPickedBanner';
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -931,6 +932,16 @@ const Profile = () => {
                       </Button>
                     </div>
                   </div>
+                )}
+
+                {/* AI-Find-picked banner — shows if a hirer has paid €1 to
+                    match with this freelancer in the last 14 days. Self-hides
+                    when there's no recent pick, when the hirer didn't end up
+                    paying, or after the freelancer dismisses it. Sits ABOVE
+                    the hire-requests inbox so the "you got picked" moment is
+                    the first thing they see post-publish. */}
+                {user && studentProfile?.community_board_status === 'approved' && (
+                  <AiFindPickedBanner userId={user.id} />
                 )}
 
                 {/* Hire requests inbox (freelancers with a live listing) */}

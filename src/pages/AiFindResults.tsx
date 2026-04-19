@@ -314,12 +314,57 @@ const AiFindResults = () => {
       <SEOHead title="Your AI Find results" description="Your AI-matched freelancer." />
       <div className="min-h-[100dvh] bg-background px-4 py-10 sm:py-14">
         <div className="mx-auto w-full max-w-2xl">
-          <div className="mb-6 text-center">
+          <div className="mb-5 text-center">
             <div className="mx-auto mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
               <Sparkles className="h-3.5 w-3.5" /> AI Find
             </div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your matches</h1>
           </div>
+
+          {/* Pipeline strip — shows where the hirer is in the full
+              €1 → match → chat → pay arc. Current step tracks the
+              ai_find_requests row status: paid/scouting = step 2 is
+              still active, complete = step 3 becomes the active one.
+              The "Pay via Vano" step stays open on this page — it
+              only completes once they hit the Pay via Vano button in
+              Messages, which is outside this surface. */}
+          {row && (() => {
+            const matched = row.status === 'complete';
+            const steps = [
+              { label: 'Paid €1', done: true, active: false },
+              { label: 'Matched', done: matched, active: !matched },
+              { label: 'Chat + agree', done: false, active: matched },
+              { label: 'Pay via Vano', done: false, active: false },
+            ];
+            return (
+              <div className="mb-6 grid grid-cols-4 gap-1.5 rounded-2xl border border-border bg-card px-3 py-3 shadow-sm">
+                {steps.map((s, i) => (
+                  <div key={s.label} className="flex flex-col items-center gap-1 text-center">
+                    <span
+                      className={
+                        'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ' +
+                        (s.done
+                          ? 'bg-emerald-500 text-white'
+                          : s.active
+                            ? 'bg-primary text-primary-foreground ring-2 ring-primary/25'
+                            : 'bg-muted text-muted-foreground')
+                      }
+                    >
+                      {s.done ? <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.5} /> : i + 1}
+                    </span>
+                    <span
+                      className={
+                        'text-[10px] font-semibold leading-tight ' +
+                        (s.done || s.active ? 'text-foreground' : 'text-muted-foreground')
+                      }
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {loadError === 'not_found' ? (
             <StatusCard
@@ -600,6 +645,12 @@ const VanoPickCard = ({
       >
         <MessageCircle className="h-4 w-4" /> Message now
       </button>
+      {/* Narrates the rest of the pipeline so the hirer knows where "Pay
+          via Vano" fits — and doesn't settle the price offline where
+          we'd lose the 3% commission. */}
+      <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+        Agree a price in chat, then tap <span className="font-semibold text-foreground">Pay via Vano</span>. We take 3% — that's it.
+      </p>
       <FeedbackRow
         feedback={feedback}
         retryCount={retryCount}
