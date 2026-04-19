@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
 import { sendMagicLink } from '@/lib/magicLink';
@@ -18,7 +19,12 @@ import { Mail, Loader2, Check as CheckIcon } from 'lucide-react';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [userType, setUserType] = useState<'student' | 'business'>('student');
+  // Default to business because the site's primary growth lever is
+  // hirer signups: most cold visitors land here from hirer-facing
+  // campaigns, and every hire funds the Vano Match + Vano Pay revenue
+  // paths. Freelancers can still tap the toggle — one extra click for
+  // the minority audience, heading matches the majority on first paint.
+  const [userType, setUserType] = useState<'student' | 'business'>('business');
   const [loading, setLoading] = useState(false);
   const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const [existingUserId, setExistingUserId] = useState<string | null>(null);
@@ -189,6 +195,14 @@ const Auth = () => {
               ? "Sign in to post your brief — we'll match you with vetted freelancers in minutes."
               : 'Sign in to list yourself — 30 seconds to get in front of businesses hiring right now.'}
           </p>
+          {/* Social-proof chip — auto-hides when the public match count is
+              too small to be reassuring (< 3). Signup-only; login-return
+              users don't need the reminder. */}
+          {!isLogin && (
+            <div className="mt-3 flex justify-center">
+              <LiveMatchesCounter />
+            </div>
+          )}
         </div>
 
         <div className="flex rounded-xl border border-border/60 bg-foreground/[0.02] p-1 mb-7">
@@ -260,10 +274,13 @@ const Auth = () => {
         <div className="bg-card border border-border rounded-2xl p-6 md:p-8 space-y-5">
           {!isLogin && (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">I am a</p>
-              <div className="grid grid-cols-2 gap-3">
+              <p id="role-toggle-label" className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">I am a</p>
+              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-labelledby="role-toggle-label">
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={userType === 'student'}
+                  aria-label="Sign up as a freelancer"
                   disabled={loading}
                   onClick={() => setUserType('student')}
                   className={cn(
@@ -292,6 +309,9 @@ const Auth = () => {
                 </button>
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={userType === 'business'}
+                  aria-label="Sign up as a business"
                   disabled={loading}
                   onClick={() => setUserType('business')}
                   className={cn(
