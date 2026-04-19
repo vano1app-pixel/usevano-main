@@ -930,55 +930,59 @@ const HirePage = () => {
 
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
-          Choose how to hire
+          Match me with a freelancer
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Let Vano match you with a trusted freelancer, or message a freelancer directly.
+          €1 now, vetted match in 60 seconds. Refunded if we don't find one.
         </p>
       </header>
 
-      {/* ── OPTION A — Vano Match (primary, full-width) ──
-           Premium styling: amber-gold ring + gradient header signal
-           "concierge upgrade" so the recommended path looks chosen-for-you,
-           not just another primary button. */}
+      {/* ── PRIMARY HERO — €1 AI Find ──
+           This is the offer the whole site narrates toward. Big, confident,
+           amber-gold premium ring. Spells out the full pipeline
+           (pay → match → chat → pay via Vano) inside the card so hirers
+           know where €1 sits in the story before they commit. */}
       <div>
         {!submitted ? (
           <div className="relative overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
-            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4">
-              {/* Subtle gold sheen in the corner — tiny, tasteful, premium */}
+            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-5">
               <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-              <div className="relative flex items-center gap-2 mb-1">
+              <div className="relative flex flex-wrap items-center gap-2 mb-2">
                 <Sparkles size={16} className="text-amber-200" />
-                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">Recommended</span>
+                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">The €1 match</span>
                 <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-50 ring-1 ring-emerald-300/40">
-                  €0 platform fee
+                  Refunded if no match
                 </span>
               </div>
-              <h2 className="relative text-lg font-bold text-white">Match with a trusted freelancer</h2>
-              <p className="relative mt-1 text-[13px] leading-relaxed text-white/75">
-                Tailored to your brief — we pick a vetted freelancer at the right price. You just approve.
-                <span className="mt-1 block font-semibold text-emerald-200">You pay the freelancer directly. No hidden fees, no commission.</span>
+              <h2 className="relative text-xl font-bold text-white sm:text-2xl">
+                Match me with the perfect freelancer for €1
+              </h2>
+              <p className="relative mt-1.5 text-[13px] leading-relaxed text-white/80">
+                Pay €1, we find your match in 60 seconds. Chat, agree a price together, pay them securely through Vano. We only take 3% when they get paid — that's it.
               </p>
             </div>
-            <div className="space-y-3 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-3">
-              {/* How it works */}
-              <div className="grid grid-cols-3 gap-2">
+
+            <div className="space-y-4 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-4">
+              {/* Four-step pipeline strip — makes the full story visible so
+                   the €1 CTA reads as "start the thing" not "gamble €1". */}
+              <div className="grid grid-cols-4 gap-1.5">
                 {[
-                  { num: '1', text: 'You describe it' },
-                  { num: '2', text: 'We find the match' },
-                  { num: '3', text: 'You approve & pay' },
+                  { num: '1', text: 'Pay €1' },
+                  { num: '2', text: '60s match' },
+                  { num: '3', text: 'Chat + agree' },
+                  { num: '4', text: 'Pay via Vano' },
                 ].map(s => (
-                  <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-2 py-2.5">
+                  <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-1.5 py-2">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold text-white">{s.num}</span>
-                    <p className="text-[10px] font-medium text-white/80 text-center leading-tight">{s.text}</p>
+                    <p className="text-[10px] font-medium text-white/85 text-center leading-tight">{s.text}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Brief summary */}
+              {/* Brief summary — reminds the hirer what they're about to match for */}
               <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">Your request</p>
-                <p className="text-xs text-white/80 line-clamp-2">{recap || 'Your request'}</p>
+                <p className="text-xs text-white/85 line-clamp-2">{recap || 'Your request'}</p>
                 <div className="flex gap-1.5 mt-2 flex-wrap">
                   {[
                     category && CATEGORIES.find(c => c.id === category)?.label,
@@ -990,37 +994,24 @@ const HirePage = () => {
                 </div>
               </div>
 
-              <button data-mascot="hire-submit" type="button" onClick={handleVanoSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-sm font-bold text-primary shadow-sm cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98]">
-                {submitting ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : <><Send size={15} /> Send request to Vano</>}
-              </button>
-              <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
-
-              {/* €1 AI Find — secondary CTA. Now visible to everyone
-                  (signed-out callers round-trip through Google OAuth
-                  with the brief saved). Two-line copy makes the
-                  refund guarantee visible so €1 reads as risk-free. */}
+              {/* Primary CTA — the €1 button. Large, white-on-primary, fills
+                   the card. Kept distinct from any secondary paths below. */}
               <button
+                data-mascot="hire-submit"
                 type="button"
                 onClick={handleAiFind}
                 disabled={aiFindLoading}
-                className="mt-2 flex w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-white/25 bg-white/5 px-4 py-2.5 text-white/90 transition hover:bg-white/10 active:scale-[0.98] disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-4 text-base font-bold text-primary shadow-md cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
               >
                 {aiFindLoading ? (
-                  <span className="inline-flex items-center gap-2 text-xs font-semibold">
-                    <Loader2 size={13} className="animate-spin" /> Starting AI Find…
-                  </span>
+                  <><Loader2 size={16} className="animate-spin" /> Starting your match…</>
                 ) : (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold">
-                      <Sparkles size={13} className="text-amber-200" />
-                      AI Find — €1, results in 60 seconds
-                    </span>
-                    <span className="text-[10px] font-medium text-white/55">
-                      Vetted Vano pick + 1 web pick · refunded if no match
-                    </span>
-                  </>
+                  <><Sparkles size={16} className="text-amber-500" /> Match me now — €1</>
                 )}
               </button>
+              <p className="text-center text-[11px] text-white/65">
+                Secure checkout via Stripe · Refunded if no match · No commitment
+              </p>
             </div>
           </div>
         ) : (
@@ -1044,12 +1035,33 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── OPTION B — Secondary CTA: reveal freelancer list on click ──
-           Sits directly under the Vano card as a white / outline full-width
-           button so it reads as the clearly-secondary path. Tapping it expands
-           the matched-freelancer panel inline. The previous green "Get quotes
-           from top 3" broadcast CTA was removed — users preferred the simpler
-           "pick yourself" interaction. */}
+      {/* ── SECONDARY — Free Vano Match (the "wait 24h" alternative) ──
+           Previously this was the primary, but "€1 + refund" is a stronger
+           offer than "free + wait". Slim card, outlined, reads as the
+           "prefer to wait" alternative so it doesn't compete. Hidden after
+           submit (free request already sent). */}
+      {!submitted && (
+        <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Prefer to wait? Free match in 24h</p>
+              <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+                We&apos;ll hand-pick a freelancer and message you. No AI, no €1.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleVanoSubmit}
+              disabled={submitting}
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-muted active:scale-[0.98] disabled:opacity-60"
+            >
+              {submitting ? <><Loader2 size={13} className="animate-spin" /> Sending…</> : <><Send size={13} /> Send free</>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TERTIARY — Pick a freelancer yourself (reveal list on click) ── */}
       <button
         type="button"
         onClick={() => setShowDirectList((s) => !s)}

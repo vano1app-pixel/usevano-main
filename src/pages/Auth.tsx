@@ -185,14 +185,14 @@ const Auth = () => {
             {isLogin
               ? 'Welcome back'
               : userType === 'business'
-              ? 'Hire a freelancer tailored to you'
+              ? 'Match me with a freelancer for €1'
               : 'Get hired by local businesses'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
             {isLogin
               ? 'Sign in to your account.'
               : userType === 'business'
-              ? "Sign in to post your brief — we'll match you with vetted freelancers in minutes."
+              ? "Pay €1, meet your match in 60 seconds, chat + pay them securely through Vano. Refunded if we don't find one."
               : 'Sign in to list yourself — 30 seconds to get in front of businesses hiring right now.'}
           </p>
           {/* Social-proof chip — auto-hides when the public match count is
