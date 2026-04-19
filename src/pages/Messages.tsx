@@ -975,13 +975,30 @@ const Messages = () => {
                         Pay via Vano
                       </button>
                     ) : otherPayoutsEnabled === false ? (
-                      <span
-                        title={`${selectedConversation.otherName || 'This freelancer'} hasn't enabled Vano Pay yet — ask them to set it up in their profile.`}
-                        className="shrink-0 inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground"
+                      <button
+                        type="button"
+                        title={`${selectedConversation.otherName || 'This freelancer'} hasn't enabled Vano Pay yet — tap to ask them to set it up.`}
+                        onClick={() => {
+                          // Drop a friendly, templated ask into the textbox so
+                          // the business can send it with one more tap. This
+                          // is the shortest path from "I want to pay safely"
+                          // to an activated freelancer (= future commission).
+                          const name = selectedConversation.otherName?.split(' ')[0] || 'there';
+                          const draft = `Hey ${name}! Could you enable Vano Pay on your profile when you get a minute? It's a quick one-off Stripe setup and lets me pay you safely through Vano — money lands in your bank in 1–2 days. Thanks!`;
+                          setNewMessage(draft);
+                          requestAnimationFrame(() => {
+                            const ta = textareaRef.current;
+                            if (ta) {
+                              ta.focus();
+                              ta.selectionStart = ta.selectionEnd = draft.length;
+                            }
+                          });
+                        }}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
                       >
                         <Banknote size={12} strokeWidth={2.5} />
-                        Pay via Vano (not set up)
-                      </span>
+                        Ask to enable Vano Pay
+                      </button>
                     ) : null
                   )}
                 </div>

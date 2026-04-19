@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2 } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote } from 'lucide-react';
 import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
@@ -42,6 +42,10 @@ interface StudentProfile {
   typical_budget_max?: number | null;
   university?: string | null;
   student_verified?: boolean | null;
+  /** True when the freelancer has finished Stripe Connect onboarding
+   *  and is ready to accept Vano Pay. Surfaced as a trust chip on the
+   *  card so hirers can pick someone they can pay safely in one tap. */
+  stripe_payouts_enabled?: boolean | null;
   tiktok_url?: string | null;
   instagram_url?: string | null;
   linkedin_url?: string | null;
@@ -265,6 +269,15 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm">
               <ShieldCheck size={9} className="text-emerald-400" />
               Verified
+            </span>
+          )}
+          {student.stripe_payouts_enabled && (
+            <span
+              title="Pay this freelancer through Vano — secure card checkout, money in their bank in 1–2 days."
+              className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm"
+            >
+              <Banknote size={9} className="text-sky-300" />
+              Vano Pay
             </span>
           )}
           {category && (
