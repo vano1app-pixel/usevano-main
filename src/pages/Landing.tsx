@@ -212,18 +212,25 @@ const Landing = () => {
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
           <div data-hero-title>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
-              <span className="inline-block">Local talent,</span><br />
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-4 sm:mb-5 leading-[1.05] text-balance">
+              <span className="inline-block">Match me with the perfect</span><br />
               <span
                 className="inline-block italic font-semibold text-primary"
               >
-                instantly available.
+                freelancer for €1.
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-6 leading-relaxed">
-            Connect with trusted freelancers for digital sales, videography, web design, and more.
+          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-xl mx-auto mb-3 leading-relaxed">
+            Pay €1, meet your match in 60 seconds, chat + pay them securely through Vano. Refunded if we don't find one. We take 3% — that's it.
           </p>
+          {/* Social-proof counter. Self-gating: renders null until the
+              RPC returns ≥3 so the platform doesn't advertise itself as
+              dead when the table's empty. Lives under the subcopy so
+              it's adjacent to the offer, not buried below the CTAs. */}
+          <div className="mb-7 flex justify-center">
+            <LiveMatchesCounter />
+          </div>
 
           {/* Hero tag cloud — replaces the old hero search bar. Clicking a tag
               deep-links into /hire with both ?category and ?subtype preset, so
@@ -270,7 +277,7 @@ const Landing = () => {
                 onClick={() => navigate('/hire')}
                 className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
               >
-                Hire a freelancer
+                Match me for €1
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>
@@ -300,10 +307,6 @@ const Landing = () => {
                     {featuredStudents.length} freelancers online now
                   </p>
                 </span>
-                {/* Social-proof counter. Self-gating: renders null until the
-                    RPC returns ≥3 so the platform doesn't advertise itself
-                    as dead when the table's empty. */}
-                <LiveMatchesCounter />
               </div>
             )}
         </div>
