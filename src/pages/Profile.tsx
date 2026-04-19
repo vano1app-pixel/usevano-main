@@ -840,6 +840,24 @@ const Profile = () => {
                       action: () => openWizardAtStep(3),
                       cta: skills.length === 0 ? 'Pick skills' : 'Add skills',
                     },
+                    {
+                      // Vano Pay activation. We treat "done" generously
+                      // here: as long as the freelancer has started Connect
+                      // onboarding (stripe_account_id present), we don't
+                      // nag them. The VanoPaySetupCard below already shows
+                      // a "Finish setup" CTA for the pending state. Only
+                      // show this row when nothing has been started yet.
+                      key: 'vano_pay',
+                      done: !!(studentProfile?.stripe_account_id),
+                      label: 'Get paid through Vano',
+                      hint: 'One 3-min Stripe setup. Money in your bank in 1–2 days. 3% fee.',
+                      action: () => {
+                        document
+                          .getElementById('vano-pay-setup')
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      },
+                      cta: 'Set up',
+                    },
                   ];
                   const remainingBasics = basics.filter((b) => !b.done);
                   const showBasicsPanel = isLive && remainingBasics.length > 0;
@@ -1239,8 +1257,12 @@ const Profile = () => {
                     payments from clients through the "Pay via Vano"
                     button on the conversation screen. Progressive
                     onboarding: we don't force anyone to set this up;
-                    they opt in from here when they're ready. */}
-                <VanoPaySetupCard userId={user.id} />
+                    they opt in from here when they're ready.
+                    The wrapper id lets the post-publish basics card
+                    scroll-into-view on tap. */}
+                <div id="vano-pay-setup">
+                  <VanoPaySetupCard userId={user.id} />
+                </div>
 
               </div>
               {/* ── END LEFT COLUMN ── */}

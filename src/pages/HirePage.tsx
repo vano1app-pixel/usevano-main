@@ -70,7 +70,7 @@ const BUDGETS = [
   { id: '100_250', label: '€100–250', sub: 'Most popular' },
   { id: '250_500', label: '€250–500', sub: 'Bigger project' },
   { id: '500_plus', label: '€500+', sub: 'Full project' },
-  { id: 'unsure', label: 'Not sure yet', sub: "We'll advise" },
+  { id: 'unsure', label: 'I want a quote', sub: "We'll advise" },
 ] as const;
 
 const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
@@ -442,7 +442,38 @@ const HirePage = () => {
   // polls until the AI picks are ready.
   const handleAiFind = async () => {
     if (!user) {
-      toast({ title: 'Please sign in first', description: "Use the primary Vano button above — it'll bring you back here." });
+      // Same OAuth round-trip as Vano Match so signed-out hirers can
+      // discover the €1 product without the friction of bouncing
+      // through /auth manually. Brief is saved and Step 3 resumes
+      // intact on return; they tap AI Find again to go to Stripe.
+      saveHireBrief({ description, category, subtype, timeline, budget });
+      if (isInAppBrowser()) {
+        track('in_app_browser_blocked', { source: 'hire_ai_find_signedout' });
+        toast({
+          title: "Can't sign in here",
+          description: "Open this page in Safari or Chrome — your brief is saved.",
+          variant: 'destructive',
+        });
+        return;
+      }
+      setGoogleOAuthIntent('business');
+      toast({
+        title: 'Saving your brief…',
+        description: "We'll bring you right back to finish.",
+      });
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: getAuthRedirectUrl(),
+            queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+          },
+        });
+        if (error) throw error;
+      } catch {
+        clearHireBrief();
+        toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
+      }
       return;
     }
     if (!isEmailVerified({ user } as any)) {
@@ -937,27 +968,32 @@ const HirePage = () => {
               </button>
               <p className="text-center text-[10px] text-white/45">Free consultation · No commitment · Response within 24hrs</p>
 
-              {/* €1 AI Find — secondary CTA. Quieter styling so it reads
-                  as a beta alternative, not the primary path. Only
-                  offered to signed-in users; the main CTA above handles
-                  the auth round-trip if needed. */}
-              {user ? (
-                <button
-                  type="button"
-                  onClick={handleAiFind}
-                  disabled={aiFindLoading}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/5 px-4 py-3 text-xs font-semibold text-white/90 transition hover:bg-white/10 active:scale-[0.98] disabled:opacity-60"
-                >
-                  {aiFindLoading ? (
-                    <><Loader2 size={13} className="animate-spin" /> Starting AI Find…</>
-                  ) : (
-                    <>
+              {/* €1 AI Find — secondary CTA. Now visible to everyone
+                  (signed-out callers round-trip through Google OAuth
+                  with the brief saved). Two-line copy makes the
+                  refund guarantee visible so €1 reads as risk-free. */}
+              <button
+                type="button"
+                onClick={handleAiFind}
+                disabled={aiFindLoading}
+                className="mt-2 flex w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-white/25 bg-white/5 px-4 py-2.5 text-white/90 transition hover:bg-white/10 active:scale-[0.98] disabled:opacity-60"
+              >
+                {aiFindLoading ? (
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold">
+                    <Loader2 size={13} className="animate-spin" /> Starting AI Find…
+                  </span>
+                ) : (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold">
                       <Sparkles size={13} className="text-amber-200" />
-                      Or try AI Find — €1, results in 60 seconds
-                    </>
-                  )}
-                </button>
-              ) : null}
+                      AI Find — €1, results in 60 seconds
+                    </span>
+                    <span className="text-[10px] font-medium text-white/55">
+                      Vetted Vano pick + 1 web pick · refunded if no match
+                    </span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         ) : (
