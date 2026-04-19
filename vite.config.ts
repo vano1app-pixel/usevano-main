@@ -17,6 +17,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0",
     port: 8080,
+    // design-references/ is a docs folder with example code that imports
+    // packages we never install. Excluding it from the dev watcher +
+    // dep-optimizer keeps the console clean.
+    fs: { deny: ["design-references/**"] },
+  },
+  optimizeDeps: {
+    entries: ["index.html", "src/**/*.{ts,tsx}"],
   },
   plugins: [
     react(),
