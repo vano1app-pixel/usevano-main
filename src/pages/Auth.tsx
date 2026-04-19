@@ -169,13 +169,25 @@ const Auth = () => {
             <img src={logo} alt="VANO" className="h-11 w-11 rounded-xl shadow-tinted-sm" />
             <span className="text-[22px] font-bold tracking-tight text-primary">VANO</span>
           </div>
+          {/* Headline swaps with the role toggle below — business viewers
+              land on the hirer value prop ("tailored to you"), freelancers
+              get their own sign-up pitch. Signup state ties heading copy
+              to the same `userType` that drives the Google/magic-link
+              intent, so the heading always matches what the user is about
+              to sign up for. Login mode is role-agnostic. */}
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {isLogin ? 'Welcome back' : 'Join VANO'}
+            {isLogin
+              ? 'Welcome back'
+              : userType === 'business'
+              ? 'Hire a freelancer tailored to you'
+              : 'Get hired by local businesses'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
             {isLogin
               ? 'Sign in to your account.'
-              : 'Pick your role, then sign in. Listing yourself takes about 30 seconds after — everything else can wait.'}
+              : userType === 'business'
+              ? "Sign in to post your brief — we'll match you with vetted freelancers in minutes."
+              : 'Sign in to list yourself — 30 seconds to get in front of businesses hiring right now.'}
           </p>
         </div>
 
