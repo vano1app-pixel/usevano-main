@@ -9,8 +9,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   1. checkout.session.completed with metadata.ai_find_request_id →
 //      marks ai_find_requests as paid and kicks off AI scouting.
 //   2. checkout.session.completed with metadata.vano_payment_id →
-//      marks vano_payments as paid (Stripe has already transferred
-//      funds to the freelancer; no further action needed).
+//      marks vano_payments as PAID (held on the platform). Funds do
+//      not move to the freelancer here — release-vano-payment (or
+//      the auto-release cron) handles that when the hirer releases
+//      or the 14-day window expires.
 //   3. account.updated → flips student_profiles.stripe_payouts_enabled
 //      when the freelancer's Connect Express account is ready to
 //      receive transfers.
@@ -18,6 +20,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // All handlers are idempotent on replay.
 
 const TOLERANCE_SECONDS = 300;
+// How long we hold funds before the cron auto-releases them. 14 days
+// gives the hirer time to receive and review the work; long enough to
+// matter as protection, short enough that freelancers aren't left
+// waiting forever when the hirer ghosts.
+const AUTO_RELEASE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 function hex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf))
@@ -118,27 +125,34 @@ async function handleAiFindCheckoutCompleted(
 }
 
 // --- Handler: Vano Pay checkout completed ---------------------------------
-// Stripe Checkout with destination charges has already split the funds
-// between the platform (application_fee_amount) and the freelancer
-// (transfer_data.destination) by the time this fires. Our job is just
-// to stamp the row so the UI can reflect "Paid".
+// Under escrow, this flips the row to 'paid' (HELD on the platform)
+// and stamps auto_release_at = now + 14 days. release-vano-payment
+// (or the auto-release cron) handles the actual transfer to the
+// freelancer when the hirer releases or the window expires.
 async function handleVanoPayCheckoutCompleted(
   supabase: SupabaseClient,
   session: StripeCheckoutSession,
   paymentId: string,
 ): Promise<Response> {
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  const autoReleaseIso = new Date(nowMs + AUTO_RELEASE_WINDOW_MS).toISOString();
+
+  // Tick the conversation's updated_at so the payment "bumps" the
+  // thread in the hirer + freelancer inboxes — same UX cue they'd
+  // get from a new message, so the held payment is visibly new.
   const { data: flipped, error: flipError } = await supabase
     .from('vano_payments')
     .update({
-      status: 'transferred',
+      status: 'paid',
       stripe_payment_intent_id: session.payment_intent ?? null,
-      paid_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
+      paid_at: nowIso,
+      auto_release_at: autoReleaseIso,
     })
     .eq('id', paymentId)
     .eq('stripe_session_id', session.id)
     .eq('status', 'awaiting_payment')
-    .select('id')
+    .select('id, conversation_id')
     .maybeSingle();
 
   if (flipError) {
@@ -151,7 +165,17 @@ async function handleVanoPayCheckoutCompleted(
     });
   }
 
-  return new Response(JSON.stringify({ received: true, triggered: 'vano_pay' }), {
+  if (flipped.conversation_id) {
+    const { error: bumpError } = await supabase
+      .from('conversations')
+      .update({ updated_at: nowIso })
+      .eq('id', flipped.conversation_id);
+    if (bumpError) {
+      console.warn('[stripe-webhook] conversation bump failed', bumpError.message);
+    }
+  }
+
+  return new Response(JSON.stringify({ received: true, triggered: 'vano_pay', state: 'held' }), {
     headers: { 'Content-Type': 'application/json' },
   });
 }

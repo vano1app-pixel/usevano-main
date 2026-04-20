@@ -199,13 +199,14 @@ export function VanoPayModal({
             )}
           </button>
 
-          {/* Footer trust — one compact row. Shield icon anchors the
-              promise; three short clauses separated by dots read as a
-              receipt, not marketing copy. */}
+          {/* Footer trust — explains the escrow promise in the moment
+               of payment: money is HELD on Vano, hirer releases on
+               delivery, 14-day auto-release if nothing happens. This
+               is the bit that justifies the 3% fee on its own merits. */}
           <div className="mt-4 flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
             <ShieldCheck size={13} className="mt-[2px] shrink-0 text-emerald-600 dark:text-emerald-400" />
             <p>
-              Stripe-secured checkout · receipt kept in this thread · we hold the payment record if anything needs sorting.
+              We hold your payment until you release it. 14-day auto-release if you don't act. Full refund on dispute.
             </p>
           </div>
         </div>

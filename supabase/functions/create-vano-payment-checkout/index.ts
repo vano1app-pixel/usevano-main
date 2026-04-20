@@ -10,16 +10,22 @@ import {
 
 // Business-side entry point for Vano Pay. Given a conversation id and
 // an amount, creates a vano_payments row and a Stripe Checkout Session
-// that routes the charge to the freelancer's Connect account minus a
-// 3% Vano application fee. Returns the Checkout URL; frontend redirects.
+// that charges the hirer on the platform Stripe account. Funds are
+// HELD on the platform until either the hirer releases them (via the
+// release-vano-payment edge function) or the auto-release cron fires
+// 14 days after the hold started.
 //
 // Guards:
 //   - Caller must be the business participant of the conversation.
-//   - Freelancer must have stripe_account_id AND stripe_payouts_enabled.
+//   - Freelancer must have stripe_account_id AND stripe_payouts_enabled
+//     (we snapshot the account id onto vano_payments.stripe_destination_account_id
+//     so the release transfer still works if the freelancer later
+//     disconnects their Connect account).
 //   - Amount must be >= €1.00 (Stripe minimum for EUR).
-//   - Funds are captured by Stripe into the platform account, then
-//     Stripe splits off the application fee and transfers the rest to
-//     the freelancer's connected account. No escrow; it's a pass-through.
+//   - Funds are charged to the platform account (no destination
+//     transfer at checkout). release-vano-payment handles the actual
+//     transfer to the freelancer when the hirer releases or the cron
+//     auto-releases. stripe_transfer_id on the row gets populated then.
 
 // Fee/bounds live in _shared/vanoPayConfig.ts so the public
 // get-vano-pay-config endpoint reads the same values.
@@ -170,17 +176,22 @@ serve(async (req) => {
       Deno.env.get('SITE_URL') ||
       'https://vanojobs.com';
 
-    // Stripe Checkout Session with destination charge: the payment
-    // intent is created on the platform, then Stripe transfers
-    // (amount - application_fee_amount) to the connected freelancer
-    // account. Standard Stripe processing fees come out of the
-    // platform account.
+    // Stripe Checkout Session, charge-only (NO destination transfer).
+    // The charge lands on the platform Stripe account and sits there
+    // until release-vano-payment fires the transfer to the freelancer
+    // (either hirer-triggered via "Release payment" or auto-triggered
+    // after 14 days by the auto-release cron).
     //
-    // payment_method_types is intentionally omitted so Stripe
-    // auto-enables every supported method for the currency/geo —
-    // crucially Apple Pay + Google Pay wallets on mobile, which make
-    // the "tap to pay" feel the funnel is built around. Locking it to
-    // card-only would force every customer through manual card entry.
+    // payment_method_types is intentionally omitted so Stripe auto-
+    // enables every supported method for the currency/geo — crucially
+    // Apple Pay + Google Pay on mobile, which make the "tap to pay"
+    // feel the funnel is built around. Locking to card-only would
+    // force every customer through manual card entry.
+    //
+    // metadata[vano_payment_id] is what the webhook keys off to find
+    // the row and flip it from awaiting_payment → paid (held). The
+    // amount we charge is the full amountCents — fee and transfer
+    // split happen at release time, not at checkout.
     const checkoutParams: Record<string, string> = {
       mode: 'payment',
       'line_items[0][price_data][currency]': CURRENCY,
@@ -188,9 +199,6 @@ serve(async (req) => {
       'line_items[0][price_data][product_data][name]':
         description ? `Vano Pay — ${description.slice(0, 80)}` : 'Vano Pay',
       'line_items[0][quantity]': '1',
-      // Destination charge plumbing.
-      'payment_intent_data[application_fee_amount]': String(feeCents),
-      'payment_intent_data[transfer_data][destination]': freelancerProfile.stripe_account_id,
       success_url: `${origin}/messages?payment=${paymentId}&status=success`,
       cancel_url: `${origin}/messages?payment=${paymentId}&status=cancel`,
       'metadata[vano_payment_id]': paymentId,
