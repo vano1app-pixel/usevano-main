@@ -10,7 +10,7 @@ import {
   DIRECT_HIRE_EXPIRY_HOURS,
 } from '@/lib/hireOptions';
 import { cn } from '@/lib/utils';
-import { Zap, AlertTriangle, Loader2, Clock, MailWarning, CheckCircle2 } from 'lucide-react';
+import { Zap, Loader2, Clock, MailWarning, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { track } from '@/lib/track';
 
 interface HireNowModalProps {
@@ -181,7 +181,7 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
         submitLockRef.current = false;
       }, 1200);
     } catch (err) {
-      console.error('HireNowModal error', err);
+      if (import.meta.env.DEV) console.error('HireNowModal error', err);
       toast({
         title: 'Something went wrong',
         description: 'Please try again.',
@@ -316,12 +316,11 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
             disabled={!canSubmit || success}
             onClick={handleSubmit}
             className={cn(
-              'w-full rounded-xl py-3 text-sm font-bold text-white shadow-lg transition-all',
+              'flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-[14px] font-semibold text-white transition-all duration-150',
               success
-                ? 'bg-gradient-to-r from-emerald-500 to-green-600'
-                : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:shadow-xl hover:brightness-110',
-              'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:hover:brightness-100',
-              'flex items-center justify-center gap-2',
+                ? 'bg-gradient-to-r from-emerald-500 to-green-600 shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)]'
+                : 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-[0_10px_30px_-10px_rgba(245,158,11,0.55)] hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]',
+              'disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none',
             )}
           >
             {success ? (
@@ -339,11 +338,16 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
             )}
           </button>
 
-          <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-            <AlertTriangle size={11} className="mt-0.5 shrink-0" />
+          {/* Trust footer — rewritten for the escrow-era product. The
+               previous copy ("VANO takes no commission · payment
+               arranged directly") directly contradicted the Vano Pay
+               3% fee + hold-until-released mechanic shipped in this
+               branch. Now tells the hirer the protection story so
+               they see what the 3% buys them. */}
+          <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+            <ShieldCheck size={11} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span>
-              Payment is arranged directly with {freelancerName} in Messages after they accept.
-              VANO takes no commission.
+              Once {freelancerName} accepts, pay safely through Vano Pay — your money is held until you release it. Vano takes 3%.
             </span>
           </p>
         </div>

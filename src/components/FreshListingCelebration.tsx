@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { CheckCircle2, Copy, Share2, X } from 'lucide-react';
+import { CheckCircle2, Copy, Share2, X, ShieldCheck } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
 
@@ -93,39 +93,37 @@ export function FreshListingCelebration({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-4 sm:items-center">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-        <div className="relative bg-gradient-to-br from-emerald-500 via-emerald-500 to-emerald-600 px-5 py-5 text-white">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-4 backdrop-blur-[2px] sm:items-center">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[20px] border border-border bg-card shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)]">
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-emerald-500 to-emerald-600 px-6 py-6 text-white">
+          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/15 blur-3xl" />
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white/90 hover:bg-white/30"
+            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white/90 transition hover:bg-white/25"
             aria-label="Close"
           >
-            <X size={14} />
+            <X size={15} />
           </button>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} />
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/90">
-              You're live on Vano
-            </p>
+          <div className="relative flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
+            <CheckCircle2 size={13} />
+            You're live on Vano
           </div>
-          <h2 className="mt-2 text-2xl font-bold leading-tight sm:text-[26px]">
+          <h2 className="relative mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight sm:text-[26px]">
             Your listing just went public.
           </h2>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-white/85">
-            Businesses can find, message, and hire you starting right now. Share the link below
-            in your Instagram bio or wherever you hang out online to start pulling leads in.
+          <p className="relative mt-2 max-w-[34ch] text-[13px] leading-relaxed text-white/85">
+            Businesses can find, message, and hire you starting right now. Share the link below or wait for your first match to land.
           </p>
         </div>
 
         <div className="space-y-4 p-5">
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Your public profile
             </p>
             <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
-              <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+              <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {shareUrl}
               </p>
               <button
@@ -150,11 +148,23 @@ export function FreshListingCelebration({
           <button
             type="button"
             onClick={shareNative}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3.5 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
           >
             <Share2 size={14} strokeWidth={2.5} />
             Share to Instagram / TikTok / anywhere
           </button>
+
+          {/* Next-step nudge — points freshly-published freelancers at
+               the Vano Pay setup they've seen at the top of /profile
+               but haven't completed yet. Without this, the celebration
+               screen closes and the payouts path is left implicit. */}
+          <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/[0.05] px-3.5 py-2.5">
+            <ShieldCheck size={14} className="mt-0.5 shrink-0 text-primary" />
+            <p className="text-[12px] leading-relaxed text-foreground">
+              <span className="font-semibold">Next:</span> turn on Vano Pay on your profile so clients can tap to pay — money lands in your bank in 1–2 days after they release.
+            </p>
+          </div>
+
           <button
             type="button"
             onClick={onClose}

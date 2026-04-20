@@ -132,7 +132,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
       navigate(`/messages?with=${freelancerId}`);
       onOpenChange(false);
     } catch (err) {
-      console.error('QuoteModal submit error', err);
+      if (import.meta.env.DEV) console.error('QuoteModal submit error', err);
       toast({
         title: 'Could not send',
         description: 'Please try again in a moment.',
@@ -229,10 +229,9 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
             disabled={!canSubmit}
             onClick={handleSubmit}
             className={cn(
-              'w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all',
-              'hover:shadow-lg hover:brightness-110',
-              'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:brightness-100',
-              'flex items-center justify-center gap-2',
+              'flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150',
+              'hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]',
+              'disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none',
             )}
           >
             {submitting ? (
@@ -244,8 +243,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
             )}
           </button>
           <p className="text-center text-[11px] text-muted-foreground">
-            {category ? <>Category: {category} · </> : null}
-            You can always message more after.
+            No commitment — they reply in Messages, and you can pay safely through Vano Pay when you're ready.
           </p>
         </div>
       </DialogContent>
