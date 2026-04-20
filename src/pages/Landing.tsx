@@ -24,6 +24,7 @@ import {
   Video,
   TrendingUp,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -221,9 +222,25 @@ const Landing = () => {
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-6 leading-relaxed">
+          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-5 leading-relaxed">
             Connect with trusted freelancers for digital sales, videography, web design, and more.
           </p>
+
+          {/* €1 AI Find pill — surfaces the top-of-funnel hook on the
+              hero so visitors know the entry point costs €1 before they
+              click into /hire. Routes to the hire wizard; the €1 card
+              is the primary path on Step 3. Kept visually lighter than
+              the main CTA row so it advertises without competing. */}
+          <button
+            type="button"
+            onClick={() => navigate('/hire')}
+            data-hero-aifind
+            className="group mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/[0.06] px-3.5 py-1.5 text-[12.5px] font-semibold text-primary shadow-sm transition hover:border-primary/50 hover:bg-primary/10"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Try AI Find — a perfect match for <span className="font-bold">€1</span></span>
+            <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+          </button>
 
           {/* Hero tag cloud — replaces the old hero search bar. Clicking a tag
               deep-links into /hire with both ?category and ?subtype preset, so

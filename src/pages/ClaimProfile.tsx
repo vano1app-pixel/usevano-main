@@ -134,7 +134,7 @@ const ClaimProfile = () => {
       clearPendingClaimToken();
       toast({
         title: 'Profile claimed!',
-        description: "Let's finish your listing so clients can hire you.",
+        description: "Finish your listing, then enable Vano Pay so clients can pay you safely.",
       });
       // Send them straight into the listing wizard — student_profiles has
       // already been seeded with the scouted bio/skills/phone, so fields
@@ -248,7 +248,7 @@ const ReadyCard = ({
       </div>
       <h1 className="relative mt-2 text-xl font-bold">A client wanted to hire you.</h1>
       <p className="relative mt-1 text-[13px] leading-relaxed text-white/80">
-        Claim your free Vano profile to respond. 0% platform fee — clients pay you directly.
+        Claim your free Vano profile to respond. Get paid safely through Vano Pay — clients tap, money lands in your bank in 1–2 days (3% fee).
       </p>
     </div>
 

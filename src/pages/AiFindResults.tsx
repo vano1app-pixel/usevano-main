@@ -634,6 +634,9 @@ const VanoPickCard = ({
       >
         <MessageCircle className="h-4 w-4" /> Message now
       </button>
+      <p className="text-center text-[11px] text-muted-foreground">
+        Agree a rate in chat, then pay via <span className="font-semibold text-foreground">Vano Pay</span> — safer for both of you.
+      </p>
       <FeedbackRow
         feedback={feedback}
         retryCount={retryCount}
@@ -758,8 +761,14 @@ const WebPickCard = ({
           </p>
         )}
 
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-2.5 text-[12px] leading-relaxed text-emerald-900 dark:text-emerald-200">
+          <p className="font-semibold">We've invited them to Vano.</p>
+          <p className="mt-0.5 text-emerald-900/90 dark:text-emerald-200/85">
+            If they join, you can pay them via <span className="font-semibold">Vano Pay</span> — protected, in-app, money in their bank in 1–2 days. Until then, reach out directly at your discretion.
+          </p>
+        </div>
         <p className="text-[11px] text-muted-foreground">
-          Reach out directly. Vano hasn't reviewed this person — verify their work before sending money.
+          Vano hasn't reviewed this person — verify their work before sending money off-platform.
         </p>
         <FeedbackRow
           feedback={feedback}

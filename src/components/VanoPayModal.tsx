@@ -113,6 +113,16 @@ export function VanoPayModal({
         </div>
 
         <div className="space-y-4 p-5">
+          {/* Short trust blurb — reminds hirers why they're paying the
+              fee: the platform handles card handling, receipts, refund
+              escalation, and keeps a record both sides can reference. */}
+          <div className="rounded-xl border border-primary/20 bg-primary/[0.05] px-3.5 py-2.5 text-[12px] leading-relaxed text-foreground">
+            <p className="font-semibold">Pay safely through Vano</p>
+            <p className="mt-0.5 text-muted-foreground">
+              Card handled by Stripe. Receipt kept in the thread. If anything goes wrong, we've got the payment record to help sort it.
+            </p>
+          </div>
+
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-foreground">Amount (€)</label>
             <input
