@@ -38,13 +38,23 @@
     <meta property="og:url" content="https://vanojobs.com/" />
     <meta property="og:title" content="VANO — Hire Galway Freelancers &amp; Local Talent" />
     <meta property="og:description" content="Connect with Galway's best freelancers for videography, digital sales, web design, and more. Post a shift and get the work done." />
-    <meta property="og:image" content="https://vanojobs.com/og.svg" />
+    <!-- og:image is 1200x630 PNG per OpenGraph spec. LinkedIn / Slack /
+         WhatsApp / Facebook all require raster; the old og.svg failed
+         the preview scrapers silently. Keep width + height tags so
+         crawlers that don't download the image eagerly still reserve
+         the correct card shape. -->
+    <meta property="og:image" content="https://vanojobs.com/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="VANO — any brief, any budget, your perfect match. Hand-picked freelancers paid safely through Vano." />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="VANO — Hire Galway Freelancers &amp; Local Talent" />
     <meta name="twitter:description" content="Connect with Galway's best freelancers for videography, digital sales, web design, and more." />
-    <meta name="twitter:image" content="https://vanojobs.com/og.svg" />
+    <meta name="twitter:image" content="https://vanojobs.com/og.png" />
+    <meta name="twitter:image:alt" content="VANO — any brief, any budget, your perfect match." />
 
     <!-- Organization & WebSite structured data; rendered server-side so crawlers see it pre-hydration. -->
     <script type="application/ld+json">
@@ -58,7 +68,7 @@
           "alternateName": "VANO Jobs",
           "url": "https://vanojobs.com/",
           "logo": "https://vanojobs.com/pwa-512x512.png",
-          "image": "https://vanojobs.com/og.svg",
+          "image": "https://vanojobs.com/og.png",
           "description": "VANO connects Galway businesses with local freelancers and student talent for videography, digital sales, web design, social media and more.",
           "areaServed": {
             "@type": "City",
