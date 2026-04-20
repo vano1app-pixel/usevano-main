@@ -877,7 +877,7 @@ const Messages = () => {
                   {userResults.map((u) => (
                     <button key={u.user_id} type="button" onClick={() => startConvoWith(u.user_id)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-secondary">
                       {u.avatar_url
-                        ? <img src={u.avatar_url} alt={u.display_name || 'User'} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                        ? <img src={u.avatar_url} alt={u.display_name || 'User'} className="h-9 w-9 shrink-0 rounded-full object-cover" loading="lazy" decoding="async" />
                         : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">{(u.display_name || '?')[0].toUpperCase()}</div>
                       }
                       <span className="text-sm font-medium">{u.display_name || 'User'}</span>

@@ -256,6 +256,8 @@ const HireRequestsPage: React.FC = () => {
                             <img
                               src={p.avatar_url}
                               alt={name}
+                              loading="lazy"
+                              decoding="async"
                               className="h-10 w-10 rounded-full object-cover"
                             />
                           ) : (
@@ -346,6 +348,8 @@ const HireRequestsPage: React.FC = () => {
                           <img
                             src={p.avatar_url}
                             alt={name}
+                            loading="lazy"
+                            decoding="async"
                             className="h-8 w-8 rounded-full object-cover"
                           />
                         ) : (

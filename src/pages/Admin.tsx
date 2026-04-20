@@ -551,7 +551,7 @@ const Admin = () => {
               <div key={u.user_id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
                   {u.avatar_url ? (
-                    <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                    <img src={u.avatar_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm font-bold">
                       {(u.display_name || '?')[0].toUpperCase()}
@@ -730,7 +730,7 @@ const Admin = () => {
               <div key={f.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
                   {f.sender_avatar ? (
-                    <img src={f.sender_avatar} alt="" className="w-full h-full object-cover" />
+                    <img src={f.sender_avatar} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm font-bold">
                       {(f.sender_name || '?')[0].toUpperCase()}
