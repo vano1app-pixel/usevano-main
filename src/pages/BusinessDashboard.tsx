@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   RotateCcw,
   Check,
+  Sparkles,
 } from 'lucide-react';
 import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
 import { MyTeamPanel } from '@/components/MyTeamPanel';
@@ -492,6 +493,55 @@ export default function BusinessDashboard() {
               </motion.div>
             </div>
           </motion.section>
+
+          {/* First-hirer empty state — only when the dashboard has
+               nothing to display (no gigs, no applications, no Vano Pay
+               history). Without this, a fresh account sees a wall of
+               zero-stats that reads as "dead platform". Investors
+               landing on a demo hirer account would think nothing is
+               happening. The CTA pushes them into the Vano Match flow
+               (the revenue path) instead of sitting on the empty page. */}
+          {jobs.length === 0 && applications.length === 0 && recentPayments.length === 0 && (
+            <motion.section
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-10"
+            >
+              <motion.div variants={fadeUp}>
+                <div className="relative overflow-hidden rounded-[20px] border border-primary/25 bg-gradient-to-b from-primary/[0.04] to-primary/[0.02] px-6 py-8 sm:px-10 sm:py-10">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
+                  <div className="relative">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                      <Sparkles className="h-3 w-3" /> Let's get you a match
+                    </span>
+                    <h2 className="mt-3 text-[22px] font-semibold leading-tight tracking-tight text-foreground sm:text-[26px]">
+                      Any brief. Any budget. <span className="italic font-semibold text-primary">Your perfect match.</span>
+                    </h2>
+                    <p className="mt-2 max-w-[48ch] text-[13.5px] leading-relaxed text-muted-foreground">
+                      Tell us what you need and we'll hand-pick one freelancer from our pool plus one scouted from the open web. Paid safely through Vano, held until you release.
+                    </p>
+                    <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/hire')}
+                        className="inline-flex items-center gap-1.5 rounded-2xl bg-primary px-5 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+                      >
+                        <Sparkles size={14} /> Start a Vano Match
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/students')}
+                        className="inline-flex items-center gap-1.5 rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
+                        Browse freelancers
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.section>
+          )}
 
           {/* ── Stat Cards ── */}
           <motion.section
