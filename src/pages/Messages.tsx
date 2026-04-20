@@ -1162,10 +1162,22 @@ const Messages = () => {
                   <div className="space-y-2 border-b border-border/60 bg-muted/20 px-4 py-3">
                     {threadPayments.map((p) => {
                       const amountEuro = `€${(p.amount_cents / 100).toFixed(2)}`;
+                      const feeEuro = `€${(p.fee_cents / 100).toFixed(2)}`;
+                      const netEuro = `€${((p.amount_cents - p.fee_cents) / 100).toFixed(2)}`;
                       const isHirer = !!user && p.business_id === user.id;
-                      const autoReleaseDate = p.auto_release_at
-                        ? new Date(p.auto_release_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+                      // Days countdown to auto-release — reads as active
+                      // ("in 12 days") vs a static date which felt stale
+                      // the moment the page rendered. Negative values
+                      // (past-due rows not yet swept by the cron) read
+                      // as "any moment" rather than confusing negatives.
+                      const autoReleaseDays = p.auto_release_at
+                        ? Math.max(0, Math.ceil((new Date(p.auto_release_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
                         : null;
+                      const autoReleaseCopy = autoReleaseDays === null
+                        ? null
+                        : autoReleaseDays === 0
+                          ? 'auto-releases any moment'
+                          : `auto-releases in ${autoReleaseDays} ${autoReleaseDays === 1 ? 'day' : 'days'}`;
                       const doneDate = (p.released_at || p.refunded_at)
                         ? new Date((p.released_at || p.refunded_at)!).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
                         : null;
@@ -1184,10 +1196,22 @@ const Messages = () => {
                                 {p.description && (
                                   <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{p.description}</p>
                                 )}
+                                {/* Fee split — the freelancer needs to
+                                     know what actually lands in their
+                                     bank (amount - 3% Vano fee); the
+                                     hirer sees the same split so the
+                                     3% isn't a surprise on the receipt
+                                     after release. Kept tight + mono
+                                     so the two rows align. */}
+                                <p className="mt-1 text-[11.5px] text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  {isHirer
+                                    ? `Freelancer receives ${netEuro} · Vano fee ${feeEuro}`
+                                    : `You receive ${netEuro} · Vano fee ${feeEuro}`}
+                                </p>
                                 <p className="mt-0.5 text-[11.5px] text-muted-foreground">
                                   {isHirer
-                                    ? `Release when the work is done${autoReleaseDate ? ` · auto-releases ${autoReleaseDate}` : ''}.`
-                                    : `Your client will release it${autoReleaseDate ? ` · auto-releases ${autoReleaseDate}` : ''}.`}
+                                    ? `Release when the work is done${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`
+                                    : `Your client will release it${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`}
                                 </p>
                                 {isHirer && (
                                   <div className="mt-2.5 flex flex-wrap items-center gap-2">

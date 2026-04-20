@@ -39,6 +39,7 @@ type AiFindRow = {
   category: string | null;
   vano_match_user_id: string | null;
   vano_match_reason: string | null;
+  vano_match_score: number | null;
   web_scout_id: string | null;
   error_message: string | null;
   vano_match_feedback: 'up' | 'down' | null;
@@ -147,7 +148,7 @@ const AiFindResults = () => {
       // faster.
       const { data: refreshed } = await supabase
         .from('ai_find_requests')
-        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
+        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, vano_match_score, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
         .eq('id', row.id)
         .maybeSingle();
       if (refreshed) setRow(refreshed as AiFindRow);
@@ -191,7 +192,7 @@ const AiFindResults = () => {
       // is identical.
       const { data, error } = await supabase
         .from('ai_find_requests')
-        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
+        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, vano_match_score, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
         .eq('id', id)
         .maybeSingle();
 
@@ -486,6 +487,7 @@ const AiFindResults = () => {
                   <VanoPickCard
                     pick={vanoPick}
                     reason={row.vano_match_reason ?? null}
+                    score={row.vano_match_score ?? null}
                     feedback={row.vano_match_feedback}
                     retryCount={row.vano_retry_count}
                     retrying={retryingSide === 'vano'}
@@ -633,17 +635,30 @@ const StatusCard = ({
 );
 
 const VanoPickCard = ({
-  pick, reason, feedback, retryCount, retrying, onMessage, onFeedback, onRetry,
+  pick, reason, score, feedback, retryCount, retrying, onMessage, onFeedback, onRetry,
 }: {
   pick: VanoPick;
   reason: string | null;
+  score: number | null;
   feedback: 'up' | 'down' | null;
   retryCount: number;
   retrying: boolean;
   onMessage: () => void;
   onFeedback: (verdict: 'up' | 'down') => void;
   onRetry: () => void;
-}) => (
+}) => {
+  // Bucket the raw Gemini score into three honest confidence tiers —
+  // surfacing "Strong fit" / "Good fit" reads better than "94% match"
+  // which implies a precision Gemini doesn't actually have. Below 40
+  // is filtered upstream, so the card is never rendered in that
+  // range; 70+ is uncommon and earns the "Strong" label.
+  const scoreBucket: { label: string; tone: string } | null = (() => {
+    if (score == null) return null;
+    if (score >= 75) return { label: 'Strong fit', tone: 'bg-emerald-400/20 text-emerald-50 ring-1 ring-emerald-300/30' };
+    if (score >= 55) return { label: 'Good fit',   tone: 'bg-white/15 text-white/90 ring-1 ring-white/20' };
+    return { label: 'Plausible fit', tone: 'bg-white/10 text-white/80 ring-1 ring-white/15' };
+  })();
+  return (
   <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">
     <div className="relative overflow-hidden bg-gradient-to-b from-primary to-primary/90 px-5 py-4 text-primary-foreground">
       <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/15 blur-3xl" />
@@ -651,9 +666,19 @@ const VanoPickCard = ({
         <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
           <Sparkles className="h-3 w-3 text-amber-200" /> Vano's pick
         </div>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-100/90">
-          Vetted · on platform
-        </span>
+        <div className="inline-flex items-center gap-2">
+          {scoreBucket && (
+            <span
+              title={`Gemini-assigned match confidence: ${score}/100`}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${scoreBucket.tone}`}
+            >
+              {scoreBucket.label}
+            </span>
+          )}
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-100/90">
+            Vetted · on platform
+          </span>
+        </div>
       </div>
     </div>
 
@@ -718,7 +743,8 @@ const VanoPickCard = ({
       />
     </div>
   </div>
-);
+  );
+};
 
 const WebPickCard = ({
   pick, feedback, retryCount, retrying, onFeedback, onRetry,

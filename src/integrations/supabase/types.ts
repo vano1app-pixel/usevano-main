@@ -995,6 +995,7 @@ export type Database = {
           updated_at: string
           vano_match_feedback: "up" | "down" | null
           vano_match_reason: string | null
+          vano_match_score: number | null
           vano_match_user_id: string | null
           vano_retry_count: number
           web_match_feedback: "up" | "down" | null
@@ -1020,6 +1021,7 @@ export type Database = {
           updated_at?: string
           vano_match_feedback?: "up" | "down" | null
           vano_match_reason?: string | null
+          vano_match_score?: number | null
           vano_match_user_id?: string | null
           vano_retry_count?: number
           web_match_feedback?: "up" | "down" | null
@@ -1045,6 +1047,7 @@ export type Database = {
           updated_at?: string
           vano_match_feedback?: "up" | "down" | null
           vano_match_reason?: string | null
+          vano_match_score?: number | null
           vano_match_user_id?: string | null
           vano_retry_count?: number
           web_match_feedback?: "up" | "down" | null
