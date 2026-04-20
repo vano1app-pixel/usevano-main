@@ -1474,8 +1474,36 @@ const Messages = () => {
                 </div>
               </>
             ) : (
-              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                Select a conversation to start chatting
+              // Desktop right-pane empty state — previously a bare line
+              // of muted text that read as "dead app" on first-visit
+              // screenshots. Now a proper premium empty state that
+              // gives the viewer something to do. Audience-aware:
+              // hirers see "Start a Vano Match" as the primary path
+              // back into the funnel; freelancers see a browse-gigs
+              // nudge instead.
+              <div className="flex flex-1 items-center justify-center px-6 py-12">
+                <div className="flex max-w-sm flex-col items-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <MessageCircle size={20} />
+                  </div>
+                  <h2 className="mt-4 text-[18px] font-semibold leading-tight tracking-tight text-foreground">
+                    Pick a conversation
+                  </h2>
+                  <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+                    {viewerUserType === 'student'
+                      ? 'Your chats with businesses land here. Apply to a gig or reply to a client to get started.'
+                      : 'Your chats with freelancers land here. Kick off a Vano Match and we\'ll drop you straight into a thread.'}
+                  </p>
+                  {viewerUserType !== 'student' && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/hire')}
+                      className="mt-5 inline-flex items-center gap-1.5 rounded-2xl bg-primary px-5 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+                    >
+                      <Sparkles size={13} /> Start a Vano Match
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
