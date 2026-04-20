@@ -23,6 +23,36 @@ const SERPER_URL = 'https://google.serper.dev/search';
 const VANO_CANDIDATE_LIMIT = 20;
 const SERPER_RESULT_LIMIT = 10;
 const BRIEF_MAX_CHARS = 2000;
+// Per-call budgets for external APIs. Without these, a stuck Gemini or
+// Serper request would block the edge function indefinitely — long past
+// the 120s the results page polls for — and strand the user on "Just a
+// moment more…" with no refund path. On abort the fetch rejects, which
+// propagates up to the per-side .catch in the Promise.all below and
+// becomes a null pick; if both sides end up null, markFailed fires the
+// auto-refund. Stripe gets a shorter budget because it's only reached on
+// the failure path and we don't want to pile timeout on top of timeout.
+const EXTERNAL_CALL_TIMEOUT_MS = 30_000;
+const STRIPE_CALL_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  label: string,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') {
+      console.error(`[ai-find-freelancer] ${label} aborted after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 type AiFindRow = {
   id: string;
@@ -76,14 +106,19 @@ async function refundViaStripe(
   stripeKey: string,
 ): Promise<boolean> {
   try {
-    const resp = await fetch('https://api.stripe.com/v1/refunds', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${stripeKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const resp = await fetchWithTimeout(
+      'https://api.stripe.com/v1/refunds',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${stripeKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `payment_intent=${encodeURIComponent(paymentIntentId)}`,
       },
-      body: `payment_intent=${encodeURIComponent(paymentIntentId)}`,
-    });
+      STRIPE_CALL_TIMEOUT_MS,
+      'stripe refund',
+    );
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
       console.error('[ai-find-freelancer] stripe refund failed', resp.status, text.slice(0, 300));
@@ -134,22 +169,27 @@ async function callGemini(
   toolName: string,
   toolSchema: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
-  const resp = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+  const resp = await fetchWithTimeout(
+    GEMINI_URL,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: GEMINI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        tools: [{ type: 'function', function: { name: toolName, parameters: toolSchema } }],
+        tool_choice: { type: 'function', function: { name: toolName } },
+      }),
     },
-    body: JSON.stringify({
-      model: GEMINI_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      tools: [{ type: 'function', function: { name: toolName, parameters: toolSchema } }],
-      tool_choice: { type: 'function', function: { name: toolName } },
-    }),
-  });
+    EXTERNAL_CALL_TIMEOUT_MS,
+    `gemini ${toolName}`,
+  );
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
@@ -288,14 +328,19 @@ async function buildSearchQuery(
 }
 
 async function serperSearch(query: string, apiKey: string): Promise<SerperResult[]> {
-  const resp = await fetch(SERPER_URL, {
-    method: 'POST',
-    headers: {
-      'X-API-KEY': apiKey,
-      'Content-Type': 'application/json',
+  const resp = await fetchWithTimeout(
+    SERPER_URL,
+    {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ q: query, num: SERPER_RESULT_LIMIT }),
     },
-    body: JSON.stringify({ q: query, num: SERPER_RESULT_LIMIT }),
-  });
+    EXTERNAL_CALL_TIMEOUT_MS,
+    'serper search',
+  );
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
     console.error('[ai-find-freelancer] serper error', resp.status, text.slice(0, 200));

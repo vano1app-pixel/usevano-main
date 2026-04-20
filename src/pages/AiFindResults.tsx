@@ -96,6 +96,12 @@ const AiFindResults = () => {
   const [row, setRow] = useState<AiFindRow | null>(null);
   const [vanoPick, setVanoPick] = useState<VanoPick | null>(null);
   const [webPick, setWebPick] = useState<WebPick | null>(null);
+  // Track whether each pick's secondary fetch has settled. Without
+  // these, the "both picks null" branch triggers on a fresh 'complete'
+  // row before the profile/scout queries have landed — showing a
+  // "Match data missing" error for what is actually a loading state.
+  const [vanoFetchDone, setVanoFetchDone] = useState(false);
+  const [webFetchDone, setWebFetchDone] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // pollingStartedAt is stateful (not a const initializer) so the
   // "Check again" button can reset the window after a timeout.
@@ -246,8 +252,10 @@ const AiFindResults = () => {
   useEffect(() => {
     if (!row?.vano_match_user_id) {
       setVanoPick(null);
+      setVanoFetchDone(true);
       return;
     }
+    setVanoFetchDone(false);
     let cancelled = false;
     void (async () => {
       const [{ data: profile }, { data: studentProfile }] = await Promise.all([
@@ -263,7 +271,7 @@ const AiFindResults = () => {
           .maybeSingle(),
       ]);
       if (cancelled) return;
-      if (!profile) { setVanoPick(null); return; }
+      if (!profile) { setVanoPick(null); setVanoFetchDone(true); return; }
       setVanoPick({
         user_id: profile.user_id as string,
         display_name: (profile.display_name as string) || 'Vano freelancer',
@@ -272,6 +280,7 @@ const AiFindResults = () => {
         skills: (studentProfile?.skills as string[] | null) ?? null,
         hourly_rate: (studentProfile?.hourly_rate as number | null) ?? null,
       });
+      setVanoFetchDone(true);
     })();
     return () => { cancelled = true; };
   }, [row?.vano_match_user_id]);
@@ -281,8 +290,10 @@ const AiFindResults = () => {
   useEffect(() => {
     if (!row?.web_scout_id) {
       setWebPick(null);
+      setWebFetchDone(true);
       return;
     }
+    setWebFetchDone(false);
     let cancelled = false;
     void (async () => {
       const { data } = await (supabase as unknown as UntypedSupabase)
@@ -291,8 +302,9 @@ const AiFindResults = () => {
         .eq('id', row.web_scout_id)
         .maybeSingle();
       if (cancelled) return;
-      if (!data) { setWebPick(null); return; }
+      if (!data) { setWebPick(null); setWebFetchDone(true); return; }
       setWebPick(data as WebPick);
+      setWebFetchDone(true);
     })();
     return () => { cancelled = true; };
   }, [row?.web_scout_id]);
@@ -380,49 +392,71 @@ const AiFindResults = () => {
               body="Your €1 has been refunded."
               action={{ label: 'Back to /hire', onClick: () => navigate('/hire') }}
             />
-          ) : (
-            <div className="space-y-4">
-              {vanoPick ? (
-                <VanoPickCard
-                  pick={vanoPick}
-                  reason={row.vano_match_reason ?? null}
-                  feedback={row.vano_match_feedback}
-                  retryCount={row.vano_retry_count}
-                  retrying={retryingSide === 'vano'}
-                  onMessage={() => navigate(`/messages?with=${vanoPick.user_id}`)}
-                  onFeedback={(verdict) => submitFeedback('vano', verdict)}
-                  onRetry={() => retry('vano')}
-                />
-              ) : null}
+          ) : (() => {
+            // Secondary fetches (profile + scout row) can lag the 'complete'
+            // flip by a tick. Without the fetch-done guards below, that
+            // race briefly showed a "Match data missing" error card for
+            // what was actually a loading state.
+            const picksHydrating = !vanoFetchDone || !webFetchDone;
+            const hadVanoMatchId = !!row.vano_match_user_id;
+            const hadWebScoutId = !!row.web_scout_id;
+            const noMatchesAtAll = !hadVanoMatchId && !hadWebScoutId;
+            const matchGoneStale = !noMatchesAtAll && !vanoPick && !webPick;
 
-              {webPick ? (
-                <WebPickCard
-                  pick={webPick}
-                  feedback={row.web_match_feedback}
-                  retryCount={row.web_retry_count}
-                  retrying={retryingSide === 'web'}
-                  onFeedback={(verdict) => submitFeedback('web', verdict)}
-                  onRetry={() => retry('web')}
-                />
-              ) : null}
+            if (picksHydrating) {
+              return <LoadingCard label="Loading your matches…" />;
+            }
 
-              {!vanoPick && !webPick ? (
-                <StatusCard
-                  tone="error"
-                  title="Match data missing"
-                  body="We completed your search but couldn't load the results. Please refresh."
-                />
-              ) : null}
+            return (
+              <div className="space-y-4">
+                {vanoPick ? (
+                  <VanoPickCard
+                    pick={vanoPick}
+                    reason={row.vano_match_reason ?? null}
+                    feedback={row.vano_match_feedback}
+                    retryCount={row.vano_retry_count}
+                    retrying={retryingSide === 'vano'}
+                    onMessage={() => navigate(`/messages?with=${vanoPick.user_id}`)}
+                    onFeedback={(verdict) => submitFeedback('vano', verdict)}
+                    onRetry={() => retry('vano')}
+                  />
+                ) : null}
 
-              <button
-                type="button"
-                onClick={() => navigate('/hire')}
-                className="mt-2 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
-              >
-                Start another search
-              </button>
-            </div>
-          )}
+                {webPick ? (
+                  <WebPickCard
+                    pick={webPick}
+                    feedback={row.web_match_feedback}
+                    retryCount={row.web_retry_count}
+                    retrying={retryingSide === 'web'}
+                    onFeedback={(verdict) => submitFeedback('web', verdict)}
+                    onRetry={() => retry('web')}
+                  />
+                ) : null}
+
+                {noMatchesAtAll ? (
+                  <StatusCard
+                    tone="neutral"
+                    title="No match this time"
+                    body="We couldn't find a good fit for this brief. Your €1 refund is on the way — give it a few minutes."
+                  />
+                ) : matchGoneStale ? (
+                  <StatusCard
+                    tone="neutral"
+                    title="Match is no longer available"
+                    body="Your picks existed a moment ago but aren't reachable now (the freelancer may have removed their profile). Start another search and we'll find you a fresh one."
+                  />
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/hire')}
+                  className="mt-2 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
+                >
+                  Start another search
+                </button>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </>
