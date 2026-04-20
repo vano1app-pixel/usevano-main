@@ -636,23 +636,27 @@ const Messages = () => {
   const paymentStatusParam = searchParams.get('status');
   useEffect(() => {
     if (!paymentParam || !paymentStatusParam) return;
-    if (paymentStatusParam === 'success') {
-      toast({
-        title: 'Payment held on Vano',
-        description: "We'll release it to the freelancer when you click Release here in the thread.",
-      });
-    } else if (paymentStatusParam === 'cancel') {
-      toast({
-        title: 'Payment cancelled',
-        description: 'No money moved. Try again whenever you like.',
-      });
-    }
+    // Strip params FIRST so a refresh / back nav can't re-toast — even
+    // if the toast call throws, the URL is already clean. The captured
+    // status string is used below to decide which toast to fire.
+    const status = paymentStatusParam;
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('payment');
       next.delete('status');
       return next;
     }, { replace: true });
+    if (status === 'success') {
+      toast({
+        title: 'Payment held on Vano',
+        description: "We'll release it to the freelancer when you click Release here in the thread.",
+      });
+    } else if (status === 'cancel') {
+      toast({
+        title: 'Payment cancelled',
+        description: 'No money moved. Try again whenever you like.',
+      });
+    }
   }, [paymentParam, paymentStatusParam, setSearchParams, toast]);
 
   const loadMessages = async (convoId: string) => {
@@ -735,7 +739,7 @@ const Messages = () => {
           // Message already landed in DB — recipient will see it on
           // next chat open. Push notification is extra; log so we can
           // spot a broken VAPID setup without hiding it from the user.
-          console.warn('[Messages] notify-new-message failed', err);
+          if (import.meta.env.DEV) console.warn('[Messages] notify-new-message failed', err);
         });
       });
 
@@ -783,7 +787,7 @@ const Messages = () => {
                     freelancer_phone: spPhone?.phone || null,
                   }),
                 }).catch((err) => {
-                  console.warn('[Messages] notify-admin-message failed', err);
+                  if (import.meta.env.DEV) console.warn('[Messages] notify-admin-message failed', err);
                 });
               }
             }

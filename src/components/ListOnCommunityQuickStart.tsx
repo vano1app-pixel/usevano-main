@@ -51,8 +51,13 @@ export function ListOnCommunityQuickStart({
   // in-app messages. Forcing a phone upfront was the #1 abandonment point;
   // dropping the requirement lets uncertain users get listed in seconds and
   // add their number later when a real client conversation is happening.
+  // When they DO enter one, we at least require it to look phone-shaped
+  // (digits, optionally with + / spaces / dashes / parens, 7+ chars) so
+  // a typo like "1234" or "asdf" can't be saved.
   const trimmedPhone = phone.trim();
-  const phoneLooksValid = trimmedPhone.length === 0 || trimmedPhone.length >= 6;
+  const phoneLooksValid =
+    trimmedPhone.length === 0 ||
+    /^\+?[0-9][0-9\s\-()]{6,}$/.test(trimmedPhone);
   const canPublish =
     category !== null &&
     pitch.trim().length >= 6 &&

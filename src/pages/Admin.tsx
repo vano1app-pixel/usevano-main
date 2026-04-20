@@ -204,7 +204,7 @@ const Admin = () => {
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (error) {
-      console.error(error);
+      if (import.meta.env.DEV) console.error('[Admin] community_listing_requests fetch failed', error);
       setListingRequests([]);
       return;
     }

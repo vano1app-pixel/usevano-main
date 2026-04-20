@@ -39,6 +39,14 @@ const Auth = () => {
   // their first click registered. 30s matches Supabase's per-email throttle.
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  // Client-side email shape check so the submit button stays disabled on
+  // obvious gibberish ("asdf", "foo@bar"). Server does the real validation
+  // via Supabase signInWithOtp, but failing fast in the UI means the user
+  // doesn't tap a disabled-looking button, wait for the round-trip, and
+  // then see a generic toast. Deliberately permissive — anything with an
+  // '@' and a dot after it passes. Supabase is strict downstream.
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(magicLinkEmail.trim());
+
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -409,7 +417,7 @@ const Auth = () => {
                 </div>
                 <button
                   type="submit"
-                  disabled={magicLinkSending || magicLinkEmail.trim().length === 0}
+                  disabled={magicLinkSending || !emailLooksValid}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border/70 bg-background py-3 text-[14px] font-semibold text-foreground transition-all duration-150 hover:bg-muted/50 hover:border-border active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {magicLinkSending ? (

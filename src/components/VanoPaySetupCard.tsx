@@ -88,7 +88,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
       if (!url) throw new Error('No onboarding URL returned');
       window.location.href = url;
     } catch (err) {
-      console.error('[vano-pay] onboarding link failed', err);
+      if (import.meta.env.DEV) console.error('[vano-pay] onboarding link failed', err);
       const message = (err as { message?: string })?.message || '';
       toast({
         title: "Couldn't open Vano Pay setup",
