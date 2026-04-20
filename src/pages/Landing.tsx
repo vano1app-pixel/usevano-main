@@ -213,26 +213,29 @@ const Landing = () => {
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
-          {/* Vano Match eyebrow chip — frames the product as a
-              single-step, hand-picked match. Price stays off the
-              landing page; it surfaces later inside the hire flow. */}
+          {/* Vano Match eyebrow — "hand-picked for you" sells the
+              bespoke promise without naming the price. */}
           <div data-hero-eyebrow className="mb-5 flex justify-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              Vano Match · hand-picked in 60s
+              Hand-picked for you · in 60 seconds
             </span>
           </div>
 
+          {/* Display type — semibold (not bold), tighter tracking at
+              lg, two short declarative lines. The italic second line
+              is the emotional landing ("your perfect match") that
+              frames everything below. */}
           <div data-hero-title>
-            <h1 className="mb-5 text-4xl font-bold leading-[1.02] tracking-tight text-foreground text-balance sm:mb-6 sm:text-5xl md:text-6xl lg:text-[84px] lg:tracking-[-0.03em]">
-              <span className="inline-block">Local talent,</span><br />
+            <h1 className="mb-5 text-[40px] font-semibold leading-[0.98] tracking-tight text-foreground text-balance sm:mb-6 sm:text-[56px] md:text-[72px] lg:text-[92px] lg:tracking-[-0.035em]">
+              <span className="inline-block">Any brief. Any budget.</span><br />
               <span className="inline-block italic font-semibold text-primary">
-                instantly available.
+                Your perfect match.
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="mx-auto mb-7 max-w-[38ch] text-[15px] leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
-            Tell us what you need, we hand-pick a freelancer from our pool plus one scouted from the web — and you pay them safely through Vano.
+          <p data-hero-sub className="mx-auto mb-8 max-w-[42ch] text-[15px] font-normal leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
+            You set the brief. You set the budget. We hand-pick one freelancer from our local pool and one scouted from the open web — paid safely through Vano.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -270,13 +273,13 @@ const Landing = () => {
                     60s
                   </span>
                 </div>
-                <p className="mt-3 text-[18px] font-semibold leading-snug tracking-tight sm:text-[19px]">
-                  Match me with a freelancer
+                <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight sm:text-[20px]">
+                  Find my match
                 </p>
-                <p className="mt-1 text-[12.5px] leading-snug text-white/80">
-                  One from our pool, one scouted from the web.
+                <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
+                  One from our pool, one scouted from the web — hand-picked to your brief.
                 </p>
-                <span className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-white">
+                <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
                   <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                 </span>
@@ -309,13 +312,13 @@ const Landing = () => {
                       Free
                     </span>
                   </div>
-                  <p className="mt-3 text-[18px] font-semibold leading-snug tracking-tight text-foreground sm:text-[19px]">
-                    Get hired locally
+                  <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight text-foreground sm:text-[20px]">
+                    Get found. Get paid.
                   </p>
-                  <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-                    List yourself in 30 seconds. Get paid via Vano Pay.
+                  <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">
+                    List yourself in 30 seconds. Paid safely through Vano.
                   </p>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
                     Join as a freelancer
                     <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                   </span>
@@ -749,11 +752,14 @@ const Landing = () => {
             {/* Floating magic orbs */}
             <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
             <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
-            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Free · No commission · AI matched</span>
-            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
-              Need something done? Tell us.
+            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">Hand-picked · Safely paid · Galway-built</span>
+            <h2 className="relative text-[30px] font-semibold text-primary-foreground tracking-tight leading-[1.05] mb-4 text-balance sm:text-[44px] lg:text-[56px] lg:tracking-[-0.03em]">
+              Your perfect match,<br />
+              <span className="italic font-semibold text-primary-foreground/95">hand-picked.</span>
             </h2>
-            <p className="relative text-primary-foreground/60 mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
+            <p className="relative text-primary-foreground/70 mb-10 text-base lg:text-[17px] max-w-[40ch] mx-auto leading-relaxed text-balance">
+              Describe the work, name your budget. We'll find who fits — paid safely through Vano.
+            </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
                 burstType="confetti"
