@@ -998,6 +998,25 @@ const HirePage = () => {
                 ))}
               </ol>
 
+              {/* "What you get for €1" — concrete deliverables so the
+                   click isn't a leap of faith. Four short lines, Check
+                   bullets, white-on-primary chip row. Placed between the
+                   pipeline (what happens) and the recap (what you asked
+                   for) so the flow reads: story → offer → your brief → go. */}
+              <ul className="grid grid-cols-1 gap-1.5 rounded-xl bg-white/[0.06] px-4 py-3 ring-1 ring-inset ring-white/10 sm:grid-cols-2">
+                {[
+                  'One match from Vano’s vetted pool',
+                  'One alternate scouted from the web',
+                  'Delivered to your inbox in ~60 seconds',
+                  'Full €1 refund if we can’t find a fit',
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-1.5 text-[12px] leading-snug text-white/85">
+                    <Check size={13} className="mt-0.5 shrink-0 text-amber-200" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+
               {/* Brief recap — lighter chrome, single line of tags. */}
               <div className="rounded-xl bg-white/[0.08] px-4 py-3 ring-1 ring-inset ring-white/10">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Your request</p>

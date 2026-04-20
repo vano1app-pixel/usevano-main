@@ -643,7 +643,8 @@ export type Database = {
           comment: string | null
           created_at: string
           id: string
-          job_id: string
+          job_id: string | null
+          vano_payment_id: string | null
           photos: string[] | null
           rating: number
           reviewee_id: string
@@ -653,7 +654,8 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
-          job_id: string
+          job_id?: string | null
+          vano_payment_id?: string | null
           photos?: string[] | null
           rating: number
           reviewee_id: string
@@ -663,7 +665,8 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
-          job_id?: string
+          job_id?: string | null
+          vano_payment_id?: string | null
           photos?: string[] | null
           rating?: number
           reviewee_id?: string

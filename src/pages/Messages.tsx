@@ -3,8 +3,9 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ReviewForm } from '@/components/ReviewForm';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
@@ -191,6 +192,15 @@ const Messages = () => {
   const [disputeForPaymentId, setDisputeForPaymentId] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
 
+  // Review dialog state — opens ReviewForm scoped to a released
+  // vano_payment so the hirer can rate the freelancer. The id set
+  // below is the hirer's already-reviewed payments so the "Leave a
+  // review" button hides after the write lands; the reviews INSERT
+  // RLS also blocks duplicates via the UNIQUE partial on
+  // (vano_payment_id, reviewer_id).
+  const [reviewForPaymentId, setReviewForPaymentId] = useState<string | null>(null);
+  const [reviewedPaymentIds, setReviewedPaymentIds] = useState<Set<string>>(new Set());
+
   // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
   // Freelancer's own Vano Pay readiness — drives the in-thread "Enable
@@ -350,7 +360,7 @@ const Messages = () => {
   // change + on the Stripe-return query param so a hirer landing back
   // from Checkout sees the fresh "held" state immediately.
   useEffect(() => {
-    if (!selectedConvo) { setThreadPayments([]); return; }
+    if (!selectedConvo) { setThreadPayments([]); setReviewedPaymentIds(new Set()); return; }
     let cancelled = false;
     const load = async () => {
       const { data } = await supabase
@@ -360,7 +370,28 @@ const Messages = () => {
         .in('status', ['paid', 'transferred', 'refunded'])
         .order('created_at', { ascending: false });
       if (cancelled) return;
-      setThreadPayments((data ?? []) as ThreadPayment[]);
+      const payments = (data ?? []) as ThreadPayment[];
+      setThreadPayments(payments);
+
+      // Load which of THIS viewer's reviews already exist for the
+      // released payments in this thread, so the "Leave a review"
+      // nudge hides once they've left one. RLS makes this safe: a
+      // non-reviewer viewer (freelancer side) still gets to read
+      // reviews (they're public), but the filter on reviewer_id
+      // scopes to what the hirer has submitted themselves.
+      if (!user) return;
+      const transferredIds = payments.filter((p) => p.status === 'transferred').map((p) => p.id);
+      if (transferredIds.length === 0) {
+        if (!cancelled) setReviewedPaymentIds(new Set());
+        return;
+      }
+      const { data: reviewRows } = await supabase
+        .from('reviews')
+        .select('vano_payment_id')
+        .eq('reviewer_id', user.id)
+        .in('vano_payment_id', transferredIds);
+      if (cancelled) return;
+      setReviewedPaymentIds(new Set((reviewRows ?? []).map((r) => r.vano_payment_id as string).filter(Boolean)));
     };
     void load();
 
@@ -1269,11 +1300,30 @@ const Messages = () => {
                       }
 
                       if (p.status === 'transferred') {
+                        const canReview = isHirer && !reviewedPaymentIds.has(p.id);
                         return (
-                          <div key={p.id} className="flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-1.5 text-[12px] text-emerald-900 dark:text-emerald-200" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                            <Check size={13} className="text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
-                            <span className="font-semibold">{amountEuro} paid</span>
-                            {doneDate && <span className="text-emerald-900/75 dark:text-emerald-200/75">· {doneDate}</span>}
+                          <div key={p.id} className="flex flex-wrap items-center gap-2">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-1.5 text-[12px] text-emerald-900 dark:text-emerald-200" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                              <Check size={13} className="text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
+                              <span className="font-semibold">{amountEuro} paid</span>
+                              {doneDate && <span className="text-emerald-900/75 dark:text-emerald-200/75">· {doneDate}</span>}
+                            </div>
+                            {canReview && (
+                              // Review nudge — only shown to the hirer,
+                              // only for payments they haven't reviewed
+                              // yet. The button opens ReviewForm scoped
+                              // to this Vano Pay row; the submit feeds
+                              // the Vano Match ranker's review signal
+                              // (avg_rating × log(count+1) at 20%).
+                              <button
+                                type="button"
+                                onClick={() => setReviewForPaymentId(p.id)}
+                                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-[11.5px] font-semibold text-primary transition hover:bg-primary/10"
+                              >
+                                <Star size={11} strokeWidth={2.5} />
+                                Leave a review
+                              </button>
+                            )}
                           </div>
                         );
                       }
@@ -1540,6 +1590,46 @@ const Messages = () => {
           freelancerName={selectedConversation.otherName || 'this freelancer'}
         />
       )}
+
+      {/* Review dialog — hirer clicks "Leave a review" on a released
+           Vano Pay receipt, lands the rating + comment against the
+           payment row, feedback cascades into the Vano Match ranker
+           via the 20%-weighted review signal. Only the hirer sees
+           this trigger; RLS blocks doubles via a UNIQUE partial on
+           (vano_payment_id, reviewer_id). */}
+      {(() => {
+        const target = reviewForPaymentId ? threadPayments.find((p) => p.id === reviewForPaymentId) : null;
+        return (
+          <Dialog
+            open={reviewForPaymentId !== null}
+            onOpenChange={(open) => { if (!open) setReviewForPaymentId(null); }}
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Leave a review</DialogTitle>
+                <DialogDescription>
+                  How was the work? Your rating helps Vano hand-pick better matches next time.
+                </DialogDescription>
+              </DialogHeader>
+              {target && user ? (
+                <ReviewForm
+                  vanoPaymentId={target.id}
+                  reviewerId={user.id}
+                  revieweeId={target.freelancer_id}
+                  onReviewSubmitted={() => {
+                    setReviewedPaymentIds((prev) => {
+                      const next = new Set(prev);
+                      next.add(target.id);
+                      return next;
+                    });
+                    setReviewForPaymentId(null);
+                  }}
+                />
+              ) : null}
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* Dispute / refund dialog — hirer clicks "Flag a problem" on a
            held payment row, confirms with an optional free-text reason,

@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import {
   Shield, ShieldCheck, ShieldOff, Users, Briefcase, Calendar, Trash2, Search,
   ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
+  AlertTriangle, ExternalLink,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import {
@@ -65,7 +66,26 @@ interface FeedbackRow {
   sender_avatar?: string;
 }
 
-type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings';
+type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings' | 'disputes';
+
+// Row shape for a disputed Vano Pay payment (held, flagged by hirer).
+// Joined via profiles on the fly for display names; service-role
+// admin RLS on vano_payments lets moderators read cross-account.
+interface DisputedPaymentRow {
+  id: string;
+  conversation_id: string | null;
+  business_id: string;
+  freelancer_id: string;
+  amount_cents: number;
+  fee_cents: number;
+  dispute_reason: string;
+  disputed_at: string | null;
+  auto_release_at: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_session_id: string | null;
+  business_name: string | null;
+  freelancer_name: string | null;
+}
 const PAGE_SIZE = 20;
 
 // ── Component ──
@@ -87,6 +107,7 @@ const Admin = () => {
   const [listingRequests, setListingRequests] = useState<ListingRequestRow[]>([]);
   const [reviewRequest, setReviewRequest] = useState<ListingRequestRow | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [disputes, setDisputes] = useState<DisputedPaymentRow[]>([]);
 
   const adminPagePassword = import.meta.env.VITE_ADMIN_PAGE_PASSWORD as string | undefined;
   const needsAdminPassword = Boolean(adminPagePassword && adminPagePassword.length > 0);
@@ -224,6 +245,45 @@ const Admin = () => {
     }
   }, [page]);
 
+  // Held payments that the hirer has flagged as a problem. These
+  // are paused by the auto-release cron (dispute_reason IS NOT NULL
+  // is the skip condition) so they'd sit forever without an admin
+  // intervening. The inbox gives ops a single place to see them,
+  // read the reason, and resolve via Stripe dashboard + SQL per the
+  // runbook. Resolution UI is deliberately out-of-band for v1 —
+  // safer than shipping admin-impersonation edge functions before
+  // dispute volume justifies the surface area.
+  const fetchDisputes = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('vano_payments')
+      .select('id, conversation_id, business_id, freelancer_id, amount_cents, fee_cents, dispute_reason, disputed_at, auto_release_at, stripe_payment_intent_id, stripe_session_id')
+      .not('dispute_reason', 'is', null)
+      .eq('status', 'paid')
+      .order('disputed_at', { ascending: false, nullsFirst: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (error) {
+      if (import.meta.env.DEV) console.error('[Admin] disputes fetch failed', error);
+      setDisputes([]);
+      return;
+    }
+    const rows = (data ?? []) as Array<Omit<DisputedPaymentRow, 'business_name' | 'freelancer_name'>>;
+    if (rows.length === 0) {
+      setDisputes([]);
+      return;
+    }
+    const ids = Array.from(new Set(rows.flatMap((r) => [r.business_id, r.freelancer_id])));
+    const { data: profs } = await supabase.from('profiles').select('user_id, display_name').in('user_id', ids);
+    const nameByUserId = new Map((profs || []).map((p) => [p.user_id, (p.display_name ?? null) as string | null]));
+    setDisputes(
+      rows.map((r) => ({
+        ...r,
+        dispute_reason: r.dispute_reason ?? '',
+        business_name: nameByUserId.get(r.business_id) ?? null,
+        freelancer_name: nameByUserId.get(r.freelancer_id) ?? null,
+      })),
+    );
+  }, [page]);
+
   const fetchFeedback = useCallback(async () => {
     const { data } = await supabase
       .from('feedback')
@@ -261,7 +321,8 @@ const Admin = () => {
     if (tab === 'events') fetchEvents();
     if (tab === 'feedback') fetchFeedback();
     if (tab === 'listings') fetchListingRequests();
-  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests]);
+    if (tab === 'disputes') fetchDisputes();
+  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests, fetchDisputes]);
 
   // ── Actions ──
   const toggleAdmin = async (userId: string) => {
@@ -470,6 +531,7 @@ const Admin = () => {
     { key: 'gigs', label: 'Gigs', icon: <Briefcase size={16} />, count: filteredGigs.length },
     { key: 'events', label: 'Events', icon: <Calendar size={16} />, count: filteredEvents.length },
     { key: 'listings', label: 'Community', icon: <ClipboardList size={16} />, count: filteredListings.length },
+    { key: 'disputes', label: 'Disputes', icon: <AlertTriangle size={16} />, count: disputes.length },
     { key: 'feedback', label: 'Feedback', icon: <MessageSquare size={16} />, count: filteredFeedbacks.length },
   ];
 
@@ -720,6 +782,87 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ── Disputes tab ── */}
+        {tab === 'disputes' && (
+          <div className="space-y-3">
+            {disputes.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                  <ShieldCheck size={18} />
+                </div>
+                <p className="text-sm font-medium text-foreground">No active disputes</p>
+                <p className="max-w-sm text-[11.5px] text-muted-foreground">
+                  Hirers who flag a held payment land here. Each row is paused from auto-release until resolved. None open right now.
+                </p>
+              </div>
+            ) : (
+              disputes.map((d) => {
+                const amountEuro = `€${(d.amount_cents / 100).toFixed(2)}`;
+                const netEuro = `€${((d.amount_cents - d.fee_cents) / 100).toFixed(2)}`;
+                const disputedAgo = d.disputed_at
+                  ? format(new Date(d.disputed_at), 'MMM d, h:mm a')
+                  : 'date unknown';
+                const stripeUrl = d.stripe_payment_intent_id
+                  ? `https://dashboard.stripe.com/payments/${d.stripe_payment_intent_id}`
+                  : null;
+                const threadUrl = d.conversation_id
+                  ? `/messages?open=${d.conversation_id}`
+                  : null;
+                return (
+                  <div key={d.id} className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-4 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                          <AlertTriangle size={13} className="text-amber-600" />
+                          {amountEuro} held · {netEuro} to freelancer
+                        </p>
+                        <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                          {d.business_name ?? 'Hirer'} → {d.freelancer_name ?? 'Freelancer'} · flagged {disputedAgo}
+                        </p>
+                      </div>
+                      <span className="shrink-0 inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                        Frozen
+                      </span>
+                    </div>
+                    {d.dispute_reason && (
+                      <p className="mt-3 whitespace-pre-wrap rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] leading-relaxed text-foreground">
+                        {d.dispute_reason}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px] font-semibold">
+                      {threadUrl && (
+                        <a
+                          href={threadUrl}
+                          onClick={(e) => { e.preventDefault(); navigate(threadUrl); }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-foreground hover:bg-muted"
+                        >
+                          <MessageSquare size={11} /> Open thread
+                        </a>
+                      )}
+                      {stripeUrl && (
+                        <a
+                          href={stripeUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-foreground hover:bg-muted"
+                        >
+                          Stripe payment <ExternalLink size={10} />
+                        </a>
+                      )}
+                      <span className="ml-auto text-[10.5px] font-normal text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        payment_id: {d.id.slice(0, 8)}…
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[10.5px] leading-relaxed text-muted-foreground">
+                      Resolve via Stripe dashboard + SQL per <code className="font-mono">VANO_PAY_ESCROW.md</code> — set <code className="font-mono">dispute_reason = NULL</code> to release or run a Stripe refund then stamp <code className="font-mono">status = 'refunded'</code>.
+                    </p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
         {/* ── Feedback tab ── */}
         {tab === 'feedback' && (
           <div className="space-y-2">
@@ -773,6 +916,7 @@ const Admin = () => {
               (tab === 'gigs' && filteredGigs.length < PAGE_SIZE) ||
               (tab === 'events' && filteredEvents.length < PAGE_SIZE) ||
               (tab === 'listings' && filteredListings.length < PAGE_SIZE) ||
+              (tab === 'disputes' && disputes.length < PAGE_SIZE) ||
               (tab === 'feedback' && filteredFeedbacks.length < PAGE_SIZE)
             }
             className="p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-40 transition-colors"
