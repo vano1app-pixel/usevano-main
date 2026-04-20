@@ -97,61 +97,75 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          <div className="px-4 pb-8 pt-4 sm:px-6 sm:pb-8 sm:pt-5 space-y-6">
+          <div className="px-4 pb-8 pt-4 sm:px-6 sm:pb-8 sm:pt-5 space-y-5">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                {isSignUp ? 'Join VANO' : 'Welcome back'}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-foreground">
                 {isSignUp
-                  ? 'Pick your role then continue with Google.'
-                  : 'Sign in to your account with Google.'}
+                  ? (userType === 'business' ? 'A perfect freelancer, hand-picked.' : 'Get hired, get paid safely.')
+                  : 'Welcome back'}
+              </h2>
+              <p className="text-[13.5px] text-muted-foreground mt-1.5 leading-relaxed">
+                {isSignUp
+                  ? (userType === 'business'
+                      ? 'One from our pool, one scouted from the web. Paid safely through Vano.'
+                      : 'List yourself in 30 seconds. Clients tap to pay — money held until they release.')
+                  : 'Sign in to pick up where you left off.'}
               </p>
             </div>
 
             {isSignUp && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account type</p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">I am a</p>
+                <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setUserType('student')}
                     disabled={loading}
                     className={cn(
-                      'rounded-xl border-2 px-4 py-4 text-left transition-all flex flex-col gap-1',
+                      'relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 active:scale-[0.98]',
                       'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       userType === 'student'
-                        ? 'border-emerald-500/70 bg-emerald-500/[0.07] shadow-sm'
-                        : 'border-border bg-muted/30 hover:border-emerald-500/25',
+                        ? 'border-emerald-500/55 bg-emerald-500/[0.08] shadow-[inset_0_0_0_1px_rgba(16,185,129,0.15)]'
+                        : 'border-border/60 hover:border-emerald-500/35 hover:bg-emerald-500/[0.03]',
                     )}
                   >
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <GraduationCap className="text-emerald-600 shrink-0" size={18} />
-                      Freelancer
+                    <span className={cn(
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-200',
+                      userType === 'student' ? 'bg-emerald-500/15' : 'bg-muted/70',
+                    )}>
+                      <GraduationCap className="text-emerald-600 dark:text-emerald-400" size={18} strokeWidth={1.8} />
                     </span>
-                    <span className="text-xs text-muted-foreground leading-snug">
-                      Offer services &amp; join the community
-                    </span>
+                    <div className="min-w-0">
+                      <span className="block text-[13.5px] font-semibold text-foreground">Freelancer</span>
+                      <span className="mt-0.5 block truncate text-[11.5px] leading-snug text-muted-foreground">
+                        Get hired
+                      </span>
+                    </div>
                   </button>
                   <button
                     type="button"
                     onClick={() => setUserType('business')}
                     disabled={loading}
                     className={cn(
-                      'rounded-xl border-2 px-4 py-4 text-left transition-all flex flex-col gap-1',
+                      'relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 active:scale-[0.98]',
                       'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       userType === 'business'
-                        ? 'border-sky-500/70 bg-sky-500/[0.07] shadow-sm'
-                        : 'border-border bg-muted/30 hover:border-sky-500/25',
+                        ? 'border-primary/55 bg-primary/[0.07] shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15)]'
+                        : 'border-border/60 hover:border-primary/35 hover:bg-primary/[0.03]',
                     )}
                   >
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <Building2 className="text-sky-600 shrink-0" size={18} />
-                      Business
+                    <span className={cn(
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-200',
+                      userType === 'business' ? 'bg-primary/15' : 'bg-muted/70',
+                    )}>
+                      <Building2 className="text-primary" size={18} strokeWidth={1.8} />
                     </span>
-                    <span className="text-xs text-muted-foreground leading-snug">
-                      Post gigs &amp; hire students
-                    </span>
+                    <div className="min-w-0">
+                      <span className="block text-[13.5px] font-semibold text-foreground">Business</span>
+                      <span className="mt-0.5 block truncate text-[11.5px] leading-snug text-muted-foreground">
+                        Hire talent
+                      </span>
+                    </div>
                   </button>
                 </div>
               </div>
