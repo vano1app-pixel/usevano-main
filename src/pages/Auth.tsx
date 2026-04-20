@@ -163,37 +163,41 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4 py-10">
+    <div className="relative min-h-[100dvh] overflow-hidden bg-background flex items-center justify-center px-4 py-12">
       <SEOHead
         title={`${isLogin ? 'Log in' : 'Create account'} – VANO`}
         description="Log in or sign up for VANO — gigs and trusted freelancers."
         noindex
       />
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2.5 mb-5">
-            <img src={logo} alt="VANO" className="h-11 w-11 rounded-xl shadow-tinted-sm" />
-            <span className="text-[22px] font-bold tracking-tight text-primary">VANO</span>
+      {/* Ambient primary-tinted blob — matches the premium gradient
+          treatment on Landing hero + pick cards so Auth reads as part of
+          the same product, not a detached form page. */}
+      <div className="pointer-events-none absolute left-1/2 top-1/3 -z-0 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/[0.08] blur-[100px]" />
+      <div className="pointer-events-none absolute right-[-120px] bottom-[-140px] -z-0 h-[360px] w-[360px] rounded-full bg-emerald-500/[0.06] blur-[90px]" />
+
+      <div className="relative z-10 w-full max-w-[420px]">
+        <div className="mb-7 text-center">
+          <div className="mb-5 flex items-center justify-center">
+            <img src={logo} alt="VANO" className="h-14 w-14 rounded-2xl shadow-[0_12px_28px_-12px_hsl(var(--primary)/0.35)]" />
           </div>
           {/* Headline swaps with the role toggle below — business viewers
-              land on the hirer value prop ("tailored to you"), freelancers
-              get their own sign-up pitch. Signup state ties heading copy
-              to the same `userType` that drives the Google/magic-link
-              intent, so the heading always matches what the user is about
-              to sign up for. Login mode is role-agnostic. */}
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              land on the hirer value prop, freelancers get their own
+              sign-up pitch. Signup state ties heading copy to the same
+              `userType` that drives the Google/magic-link intent. Login
+              mode is role-agnostic. */}
+          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight text-foreground text-balance sm:text-[32px]">
             {isLogin
               ? 'Welcome back'
               : userType === 'business'
-              ? 'Match me with a freelancer for €1'
+              ? 'A perfect freelancer for €1'
               : 'Get hired by local businesses'}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
+          <p className="mx-auto mt-2 max-w-[34ch] text-[14px] leading-relaxed text-muted-foreground">
             {isLogin
-              ? 'Sign in to your account.'
+              ? 'Sign in to pick up where you left off.'
               : userType === 'business'
-              ? "Pay €1, meet your match in 60 seconds, chat + pay them securely through Vano. Refunded if we don't find one."
-              : 'Sign in to list yourself — 30 seconds to get in front of businesses hiring right now.'}
+              ? 'One from our pool, one scouted from the web. Chat, agree a rate, pay safely through Vano.'
+              : "30 seconds to get in front of businesses hiring right now."}
           </p>
           {/* Social-proof chip — auto-hides when the public match count is
               too small to be reassuring (< 3). Signup-only; login-return
@@ -205,7 +209,7 @@ const Auth = () => {
           )}
         </div>
 
-        <div className="flex rounded-xl border border-border/60 bg-foreground/[0.02] p-1 mb-7">
+        <div className="mb-5 flex rounded-full border border-border/70 bg-foreground/[0.025] p-1">
           <button
             type="button"
             disabled={loading}
@@ -213,7 +217,7 @@ const Auth = () => {
               setIsLogin(true);
               navigate('/auth?mode=login', { replace: true });
             }}
-            className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
+            className={`flex-1 rounded-full py-2 text-[13px] font-semibold transition-all duration-200 disabled:opacity-50 ${
               isLogin ? 'bg-card text-foreground shadow-tinted-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -226,7 +230,7 @@ const Auth = () => {
               setIsLogin(false);
               navigate('/auth?mode=signup', { replace: true });
             }}
-            className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
+            className={`flex-1 rounded-full py-2 text-[13px] font-semibold transition-all duration-200 disabled:opacity-50 ${
               !isLogin ? 'bg-card text-foreground shadow-tinted-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -235,7 +239,7 @@ const Auth = () => {
         </div>
 
         {existingEmail && (
-          <div className="mb-4 rounded-2xl border border-border bg-card p-5 space-y-3">
+          <div className="mb-4 rounded-[20px] border border-border/70 bg-card/80 p-5 backdrop-blur-sm shadow-[0_18px_44px_-24px_rgba(0,0,0,0.18)] space-y-3">
             <p className="text-sm text-foreground">
               You're signed in as <span className="font-semibold">{existingEmail}</span>
             </p>
@@ -245,7 +249,7 @@ const Auth = () => {
                 onClick={() => {
                   void resolvePostAuthDestination(existingUserId!).then((path) => navigate(path, { replace: true }));
                 }}
-                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90"
+                className="flex-1 rounded-2xl bg-primary px-4 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
               >
                 Continue as {existingEmail?.split('@')[0]}
               </button>
@@ -262,7 +266,7 @@ const Auth = () => {
                   setExistingEmail(null);
                   setExistingUserId(null);
                 }}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground hover:border-foreground/20"
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border/70 px-4 py-3 text-[13px] font-medium text-muted-foreground transition-all duration-150 hover:text-foreground hover:border-foreground/25"
               >
                 <LogOut size={14} />
                 Use a different account
@@ -271,11 +275,11 @@ const Auth = () => {
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-2xl p-6 md:p-8 space-y-5">
+        <div className="rounded-[20px] border border-border/70 bg-card/80 p-6 backdrop-blur-sm shadow-[0_18px_44px_-24px_rgba(0,0,0,0.2)] space-y-5 md:p-7">
           {!isLogin && (
             <div>
-              <p id="role-toggle-label" className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">I am a</p>
-              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-labelledby="role-toggle-label">
+              <p id="role-toggle-label" className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">I am a</p>
+              <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-labelledby="role-toggle-label">
                 <button
                   type="button"
                   role="radio"
@@ -284,26 +288,22 @@ const Auth = () => {
                   disabled={loading}
                   onClick={() => setUserType('student')}
                   className={cn(
-                    'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
+                    'group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 active:scale-[0.98]',
                     userType === 'student'
-                      ? 'border-emerald-500/50 bg-emerald-500/[0.06] shadow-[0_0_0_1px_rgba(16,185,129,0.1)]'
-                      : 'border-foreground/[0.06] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03]',
+                      ? 'border-emerald-500/55 bg-emerald-500/[0.08] shadow-[inset_0_0_0_1px_rgba(16,185,129,0.15)]'
+                      : 'border-border/60 hover:border-emerald-500/35 hover:bg-emerald-500/[0.03]',
                   )}
                 >
-                  <div className={cn(
-                    'pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 transition-opacity duration-500',
-                    userType === 'student' ? 'opacity-100' : 'group-hover:opacity-60',
-                  )} />
                   <span className={cn(
-                    'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
-                    userType === 'student' ? 'bg-emerald-500/15' : 'bg-muted/60',
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-200',
+                    userType === 'student' ? 'bg-emerald-500/15' : 'bg-muted/70',
                   )}>
-                    <GraduationCap className="text-emerald-600" size={20} strokeWidth={1.8} />
+                    <GraduationCap className="text-emerald-600 dark:text-emerald-400" size={18} strokeWidth={1.8} />
                   </span>
-                  <div className="relative">
-                    <span className="block text-[14px] font-semibold text-foreground">Freelancer</span>
-                    <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
-                      Offer services &amp; build your portfolio
+                  <div className="min-w-0">
+                    <span className="block text-[13.5px] font-semibold text-foreground">Freelancer</span>
+                    <span className="mt-0.5 block truncate text-[11.5px] leading-snug text-muted-foreground">
+                      Get hired
                     </span>
                   </div>
                 </button>
@@ -315,26 +315,22 @@ const Auth = () => {
                   disabled={loading}
                   onClick={() => setUserType('business')}
                   className={cn(
-                    'group relative flex flex-col items-start gap-2.5 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
+                    'group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 active:scale-[0.98]',
                     userType === 'business'
-                      ? 'border-sky-500/50 bg-sky-500/[0.06] shadow-[0_0_0_1px_rgba(14,165,233,0.1)]'
-                      : 'border-foreground/[0.06] hover:border-sky-500/30 hover:bg-sky-500/[0.03]',
+                      ? 'border-primary/55 bg-primary/[0.07] shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15)]'
+                      : 'border-border/60 hover:border-primary/35 hover:bg-primary/[0.03]',
                   )}
                 >
-                  <div className={cn(
-                    'pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-500/10 to-transparent opacity-0 transition-opacity duration-500',
-                    userType === 'business' ? 'opacity-100' : 'group-hover:opacity-60',
-                  )} />
                   <span className={cn(
-                    'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300',
-                    userType === 'business' ? 'bg-sky-500/15' : 'bg-muted/60',
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-200',
+                    userType === 'business' ? 'bg-primary/15' : 'bg-muted/70',
                   )}>
-                    <Briefcase className="text-sky-600" size={20} strokeWidth={1.8} />
+                    <Briefcase className="text-primary" size={18} strokeWidth={1.8} />
                   </span>
-                  <div className="relative">
-                    <span className="block text-[14px] font-semibold text-foreground">Business</span>
-                    <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
-                      Find creative talent for your business
+                  <div className="min-w-0">
+                    <span className="block text-[13.5px] font-semibold text-foreground">Business</span>
+                    <span className="mt-0.5 block truncate text-[11.5px] leading-snug text-muted-foreground">
+                      Hire talent
                     </span>
                   </div>
                 </button>
@@ -350,7 +346,7 @@ const Auth = () => {
               opens in their email app and can be clicked from any real
               browser. Also: anyone who doesn't use Google. */}
           {magicLinkSent ? (
-            <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+            <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
               <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
                 <CheckIcon size={14} strokeWidth={2.5} />
               </span>
@@ -395,8 +391,8 @@ const Auth = () => {
                 </span>
                 <div className="h-px flex-1 bg-border" />
               </div>
-              <form onSubmit={handleMagicLink} className="space-y-2">
-                <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 focus-within:border-primary/40">
+              <form onSubmit={handleMagicLink} className="space-y-2.5">
+                <div className="flex items-center gap-2.5 rounded-2xl border border-input bg-background px-3.5 py-3 transition-colors focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10">
                   <Mail size={16} className="shrink-0 text-muted-foreground" />
                   <input
                     type="email"
@@ -408,13 +404,13 @@ const Auth = () => {
                     onChange={(e) => setMagicLinkEmail(e.target.value)}
                     placeholder="you@example.com"
                     disabled={magicLinkSending}
-                    className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-60"
+                    className="flex-1 bg-transparent text-[14px] placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-60"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={magicLinkSending || magicLinkEmail.trim().length === 0}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border/70 bg-background py-3 text-[14px] font-semibold text-foreground transition-all duration-150 hover:bg-muted/50 hover:border-border active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {magicLinkSending ? (
                     <><Loader2 size={14} className="animate-spin" /> Sending link…</>
@@ -423,7 +419,7 @@ const Auth = () => {
                   )}
                 </button>
                 <p className="text-center text-[10.5px] text-muted-foreground/80">
-                  No password. We email a one-tap link. Works in Safari, Chrome, any browser.
+                  No password. One-tap link works in any browser.
                 </p>
               </form>
             </>
