@@ -36,6 +36,7 @@ import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
 import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 import { cn } from '@/lib/utils';
+import { prefetchHandlers } from '@/lib/prefetchRoute';
 
 
 const Landing = () => {
@@ -261,6 +262,7 @@ const Landing = () => {
               particleCount={25}
               magneticStrength={0.35}
               onClick={() => navigate('/hire')}
+              {...prefetchHandlers('hire')}
               className="group relative w-full overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-b from-primary to-primary/90 p-5 text-white shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.55)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_22px_50px_-22px_hsl(var(--primary)/0.6)] active:translate-y-0 active:scale-[0.99]"
             >
               <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl" />
@@ -296,6 +298,7 @@ const Landing = () => {
                 particleCount={15}
                 magneticStrength={0.25}
                 onClick={handleFreelancerSignup}
+                {...prefetchHandlers('auth')}
                 className="group relative w-full overflow-hidden rounded-[20px] border border-border/70 bg-card p-5 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-[2px] hover:border-foreground/15 hover:shadow-[0_18px_40px_-20px_rgba(0,0,0,0.28)] active:translate-y-0 active:scale-[0.99]"
               >
                 <div className="pointer-events-none absolute -right-10 -top-20 h-40 w-40 rounded-full bg-emerald-500/15 blur-3xl" />

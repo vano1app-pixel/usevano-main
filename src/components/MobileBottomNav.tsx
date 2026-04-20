@@ -3,6 +3,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, Users, MessageCircle, User, LayoutDashboard, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { prefetchHandlers } from '@/lib/prefetchRoute';
+
+// Same route-key map as Navbar.tsx — keep in sync. A hover OR touch
+// on a tab kicks off the JS chunk for that route so the actual tap
+// lands a cached module instead of a network round-trip.
+const PATH_TO_PREFETCH_KEY: Record<string, Parameters<typeof prefetchHandlers>[0]> = {
+  '/hire': 'hire',
+  '/students': 'students',
+  '/profile': 'profile',
+  '/messages': 'messages',
+  '/business-dashboard': 'business-dashboard',
+};
 
 export const MobileBottomNav: React.FC = () => {
   const location = useLocation();
@@ -141,11 +153,14 @@ export const MobileBottomNav: React.FC = () => {
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-1.5 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom,0px))]">
         {navItems.map(({ label, icon: Icon, href }) => {
           const active = isActive(href);
+          const prefetchKey = PATH_TO_PREFETCH_KEY[href];
+          const prefetch = prefetchKey ? prefetchHandlers(prefetchKey) : undefined;
           return (
             <button
               key={href}
               type="button"
               onClick={() => handleNav(href)}
+              {...prefetch}
               className="relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-end gap-[3px] px-1 pb-1 pt-0.5 transition-transform duration-100 active:scale-[0.95]"
             >
               <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200">
