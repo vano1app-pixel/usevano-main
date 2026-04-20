@@ -138,8 +138,10 @@ const ClaimProfile = () => {
       });
       // Send them straight into the listing wizard — student_profiles has
       // already been seeded with the scouted bio/skills/phone, so fields
-      // will appear pre-filled.
-      navigate('/list-on-community', { replace: true });
+      // will appear pre-filled. The ?claimed=1 flag lets that page show a
+      // "match pending" banner with the original brief, so the scouted
+      // user doesn't lose the thread of why they're completing a listing.
+      navigate('/list-on-community?claimed=1', { replace: true });
     } catch (err) {
       toast({
         title: "Couldn't claim profile",

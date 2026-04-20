@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
@@ -9,7 +9,7 @@ import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { resolveUniversityKey } from '@/lib/universities';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { useAuth } from '@/hooks/useAuthContext';
-import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import { Sparkles, ArrowRight, Loader2, Check, Target } from 'lucide-react';
 
 /**
  * Dedicated full-screen onboarding page for the community listing wizard.
@@ -31,6 +31,7 @@ import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 export default function ListOnCommunity() {
   const navigate = useNavigate();
   const { refreshProfile } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [userId, setUserId] = useState<string | null>(null);
   const [initial, setInitial] = useState<ListOnCommunityInitial | null>(null);
@@ -40,6 +41,13 @@ export default function ListOnCommunity() {
   // partial data to preserve the old editing flow.
   const [wizardOpen, setWizardOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // Scouted-freelancer flag: the claim flow redirects here with
+  // ?claimed=1 so we know to surface the brief they were matched
+  // against. Without this signal the page reads as a generic "list
+  // yourself" flow and the scouted user loses the thread of why
+  // they're here.
+  const justClaimed = searchParams.get('claimed') === '1';
+  const [scoutBrief, setScoutBrief] = useState<string | null>(null);
   // Freelancers who already have some data pre-filled from an abandoned
   // prior session are better served by jumping straight into the full
   // wizard (their work wouldn't fit in a 30-second form anyway). Cold
@@ -52,6 +60,27 @@ export default function ListOnCommunity() {
       !initial.phone.trim() &&
       initial.workLinks.every((w) => !w.url?.trim())
     );
+  }, [initial]);
+
+  // Progress breakdown for the returning-user card. Six buckets so the
+  // count reads as attainable — every completed one becomes a tick chip
+  // and the bar fills by fraction. Rates groups hourly + typical project
+  // because either alone signals "I've thought about pricing."
+  const progress = useMemo(() => {
+    if (!initial) return { done: 0, total: 6, sections: [] as Array<{ label: string; done: boolean }> };
+    const sections = [
+      { label: 'Bio', done: initial.bio.trim().length > 0 },
+      { label: 'Skills', done: initial.skills.length > 0 },
+      { label: 'Rates', done: !!initial.hourlyRate.trim() || !!initial.typicalBudgetMin.trim() || !!initial.typicalBudgetMax.trim() },
+      { label: 'Contact', done: initial.phone.trim().length > 0 },
+      { label: 'Work links', done: initial.workLinks.some((w) => !!w.url?.trim()) || !!initial.websiteUrl.trim() || !!initial.tiktokUrl.trim() || !!initial.instagramUrl.trim() || !!initial.linkedinUrl.trim() },
+      { label: 'Location', done: !!initial.serviceArea.trim() || !!initial.university.trim() },
+    ];
+    return {
+      done: sections.filter((s) => s.done).length,
+      total: sections.length,
+      sections,
+    };
   }, [initial]);
 
   useEffect(() => {
@@ -124,9 +153,32 @@ export default function ListOnCommunity() {
 
       setUserId(session.user.id);
       setInitial(sanitisedInitial);
+
+      // Fetch the scouted-freelancer row if this user arrived via the
+      // claim flow (?claimed=1). We show their brief snapshot so the
+      // connection between "a client wanted to hire you" and "finish
+      // your listing" stays visible. A silent-failure is fine — the
+      // page still works as the generic listing flow.
+      if (justClaimed) {
+        // Select the most-recently-claimed scout row for this user.
+        // The supabase type-builder for scouted_freelancers hits TS's
+        // instantiation-depth limit on this chain; the `as never` cast on
+        // the filter short-circuits the inference so the call stays
+        // strongly-typed on the response side.
+        type ScoutBriefRow = { brief_snapshot: string | null; claimed_at: string | null };
+        const { data: scoutRows } = await supabase
+          .from('scouted_freelancers')
+          .select('brief_snapshot, claimed_at')
+          .eq('claimed_user_id' as never, session.user.id as never) as { data: ScoutBriefRow[] | null };
+        if (!cancelled && scoutRows && scoutRows.length > 0) {
+          const latest = [...scoutRows]
+            .sort((a, b) => (b.claimed_at ?? '').localeCompare(a.claimed_at ?? ''))[0];
+          if (latest?.brief_snapshot) setScoutBrief(latest.brief_snapshot);
+        }
+      }
     })();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, [navigate, justClaimed]);
 
   // Accepts either no args (legacy full-wizard onSubmittedForReview call)
   // or a payload from the Quick-start path with the new post id. The
@@ -151,22 +203,77 @@ export default function ListOnCommunity() {
         {loadError ? (
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-muted/30 px-6 py-10 text-center">
             <p className="text-sm font-medium text-foreground">Couldn&apos;t load your profile</p>
-            <p className="max-w-sm text-xs text-muted-foreground">Try reloading, or skip for now and set up later.</p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="mt-1 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
-            >
-              Reload
-            </button>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Reload usually fixes it. If it keeps happening, sign out and back in, or email us — we&apos;ll sort it in minutes.
+            </p>
+            <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
+              >
+                Reload
+              </button>
+              <button
+                type="button"
+                onClick={async () => { await supabase.auth.signOut(); navigate('/auth', { replace: true }); }}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
+              >
+                Sign out and retry
+              </button>
+              <a
+                href="mailto:vano1app@gmail.com?subject=Can%27t%20load%20my%20freelancer%20profile"
+                className="rounded-xl px-3 py-2 text-[11.5px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Get help
+              </a>
+            </div>
           </div>
         ) : !userId || !initial ? (
-          <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
-            <Loader2 size={20} className="animate-spin" />
-            <p className="text-xs">Loading your details…</p>
+          // Warmer loading state — the previous "Loading your details…"
+          // read like a neutral spinner, leaving a freshly-signed-up
+          // freelancer wondering whether the page was broken. Now the
+          // copy names the moment ("setting up your freelancer profile")
+          // so the two seconds of network wait feel like setup, not
+          // latency.
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Loader2 size={18} className="animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Setting up your freelancer profile</p>
+              <p className="text-xs text-muted-foreground">One moment — loading your workspace.</p>
+            </div>
           </div>
         ) : isFirstTimer ? (
           <>
+            {/* Scouted-freelancer context banner. Only renders if the
+                page was reached via the claim flow AND we have the
+                original brief the user was matched to. Without this,
+                the page reads as a generic "list yourself" form and
+                the scouted user loses the thread between "a client
+                wanted to hire me" and what they're doing right now. */}
+            {justClaimed && scoutBrief && (
+              <div className="mb-4 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
+                <div className="flex items-start gap-3 p-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                    <Target size={16} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                      Match pending
+                    </p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-foreground">
+                      Finish your listing below so the client can reach you. Here&apos;s what they asked for:
+                    </p>
+                    <p className="mt-2 line-clamp-3 rounded-lg border border-border bg-card/80 px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground">
+                      &ldquo;{scoutBrief}&rdquo;
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* First-time Quick-start. No multi-step wizard, no side
                 preview, no social fields. Category chip + pitch +
                 phone → live. The full wizard is one tap away via the
@@ -202,26 +309,86 @@ export default function ListOnCommunity() {
           </>
         ) : (
           <>
+            {/* Scouted-freelancer context banner (same as first-timer
+                path). Returning users who arrived via the claim flow
+                see the brief here too. */}
+            {justClaimed && scoutBrief && (
+              <div className="mb-4 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
+                <div className="flex items-start gap-3 p-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                    <Target size={16} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                      Match pending
+                    </p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-foreground">
+                      Finish your listing below so the client can reach you. Here&apos;s what they asked for:
+                    </p>
+                    <p className="mt-2 line-clamp-3 rounded-lg border border-border bg-card/80 px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground">
+                      &ldquo;{scoutBrief}&rdquo;
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Returning user with partial data — skip the Quick-start
                 and take them straight back into the full wizard so
-                their in-progress fields aren't thrown away. */}
+                their in-progress fields aren't thrown away. The
+                progress bar + completed-section chips make "we saved
+                your progress" concrete: the user sees exactly what
+                they won't need to redo. */}
             <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
                   <Sparkles size={18} strokeWidth={2} />
                 </div>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                     Pick up where you left off
                   </p>
                   <h1 className="mt-1 text-xl font-bold text-foreground">
                     Continue your listing
                   </h1>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    We saved your progress — open the wizard to finish publishing.
-                    Auto-saves as you go.
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+                    Your progress is saved. Finish the remaining sections to go live.
                   </p>
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
+
+                  {/* Progress bar + completed-section chips */}
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-baseline justify-between text-[11.5px]">
+                      <span className="font-semibold text-foreground">
+                        {progress.done} of {progress.total} sections complete
+                      </span>
+                      <span className="text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {Math.round((progress.done / progress.total) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/10">
+                      <div
+                        className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+                        style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {progress.sections.map((s) => (
+                        <span
+                          key={s.label}
+                          className={
+                            s.done
+                              ? 'inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400'
+                              : 'inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground'
+                          }
+                        >
+                          {s.done && <Check size={10} strokeWidth={3} />}
+                          {s.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setWizardOpen(true)}
