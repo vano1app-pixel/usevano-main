@@ -807,12 +807,16 @@ const HirePage = () => {
         );
       })()}
 
-      {/* Value props */}
+      {/* Value props — brand-aligned with Landing + escrow positioning.
+           Previous copy ("Student-friendly prices · Motivated talent")
+           was off-message post-repositioning; it sold cheap labour
+           instead of "hand-picked perfect match held safely until
+           you release". */}
       <div className="mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
         {[
-          { icon: Euro, label: 'Affordable rates', sub: 'Student-friendly prices' },
-          { icon: Zap, label: 'Fast turnaround', sub: 'Motivated talent' },
-          { icon: Shield, label: 'Vano vetted', sub: 'Quality assured' },
+          { icon: Sparkles, label: 'Hand-picked', sub: 'One perfect match' },
+          { icon: Zap, label: '60-second match', sub: 'Not 60 applications' },
+          { icon: ShieldCheck, label: 'Pay safely', sub: 'Held until released' },
         ].map(v => (
           <div key={v.label} className="flex flex-col items-center text-center gap-2 rounded-2xl border border-foreground/4 bg-foreground/[0.015] px-2.5 py-4 sm:py-5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/8">
@@ -825,9 +829,9 @@ const HirePage = () => {
       </div>
 
       <button type="button" onClick={() => goTo(2)} disabled={!canProceedStep1} className={cn(
-        'mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
+        'mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold transition-all duration-150 cursor-pointer select-none active:translate-y-0 active:scale-[0.99]',
         canProceedStep1
-          ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:brightness-110'
+          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
           : 'bg-muted text-muted-foreground cursor-not-allowed'
       )}>
         Continue <ArrowRight size={15} />
@@ -906,15 +910,17 @@ const HirePage = () => {
         </div>
       </div>
 
-      {/* Reassurance */}
+      {/* Reassurance — brand-aligned: the promise is "any budget, your
+           perfect match" not "cheap student labour". Also signals the
+           escrow safety net so the hirer knows the budget's protected. */}
       <p className="text-center text-[11px] sm:text-xs text-muted-foreground mb-4">
-        Student freelancers = affordable rates + real motivation to deliver great work for their portfolio.
+        Whatever your budget, we hand-pick who fits. Paid safely through Vano — held until you release.
       </p>
 
       <button type="button" onClick={() => goTo(3)} disabled={!canProceedStep2} className={cn(
-        'flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none transition-all active:scale-[0.97]',
+        'flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none transition-all duration-150 active:translate-y-0 active:scale-[0.99]',
         canProceedStep2
-          ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:brightness-110'
+          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
           : 'bg-muted text-muted-foreground cursor-not-allowed'
       )}>
         See my options <ArrowRight size={15} />
