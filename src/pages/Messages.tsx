@@ -305,17 +305,13 @@ const Messages = () => {
         supabase.from('community_posts').select('category').eq('user_id', otherId).limit(1).maybeSingle(),
         // We need this only when viewer is business, but it's a single
         // tiny query and gates a destructive UX (clicking into an error
-        // toast) so we always fetch and let the render decide. Cast
-        // through `never` because stripe_payouts_enabled isn't in the
-        // generated supabase types yet (same workaround as
-        // VanoPaySetupCard).
-        supabase.from('student_profiles' as never).select('stripe_payouts_enabled' as never).eq('user_id' as never, otherId as never).maybeSingle(),
+        // toast) so we always fetch and let the render decide.
+        supabase.from('student_profiles').select('stripe_payouts_enabled').eq('user_id', otherId).maybeSingle(),
       ]);
       if (cancelled) return;
       setOtherUserType((profileRes.data?.user_type as string | null) ?? null);
       setOtherCategory((postRes.data?.category as string | null) ?? null);
-      const payoutsRow = payoutsRes.data as { stripe_payouts_enabled?: boolean } | null;
-      setOtherPayoutsEnabled(!!payoutsRow?.stripe_payouts_enabled);
+      setOtherPayoutsEnabled(!!payoutsRes.data?.stripe_payouts_enabled);
     })();
     return () => { cancelled = true; };
   }, [selectedConvo, conversations]);

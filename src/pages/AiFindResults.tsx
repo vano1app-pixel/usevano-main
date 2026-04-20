@@ -78,23 +78,6 @@ type WebPick = {
   outreach_sent_at: string | null;
 };
 
-// Narrow escape-hatch for tables that haven't been added to the
-// generated supabase types yet. Only covers the query shapes we use
-// here — keeps call sites typed at the return boundary via explicit
-// casts to AiFindRow / WebPick.
-type UntypedSupabase = {
-  from: (table: string) => {
-    select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        maybeSingle: () => Promise<{
-          data: Record<string, unknown> | null;
-          error: { message: string } | null;
-        }>;
-      };
-    };
-  };
-};
-
 const AiFindResults = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -200,7 +183,7 @@ const AiFindResults = () => {
       // typed client errors out at compile time. Cast through the
       // untyped supabase client just for this one table — the runtime
       // is identical.
-      const { data, error } = await (supabase as unknown as UntypedSupabase)
+      const { data, error } = await supabase
         .from('ai_find_requests')
         .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
         .eq('id', id)
@@ -304,7 +287,7 @@ const AiFindResults = () => {
     setWebFetchDone(false);
     let cancelled = false;
     void (async () => {
-      const { data } = await (supabase as unknown as UntypedSupabase)
+      const { data } = await supabase
         .from('scouted_freelancers')
         .select('name, avatar_url, bio, skills, location, portfolio_url, source_platform, contact_email, contact_instagram, contact_linkedin, match_score, outreach_channel, outreach_sent_at')
         .eq('id', row.web_scout_id)

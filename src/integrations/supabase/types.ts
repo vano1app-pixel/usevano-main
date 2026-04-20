@@ -788,6 +788,8 @@ export type Database = {
           phone: string | null
           service_area: string | null
           skills: string[] | null
+          stripe_account_id: string | null
+          stripe_payouts_enabled: boolean
           student_verified: boolean
           tiktok_url: string | null
           instagram_url: string | null
@@ -817,6 +819,8 @@ export type Database = {
           phone?: string | null
           service_area?: string | null
           skills?: string[] | null
+          stripe_account_id?: string | null
+          stripe_payouts_enabled?: boolean
           student_verified?: boolean
           tiktok_url?: string | null
           instagram_url?: string | null
@@ -846,6 +850,8 @@ export type Database = {
           phone?: string | null
           service_area?: string | null
           skills?: string[] | null
+          stripe_account_id?: string | null
+          stripe_payouts_enabled?: boolean
           student_verified?: boolean
           tiktok_url?: string | null
           instagram_url?: string | null
@@ -879,6 +885,252 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vano_payments: {
+        Row: {
+          amount_cents: number
+          auto_release_at: string | null
+          business_id: string
+          completed_at: string | null
+          conversation_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          dispute_reason: string | null
+          disputed_at: string | null
+          error_message: string | null
+          fee_cents: number
+          freelancer_id: string
+          hire_agreement_id: string | null
+          id: string
+          paid_at: string | null
+          refunded_at: string | null
+          released_at: string | null
+          released_by: string | null
+          status: string
+          stripe_destination_account_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_refund_id: string | null
+          stripe_session_id: string | null
+          stripe_transfer_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          auto_release_at?: string | null
+          business_id: string
+          completed_at?: string | null
+          conversation_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          dispute_reason?: string | null
+          disputed_at?: string | null
+          error_message?: string | null
+          fee_cents?: number
+          freelancer_id: string
+          hire_agreement_id?: string | null
+          id?: string
+          paid_at?: string | null
+          refunded_at?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+          stripe_destination_account_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          stripe_session_id?: string | null
+          stripe_transfer_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          auto_release_at?: string | null
+          business_id?: string
+          completed_at?: string | null
+          conversation_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          dispute_reason?: string | null
+          disputed_at?: string | null
+          error_message?: string | null
+          fee_cents?: number
+          freelancer_id?: string
+          hire_agreement_id?: string | null
+          id?: string
+          paid_at?: string | null
+          refunded_at?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+          stripe_destination_account_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          stripe_session_id?: string | null
+          stripe_transfer_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_find_requests: {
+        Row: {
+          brief: string
+          budget_range: string | null
+          category: string | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          location: string | null
+          paid_at: string | null
+          requester_id: string
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_payment_status: string | null
+          stripe_session_id: string | null
+          timeline: string | null
+          updated_at: string
+          vano_match_feedback: "up" | "down" | null
+          vano_match_reason: string | null
+          vano_match_user_id: string | null
+          vano_retry_count: number
+          web_match_feedback: "up" | "down" | null
+          web_retry_count: number
+          web_scout_id: string | null
+        }
+        Insert: {
+          brief: string
+          budget_range?: string | null
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location?: string | null
+          paid_at?: string | null
+          requester_id: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_payment_status?: string | null
+          stripe_session_id?: string | null
+          timeline?: string | null
+          updated_at?: string
+          vano_match_feedback?: "up" | "down" | null
+          vano_match_reason?: string | null
+          vano_match_user_id?: string | null
+          vano_retry_count?: number
+          web_match_feedback?: "up" | "down" | null
+          web_retry_count?: number
+          web_scout_id?: string | null
+        }
+        Update: {
+          brief?: string
+          budget_range?: string | null
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location?: string | null
+          paid_at?: string | null
+          requester_id?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_payment_status?: string | null
+          stripe_session_id?: string | null
+          timeline?: string | null
+          updated_at?: string
+          vano_match_feedback?: "up" | "down" | null
+          vano_match_reason?: string | null
+          vano_match_user_id?: string | null
+          vano_retry_count?: number
+          web_match_feedback?: "up" | "down" | null
+          web_retry_count?: number
+          web_scout_id?: string | null
+        }
+        Relationships: []
+      }
+      scouted_freelancers: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          brief_snapshot: string | null
+          claim_token: string
+          claim_token_expires_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          contact_email: string | null
+          contact_instagram: string | null
+          contact_linkedin: string | null
+          created_at: string
+          id: string
+          location: string | null
+          match_score: number | null
+          name: string
+          outreach_channel: string | null
+          outreach_sent_at: string | null
+          portfolio_url: string | null
+          requester_id: string
+          skills: string[] | null
+          source_platform: string | null
+          source_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          brief_snapshot?: string | null
+          claim_token?: string
+          claim_token_expires_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          contact_email?: string | null
+          contact_instagram?: string | null
+          contact_linkedin?: string | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          match_score?: number | null
+          name: string
+          outreach_channel?: string | null
+          outreach_sent_at?: string | null
+          portfolio_url?: string | null
+          requester_id: string
+          skills?: string[] | null
+          source_platform?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          brief_snapshot?: string | null
+          claim_token?: string
+          claim_token_expires_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          contact_email?: string | null
+          contact_instagram?: string | null
+          contact_linkedin?: string | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          match_score?: number | null
+          name?: string
+          outreach_channel?: string | null
+          outreach_sent_at?: string | null
+          portfolio_url?: string | null
+          requester_id?: string
+          skills?: string[] | null
+          source_platform?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }

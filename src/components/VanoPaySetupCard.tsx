@@ -56,15 +56,15 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
     let cancelled = false;
     void (async () => {
       const { data, error } = await supabase
-        .from('student_profiles' as never)
+        .from('student_profiles')
         .select('stripe_account_id, stripe_payouts_enabled')
-        .eq('user_id' as never, userId as never)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (cancelled) return;
       if (error) { setStatus('error'); return; }
 
-      const row = data as { stripe_account_id: string | null; stripe_payouts_enabled: boolean } | null;
+      const row = data;
       if (!row || !row.stripe_account_id) {
         setStatus('not_set_up');
       } else if (row.stripe_payouts_enabled) {
