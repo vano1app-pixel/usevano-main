@@ -926,13 +926,65 @@ const Profile = () => {
                   );
                 })()}
 
-                {/* Not visible yet CTA — calm card treatment. Uses the
-                    same neutral bg-card shell as the rest of the page;
-                    the amber status dot still signals "needs attention"
-                    without a full amber wash. Primary CTA ("Get listed")
-                    keeps its gradient so it remains the page's most
-                    prominent action. */}
-                {studentProfile?.community_board_status !== 'approved' && (
+                {/* Listing status card — splits the old "not approved" catch-all
+                     into three distinct messages so the freelancer knows what's
+                     happening. Publish flow currently fast-paths to 'approved',
+                     but 'pending' and 'rejected' are valid states an admin can
+                     set via the review modal — under the old UI both read as
+                     "complete your listing to go live," which is misleading
+                     when the listing is already complete and sitting in review
+                     (or needs edits after a rejection). */}
+                {studentProfile?.community_board_status === 'pending' && (
+                  <div className="rounded-2xl border border-border bg-card px-5 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                          <p className="text-sm font-semibold text-foreground">Listing under review</p>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                          Your submission is with the Vano team. We&apos;ll email you the moment it goes live — usually within a business day. You can keep editing in the meantime; any changes re-queue for review.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant="outline"
+                        className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold sm:h-12 sm:w-auto sm:min-w-[9.5rem]"
+                        onClick={() => setListCommunityOpen(true)}
+                      >
+                        Edit listing
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {studentProfile?.community_board_status === 'rejected' && (
+                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/[0.04] px-5 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-2 w-2 shrink-0 rounded-full bg-rose-500" />
+                          <p className="text-sm font-semibold text-foreground">Listing needs changes</p>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                          An admin flagged something on your listing — check your email for the details, then re-open the wizard to address it. You&apos;ll go live again as soon as it&apos;s resubmitted.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold shadow-md sm:h-12 sm:w-auto sm:min-w-[9.5rem] transition-all duration-200 hover:shadow-lg hover:-translate-y-[1px]"
+                        onClick={() => setListCommunityOpen(true)}
+                      >
+                        Open wizard
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {/* Not visible yet CTA — calm card treatment. Only renders for
+                     freelancers who haven't submitted a listing at all (null
+                     status). Pending and rejected get their own cards above. */}
+                {!studentProfile?.community_board_status && (
                   <div className="rounded-2xl border border-border bg-card px-5 py-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <div className="min-w-0">

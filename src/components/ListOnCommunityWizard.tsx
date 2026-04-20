@@ -316,6 +316,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // core Step 2 is title + description + phone + (county if local).
   // Auto-expands for returning drafts so restored data isn't invisible.
   const [showOptionalDetails, setShowOptionalDetails] = useState(false);
+  // Sample-work photos on Step 1 used to render their full grid of upload
+  // slots up front. For a cold first-timer without 3 samples ready that
+  // amounts to visual homework they can't complete, and they'd bounce on
+  // the form. Now behind a disclosure so Step 1 reads as "pick a category,
+  // maybe add a banner." Auto-expands for returning drafts with samples.
+  const [showSampleWork, setShowSampleWork] = useState(false);
   // Mobile-only: the live card preview collapses to a slim sticky header to
   // keep the form readable on small screens. Tap to toggle expanded. On
   // desktop (lg+) the preview is always visible in its own column and this
@@ -1231,42 +1237,72 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 )}
               </div>
 
-              <div>
-                <Label className="text-sm font-medium">Sample work photos <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <p className="mt-1 text-xs text-muted-foreground">Up to {MAX_LISTING_IMAGES} photos of your work.</p>
-                <input ref={listingInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleListingFiles} />
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {listingPreviews.map((preview, i) => (
-                    <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-border">
-                      <img src={preview} alt={`Listing photo ${i + 1}`} className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removeListingImage(i)}
-                        aria-label={`Remove listing photo ${i + 1}`}
-                        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  {listingPreviews.length < MAX_LISTING_IMAGES && (
+              {/* Sample-work disclosure. Visible as a dotted-border
+                   add-button when empty; expands into the full upload
+                   grid when the user taps it or returns to a draft with
+                   samples already on disk. Same auto-expand pattern as
+                   the Step 2 socials disclosure for consistency. */}
+              {(() => {
+                const anyUploaded = listingPreviews.length > 0;
+                const expanded = showSampleWork || anyUploaded;
+                if (!expanded) {
+                  return (
                     <button
                       type="button"
-                      onClick={() => listingInputRef.current?.click()}
-                      className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/20 text-xs text-muted-foreground hover:border-primary/30"
+                      onClick={() => setShowSampleWork(true)}
+                      className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                     >
-                      <ImagePlus className="h-5 w-5" />
-                      Add
+                      + Add sample work photos <span className="text-xs font-normal">(optional — up to {MAX_LISTING_IMAGES})</span>
                     </button>
-                  )}
-                </div>
-              </div>
+                  );
+                }
+                return (
+                  <div>
+                    <Label className="text-sm font-medium">Sample work photos <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Up to {MAX_LISTING_IMAGES} photos of your work.</p>
+                    <input ref={listingInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleListingFiles} />
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {listingPreviews.map((preview, i) => (
+                        <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-border">
+                          <img src={preview} alt={`Listing photo ${i + 1}`} className="h-full w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeListingImage(i)}
+                            aria-label={`Remove listing photo ${i + 1}`}
+                            className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {listingPreviews.length < MAX_LISTING_IMAGES && (
+                        <button
+                          type="button"
+                          onClick={() => listingInputRef.current?.click()}
+                          className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/20 text-xs text-muted-foreground hover:border-primary/30"
+                        >
+                          <ImagePlus className="h-5 w-5" />
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
-          {/* ── Step 2: Your story — pitch + contact details in one place ── */}
+          {/* ── Step 2: Your story — pitch + contact details in one place ──
+               Subsection headers ("Your pitch" / "How clients reach you")
+               make the two distinct intents scannable. Previously this
+               step read as one long column of six unrelated fields, and
+               returning users had to re-orient every time they scrolled.
+               Disclosures (social links, more about you) are unchanged. */}
           {step === 2 && (
             <div className="space-y-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                Your pitch
+              </p>
               <div>
                 <Label htmlFor="lc-title">Your title</Label>
                 <Input
@@ -1305,6 +1341,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               </div>
               <div className="h-px bg-border" />
 
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                How clients reach you
+              </p>
               <div>
                 <Label>Phone number <span className="text-rose-500">*</span></Label>
                 <Input
