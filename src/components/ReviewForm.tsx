@@ -106,8 +106,13 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ jobId, revieweeId, revie
           <div className="flex gap-2 mb-2 flex-wrap">
             {photos.map((url, i) => (
               <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden">
-                <img src={url} alt="" className="w-full h-full object-cover" />
-                <button onClick={() => removePhoto(i)} className="absolute top-0.5 right-0.5 p-0.5 bg-background/80 rounded-full">
+                <img src={url} alt={`Review photo ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  aria-label={`Remove review photo ${i + 1}`}
+                  className="absolute top-0.5 right-0.5 p-0.5 bg-background/80 rounded-full"
+                >
                   <X size={10} />
                 </button>
               </div>

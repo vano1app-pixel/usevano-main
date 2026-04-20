@@ -61,6 +61,7 @@ export const PushNotificationPrompt: React.FC = () => {
           <div className="bg-card border border-border rounded-2xl p-4 shadow-xl shadow-black/10">
             <button
               onClick={handleDismiss}
+              aria-label="Dismiss push-notification prompt"
               className="absolute top-3 right-3 p-1 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X size={16} />

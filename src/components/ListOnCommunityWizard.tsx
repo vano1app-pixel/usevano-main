@@ -1238,10 +1238,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {listingPreviews.map((preview, i) => (
                     <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-border">
-                      <img src={preview} alt="" className="h-full w-full object-cover" />
+                      <img src={preview} alt={`Listing photo ${i + 1}`} className="h-full w-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeListingImage(i)}
+                        aria-label={`Remove listing photo ${i + 1}`}
                         className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow"
                       >
                         <X className="h-3.5 w-3.5" />
