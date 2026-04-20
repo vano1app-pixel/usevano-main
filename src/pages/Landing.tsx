@@ -212,60 +212,43 @@ const Landing = () => {
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
+          {/* €1 AI Find offer chip — now a small eyebrow above the
+              headline so the hook lands first. Plainer than a CTA so
+              it frames, not competes. */}
+          <div data-hero-eyebrow className="mb-5 flex justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              <Sparkles className="h-3 w-3" />
+              €1 AI Find · match in 60s
+            </span>
+          </div>
+
           <div data-hero-title>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
+            <h1 className="mb-5 text-4xl font-bold leading-[1.02] tracking-tight text-foreground text-balance sm:mb-6 sm:text-5xl md:text-6xl lg:text-[84px] lg:tracking-[-0.03em]">
               <span className="inline-block">Local talent,</span><br />
-              <span
-                className="inline-block italic font-semibold text-primary"
-              >
+              <span className="inline-block italic font-semibold text-primary">
                 instantly available.
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-5 leading-relaxed">
-            Connect with trusted freelancers for digital sales, videography, web design, and more.
+          <p data-hero-sub className="mx-auto mb-7 max-w-[38ch] text-[15px] leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
+            Pay €1, we hand-pick a freelancer from our pool plus one scouted from the web — and you pay them safely through Vano.
           </p>
 
-          {/* €1 AI Find pill — surfaces the top-of-funnel hook on the
-              hero so visitors know the entry point costs €1 before they
-              click into /hire. Routes to the hire wizard; the €1 card
-              is the primary path on Step 3. Kept visually lighter than
-              the main CTA row so it advertises without competing. */}
-          <button
-            type="button"
-            onClick={() => navigate('/hire')}
-            data-hero-aifind
-            className="group mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/[0.06] px-3.5 py-1.5 text-[12.5px] font-semibold text-primary shadow-sm transition hover:border-primary/50 hover:bg-primary/10"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Try AI Find — a perfect match for <span className="font-bold">€1</span></span>
-            <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
-          </button>
-
-          {/* Hero tag cloud — replaces the old hero search bar. Clicking a tag
-              deep-links into /hire with both ?category and ?subtype preset, so
-              HirePage auto-advances past Step 1 to timeline/budget. Each tag
-              maps to an existing subtype in HirePage.tsx's CATEGORIES array,
-              so what's shown here is exactly what businesses pick manually on
-              Step 1 of the hire flow. Curated 12 (3 per category) to keep the
-              hero from going visually busy. */}
+          {/* Hero tag cloud — 6 curated (was 12) so the eye doesn't
+              have to scan a dozen choices before hitting the CTA. Each
+              tag deep-links into /hire with category + subtype preset
+              so HirePage auto-advances past Step 1. */}
           <div
             data-hero-tags
-            className="mx-auto mb-7 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-2 sm:gap-x-2.5"
+            className="mx-auto mb-8 flex max-w-xl flex-wrap items-center justify-center gap-x-2 gap-y-2 sm:gap-x-2.5"
           >
             {[
-              { category: 'digital_sales', subtype: 'Cold calling / SDR',   label: 'Cold calling' },
-              { category: 'social_media',  subtype: 'Content / posts',      label: 'Content creation' },
-              { category: 'videography',   subtype: 'Reel / short-form',    label: 'Short-form video' },
-              { category: 'websites',      subtype: 'Landing page',         label: 'Landing page' },
-              { category: 'digital_sales', subtype: 'Lead generation',      label: 'Lead gen' },
-              { category: 'social_media',  subtype: 'Paid ads',             label: 'Paid ads' },
-              { category: 'videography',   subtype: 'Promo / ad',           label: 'Promo / ad' },
-              { category: 'websites',      subtype: 'Full website',         label: 'Full website' },
-              { category: 'digital_sales', subtype: 'Cold email outreach',  label: 'Cold email' },
-              { category: 'social_media',  subtype: 'Strategy & growth',    label: 'Social strategy' },
-              { category: 'videography',   subtype: 'Event / wedding',      label: 'Event filming' },
-              { category: 'websites',      subtype: 'Shopify / e-commerce', label: 'Shopify store' },
+              { category: 'digital_sales', subtype: 'Cold calling / SDR',  label: 'Cold calling' },
+              { category: 'social_media',  subtype: 'Content / posts',     label: 'Content creation' },
+              { category: 'videography',   subtype: 'Reel / short-form',   label: 'Short-form video' },
+              { category: 'websites',      subtype: 'Landing page',        label: 'Landing page' },
+              { category: 'social_media',  subtype: 'Paid ads',            label: 'Paid ads' },
+              { category: 'videography',   subtype: 'Promo / ad',          label: 'Promo / ad' },
             ].map((t) => (
               <button
                 key={`${t.category}:${t.subtype}`}

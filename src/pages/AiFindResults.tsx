@@ -571,16 +571,15 @@ const VanoPickCard = ({
   onFeedback: (verdict: 'up' | 'down') => void;
   onRetry: () => void;
 }) => (
-  <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
-    <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4 text-primary-foreground">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-      <div className="relative flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-amber-200" />
-        <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950">
-          Vano's pick
-        </span>
-        <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-emerald-200">
-          Vetted · pay direct
+  <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">
+    <div className="relative overflow-hidden bg-gradient-to-b from-primary to-primary/90 px-5 py-4 text-primary-foreground">
+      <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/15 blur-3xl" />
+      <div className="relative flex items-center justify-between">
+        <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
+          <Sparkles className="h-3 w-3 text-amber-200" /> Vano's pick
+        </div>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-100/90">
+          Vetted · on platform
         </span>
       </div>
     </div>
@@ -662,16 +661,13 @@ const WebPickCard = ({
     !!pick.contact_email || !!pick.contact_instagram || !!pick.contact_linkedin || !!pick.portfolio_url;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Found on the web
-          </span>
+    <div className="overflow-hidden rounded-[20px] border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between bg-muted/60 px-5 py-3">
+        <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <Globe className="h-3 w-3" /> Found on the web
         </div>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-          Unvetted · contact at your discretion
+        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-400">
+          Unvetted
         </span>
       </div>
 

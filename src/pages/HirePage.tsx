@@ -17,7 +17,7 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check, ChevronDown,
+  Shield, ShieldCheck, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { track } from '@/lib/track';
@@ -944,73 +944,83 @@ const HirePage = () => {
            know where €1 sits in the story before they commit. */}
       <div>
         {!submitted ? (
-          <div className="relative overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
-            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-5">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-              <div className="relative flex flex-wrap items-center gap-2 mb-2">
-                <Sparkles size={16} className="text-amber-200" />
-                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">The €1 match</span>
-                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-50 ring-1 ring-emerald-300/40">
+          <div className="relative overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-b from-primary to-primary/90 text-white shadow-[0_24px_60px_-24px_hsl(var(--primary)/0.45)]">
+            {/* Ambient glow — one soft blob, no amber ring or double
+                 border. Restraint reads as premium. */}
+            <div className="pointer-events-none absolute -right-14 -top-20 h-56 w-56 rounded-full bg-amber-300/15 blur-3xl" />
+
+            <div className="relative px-6 pt-6 pb-5">
+              <div className="flex items-center justify-between">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                  <Sparkles size={13} className="text-amber-200" />
+                  €1 AI Find
+                </div>
+                <span className="inline-flex items-center rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/85">
                   Refunded if no match
                 </span>
               </div>
-              <h2 className="relative text-xl font-bold text-white sm:text-2xl">
-                Match me with the perfect freelancer for €1
+              <h2 className="mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight sm:text-[26px]">
+                A perfect freelancer, hand-picked in 60 seconds.
               </h2>
-              <p className="relative mt-1.5 text-[13px] leading-relaxed text-white/80">
-                Pay €1, we find your match in 60 seconds. Chat, agree a price together, pay them securely through Vano. We only take 3% when they get paid — that's it.
+              <p className="mt-2 text-[13px] leading-relaxed text-white/75 max-w-[38ch]">
+                One from our pool, one scouted from the web. You chat, agree a rate, then pay them safely through Vano — we only take 3%.
               </p>
             </div>
 
-            <div className="space-y-4 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-4">
-              {/* Four-step pipeline strip — makes the full story visible so
-                   the €1 CTA reads as "start the thing" not "gamble €1". */}
-              <div className="grid grid-cols-4 gap-1.5">
+            <div className="relative space-y-4 px-6 pb-6">
+              {/* Four-step pipeline strip — the story-in-miniature so the
+                   €1 CTA reads as "start the flow" not "gamble". Tighter,
+                   less boxy than before. */}
+              <ol className="grid grid-cols-4 gap-1">
                 {[
                   { num: '1', text: 'Pay €1' },
                   { num: '2', text: '60s match' },
                   { num: '3', text: 'Chat + agree' },
                   { num: '4', text: 'Pay via Vano' },
-                ].map(s => (
-                  <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-1.5 py-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold text-white">{s.num}</span>
-                    <p className="text-[10px] font-medium text-white/85 text-center leading-tight">{s.text}</p>
-                  </div>
+                ].map((s, idx, arr) => (
+                  <li key={s.num} className="flex flex-col items-center gap-1.5 border-l border-white/10 first:border-l-0 py-0.5">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[11px] font-semibold text-white">
+                      {idx === arr.length - 1 ? <ShieldCheck size={12} /> : s.num}
+                    </span>
+                    <p className="text-[10.5px] font-medium text-white/80 text-center leading-tight">{s.text}</p>
+                  </li>
                 ))}
-              </div>
+              </ol>
 
-              {/* Brief summary — reminds the hirer what they're about to match for */}
-              <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">Your request</p>
-                <p className="text-xs text-white/85 line-clamp-2">{recap || 'Your request'}</p>
-                <div className="flex gap-1.5 mt-2 flex-wrap">
+              {/* Brief recap — lighter chrome, single line of tags. */}
+              <div className="rounded-xl bg-white/[0.08] px-4 py-3 ring-1 ring-inset ring-white/10">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Your request</p>
+                <p className="mt-1 text-[13px] leading-snug text-white/90 line-clamp-2">{recap || 'Your request'}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {[
                     category && CATEGORIES.find(c => c.id === category)?.label,
                     timeline && TIMELINES.find(t => t.id === timeline)?.label,
                     budget && BUDGETS.find(b => b.id === budget)?.label,
                   ].filter(Boolean).map(tag => (
-                    <span key={tag} className="inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/80">{tag}</span>
+                    <span key={tag} className="inline-block rounded-full bg-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/80">{tag}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Primary CTA — the €1 button. Large, white-on-primary, fills
-                   the card. Kept distinct from any secondary paths below. */}
+              {/* Primary CTA — white-on-primary, larger rounded, clear
+                   motion on hover/press. */}
               <button
                 data-mascot="hire-submit"
                 type="button"
                 onClick={handleAiFind}
                 disabled={aiFindLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-4 text-base font-bold text-primary shadow-md cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.02] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {aiFindLoading ? (
                   <><Loader2 size={16} className="animate-spin" /> Starting your match…</>
                 ) : (
-                  <><Sparkles size={16} className="text-amber-500" /> Match me now — €1</>
+                  <>
+                    <Sparkles size={16} className="text-amber-500" /> Match me now — €1
+                  </>
                 )}
               </button>
-              <p className="text-center text-[11px] text-white/65">
-                Secure checkout via Stripe · Refunded if no match · No commitment
+              <p className="text-center text-[11px] text-white/60">
+                Secure checkout via Stripe · no commitment
               </p>
             </div>
           </div>

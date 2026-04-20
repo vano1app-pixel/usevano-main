@@ -239,16 +239,18 @@ const ReadyCard = ({
   onSignIn: () => void;
   onClaim: () => void;
 }) => (
-  <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-    <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-5 text-primary-foreground">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-      <div className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/80">
-        <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+  <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">
+    <div className="relative overflow-hidden bg-gradient-to-b from-primary to-primary/90 px-6 py-6 text-primary-foreground">
+      <div className="pointer-events-none absolute -right-12 -top-20 h-48 w-48 rounded-full bg-amber-300/15 blur-3xl" />
+      <div className="relative inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">
+        <Sparkles className="h-3 w-3 text-amber-200" />
         You've been scouted
       </div>
-      <h1 className="relative mt-2 text-xl font-bold">A client wanted to hire you.</h1>
-      <p className="relative mt-1 text-[13px] leading-relaxed text-white/80">
-        Claim your free Vano profile to respond. Get paid safely through Vano Pay — clients tap, money lands in your bank in 1–2 days (3% fee).
+      <h1 className="relative mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight">
+        A client wanted to hire you.
+      </h1>
+      <p className="relative mt-2 text-[13px] leading-relaxed text-white/80 max-w-[34ch]">
+        Claim your free Vano profile to reply. Get paid safely through <span className="font-semibold text-white">Vano Pay</span> — clients tap, money lands in your bank in 1–2 days (3% fee).
       </p>
     </div>
 
@@ -309,11 +311,11 @@ const ReadyCard = ({
           type="button"
           onClick={onClaim}
           disabled={claiming}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:opacity-60"
         >
           {claiming ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Claiming...
+              <Loader2 className="h-4 w-4 animate-spin" /> Claiming…
             </>
           ) : (
             <>
@@ -325,7 +327,7 @@ const ReadyCard = ({
         <button
           type="button"
           onClick={onSignIn}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
         >
           Sign in to claim
         </button>
