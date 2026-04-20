@@ -35,6 +35,7 @@ import { InteractiveButton } from '@/components/InteractiveButton';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
 import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
+import { cn } from '@/lib/utils';
 
 
 const Landing = () => {
@@ -212,13 +213,13 @@ const Landing = () => {
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
-          {/* €1 AI Find offer chip — now a small eyebrow above the
-              headline so the hook lands first. Plainer than a CTA so
-              it frames, not competes. */}
+          {/* Vano Match eyebrow chip — frames the product as a
+              single-step, hand-picked match. Price stays off the
+              landing page; it surfaces later inside the hire flow. */}
           <div data-hero-eyebrow className="mb-5 flex justify-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              €1 AI Find · match in 60s
+              Vano Match · hand-picked in 60s
             </span>
           </div>
 
@@ -231,63 +232,97 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="mx-auto mb-7 max-w-[38ch] text-[15px] leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
-            Pay €1, we hand-pick a freelancer from our pool plus one scouted from the web — and you pay them safely through Vano.
+            Tell us what you need, we hand-pick a freelancer from our pool plus one scouted from the web — and you pay them safely through Vano.
           </p>
 
-          {/* Hero tag cloud — 6 curated (was 12) so the eye doesn't
-              have to scan a dozen choices before hitting the CTA. Each
-              tag deep-links into /hire with category + subtype preset
-              so HirePage auto-advances past Step 1. */}
+          {/* Two path cards — the streamlined core of the hero. One
+              door for hirers (Vano Match), one for freelancers (list
+              in 30s). Balanced visual weight so both audiences see
+              themselves. Pricing stays off the landing page and is
+              introduced later inside the hire flow. Replaces the old
+              button row + redundant tag cloud (which duplicated the
+              category cards below). */}
           <div
-            data-hero-tags
-            className="mx-auto mb-8 flex max-w-xl flex-wrap items-center justify-center gap-x-2 gap-y-2 sm:gap-x-2.5"
+            data-hero-paths
+            className={cn(
+              'mx-auto grid max-w-2xl gap-3 text-left sm:gap-4',
+              !session ? 'sm:grid-cols-2' : 'sm:grid-cols-1',
+            )}
           >
-            {[
-              { category: 'digital_sales', subtype: 'Cold calling / SDR',  label: 'Cold calling' },
-              { category: 'social_media',  subtype: 'Content / posts',     label: 'Content creation' },
-              { category: 'videography',   subtype: 'Reel / short-form',   label: 'Short-form video' },
-              { category: 'websites',      subtype: 'Landing page',        label: 'Landing page' },
-              { category: 'social_media',  subtype: 'Paid ads',            label: 'Paid ads' },
-              { category: 'videography',   subtype: 'Promo / ad',          label: 'Promo / ad' },
-            ].map((t) => (
-              <button
-                key={`${t.category}:${t.subtype}`}
-                type="button"
-                onClick={() => navigate(`/hire?category=${t.category}&subtype=${encodeURIComponent(t.subtype)}`)}
-                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-[12.5px] font-medium text-muted-foreground shadow-sm transition-all duration-150 hover:border-primary/40 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <InteractiveButton
-                data-mascot="hire-cta"
-                burstType="sparkle"
-                particleCount={25}
-                magneticStrength={0.35}
-                onClick={() => navigate('/hire')}
-                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
-              >
-                Hire a freelancer
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5">
-                  <ArrowRight size={14} />
+            {/* HIRER PATH — Vano Match. Primary gradient surface,
+                 mirrors the HirePage match card. Price stays in the
+                 hire flow, not here. */}
+            <InteractiveButton
+              data-mascot="hire-cta"
+              burstType="sparkle"
+              particleCount={25}
+              magneticStrength={0.35}
+              onClick={() => navigate('/hire')}
+              className="group relative w-full overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-b from-primary to-primary/90 p-5 text-white shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.55)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_22px_50px_-22px_hsl(var(--primary)/0.6)] active:translate-y-0 active:scale-[0.99]"
+            >
+              <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl" />
+              <div className="relative flex h-full flex-col">
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
+                    <Sparkles size={12} className="text-amber-200" /> I want to hire
+                  </span>
+                  <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-white/90">
+                    60s
+                  </span>
+                </div>
+                <p className="mt-3 text-[18px] font-semibold leading-snug tracking-tight sm:text-[19px]">
+                  Match me with a freelancer
+                </p>
+                <p className="mt-1 text-[12.5px] leading-snug text-white/80">
+                  One from our pool, one scouted from the web.
+                </p>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-white">
+                  Start a Vano Match
+                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                 </span>
+              </div>
+            </InteractiveButton>
+
+            {/* FREELANCER PATH — Free to list. Soft card surface, same
+                 20px radius + same hover translate so the two doors feel
+                 equal even though primary fills the hirer card. */}
+            {!session ? (
+              <InteractiveButton
+                data-mascot="freelancer-cta"
+                burstType="sparkle"
+                particleCount={15}
+                magneticStrength={0.25}
+                onClick={handleFreelancerSignup}
+                className="group relative w-full overflow-hidden rounded-[20px] border border-border/70 bg-card p-5 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-[2px] hover:border-foreground/15 hover:shadow-[0_18px_40px_-20px_rgba(0,0,0,0.28)] active:translate-y-0 active:scale-[0.99]"
+              >
+                <div className="pointer-events-none absolute -right-10 -top-20 h-40 w-40 rounded-full bg-emerald-500/15 blur-3xl" />
+                <div className="relative flex h-full flex-col">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-70 motion-safe:animate-ping" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                      </span>
+                      I want to work
+                    </span>
+                    <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      Free
+                    </span>
+                  </div>
+                  <p className="mt-3 text-[18px] font-semibold leading-snug tracking-tight text-foreground sm:text-[19px]">
+                    Get hired locally
+                  </p>
+                  <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
+                    List yourself in 30 seconds. Get paid via Vano Pay.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
+                    Join as a freelancer
+                    <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+                  </span>
+                </div>
               </InteractiveButton>
-              {!session ? (
-                <InteractiveButton
-                  data-mascot="freelancer-cta"
-                  burstType="sparkle"
-                  particleCount={15}
-                  magneticStrength={0.25}
-                  onClick={handleFreelancerSignup}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
-                >
-                  Join as a freelancer
-                </InteractiveButton>
-              ) : null}
-            </div>
+            ) : null}
+          </div>
             {studentsLoaded && featuredStudents.length > 0 && (
               <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-6">
                 <span className="inline-flex items-center gap-2">
