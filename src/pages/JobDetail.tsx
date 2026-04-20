@@ -171,9 +171,30 @@ const JobDetail = () => {
   if (!job) return (
     <div className="min-h-[100dvh] bg-background">
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 pt-24 text-center">
-        <h1 className="text-2xl font-bold mb-4">Job Not Found</h1>
-        <button onClick={() => navigate('/hire')} className="text-primary hover:underline">Browse Hiring</button>
+      <div className="mx-auto max-w-md px-4 pt-28 sm:pt-32 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <Clock size={22} className="text-muted-foreground" />
+        </div>
+        <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-foreground">Gig not found</h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
+          This gig may have closed or the link's gone stale. Plenty more where it came from.
+        </p>
+        <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={() => navigate('/hire')}
+            className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-primary px-5 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+          >
+            Browse open gigs
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/students')}
+            className="inline-flex items-center justify-center rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
+          >
+            Browse freelancers
+          </button>
+        </div>
       </div>
     </div>
   );

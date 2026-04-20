@@ -168,19 +168,23 @@ const ClaimProfile = () => {
           ) : state.kind === 'invalid_token' || state.kind === 'not_found' ? (
             <ErrorCard
               title="Link not found"
-              body="This claim link doesn't look right. Double-check the URL in the message we sent you — or reach out and we'll resend it."
+              body="This claim link doesn't look right. Double-check the URL in the message we sent you, or sign up directly and we'll match you with new briefs."
+              actionLabel="Sign up to Vano"
+              onAction={() => navigate('/auth?mode=signup')}
             />
           ) : state.kind === 'expired' ? (
             <ErrorCard
               title="Link expired"
-              body="This claim link has expired. If you'd still like to join Vano, sign up directly and we'll re-match you with new briefs."
+              body="This claim link has expired. Sign up directly — we'll re-match you with new briefs and keep you in the pool."
               actionLabel="Sign up to Vano"
-              onAction={() => navigate('/auth')}
+              onAction={() => navigate('/auth?mode=signup')}
             />
           ) : state.kind === 'already_claimed_other' ? (
             <ErrorCard
               title="Already claimed"
-              body="Looks like this profile has already been claimed. If that wasn't you, contact support."
+              body="Looks like this profile has already been claimed. If that wasn't you, sign in to the account you used — or reach support."
+              actionLabel="Sign in"
+              onAction={() => navigate('/auth')}
             />
           ) : (
             <ReadyCard
@@ -208,17 +212,17 @@ const ErrorCard = ({
   actionLabel?: string;
   onAction?: () => void;
 }) => (
-  <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
-    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+  <div className="rounded-[20px] border border-border/70 bg-card p-7 text-center shadow-[0_18px_44px_-24px_rgba(0,0,0,0.18)]">
+    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
       <AlertCircle className="h-5 w-5" />
     </div>
-    <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-    <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+    <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-foreground">{title}</h1>
+    <p className="mx-auto mt-2 max-w-[34ch] text-[13.5px] leading-relaxed text-muted-foreground">{body}</p>
     {actionLabel && onAction ? (
       <button
         type="button"
         onClick={onAction}
-        className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 active:scale-[0.98]"
+        className="mt-6 w-full rounded-2xl bg-primary px-4 py-3.5 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
       >
         {actionLabel}
       </button>
