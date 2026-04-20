@@ -175,9 +175,14 @@ serve(async (req) => {
     // (amount - application_fee_amount) to the connected freelancer
     // account. Standard Stripe processing fees come out of the
     // platform account.
+    //
+    // payment_method_types is intentionally omitted so Stripe
+    // auto-enables every supported method for the currency/geo —
+    // crucially Apple Pay + Google Pay wallets on mobile, which make
+    // the "tap to pay" feel the funnel is built around. Locking it to
+    // card-only would force every customer through manual card entry.
     const checkoutParams: Record<string, string> = {
       mode: 'payment',
-      'payment_method_types[0]': 'card',
       'line_items[0][price_data][currency]': CURRENCY,
       'line_items[0][price_data][unit_amount]': String(amountCents),
       'line_items[0][price_data][product_data][name]':

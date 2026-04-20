@@ -103,9 +103,12 @@ serve(async (req) => {
 
     const requestId: string = insertedRow.id;
 
+    // payment_method_types is intentionally omitted so Stripe
+    // auto-enables Apple Pay + Google Pay (and other supported wallets
+    // for the currency/geo) alongside card. The €1 entry point should
+    // feel one-tap on mobile, not a form-fill.
     const checkoutParams: Record<string, string> = {
       mode: 'payment',
-      'payment_method_types[0]': 'card',
       'line_items[0][price_data][currency]': AI_FIND_CURRENCY,
       'line_items[0][price_data][unit_amount]': String(AI_FIND_AMOUNT_CENTS),
       'line_items[0][price_data][product_data][name]': 'Vano AI Find',

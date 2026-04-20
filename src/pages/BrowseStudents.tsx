@@ -3,7 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { breadcrumbSchema } from '@/lib/structuredData';
-import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users } from 'lucide-react';
+import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 
@@ -87,7 +87,31 @@ const BrowseStudents = () => {
         pt-[max(4.5rem,calc(env(safe-area-inset-top,0px)+3.25rem))]
         sm:pt-20 md:pt-24"
       >
-        <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">What do you need?</p>
+        {/* Vano Match shortcut — gives a hirer on the talent hub a
+             one-tap way to skip browsing and get a hand-picked match.
+             Sits above the category grid so it reads as the fast path
+             for people who'd rather not scroll through categories. */}
+        <button
+          type="button"
+          onClick={() => navigate('/hire')}
+          className="group mb-5 flex w-full items-center gap-4 overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-b from-primary to-primary/90 px-5 py-4 text-left text-white shadow-[0_14px_36px_-20px_hsl(var(--primary)/0.55)] transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_20px_44px_-20px_hsl(var(--primary)/0.6)] active:translate-y-0 active:scale-[0.99]"
+        >
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15">
+            <Sparkles size={18} className="text-amber-200" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">Skip the browsing</p>
+            <p className="mt-0.5 text-[15px] font-semibold leading-snug tracking-tight sm:text-base">
+              Let us hand-pick your perfect match
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-semibold text-white">
+            Start
+            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+          </span>
+        </button>
+
+        <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Or browse by category</p>
         <div className="grid grid-cols-2 gap-3">
           {TALENT_HUB_CATEGORIES.map((item, idx) => {
             const Icon = item.icon;

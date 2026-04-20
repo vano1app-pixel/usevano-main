@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
@@ -789,6 +789,27 @@ const Messages = () => {
             </Dialog>
 
             <div className="flex-1 overflow-y-auto">
+              {/* Start a Vano Match — persistent sidebar entry for
+                   hirers so they can kick off a fresh match from inside
+                   the inbox without bouncing back to home. Hidden for
+                   freelancers since the €1 flow is hirer-only. */}
+              {viewerUserType !== 'student' && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/hire')}
+                  className="group flex w-full items-center gap-3 border-b border-border/60 bg-primary/[0.04] px-4 py-3 text-left transition-colors hover:bg-primary/[0.08]"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                    <Sparkles size={15} className="text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Start a Vano Match</p>
+                    <p className="truncate text-xs text-muted-foreground">Hand-picked freelancer in 60 seconds</p>
+                  </div>
+                  <ArrowRight size={14} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </button>
+              )}
+
               {/* Contact team */}
               <button type="button" onClick={() => setContactTeamOpen(true)} className="flex w-full items-center gap-3 border-b border-border/60 px-4 py-3 text-left transition-colors hover:bg-secondary/50">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -824,14 +845,27 @@ const Messages = () => {
               </Dialog>
 
               {conversations.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+                <div className="flex flex-col items-center gap-4 px-4 py-12 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                     <MessageCircle size={22} className="text-muted-foreground" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">No conversations yet</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Message someone from a gig or talent listing to get started.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {viewerUserType === 'student'
+                        ? 'Apply to a gig or reply to a client to get started.'
+                        : 'Start a Vano Match — we hand-pick someone for your brief.'}
+                    </p>
                   </div>
+                  {viewerUserType !== 'student' && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/hire')}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[12.5px] font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+                    >
+                      <Sparkles size={13} /> Start a Vano Match
+                    </button>
+                  )}
                 </div>
               ) : (
                 conversations.map((convo) => {
