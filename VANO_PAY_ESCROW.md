@@ -80,29 +80,52 @@ awaiting_payment
    - `account.updated`
    - `charge.refunded` ← **new under escrow**
 
-4. **Deploy the three new edge functions.**
+4. **Deploy the four new edge functions.**
 
    ```bash
    supabase functions deploy release-vano-payment
    supabase functions deploy refund-vano-payment
    supabase functions deploy auto-release-held-payments
+   supabase functions deploy remind-held-payments
    ```
 
-5. **Wire the Supabase cron to invoke `auto-release-held-payments`.**
-   Daily is fine for v1. Hourly gives tighter auto-release timing if
-   a hirer's 14-day window ends in the middle of the day. **Skipping
-   this step breaks the ghost-hirer protection — auto-release never
-   fires and freelancers' funds sit forever.**
+5. **Wire two Supabase crons — auto-release + reminder.**
 
-   Example pg_cron statement (run in Supabase SQL editor):
+   `auto-release-held-payments` closes the window; `remind-held-payments`
+   prevents the window from lapsing silently by emailing the hirer
+   ~3-5 days before auto-release. **Skipping auto-release breaks the
+   ghost-hirer protection; skipping the reminder means hirers miss
+   their dispute window without a nudge.**
+
+   Example pg_cron statements (run in Supabase SQL editor):
 
    ```sql
+   -- Auto-release: sweeps every hour for held payments whose window
+   -- has elapsed, transfers to the freelancer.
    SELECT cron.schedule(
      'vano-pay-auto-release',
      '0 * * * *',                -- every hour on the hour
      $$
      SELECT net.http_post(
        url := 'https://<PROJECT_REF>.supabase.co/functions/v1/auto-release-held-payments',
+       headers := jsonb_build_object(
+         'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key'),
+         'Content-Type', 'application/json'
+       ),
+       body := '{}'::jsonb
+     );
+     $$
+   );
+
+   -- Reminder: sends a daily "auto-releases in N days" email to any
+   -- hirer whose held payment is 3-5 days from its window. Once-per
+   -- row via the reminder_sent_at column.
+   SELECT cron.schedule(
+     'vano-pay-reminder',
+     '0 9 * * *',                -- once a day at 09:00 UTC
+     $$
+     SELECT net.http_post(
+       url := 'https://<PROJECT_REF>.supabase.co/functions/v1/remind-held-payments',
        headers := jsonb_build_object(
          'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key'),
          'Content-Type', 'application/json'
@@ -150,6 +173,20 @@ awaiting_payment
         https://<PROJECT_REF>.supabase.co/functions/v1/auto-release-held-payments
    ```
    Expect `status = 'transferred'`, `released_by = 'auto'`.
+
+9. **Reminder test:** pay a fourth payment. In the DB, set
+   `auto_release_at` to a point inside the reminder window (3-5
+   days out):
+   `UPDATE vano_payments SET auto_release_at = now() + interval '4 days', reminder_sent_at = NULL WHERE id = '<paymentid>';`
+   Then invoke the reminder function:
+   ```bash
+   curl -X POST -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+        https://<PROJECT_REF>.supabase.co/functions/v1/remind-held-payments
+   ```
+   Expect `reminder_sent_at` populated on the row + the hirer
+   receives an email titled "Your €X on Vano auto-releases in 4
+   days". Subsequent invocations of the same function are no-ops
+   on that row because `reminder_sent_at` is no longer null.
 
 ## Rollback
 

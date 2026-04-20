@@ -907,6 +907,7 @@ export type Database = {
           id: string
           paid_at: string | null
           refunded_at: string | null
+          reminder_sent_at: string | null
           released_at: string | null
           released_by: string | null
           status: string
@@ -935,6 +936,7 @@ export type Database = {
           id?: string
           paid_at?: string | null
           refunded_at?: string | null
+          reminder_sent_at?: string | null
           released_at?: string | null
           released_by?: string | null
           status?: string
@@ -963,6 +965,7 @@ export type Database = {
           id?: string
           paid_at?: string | null
           refunded_at?: string | null
+          reminder_sent_at?: string | null
           released_at?: string | null
           released_by?: string | null
           status?: string
