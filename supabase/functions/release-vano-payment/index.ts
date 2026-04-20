@@ -2,21 +2,23 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
-// Hirer-initiated release of a held Vano Pay payment. Moves the held
-// funds from the platform Stripe account to the freelancer's Connect
-// account via a Stripe Transfer, minus the 3% Vano fee (which stays
-// on the platform as revenue).
+// Hirer- or admin-initiated release of a held Vano Pay payment. Moves
+// the held funds from the platform Stripe account to the freelancer's
+// Connect account via a Stripe Transfer, minus the 3% Vano fee (which
+// stays on the platform as revenue).
 //
 // Guards:
 //   - Caller must be authenticated.
-//   - Caller must be the business_id on the vano_payments row
-//     (freelancers cannot release their own funds — that would defeat
-//     the escrow).
+//   - Caller must be the business_id on the vano_payments row OR hold
+//     the 'admin' role in user_roles (admins can release disputed
+//     payments as part of resolution). Freelancers cannot release
+//     their own funds — that would defeat the escrow.
 //   - Row must be in 'paid' status (held). If it's already
 //     'transferred' we treat that as idempotent success; any other
 //     state is an error.
-//   - Row must not have a live dispute_reason — disputed payments are
-//     frozen and only an admin can release them via the dashboard.
+//   - Row must not have a live dispute_reason unless the caller is an
+//     admin — hirers see the payment as frozen once they've flagged it
+//     so they can't work around their own dispute.
 //   - Freelancer's stripe_destination_account_id must be populated
 //     on the row (snapshotted at checkout time).
 //
@@ -77,7 +79,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Fetch the row with the fields we need. Service role bypasses RLS
-    // but we still enforce business_id = caller below.
+    // but we still enforce business_id = caller (or admin) below.
     const { data: payment, error: fetchError } = await supabase
       .from('vano_payments')
       .select('id, business_id, freelancer_id, conversation_id, status, amount_cents, fee_cents, stripe_payment_intent_id, stripe_destination_account_id, stripe_transfer_id, dispute_reason, currency')
@@ -85,7 +87,20 @@ serve(async (req) => {
       .maybeSingle();
 
     if (fetchError || !payment) return bad(404, 'Payment not found');
-    if (payment.business_id !== callerId) return bad(403, 'Only the hirer can release this payment');
+
+    // Admin override — a flagged dispute can only be released by an
+    // admin as part of resolution. Role lookup happens AFTER the row
+    // fetch so we never leak row existence to unauthed callers.
+    const isOwner = payment.business_id === callerId;
+    let isAdmin = false;
+    if (!isOwner) {
+      const { data: roleCheck } = await supabase.rpc('has_role', {
+        _user_id: callerId,
+        _role: 'admin',
+      });
+      isAdmin = !!roleCheck;
+      if (!isAdmin) return bad(403, 'Only the hirer or an admin can release this payment');
+    }
 
     // Already released → idempotent success. The UI might have sent a
     // retry after a network hiccup; don't punish that.
@@ -98,7 +113,7 @@ serve(async (req) => {
     if (payment.status !== 'paid') {
       return bad(409, `Cannot release a payment in ${payment.status} status`);
     }
-    if (payment.dispute_reason) {
+    if (payment.dispute_reason && !isAdmin) {
       return bad(409, 'This payment is flagged for review. Contact support to resolve.');
     }
     if (!payment.stripe_destination_account_id) {
@@ -178,7 +193,7 @@ serve(async (req) => {
         status: 'transferred',
         stripe_transfer_id: transfer.id,
         released_at: nowIso,
-        released_by: 'hirer',
+        released_by: isAdmin ? 'admin' : 'hirer',
         completed_at: nowIso,
         auto_release_at: null,
       })

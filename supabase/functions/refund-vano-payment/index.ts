@@ -2,23 +2,27 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
-// Hirer-initiated refund of a held Vano Pay payment. Issues a Stripe
-// refund on the original payment intent, returning the full amount to
-// the hirer's card. Used when the work wasn't done or the hirer wants
-// to back out during the 14-day hold window.
+// Hirer- or admin-initiated refund of a held Vano Pay payment. Issues
+// a Stripe refund on the original payment intent, returning the full
+// amount to the hirer's card. Used when the work wasn't done, the
+// hirer wants to back out during the 14-day hold window, or an admin
+// is resolving a flagged dispute in the hirer's favour.
 //
 // Guards:
 //   - Caller must be authenticated.
-//   - Caller must be the business_id on the vano_payments row
-//     (freelancers cannot refund a payment they're expecting — the
-//     escrow protects against that).
+//   - Caller must be the business_id on the vano_payments row OR hold
+//     the 'admin' role (admins resolve disputes from /admin).
+//     Freelancers cannot refund a payment they're expecting — the
+//     escrow protects against that.
 //   - Row must be in 'paid' status (held). Already-transferred funds
 //     can't be refunded through this path (Stripe rules). Already-
 //     refunded rows are idempotent success.
 //   - stripe_payment_intent_id must be populated (webhook writes it).
 //   - Optional free-text dispute_reason (max 500 chars) — stored on
 //     the row for audit and to flag it as a disputed refund vs a
-//     mutual cancellation.
+//     mutual cancellation. An existing dispute_reason is preserved if
+//     the caller doesn't supply a new one (admin resolving a hirer-
+//     flagged dispute shouldn't erase the original reason).
 //
 // On success:
 //   - Calls Stripe POST /v1/refunds with the payment intent id and
@@ -80,13 +84,23 @@ serve(async (req) => {
 
     const { data: payment, error: fetchError } = await supabase
       .from('vano_payments')
-      .select('id, business_id, conversation_id, status, amount_cents, stripe_payment_intent_id, stripe_refund_id')
+      .select('id, business_id, conversation_id, status, amount_cents, stripe_payment_intent_id, stripe_refund_id, dispute_reason')
       .eq('id', paymentId)
       .maybeSingle();
 
     if (fetchError || !payment) return bad(404, 'Payment not found');
-    if (payment.business_id !== callerId) {
-      return bad(403, 'Only the hirer can refund this payment');
+
+    const isOwner = payment.business_id === callerId;
+    let isAdmin = false;
+    if (!isOwner) {
+      const { data: roleCheck } = await supabase.rpc('has_role', {
+        _user_id: callerId,
+        _role: 'admin',
+      });
+      isAdmin = !!roleCheck;
+      if (!isAdmin) {
+        return bad(403, 'Only the hirer or an admin can refund this payment');
+      }
     }
 
     // Already refunded → idempotent success.
@@ -161,7 +175,11 @@ serve(async (req) => {
       completed_at: nowIso,
       auto_release_at: null,
     };
-    if (disputeReason) {
+    // Only stamp dispute_reason if caller provided one AND the row
+    // doesn't already carry one. An admin resolving a hirer-flagged
+    // dispute shouldn't overwrite the original reason, but a hirer
+    // refunding for the first time should be able to set one.
+    if (disputeReason && !payment.dispute_reason) {
       updatePayload.dispute_reason = disputeReason;
       updatePayload.disputed_at = nowIso;
     }

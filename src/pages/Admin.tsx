@@ -108,6 +108,10 @@ const Admin = () => {
   const [reviewRequest, setReviewRequest] = useState<ListingRequestRow | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [disputes, setDisputes] = useState<DisputedPaymentRow[]>([]);
+  // Per-row sentinel for the active resolve action so the button shows
+  // a spinner + other dispute rows stay interactive. Resolving one row
+  // shouldn't lock the whole tab.
+  const [resolvingDispute, setResolvingDispute] = useState<{ id: string; action: 'release' | 'refund' } | null>(null);
 
   const adminPagePassword = import.meta.env.VITE_ADMIN_PAGE_PASSWORD as string | undefined;
   const needsAdminPassword = Boolean(adminPagePassword && adminPagePassword.length > 0);
@@ -249,10 +253,11 @@ const Admin = () => {
   // are paused by the auto-release cron (dispute_reason IS NOT NULL
   // is the skip condition) so they'd sit forever without an admin
   // intervening. The inbox gives ops a single place to see them,
-  // read the reason, and resolve via Stripe dashboard + SQL per the
-  // runbook. Resolution UI is deliberately out-of-band for v1 —
-  // safer than shipping admin-impersonation edge functions before
-  // dispute volume justifies the surface area.
+  // read the reason, and resolve in one click — release to the
+  // freelancer (work was delivered) or refund the hirer (it wasn't).
+  // Both buttons call the shared release/refund edge functions with
+  // the admin override branch, so there's no separate admin-only
+  // Stripe code path to maintain.
   const fetchDisputes = useCallback(async () => {
     const { data, error } = await supabase
       .from('vano_payments')
@@ -283,6 +288,38 @@ const Admin = () => {
       })),
     );
   }, [page]);
+
+  // Release held funds to the freelancer (work delivered) or refund
+  // them to the hirer (work not delivered). Each button maps to the
+  // existing release-/refund-vano-payment edge function, which carries
+  // an admin-override branch — so this is a thin wrapper, not a
+  // separate Stripe code path. On success we optimistically drop the
+  // row from the list (it's no longer in 'paid' + disputed state).
+  const resolveDispute = async (dispute: DisputedPaymentRow, action: 'release' | 'refund') => {
+    const amountEuro = `€${(dispute.amount_cents / 100).toFixed(2)}`;
+    const confirmMsg = action === 'release'
+      ? `Release ${amountEuro} to ${dispute.freelancer_name ?? 'the freelancer'}? This sends the money (minus the Vano fee) via Stripe. Cannot be undone.`
+      : `Refund ${amountEuro} to ${dispute.business_name ?? 'the hirer'}? This returns the full payment to their card via Stripe. Cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+    setResolvingDispute({ id: dispute.id, action });
+    const fnName = action === 'release' ? 'release-vano-payment' : 'refund-vano-payment';
+    const { data, error } = await supabase.functions.invoke(fnName, {
+      body: { payment_id: dispute.id },
+    });
+    setResolvingDispute(null);
+    if (error || (data && (data as { error?: string }).error)) {
+      const msg = (data as { error?: string })?.error || error?.message || 'Action failed';
+      toast({ title: 'Could not resolve dispute', description: msg, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: action === 'release' ? 'Released to freelancer' : 'Refunded to hirer',
+      description: `${amountEuro} · payment ${dispute.id.slice(0, 8)}…`,
+    });
+    // Drop the resolved row. Refetch would also work but the optimistic
+    // remove keeps the UI responsive even if the server read lags.
+    setDisputes((prev) => prev.filter((d) => d.id !== dispute.id));
+  };
 
   const fetchFeedback = useCallback(async () => {
     const { data } = await supabase
@@ -853,9 +890,39 @@ const Admin = () => {
                         payment_id: {d.id.slice(0, 8)}…
                       </span>
                     </div>
-                    <p className="mt-2 text-[10.5px] leading-relaxed text-muted-foreground">
-                      Resolve via Stripe dashboard + SQL per <code className="font-mono">VANO_PAY_ESCROW.md</code> — set <code className="font-mono">dispute_reason = NULL</code> to release or run a Stripe refund then stamp <code className="font-mono">status = 'refunded'</code>.
-                    </p>
+                    {/* Resolution buttons — each fires the same release/
+                         refund edge function the hirer would call, but
+                         with the admin override so the row's dispute
+                         freeze doesn't block it. Release = work was
+                         done, send the money. Refund = work wasn't
+                         done, return to hirer. */}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(() => {
+                        const busy = resolvingDispute?.id === d.id;
+                        const isReleasing = busy && resolvingDispute?.action === 'release';
+                        const isRefunding = busy && resolvingDispute?.action === 'refund';
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => resolveDispute(d, 'release')}
+                              disabled={busy}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11.5px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {isReleasing ? 'Releasing…' : `Release ${netEuro} to freelancer`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => resolveDispute(d, 'refund')}
+                              disabled={busy}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[11.5px] font-semibold text-destructive shadow-sm transition hover:bg-destructive/15 disabled:opacity-60"
+                            >
+                              {isRefunding ? 'Refunding…' : `Refund ${amountEuro} to hirer`}
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 );
               })
