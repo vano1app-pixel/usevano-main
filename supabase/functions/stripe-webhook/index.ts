@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // (Stripe can't send JWTs); authenticity is proven by verifying the
 // Stripe-Signature header against STRIPE_WEBHOOK_SECRET using HMAC-SHA256.
 //
-// Dispatches three event types:
+// Dispatches four event types:
 //   1. checkout.session.completed with metadata.ai_find_request_id →
 //      marks ai_find_requests as paid and kicks off AI scouting.
 //   2. checkout.session.completed with metadata.vano_payment_id →
@@ -16,6 +16,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   3. account.updated → flips student_profiles.stripe_payouts_enabled
 //      when the freelancer's Connect Express account is ready to
 //      receive transfers.
+//   4. charge.refunded → flips vano_payments to 'refunded' when a
+//      refund lands from any source (our refund-vano-payment
+//      function, ops refunding via Stripe dashboard, or a
+//      cardholder chargeback). Keeps the UI honest regardless of
+//      how the refund was initiated.
 //
 // All handlers are idempotent on replay.
 
@@ -225,6 +230,69 @@ type StripeAccount = {
   payouts_enabled?: boolean;
 };
 
+type StripeCharge = {
+  id?: string;
+  payment_intent?: string;
+  amount_refunded?: number;
+  refunded?: boolean;
+  metadata?: Record<string, string | undefined>;
+};
+
+// --- Handler: charge.refunded --------------------------------------------
+// Fires when a refund lands — either from our refund-vano-payment
+// function (already flipped the row before the webhook lands) or from
+// ops refunding via the Stripe dashboard / a cardholder chargeback
+// path we don't control. Idempotent on both cases: if the row is
+// already 'refunded' we no-op; otherwise we flip it so the UI stays
+// honest even for out-of-band refunds.
+async function handleChargeRefunded(
+  supabase: SupabaseClient,
+  charge: StripeCharge,
+): Promise<Response> {
+  if (!charge?.payment_intent) {
+    return new Response(JSON.stringify({ received: true, ignored: 'no_payment_intent' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: flipped, error } = await supabase
+    .from('vano_payments')
+    .update({
+      status: 'refunded',
+      refunded_at: nowIso,
+      completed_at: nowIso,
+      auto_release_at: null,
+    })
+    .eq('stripe_payment_intent_id', charge.payment_intent)
+    .in('status', ['paid', 'awaiting_payment'])
+    .select('id, conversation_id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[stripe-webhook] charge.refunded DB write failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!flipped) {
+    // Already refunded, already released, or no vano_payments row —
+    // all fine. Don't retry.
+    return new Response(JSON.stringify({ received: true, replay: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (flipped.conversation_id) {
+    await supabase
+      .from('conversations')
+      .update({ updated_at: nowIso })
+      .eq('id', flipped.conversation_id);
+  }
+
+  return new Response(JSON.stringify({ received: true, triggered: 'charge_refunded' }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 // --- Entry point ----------------------------------------------------------
 serve(async (req) => {
   if (req.method !== 'POST') {
@@ -291,6 +359,16 @@ serve(async (req) => {
   if (eventType === 'account.updated') {
     const account = event.data?.object as StripeAccount | undefined;
     return handleAccountUpdated(supabase, account ?? {});
+  }
+
+  // charge.refunded covers out-of-band refunds (Stripe dashboard
+  // action, chargeback) so the vano_payments row stays in sync with
+  // Stripe's reality. In-app refunds via refund-vano-payment already
+  // flip the row before the webhook lands; the handler is idempotent
+  // so a replay is a no-op.
+  if (eventType === 'charge.refunded') {
+    const charge = event.data?.object as StripeCharge | undefined;
+    return handleChargeRefunded(supabase, charge ?? {});
   }
 
   // Any other event type: 200 + move on. We only subscribe to the

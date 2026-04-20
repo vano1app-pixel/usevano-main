@@ -66,11 +66,19 @@ awaiting_payment
 
 3. **Deploy `stripe-webhook`.**
    Vano Pay handler now writes `status='paid'` (held) and stamps
-   `auto_release_at = now + 14 days`.
+   `auto_release_at = now + 14 days`. Also handles `charge.refunded`
+   for out-of-band refund reconciliation.
 
    ```bash
    supabase functions deploy stripe-webhook
    ```
+
+   **In the Stripe Dashboard → Developers → Webhooks**, make sure the
+   following events are subscribed on the endpoint pointing at
+   `stripe-webhook`:
+   - `checkout.session.completed`
+   - `account.updated`
+   - `charge.refunded` ← **new under escrow**
 
 4. **Deploy the three new edge functions.**
 

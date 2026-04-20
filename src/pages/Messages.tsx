@@ -626,6 +626,35 @@ const Messages = () => {
     return () => { cancelled = true; };
   }, [loading, user, withOpenParam, draftOpenParam, loadConversations, setSearchParams]);
 
+  // Post-Stripe-Checkout return handler. When the hirer lands back on
+  // /messages?payment=<id>&status=success, show a confirming toast so
+  // the 1–3s gap between redirect and the stripe-webhook flipping the
+  // row to 'paid' (which realtime-pops the receipt card) doesn't feel
+  // like nothing happened. Also surface the cancel case. Params are
+  // stripped so a refresh doesn't re-toast.
+  const paymentParam = searchParams.get('payment');
+  const paymentStatusParam = searchParams.get('status');
+  useEffect(() => {
+    if (!paymentParam || !paymentStatusParam) return;
+    if (paymentStatusParam === 'success') {
+      toast({
+        title: 'Payment held on Vano',
+        description: "We'll release it to the freelancer when you click Release here in the thread.",
+      });
+    } else if (paymentStatusParam === 'cancel') {
+      toast({
+        title: 'Payment cancelled',
+        description: 'No money moved. Try again whenever you like.',
+      });
+    }
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('payment');
+      next.delete('status');
+      return next;
+    }, { replace: true });
+  }, [paymentParam, paymentStatusParam, setSearchParams, toast]);
+
   const loadMessages = async (convoId: string) => {
     const { data } = await supabase.from('messages').select('*').eq('conversation_id', convoId).order('created_at', { ascending: true });
     setMessages(data || []);
