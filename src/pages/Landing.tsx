@@ -705,7 +705,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO connects businesses with trusted freelancers. Browse talent, hire for projects, and message in-app — all in one place.
+                  A marketplace for hand-picked freelancers. Tell us what you need, we match you with one from our pool and one scouted from the open web, and you pay them safely through Vano Pay.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -713,7 +713,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Create an account, browse freelancers or tell us what you need on the hire page. We'll match you with the right person, or you can message freelancers directly.
+                  Start a Vano Match — tell us the category, timeline, and budget, and we hand-pick a freelancer in 60 seconds. Prefer to browse? Pick a category on the talent board and message anyone you like directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="pay" className="border-border/80 px-2">
@@ -721,7 +721,7 @@ const Landing = () => {
                   How does payment work?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO helps you find each other and communicate. You and the other party agree payment method and timing directly — always confirm details clearly in your thread.
+                  Pay through Vano Pay and your money is held on Vano until you release it — so the freelancer has to deliver first. If nothing happens in 14 days it auto-releases. If the work doesn't land you can flag a problem and get a full refund. Vano takes 3%.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2">
@@ -729,7 +729,7 @@ const Landing = () => {
                   Is VANO only for Galway?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO started in Galway and that's still our home base, but freelancers and clients outside Galway are welcome too. Each gig shows location so you can filter for local, nationwide, or remote work.
+                  Galway is our home base — it's where the density is highest. Freelancers and clients anywhere are welcome, and each match shows location so you can filter for local, nationwide, or remote.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="freelancer" className="border-border/80 px-2 border-b-0">
@@ -737,7 +737,7 @@ const Landing = () => {
                   I am a freelancer — how do I start?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Sign up as a freelancer, complete your profile and portfolio links, then browse open gigs and apply with a short message. Good profiles and reviews help you stand out.
+                  Sign up, publish a short listing in 30 seconds, then turn on Vano Pay so clients can tap a button to pay you safely. Money lands in your bank 1–2 days after release. Vano takes 3%; there's no monthly fee.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
