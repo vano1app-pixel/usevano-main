@@ -869,7 +869,7 @@ const Messages = () => {
                 </DialogHeader>
                 <div className="relative">
                   <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input autoFocus value={userSearch} onChange={(e) => { setUserSearch(e.target.value); searchUsers(e.target.value); }} placeholder="Search by name…" className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input autoFocus value={userSearch} onChange={(e) => { setUserSearch(e.target.value); searchUsers(e.target.value); }} placeholder="Search by name…" className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div className="min-h-[4rem] space-y-1">
                   {searchingUsers && <p className="py-4 text-center text-sm text-muted-foreground">Searching…</p>}
@@ -1541,7 +1541,7 @@ const Messages = () => {
                 placeholder="Work wasn't delivered, quality wasn't what we agreed, etc."
                 rows={3}
                 maxLength={500}
-                className="mt-1.5 w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+                className="mt-1.5 w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
               />
             </label>
             <div className="flex items-center justify-end gap-2 pt-1">

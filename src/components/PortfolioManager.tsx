@@ -93,7 +93,9 @@ export const PortfolioManager: React.FC<PortfolioManagerProps> = ({ userId }) =>
     loadItems();
   };
 
-  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
+  // text-base (16px) — avoids iOS Safari's zoom-on-focus for any
+  // input with computed font-size under 16px.
+  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-base bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">

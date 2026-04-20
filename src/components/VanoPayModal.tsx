@@ -150,7 +150,7 @@ export function VanoPayModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What's this for? (optional)"
               maxLength={200}
-              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
             />
           </div>
 

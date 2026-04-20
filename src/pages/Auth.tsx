@@ -412,7 +412,7 @@ const Auth = () => {
                     onChange={(e) => setMagicLinkEmail(e.target.value)}
                     placeholder="you@example.com"
                     disabled={magicLinkSending}
-                    className="flex-1 bg-transparent text-[14px] placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-60"
+                    className="flex-1 bg-transparent text-base placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-60"
                   />
                 </div>
                 <button

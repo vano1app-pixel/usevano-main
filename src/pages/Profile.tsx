@@ -514,7 +514,11 @@ const Profile = () => {
     </div>
   );
 
-  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors duration-200";
+  // text-base (16px) — under iOS Safari, any focused input with
+  // computed font-size <16px auto-zooms the viewport. Keeping this at
+  // 16px across the board is the Apple-recommended fix and matches
+  // what Gmail / Stripe / Airbnb do. Desktop visuals take the 2px hit.
+  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-base bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors duration-200";
 
   /* ── Share-as-image handler ──
      Click → flip sharingState to 'rendering' which mounts the off-screen

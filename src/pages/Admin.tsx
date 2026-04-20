@@ -461,7 +461,9 @@ const Admin = () => {
     );
   }
 
-  const inputClass = "w-full border border-input rounded-xl px-4 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
+  // text-base (16px) — avoids iOS Safari's zoom-on-focus for any
+  // input with computed font-size under 16px.
+  const inputClass = "w-full border border-input rounded-xl px-4 py-2.5 text-base bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
   const tabs: { key: Tab; label: string; icon: ReactNode; count: number }[] = [
     { key: 'users', label: 'Users', icon: <Users size={16} />, count: filteredUsers.length },
