@@ -756,6 +756,26 @@ const Profile = () => {
                 inline as a modal. Keeping one path (the modal) per the
                 user's note about "two different edit profile things". */}
 
+            {/* Top-of-profile Vano Pay surface — for freelancers who
+                haven't started Stripe Connect onboarding yet. The detail
+                card (same component) used to live ~1000 lines further
+                down the profile form, so a new freelancer would never
+                see the payouts path without scrolling past 10+ fields
+                first. Lifting it above the grid puts the revenue path
+                above the fold; once stripe_account_id is set, this top
+                instance disappears and the card reverts to its regular
+                place in the left column so it doesn't crowd returning
+                users. The eyebrow frames it as a guided first step. */}
+            {!studentProfile?.stripe_account_id && (
+              <div className="mb-6" id="vano-pay-setup">
+                <div className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/12 text-[11px] font-semibold text-primary">1</span>
+                  Set up how you get paid
+                </div>
+                <VanoPaySetupCard userId={user.id} />
+              </div>
+            )}
+
             {/* Hidden file input for quick banner change */}
             <input
               ref={bannerFileInputRef}
@@ -1253,16 +1273,18 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* Vano Pay setup — lets the freelancer receive
-                    payments from clients through the "Pay via Vano"
-                    button on the conversation screen. Progressive
-                    onboarding: we don't force anyone to set this up;
-                    they opt in from here when they're ready.
+                {/* Vano Pay setup — detail card for freelancers who've
+                    already kicked off Stripe onboarding (pending) or
+                    finished it (enabled). The not-set-up state renders
+                    above the profile form instead (see the top-of-page
+                    block), so we skip it here to avoid a duplicate.
                     The wrapper id lets the post-publish basics card
                     scroll-into-view on tap. */}
-                <div id="vano-pay-setup">
-                  <VanoPaySetupCard userId={user.id} />
-                </div>
+                {studentProfile?.stripe_account_id && (
+                  <div id="vano-pay-setup">
+                    <VanoPaySetupCard userId={user.id} />
+                  </div>
+                )}
 
               </div>
               {/* ── END LEFT COLUMN ── */}

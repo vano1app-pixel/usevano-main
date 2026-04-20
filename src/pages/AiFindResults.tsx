@@ -68,6 +68,14 @@ type WebPick = {
   contact_instagram: string | null;
   contact_linkedin: string | null;
   match_score: number | null;
+  /** How the outreach landed — 'email' sent, 'manual' means no email
+   *  was on file so the hirer should DM them via IG/LinkedIn, 'none'
+   *  means no reachable contact at all. Null while outreach is still
+   *  pending on the edge function side. Drives the status line on the
+   *  WebPickCard so the UI never claims an invite was sent when it
+   *  wasn't. */
+  outreach_channel: string | null;
+  outreach_sent_at: string | null;
 };
 
 // Narrow escape-hatch for tables that haven't been added to the
@@ -298,7 +306,7 @@ const AiFindResults = () => {
     void (async () => {
       const { data } = await (supabase as unknown as UntypedSupabase)
         .from('scouted_freelancers')
-        .select('name, avatar_url, bio, skills, location, portfolio_url, source_platform, contact_email, contact_instagram, contact_linkedin, match_score')
+        .select('name, avatar_url, bio, skills, location, portfolio_url, source_platform, contact_email, contact_instagram, contact_linkedin, match_score, outreach_channel, outreach_sent_at')
         .eq('id', row.web_scout_id)
         .maybeSingle();
       if (cancelled) return;
@@ -757,12 +765,41 @@ const WebPickCard = ({
           </p>
         )}
 
-        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-2.5 text-[12px] leading-relaxed text-emerald-900 dark:text-emerald-200">
-          <p className="font-semibold">We've invited them to Vano.</p>
-          <p className="mt-0.5 text-emerald-900/90 dark:text-emerald-200/85">
-            If they join, you can pay them via <span className="font-semibold">Vano Pay</span> — protected, in-app, money in their bank in 1–2 days. Until then, reach out directly at your discretion.
-          </p>
-        </div>
+        {/* Truthful invite status — reads the outreach_channel the
+             notify function actually wrote on the row, so the hirer
+             sees what we really did (email sent, no email on file so
+             they need to DM manually, or no reachable contact). The
+             previous copy hard-coded "We've invited them" regardless
+             of whether any outreach actually went out. */}
+        {pick.outreach_channel === 'email' ? (
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-2.5 text-[12px] leading-relaxed text-emerald-900 dark:text-emerald-200">
+            <p className="font-semibold">We've emailed them to join Vano.</p>
+            <p className="mt-0.5 text-emerald-900/90 dark:text-emerald-200/85">
+              If they claim their profile, you can pay them via <span className="font-semibold">Vano Pay</span> — protected, in-app, money in their bank in 1–2 days.
+            </p>
+          </div>
+        ) : pick.outreach_channel === 'manual' ? (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-50/40 px-3.5 py-2.5 text-[12px] leading-relaxed text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/15 dark:text-amber-100">
+            <p className="font-semibold">We couldn't email them directly.</p>
+            <p className="mt-0.5 text-amber-900/90 dark:text-amber-100/85">
+              DM them via the links below — their Vano invite page is at <span className="font-mono text-[11px]">/claim</span> (we'll send it when they reply). Once they join, you can pay via <span className="font-semibold">Vano Pay</span>.
+            </p>
+          </div>
+        ) : pick.outreach_channel === 'none' ? (
+          <div className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
+            <p className="font-semibold text-foreground">No contact details on file.</p>
+            <p className="mt-0.5">
+              Open their portfolio to find a way to reach them — if they join Vano from there, you can pay safely via Vano Pay.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
+            <p className="font-semibold text-foreground">Reaching out to them now…</p>
+            <p className="mt-0.5">
+              Once they're contacted, we'll update this card. You can also reach out directly in the meantime.
+            </p>
+          </div>
+        )}
         <p className="text-[11px] text-muted-foreground">
           Vano hasn't reviewed this person — verify their work before sending money off-platform.
         </p>
