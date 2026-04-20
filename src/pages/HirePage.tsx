@@ -183,7 +183,12 @@ const HirePage = () => {
         // entirely. We validate against the known subtypes for the matching
         // category so a hand-typed bad param can't poison the brief.
         const st = searchParams.get('subtype');
-        if (st && found.subtypes.includes(st)) {
+        // `subtypes` is a `readonly` tuple of literal strings thanks to
+        // `as const`, so the strict `includes` signature rejects a
+        // runtime `string`. Widen it here — we've already guarded
+        // non-empty + the values are hard-coded so a bogus param
+        // simply fails the check.
+        if (st && (found.subtypes as readonly string[]).includes(st)) {
           setSubtype(st);
         }
       }
@@ -1067,7 +1072,7 @@ const HirePage = () => {
             </div>
             <button
               type="button"
-              onClick={handleVanoSubmit}
+              onClick={() => { void handleVanoSubmit(); }}
               disabled={submitting}
               className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-muted active:scale-[0.98] disabled:opacity-60"
             >

@@ -71,8 +71,11 @@ export function useParticleBurst() {
     try {
       const config = structuredClone(burstConfigs[type]);
 
-      if (config.emitters && !Array.isArray(config.emitters)) {
-        config.emitters.rate = { quantity: particleCount, delay: 0 };
+      if (config.emitters && !Array.isArray(config.emitters) && typeof config.emitters === 'object') {
+        (config.emitters as { rate?: { quantity: number; delay: number } }).rate = {
+          quantity: particleCount,
+          delay: 0,
+        };
       }
 
       if (mobile && config.particles?.size) {

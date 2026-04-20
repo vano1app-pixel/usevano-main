@@ -1249,7 +1249,6 @@ const Profile = () => {
                         <AvatarUpload
                           userId={user.id}
                           currentUrl={avatarUrl}
-                          table="student_profiles"
                           onUploaded={(url) => {
                             setAvatarUrl(url);
                             setStudentProfile((prev: any) => prev ? { ...prev, avatar_url: url } : prev);
@@ -1457,7 +1456,6 @@ const Profile = () => {
                   <AvatarUpload
                     userId={user.id}
                     currentUrl={avatarUrl}
-                    table="profiles"
                     onUploaded={(url) => setAvatarUrl(url)}
                   />
                   <div className="w-full min-w-0 flex-1 sm:pt-0">

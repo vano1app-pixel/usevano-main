@@ -146,6 +146,18 @@ export interface ListOnCommunityInitial {
   phone?: string | null;
   expectedBonusAmount?: string;
   expectedBonusUnit?: 'percentage' | 'flat';
+  /** Existing community_posts row when editing an already-published
+   *  listing. Null for first-time publishes. Only the shape fields the
+   *  wizard reads are listed; the caller can spread a wider row. */
+  existingPost?: {
+    category?: string | null;
+    image_url?: string | null;
+    title?: string | null;
+    description?: string | null;
+    rate_unit?: string | null;
+    rate_min?: number | null;
+    rate_max?: number | null;
+  } | null;
 }
 
 interface ListOnCommunityDraft {
@@ -217,6 +229,7 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       workLinks: parseDraftWorkLinks(parsed.workLinks),
       serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
       university: typeof parsed.university === 'string' ? resolveUniversityKey(parsed.university) : '',
+      phone: typeof parsed.phone === 'string' ? parsed.phone : '',
       rateUnit: typeof parsed.rateUnit === 'string' ? parsed.rateUnit : 'hourly',
       rateMin: typeof parsed.rateMin === 'string' ? parsed.rateMin : '',
       rateMax: typeof parsed.rateMax === 'string' ? parsed.rateMax : '',

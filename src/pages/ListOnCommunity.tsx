@@ -197,7 +197,7 @@ export default function ListOnCommunity() {
               onOpenChange={setWizardOpen}
               userId={userId}
               initial={initial}
-              onSubmittedForReview={handlePublished}
+              onSubmittedForReview={(category) => { void handlePublished({ category }); }}
             />
           </>
         ) : (
@@ -240,7 +240,7 @@ export default function ListOnCommunity() {
               onOpenChange={setWizardOpen}
               userId={userId}
               initial={initial}
-              onSubmittedForReview={handlePublished}
+              onSubmittedForReview={(category) => { void handlePublished({ category }); }}
             />
           </>
         )}
