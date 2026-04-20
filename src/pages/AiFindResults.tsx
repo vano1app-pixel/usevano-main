@@ -551,48 +551,86 @@ const FeedbackRow = ({
   onFeedback: (verdict: 'up' | 'down') => void;
   onRetry: () => void;
 }) => {
-  const canRetry = retryCount < 1 && feedback === 'down';
+  // Retry used to gate on `feedback === 'down'` — you had to
+  // actively thumbs-down before the "Show another" button appeared.
+  // Problem: a hirer who's lukewarm on the pick but doesn't click
+  // the thumb never sees that retry is even an option. Silent
+  // abandonment, one of the biggest Vano Match drop-offs.
+  //
+  // Now: show the retry link as soon as you have a match and still
+  // have a retry left in the budget (retry_count < 1). Muted by
+  // default so it reads as "option, not ask"; promoted to a filled
+  // primary chip once you thumbs-down so the recovery path is
+  // obvious. Thumbs-up users see a thank-you hint instead of the
+  // retry link, to signal their feedback was registered.
+  const retryLeft = retryCount < 1;
+  const downVoted = feedback === 'down';
+  const upVoted = feedback === 'up';
 
   return (
-    <div className="flex items-center gap-2 border-t border-border pt-3">
-      <p className="text-[11px] font-medium text-muted-foreground">How's this match?</p>
-      <button
-        type="button"
-        onClick={() => onFeedback('up')}
-        aria-label="Good match"
-        className={[
-          'ml-auto flex h-7 w-7 items-center justify-center rounded-full border transition',
-          feedback === 'up'
-            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700'
-            : 'border-border bg-card text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-700',
-        ].join(' ')}
-      >
-        <ThumbsUp size={13} strokeWidth={2.2} />
-      </button>
-      <button
-        type="button"
-        onClick={() => onFeedback('down')}
-        aria-label="Not a great match"
-        className={[
-          'flex h-7 w-7 items-center justify-center rounded-full border transition',
-          feedback === 'down'
-            ? 'border-amber-500 bg-amber-500/10 text-amber-700'
-            : 'border-border bg-card text-muted-foreground hover:border-amber-500/40 hover:text-amber-700',
-        ].join(' ')}
-      >
-        <ThumbsDown size={13} strokeWidth={2.2} />
-      </button>
-      {canRetry ? (
+    <div className="space-y-2 border-t border-border pt-3">
+      <div className="flex items-center gap-2">
+        <p className="text-[11px] font-medium text-muted-foreground">How's this match?</p>
         <button
           type="button"
-          onClick={onRetry}
-          disabled={retrying}
-          className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:brightness-110 disabled:opacity-60"
+          onClick={() => onFeedback('up')}
+          aria-label="Good match"
+          className={[
+            'ml-auto flex h-7 w-7 items-center justify-center rounded-full border transition',
+            upVoted
+              ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700'
+              : 'border-border bg-card text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-700',
+          ].join(' ')}
         >
-          {retrying ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} strokeWidth={2.5} />}
-          {retrying ? 'Finding…' : 'Show another'}
+          <ThumbsUp size={13} strokeWidth={2.2} />
         </button>
-      ) : null}
+        <button
+          type="button"
+          onClick={() => onFeedback('down')}
+          aria-label="Not a great match"
+          className={[
+            'flex h-7 w-7 items-center justify-center rounded-full border transition',
+            downVoted
+              ? 'border-amber-500 bg-amber-500/10 text-amber-700'
+              : 'border-border bg-card text-muted-foreground hover:border-amber-500/40 hover:text-amber-700',
+          ].join(' ')}
+        >
+          <ThumbsDown size={13} strokeWidth={2.2} />
+        </button>
+      </div>
+      {retryLeft && !upVoted && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {downVoted
+              ? "Sorry — let's try again."
+              : 'Not the right fit? Try again, free (once per brief).'}
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            className={[
+              'flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold shadow-sm transition disabled:opacity-60',
+              downVoted
+                ? 'bg-primary text-primary-foreground hover:brightness-110'
+                : 'border border-border bg-card text-foreground hover:bg-muted',
+            ].join(' ')}
+          >
+            {retrying ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} strokeWidth={2.5} />}
+            {retrying ? 'Finding…' : 'Show another'}
+          </button>
+        </div>
+      )}
+      {upVoted && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Thanks — your feedback helps rank future matches.
+        </p>
+      )}
+      {!retryLeft && downVoted && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          You've used your retry. Message them anyway to see where it leads, or start a fresh brief.
+        </p>
+      )}
     </div>
   );
 };
