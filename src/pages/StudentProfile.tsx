@@ -105,7 +105,7 @@ const StudentProfile = () => {
         .maybeSingle(),
       supabase
         .from('student_profiles')
-        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links, expected_bonus_amount, expected_bonus_unit')
+        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, stripe_payouts_enabled, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links, expected_bonus_amount, expected_bonus_unit')
         .eq('user_id', id!)
         .maybeSingle(),
       supabase
@@ -505,6 +505,23 @@ const StudentProfile = () => {
                   {categoryLabel && (
                     <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/20">
                       {categoryLabel}
+                    </span>
+                  )}
+                  {/* Vano Pay trust chip — only renders when the
+                       freelancer has finished Stripe Connect onboarding
+                       (stripe_payouts_enabled flips true on webhook).
+                       Pays double duty: social proof for the hirer
+                       (safe to pay through Vano = held till released)
+                       AND a visible reward for freelancers who opted
+                       in, which nudges the un-enabled ones toward
+                       setup. */}
+                  {(student as { stripe_payouts_enabled?: boolean })?.stripe_payouts_enabled && (
+                    <span
+                      title="Payments through Vano are held until you release them (14-day auto-release fallback)."
+                      className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
+                    >
+                      <ShieldCheck size={10} strokeWidth={2.5} />
+                      Vano Pay
                     </span>
                   )}
                   {expectedBonusLabel && (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Loader2,
@@ -101,6 +101,12 @@ const AiFindResults = () => {
   // UI state for retry-in-flight so the button spinner is per-side,
   // not global (both cards could hypothetically retry at once).
   const [retryingSide, setRetryingSide] = useState<'vano' | 'web' | null>(null);
+  // Celebratory reveal — fires once the row flips from scouting →
+  // complete and at least one pick has loaded. The chip fades in
+  // above the pick cards + a subtle confetti burst makes the moment
+  // feel earned instead of "the page silently filled in".
+  const [showMatchReveal, setShowMatchReveal] = useState(false);
+  const celebratedRef = useRef(false);
 
   // Save the thumbs verdict via the SECURITY DEFINER RPC. Optimistic
   // UI: flip the local row immediately so the thumb fills, revert on
@@ -229,6 +235,53 @@ const AiFindResults = () => {
     // future-facing signals (e.g. posthog terminal event).
   }, [isTerminal]);
 
+  // Celebratory reveal — fires once per page load the first time the
+  // row reaches 'complete' AND at least one pick has hydrated. Runs a
+  // small confetti burst and flips the "Matched!" chip visible. The
+  // ref-gate means the chip doesn't refire on subsequent re-renders
+  // (realtime refresh, retries, etc).
+  useEffect(() => {
+    if (celebratedRef.current) return;
+    if (row?.status !== 'complete') return;
+    if (!vanoPick && !webPick) return;
+    celebratedRef.current = true;
+    setShowMatchReveal(true);
+    // Fire confetti off the main thread — async import so the module
+    // only loads on this moment, not on every AiFindResults mount.
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return;
+    void (async () => {
+      try {
+        const confetti = (await import('canvas-confetti')).default;
+        const end = Date.now() + 500;
+        const burst = () => {
+          confetti({
+            particleCount: 18,
+            spread: 55,
+            startVelocity: 35,
+            angle: 60,
+            origin: { x: 0.08, y: 0.35 },
+            colors: ['#10b981', '#fcd34d', '#ffffff'],
+          });
+          confetti({
+            particleCount: 18,
+            spread: 55,
+            startVelocity: 35,
+            angle: 120,
+            origin: { x: 0.92, y: 0.35 },
+            colors: ['#10b981', '#fcd34d', '#ffffff'],
+          });
+          if (Date.now() < end) window.setTimeout(burst, 140);
+        };
+        burst();
+      } catch {
+        // Confetti is a nicety, not critical — if the dynamic import
+        // fails for any reason, the chip still appears.
+      }
+    })();
+  }, [row?.status, vanoPick, webPick]);
+
   // 1-second tick to drive the staged loading copy. Only runs during
   // non-terminal polling so a completed request doesn't thrash React.
   useEffect(() => {
@@ -353,17 +406,25 @@ const AiFindResults = () => {
               }}
             />
           ) : row.status === 'paid' || row.status === 'scouting' ? (
+            // Staged loading copy tied to elapsed seconds so the wait
+            // reads as deliberate work (3 named passes) rather than a
+            // generic spinner. Matches what the ai-find-freelancer
+            // edge function is actually doing behind the scenes:
+            // 0–15s : pool + brief parsing
+            // 15–30s: Serper scout + web result parsing
+            // 30–60s: Gemini re-rank to pick the single best
+            // 60+s  : gracefully degrades to "almost there".
             <LoadingCard
               label={
                 elapsedSec < 15
                   ? "Scanning your Vano pool…"
                   : elapsedSec < 30
-                    ? "Searching the open web for candidates…"
+                    ? "Scouting the open web…"
                     : elapsedSec < 60
-                      ? "Picking the best match…"
-                      : "Just a moment more…"
+                      ? "Ranking the best fit…"
+                      : "Almost there — polishing your matches…"
               }
-              hint={elapsedSec < 60 ? "Usually under a minute." : "Taking a little longer than usual — hang tight."}
+              hint={elapsedSec < 60 ? "Usually under a minute. €1 refunded if we can't find one." : "Taking a little longer than usual — your €1 is safe, we'll email you if anything's off."}
             />
           ) : row.status === 'failed' ? (
             <StatusCard
@@ -400,6 +461,27 @@ const AiFindResults = () => {
 
             return (
               <div className="space-y-4">
+                {/* Celebratory chip — fades in the first time the row
+                     reaches 'complete' with at least one pick. Makes
+                     the moment feel earned; paired with a confetti
+                     burst from the reveal effect above. Fades out
+                     after 4 seconds on its own via CSS; the ref-gate
+                     ensures it doesn't refire. */}
+                {showMatchReveal && (
+                  <div
+                    className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-[12px] font-semibold text-emerald-700 shadow-[0_8px_24px_-10px_rgba(16,185,129,0.35)] animate-in fade-in slide-in-from-top-2 duration-500 dark:text-emerald-300"
+                    onAnimationEnd={() => {
+                      // Auto-hide after a breath so the chip doesn't
+                      // linger all session. Use rAF so the fade-out
+                      // runs on the next paint.
+                      window.setTimeout(() => setShowMatchReveal(false), 3800);
+                    }}
+                  >
+                    <CheckCircle2 size={13} strokeWidth={3} />
+                    Your match is ready
+                  </div>
+                )}
+
                 {vanoPick ? (
                   <VanoPickCard
                     pick={vanoPick}
