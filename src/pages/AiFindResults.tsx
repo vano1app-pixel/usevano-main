@@ -685,16 +685,19 @@ const VanoPickCard = ({
   onFeedback: (verdict: 'up' | 'down') => void;
   onRetry: () => void;
 }) => {
-  // Bucket the raw Gemini score into three honest confidence tiers —
+  // Bucket the raw Gemini score into honest confidence tiers —
   // surfacing "Strong fit" / "Good fit" reads better than "94% match"
   // which implies a precision Gemini doesn't actually have. Below 40
-  // is filtered upstream, so the card is never rendered in that
-  // range; 70+ is uncommon and earns the "Strong" label.
+  // is the deterministic-fallback path: the ranker couldn't find a
+  // tailored match but still returned the best-ranked freelancer from
+  // the requested category, so the label reads "From your category"
+  // rather than claiming a fit we don't have.
   const scoreBucket: { label: string; tone: string } | null = (() => {
     if (score == null) return null;
     if (score >= 75) return { label: 'Strong fit', tone: 'bg-emerald-400/20 text-emerald-50 ring-1 ring-emerald-300/30' };
     if (score >= 55) return { label: 'Good fit',   tone: 'bg-white/15 text-white/90 ring-1 ring-white/20' };
-    return { label: 'Plausible fit', tone: 'bg-white/10 text-white/80 ring-1 ring-white/15' };
+    if (score >= 40) return { label: 'Plausible fit', tone: 'bg-white/10 text-white/80 ring-1 ring-white/15' };
+    return { label: 'From your category', tone: 'bg-white/10 text-white/70 ring-1 ring-white/15' };
   })();
   return (
   <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">

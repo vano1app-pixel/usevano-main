@@ -376,14 +376,70 @@ Keep "reason" under 240 chars, concrete and grounded in the candidate's fields (
     },
   );
 
-  if (!parsed) return null;
+  // Deterministic fallback ranker. Used whenever Gemini either (a)
+  // failed outright, (b) scored every candidate below the confidence
+  // cutoff, or (c) hallucinated a user_id that isn't in our pool.
+  // Without this, a brief where Gemini can't find a "great" fit would
+  // return null and the hirer's €1 would refund even though we have a
+  // perfectly-serviceable freelancer sitting in the matching category.
+  // The user would rather see a decent-but-not-perfect pick than get
+  // their money back and a dead end.
+  //
+  // Ranking mirrors the weighting Gemini uses for interpretability —
+  // review signal first, then vano_pay_ready, then verified, then a
+  // stable tiebreak on user_id so results are reproducible.
+  const rankDeterministic = (c: VanoCandidate): number => {
+    const reviewSignal = c.avg_rating != null
+      ? c.avg_rating * Math.log(c.review_count + 1)
+      : 0;
+    return reviewSignal * 100
+      + (c.vano_pay_ready ? 10 : 0)
+      + (c.verified ? 2 : 0);
+  };
+  const fallbackPick = (): { userId: string; reason: string | null; score: number } => {
+    const sorted = [...candidates].sort((a, b) => {
+      const diff = rankDeterministic(b) - rankDeterministic(a);
+      if (diff !== 0) return diff;
+      return a.user_id.localeCompare(b.user_id);
+    });
+    const top = sorted[0];
+    // Reason reads honestly — we didn't have a tailored match, but
+    // this is a real freelancer from the relevant category. UI can
+    // still render it as a suggestion.
+    const categoryNote = row.category ? ` from our ${row.category.replace(/_/g, ' ')} pool` : '';
+    const ratingNote = top.avg_rating != null && top.review_count > 0
+      ? ` · ${top.avg_rating.toFixed(1)}★ (${top.review_count} ${top.review_count === 1 ? 'review' : 'reviews'})`
+      : '';
+    return {
+      userId: top.user_id,
+      reason: `A top-ranked freelancer${categoryNote}${ratingNote}. Start a chat to see if they're a fit.`,
+      // 40 is the confidence cutoff — label fallback picks just below
+      // so the UI can distinguish them from confident Gemini picks.
+      score: 39,
+    };
+  };
+
+  if (!parsed) {
+    console.warn('[ai-find-freelancer] gemini returned no parse — using deterministic fallback');
+    return fallbackPick();
+  }
   const userId = typeof parsed.user_id === 'string' ? parsed.user_id : null;
   const score = typeof parsed.match_score === 'number' ? parsed.match_score : 0;
   const reason = typeof parsed.reason === 'string' ? parsed.reason.trim().slice(0, 280) : null;
-  if (!userId || score < 40) return null;
-  // Sanity-check the returned id against the candidate list to catch
-  // hallucinations.
-  if (!candidates.some((c) => c.user_id === userId)) return null;
+
+  // Low confidence → fall back to deterministic pick so the hirer
+  // always sees someone, not a refund.
+  if (!userId || score < 40) {
+    console.info('[ai-find-freelancer] gemini low-confidence (score=%d) — using deterministic fallback', score);
+    return fallbackPick();
+  }
+  // Sanity-check the returned id against the candidate list. Gemini
+  // occasionally hallucinates UUIDs; we'd rather show our deterministic
+  // pick than ship an invalid FK.
+  if (!candidates.some((c) => c.user_id === userId)) {
+    console.warn('[ai-find-freelancer] gemini hallucinated id %s — using deterministic fallback', userId);
+    return fallbackPick();
+  }
   return { userId, reason: reason || null, score: Math.max(0, Math.min(100, Math.round(score))) };
 }
 
