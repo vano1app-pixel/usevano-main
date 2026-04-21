@@ -18,6 +18,7 @@ import {
   Loader2,
   Briefcase,
   TrendingUp,
+  Banknote,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -166,6 +167,58 @@ export function BusinessDealsPanel({
     await load();
   };
 
+  // "Pay bonus" — reuses the existing Vano Pay checkout edge function
+  // with the deal id stamped on the payment so the sync trigger on
+  // vano_payments can flip bonus_status to 'paid' automatically when
+  // the Stripe webhook confirms the transfer. Opens Stripe Checkout
+  // in a redirect (same pattern as VanoPayModal).
+  const payBonus = async (deal: SalesDealRow) => {
+    if (!deal.conversation_id) {
+      toast({
+        title: "Can't pay this bonus yet",
+        description: 'This deal is not linked to a conversation — message the freelancer first, then retry.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!deal.bonus_amount_cents || deal.bonus_amount_cents < 100) {
+      toast({
+        title: "Can't pay this bonus yet",
+        description: 'The bonus amount is missing or below the €1.00 Vano Pay minimum.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setBusy(deal.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-vano-payment-checkout', {
+        body: {
+          conversation_id: deal.conversation_id,
+          amount_cents: deal.bonus_amount_cents,
+          description: `Bonus: ${deal.lead_name} — ${deal.lead_company}`.slice(0, 200),
+          sales_deal_id: deal.id,
+        },
+      });
+      if (error) throw error;
+      const url = (data as { url?: string } | null)?.url;
+      if (!url) throw new Error('No checkout URL returned');
+      window.location.href = url;
+    } catch (err) {
+      setBusy(null);
+      const message = (err as { message?: string; context?: { error?: string } })?.context?.error
+        || (err as { message?: string })?.message
+        || '';
+      toast({
+        title: "Couldn't start the bonus payout",
+        description:
+          message.includes('not enabled Vano Pay')
+            ? `${freelancerName} hasn't enabled Vano Pay yet — ask them to turn it on in their profile, then retry.`
+          : 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -246,10 +299,20 @@ export function BusinessDealsPanel({
 
               {deal.bonus_status === 'approved' && (
                 <div className="shrink-0">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                    <CheckCircle2 size={10} strokeWidth={2.75} />
-                    Awaiting payout
-                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 rounded-lg text-xs font-semibold"
+                    disabled={isBusyOnThis}
+                    onClick={() => void payBonus(deal)}
+                  >
+                    {isBusyOnThis ? (
+                      <Loader2 size={12} className="mr-1 animate-spin" />
+                    ) : (
+                      <Banknote size={12} className="mr-1" strokeWidth={2.5} />
+                    )}
+                    Pay {formatEuro(deal.bonus_amount_cents)} bonus
+                  </Button>
                 </div>
               )}
 

@@ -80,6 +80,13 @@ serve(async (req) => {
     const amountCents = Number.isInteger(body?.amount_cents) ? body.amount_cents as number : null;
     const description = typeof body?.description === 'string' ? body.description.trim() : '';
     const hireAgreementId = typeof body?.hire_agreement_id === 'string' ? body.hire_agreement_id : null;
+    // Optional — attached when the checkout is for a digital-sales
+    // bonus payout. Stamped onto vano_payments so the DB trigger that
+    // syncs sales_deals.bonus_status can find the originating deal
+    // when the webhook flips the payment to `transferred`. Loose
+    // reference on both sides (no FK) so a deleted deal doesn't
+    // cascade-block a legitimate payment that's already in flight.
+    const salesDealId = typeof body?.sales_deal_id === 'string' ? body.sales_deal_id : null;
 
     if (!conversationId) return bad(400, 'conversation_id is required');
     if (!amountCents || amountCents < MIN_AMOUNT_CENTS) {
@@ -154,6 +161,11 @@ serve(async (req) => {
         freelancer_id: otherId,
         conversation_id: conversationId,
         hire_agreement_id: hireAgreementId,
+        // Present only for digital-sales bonus payouts. A DB trigger
+        // on vano_payments watches UPDATE events and flips the
+        // matching sales_deals.bonus_status to 'paid' once this
+        // payment reaches the `transferred` state.
+        sales_deal_id: salesDealId,
         description: description || null,
         amount_cents: amountCents,
         fee_cents: feeCents,
