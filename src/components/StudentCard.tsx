@@ -218,10 +218,13 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/55" />
 
-        {/* Top-left: skill keywords line */}
+        {/* Top-left: skill keywords line. Sits on the banner so the card
+            is scannable at a glance; size bumped from 9→10.5px and weight
+            stepped to semibold with a subtle shadow so it stays legible on
+            busy cover photos without fighting the name for attention. */}
         {bannerSkills.length > 0 && (
-          <div className="absolute left-3 top-3">
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">
+          <div className="absolute left-3 top-3 max-w-[calc(100%-8rem)]">
+            <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
               {bannerSkills.join(' · ')}
             </p>
           </div>
@@ -359,18 +362,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             )}
           </div>
 
-          {/* Right: available + admin */}
+          {/* Right: admin badge only. "Available" used to render here as a
+              pill but the avatar already carries a green pulsing dot for the
+              same signal — two copies read as a bug, so the pill is dropped
+              to let the body's name + rating row breathe. */}
           <div className="flex flex-wrap items-center gap-1 pb-1">
             {isAdmin && <ModBadge size="sm" />}
-            {student.is_available && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
-                Available
-              </span>
-            )}
           </div>
         </div>
 
@@ -432,13 +429,15 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         )}
 
-        {/* CTA — two rows so both conversion paths are visible without leaving the card */}
+        {/* CTA — Message leads as the primary conversion path; Hire-now
+            collapses to a compact icon button so the row stops fighting
+            itself with two equally-weighted full-width buttons. "View
+            profile" is the implicit card click, surfaced as a subtle
+            footer on hover rather than a third button competing for
+            attention. */}
         {clickable && (
-          <div className="mt-4 pt-3 border-t border-foreground/5 space-y-2">
-            {/* Row 1: Message (primary) + Hire now (secondary pill) — hidden on your own card.
-                Two equally-weighted buttons created choice paralysis. Message is the
-                lower-friction first action; Hire-now is reserved for users who already know. */}
-            {!isOwnCard && (
+          <div className="mt-4 pt-3 border-t border-foreground/5">
+            {!isOwnCard ? (
               <div className="flex items-stretch gap-2">
                 <button
                   type="button"
@@ -451,23 +450,18 @@ export const StudentCard: React.FC<StudentCardProps> = ({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setHireOpen(true); }}
-                  title="Send an instant hire request with a 2hr lock"
-                  className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300 transition-all duration-200 hover:bg-amber-500/15 active:scale-[0.97]"
+                  title="Hire now — instant 2-hour lock"
+                  aria-label="Hire now"
+                  className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-700 shadow-sm transition-all duration-200 hover:bg-amber-500/20 active:scale-[0.94] dark:text-amber-300"
                 >
-                  <Zap size={12} strokeWidth={2.5} />
-                  Hire now
+                  <Zap size={14} strokeWidth={2.75} />
                 </button>
               </div>
+            ) : (
+              <span className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2.5 text-[11px] font-semibold text-primary transition-all duration-300 ease-out-quint group-hover:bg-primary group-hover:text-primary-foreground">
+                View your profile <ArrowRight size={11} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
+              </span>
             )}
-            {/* Row 2: View profile (always available) */}
-            <span className={cn(
-              'w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold transition-all duration-300 ease-out-quint',
-              isOwnCard
-                ? 'bg-primary/8 py-2.5 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
-                : 'bg-primary/5 py-2 text-primary/80 group-hover:bg-primary/10 group-hover:text-primary',
-            )}>
-              {isOwnCard ? 'View your profile' : 'View profile'} <ArrowRight size={11} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
-            </span>
           </div>
         )}
       </div>

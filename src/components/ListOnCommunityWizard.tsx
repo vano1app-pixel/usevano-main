@@ -593,10 +593,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         {
           const cat = category ? COMMUNITY_CATEGORIES[category] : null;
           const needsCounty = cat?.locationModel === 'local';
+          const phoneShapeOk = /^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim());
           return (
             title.trim().length > 0 &&
             description.trim().length > 0 &&
             phone.trim().length > 0 &&
+            phoneShapeOk &&
             (!needsCounty || county.trim().length > 0)
           );
         }
@@ -628,6 +630,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         if (title.trim().length === 0) missing.push('Headline');
         if (description.trim().length === 0) missing.push('What you do');
         if (phone.trim().length === 0) missing.push('Phone number');
+        else if (!/^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim())) missing.push('a valid phone number');
         if (needsCounty && county.trim().length === 0) missing.push('County');
         return missing;
       }
@@ -834,8 +837,15 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       const tbMax = category === 'websites'
         ? (rate_max ?? null)
         : (typicalBudgetMax.trim() && parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null);
-      const hourlyNum = parseFloat(profileHourly.replace(',', '.'));
-      const hourly_rate = !Number.isNaN(hourlyNum) && hourlyNum > 0 ? Math.min(hourlyNum, hourlyCapFor(category)) : 0;
+      // When the freelancer picked hourly as their pricing type we reuse
+      // their Rate-range minimum as the public hourly_rate — it's the same
+      // number and asking twice was confusing. `profileHourly` only takes
+      // precedence for non-hourly pricing types (day / project / negotiable)
+      // where the main rate isn't expressed per hour.
+      const hourlyInput = profileHourly.trim()
+        ? parseFloat(profileHourly.replace(',', '.'))
+        : (rateUnit === 'hourly' && rate_min != null ? rate_min : NaN);
+      const hourly_rate = !Number.isNaN(hourlyInput) && hourlyInput > 0 ? Math.min(hourlyInput, hourlyCapFor(category)) : 0;
 
       const studentPatch: Record<string, unknown> = {
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
@@ -1195,7 +1205,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
             <div className="space-y-6">
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Pick your category</Label>
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {COMMUNITY_CATEGORY_ORDER.map((id) => {
                     const item = COMMUNITY_CATEGORIES[id];
                     const Icon = item.icon;
@@ -1206,20 +1216,25 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         type="button"
                         onClick={() => setCategory(id)}
                         className={cn(
-                          'flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all',
+                          'group relative flex h-full flex-col gap-2 rounded-2xl border p-4 text-left transition-all',
                           sel
-                            ? 'border-primary bg-primary/8 shadow-sm ring-1 ring-primary/20'
-                            : 'border-border bg-card hover:border-primary/25',
+                            ? 'border-primary bg-primary/8 shadow-sm ring-1 ring-primary/25'
+                            : 'border-border bg-card hover:-translate-y-px hover:border-primary/30 hover:shadow-sm',
                         )}
                       >
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
-                          <Icon className="h-5 w-5" strokeWidth={2} />
-                        </div>
-                        <div className="min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={cn(
+                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
+                              sel ? 'bg-primary/15 text-primary' : 'bg-muted text-foreground/80',
+                            )}
+                          >
+                            <Icon className="h-5 w-5" strokeWidth={2} />
+                          </div>
                           <p className="font-semibold text-foreground">{item.label}</p>
-                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                          {sel && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" strokeWidth={2.75} />}
                         </div>
-                        {sel && <Check className="ml-auto h-5 w-5 shrink-0 text-primary" strokeWidth={2.5} />}
+                        <p className="text-xs leading-relaxed text-muted-foreground">{item.description}</p>
                       </button>
                     );
                   })}
@@ -1339,7 +1354,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               </div>
               <div>
                 <Label htmlFor="lc-desc">What you do</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Shown on your listing card and on the board.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  2–3 sentences is perfect. Shown on your listing card and on the board.
+                </p>
                 <Textarea
                   id="lc-desc"
                   className="mt-1.5 min-h-[110px] text-sm"
@@ -1356,6 +1373,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={2000}
                 />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {description.length}/2000
+                  {description.trim().length > 0 && description.trim().length < 60 && (
+                    <span className="ml-1 text-amber-600 dark:text-amber-400">
+                      · a bit more detail helps businesses see your expertise
+                    </span>
+                  )}
+                </p>
               </div>
               <div className="h-px bg-border" />
 
@@ -1371,7 +1396,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
+                {phone.trim().length > 0 && !/^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim()) ? (
+                  <p className="mt-1 text-[11px] font-medium text-rose-500">
+                    That doesn&apos;t look like a phone number — digits only, 7+ characters.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
+                )}
               </div>
               {/* Location question — structured and category-aware. Local
                   categories (videography) require a county so the matcher
@@ -1705,17 +1736,24 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       </div>
                     );
                   })()}
-                  <div>
-                    <div className="flex items-baseline justify-between">
-                      <Label>Your hourly rate (€)</Label>
-                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_HOURLY_RATE}/hr</span>
+                  {/* "Your hourly rate" — only surfaced when the user picked a
+                       non-hourly pricing type (day / project / negotiable).
+                       When rateUnit === 'hourly', Rate range above already
+                       captures the hourly; asking again here was the "why
+                       is it asking twice?" snag. */}
+                  {rateUnit !== 'hourly' && (
+                    <div>
+                      <div className="flex items-baseline justify-between">
+                        <Label>Your hourly rate (€) <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                        <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_HOURLY_RATE}/hr</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">Shown on your profile for ongoing or recurring work — on top of your {rateUnit === 'project' ? 'project' : rateUnit === 'day' ? 'day' : 'main'} rate.</p>
+                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
+                      {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
+                        <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_HOURLY_RATE} max — we&apos;ll save it as €{MAX_HOURLY_RATE}/hr.</p>
+                      )}
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>
-                    <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
-                    {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
-                      <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_HOURLY_RATE} max — we&apos;ll save it as €{MAX_HOURLY_RATE}/hr.</p>
-                    )}
-                  </div>
+                  )}
                 </>
               )}
               <div>
@@ -1937,14 +1975,23 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Contact</p>
-                      <p className="mt-0.5 truncate text-sm font-medium text-foreground">
-                        {phone.trim() ? phone.trim().replace(/\d(?=\d{2})/g, '•') : 'No phone'}
-                        <span className="mx-1.5 text-muted-foreground/40">·</span>
-                        {university.trim() ? (
-                          <span className="text-foreground/80">{university.trim()}</span>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-foreground">
+                        {phone.trim() ? (
+                          <>
+                            <span>{phone.trim()}</span>
+                            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                              Private
+                            </span>
+                          </>
                         ) : (
-                          <span className="text-rose-500">No university</span>
+                          <span className="text-rose-500">No phone</span>
                         )}
+                        {university.trim() ? (
+                          <>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className="text-foreground/80">{university.trim()}</span>
+                          </>
+                        ) : null}
                       </p>
                     </div>
                     <span className="self-center text-xs font-semibold text-primary">Edit</span>
