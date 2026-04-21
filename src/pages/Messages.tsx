@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
+import { BusinessDealsPanel } from '@/components/BusinessDealsPanel';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import {
   TEAM_CONTACT_EMAIL,
@@ -1174,6 +1175,28 @@ const Messages = () => {
                     ) : null
                   )}
                 </div>
+
+                {/* Digital-sales deal pipeline — business-side view.
+                     Lives above the Vano Pay receipts so the "what's in
+                     play" context loads before the "money I've already
+                     committed" context. Gated to businesses talking to
+                     digital-sales freelancers; the panel itself handles
+                     the empty state so an un-logged pipeline isn't
+                     obtrusive. */}
+                {selectedConversation
+                  && user
+                  && viewerUserType === 'business'
+                  && otherUserType === 'student'
+                  && otherCategory === 'digital_sales'
+                  && selectedConversation.otherUserId && (
+                  <div className="border-b border-border/60 bg-muted/20 px-4 py-3">
+                    <BusinessDealsPanel
+                      businessId={user.id}
+                      freelancerId={selectedConversation.otherUserId}
+                      freelancerName={selectedConversation.otherName || 'Your freelancer'}
+                    />
+                  </div>
+                )}
 
                 {/* Vano Pay escrow receipts — renders one row per Vano
                      Pay payment attached to this conversation in a

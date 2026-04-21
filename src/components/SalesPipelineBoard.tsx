@@ -113,6 +113,33 @@ export function SalesPipelineBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Realtime subscription so a business confirming a close on their
+  // side flips the freelancer's bonus_status chip without a reload.
+  // Filtered to `freelancer_id=eq.userId` so a freelancer working on
+  // dozens of pipelines across multiple businesses only gets events
+  // from rows they actually own.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`sales-deals-freelancer-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales_deals',
+          filter: `freelancer_id=eq.${userId}`,
+        },
+        () => {
+          void loadDeals();
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
   // Resolve the set of businesses this freelancer can log deals
   // against — driven off the conversations table so we never end
   // up with a dropdown offering a "business" the freelancer has
