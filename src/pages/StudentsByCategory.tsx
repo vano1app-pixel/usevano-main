@@ -212,11 +212,24 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           )}
         </div>
 
-        {/* "On VANO now" label */}
-        <p className="mb-4 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground/60">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          On VANO now
-        </p>
+        {/* Live online counter. Replaced the old "On VANO now" label
+            (pulsing dot + no data) so visitors can see pool density
+            at a glance instead of inferring it by scrolling. Hidden
+            during loading and when the pool is empty — both cases
+            have their own copy elsewhere. The dot still pulses so
+            the "live" signal carries, but now it's a signal attached
+            to a real number. */}
+        {!loading && students.length > 0 && (
+          <p className="mb-4 inline-flex items-baseline gap-1.5 text-[12px] font-semibold text-foreground/75">
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse self-center" />
+            <span className="text-foreground tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {students.length}
+            </span>
+            <span className="text-foreground/55">
+              {students.length === 1 ? 'freelancer online now' : 'freelancers online now'}
+            </span>
+          </p>
+        )}
 
         {/* Budget filter chips — helps budget-constrained hirers narrow down
             without bouncing on "too expensive" cards. Students with a 0 / null

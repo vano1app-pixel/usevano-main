@@ -7,7 +7,7 @@ import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { FreshListingCelebration } from '@/components/FreshListingCelebration';
-import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2 } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2, ChevronDown } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { ShareCardFrame } from '@/components/ShareCardFrame';
 import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
@@ -121,6 +121,13 @@ const Profile = () => {
   // the chip-picker grid instead of the linear 4-step flow so they can
   // tweak one thing and close.
   const [wizardInPicker, setWizardInPicker] = useState(false);
+  // Mobile-only collapse for the right-column ("extras") content —
+  // portfolio, referrals, pipeline, share link, sign-out. Default
+  // closed on mobile so the first paint focuses on the listing
+  // editor and "your details" cards instead of dumping a 2000px
+  // scroll in the user's face. Desktop (lg+) ignores this and
+  // renders everything as before.
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Share as image" flow. The ShareCardFrame is only mounted while
   // `sharingState === 'rendering'` — an off-screen 1080×1080 DOM node that
@@ -1411,8 +1418,50 @@ const Profile = () => {
               </div>
               {/* ── END LEFT COLUMN ── */}
 
-              {/* ── RIGHT COLUMN: Sidebar (quality + link) ── */}
-              <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+              {/* ── Mobile-only "Show extras" toggle ──
+                   Below lg: the right column collapses behind a single
+                   button so a first-paint scroll doesn't dump portfolio
+                   + pipeline + share-link + sign-out on someone who
+                   just wants to tweak their listing. Expanded state
+                   persists per-session via local state. On lg+ the
+                   button is hidden; the extras always render in the
+                   sticky sidebar. */}
+              <button
+                type="button"
+                onClick={() => setExtrasOpen((v) => !v)}
+                aria-expanded={extrasOpen}
+                className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-card px-5 py-4 text-left transition-colors hover:border-primary/30 hover:bg-muted/30 lg:hidden"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {extrasOpen ? 'Hide extras' : 'Portfolio, pipeline &amp; more'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {extrasOpen
+                      ? 'Tap to collapse — we’ll keep your place on this page.'
+                      : 'Tap to show your portfolio, Vano Pay, share link and more.'}
+                  </p>
+                </div>
+                <ChevronDown
+                  size={18}
+                  strokeWidth={2.25}
+                  className={cn(
+                    'shrink-0 text-muted-foreground transition-transform duration-200',
+                    extrasOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+
+              {/* ── RIGHT COLUMN: Sidebar (quality + link) ──
+                   Mobile: gated by `extrasOpen` (see toggle above).
+                   Desktop (lg+): always visible in the sticky column
+                   exactly as before. */}
+              <div
+                className={cn(
+                  'space-y-6 lg:sticky lg:top-24 lg:self-start',
+                  !extrasOpen && 'hidden lg:block',
+                )}
+              >
 
                 {/* ── Portfolio section ── */}
                 <div>

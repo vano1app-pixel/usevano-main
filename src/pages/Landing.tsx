@@ -23,7 +23,6 @@ import {
   Monitor,
   Video,
   TrendingUp,
-  Loader2,
   Sparkles,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
@@ -209,11 +208,37 @@ const Landing = () => {
   );
 
   if (returningFromOAuth) {
+    // OAuth-return placeholder. Previous copy ("One sec…") + a
+    // full-screen spinner killed momentum right at the moment we've
+    // successfully signed the user in. This skeleton mirrors the
+    // rough shape of the hero (logo chip, title block, two action
+    // cards) so the transition into the real app feels continuous.
+    // Slow pulse + a quiet caption keeps the intent obvious without
+    // reading as "something is broken / still loading".
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-background">
-        <img src={logo} alt="" className="h-12 w-12 rounded-xl" />
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">One sec…</p>
+      <div className="min-h-[100dvh] bg-background">
+        <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col items-center justify-center gap-5 px-6 py-10">
+          <div className="flex flex-col items-center gap-2">
+            <img src={logo} alt="" className="h-12 w-12 rounded-xl shadow-sm" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Signing you in
+            </p>
+          </div>
+          <div
+            className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card p-6 shadow-sm"
+            aria-busy
+            aria-label="Finishing sign-in"
+          >
+            <div className="h-8 w-2/3 animate-pulse rounded-lg bg-muted" />
+            <div className="h-3.5 w-5/6 animate-pulse rounded bg-muted/80" />
+            <div className="h-3.5 w-3/4 animate-pulse rounded bg-muted/80" />
+            <div className="mt-3 grid w-full grid-cols-2 gap-2">
+              <div className="h-10 animate-pulse rounded-xl bg-muted" />
+              <div className="h-10 animate-pulse rounded-xl bg-muted/70" />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Bringing you to the right place…</p>
+        </div>
       </div>
     );
   }
