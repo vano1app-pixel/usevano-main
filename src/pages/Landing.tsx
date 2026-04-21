@@ -737,7 +737,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  A marketplace for hand-picked freelancers. Tell us what you need, we match you with one from our pool and one scouted from the open web, and you pay them safely through Vano Pay.
+                  A marketplace for hand-picked freelancers. Tell us what you need — for €1 we match you with one freelancer from our pool and one scouted from the open web. You chat, agree a rate, then pay them safely through Vano Pay.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -745,7 +745,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Start a Vano Match — tell us the category, timeline, and budget, and we hand-pick a freelancer in 60 seconds. Prefer to browse? Pick a category on the talent board and message anyone you like directly.
+                  Start a Vano Match — tell us the category, timeline, and budget, and for €1 we hand-pick two freelancers in 60 seconds. You then message them, agree a rate, and pay through Vano Pay when you're ready. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="pay" className="border-border/80 px-2">
@@ -789,8 +789,8 @@ const Landing = () => {
               Your perfect match,<br />
               <span className="italic font-semibold text-primary-foreground/95">hand-picked.</span>
             </h2>
-            <p className="relative text-primary-foreground/70 mb-10 text-base lg:text-[17px] max-w-[40ch] mx-auto leading-relaxed text-balance">
-              Describe the work, name your budget. We'll find who fits — paid safely through Vano.
+            <p className="relative text-primary-foreground/70 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
+              €1 finds your match in 60 seconds. You chat, agree a rate, then pay them safely through Vano Pay.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -800,7 +800,7 @@ const Landing = () => {
                 onClick={() => navigate('/hire')}
                 className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px] active:scale-[0.97]"
               >
-                Hire a freelancer
+                Find my freelancer — €1
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>
