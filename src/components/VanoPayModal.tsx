@@ -77,17 +77,29 @@ export function VanoPayModal({
       window.location.href = url;
     } catch (err) {
       console.error('[vano-pay-modal] checkout failed', err);
+      // Same error-surfacing pattern as HirePage/handleAiFind — when
+      // the known-case keyword match fails, fall through to the raw
+      // edge-function error (truncated) so the user doesn't stare at
+      // "please try again" forever without a clue what failed.
       const message = (err as { message?: string; context?: { error?: string } })?.context?.error
         || (err as { message?: string })?.message
         || '';
+      const status = (err as { status?: number; context?: { status?: number } })?.status
+        ?? (err as { context?: { status?: number } })?.context?.status;
+      const statusLine = status ? `[${status}] ` : '';
+      const friendly =
+        message.includes('not enabled Vano Pay')
+          ? `${freelancerName} hasn't enabled Vano Pay yet. Ask them to turn it on in their profile.`
+        : message.includes('at least €1')
+          ? 'Amount must be at least €1.00.'
+        : message.toLowerCase().includes('forbidden origin')
+          ? 'Origin not allowed — Supabase function ALLOWED_ORIGINS needs this site in the list.'
+        : message
+          ? `${statusLine}${message.slice(0, 200)}`
+        : 'Please try again in a moment.';
       toast({
         title: "Couldn't start Vano Pay",
-        description:
-          message.includes('not enabled Vano Pay')
-            ? `${freelancerName} hasn't enabled Vano Pay yet. Ask them to turn it on in their profile.`
-          : message.includes('at least €1')
-            ? 'Amount must be at least €1.00.'
-          : 'Please try again in a moment.',
+        description: friendly,
         variant: 'destructive',
       });
       setSubmitting(false);

@@ -574,12 +574,17 @@ const HirePage = () => {
       window.location.href = url;
     } catch (err) {
       console.error('[ai-find] checkout failed', err);
-      // Surface the real error from the edge function. Common cases:
-      //  - "STRIPE_SECRET_KEY not configured" → ops issue, contact support
-      //  - "Brief is too short" → user needs to write more
-      //  - opaque network failures → generic retry message
+      // Pull the server-side message via several fallbacks. Supabase
+      // functions.invoke wraps the edge-function JSON error under
+      // `context.error`; other throw paths surface via `.message`.
+      // Also pull the HTTP status where we can so "500 Unexpected
+      // error" and "400 Brief is too short" are distinguishable on
+      // screen.
       const ctxErr = (err as { context?: { error?: string } })?.context?.error;
+      const status = (err as { status?: number; context?: { status?: number } })?.status
+        ?? (err as { context?: { status?: number } })?.context?.status;
       const rawMsg = ctxErr || (err as { message?: string })?.message || '';
+      const statusLine = status ? `[${status}] ` : '';
       const friendly =
         rawMsg.includes('STRIPE_SECRET_KEY')
           ? "Payments aren't configured yet — message us on WhatsApp and we'll find your match manually."
@@ -587,6 +592,14 @@ const HirePage = () => {
           ? rawMsg
         : rawMsg.toLowerCase().includes('unauthorized')
           ? 'Please sign out and back in, then try again.'
+        : rawMsg.toLowerCase().includes('forbidden origin')
+          ? 'Origin not allowed — if this is a preview URL, add it to the Supabase ALLOWED_ORIGINS env var.'
+        : rawMsg
+          // Show the raw edge-fn error when we don't have a better
+          // match; otherwise the user sees "try again" forever with
+          // no actionable signal. Truncate so a stack trace doesn't
+          // dominate the toast.
+          ? `${statusLine}${rawMsg.slice(0, 200)}`
         : 'Please try again in a moment, or use the free Vano Match button above.';
       toast({
         title: "Couldn't start AI Find",
