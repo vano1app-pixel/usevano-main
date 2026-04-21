@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
+import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -181,17 +181,55 @@ export function VanoPayModal({
             </p>
           )}
 
+          {/* Escrow trust strip — moved above the button so the three
+               promises land while the hirer is deciding, not after
+               they've already clicked. Each row pairs an icon with
+               one short clause so the whole strip scans in under a
+               second: money held, release when done, full refund on
+               dispute. This is the core of why the 3% fee makes sense
+               and it belongs in the decision-moment, not as a footer. */}
+          <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3.5">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
+              <ShieldCheck size={12} strokeWidth={2.5} />
+              How escrow works
+            </div>
+            <ul className="space-y-1.5 text-[12px] leading-relaxed text-foreground/85">
+              <li className="flex items-start gap-2">
+                <Lock size={12} strokeWidth={2.25} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  <span className="font-medium text-foreground">Charged now, held by Vano.</span>{' '}
+                  <span className="text-muted-foreground">Not sent to {freelancerName} until you say so.</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check size={12} strokeWidth={2.5} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  <span className="font-medium text-foreground">Release when the work is done.</span>{' '}
+                  <span className="text-muted-foreground">Or auto-releases in 14 days if you forget.</span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <RotateCcw size={12} strokeWidth={2.25} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  <span className="font-medium text-foreground">Something off?</span>{' '}
+                  <span className="text-muted-foreground">Flag it and get a full refund.</span>
+                </span>
+              </li>
+            </ul>
+          </div>
+
           <button
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.55)] transition-all duration-150 hover:brightness-[1.08] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+            className="group mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.55)] transition-all duration-150 hover:brightness-[1.08] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
           >
             {submitting ? (
               <><Loader2 size={16} className="animate-spin" /> Opening Stripe…</>
             ) : amountCents >= minCents ? (
               <>
-                Pay €{(amountCents / 100).toFixed(2)}
+                <ShieldCheck size={15} strokeWidth={2.5} />
+                Pay €{(amountCents / 100).toFixed(2)} — held by Vano
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
               </>
             ) : (
@@ -199,16 +237,9 @@ export function VanoPayModal({
             )}
           </button>
 
-          {/* Footer trust — explains the escrow promise in the moment
-               of payment: money is HELD on Vano, hirer releases on
-               delivery, 14-day auto-release if nothing happens. This
-               is the bit that justifies the 3% fee on its own merits. */}
-          <div className="mt-4 flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
-            <ShieldCheck size={13} className="mt-[2px] shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <p>
-              We hold your payment until you release it. 14-day auto-release if you don't act. Full refund on dispute.
-            </p>
-          </div>
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+            Secure Stripe checkout · card never touches Vano
+          </p>
         </div>
       </div>
     </div>
