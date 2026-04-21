@@ -5,7 +5,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ReviewForm } from '@/components/ReviewForm';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star, TrendingUp } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
 import { BusinessDealsPanel } from '@/components/BusinessDealsPanel';
@@ -183,6 +183,11 @@ const Messages = () => {
     refunded_at: string | null;
     dispute_reason: string | null;
     description: string | null;
+    /** Populated for payouts that originated from the digital-sales
+     *  pipeline — surfaces a "Bonus" badge on the receipt so the
+     *  row is distinguishable from a generic hourly/project payment
+     *  without opening the deal. */
+    sales_deal_id: string | null;
     created_at: string;
   };
   const [threadPayments, setThreadPayments] = useState<ThreadPayment[]>([]);
@@ -368,12 +373,16 @@ const Messages = () => {
     const load = async () => {
       const { data } = await supabase
         .from('vano_payments')
-        .select('id, business_id, freelancer_id, amount_cents, fee_cents, currency, status, auto_release_at, released_at, refunded_at, dispute_reason, description, created_at')
+        .select('id, business_id, freelancer_id, amount_cents, fee_cents, currency, status, auto_release_at, released_at, refunded_at, dispute_reason, description, sales_deal_id, created_at')
         .eq('conversation_id', selectedConvo)
         .in('status', ['paid', 'transferred', 'refunded'])
         .order('created_at', { ascending: false });
       if (cancelled) return;
-      const payments = (data ?? []) as ThreadPayment[];
+      // sales_deal_id was added by migration 20260421140000; the
+      // generated DB types haven't picked it up yet so we cast
+      // through unknown. The migration has run server-side — this
+      // is only a build-time typing gap.
+      const payments = (data ?? []) as unknown as ThreadPayment[];
       setThreadPayments(payments);
 
       // Load which of THIS viewer's reviews already exist for the
@@ -1241,8 +1250,18 @@ const Messages = () => {
                                 <p className="text-[13.5px] font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {amountEuro} <span className="font-medium text-muted-foreground">held on Vano</span>
                                 </p>
-                                {p.description && (
-                                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{p.description}</p>
+                                {(p.description || p.sales_deal_id) && (
+                                  <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground">
+                                    {p.sales_deal_id && (
+                                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                                        <TrendingUp size={9} strokeWidth={2.75} />
+                                        Bonus
+                                      </span>
+                                    )}
+                                    {p.description && (
+                                      <span className="truncate">{p.description}</span>
+                                    )}
+                                  </p>
                                 )}
                                 {/* Fee split — the freelancer needs to
                                      know what actually lands in their

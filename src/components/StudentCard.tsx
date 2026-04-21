@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote, Clock } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote, Clock, TrendingUp, Sparkles } from 'lucide-react';
 import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
@@ -12,6 +12,7 @@ import { getUniversityStyle } from '@/lib/universities';
 import { findSpecialtyLabel } from '@/lib/categorySpecialties';
 import { findStrength } from '@/lib/freelancerTags';
 import { useReplySeconds, formatReplyTime } from '@/hooks/useReplySeconds';
+import { useFreelancerSalesStats, formatSalesStats } from '@/hooks/useFreelancerSalesStats';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
@@ -179,6 +180,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   // "Replies fast" badge for a freelancer who's never replied.
   const replySeconds = useReplySeconds(student.user_id);
   const replyLabel = formatReplyTime(replySeconds);
+  // Aggregate sales track record — only relevant for digital-sales
+  // freelancers; the hook silently returns (0, 0) for everyone
+  // else and the formatter returns null on zero so the chip just
+  // doesn't render for non-sales (or brand-new sales) freelancers.
+  const salesStats = useFreelancerSalesStats(student.user_id);
+  const salesLabel = formatSalesStats(salesStats);
 
   return (
     <div
@@ -238,31 +245,48 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/55" />
 
-        {/* Top-left stack: skill keywords + reply-time trust chip.
-            Skills size bumped from 9→10.5px and weight stepped to
-            semibold with a subtle shadow so they stay legible on
-            busy cover photos. The reply-time chip below is the
-            single biggest hire-decision signal we have — surfaces
-            the median reply time computed server-side (SECURITY
-            DEFINER RPC, no message content leaks) and hides itself
-            when the freelancer has fewer than 5 reply pairs so
-            cold listings don't display a fabricated "fast reply"
-            claim. */}
-        {(bannerSkills.length > 0 || replyLabel) && (
-          <div className="absolute left-3 top-3 flex max-w-[calc(100%-8rem)] flex-col items-start gap-1.5">
-            {bannerSkills.length > 0 && (
-              <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
-                {bannerSkills.join(' · ')}
-              </p>
-            )}
-            {replyLabel && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/85 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
-                <Clock size={10} strokeWidth={2.5} />
-                {replyLabel}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Top-left stack: skill keywords + trust chips. Chips are
+            mutually exclusive by precedence — sales stats wins when
+            there's real track record (digital-sales with closed wins),
+            otherwise reply-time wins when we have the reply-pair
+            samples, otherwise "New on Vano" for genuinely new listings
+            so a cold banner never reads as abandoned. Every chip is
+            data-driven — no user-chosen claims — so a listing can't
+            fake any of these signals. */}
+        {(() => {
+          const chip = salesLabel
+            ? { kind: 'sales' as const, label: salesLabel }
+            : replyLabel
+            ? { kind: 'reply' as const, label: replyLabel }
+            : replySeconds === null
+            ? { kind: 'new' as const, label: 'New on Vano' }
+            : null;
+          if (bannerSkills.length === 0 && !chip) return null;
+          return (
+            <div className="absolute left-3 top-3 flex max-w-[calc(100%-8rem)] flex-col items-start gap-1.5">
+              {bannerSkills.length > 0 && (
+                <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
+                  {bannerSkills.join(' · ')}
+                </p>
+              )}
+              {chip && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm',
+                    chip.kind === 'sales' && 'bg-primary/85',
+                    chip.kind === 'reply' && 'bg-emerald-500/85',
+                    chip.kind === 'new'   && 'bg-sky-500/85',
+                  )}
+                >
+                  {chip.kind === 'sales' && <TrendingUp size={10} strokeWidth={2.5} />}
+                  {chip.kind === 'reply' && <Clock size={10} strokeWidth={2.5} />}
+                  {chip.kind === 'new'   && <Sparkles size={10} strokeWidth={2.5} />}
+                  {chip.label}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Top-right: verified + medal + demo badge + favourite */}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
