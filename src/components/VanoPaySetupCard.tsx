@@ -5,6 +5,8 @@ import { Loader2, CheckCircle2, Banknote, ExternalLink, AlertCircle, Circle } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { cn } from '@/lib/utils';
+import { cardBase } from '@/lib/cardStyles';
 
 // Freelancer-facing card for enabling Vano Pay. Shown on the Profile
 // page for student-type users. Handles three states based on
@@ -135,7 +137,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className={cn(cardBase, 'overflow-hidden')}>
       <div className="border-b border-border/50 px-5 py-3">
         <div className="flex items-center gap-2">
           <Banknote size={15} className="text-primary" />

@@ -14,6 +14,7 @@ import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { FreelancerPublicHeader } from '@/components/FreelancerPublicHeader';
+import { StatusChip } from '@/components/ui/StatusChip';
 import { cn } from '@/lib/utils';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
@@ -516,13 +517,13 @@ const StudentProfile = () => {
                        in, which nudges the un-enabled ones toward
                        setup. */}
                   {(student as { stripe_payouts_enabled?: boolean })?.stripe_payouts_enabled && (
-                    <span
-                      title="Payments through Vano are held until you release them (14-day auto-release fallback)."
-                      className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
+                    <StatusChip
+                      tone="success"
+                      icon={ShieldCheck}
+                      title="Payments through Vano Pay are held until you release them (14-day auto-release fallback)."
                     >
-                      <ShieldCheck size={10} strokeWidth={2.5} />
                       Vano Pay
-                    </span>
+                    </StatusChip>
                   )}
                   {expectedBonusLabel && (
                     <span

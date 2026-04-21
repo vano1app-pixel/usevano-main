@@ -10,6 +10,7 @@ import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
 import { cn } from '@/lib/utils';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
@@ -358,20 +359,16 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             </div>
           </div>
         ) : visibleStudents.length === 0 ? (
-          // Empty state when the user narrowed by budget to nothing. Offer
-          // to widen the filter instead of leaving them on a dead end.
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
-            <p className="max-w-sm text-sm font-medium text-foreground">
-              No {meta.label.toLowerCase()} freelancers in this rate band.
-            </p>
-            <button
-              type="button"
-              onClick={() => setRateFilter('all')}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
-            >
-              Show all rates
-            </button>
-          </div>
+          <EmptyState
+            size="compact"
+            title={`No ${meta.label.toLowerCase()} freelancers in this rate band.`}
+            description="Widen the filter to see everyone available in this category."
+            action={{
+              label: 'Show all rates',
+              variant: 'outline',
+              onClick: () => setRateFilter('all'),
+            }}
+          />
         ) : (
           <div className="flex flex-col gap-4">
             {visibleStudents.map((student, idx) => {

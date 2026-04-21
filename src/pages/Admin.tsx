@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/lib/utils';
 import { cardWarning } from '@/lib/cardStyles';
 import {
@@ -826,15 +827,12 @@ const Admin = () => {
         {tab === 'disputes' && (
           <div className="space-y-3">
             {disputes.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
-                  <ShieldCheck size={18} />
-                </div>
-                <p className="text-sm font-medium text-foreground">No active disputes</p>
-                <p className="max-w-sm text-[11.5px] text-muted-foreground">
-                  Hirers who flag a held payment land here. Each row is paused from auto-release until resolved. None open right now.
-                </p>
-              </div>
+              <EmptyState
+                tone="success"
+                icon={ShieldCheck}
+                title="No active disputes"
+                description="Hirers who flag a held payment land here. Each row is paused from auto-release until resolved. None open right now."
+              />
             ) : (
               disputes.map((d) => {
                 const amountEuro = `€${(d.amount_cents / 100).toFixed(2)}`;
@@ -935,7 +933,11 @@ const Admin = () => {
         {tab === 'feedback' && (
           <div className="space-y-2">
             {filteredFeedbacks.length === 0 && (
-              <p className="text-center text-muted-foreground py-12 text-sm">No feedback yet</p>
+              <EmptyState
+                icon={MessageSquare}
+                title="No feedback yet"
+                description="User messages submitted through the feedback widget land here. None so far."
+              />
             )}
             {filteredFeedbacks.map((f) => (
               <div key={f.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-4">
