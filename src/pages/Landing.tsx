@@ -235,8 +235,8 @@ const Landing = () => {
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="mx-auto mb-8 max-w-[42ch] text-[15px] font-normal leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            You set the brief. You set the budget. We hand-pick one freelancer from our local pool and one scouted from the open web — paid safely through Vano.
+          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] font-normal leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
+            Share your brief. We hand-pick two matches in 60 seconds — one from Vano, one scouted from the open web. You chat, agree a rate, then pay them safely through Vano Pay.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -254,8 +254,13 @@ const Landing = () => {
             )}
           >
             {/* HIRER PATH — Vano Match. Primary gradient surface,
-                 mirrors the HirePage match card. Price stays in the
-                 hire flow, not here. */}
+                 mirrors the HirePage match card. €1 chip is visible
+                 because opacity-ambiguity about the price was the one
+                 place the old Landing was dishonest — €1 finds the
+                 match, then the hirer pays the freelancer directly
+                 through Vano Pay. Two-pill preview strip inside the
+                 card shows what the €1 produces so the click isn't a
+                 leap of faith. */}
             <InteractiveButton
               data-mascot="hire-cta"
               burstType="sparkle"
@@ -271,17 +276,41 @@ const Landing = () => {
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
                     <Sparkles size={12} className="text-amber-200" /> I want to hire
                   </span>
-                  <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-white/90">
-                    60s
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold text-white ring-1 ring-white/20">
+                    €1 · 60s
                   </span>
                 </div>
                 <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight sm:text-[20px]">
-                  Find my match
+                  Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  One from our pool, one scouted from the web — hand-picked to your brief.
+                  €1 finds two matches. Chat, agree a rate, then pay safely via Vano Pay.
                 </p>
-                <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
+                {/* Preview of the €1 deliverable — two pills showing
+                     "Vano pick" + "Web scout" so the hirer sees what
+                     they get before clicking. Both pills render the
+                     same shape so they read as peer options. */}
+                <div className="mt-4 grid grid-cols-2 gap-1.5">
+                  <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.1] px-2.5 py-1.5 ring-1 ring-white/15">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/20">
+                      <Sparkles size={10} className="text-amber-200" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-white/60">Vano pick</p>
+                      <p className="truncate text-[11px] font-semibold text-white">From the pool</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.1] px-2.5 py-1.5 ring-1 ring-white/15">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/20">
+                      <Shield size={10} className="text-emerald-200" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-white/60">Web scout</p>
+                      <p className="truncate text-[11px] font-semibold text-white">Found for you</p>
+                    </div>
+                  </div>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
                   <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                 </span>
