@@ -307,7 +307,6 @@ const Landing = () => {
                  card shows what the €1 produces so the click isn't a
                  leap of faith. */}
             <InteractiveButton
-              data-mascot="hire-cta"
               burstType="sparkle"
               particleCount={25}
               magneticStrength={0.35}
