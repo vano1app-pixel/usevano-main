@@ -20,6 +20,8 @@ import {
   Shield, ShieldCheck, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
+import { AiFindCheckoutModal } from '@/components/AiFindCheckoutModal';
+import { hasStripePublishableKey } from '@/lib/stripeClient';
 import { track } from '@/lib/track';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
@@ -144,6 +146,14 @@ const HirePage = () => {
   // Separate loading flag so the €1 AI Find button can spin without
   // freezing the primary "Send request to Vano" CTA.
   const [aiFindLoading, setAiFindLoading] = useState(false);
+  // Embedded-checkout state. client_secret comes back from the edge
+  // function when ui_mode='embedded'; we mount the modal with it so
+  // Stripe can render the checkout UI inline instead of redirecting
+  // the whole page. fallback_url is the hosted-mode URL kept around
+  // for "Open in new tab" on iframe-blocked browsers.
+  const [aiFindCheckoutOpen, setAiFindCheckoutOpen] = useState(false);
+  const [aiFindClientSecret, setAiFindClientSecret] = useState<string | null>(null);
+  const [aiFindFallbackUrl, setAiFindFallbackUrl] = useState<string | null>(null);
   // Step 1 "Add any extra detail" textarea is optional and chips already
   // build a usable description from category + subtype. We collapse it
   // behind a disclosure for known categories so happy-path hirers see a
@@ -514,24 +524,50 @@ const HirePage = () => {
     setAiFindLoading(true);
     try {
       const finalDescription = buildDescription();
-      // Persist the brief before the redirect so a Stripe failure
-      // (3DS abandon, network drop, payment declined) lands the user
-      // back on /hire with their work intact instead of a blank wizard.
+      // Persist the brief before the redirect / modal opens so a
+      // Stripe abandon (3DS, network drop, payment declined) lands
+      // the user back on /hire with their work intact instead of a
+      // blank wizard.
       saveHireBrief({ description, category, subtype, timeline, budget });
+      // Prefer Embedded Checkout (in-page modal) when the Stripe
+      // publishable key is set. If not, fall back to the classic
+      // hosted redirect so a deploy without VITE_STRIPE_PUBLISHABLE_KEY
+      // keeps working — important for gradual rollout / local dev.
+      const useEmbedded = hasStripePublishableKey();
       const { data, error } = await supabase.functions.invoke('create-ai-find-checkout', {
         body: {
           brief: finalDescription,
           category,
           budget_range: budget,
           timeline,
+          ui_mode: useEmbedded ? 'embedded' : 'hosted',
         },
       });
 
       if (error) throw error;
-      const url = (data as { url?: string } | null)?.url;
-      if (!url) throw new Error('No checkout URL returned');
+      const payload = data as { url?: string | null; client_secret?: string | null } | null;
+      const clientSecret = payload?.client_secret ?? null;
+      const url = payload?.url ?? null;
 
-      track('ai_find_checkout_started', { category, timeline, budget });
+      track('ai_find_checkout_started', {
+        category, timeline, budget,
+        ui_mode: useEmbedded && clientSecret ? 'embedded' : 'hosted',
+      });
+
+      if (useEmbedded && clientSecret) {
+        // Mount the embedded checkout in-page. Stripe handles the
+        // actual payment + 3DS + return_url redirect internally —
+        // when payment succeeds, the browser navigates itself to
+        // /ai-find/:id?session_id=...
+        setAiFindClientSecret(clientSecret);
+        setAiFindFallbackUrl(url);
+        setAiFindCheckoutOpen(true);
+        setAiFindLoading(false);
+        return;
+      }
+
+      // Hosted fallback.
+      if (!url) throw new Error('No checkout URL returned');
       window.location.href = url;
     } catch (err) {
       console.error('[ai-find] checkout failed', err);
@@ -1295,6 +1331,23 @@ const HirePage = () => {
         </div>
         )}
       </div>
+
+      {/* Embedded Stripe checkout — opens inline when
+           VITE_STRIPE_PUBLISHABLE_KEY is set so hirers never leave
+           /hire for the €1 match. Stripe handles payment + 3DS +
+           auto-redirect to the return_url on success. Hosted-flow
+           fallback still fires when the key is missing or the
+           edge function returns no client_secret. */}
+      <AiFindCheckoutModal
+        open={aiFindCheckoutOpen}
+        onClose={() => {
+          setAiFindCheckoutOpen(false);
+          setAiFindClientSecret(null);
+          setAiFindFallbackUrl(null);
+        }}
+        clientSecret={aiFindClientSecret}
+        fallbackUrl={aiFindFallbackUrl}
+      />
     </div>
   );
 };

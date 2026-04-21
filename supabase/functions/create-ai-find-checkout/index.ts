@@ -3,9 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // Creates a Stripe Checkout Session for the €1 AI Find purchase and an
-// ai_find_requests row to track it. Returns { url } which the frontend
-// redirects to. Payment confirmation happens in stripe-webhook, not on
-// the success_url return — never trust the browser's word on "paid".
+// ai_find_requests row to track it.
+//
+// Two client modes, selected by the body's `ui_mode` key:
+//   - absent / 'hosted' (default) → classic redirect flow, response is
+//     { url, id } and the frontend does `window.location.href = url`.
+//   - 'embedded' → ui_mode=embedded session, response is
+//     { client_secret, id } and the frontend mounts <EmbeddedCheckout>
+//     in-page. Stripe redirects to `return_url` automatically on
+//     payment success.
+//
+// Payment confirmation happens in stripe-webhook (checkout.session.
+// completed), not on the success/return-url — never trust the
+// browser's word on "paid." Webhook behaviour is identical between
+// the two modes, so this split needs no other edge-function changes.
 
 const AI_FIND_AMOUNT_CENTS = 100; // €1.00
 const AI_FIND_CURRENCY = 'eur';
@@ -60,6 +71,9 @@ serve(async (req) => {
     const budgetRange = typeof body?.budget_range === 'string' ? body.budget_range.trim() || null : null;
     const timeline = typeof body?.timeline === 'string' ? body.timeline.trim() || null : null;
     const location = typeof body?.location === 'string' ? body.location.trim() || null : null;
+    // Embedded checkout opt-in. When absent or any value other than
+    // 'embedded', we fall back to the original hosted redirect flow.
+    const isEmbedded = body?.ui_mode === 'embedded';
 
     if (!brief || brief.length < 10) {
       return bad(400, 'Brief is too short. Describe what you need in a sentence or two.');
@@ -115,8 +129,6 @@ serve(async (req) => {
       'line_items[0][price_data][product_data][description]':
         'AI-matched freelancer for your brief. Results in under a minute.',
       'line_items[0][quantity]': '1',
-      success_url: `${origin}/ai-find/${requestId}`,
-      cancel_url: `${origin}/hire`,
       'metadata[ai_find_request_id]': requestId,
       'metadata[requester_id]': userId,
       // Show receipts — useful support hook + GDPR-friendly.
@@ -125,6 +137,21 @@ serve(async (req) => {
       // exposing the email to this function before payment.
       client_reference_id: requestId,
     };
+    // URL routing differs per mode:
+    //   hosted   → success_url (on pay) + cancel_url (on abort)
+    //   embedded → single return_url, Stripe appends
+    //              ?session_id=... and ?redirect_status=... so the
+    //              results page can correlate even if the webhook
+    //              hasn't fired yet. No cancel_url — the embedded UI
+    //              handles cancellation inline.
+    if (isEmbedded) {
+      checkoutParams['ui_mode'] = 'embedded';
+      checkoutParams['return_url'] =
+        `${origin}/ai-find/${requestId}?session_id={CHECKOUT_SESSION_ID}`;
+    } else {
+      checkoutParams['success_url'] = `${origin}/ai-find/${requestId}`;
+      checkoutParams['cancel_url'] = `${origin}/hire`;
+    }
 
     const stripeResp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
@@ -147,7 +174,15 @@ serve(async (req) => {
       return bad(502, 'Payment provider error. Please try again.');
     }
 
-    const session = await stripeResp.json() as { id: string; url: string };
+    // Embedded sessions return `client_secret` (mount in-page); hosted
+    // sessions return `url` (redirect). We pass through whichever the
+    // client asked for, so the frontend can pick the UX without a
+    // second round-trip.
+    const session = await stripeResp.json() as {
+      id: string;
+      url?: string;
+      client_secret?: string;
+    };
 
     await supabase
       .from('ai_find_requests')
@@ -155,7 +190,11 @@ serve(async (req) => {
       .eq('id', requestId);
 
     return new Response(
-      JSON.stringify({ url: session.url, id: requestId }),
+      JSON.stringify({
+        id: requestId,
+        url: session.url ?? null,
+        client_secret: session.client_secret ?? null,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {
