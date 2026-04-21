@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { getUniversityStyle } from '@/lib/universities';
 import { findSpecialtyLabel } from '@/lib/categorySpecialties';
+import { findStrength } from '@/lib/freelancerTags';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,12 @@ interface StudentProfile {
    *  Rendered as an accent pill alongside the category on the banner so
    *  hirers get the "what kind" signal without opening the profile. */
   specialty?: string | null;
+  /** Up to 3 strength slugs (see STRENGTH_OPTIONS) — rendered as icon
+   *  chips in the card body, above the bio. The whole point of pushing
+   *  the wizard to click-only answers is making the card more visual,
+   *  so these chips are the payoff for freelancers who bother to tap
+   *  them on Step 2. */
+  strengths?: string[] | null;
   /** True when the freelancer has finished Stripe Connect onboarding
    *  and is ready to accept Vano Pay. Surfaced as a trust chip on the
    *  card so hirers can pick someone they can pay safely in one tap. */
@@ -418,6 +425,36 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             <span className="text-sm font-semibold text-foreground/80">{budgetLabel}</span>
           </div>
         )}
+
+        {/* Strength chips — visual payoff for freelancers who picked
+            them in the wizard. Icons + compact pills scan instantly
+            as "what's this person like to work with": fast turnaround,
+            own gear, etc. Rendered above the bio so they grab the eye
+            before the text does. Up to 3, and we silently drop any
+            slug that doesn't resolve (deleted / renamed options). */}
+        {(() => {
+          const rows = (student.strengths ?? [])
+            .map((slug) => findStrength(slug))
+            .filter((s): s is NonNullable<ReturnType<typeof findStrength>> => !!s)
+            .slice(0, 3);
+          if (rows.length === 0) return null;
+          return (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {rows.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <span
+                    key={s.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                  >
+                    <Icon size={11} strokeWidth={2.5} />
+                    {s.label}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Bio */}
         {student.bio && (

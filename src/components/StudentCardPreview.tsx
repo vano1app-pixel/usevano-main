@@ -23,6 +23,10 @@ interface StudentCardPreviewProps {
    *  pill on the card alongside the category label — live-updates as
    *  the wizard user taps through the pill picker on Step 3. */
   specialty?: string;
+  /** Strength slugs — rendered as icon chips above the bio on the
+   *  card. Live-updates as the wizard user taps through the "what
+   *  sets you apart" picker on Step 2. */
+  strengths?: string[];
   bannerUrl?: string;
   title?: string;
   description?: string;
@@ -61,6 +65,7 @@ export const StudentCardPreview: React.FC<StudentCardPreviewProps> = ({
   userId,
   category,
   specialty,
+  strengths,
   bannerUrl,
   title,
   description,
@@ -116,6 +121,7 @@ export const StudentCardPreview: React.FC<StudentCardPreviewProps> = ({
     university: university || null,
     student_verified: false,
     specialty: specialty || null,
+    strengths: strengths ?? null,
     tiktok_url: tiktokUrl || null,
     instagram_url: instagramUrl || null,
     linkedin_url: linkedinUrl || null,

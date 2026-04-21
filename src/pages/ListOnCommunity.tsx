@@ -131,18 +131,23 @@ export default function ListOnCommunity() {
             : [{ url: '', label: '' }];
         })(),
         skills: normalizeFreelancerSkills(sp?.skills),
-        // Category-specific specialty + structured pitch — migration
-        // 20260421120000 added these columns. Cast to `any` because the
-        // Supabase type-gen hasn't re-run yet; any non-string DB value
-        // is coerced to empty string so the wizard starts clean.
+        // Category-specific specialty + click-based tag arrays —
+        // migration 20260421120000 added these columns. Cast to `any`
+        // because the Supabase type-gen hasn't re-run yet; anything
+        // that isn't the expected shape defaults to empty so the
+        // wizard starts clean.
         specialty:
           typeof (sp as any)?.specialty === 'string' ? (sp as any).specialty : '',
-        pitchWho:
-          typeof (sp as any)?.pitch_who === 'string' ? (sp as any).pitch_who : '',
-        pitchDeliver:
-          typeof (sp as any)?.pitch_deliver === 'string' ? (sp as any).pitch_deliver : '',
-        pitchWhy:
-          typeof (sp as any)?.pitch_why === 'string' ? (sp as any).pitch_why : '',
+        clientTypes: Array.isArray((sp as any)?.client_types)
+          ? ((sp as any).client_types as unknown[]).filter(
+              (s): s is string => typeof s === 'string',
+            )
+          : [],
+        strengths: Array.isArray((sp as any)?.strengths)
+          ? ((sp as any).strengths as unknown[]).filter(
+              (s): s is string => typeof s === 'string',
+            )
+          : [],
         serviceArea: (sp as any)?.service_area || '',
         typicalBudgetMin:
           (sp as any)?.typical_budget_min != null && (sp as any).typical_budget_min > 0

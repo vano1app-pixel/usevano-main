@@ -40,6 +40,12 @@ import {
 } from '@/lib/communityCategories';
 import { SKILLS_BY_CATEGORY, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { SPECIALTIES_BY_CATEGORY, isValidSpecialty } from '@/lib/categorySpecialties';
+import {
+  CLIENT_TYPES_BY_CATEGORY,
+  STRENGTH_OPTIONS,
+  findStrength,
+  findClientTypeLabel,
+} from '@/lib/freelancerTags';
 import { formatCommunityBudget } from '@/lib/communityBudget';
 import {
   normalizeTikTokUrl,
@@ -130,13 +136,13 @@ export interface ListOnCommunityInitial {
    *  use on the talent board. Empty string for legacy rows that haven't
    *  picked one yet. */
   specialty?: string;
-  /** Structured pitch — three short answers that replace the single
-   *  freeform description textarea. On publish they get joined into
-   *  community_posts.description with periods so the ranker and the
-   *  legacy display path keep working unchanged. */
-  pitchWho?: string;
-  pitchDeliver?: string;
-  pitchWhy?: string;
+  /** Tag arrays replacing the old free-text pitch. `clientTypes` is
+   *  category-specific (see CLIENT_TYPES_BY_CATEGORY); `strengths` is
+   *  a universal universal list with icons. Both feed into the
+   *  derived community_posts.description on publish so the ranker
+   *  keeps reading meaningful text. */
+  clientTypes?: string[];
+  strengths?: string[];
   /** Legacy free-text location; superseded by `county` + `remoteOk` below
    *  but kept so older callers compile until they migrate. */
   serviceArea: string;
@@ -172,11 +178,10 @@ interface ListOnCommunityDraft {
   step: number;
   category: CommunityCategoryId | null;
   specialty: string;
+  clientTypes: string[];
+  strengths: string[];
   bannerUrl: string;
   title: string;
-  pitchWho: string;
-  pitchDeliver: string;
-  pitchWhy: string;
   aboutMe: string;
   tiktokUrl: string;
   instagramUrl: string;
@@ -230,11 +235,14 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
         return isCommunityCategoryId(raw) ? raw : null;
       })(),
       specialty: typeof parsed.specialty === 'string' ? parsed.specialty : '',
+      clientTypes: Array.isArray(parsed.clientTypes)
+        ? parsed.clientTypes.filter((s): s is string => typeof s === 'string')
+        : [],
+      strengths: Array.isArray(parsed.strengths)
+        ? parsed.strengths.filter((s): s is string => typeof s === 'string')
+        : [],
       bannerUrl: typeof parsed.bannerUrl === 'string' ? parsed.bannerUrl : '',
       title: typeof parsed.title === 'string' ? parsed.title : '',
-      pitchWho: typeof parsed.pitchWho === 'string' ? parsed.pitchWho : '',
-      pitchDeliver: typeof parsed.pitchDeliver === 'string' ? parsed.pitchDeliver : '',
-      pitchWhy: typeof parsed.pitchWhy === 'string' ? parsed.pitchWhy : '',
       aboutMe: typeof parsed.aboutMe === 'string' ? parsed.aboutMe : '',
       tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
       instagramUrl: typeof parsed.instagramUrl === 'string' ? parsed.instagramUrl : '',
@@ -287,18 +295,18 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [listingFiles, setListingFiles] = useState<File[]>([]);
   const [listingPreviews, setListingPreviews] = useState<string[]>([]);
   const [title, setTitle] = useState('');
-  // Structured pitch — three short prompts replacing the single free-form
-  // description textarea. On publish we join them into the community_posts
-  // description column so the ranker + legacy display paths keep working.
-  // Storing all three as separate columns on student_profiles so the edit
-  // round-trip preserves the structure instead of trying to re-parse sentences.
-  const [pitchWho, setPitchWho] = useState('');
-  const [pitchDeliver, setPitchDeliver] = useState('');
-  const [pitchWhy, setPitchWhy] = useState('');
-  // Derived from the three pitch fields via the useEffect below. Kept as
-  // state (not recomputed inline) so the preview props, the review step,
-  // the draft payload, and the publish RPC all read the same canonical
-  // joined value without repeating the join logic four times.
+  // Click-first pitch — two multi-select tag arrays replace the old
+  // freeform textarea + 3-prompt text inputs. "Who you work with"
+  // is category-specific; "What sets you apart" is universal and
+  // rendered on the card as icon chips. Both are slug arrays so the
+  // copy can evolve without touching saved rows; the card and the
+  // AI ranker resolve slugs to labels via freelancerTags helpers.
+  const [clientTypes, setClientTypes] = useState<string[]>([]);
+  const [strengths, setStrengths] = useState<string[]>([]);
+  // Derived on publish from the category + specialty + the two tag
+  // arrays above. Kept as state so the preview / review / publish
+  // paths all read the same canonical string instead of re-deriving
+  // four times.
   const [description, setDescription] = useState('');
   // Category-specific specialty pill ("Weddings", "Shopify", "TikTok", etc.)
   // — single-select on Step 3. Rendered on the card next to the category
@@ -393,16 +401,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setListingFiles([]);
     setListingPreviews(ep?.image_url ? [ep.image_url] : []);
     setTitle(ep?.title ?? '');
-    // Pitch fields — prefer the structured columns from student_profiles.
-    // If all three are empty and there's a legacy community_posts.description
-    // on the existing row, drop it into pitchDeliver so returning users don't
-    // see a blank form and lose their old copy.
-    {
-      const hasStructured = !!(initial.pitchWho || initial.pitchDeliver || initial.pitchWhy);
-      setPitchWho(initial.pitchWho || '');
-      setPitchDeliver(hasStructured ? (initial.pitchDeliver || '') : (ep?.description || ''));
-      setPitchWhy(initial.pitchWhy || '');
-    }
+    setClientTypes(initial.clientTypes ? [...initial.clientTypes] : []);
+    setStrengths(initial.strengths ? [...initial.strengths] : []);
     setSpecialty(initial.specialty || '');
     setAboutMe(initial.bio || '');
     setUniversity(resolveUniversityKey(initial.university) || '');
@@ -459,20 +459,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setStep(migrateDraftStep(draft.step));
         setCategory(draft.category);
         setSpecialty(draft.specialty || '');
+        setClientTypes(draft.clientTypes || []);
+        setStrengths(draft.strengths || []);
         setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
         setTitle(draft.title);
-        // Legacy drafts saved the old single `description` field; if the
-        // new structured pitch columns are empty in the draft, fall back
-        // to that so the returning user's in-progress copy isn't lost.
-        {
-          const draftLegacyDesc = typeof (draft as unknown as { description?: string }).description === 'string'
-            ? (draft as unknown as { description: string }).description
-            : '';
-          const hasStructured = !!(draft.pitchWho || draft.pitchDeliver || draft.pitchWhy);
-          setPitchWho(draft.pitchWho || '');
-          setPitchDeliver(hasStructured ? (draft.pitchDeliver || '') : draftLegacyDesc);
-          setPitchWhy(draft.pitchWhy || '');
-        }
         setAboutMe(draft.aboutMe || '');
         setUniversity(resolveUniversityKey(draft.university) || '');
         if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
@@ -509,11 +499,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       step,
       category,
       specialty,
+      clientTypes,
+      strengths,
       bannerUrl: bannerUrl.startsWith('http') ? bannerUrl : '',
       title,
-      pitchWho,
-      pitchDeliver,
-      pitchWhy,
       aboutMe,
       tiktokUrl,
       instagramUrl,
@@ -552,11 +541,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     step,
     category,
     specialty,
+    clientTypes,
+    strengths,
     bannerUrl,
     title,
-    pitchWho,
-    pitchDeliver,
-    pitchWhy,
     aboutMe,
     tiktokUrl,
     instagramUrl,
@@ -584,29 +572,47 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     else if (category === 'digital_sales') setRateUnit('hourly');
   }, [category]);
 
-  // Derive the community_posts.description payload from the three
-  // structured pitch fields. Joined with periods so the card bio and
-  // the AI-find ranker both read the combined text naturally — the
-  // single `description` state is still the canonical source used by
-  // the preview, the publish RPC, and the review step, it just gets
-  // composed from pitchWho / pitchDeliver / pitchWhy instead of typed
-  // into a single textarea.
+  // Derive the community_posts.description payload from the click-
+  // based answers (specialty + clientTypes + strengths). Joined as a
+  // short human-readable sentence so the AI-find ranker and the
+  // legacy display path still have meaningful text to search/show.
+  // Runs whenever any input changes; `description` state stays the
+  // canonical joined value so the preview, review, and publish RPC
+  // all read the same source. Title is intentionally excluded —
+  // community_posts stores the title separately.
   useEffect(() => {
-    const joined = [pitchWho, pitchDeliver, pitchWhy]
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .join('. ');
-    setDescription(joined);
-  }, [pitchWho, pitchDeliver, pitchWhy]);
+    const parts: string[] = [];
+    if (category && isValidSpecialty(category, specialty)) {
+      const lbl = SPECIALTIES_BY_CATEGORY[category].options.find((o) => o.id === specialty)?.label;
+      if (lbl) parts.push(lbl);
+    }
+    if (clientTypes.length > 0) {
+      const labels = clientTypes
+        .map((slug) => findClientTypeLabel(category, slug))
+        .filter((x): x is string => !!x);
+      if (labels.length) parts.push(`works with ${labels.join(', ')}`);
+    }
+    if (strengths.length > 0) {
+      const labels = strengths
+        .map((slug) => findStrength(slug)?.label)
+        .filter((x): x is string => !!x);
+      if (labels.length) parts.push(labels.join(' · ').toLowerCase());
+    }
+    setDescription(parts.join(' · '));
+  }, [category, specialty, clientTypes, strengths]);
 
-  // If a previously-picked specialty isn't valid for the current
-  // category (e.g. "shopify" left over after switching from Websites
-  // to Videography), clear it so a meaningless pill can't end up on
-  // the card. Drop the check when category is still null so initial
-  // mount doesn't wipe a valid specialty we just loaded from the DB.
+  // If a previously-picked specialty or client-type slug isn't valid
+  // for the current category (e.g. "shopify" left over after switching
+  // from Websites to Videography), clear it so meaningless slugs can't
+  // end up on the card. Drop the check when category is still null so
+  // initial mount doesn't wipe valid values we just loaded from the DB.
   useEffect(() => {
     if (!category) return;
     setSpecialty((prev) => (isValidSpecialty(category, prev) ? prev : ''));
+    setClientTypes((prev) => {
+      const valid = new Set(CLIENT_TYPES_BY_CATEGORY[category].map((o) => o.id));
+      return prev.filter((slug) => valid.has(slug));
+    });
   }, [category]);
 
   // Auto-advance step 1 → 2 once a category is picked. Saves one click on
@@ -688,19 +694,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           const cat = category ? COMMUNITY_CATEGORIES[category] : null;
           const needsCounty = cat?.locationModel === 'local';
           const phoneShapeOk = /^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim());
-          // At least one of the three pitch fields must be filled so
-          // the derived community_posts.description isn't empty. The
-          // "deliver" bucket is the core one conceptually, but we
-          // accept any of the three so a user who leads with "who"
-          // (common for videographers: "I shoot weddings") isn't
-          // blocked.
-          const hasAnyPitch =
-            pitchWho.trim().length > 0 ||
-            pitchDeliver.trim().length > 0 ||
-            pitchWhy.trim().length > 0;
+          // Pitch is click-based now — require at least one client-type
+          // pick so the card has real signal. Strengths stay fully
+          // optional (a brand-new freelancer shouldn't be gated on
+          // claiming "award-winning" just to publish).
+          const hasAnyClientType = clientTypes.length > 0;
           return (
             title.trim().length > 0 &&
-            hasAnyPitch &&
+            hasAnyClientType &&
             phone.trim().length > 0 &&
             phoneShapeOk &&
             (!needsCounty || county.trim().length > 0)
@@ -731,12 +732,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         const cat = category ? COMMUNITY_CATEGORIES[category] : null;
         const needsCounty = cat?.locationModel === 'local';
         const missing: string[] = [];
-        const hasAnyPitch =
-          pitchWho.trim().length > 0 ||
-          pitchDeliver.trim().length > 0 ||
-          pitchWhy.trim().length > 0;
         if (title.trim().length === 0) missing.push('One-liner');
-        if (!hasAnyPitch) missing.push('a bit of detail');
+        if (clientTypes.length === 0) missing.push('who you work with');
         if (phone.trim().length === 0) missing.push('Phone number');
         else if (!/^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim())) missing.push('a valid phone number');
         if (needsCounty && county.trim().length === 0) missing.push('County');
@@ -957,15 +954,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         // the work pitch (community_posts.description). If they leave it blank we
         // store NULL so the profile page doesn't echo their pitch as their bio.
         bio: aboutMe.trim() || null,
-        // Specialty + structured pitch — the wizard's 3-input pitch section
-        // writes each answer to its own column, and the derived `description`
-        // (saved via the RPC below) concatenates them for legacy readers and
-        // the AI-find ranker. Specialty null when unselected so the card's
-        // category pill stays clean instead of rendering an empty slug.
+        // Specialty + tag arrays — wizard's click-based pitch writes
+        // directly to these columns, and the derived description
+        // (saved via the RPC below) concatenates their labels for
+        // legacy readers and the AI-find ranker. Specialty null when
+        // unselected so the card's category pill stays clean instead
+        // of rendering an empty slug. Arrays always write (empty
+        // arrays are valid) so the DB reflects exactly what the user
+        // sees in the picker.
         specialty: isValidSpecialty(category, specialty) ? specialty : null,
-        pitch_who: pitchWho.trim() || null,
-        pitch_deliver: pitchDeliver.trim() || null,
-        pitch_why: pitchWhy.trim() || null,
+        client_types: clientTypes,
+        strengths,
       };
       if (category === 'digital_sales') {
         const n = parseInt(initialClientsBrought, 10);
@@ -1297,6 +1296,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   userId={userId}
                   category={category}
                   specialty={specialty}
+                  strengths={strengths}
                   bannerUrl={bannerUrl}
                   title={title}
                   description={description}
@@ -1476,59 +1476,84 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   maxLength={120}
                 />
               </div>
-              {/* Structured pitch — three short prompts instead of one big
-                   free-form textarea. Each field caps at 140 chars so
-                   answers stay tight; any one of them is enough to unblock
-                   Step 2 (see canNext), so nobody gets stuck on a prompt
-                   that doesn't apply to them. */}
-              <div className="space-y-3">
+              {/* Click-first pitch — two pill pickers instead of three
+                   freeform inputs. "Who you work with" is the only
+                   required question (needs at least one pick) so Step 2
+                   stays publishable in under 10 seconds. Strengths are
+                   optional but surface on the card as icon chips, so
+                   freelancers get a visible payoff for tapping them. */}
+              {category && (
                 <div>
-                  <Label htmlFor="lc-pitch-who">Who do you work with? <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                  <Input
-                    id="lc-pitch-who"
-                    className="mt-1.5 h-11"
-                    placeholder={
-                      category === 'websites' ? 'e.g. Small retailers and cafés'
-                      : category === 'social_media' ? 'e.g. Food and lifestyle brands'
-                      : category === 'digital_sales' ? 'e.g. B2B SaaS startups in Dublin'
-                      : 'e.g. Couples getting married, small event venues'
-                    }
-                    value={pitchWho}
-                    onChange={(e) => setPitchWho(e.target.value)}
-                    maxLength={140}
-                  />
+                  <Label className="text-sm font-medium">Who do you work with?</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Tap any that fit — multi-pick is fine.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {CLIENT_TYPES_BY_CATEGORY[category].map((opt) => {
+                      const sel = clientTypes.includes(opt.id);
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() =>
+                            setClientTypes((prev) =>
+                              sel ? prev.filter((x) => x !== opt.id) : [...prev, opt.id],
+                            )
+                          }
+                          className={cn(
+                            'rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
+                            sel
+                              ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                              : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5',
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="lc-pitch-deliver">What do you deliver best?</Label>
-                  <Input
-                    id="lc-pitch-deliver"
-                    className="mt-1.5 h-11"
-                    placeholder={
-                      category === 'websites' ? 'e.g. Fast Shopify stores that convert'
-                      : category === 'social_media' ? 'e.g. Short-form Reels that actually get shared'
-                      : category === 'digital_sales' ? 'e.g. Booked discovery calls from cold outbound'
-                      : 'e.g. Cinematic 90-second wedding highlights'
-                    }
-                    value={pitchDeliver}
-                    onChange={(e) => setPitchDeliver(e.target.value)}
-                    maxLength={140}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lc-pitch-why">Why you? <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                  <Input
-                    id="lc-pitch-why"
-                    className="mt-1.5 h-11"
-                    placeholder={
-                      category === 'websites' ? 'e.g. 3 years shipping, 48h turnaround'
-                      : category === 'social_media' ? 'e.g. 200k+ views on my last 5 Reels'
-                      : category === 'digital_sales' ? 'e.g. 40% show-up rate on booked calls'
-                      : 'e.g. 5 years shooting weddings, 1-week edit turnaround'
-                    }
-                    value={pitchWhy}
-                    onChange={(e) => setPitchWhy(e.target.value)}
-                    maxLength={140}
-                  />
+              )}
+              <div>
+                <Label className="text-sm font-medium">
+                  What sets you apart? <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Up to 3. These show up as icon chips on your card.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {STRENGTH_OPTIONS.map((opt) => {
+                    const sel = strengths.includes(opt.id);
+                    const Icon = opt.icon;
+                    const disabled = !sel && strengths.length >= 3;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() =>
+                          setStrengths((prev) =>
+                            sel
+                              ? prev.filter((x) => x !== opt.id)
+                              : prev.length < 3
+                              ? [...prev, opt.id]
+                              : prev,
+                          )
+                        }
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
+                          sel
+                            ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                            : disabled
+                            ? 'border-border/40 bg-card text-muted-foreground/40 cursor-not-allowed'
+                            : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5',
+                        )}
+                      >
+                        <Icon size={12} strokeWidth={2.25} />
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="h-px bg-border" />
