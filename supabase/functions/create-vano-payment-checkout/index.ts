@@ -154,25 +154,35 @@ serve(async (req) => {
 
     // Insert the pending payment row first so the session id has
     // somewhere to live and the webhook can find it on arrival.
+    // Build the row conditionally so a production DB that hasn't yet
+    // applied migration 20260421140000 (which adds sales_deal_id)
+    // still accepts inserts from ordinary-pay flows — the field is
+    // only spread in when the caller actually supplied a value, so
+    // 99% of Vano Pay traffic (non-bonus) doesn't care whether the
+    // column exists yet.
+    const paymentRow: Record<string, unknown> = {
+      business_id: callerId,
+      freelancer_id: otherId,
+      conversation_id: conversationId,
+      hire_agreement_id: hireAgreementId,
+      description: description || null,
+      amount_cents: amountCents,
+      fee_cents: feeCents,
+      currency: CURRENCY,
+      stripe_destination_account_id: freelancerProfile.stripe_account_id,
+      status: 'awaiting_payment',
+    };
+    if (salesDealId) {
+      // Present only for digital-sales bonus payouts. A DB trigger
+      // on vano_payments watches UPDATE events and flips the
+      // matching sales_deals.bonus_status to 'paid' once this
+      // payment reaches the `transferred` state.
+      paymentRow.sales_deal_id = salesDealId;
+    }
+
     const { data: inserted, error: insertError } = await supabase
       .from('vano_payments')
-      .insert({
-        business_id: callerId,
-        freelancer_id: otherId,
-        conversation_id: conversationId,
-        hire_agreement_id: hireAgreementId,
-        // Present only for digital-sales bonus payouts. A DB trigger
-        // on vano_payments watches UPDATE events and flips the
-        // matching sales_deals.bonus_status to 'paid' once this
-        // payment reaches the `transferred` state.
-        sales_deal_id: salesDealId,
-        description: description || null,
-        amount_cents: amountCents,
-        fee_cents: feeCents,
-        currency: CURRENCY,
-        stripe_destination_account_id: freelancerProfile.stripe_account_id,
-        status: 'awaiting_payment',
-      })
+      .insert(paymentRow)
       .select('id')
       .single();
 
