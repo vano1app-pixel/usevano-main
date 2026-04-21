@@ -162,6 +162,7 @@ const HirePage = () => {
   // land right back on Step 3 with every field intact — no re-entry, no extra
   // clicks.
   const briefRestoredRef = useRef(false);
+  const [briefJustRestored, setBriefJustRestored] = useState(false);
   useEffect(() => {
     const brief = loadHireBrief();
     if (brief) {
@@ -172,6 +173,17 @@ const HirePage = () => {
       setTimeline(brief.timeline);
       setBudget(brief.budget);
       setStep(3);
+      setBriefJustRestored(true);
+      // Post-OAuth breadcrumb. Without this the user lands on Step 3 with
+      // their fields magically restored and no acknowledgement that
+      // anything happened — felt like a routing bug. Now they see a brief
+      // confirmation and the onus is on them to tap the €1 button (the
+      // previous auto-submit was a real UX trap that could charge a user
+      // who had no idea what they were clicking through to).
+      toast({
+        title: 'Welcome back',
+        description: 'Your brief is ready — review it, then tap Match me to continue.',
+      });
       return;
     }
     const cat = searchParams.get('category');
@@ -541,21 +553,14 @@ const HirePage = () => {
     }
   };
 
-  /* Auto-submit once on post-OAuth return. Fires when the restored brief meets
-   * the freshly-loaded session. */
-  const autoSubmittedRef = useRef(false);
-  useEffect(() => {
-    if (!briefRestoredRef.current || autoSubmittedRef.current) return;
-    if (!user || submitting || submitted) return;
-    // Post-OAuth auto-submit guard: accept either a typed description OR a
-    // category + sub-type pick, matching the new click-only Step 1.
-    const hasChipBrief = !!category && !!subtype;
-    if (!description.trim() && !hasChipBrief) return;
-    autoSubmittedRef.current = true;
-    void handleVanoSubmit(false);
-    // handleVanoSubmit depends on current field state; re-run only on user change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  /* Previously this auto-fired handleVanoSubmit(false) once the post-OAuth
+   * brief was restored and the session was live — the intent was "pick up
+   * exactly where you left off." But that pipeline went Google → site root →
+   * Step 3 → Stripe checkout in ~3 seconds, so a first-time hirer was charged
+   * €1 without any chance to review their brief. Removed. The user now lands
+   * on Step 3 with everything filled in + a "Welcome back" toast, and they
+   * tap the same €1 button they would have tapped before OAuth. One extra
+   * click in exchange for not mugging people mid-redirect is a great trade. */
 
   /* ── Message freelancer with pre-filled draft ── */
   const messageFreelancer = (freelancerUserId: string) => {

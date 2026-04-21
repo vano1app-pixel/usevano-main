@@ -65,6 +65,14 @@ const Landing = () => {
       return;
     }
     setGoogleOAuthIntent('student');
+    // Breadcrumb before the page redirects to Google. Without this the
+    // hero card just vanishes and a first-timer wonders if they broke
+    // something. The HirePage hirer flow already has an equivalent
+    // "Saving your brief…" toast; this is the freelancer-side parity.
+    toast({
+      title: 'Taking you to Google…',
+      description: "Sign in with Google and we'll bring you right back to finish setup.",
+    });
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -158,11 +166,23 @@ const Landing = () => {
   React.useEffect(() => {
     const finish = async () => {
       if (oauthHandledRef.current) return;
-      // Try Google first (sessionStorage-scoped), then magic-link
-      // (localStorage-scoped, survives tab changes). Both are idempotent
-      // and short-circuit when their own flag isn't set.
+      // Capture the "was coming back from OAuth" state BEFORE
+      // tryFinishGoogleOAuthRedirect clears the flag. Used below to
+      // post a welcome toast when the handoff succeeded — pairs with
+      // the "Taking you to Google…" toast we fire pre-OAuth so the
+      // round-trip has both a going-out and a coming-back breadcrumb.
+      const wasReturningFromOAuth = hasGoogleOAuthPending();
       const doneGoogle = await tryFinishGoogleOAuthRedirect(navigate);
-      if (doneGoogle) { oauthHandledRef.current = true; return; }
+      if (doneGoogle) {
+        oauthHandledRef.current = true;
+        if (wasReturningFromOAuth) {
+          toast({
+            title: 'Welcome to Vano',
+            description: "Signed in. Taking you to the next step.",
+          });
+        }
+        return;
+      }
       const doneMagic = await tryFinishMagicLinkRedirect(navigate);
       if (doneMagic) oauthHandledRef.current = true;
     };
@@ -173,7 +193,7 @@ const Landing = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, toast]);
 
   const mainRef = useRef<HTMLDivElement>(null);
 

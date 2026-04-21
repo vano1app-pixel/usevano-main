@@ -71,6 +71,17 @@ const Profile = () => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).get('welcome') === '1';
   });
+  // Remembers that the celebration modal was rendered this session,
+  // even after it's dismissed. Used below to suppress the top-of-page
+  // VanoPaySetupCard when it would immediately re-pitch Vano Pay to a
+  // user who just saw the same CTA inside the celebration. Without
+  // this, closing the celebration "Set up later" and finding the
+  // same CTA five inches lower reads as nagging, not helpful. Next
+  // visit (no ?welcome=1), the top card renders normally.
+  const [celebrationShownThisSession] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('welcome') === '1';
+  });
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [workDescription, setWorkDescription] = useState('');
@@ -771,7 +782,7 @@ const Profile = () => {
                 instance disappears and the card reverts to its regular
                 place in the left column so it doesn't crowd returning
                 users. The eyebrow frames it as a guided first step. */}
-            {!studentProfile?.stripe_account_id && (
+            {!studentProfile?.stripe_account_id && !celebrationShownThisSession && (
               <div className="mb-6" id="vano-pay-setup">
                 <div className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/12 text-[11px] font-semibold text-primary">1</span>
