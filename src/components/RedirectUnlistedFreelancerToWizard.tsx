@@ -39,6 +39,16 @@ const SKIP_PREFIXES = [
   // a "Continue your listing" card, zero indication their hire
   // request ever went through.
   '/hire',
+  // /profile is the settings hub — avatar upload, display name,
+  // Stripe Connect onboarding, hire-request inbox, portfolio
+  // manager. Freelancers need it regardless of whether they've
+  // published a listing yet. The page already surfaces its own
+  // "Not visible on the talent board yet · Get listed" card for
+  // unpublished freelancers, so the guard would be double-enforcing
+  // AND blocking basic account setup (they can't even upload an
+  // avatar before they're forced into the wizard). Bounces reported
+  // by users trying to tap the profile icon — this line fixes it.
+  '/profile',
 ];
 
 export function RedirectUnlistedFreelancerToWizard() {
