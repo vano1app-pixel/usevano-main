@@ -647,19 +647,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
   };
 
-  const addWorkLinkRow = () => {
-    if (workLinks.length >= 12) return;
-    setWorkLinks((p) => [...p, { url: '', label: '' }]);
-  };
-
-  const updateWorkLink = (i: number, field: 'url' | 'label', value: string) => {
-    setWorkLinks((p) => p.map((row, j) => (j === i ? { ...row, [field]: value } : row)));
-  };
-
-  const removeWorkLink = (i: number) => {
-    setWorkLinks((p) => (p.length <= 1 ? [{ url: '', label: '' }] : p.filter((_, j) => j !== i)));
-  };
-
   const toggleSkill = (s: string) => {
     setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   };
@@ -1502,15 +1489,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   </>
                 );
               })()}
-              {/* "Add more about you" — collapses About bio, University,
-                  and past-work links behind one disclosure so Step 2 lands
-                  at 4 visible fields (title, desc, phone, county). Auto-
-                  expands if a returning draft has any of these filled so
-                  the user can see their previous work. Each field saves
-                  to the same profile row as before — no data loss. */}
+              {/* "Add more about you" — collapses About bio and University
+                  behind one disclosure so Step 2 lands at 4 visible fields
+                  (title, desc, phone, county). Auto-expands if a returning
+                  draft has any of these filled so the user can see their
+                  previous work. "Links to past work" used to live here too
+                  but it leans the UX toward "apply for a job" — Vano is a
+                  freelancing board, so portfolio URLs already go in the
+                  Website social field and the Sample work photos on Step 1
+                  carry the visual proof. */}
               {(() => {
-                const hasWorkLink = workLinks.some((w) => !!w.url?.trim());
-                const anyOptionalFilled = !!aboutMe.trim() || !!university || hasWorkLink;
+                const anyOptionalFilled = !!aboutMe.trim() || !!university;
                 const expanded = showOptionalDetails || anyOptionalFilled;
                 if (!expanded) {
                   return (
@@ -1519,7 +1508,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       onClick={() => setShowOptionalDetails(true)}
                       className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                     >
-                      + Add more about you <span className="text-xs font-normal">(optional — bio, university, past work links)</span>
+                      + Add more about you <span className="text-xs font-normal">(optional — bio, university)</span>
                     </button>
                   );
                 }
@@ -1553,34 +1542,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div>
-                      <Label>Links to past work <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                      <p className="mt-1 text-xs text-muted-foreground">Portfolio site, Behance, Drive, etc.</p>
-                      <div className="mt-2 space-y-2">
-                        {workLinks.map((row, i) => (
-                          <div key={i} className="flex flex-col gap-2 sm:flex-row">
-                            <Input
-                              placeholder="Label"
-                              value={row.label}
-                              onChange={(e) => updateWorkLink(i, 'label', e.target.value)}
-                              className="h-10"
-                            />
-                            <Input
-                              placeholder="https://…"
-                              value={row.url}
-                              onChange={(e) => updateWorkLink(i, 'url', e.target.value)}
-                              className="h-10 flex-1"
-                            />
-                            <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" onClick={() => removeWorkLink(i)}>
-                              Remove
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      <Button type="button" variant="ghost" size="sm" className="mt-2 h-9 text-xs" onClick={addWorkLinkRow}>
-                        + Add link
-                      </Button>
                     </div>
                   </div>
                 );
@@ -1918,11 +1879,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         {listingPreviews.length > 0 ? (
                           <span className="rounded-full bg-muted px-2.5 py-1">{listingPreviews.length} portfolio photo{listingPreviews.length === 1 ? '' : 's'}</span>
                         ) : null}
-                        {workLinks.some((link) => link.url.trim()) ? (
-                          <span className="rounded-full bg-muted px-2.5 py-1">
-                            {workLinks.filter((link) => link.url.trim()).length} work link{workLinks.filter((link) => link.url.trim()).length === 1 ? '' : 's'}
-                          </span>
-                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -2012,8 +1968,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                           if (instagramUrl.trim()) parts.push('Instagram');
                           if (linkedinUrl.trim()) parts.push('LinkedIn');
                           if (websiteUrl.trim()) parts.push('Website');
-                          const workCount = workLinks.filter((l) => l.url.trim()).length;
-                          if (workCount > 0) parts.push(`${workCount} work link${workCount === 1 ? '' : 's'}`);
                           return parts.length ? parts.join(' · ') : <span className="text-muted-foreground">None added</span>;
                         })()}
                       </p>
