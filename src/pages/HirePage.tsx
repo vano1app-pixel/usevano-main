@@ -150,7 +150,6 @@ const HirePage = () => {
   // shorter step. For "Other" the textarea is the only input path and
   // stays always-visible below. Auto-expands on HirePage load if a
   // restored brief already contains typed text so we never swallow it.
-  const [showExtraContext, setShowExtraContext] = useState(false);
   const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
@@ -785,37 +784,28 @@ const HirePage = () => {
             className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base"
           />
         </div>
-      ) : (() => {
-        const expanded = showExtraContext || description.trim().length > 0;
-        if (!expanded) {
-          return (
-            <button
-              type="button"
-              onClick={() => setShowExtraContext(true)}
-              className="w-full rounded-xl border border-dashed border-foreground/10 bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
-            >
-              + Add context <span className="text-xs font-normal">(optional — deadlines, examples, brand…)</span>
-            </button>
-          );
-        }
-        return (
-          <div className="rounded-2xl bg-card overflow-hidden border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid">
-            <div className="flex items-center justify-between px-4 pt-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Add any extra detail
-                <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>
-              </p>
-            </div>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Anything the freelancer should know upfront (deadline context, brand, examples…)"
-              className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-sm text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[72px] lg:min-h-[88px]"
-              autoFocus={showExtraContext}
-            />
+      ) : (
+        // "Add context" textarea is always inline now — the old
+        // disclosure button hid deadlines / brand / examples behind
+        // a click most first-time hirers never discovered, costing
+        // match quality silently. The field still reads as optional
+        // via the label + placeholder; the textarea compact-collapses
+        // to a single line until focused so the step doesn't bloat.
+        <div className="rounded-2xl bg-card overflow-hidden border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid">
+          <div className="flex items-center justify-between px-4 pt-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Add any extra detail
+              <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>
+            </p>
           </div>
-        );
-      })()}
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Deadline, brand, examples, anything a freelancer should know upfront…"
+            className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-sm text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[56px] focus:min-h-[88px] transition-all"
+          />
+        </div>
+      )}
 
       {/* Value props — brand-aligned with Landing + escrow positioning.
            Previous copy ("Student-friendly prices · Motivated talent")
@@ -1044,10 +1034,15 @@ const HirePage = () => {
                 type="button"
                 onClick={handleAiFind}
                 disabled={aiFindLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.02] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.02] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-wait"
               >
                 {aiFindLoading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Starting your match…</>
+                  // Keep the label visually stable; swap the leading
+                  // icon for a spinner + shorten the "…€1" to " "
+                  // so the button reads active-but-busy instead of
+                  // flat-disabled. Cursor flips to 'wait' so the
+                  // click-lock is obvious on desktop.
+                  <><Loader2 size={16} className="animate-spin text-primary" /> Matching you now…</>
                 ) : (
                   <>
                     <Sparkles size={16} className="text-amber-500" /> Match me now — €1

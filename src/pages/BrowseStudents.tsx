@@ -218,44 +218,38 @@ const BrowseStudents = () => {
               </p>
             </>
           ) : (
-            // Dual-path empty state — the hub gets visitors from both
-            // sides of the marketplace so we can't assume user_type.
-            // Offer both: a hirer-facing Vano Match CTA (the top-of-
-            // funnel revenue path) and a freelancer-facing "list
-            // yourself" CTA. Matches the pattern in StudentsByCategory
-            // so the vibe is consistent.
+            // Empty state. Weighted CTA hierarchy instead of two
+            // equal-size cards: hirer path (Vano Match — the revenue
+            // flow) gets the hero treatment, freelancer path drops to
+            // a quiet text link underneath. The old symmetric layout
+            // created choice paralysis for first-time hirer visitors,
+            // who are the ones we actually need to convert here.
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <Users size={20} strokeWidth={2} />
               </div>
-              <p className="max-w-sm text-sm font-medium text-foreground">
-                The talent board is quiet right now.
-              </p>
-              <div className="grid w-full max-w-md grid-cols-1 gap-2.5 sm:grid-cols-2">
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-4">
-                  <p className="text-xs font-semibold text-foreground">Looking to hire?</p>
-                  <p className="text-[11px] text-muted-foreground">Vano hand-picks one for you in 60 seconds.</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/hire')}
-                    className="mt-auto inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-[11px] font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
-                  >
-                    <Sparkles size={12} /> Start a Vano Match
-                  </button>
-                </div>
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-4">
-                  <p className="text-xs font-semibold text-foreground">Are you a freelancer?</p>
-                  <p className="text-[11px] text-muted-foreground">Be the first on the board.</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/profile')}
-                    className="mt-auto inline-flex items-center gap-1.5 rounded-xl border border-primary bg-primary/5 px-3.5 py-2 text-[11px] font-semibold text-primary transition hover:bg-primary/10"
-                  >
-                    List yourself
-                    <ArrowRight size={12} strokeWidth={2.5} />
-                  </button>
-                </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  The talent board is quiet right now.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Tell us what you need and Vano hand-picks a freelancer in 60 seconds.
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => navigate('/hire')}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition hover:brightness-110 hover:shadow-lg active:scale-[0.98]"
+              >
+                <Sparkles size={14} strokeWidth={2.5} /> Start a Vano Match
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/profile')}
+                className="text-[11.5px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Or list yourself as a freelancer &rarr;
+              </button>
             </div>
           )}
         </div>
