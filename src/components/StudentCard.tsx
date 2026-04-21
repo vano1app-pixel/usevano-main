@@ -9,6 +9,7 @@ import { formatLocation } from '@/lib/irelandCounties';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { getUniversityStyle } from '@/lib/universities';
+import { findSpecialtyLabel } from '@/lib/categorySpecialties';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,10 @@ interface StudentProfile {
   typical_budget_max?: number | null;
   university?: string | null;
   student_verified?: boolean | null;
+  /** Category-specific specialty slug (e.g. "weddings" for videography).
+   *  Rendered as an accent pill alongside the category on the banner so
+   *  hirers get the "what kind" signal without opening the profile. */
+  specialty?: string | null;
   /** True when the freelancer has finished Stripe Connect onboarding
    *  and is ready to accept Vano Pay. Surfaced as a trust chip on the
    *  card so hirers can pick someone they can pay safely in one tap. */
@@ -288,6 +293,19 @@ export const StudentCard: React.FC<StudentCardProps> = ({
               {category}
             </span>
           )}
+          {(() => {
+            // Specialty pill — one accent-coloured step down from the
+            // category to signal "same bucket, finer grain" (e.g.
+            // Videography → Weddings). Only renders when the slug
+            // resolves to a known label so deleted options fail quiet.
+            const specialtyName = findSpecialtyLabel(student.specialty);
+            if (!specialtyName) return null;
+            return (
+              <span className="rounded-full bg-primary/80 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm backdrop-blur-sm">
+                {specialtyName}
+              </span>
+            );
+          })()}
           {area && (
             <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
               <MapPin size={9} className="shrink-0 text-white/80" />

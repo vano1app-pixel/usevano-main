@@ -131,6 +131,18 @@ export default function ListOnCommunity() {
             : [{ url: '', label: '' }];
         })(),
         skills: normalizeFreelancerSkills(sp?.skills),
+        // Category-specific specialty + structured pitch — migration
+        // 20260421120000 added these columns. Cast to `any` because the
+        // Supabase type-gen hasn't re-run yet; any non-string DB value
+        // is coerced to empty string so the wizard starts clean.
+        specialty:
+          typeof (sp as any)?.specialty === 'string' ? (sp as any).specialty : '',
+        pitchWho:
+          typeof (sp as any)?.pitch_who === 'string' ? (sp as any).pitch_who : '',
+        pitchDeliver:
+          typeof (sp as any)?.pitch_deliver === 'string' ? (sp as any).pitch_deliver : '',
+        pitchWhy:
+          typeof (sp as any)?.pitch_why === 'string' ? (sp as any).pitch_why : '',
         serviceArea: (sp as any)?.service_area || '',
         typicalBudgetMin:
           (sp as any)?.typical_budget_min != null && (sp as any).typical_budget_min > 0

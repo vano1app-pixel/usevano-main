@@ -19,6 +19,10 @@ import { COMMUNITY_CATEGORIES, type CommunityCategoryId } from '@/lib/communityC
 interface StudentCardPreviewProps {
   userId: string;
   category: CommunityCategoryId | null;
+  /** Category-specific specialty slug (e.g. "weddings"). Rendered as a
+   *  pill on the card alongside the category label — live-updates as
+   *  the wizard user taps through the pill picker on Step 3. */
+  specialty?: string;
   bannerUrl?: string;
   title?: string;
   description?: string;
@@ -56,6 +60,7 @@ function toNumberOrNull(s: string | undefined): number | null {
 export const StudentCardPreview: React.FC<StudentCardPreviewProps> = ({
   userId,
   category,
+  specialty,
   bannerUrl,
   title,
   description,
@@ -110,6 +115,7 @@ export const StudentCardPreview: React.FC<StudentCardPreviewProps> = ({
     typical_budget_max: toNumberOrNull(rateMax),
     university: university || null,
     student_verified: false,
+    specialty: specialty || null,
     tiktok_url: tiktokUrl || null,
     instagram_url: instagramUrl || null,
     linkedin_url: linkedinUrl || null,
