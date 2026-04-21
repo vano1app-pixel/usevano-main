@@ -163,6 +163,14 @@ export default function BusinessDashboard() {
     let cancelled = false;
 
     const load = async () => {
+      // Wrap the whole sequential fetch in try/finally so a single
+      // thrown query (RLS rejection, network blip, column-missing on
+      // an environment with pending migrations) can't leave the
+      // dashboard stuck on the loading spinner forever. Partial data
+      // is better than a hung page — any query that fails silently
+      // returns null data, the loader finishes, and the user sees
+      // whatever sections did load.
+      try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -354,7 +362,11 @@ export default function BusinessDashboard() {
         }
       }
 
-      if (!cancelled) setLoading(false);
+      } catch (err) {
+        console.error('[business-dashboard] load failed', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
 
     load();

@@ -529,11 +529,14 @@ const HirePage = () => {
       // the user back on /hire with their work intact instead of a
       // blank wizard.
       saveHireBrief({ description, category, subtype, timeline, budget });
-      // Prefer Embedded Checkout (in-page modal) when the Stripe
-      // publishable key is set. If not, fall back to the classic
-      // hosted redirect so a deploy without VITE_STRIPE_PUBLISHABLE_KEY
-      // keeps working — important for gradual rollout / local dev.
-      const useEmbedded = hasStripePublishableKey();
+      // Embedded Checkout temporarily disabled — users reported
+      // "Couldn't start AI Find" errors and the embedded path was
+      // the most recently-added variable. Flip this back to
+      // `hasStripePublishableKey()` once we can verify the edge
+      // function is creating ui_mode=embedded sessions cleanly in
+      // the target Stripe account. The hosted redirect path below
+      // has been working since launch — that's the safe default.
+      const useEmbedded = false;
       const { data, error } = await supabase.functions.invoke('create-ai-find-checkout', {
         body: {
           brief: finalDescription,
