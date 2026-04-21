@@ -3,6 +3,8 @@ import { MapPin, Star, Clock, Wallet, GraduationCap } from 'lucide-react';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
 import { getUniversityLabel } from '@/lib/universities';
 import { formatLocation } from '@/lib/irelandCounties';
+import { cn } from '@/lib/utils';
+import { cardBase } from '@/lib/cardStyles';
 
 export interface FreelancerPublicHeaderProps {
   displayName: string;
@@ -60,7 +62,7 @@ export const FreelancerPublicHeader: React.FC<FreelancerPublicHeaderProps> = ({
   const showHourly = hourlyRate != null && hourlyRate > 0;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <div className={cn(cardBase, 'overflow-hidden')}>
       <div className="relative h-56 sm:h-64 overflow-hidden">
         {bannerUrl ? (
           <img src={bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 hover:scale-[1.02]" />

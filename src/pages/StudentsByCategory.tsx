@@ -11,6 +11,7 @@ import { isAdminOwnerEmail } from '@/lib/adminOwner';
 import { cn } from '@/lib/utils';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { CardSkeletonList } from '@/components/ui/CardSkeleton';
 
 const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
@@ -297,24 +298,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             </button>
           </div>
         ) : loading ? (
-          <div className="flex flex-col gap-4" aria-busy aria-label="Loading freelancers">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
-                <div className="h-48 w-full bg-muted/60" />
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-14 w-14 shrink-0 rounded-full bg-muted" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3.5 w-32 rounded-md bg-muted" />
-                      <div className="h-2.5 w-24 rounded-md bg-muted" />
-                    </div>
-                  </div>
-                  <div className="h-3 w-full rounded-md bg-muted" />
-                  <div className="h-3 w-4/5 rounded-md bg-muted" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <CardSkeletonList count={3} variant="full" label="Loading freelancers" />
         ) : students.length === 0 ? (
           // Dual-audience empty state. The old copy assumed the viewer
           // was a freelancer ("be the first") — reads oddly for hirers

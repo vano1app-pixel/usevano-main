@@ -7,6 +7,7 @@ import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users, Sparkles } fr
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { CardSkeleton } from '@/components/ui/CardSkeleton';
 
 const TALENT_HUB_CATEGORIES: {
   cat: CommunityCategoryId;
@@ -172,21 +173,9 @@ const BrowseStudents = () => {
         {/* Freelancer preview strip */}
         <div className="mt-8 flex flex-col gap-5">
           {loading ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3" aria-busy aria-label="Loading freelancers">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-sm">
-                  {/* Banner placeholder — uses a soft gradient instead of flat
-                      grey so the skeleton hints at the real card's colourful
-                      banner zone. */}
-                  <div className="h-20 w-full animate-pulse bg-gradient-to-br from-muted via-muted/70 to-muted/50" />
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted/70" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 w-2/3 animate-pulse rounded-full bg-muted/70" />
-                      <div className="h-2 w-1/3 animate-pulse rounded-full bg-muted/50" />
-                    </div>
-                  </div>
-                </div>
+                <CardSkeleton key={i} variant="compact" />
               ))}
             </div>
           ) : students.length > 0 ? (
