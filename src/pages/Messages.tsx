@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
@@ -211,6 +211,30 @@ const Messages = () => {
 
   // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
+  // "Work is done" detector — when the freelancer's latest message
+  // contains a done-ish phrase within the last 24h, we surface a small
+  // nudge inside the held-payment card so the hirer can act without
+  // re-reading the whole thread. Word-boundary regex so "I'm done for
+  // the day" triggers but "doneness" wouldn't. Memoised on messages +
+  // viewerUserType so it doesn't re-run on every keystroke. Placed
+  // here (after viewerUserType declaration) to satisfy the
+  // block-scoped dependency.
+  const DONE_PHRASES_RE = useMemo(() =>
+    /\b(done|finished|finishing|completed?|delivered|ready|wrapped up|all set|sent over|here you go|here'?s the)\b/i,
+  []);
+  const freelancerSaidDone = useMemo(() => {
+    if (!user?.id || viewerUserType !== 'business') return false;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.sender_id === user.id) continue;
+      // Only surface if recent (< 24h) — a month-old "done" is
+      // noise, not a nudge.
+      const ageMs = Date.now() - new Date(m.created_at).getTime();
+      if (ageMs > 24 * 60 * 60 * 1000) return false;
+      return DONE_PHRASES_RE.test(m.content);
+    }
+    return false;
+  }, [messages, user?.id, viewerUserType, DONE_PHRASES_RE]);
   // Freelancer's own Vano Pay readiness — drives the in-thread "Enable
   // Vano Pay" banner shown to students who have a chat with a business
   // but haven't linked a Stripe account yet. Null while loading so the
@@ -1280,6 +1304,24 @@ const Messages = () => {
                                     ? `Release when the work is done${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`
                                     : `Your client will release it${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`}
                                 </p>
+                                {isHirer && freelancerSaidDone && (
+                                  // Nudge above the Release button —
+                                  // only renders when the freelancer's
+                                  // latest message (within 24h) reads
+                                  // like "work delivered." Single line,
+                                  // amber tint so it reads as a prompt,
+                                  // not an alert; tapping acts as a
+                                  // soft cue, the button stays the
+                                  // action. Deliberately doesn't
+                                  // auto-release — a nudge, not a rule.
+                                  <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] leading-relaxed text-amber-800 dark:text-amber-200">
+                                    <Sparkles size={11} strokeWidth={2.5} className="mt-[2px] shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <span>
+                                      <span className="font-semibold">Looks like the work is done.</span>{' '}
+                                      <span className="text-amber-800/75 dark:text-amber-200/75">Release {amountEuro} below when you&apos;re ready.</span>
+                                    </span>
+                                  </div>
+                                )}
                                 {isHirer && (
                                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                                     <button
