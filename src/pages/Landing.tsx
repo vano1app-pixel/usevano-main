@@ -348,7 +348,7 @@ const Landing = () => {
                     Get found. Get paid.
                   </p>
                   <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">
-                    List yourself in 30 seconds. Paid safely through Vano.
+                    List yourself in 30 seconds. Paid safely through Vano Pay.
                   </p>
                   <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
                     Join as a freelancer

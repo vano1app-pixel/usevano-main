@@ -161,7 +161,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
         ) : status === 'enabled' ? (
           <>
             <p className="text-sm text-foreground leading-relaxed">
-              Clients can pay you safely through Vano. Funds are held on Vano until the client releases them (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 3%.
+              Clients can pay you safely through Vano Pay. Funds are held on Vano until the client releases them (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 3%.
             </p>
             <button
               type="button"
@@ -221,7 +221,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
         ) : (
           <>
             <p className="text-sm text-foreground leading-relaxed">
-              Let clients pay you safely through Vano. Funds are held on Vano until the client releases them on delivery (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 3%, no monthly charge. Powered by Stripe.
+              Let clients pay you safely through Vano Pay. Funds are held on Vano until the client releases them on delivery (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 3%, no monthly charge. Powered by Stripe.
             </p>
             <ul className="space-y-1.5 text-xs text-muted-foreground">
               <li>• One-time 3-minute setup with Stripe (bank + ID)</li>

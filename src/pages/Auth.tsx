@@ -204,7 +204,7 @@ const Auth = () => {
             {isLogin
               ? 'Sign in to pick up where you left off.'
               : userType === 'business'
-              ? 'One from our pool, one scouted from the web. Chat, agree a rate, pay safely through Vano.'
+              ? 'One from our pool, one scouted from the web. Chat, agree a rate, pay safely through Vano Pay.'
               : "30 seconds to get in front of businesses hiring right now."}
           </p>
           {/* Social-proof chip — auto-hides when the public match count is

@@ -107,7 +107,7 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
               <p className="text-[13.5px] text-muted-foreground mt-1.5 leading-relaxed">
                 {isSignUp
                   ? (userType === 'business'
-                      ? 'One from our pool, one scouted from the web. Paid safely through Vano.'
+                      ? 'One from our pool, one scouted from the web. Paid safely through Vano Pay.'
                       : 'List yourself in 30 seconds. Clients tap to pay — money held until they release.')
                   : 'Sign in to pick up where you left off.'}
               </p>

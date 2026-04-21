@@ -919,7 +919,7 @@ const HirePage = () => {
            perfect match" not "cheap student labour". Also signals the
            escrow safety net so the hirer knows the budget's protected. */}
       <p className="text-center text-[11px] sm:text-xs text-muted-foreground mb-4">
-        Whatever your budget, we hand-pick who fits. Paid safely through Vano — held until you release.
+        Whatever your budget, we hand-pick who fits. Paid safely through Vano Pay — held until you release.
       </p>
 
       <button type="button" onClick={() => goTo(3)} disabled={!canProceedStep2} className={cn(
@@ -973,8 +973,8 @@ const HirePage = () => {
               <h2 className="mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight sm:text-[26px]">
                 A perfect freelancer, hand-picked in 60 seconds.
               </h2>
-              <p className="mt-2 text-[13px] leading-relaxed text-white/75 max-w-[38ch]">
-                One from our pool, one scouted from the web. You chat, agree a rate, then pay them safely through Vano — we only take 3%.
+              <p className="mt-2 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
+                One from our pool, one scouted from the web. You chat, agree a rate, then pay them safely through Vano Pay — we take 3%.
               </p>
             </div>
 
@@ -987,7 +987,7 @@ const HirePage = () => {
                   { num: '1', text: 'Pay €1' },
                   { num: '2', text: '60s match' },
                   { num: '3', text: 'Chat + agree' },
-                  { num: '4', text: 'Pay via Vano' },
+                  { num: '4', text: 'Pay via Vano Pay' },
                 ].map((s, idx, arr) => (
                   <li key={s.num} className="flex flex-col items-center gap-1.5 border-l border-white/10 first:border-l-0 py-0.5">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[11px] font-semibold text-white">
