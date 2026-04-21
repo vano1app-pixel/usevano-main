@@ -29,6 +29,7 @@ import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { cn } from '@/lib/utils';
+import { cardBase, cardDanger } from '@/lib/cardStyles';
 import { computeProfileChecks } from '@/lib/profileCompleteness';
 import { VanoPaySetupCard } from '@/components/VanoPaySetupCard';
 
@@ -935,7 +936,7 @@ const Profile = () => {
                      when the listing is already complete and sitting in review
                      (or needs edits after a rejection). */}
                 {studentProfile?.community_board_status === 'pending' && (
-                  <div className="rounded-2xl border border-border bg-card px-5 py-4">
+                  <div className={cn(cardBase, 'px-5 py-4')}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -959,7 +960,7 @@ const Profile = () => {
                   </div>
                 )}
                 {studentProfile?.community_board_status === 'rejected' && (
-                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/[0.04] px-5 py-4">
+                  <div className={cn(cardDanger, 'px-5 py-4')}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -985,7 +986,7 @@ const Profile = () => {
                      freelancers who haven't submitted a listing at all (null
                      status). Pending and rejected get their own cards above. */}
                 {!studentProfile?.community_board_status && (
-                  <div className="rounded-2xl border border-border bg-card px-5 py-4">
+                  <div className={cn(cardBase, 'px-5 py-4')}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">

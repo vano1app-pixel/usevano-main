@@ -10,6 +10,8 @@ import { resolveUniversityKey } from '@/lib/universities';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { useAuth } from '@/hooks/useAuthContext';
 import { Sparkles, ArrowRight, Loader2, Check, Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { cardElevated } from '@/lib/cardStyles';
 
 /**
  * Dedicated full-screen onboarding page for the community listing wizard.
@@ -339,7 +341,7 @@ export default function ListOnCommunity() {
                 progress bar + completed-section chips make "we saved
                 your progress" concrete: the user sees exactly what
                 they won't need to redo. */}
-            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 shadow-sm">
+            <div className={cn(cardElevated, 'p-6')}>
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
                   <Sparkles size={18} strokeWidth={2} />

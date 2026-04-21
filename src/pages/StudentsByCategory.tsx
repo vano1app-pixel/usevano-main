@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
 import { cn } from '@/lib/utils';
+import { StatusChip } from '@/components/ui/StatusChip';
 
 const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
@@ -203,9 +204,9 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             <p className="text-sm text-muted-foreground">{meta.sub}</p>
           </div>
           {!loading && (
-            <span className="ml-auto rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
+            <StatusChip tone="success" className="ml-auto">
               {visibleStudents.length} {rateFilter === 'all' ? 'available' : `of ${students.length}`}
-            </span>
+            </StatusChip>
           )}
         </div>
 

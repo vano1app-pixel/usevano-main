@@ -4,6 +4,7 @@ import { Loader2, CheckCircle2, Banknote, ExternalLink, AlertCircle, Circle } fr
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { StatusChip } from '@/components/ui/StatusChip';
 
 // Freelancer-facing card for enabling Vano Pay. Shown on the Profile
 // page for student-type users. Handles three states based on
@@ -140,13 +141,9 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
           <Banknote size={15} className="text-primary" />
           <p className="text-sm font-semibold text-foreground">Vano Pay — Receive payments</p>
           {status === 'enabled' ? (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-              <CheckCircle2 size={10} /> Active
-            </span>
+            <StatusChip tone="success" size="sm" icon={CheckCircle2} className="ml-auto">Active</StatusChip>
           ) : status === 'pending' ? (
-            <span className="ml-auto rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-              Pending
-            </span>
+            <StatusChip tone="warning" size="sm" className="ml-auto">Pending</StatusChip>
           ) : null}
         </div>
       </div>

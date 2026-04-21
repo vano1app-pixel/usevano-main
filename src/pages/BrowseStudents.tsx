@@ -6,6 +6,7 @@ import { breadcrumbSchema } from '@/lib/structuredData';
 import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
+import { StatusChip } from '@/components/ui/StatusChip';
 
 const TALENT_HUB_CATEGORIES: {
   cat: CommunityCategoryId;
@@ -194,9 +195,7 @@ const BrowseStudents = () => {
                 <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   On VANO now
                 </p>
-                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
-                  {students.length} available
-                </span>
+                <StatusChip tone="success">{students.length} available</StatusChip>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {students.slice(0, 3).map((s, idx) => {

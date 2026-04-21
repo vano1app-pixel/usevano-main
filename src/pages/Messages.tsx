@@ -20,6 +20,7 @@ import {
 import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { StatusChip } from '@/components/ui/StatusChip';
 
 interface Conversation {
   id: string;
@@ -1131,10 +1132,7 @@ const Messages = () => {
                     </button>
                   )}
                   {hireAgreement && (
-                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                      <BadgeCheck size={12} strokeWidth={2.5} />
-                      Hired
-                    </span>
+                    <StatusChip tone="success" icon={BadgeCheck} className="shrink-0">Hired</StatusChip>
                   )}
                   {/* Pay via Vano — only makes sense for businesses
                       paying freelancers whose Stripe Connect account is

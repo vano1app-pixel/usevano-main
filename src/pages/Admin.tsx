@@ -12,6 +12,9 @@ import {
   AlertTriangle, ExternalLink,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { cn } from '@/lib/utils';
+import { cardWarning } from '@/lib/cardStyles';
 import {
   AdminListingReviewModal,
   type ListingRequestRow,
@@ -846,7 +849,7 @@ const Admin = () => {
                   ? `/messages?open=${d.conversation_id}`
                   : null;
                 return (
-                  <div key={d.id} className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-4 shadow-sm">
+                  <div key={d.id} className={cn(cardWarning, 'p-4')}>
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
@@ -857,9 +860,7 @@ const Admin = () => {
                           {d.business_name ?? 'Hirer'} → {d.freelancer_name ?? 'Freelancer'} · flagged {disputedAgo}
                         </p>
                       </div>
-                      <span className="shrink-0 inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                        Frozen
-                      </span>
+                      <StatusChip tone="warning" size="sm" className="shrink-0">Frozen</StatusChip>
                     </div>
                     {d.dispute_reason && (
                       <p className="mt-3 whitespace-pre-wrap rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] leading-relaxed text-foreground">
