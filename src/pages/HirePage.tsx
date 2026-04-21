@@ -238,11 +238,17 @@ const HirePage = () => {
     timeline: string;
     budget: string;
   }> = [
+    // Subtype strings MUST match CATEGORIES[*].subtypes verbatim — the
+    // pickers on Step 2 compare by string equality against that same
+    // array, so a chip that sets e.g. subtype='short_form' would
+    // render with no selected subtype and silently leak an invalid
+    // value into the brief. Timelines likewise must be one of the
+    // TIMELINES ids ('this_week' / '2_weeks' / '1_month' / 'flexible').
     {
       emoji: '🎥',
       label: '30-second TikTok edit',
       category: 'videography',
-      subtype: 'short_form',
+      subtype: 'Reel / short-form',
       description: 'Need a 30-second TikTok edit — short-form, punchy, with captions.',
       timeline: 'this_week',
       budget: '100_250',
@@ -251,27 +257,27 @@ const HirePage = () => {
       emoji: '🌐',
       label: 'New website for my business',
       category: 'websites',
-      subtype: 'marketing',
+      subtype: 'Full website',
       description: 'New website for my business — a few pages, mobile-friendly, easy to update.',
-      timeline: 'this_month',
+      timeline: '1_month',
       budget: '500_plus',
     },
     {
       emoji: '📣',
       label: 'Social media manager for 3 months',
       category: 'social_media',
-      subtype: 'management',
+      subtype: 'Community management',
       description: 'Looking for someone to run my Instagram + TikTok for 3 months — content, posting, engagement.',
-      timeline: 'ongoing',
+      timeline: 'flexible',
       budget: '500_plus',
     },
     {
       emoji: '💼',
       label: 'Cold caller for my business',
       category: 'digital_sales',
-      subtype: 'outbound',
+      subtype: 'Cold calling / SDR',
       description: 'Need a cold caller / outbound sales rep for my business — commission OK.',
-      timeline: 'ongoing',
+      timeline: 'flexible',
       budget: '250_500',
     },
   ];
