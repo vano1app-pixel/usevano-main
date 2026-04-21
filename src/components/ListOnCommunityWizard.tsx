@@ -73,10 +73,10 @@ const STEP_HEADINGS: Record<number, string> = {
 };
 
 const STEP_DESCRIPTIONS: Record<number, string> = {
-  1: 'Pick your category, upload a cover photo, and share a few samples of your best work.',
-  2: 'Write a short pitch, add your contact details, and drop any links to past work.',
-  3: 'Set your price and pick your skills.',
-  4: 'Quick check before you go live.',
+  1: "Pick the kind of work you do. Add a cover photo if you've got one — you can always drop one in later.",
+  2: "A one-liner, a bit of detail, and how clients reach you. Two minutes tops.",
+  3: "How much you charge, and the things you're best at.",
+  4: "Everything looks good? Tap any row to tweak it before you go live.",
 };
 
 // Percent shown at the top of each step. Numbers are intentionally
@@ -98,15 +98,10 @@ function migrateDraftStep(old: number): number {
   return Math.min(old, STEP_LABELS.length);
 }
 
-/* ─── Student pricing caps ─── */
-const MAX_HOURLY_RATE = 20;              // €20/hr for videography, content creation (social_media id)
-const MAX_DIGITAL_SALES_HOURLY = 10;     // €10/hr retainer for digital sales — rest of earnings come via expected bonus / commission
-const MAX_DAY_OR_PROJECT_RATE = 200;     // €200 per day / per project
-const MAX_PROJECT_BUDGET = 500;          // €500 for websites
-
-/** Returns the hourly-rate cap that applies to a given category. */
-const hourlyCapFor = (cat: CommunityCategoryId | null): number =>
-  cat === 'digital_sales' ? MAX_DIGITAL_SALES_HOURLY : MAX_HOURLY_RATE;
+/* Rate caps used to live here (€20/hr, €200/day, €500/project, €10/hr
+ * for digital-sales retainers). They've been retired — freelancers
+ * on Vano now set whatever they charge. The inputs below are free-
+ * form numbers; the client-side clamp on publish is gone too. */
 
 /** True if a Supabase/PostgREST error is most likely caused by an expired or
  *  invalid JWT — used to decide whether to refresh-and-retry the publish RPC.
@@ -802,13 +797,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       let rate_min: number | null = null;
       let rate_max: number | null = null;
       let rate_unit_out: string | null = rateUnit;
-      // Cap: €500 for websites, €50/hr for digital sales retainers, €20/hr for other hourly,
-      // €200 day/project for non-website categories
-      const ratecap = category === 'websites'
-        ? MAX_PROJECT_BUDGET
-        : rateUnit === 'hourly' ? hourlyCapFor(category)
-        : (rateUnit === 'day' || rateUnit === 'project') ? MAX_DAY_OR_PROJECT_RATE
-        : null;
       if (rateUnit === 'negotiable') {
         rate_min = null;
         rate_max = null;
@@ -816,11 +804,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       } else {
         if (rateMin.trim()) {
           const n = parseFloat(rateMin.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_min = ratecap != null ? Math.min(n, ratecap) : n;
+          if (!Number.isNaN(n) && n >= 0) rate_min = n;
         }
         if (rateMax.trim()) {
           const n = parseFloat(rateMax.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_max = ratecap != null ? Math.min(n, ratecap) : n;
+          if (!Number.isNaN(n) && n >= 0) rate_max = n;
         }
         if (rate_min != null && rate_max != null && rate_max < rate_min) {
           toast({ title: 'Invalid range', description: 'Maximum should be ≥ minimum.', variant: 'destructive' });
@@ -844,7 +832,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       const hourlyInput = profileHourly.trim()
         ? parseFloat(profileHourly.replace(',', '.'))
         : (rateUnit === 'hourly' && rate_min != null ? rate_min : NaN);
-      const hourly_rate = !Number.isNaN(hourlyInput) && hourlyInput > 0 ? Math.min(hourlyInput, hourlyCapFor(category)) : 0;
+      const hourly_rate = !Number.isNaN(hourlyInput) && hourlyInput > 0 ? hourlyInput : 0;
 
       const studentPatch: Record<string, unknown> = {
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
@@ -1355,11 +1343,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                Disclosures (social links, more about you) are unchanged. */}
           {step === 2 && (
             <div className="space-y-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs font-semibold text-foreground/70">
                 Your pitch
               </p>
               <div>
-                <Label htmlFor="lc-title">Your title</Label>
+                <Label htmlFor="lc-title">Your one-liner</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The one thing businesses should know about you.
+                </p>
                 <Input
                   id="lc-title"
                   className="mt-1.5 h-11"
@@ -1375,42 +1366,37 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 />
               </div>
               <div>
-                <Label htmlFor="lc-desc">What you do</Label>
+                <Label htmlFor="lc-desc">A bit more detail</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  2–3 sentences is perfect. Shown on your listing card and on the board.
+                  One or two short sentences — who you work with and what you deliver.
                 </p>
                 <Textarea
                   id="lc-desc"
-                  className="mt-1.5 min-h-[110px] text-sm"
+                  className="mt-1.5 min-h-[90px] text-sm"
                   placeholder={
                     category === 'websites'
-                      ? "What tech stack do you work with? Past clients or launches?"
+                      ? "e.g. I build fast Shopify stores for small retailers. Past launches include…"
                       : category === 'social_media'
-                      ? "Which platforms, formats, and past results?"
+                      ? "e.g. I make short-form Reels and UGC for food brands. Recent work…"
                       : category === 'digital_sales'
-                      ? "Who do you sell to, what channels (cold email / LinkedIn / calls), and what results have you gotten?"
-                      : "What do you shoot, what gear, and what kind of clients?"
+                      ? "e.g. I run LinkedIn + cold email for B2B SaaS. Most recent closes…"
+                      : "e.g. I shoot weddings and short event reels — based in Galway, love a cinematic edit."
                   }
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  maxLength={2000}
+                  maxLength={500}
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {description.length}/2000
-                  {description.trim().length > 0 && description.trim().length < 60 && (
-                    <span className="ml-1 text-amber-600 dark:text-amber-400">
-                      · a bit more detail helps businesses see your expertise
-                    </span>
-                  )}
+                  {description.length}/500
                 </p>
               </div>
               <div className="h-px bg-border" />
 
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs font-semibold text-foreground/70">
                 How clients reach you
               </p>
               <div>
-                <Label>Phone number <span className="text-rose-500">*</span></Label>
+                <Label>Phone number</Label>
                 <Input
                   type="tel"
                   inputMode="tel"
@@ -1437,7 +1423,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               {category && COMMUNITY_CATEGORIES[category].locationModel === 'local' ? (
                 <div className="space-y-2">
                   <div>
-                    <Label>Which county do you cover? <span className="text-rose-500">*</span></Label>
+                    <Label>Which county do you cover?</Label>
                     <Select value={county} onValueChange={setCounty}>
                       <SelectTrigger className="mt-1.5 h-11">
                         <SelectValue placeholder="Select your county" />
@@ -1592,13 +1578,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               {category === 'digital_sales' ? (
                 <>
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Digital sales is priced per hour — set your retainer rate (max €{MAX_DIGITAL_SALES_HOURLY}/hr) and your starting client track record below. Most of your earnings come from deal bonuses.
+                    Digital sales pays two ways — a small hourly retainer plus a bonus when you close. The real upside is in the bonus, so most freelancers keep the hourly modest.
                   </div>
                   <div>
-                    <div className="flex items-baseline justify-between">
-                      <Label>Your hourly rate (€)</Label>
-                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_DIGITAL_SALES_HOURLY}/hr</span>
-                    </div>
+                    <Label>Your hourly rate (€)</Label>
                     <p className="mt-1 text-xs text-muted-foreground">Retainer rate businesses pay on top of commission.</p>
                     <Input
                       className="mt-1.5 h-11"
@@ -1607,9 +1590,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       value={profileHourly}
                       onChange={(e) => setProfileHourly(e.target.value)}
                     />
-                    {parseFloat(profileHourly.replace(',', '.')) > MAX_DIGITAL_SALES_HOURLY && (
-                      <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_DIGITAL_SALES_HOURLY} max — we&apos;ll save it as €{MAX_DIGITAL_SALES_HOURLY}/hr.</p>
-                    )}
                   </div>
                   <div>
                     <Label>Expected bonus per closed deal</Label>
@@ -1658,39 +1638,30 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               ) : category === 'websites' ? (
                 <>
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Websites are priced per project — set the range you typically charge. Max €{MAX_PROJECT_BUDGET} per project.
+                    Websites are priced per project — pop in the range you typically charge.
                   </div>
                   <div>
-                    <div className="flex items-baseline justify-between">
-                      <Label className="text-sm font-medium">Project price range</Label>
-                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_PROJECT_BUDGET}</span>
-                    </div>
+                    <Label className="text-sm font-medium">Project price range</Label>
                     <div className="mt-1.5 grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs text-muted-foreground">From (€)</Label>
                         <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 200" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
-                        {parseFloat(rateMin.replace(',', '.')) > MAX_PROJECT_BUDGET && (
-                          <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_PROJECT_BUDGET} max — we&apos;ll save it as €{MAX_PROJECT_BUDGET}.</p>
-                        )}
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Up to (€)</Label>
                         <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 500" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                        {parseFloat(rateMax.replace(',', '.')) > MAX_PROJECT_BUDGET && (
-                          <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_PROJECT_BUDGET} max — we&apos;ll save it as €{MAX_PROJECT_BUDGET}.</p>
-                        )}
                       </div>
                     </div>
                   </div>
                 </>
               ) : (
                 <>
-                  {/* Intro banner matching the other two category paths —
-                       previously absent, which meant generic-category
-                       freelancers landed on Step 3 with no framing for
-                       what they were about to do or why the rates cap. */}
+                  {/* Generic-category intro — no cap language now that
+                       rates are freelancer-set. Keeps the framing positive
+                       so Step 3 lands as "pick a number" instead of "pass
+                       a compliance check." */}
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Set what you charge. Vano caps student rates at €{MAX_HOURLY_RATE}/hr or €{MAX_DAY_OR_PROJECT_RATE}/day · project — keeps the pool accessible to small businesses.
+                    Pick what you charge. Keep rates realistic and you&apos;ll get hired fastest — small businesses on Vano move quick when the price feels right.
                   </div>
                   <div>
                     <Label>Pricing type</Label>
@@ -1706,34 +1677,21 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  {rateUnit !== 'negotiable' && (() => {
-                    const cap = rateUnit === 'hourly' ? MAX_HOURLY_RATE : MAX_DAY_OR_PROJECT_RATE;
-                    const label = rateUnit === 'hourly' ? `€${cap}/hr` : `€${cap}`;
-                    return (
-                      <div>
-                        <div className="flex items-baseline justify-between">
-                          <Label className="text-sm font-medium">Rate range</Label>
-                          <span className="text-[11px] font-medium text-muted-foreground">Max {label}</span>
+                  {rateUnit !== 'negotiable' && (
+                    <div>
+                      <Label className="text-sm font-medium">Rate range</Label>
+                      <div className="mt-1.5 grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">From (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
                         </div>
-                        <div className="mt-1.5 grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">From (€)</Label>
-                            <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
-                            {parseFloat(rateMin.replace(',', '.')) > cap && (
-                              <p className="mt-1 text-xs font-medium text-red-500">Over {label} — we&apos;ll save it as {label}.</p>
-                            )}
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                            <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                            {parseFloat(rateMax.replace(',', '.')) > cap && (
-                              <p className="mt-1 text-xs font-medium text-red-500">Over {label} — we&apos;ll save it as {label}.</p>
-                            )}
-                          </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
                         </div>
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                   {/* "Your hourly rate" — only surfaced when the user picked a
                        non-hourly pricing type (day / project / negotiable).
                        When rateUnit === 'hourly', Rate range above already
@@ -1741,15 +1699,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                        is it asking twice?" snag. */}
                   {rateUnit !== 'hourly' && (
                     <div>
-                      <div className="flex items-baseline justify-between">
-                        <Label>Your hourly rate (€) <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                        <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_HOURLY_RATE}/hr</span>
-                      </div>
+                      <Label>Your hourly rate (€) <span className="font-normal text-muted-foreground">(optional)</span></Label>
                       <p className="mt-1 text-xs text-muted-foreground">Shown on your profile for ongoing or recurring work — on top of your {rateUnit === 'project' ? 'project' : rateUnit === 'day' ? 'day' : 'main'} rate.</p>
                       <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
-                      {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
-                        <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_HOURLY_RATE} max — we&apos;ll save it as €{MAX_HOURLY_RATE}/hr.</p>
-                      )}
                     </div>
                   )}
                 </>
@@ -1764,15 +1716,15 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       submit?" trap. */}
                   <span className={cn(
                     'text-[11px] font-semibold',
-                    skills.length === 0 ? 'text-rose-500'
+                    skills.length === 0 ? 'text-muted-foreground'
                       : skills.length < 3 ? 'text-amber-600'
                       : 'text-emerald-600',
                   )}>
                     {skills.length === 0
-                      ? 'Pick at least 1'
+                      ? 'Tap any that fit'
                       : skills.length < 3
-                        ? `${skills.length} selected · ${3 - skills.length} more for top matches`
-                        : `${skills.length} selected ✓`}
+                        ? `${skills.length} picked · ${3 - skills.length} more for top matches`
+                        : `${skills.length} picked ✓`}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">One is enough to publish — three or more helps businesses find you faster.</p>
