@@ -26,6 +26,7 @@ import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components
 import { HireRequestsInboxLink } from '@/components/HireRequestsInboxLink';
 import { ProfileStrengthCards } from '@/components/ProfileStrengthCards';
 import { SalesPipelineBoard } from '@/components/SalesPipelineBoard';
+import { FreelancerEarningsPanel } from '@/components/FreelancerEarningsPanel';
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
@@ -1462,6 +1463,19 @@ const Profile = () => {
                   !extrasOpen && 'hidden lg:block',
                 )}
               >
+
+                {/* ── Vano Pay earnings receipts ──
+                    Visible as soon as Stripe Connect is finished so a
+                    freelancer sees their running tally the first time
+                    a payment lands. Also mounts the realtime hook
+                    that fires the "+€X just landed" toast so a
+                    payout reaches them even if they're not looking
+                    at this panel. */}
+                {studentProfile?.stripe_payouts_enabled && user?.id && (
+                  <div>
+                    <FreelancerEarningsPanel userId={user.id} />
+                  </div>
+                )}
 
                 {/* ── Portfolio section ── */}
                 <div>

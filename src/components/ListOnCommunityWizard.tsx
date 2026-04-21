@@ -1597,12 +1597,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                             )
                           }
                           className={cn(
-                            'rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
+                            'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                             sel
-                              ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                              : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5',
+                              ? 'border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]'
+                              : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 active:scale-[0.97]',
                           )}
                         >
+                          {sel && <Check size={11} strokeWidth={2.75} className="animate-in zoom-in-50 duration-150" />}
                           {opt.label}
                         </button>
                       );
@@ -1637,12 +1638,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                           )
                         }
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                           sel
-                            ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                            ? 'border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]'
                             : disabled
                             ? 'border-border/40 bg-card text-muted-foreground/40 cursor-not-allowed'
-                            : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5',
+                            : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 active:scale-[0.97]',
                         )}
                       >
                         <Icon size={12} strokeWidth={2.25} />
@@ -1990,12 +1991,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                           type="button"
                           onClick={() => setSpecialty(sel ? '' : opt.id)}
                           className={cn(
-                            'rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
+                            'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                             sel
-                              ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                              : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5',
+                              ? 'border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]'
+                              : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 active:scale-[0.97]',
                           )}
                         >
+                          {sel && <Check size={11} strokeWidth={2.75} className="animate-in zoom-in-50 duration-150" />}
                           {opt.label}
                         </button>
                       );
