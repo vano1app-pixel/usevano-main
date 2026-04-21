@@ -30,7 +30,7 @@ function toAbsoluteImage(image: string): string {
 export const SEOHead = ({
   title,
   description,
-  keywords = 'VANO, Galway, freelancers, gigs, local jobs, hire students, community',
+  keywords = 'VANO, Ireland, Galway, freelancers, hire freelancer, gigs, local jobs, vano pay, community',
   // 1200×630 PNG — the spec-compliant size / format for LinkedIn /
   // Slack / WhatsApp / Facebook / Twitter previews. The old /og.svg
   // rendered inconsistently across scrapers (many silently drop SVG).

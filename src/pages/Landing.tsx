@@ -221,9 +221,9 @@ const Landing = () => {
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Hire a Trusted Freelancer — Videography, Digital Sales, Web & Social"
-        description="VANO connects businesses with trusted freelancers for digital sales, videography, web design and content creation. Describe what you need and we'll match you."
-        keywords="hire freelancer, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway"
+        title="Hand-picked freelancers, paid safely"
+        description="€1 finds your freelancer in 60 seconds. Chat, agree a rate, then pay safely through Vano Pay. Freelancers: list yourself free — videography, content, web design, digital sales."
+        keywords="hire freelancer, freelance marketplace, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway, vano pay"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
       <Navbar />
