@@ -6,7 +6,7 @@ import {
   COMMUNITY_CATEGORY_ORDER,
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
-import { Loader2, Sparkles, ArrowRight } from 'lucide-react';
+import { Loader2, Sparkles, ArrowRight, Eye } from 'lucide-react';
 
 // First-time "Quick list" entry point for freelancers. Collapses the full
 // 4-step wizard to a single screen with just the three fields anyone needs
@@ -51,8 +51,13 @@ export function ListOnCommunityQuickStart({
   // in-app messages. Forcing a phone upfront was the #1 abandonment point;
   // dropping the requirement lets uncertain users get listed in seconds and
   // add their number later when a real client conversation is happening.
+  // When they DO enter one, we at least require it to look phone-shaped
+  // (digits, optionally with + / spaces / dashes / parens, 7+ chars) so
+  // a typo like "1234" or "asdf" can't be saved.
   const trimmedPhone = phone.trim();
-  const phoneLooksValid = trimmedPhone.length === 0 || trimmedPhone.length >= 6;
+  const phoneLooksValid =
+    trimmedPhone.length === 0 ||
+    /^\+?[0-9][0-9\s\-()]{6,}$/.test(trimmedPhone);
   const canPublish =
     category !== null &&
     pitch.trim().length >= 6 &&
@@ -87,6 +92,27 @@ export function ListOnCommunityQuickStart({
       );
 
       if (error) throw error;
+
+      // Fire the welcome email — non-blocking. Session-storage guard
+      // prevents a dup if the user re-publishes in the same tab (e.g.
+      // they go back and change the pitch). Explicit .catch() (not
+      // just `void`) swallows any rejection so an undeployed edge
+      // function or a Resend blip can never surface as an unhandled
+      // rejection in the user's console mid-publish. The in-app
+      // celebration modal carries the core "you're live" message; the
+      // email is bonus.
+      try {
+        const sentKey = 'vano_welcome_email_sent';
+        if (!sessionStorage.getItem(sentKey)) {
+          sessionStorage.setItem(sentKey, '1');
+          supabase.functions
+            .invoke('welcome-freelancer-published', { body: {} })
+            .catch(() => { /* best-effort only */ });
+        }
+      } catch {
+        /* session storage unavailable; skip guard but still ok */
+      }
+
       onPublished({ postId: (postId as unknown as string) || '', category });
     } catch (err) {
       const message = (err as { message?: string })?.message || '';
@@ -200,6 +226,44 @@ export function ListOnCommunityQuickStart({
             Skip if you'd rather chat in-app first. We'll text you when a business reaches out — never shared publicly.
           </p>
         </div>
+
+        {/* Preview — appears once category + pitch are filled so the
+             freelancer sees EXACTLY what businesses will see on the
+             talent board before they commit. Without this, a cold
+             first-timer hits Publish without knowing what the output
+             looks like ("did I just post something ugly?"), which is
+             the single biggest source of "I want to delete my listing"
+             support pings. Subtle styling so it doesn't dominate the
+             form. */}
+        {canPublish && category && (() => {
+          const cat = COMMUNITY_CATEGORIES[category];
+          const Icon = cat.icon;
+          return (
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <div className="mb-2.5 flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <Eye size={11} /> Preview
+              </div>
+              <div className="rounded-lg bg-card p-3 shadow-sm ring-1 ring-border/60">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon size={16} strokeWidth={2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-primary">
+                      {cat.label}
+                    </p>
+                    <p className="mt-0.5 truncate text-[13px] font-semibold text-foreground">
+                      {pitch.trim()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                You can add a cover photo, skills, portfolio &amp; more from your profile after going live.
+              </p>
+            </div>
+          );
+        })()}
 
         {/* Publish */}
         <button

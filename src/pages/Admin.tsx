@@ -9,8 +9,13 @@ import { format } from 'date-fns';
 import {
   Shield, ShieldCheck, ShieldOff, Users, Briefcase, Calendar, Trash2, Search,
   ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
+  AlertTriangle, ExternalLink,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { cn } from '@/lib/utils';
+import { cardWarning } from '@/lib/cardStyles';
 import {
   AdminListingReviewModal,
   type ListingRequestRow,
@@ -65,7 +70,26 @@ interface FeedbackRow {
   sender_avatar?: string;
 }
 
-type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings';
+type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings' | 'disputes';
+
+// Row shape for a disputed Vano Pay payment (held, flagged by hirer).
+// Joined via profiles on the fly for display names; service-role
+// admin RLS on vano_payments lets moderators read cross-account.
+interface DisputedPaymentRow {
+  id: string;
+  conversation_id: string | null;
+  business_id: string;
+  freelancer_id: string;
+  amount_cents: number;
+  fee_cents: number;
+  dispute_reason: string;
+  disputed_at: string | null;
+  auto_release_at: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_session_id: string | null;
+  business_name: string | null;
+  freelancer_name: string | null;
+}
 const PAGE_SIZE = 20;
 
 // ── Component ──
@@ -87,6 +111,11 @@ const Admin = () => {
   const [listingRequests, setListingRequests] = useState<ListingRequestRow[]>([]);
   const [reviewRequest, setReviewRequest] = useState<ListingRequestRow | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [disputes, setDisputes] = useState<DisputedPaymentRow[]>([]);
+  // Per-row sentinel for the active resolve action so the button shows
+  // a spinner + other dispute rows stay interactive. Resolving one row
+  // shouldn't lock the whole tab.
+  const [resolvingDispute, setResolvingDispute] = useState<{ id: string; action: 'release' | 'refund' } | null>(null);
 
   const adminPagePassword = import.meta.env.VITE_ADMIN_PAGE_PASSWORD as string | undefined;
   const needsAdminPassword = Boolean(adminPagePassword && adminPagePassword.length > 0);
@@ -204,7 +233,7 @@ const Admin = () => {
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (error) {
-      console.error(error);
+      if (import.meta.env.DEV) console.error('[Admin] community_listing_requests fetch failed', error);
       setListingRequests([]);
       return;
     }
@@ -223,6 +252,78 @@ const Admin = () => {
       setListingRequests([]);
     }
   }, [page]);
+
+  // Held payments that the hirer has flagged as a problem. These
+  // are paused by the auto-release cron (dispute_reason IS NOT NULL
+  // is the skip condition) so they'd sit forever without an admin
+  // intervening. The inbox gives ops a single place to see them,
+  // read the reason, and resolve in one click — release to the
+  // freelancer (work was delivered) or refund the hirer (it wasn't).
+  // Both buttons call the shared release/refund edge functions with
+  // the admin override branch, so there's no separate admin-only
+  // Stripe code path to maintain.
+  const fetchDisputes = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('vano_payments')
+      .select('id, conversation_id, business_id, freelancer_id, amount_cents, fee_cents, dispute_reason, disputed_at, auto_release_at, stripe_payment_intent_id, stripe_session_id')
+      .not('dispute_reason', 'is', null)
+      .eq('status', 'paid')
+      .order('disputed_at', { ascending: false, nullsFirst: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (error) {
+      if (import.meta.env.DEV) console.error('[Admin] disputes fetch failed', error);
+      setDisputes([]);
+      return;
+    }
+    const rows = (data ?? []) as Array<Omit<DisputedPaymentRow, 'business_name' | 'freelancer_name'>>;
+    if (rows.length === 0) {
+      setDisputes([]);
+      return;
+    }
+    const ids = Array.from(new Set(rows.flatMap((r) => [r.business_id, r.freelancer_id])));
+    const { data: profs } = await supabase.from('profiles').select('user_id, display_name').in('user_id', ids);
+    const nameByUserId = new Map((profs || []).map((p) => [p.user_id, (p.display_name ?? null) as string | null]));
+    setDisputes(
+      rows.map((r) => ({
+        ...r,
+        dispute_reason: r.dispute_reason ?? '',
+        business_name: nameByUserId.get(r.business_id) ?? null,
+        freelancer_name: nameByUserId.get(r.freelancer_id) ?? null,
+      })),
+    );
+  }, [page]);
+
+  // Release held funds to the freelancer (work delivered) or refund
+  // them to the hirer (work not delivered). Each button maps to the
+  // existing release-/refund-vano-payment edge function, which carries
+  // an admin-override branch — so this is a thin wrapper, not a
+  // separate Stripe code path. On success we optimistically drop the
+  // row from the list (it's no longer in 'paid' + disputed state).
+  const resolveDispute = async (dispute: DisputedPaymentRow, action: 'release' | 'refund') => {
+    const amountEuro = `€${(dispute.amount_cents / 100).toFixed(2)}`;
+    const confirmMsg = action === 'release'
+      ? `Release ${amountEuro} to ${dispute.freelancer_name ?? 'the freelancer'}? This sends the money (minus the Vano fee) via Stripe. Cannot be undone.`
+      : `Refund ${amountEuro} to ${dispute.business_name ?? 'the hirer'}? This returns the full payment to their card via Stripe. Cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+    setResolvingDispute({ id: dispute.id, action });
+    const fnName = action === 'release' ? 'release-vano-payment' : 'refund-vano-payment';
+    const { data, error } = await supabase.functions.invoke(fnName, {
+      body: { payment_id: dispute.id },
+    });
+    setResolvingDispute(null);
+    if (error || (data && (data as { error?: string }).error)) {
+      const msg = (data as { error?: string })?.error || error?.message || 'Action failed';
+      toast({ title: 'Could not resolve dispute', description: msg, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: action === 'release' ? 'Released to freelancer' : 'Refunded to hirer',
+      description: `${amountEuro} · payment ${dispute.id.slice(0, 8)}…`,
+    });
+    // Drop the resolved row. Refetch would also work but the optimistic
+    // remove keeps the UI responsive even if the server read lags.
+    setDisputes((prev) => prev.filter((d) => d.id !== dispute.id));
+  };
 
   const fetchFeedback = useCallback(async () => {
     const { data } = await supabase
@@ -261,7 +362,8 @@ const Admin = () => {
     if (tab === 'events') fetchEvents();
     if (tab === 'feedback') fetchFeedback();
     if (tab === 'listings') fetchListingRequests();
-  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests]);
+    if (tab === 'disputes') fetchDisputes();
+  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests, fetchDisputes]);
 
   // ── Actions ──
   const toggleAdmin = async (userId: string) => {
@@ -461,13 +563,16 @@ const Admin = () => {
     );
   }
 
-  const inputClass = "w-full border border-input rounded-xl px-4 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring";
+  // text-base (16px) — avoids iOS Safari's zoom-on-focus for any
+  // input with computed font-size under 16px.
+  const inputClass = "w-full border border-input rounded-xl px-4 py-2.5 text-base bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
   const tabs: { key: Tab; label: string; icon: ReactNode; count: number }[] = [
     { key: 'users', label: 'Users', icon: <Users size={16} />, count: filteredUsers.length },
     { key: 'gigs', label: 'Gigs', icon: <Briefcase size={16} />, count: filteredGigs.length },
     { key: 'events', label: 'Events', icon: <Calendar size={16} />, count: filteredEvents.length },
     { key: 'listings', label: 'Community', icon: <ClipboardList size={16} />, count: filteredListings.length },
+    { key: 'disputes', label: 'Disputes', icon: <AlertTriangle size={16} />, count: disputes.length },
     { key: 'feedback', label: 'Feedback', icon: <MessageSquare size={16} />, count: filteredFeedbacks.length },
   ];
 
@@ -549,7 +654,7 @@ const Admin = () => {
               <div key={u.user_id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
                   {u.avatar_url ? (
-                    <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                    <img src={u.avatar_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm font-bold">
                       {(u.display_name || '?')[0].toUpperCase()}
@@ -718,17 +823,127 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ── Disputes tab ── */}
+        {tab === 'disputes' && (
+          <div className="space-y-3">
+            {disputes.length === 0 ? (
+              <EmptyState
+                tone="success"
+                icon={ShieldCheck}
+                title="No active disputes"
+                description="Hirers who flag a held payment land here. Each row is paused from auto-release until resolved. None open right now."
+              />
+            ) : (
+              disputes.map((d) => {
+                const amountEuro = `€${(d.amount_cents / 100).toFixed(2)}`;
+                const netEuro = `€${((d.amount_cents - d.fee_cents) / 100).toFixed(2)}`;
+                const disputedAgo = d.disputed_at
+                  ? format(new Date(d.disputed_at), 'MMM d, h:mm a')
+                  : 'date unknown';
+                const stripeUrl = d.stripe_payment_intent_id
+                  ? `https://dashboard.stripe.com/payments/${d.stripe_payment_intent_id}`
+                  : null;
+                const threadUrl = d.conversation_id
+                  ? `/messages?open=${d.conversation_id}`
+                  : null;
+                return (
+                  <div key={d.id} className={cn(cardWarning, 'p-4')}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                          <AlertTriangle size={13} className="text-amber-600" />
+                          {amountEuro} held · {netEuro} to freelancer
+                        </p>
+                        <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                          {d.business_name ?? 'Hirer'} → {d.freelancer_name ?? 'Freelancer'} · flagged {disputedAgo}
+                        </p>
+                      </div>
+                      <StatusChip tone="warning" size="sm" className="shrink-0">Frozen</StatusChip>
+                    </div>
+                    {d.dispute_reason && (
+                      <p className="mt-3 whitespace-pre-wrap rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] leading-relaxed text-foreground">
+                        {d.dispute_reason}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px] font-semibold">
+                      {threadUrl && (
+                        <a
+                          href={threadUrl}
+                          onClick={(e) => { e.preventDefault(); navigate(threadUrl); }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-foreground hover:bg-muted"
+                        >
+                          <MessageSquare size={11} /> Open thread
+                        </a>
+                      )}
+                      {stripeUrl && (
+                        <a
+                          href={stripeUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-foreground hover:bg-muted"
+                        >
+                          Stripe payment <ExternalLink size={10} />
+                        </a>
+                      )}
+                      <span className="ml-auto text-[10.5px] font-normal text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        payment_id: {d.id.slice(0, 8)}…
+                      </span>
+                    </div>
+                    {/* Resolution buttons — each fires the same release/
+                         refund edge function the hirer would call, but
+                         with the admin override so the row's dispute
+                         freeze doesn't block it. Release = work was
+                         done, send the money. Refund = work wasn't
+                         done, return to hirer. */}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(() => {
+                        const busy = resolvingDispute?.id === d.id;
+                        const isReleasing = busy && resolvingDispute?.action === 'release';
+                        const isRefunding = busy && resolvingDispute?.action === 'refund';
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => resolveDispute(d, 'release')}
+                              disabled={busy}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11.5px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {isReleasing ? 'Releasing…' : `Release ${netEuro} to freelancer`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => resolveDispute(d, 'refund')}
+                              disabled={busy}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[11.5px] font-semibold text-destructive shadow-sm transition hover:bg-destructive/15 disabled:opacity-60"
+                            >
+                              {isRefunding ? 'Refunding…' : `Refund ${amountEuro} to hirer`}
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
         {/* ── Feedback tab ── */}
         {tab === 'feedback' && (
           <div className="space-y-2">
             {filteredFeedbacks.length === 0 && (
-              <p className="text-center text-muted-foreground py-12 text-sm">No feedback yet</p>
+              <EmptyState
+                icon={MessageSquare}
+                title="No feedback yet"
+                description="User messages submitted through the feedback widget land here. None so far."
+              />
             )}
             {filteredFeedbacks.map((f) => (
               <div key={f.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden shrink-0">
                   {f.sender_avatar ? (
-                    <img src={f.sender_avatar} alt="" className="w-full h-full object-cover" />
+                    <img src={f.sender_avatar} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm font-bold">
                       {(f.sender_name || '?')[0].toUpperCase()}
@@ -771,6 +986,7 @@ const Admin = () => {
               (tab === 'gigs' && filteredGigs.length < PAGE_SIZE) ||
               (tab === 'events' && filteredEvents.length < PAGE_SIZE) ||
               (tab === 'listings' && filteredListings.length < PAGE_SIZE) ||
+              (tab === 'disputes' && disputes.length < PAGE_SIZE) ||
               (tab === 'feedback' && filteredFeedbacks.length < PAGE_SIZE)
             }
             className="p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-40 transition-colors"

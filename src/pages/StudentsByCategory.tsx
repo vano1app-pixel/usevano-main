@@ -9,6 +9,9 @@ import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
 import { cn } from '@/lib/utils';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { CardSkeletonList } from '@/components/ui/CardSkeleton';
 
 const CATEGORY_META: Record<CommunityCategoryId, { label: string; sub: string; icon: typeof Monitor }> = {
   videography: { label: 'Videography', sub: 'Filming, reels & promos', icon: Video },
@@ -52,6 +55,14 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   // 0 or null rate are kept in all buckets because "negotiable" is common
   // and we'd rather surface them than hide them.
   const [rateFilter, setRateFilter] = useState<'all' | 'lt30' | '30to60' | 'gt60'>('all');
+  // Sort order on the visible list. Default is "newest" (updated_at desc)
+  // so freshly-listed or recently-edited freelancers surface to the top —
+  // the page used to render in raw insertion order, which gave anyone
+  // listing after the first cohort effectively zero visibility. "Top
+  // rated" uses the reviewMap aggregate and falls back to newest on tie
+  // so a brand-new 5-star freelancer doesn't get stuck behind an ancient
+  // one with the same score.
+  const [sortBy, setSortBy] = useState<'newest' | 'top_rated'>('newest');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -123,15 +134,35 @@ const StudentsByCategory = ({ categoryId }: Props) => {
 
   // Apply the budget-chip filter in memory. Negotiable / unset rates stay
   // visible in every bucket so we don't hide willing-to-chat freelancers.
-  const visibleStudents = students.filter((s) => {
-    if (rateFilter === 'all') return true;
-    const r = Number(s.hourly_rate);
-    if (!r || Number.isNaN(r) || r <= 0) return true;
-    if (rateFilter === 'lt30') return r < 30;
-    if (rateFilter === '30to60') return r >= 30 && r <= 60;
-    if (rateFilter === 'gt60') return r > 60;
-    return true;
-  });
+  const visibleStudents = students
+    .filter((s) => {
+      if (rateFilter === 'all') return true;
+      const r = Number(s.hourly_rate);
+      if (!r || Number.isNaN(r) || r <= 0) return true;
+      if (rateFilter === 'lt30') return r < 30;
+      if (rateFilter === '30to60') return r >= 30 && r <= 60;
+      if (rateFilter === 'gt60') return r > 60;
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      if (sortBy === 'top_rated') {
+        const aInfo = reviewMap[a.user_id];
+        const bInfo = reviewMap[b.user_id];
+        const aScore = aInfo ? parseFloat(aInfo.avg) : -1;
+        const bScore = bInfo ? parseFloat(bInfo.avg) : -1;
+        if (aScore !== bScore) return bScore - aScore;
+        // Tiebreaker: count (more reviews = more confidence), then newest.
+        const aCount = aInfo?.count ?? 0;
+        const bCount = bInfo?.count ?? 0;
+        if (aCount !== bCount) return bCount - aCount;
+      }
+      // Default + top-rated tiebreak: most-recently-updated first. Falls
+      // back to created_at if the row predates the updated_at stamp.
+      const aDate = a.updated_at || a.created_at || '';
+      const bDate = b.updated_at || b.created_at || '';
+      return bDate.localeCompare(aDate);
+    });
 
   const meta = CATEGORY_META[categoryId];
   const Icon = meta.icon;
@@ -175,9 +206,9 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             <p className="text-sm text-muted-foreground">{meta.sub}</p>
           </div>
           {!loading && (
-            <span className="ml-auto rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
+            <StatusChip tone="success" className="ml-auto">
               {visibleStudents.length} {rateFilter === 'all' ? 'available' : `of ${students.length}`}
-            </span>
+            </StatusChip>
           )}
         </div>
 
@@ -189,32 +220,65 @@ const StudentsByCategory = ({ categoryId }: Props) => {
 
         {/* Budget filter chips — helps budget-constrained hirers narrow down
             without bouncing on "too expensive" cards. Students with a 0 / null
-            rate stay visible in every bucket since "open to chat" is common. */}
+            rate stay visible in every bucket since "open to chat" is common.
+            Sort toggle sits on the right so the two controls (what rates,
+            what order) share one row on desktop and stack cleanly on mobile. */}
         {!loading && students.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-1.5">
-            {([
-              { id: 'all', label: 'All rates' },
-              { id: 'lt30', label: '< €30/hr' },
-              { id: '30to60', label: '€30–60/hr' },
-              { id: 'gt60', label: '€60+/hr' },
-            ] as const).map((chip) => {
-              const active = rateFilter === chip.id;
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  onClick={() => setRateFilter(chip.id)}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors',
-                    active
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-card text-foreground/70 hover:border-primary/40 hover:text-foreground',
-                  )}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                { id: 'all', label: 'All rates' },
+                { id: 'lt30', label: '< €30/hr' },
+                { id: '30to60', label: '€30–60/hr' },
+                { id: 'gt60', label: '€60+/hr' },
+              ] as const).map((chip) => {
+                const active = rateFilter === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setRateFilter(chip.id)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors',
+                      active
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-card text-foreground/70 hover:border-primary/40 hover:text-foreground',
+                    )}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div
+              role="tablist"
+              aria-label="Sort freelancers"
+              className="inline-flex overflow-hidden rounded-full border border-border bg-card p-0.5 text-[11px] font-semibold"
+            >
+              {([
+                { id: 'newest', label: 'Newest' },
+                { id: 'top_rated', label: 'Top rated' },
+              ] as const).map((opt) => {
+                const active = sortBy === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setSortBy(opt.id)}
+                    className={cn(
+                      'rounded-full px-3 py-1 transition-colors',
+                      active
+                        ? 'bg-foreground text-background'
+                        : 'text-foreground/60 hover:text-foreground',
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -234,24 +298,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             </button>
           </div>
         ) : loading ? (
-          <div className="flex flex-col gap-4" aria-busy aria-label="Loading freelancers">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm animate-pulse">
-                <div className="h-48 w-full bg-muted/60" />
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-14 w-14 shrink-0 rounded-full bg-muted" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3.5 w-32 rounded-md bg-muted" />
-                      <div className="h-2.5 w-24 rounded-md bg-muted" />
-                    </div>
-                  </div>
-                  <div className="h-3 w-full rounded-md bg-muted" />
-                  <div className="h-3 w-4/5 rounded-md bg-muted" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <CardSkeletonList count={3} variant="full" label="Loading freelancers" />
         ) : students.length === 0 ? (
           // Dual-audience empty state. The old copy assumed the viewer
           // was a freelancer ("be the first") — reads oddly for hirers
@@ -296,20 +343,16 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             </div>
           </div>
         ) : visibleStudents.length === 0 ? (
-          // Empty state when the user narrowed by budget to nothing. Offer
-          // to widen the filter instead of leaving them on a dead end.
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
-            <p className="max-w-sm text-sm font-medium text-foreground">
-              No {meta.label.toLowerCase()} freelancers in this rate band.
-            </p>
-            <button
-              type="button"
-              onClick={() => setRateFilter('all')}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
-            >
-              Show all rates
-            </button>
-          </div>
+          <EmptyState
+            size="compact"
+            title={`No ${meta.label.toLowerCase()} freelancers in this rate band.`}
+            description="Widen the filter to see everyone available in this category."
+            action={{
+              label: 'Show all rates',
+              variant: 'outline',
+              onClick: () => setRateFilter('all'),
+            }}
+          />
         ) : (
           <div className="flex flex-col gap-4">
             {visibleStudents.map((student, idx) => {

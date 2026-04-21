@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, Sparkles } from 'lucide-react';
+import { X, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -95,71 +95,89 @@ export function VanoPayModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 sm:items-center">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <div className="flex items-center gap-2">
-            <Sparkles size={15} className="text-primary" />
-            <p className="text-sm font-semibold text-foreground">Pay {freelancerName} via Vano</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
-            aria-label="Close"
-          >
-            <X size={15} />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-4 backdrop-blur-[2px] sm:items-center">
+      <div className="relative w-full max-w-[420px] overflow-hidden rounded-[20px] border border-border bg-card shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)]">
+        {/* Close sits in-corner without a heavy header border so the
+            modal reads as a focused checkout, not a form. */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          aria-label="Close"
+        >
+          <X size={16} />
+        </button>
 
-        <div className="space-y-4 p-5">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-foreground">Amount (€)</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="1"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              autoFocus
-              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-base font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+        <div className="px-6 pb-6 pt-7">
+          {/* Header — no border, generous leading, tighter tracking so
+              the freelancer's name is the anchor. */}
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Vano Pay
+          </p>
+          <h2 className="mt-1 text-[22px] font-semibold leading-tight tracking-tight text-foreground">
+            Pay <span className="text-primary">{freelancerName}</span>
+          </h2>
+
+          {/* Amount input is the hero. Big tabular-nums digits, prefixed
+              €, minimal chrome. Feels like a POS screen, not a form. */}
+          <div className="mt-6">
+            <label htmlFor="vano-pay-amount" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Amount
+            </label>
+            <div className="group relative flex items-baseline rounded-2xl border border-input bg-background px-4 py-4 transition-colors focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10">
+              <span className="mr-1.5 text-[28px] font-semibold text-muted-foreground">€</span>
+              <input
+                id="vano-pay-amount"
+                type="number"
+                inputMode="decimal"
+                min="1"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+                className="w-full bg-transparent text-[32px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-foreground">What's this for? (optional)</label>
+          {/* Optional note — visually quieter so it reads as optional. */}
+          <div className="mt-3">
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Wedding video deposit, logo design, etc."
+              placeholder="What's this for? (optional)"
               maxLength={200}
-              className="w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
             />
           </div>
 
+          {/* Breakdown — stripped of the bordered-box look. Rows with a
+              hairline divider above the fee line so the eye lands on
+              "freelancer receives" first. Tabular-nums keeps euros
+              aligned. */}
           {amountCents >= minCents ? (
-            <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs">
+            <dl className="mt-5 space-y-2 text-[13px]" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">You pay</span>
-                <span className="font-semibold text-foreground">€{(amountCents / 100).toFixed(2)}</span>
+                <dt className="text-muted-foreground">You pay</dt>
+                <dd className="font-medium text-foreground">€{(amountCents / 100).toFixed(2)}</dd>
               </div>
-              <div className="mt-1.5 flex items-center justify-between">
-                <span className="text-muted-foreground">{freelancerName} receives</span>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+              <div className="flex items-center justify-between">
+                <dt className="text-muted-foreground">{freelancerName} receives</dt>
+                <dd className="font-semibold text-emerald-700 dark:text-emerald-300">
                   €{(freelancerCents / 100).toFixed(2)}
-                </span>
+                </dd>
               </div>
-              <div className="mt-1.5 flex items-center justify-between border-t border-border pt-1.5">
-                <span className="text-muted-foreground">Vano fee ({feePercentLabel})</span>
-                <span className="font-medium text-muted-foreground">€{(feeCents / 100).toFixed(2)}</span>
+              <div className="flex items-center justify-between border-t border-border/70 pt-2 text-[12px]">
+                <dt className="text-muted-foreground">Vano fee · {feePercentLabel}</dt>
+                <dd className="text-muted-foreground">€{(feeCents / 100).toFixed(2)}</dd>
               </div>
-            </div>
+            </dl>
           ) : (
-            <p className="text-[11px] text-muted-foreground">
-              Minimum €{(minCents / 100).toFixed(2)} — Vano takes {feePercentLabel}, freelancer gets the rest.
+            <p className="mt-4 text-[12px] text-muted-foreground">
+              Minimum €{(minCents / 100).toFixed(2)}. Vano takes {feePercentLabel}; the rest goes straight to {freelancerName}.
             </p>
           )}
 
@@ -167,20 +185,30 @@ export function VanoPayModal({
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.55)] transition-all duration-150 hover:brightness-[1.08] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
           >
             {submitting ? (
-              <><Loader2 size={14} className="animate-spin" /> Opening Stripe…</>
+              <><Loader2 size={16} className="animate-spin" /> Opening Stripe…</>
+            ) : amountCents >= minCents ? (
+              <>
+                Pay €{(amountCents / 100).toFixed(2)}
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+              </>
             ) : (
-              amountCents >= minCents
-                ? <>Pay €{(amountCents / 100).toFixed(2)} now</>
-                : 'Enter an amount'
+              'Enter an amount'
             )}
           </button>
 
-          <p className="text-center text-[10px] text-muted-foreground">
-            You'll be redirected to Stripe's secure checkout to enter your card details.
-          </p>
+          {/* Footer trust — explains the escrow promise in the moment
+               of payment: money is HELD on Vano, hirer releases on
+               delivery, 14-day auto-release if nothing happens. This
+               is the bit that justifies the 3% fee on its own merits. */}
+          <div className="mt-4 flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
+            <ShieldCheck size={13} className="mt-[2px] shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <p>
+              We hold your payment until you release it. 14-day auto-release if you don't act. Full refund on dispute.
+            </p>
+          </div>
         </div>
       </div>
     </div>

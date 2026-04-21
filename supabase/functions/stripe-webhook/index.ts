@@ -5,19 +5,31 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // (Stripe can't send JWTs); authenticity is proven by verifying the
 // Stripe-Signature header against STRIPE_WEBHOOK_SECRET using HMAC-SHA256.
 //
-// Dispatches three event types:
+// Dispatches four event types:
 //   1. checkout.session.completed with metadata.ai_find_request_id →
 //      marks ai_find_requests as paid and kicks off AI scouting.
 //   2. checkout.session.completed with metadata.vano_payment_id →
-//      marks vano_payments as paid (Stripe has already transferred
-//      funds to the freelancer; no further action needed).
+//      marks vano_payments as PAID (held on the platform). Funds do
+//      not move to the freelancer here — release-vano-payment (or
+//      the auto-release cron) handles that when the hirer releases
+//      or the 14-day window expires.
 //   3. account.updated → flips student_profiles.stripe_payouts_enabled
 //      when the freelancer's Connect Express account is ready to
 //      receive transfers.
+//   4. charge.refunded → flips vano_payments to 'refunded' when a
+//      refund lands from any source (our refund-vano-payment
+//      function, ops refunding via Stripe dashboard, or a
+//      cardholder chargeback). Keeps the UI honest regardless of
+//      how the refund was initiated.
 //
 // All handlers are idempotent on replay.
 
 const TOLERANCE_SECONDS = 300;
+// How long we hold funds before the cron auto-releases them. 14 days
+// gives the hirer time to receive and review the work; long enough to
+// matter as protection, short enough that freelancers aren't left
+// waiting forever when the hirer ghosts.
+const AUTO_RELEASE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 function hex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf))
@@ -118,27 +130,34 @@ async function handleAiFindCheckoutCompleted(
 }
 
 // --- Handler: Vano Pay checkout completed ---------------------------------
-// Stripe Checkout with destination charges has already split the funds
-// between the platform (application_fee_amount) and the freelancer
-// (transfer_data.destination) by the time this fires. Our job is just
-// to stamp the row so the UI can reflect "Paid".
+// Under escrow, this flips the row to 'paid' (HELD on the platform)
+// and stamps auto_release_at = now + 14 days. release-vano-payment
+// (or the auto-release cron) handles the actual transfer to the
+// freelancer when the hirer releases or the window expires.
 async function handleVanoPayCheckoutCompleted(
   supabase: SupabaseClient,
   session: StripeCheckoutSession,
   paymentId: string,
 ): Promise<Response> {
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  const autoReleaseIso = new Date(nowMs + AUTO_RELEASE_WINDOW_MS).toISOString();
+
+  // Tick the conversation's updated_at so the payment "bumps" the
+  // thread in the hirer + freelancer inboxes — same UX cue they'd
+  // get from a new message, so the held payment is visibly new.
   const { data: flipped, error: flipError } = await supabase
     .from('vano_payments')
     .update({
-      status: 'transferred',
+      status: 'paid',
       stripe_payment_intent_id: session.payment_intent ?? null,
-      paid_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
+      paid_at: nowIso,
+      auto_release_at: autoReleaseIso,
     })
     .eq('id', paymentId)
     .eq('stripe_session_id', session.id)
     .eq('status', 'awaiting_payment')
-    .select('id')
+    .select('id, conversation_id')
     .maybeSingle();
 
   if (flipError) {
@@ -151,7 +170,17 @@ async function handleVanoPayCheckoutCompleted(
     });
   }
 
-  return new Response(JSON.stringify({ received: true, triggered: 'vano_pay' }), {
+  if (flipped.conversation_id) {
+    const { error: bumpError } = await supabase
+      .from('conversations')
+      .update({ updated_at: nowIso })
+      .eq('id', flipped.conversation_id);
+    if (bumpError) {
+      console.warn('[stripe-webhook] conversation bump failed', bumpError.message);
+    }
+  }
+
+  return new Response(JSON.stringify({ received: true, triggered: 'vano_pay', state: 'held' }), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
@@ -200,6 +229,69 @@ type StripeAccount = {
   charges_enabled?: boolean;
   payouts_enabled?: boolean;
 };
+
+type StripeCharge = {
+  id?: string;
+  payment_intent?: string;
+  amount_refunded?: number;
+  refunded?: boolean;
+  metadata?: Record<string, string | undefined>;
+};
+
+// --- Handler: charge.refunded --------------------------------------------
+// Fires when a refund lands — either from our refund-vano-payment
+// function (already flipped the row before the webhook lands) or from
+// ops refunding via the Stripe dashboard / a cardholder chargeback
+// path we don't control. Idempotent on both cases: if the row is
+// already 'refunded' we no-op; otherwise we flip it so the UI stays
+// honest even for out-of-band refunds.
+async function handleChargeRefunded(
+  supabase: SupabaseClient,
+  charge: StripeCharge,
+): Promise<Response> {
+  if (!charge?.payment_intent) {
+    return new Response(JSON.stringify({ received: true, ignored: 'no_payment_intent' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: flipped, error } = await supabase
+    .from('vano_payments')
+    .update({
+      status: 'refunded',
+      refunded_at: nowIso,
+      completed_at: nowIso,
+      auto_release_at: null,
+    })
+    .eq('stripe_payment_intent_id', charge.payment_intent)
+    .in('status', ['paid', 'awaiting_payment'])
+    .select('id, conversation_id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[stripe-webhook] charge.refunded DB write failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!flipped) {
+    // Already refunded, already released, or no vano_payments row —
+    // all fine. Don't retry.
+    return new Response(JSON.stringify({ received: true, replay: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (flipped.conversation_id) {
+    await supabase
+      .from('conversations')
+      .update({ updated_at: nowIso })
+      .eq('id', flipped.conversation_id);
+  }
+
+  return new Response(JSON.stringify({ received: true, triggered: 'charge_refunded' }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 // --- Entry point ----------------------------------------------------------
 serve(async (req) => {
@@ -267,6 +359,16 @@ serve(async (req) => {
   if (eventType === 'account.updated') {
     const account = event.data?.object as StripeAccount | undefined;
     return handleAccountUpdated(supabase, account ?? {});
+  }
+
+  // charge.refunded covers out-of-band refunds (Stripe dashboard
+  // action, chargeback) so the vano_payments row stays in sync with
+  // Stripe's reality. In-app refunds via refund-vano-payment already
+  // flip the row before the webhook lands; the handler is idempotent
+  // so a replay is a no-op.
+  if (eventType === 'charge.refunded') {
+    const charge = event.data?.object as StripeCharge | undefined;
+    return handleChargeRefunded(supabase, charge ?? {});
   }
 
   // Any other event type: 200 + move on. We only subscribe to the

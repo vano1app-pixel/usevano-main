@@ -10,6 +10,19 @@ import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { NewFeatureBadge } from '@/components/NewFeatureBadge';
+import { prefetchHandlers } from '@/lib/prefetchRoute';
+
+// Maps a route pathname to the prefetch key so hover on a nav item
+// kicks off the JS chunk download before the actual click. Keep the
+// keys in lockstep with src/lib/prefetchRoute.ts#routeImports.
+const PATH_TO_PREFETCH_KEY: Record<string, Parameters<typeof prefetchHandlers>[0]> = {
+  '/hire': 'hire',
+  '/students': 'students',
+  '/profile': 'profile',
+  '/messages': 'messages',
+  '/business-dashboard': 'business-dashboard',
+  '/auth': 'auth',
+};
 
 export const Navbar: React.FC = () => {
   // Shared auth context: single subscription + single profile fetch shared
@@ -138,27 +151,36 @@ export const Navbar: React.FC = () => {
           </Link>
 
           <div className="hidden md:flex items-center gap-0.5 lg:gap-1">
-            {navItems.map((item) => (
-              <button
-                key={item.href}
-                onClick={() => handleNavClick(item.href, item.requiresAuth)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
-                  isActiveRoute(item.href)
-                    ? "text-primary bg-primary/10 font-semibold"
-                    : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]"
-                )}
-              >
-                {item.label}
-                {item.isNew ? <NewFeatureBadge /> : null}
-              </button>
-            ))}
+            {navItems.map((item) => {
+              const prefetchKey = PATH_TO_PREFETCH_KEY[item.href];
+              const prefetch = prefetchKey ? prefetchHandlers(prefetchKey) : undefined;
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => handleNavClick(item.href, item.requiresAuth)}
+                  {...prefetch}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
+                    isActiveRoute(item.href)
+                      ? "text-primary bg-primary/10 font-semibold"
+                      : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]"
+                  )}
+                >
+                  {item.label}
+                  {item.isNew ? <NewFeatureBadge /> : null}
+                </button>
+              );
+            })}
             <div className="w-px h-5 bg-border/60 mx-1.5" />
 
-            {user && authNavItems.map((item) => (
+            {user && authNavItems.map((item) => {
+              const prefetchKey = PATH_TO_PREFETCH_KEY[item.href];
+              const prefetch = prefetchKey ? prefetchHandlers(prefetchKey) : undefined;
+              return (
               <Link
                 key={item.href}
                 to={item.href}
+                {...prefetch}
                 className={cn(
                   "relative px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
                   isActiveRoute(item.href)
@@ -176,7 +198,8 @@ export const Navbar: React.FC = () => {
                   </span>
                 ) : null}
               </Link>
-            ))}
+              );
+            })}
             {user && showAdminLink && (
               <Link
                 to="/admin"

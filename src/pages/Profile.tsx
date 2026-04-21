@@ -29,6 +29,7 @@ import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
 import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { cn } from '@/lib/utils';
+import { cardBase, cardDanger } from '@/lib/cardStyles';
 import { computeProfileChecks } from '@/lib/profileCompleteness';
 import { VanoPaySetupCard } from '@/components/VanoPaySetupCard';
 
@@ -67,6 +68,17 @@ const Profile = () => {
   // We strip the flag on dismiss so a browser back/refresh doesn't
   // re-open it.
   const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('welcome') === '1';
+  });
+  // Remembers that the celebration modal was rendered this session,
+  // even after it's dismissed. Used below to suppress the top-of-page
+  // VanoPaySetupCard when it would immediately re-pitch Vano Pay to a
+  // user who just saw the same CTA inside the celebration. Without
+  // this, closing the celebration "Set up later" and finding the
+  // same CTA five inches lower reads as nagging, not helpful. Next
+  // visit (no ?welcome=1), the top card renders normally.
+  const [celebrationShownThisSession] = useState(() => {
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).get('welcome') === '1';
   });
@@ -514,7 +526,11 @@ const Profile = () => {
     </div>
   );
 
-  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors duration-200";
+  // text-base (16px) — under iOS Safari, any focused input with
+  // computed font-size <16px auto-zooms the viewport. Keeping this at
+  // 16px across the board is the Apple-recommended fix and matches
+  // what Gmail / Stripe / Airbnb do. Desktop visuals take the 2px hit.
+  const inputClass = "w-full border border-input rounded-xl px-4 py-3 text-base bg-background focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors duration-200";
 
   /* ── Share-as-image handler ──
      Click → flip sharingState to 'rendering' which mounts the off-screen
@@ -722,6 +738,16 @@ const Profile = () => {
             url.searchParams.delete('listed');
             window.history.replaceState({}, '', url.toString());
           }
+          // Point them at the "View public profile" link so they know
+          // they can see exactly what a client sees. Without this, a
+          // first-time freelancer often forgets they have a public-facing
+          // page until they get their first message. Toast persists for
+          // ~6s so they catch it after the modal closes.
+          toast({
+            title: 'You can see your listing from a client\'s view',
+            description: 'Tap "View public profile" at the top to preview what businesses see.',
+            duration: 6000,
+          });
         }}
       />
       <Navbar />
@@ -755,6 +781,26 @@ const Profile = () => {
                 /list-on-community, while the amber card opens the wizard
                 inline as a modal. Keeping one path (the modal) per the
                 user's note about "two different edit profile things". */}
+
+            {/* Top-of-profile Vano Pay surface — for freelancers who
+                haven't started Stripe Connect onboarding yet. The detail
+                card (same component) used to live ~1000 lines further
+                down the profile form, so a new freelancer would never
+                see the payouts path without scrolling past 10+ fields
+                first. Lifting it above the grid puts the revenue path
+                above the fold; once stripe_account_id is set, this top
+                instance disappears and the card reverts to its regular
+                place in the left column so it doesn't crowd returning
+                users. The eyebrow frames it as a guided first step. */}
+            {!studentProfile?.stripe_account_id && !celebrationShownThisSession && (
+              <div className="mb-6" id="vano-pay-setup">
+                <div className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/12 text-[11px] font-semibold text-primary">1</span>
+                  Set up how you get paid
+                </div>
+                <VanoPaySetupCard userId={user.id} />
+              </div>
+            )}
 
             {/* Hidden file input for quick banner change */}
             <input
@@ -902,14 +948,66 @@ const Profile = () => {
                   );
                 })()}
 
-                {/* Not visible yet CTA — calm card treatment. Uses the
-                    same neutral bg-card shell as the rest of the page;
-                    the amber status dot still signals "needs attention"
-                    without a full amber wash. Primary CTA ("Get listed")
-                    keeps its gradient so it remains the page's most
-                    prominent action. */}
-                {studentProfile?.community_board_status !== 'approved' && (
-                  <div className="rounded-2xl border border-border bg-card px-5 py-4">
+                {/* Listing status card — splits the old "not approved" catch-all
+                     into three distinct messages so the freelancer knows what's
+                     happening. Publish flow currently fast-paths to 'approved',
+                     but 'pending' and 'rejected' are valid states an admin can
+                     set via the review modal — under the old UI both read as
+                     "complete your listing to go live," which is misleading
+                     when the listing is already complete and sitting in review
+                     (or needs edits after a rejection). */}
+                {studentProfile?.community_board_status === 'pending' && (
+                  <div className={cn(cardBase, 'px-5 py-4')}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                          <p className="text-sm font-semibold text-foreground">Listing under review</p>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                          Your submission is with the Vano team. We&apos;ll email you the moment it goes live — usually within a business day. You can keep editing in the meantime; any changes re-queue for review.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant="outline"
+                        className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold sm:h-12 sm:w-auto sm:min-w-[9.5rem]"
+                        onClick={() => setListCommunityOpen(true)}
+                      >
+                        Edit listing
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {studentProfile?.community_board_status === 'rejected' && (
+                  <div className={cn(cardDanger, 'px-5 py-4')}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-2 w-2 shrink-0 rounded-full bg-rose-500" />
+                          <p className="text-sm font-semibold text-foreground">Listing needs changes</p>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                          An admin flagged something on your listing — check your email for the details, then re-open the wizard to address it. You&apos;ll go live again as soon as it&apos;s resubmitted.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold shadow-md sm:h-12 sm:w-auto sm:min-w-[9.5rem] transition-all duration-200 hover:shadow-lg hover:-translate-y-[1px]"
+                        onClick={() => setListCommunityOpen(true)}
+                      >
+                        Open wizard
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {/* Not visible yet CTA — calm card treatment. Only renders for
+                     freelancers who haven't submitted a listing at all (null
+                     status). Pending and rejected get their own cards above. */}
+                {!studentProfile?.community_board_status && (
+                  <div className={cn(cardBase, 'px-5 py-4')}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -1229,7 +1327,6 @@ const Profile = () => {
                         <AvatarUpload
                           userId={user.id}
                           currentUrl={avatarUrl}
-                          table="student_profiles"
                           onUploaded={(url) => {
                             setAvatarUrl(url);
                             setStudentProfile((prev: any) => prev ? { ...prev, avatar_url: url } : prev);
@@ -1253,16 +1350,18 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* Vano Pay setup — lets the freelancer receive
-                    payments from clients through the "Pay via Vano"
-                    button on the conversation screen. Progressive
-                    onboarding: we don't force anyone to set this up;
-                    they opt in from here when they're ready.
+                {/* Vano Pay setup — detail card for freelancers who've
+                    already kicked off Stripe onboarding (pending) or
+                    finished it (enabled). The not-set-up state renders
+                    above the profile form instead (see the top-of-page
+                    block), so we skip it here to avoid a duplicate.
                     The wrapper id lets the post-publish basics card
                     scroll-into-view on tap. */}
-                <div id="vano-pay-setup">
-                  <VanoPaySetupCard userId={user.id} />
-                </div>
+                {studentProfile?.stripe_account_id && (
+                  <div id="vano-pay-setup">
+                    <VanoPaySetupCard userId={user.id} />
+                  </div>
+                )}
 
               </div>
               {/* ── END LEFT COLUMN ── */}
@@ -1435,7 +1534,6 @@ const Profile = () => {
                   <AvatarUpload
                     userId={user.id}
                     currentUrl={avatarUrl}
-                    table="profiles"
                     onUploaded={(url) => setAvatarUrl(url)}
                   />
                   <div className="w-full min-w-0 flex-1 sm:pt-0">

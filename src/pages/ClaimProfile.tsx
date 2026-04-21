@@ -134,12 +134,14 @@ const ClaimProfile = () => {
       clearPendingClaimToken();
       toast({
         title: 'Profile claimed!',
-        description: "Let's finish your listing so clients can hire you.",
+        description: "Finish your listing, then enable Vano Pay so clients can pay you safely.",
       });
       // Send them straight into the listing wizard — student_profiles has
       // already been seeded with the scouted bio/skills/phone, so fields
-      // will appear pre-filled.
-      navigate('/list-on-community', { replace: true });
+      // will appear pre-filled. The ?claimed=1 flag lets that page show a
+      // "match pending" banner with the original brief, so the scouted
+      // user doesn't lose the thread of why they're completing a listing.
+      navigate('/list-on-community?claimed=1', { replace: true });
     } catch (err) {
       toast({
         title: "Couldn't claim profile",
@@ -168,19 +170,23 @@ const ClaimProfile = () => {
           ) : state.kind === 'invalid_token' || state.kind === 'not_found' ? (
             <ErrorCard
               title="Link not found"
-              body="This claim link doesn't look right. Double-check the URL in the message we sent you — or reach out and we'll resend it."
+              body="This claim link doesn't look right. Double-check the URL in the message we sent you, or sign up directly and we'll match you with new briefs."
+              actionLabel="Sign up to Vano"
+              onAction={() => navigate('/auth?mode=signup')}
             />
           ) : state.kind === 'expired' ? (
             <ErrorCard
               title="Link expired"
-              body="This claim link has expired. If you'd still like to join Vano, sign up directly and we'll re-match you with new briefs."
+              body="This claim link has expired. Sign up directly — we'll re-match you with new briefs and keep you in the pool."
               actionLabel="Sign up to Vano"
-              onAction={() => navigate('/auth')}
+              onAction={() => navigate('/auth?mode=signup')}
             />
           ) : state.kind === 'already_claimed_other' ? (
             <ErrorCard
               title="Already claimed"
-              body="Looks like this profile has already been claimed. If that wasn't you, contact support."
+              body="Looks like this profile has already been claimed. If that wasn't you, sign in to the account you used — or reach support."
+              actionLabel="Sign in"
+              onAction={() => navigate('/auth')}
             />
           ) : (
             <ReadyCard
@@ -208,17 +214,17 @@ const ErrorCard = ({
   actionLabel?: string;
   onAction?: () => void;
 }) => (
-  <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
-    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+  <div className="rounded-[20px] border border-border/70 bg-card p-7 text-center shadow-[0_18px_44px_-24px_rgba(0,0,0,0.18)]">
+    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
       <AlertCircle className="h-5 w-5" />
     </div>
-    <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-    <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+    <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-foreground">{title}</h1>
+    <p className="mx-auto mt-2 max-w-[34ch] text-[13.5px] leading-relaxed text-muted-foreground">{body}</p>
     {actionLabel && onAction ? (
       <button
         type="button"
         onClick={onAction}
-        className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 active:scale-[0.98]"
+        className="mt-6 w-full rounded-2xl bg-primary px-4 py-3.5 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
       >
         {actionLabel}
       </button>
@@ -239,16 +245,18 @@ const ReadyCard = ({
   onSignIn: () => void;
   onClaim: () => void;
 }) => (
-  <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-    <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-5 text-primary-foreground">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-      <div className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/80">
-        <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+  <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">
+    <div className="relative overflow-hidden bg-gradient-to-b from-primary to-primary/90 px-6 py-6 text-primary-foreground">
+      <div className="pointer-events-none absolute -right-12 -top-20 h-48 w-48 rounded-full bg-amber-300/15 blur-3xl" />
+      <div className="relative inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">
+        <Sparkles className="h-3 w-3 text-amber-200" />
         You've been scouted
       </div>
-      <h1 className="relative mt-2 text-xl font-bold">A client wanted to hire you.</h1>
-      <p className="relative mt-1 text-[13px] leading-relaxed text-white/80">
-        Claim your free Vano profile to respond. 0% platform fee — clients pay you directly.
+      <h1 className="relative mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight">
+        A client wanted to hire you.
+      </h1>
+      <p className="relative mt-2 text-[13px] leading-relaxed text-white/80 max-w-[34ch]">
+        Claim your free Vano profile to reply. Get paid safely through <span className="font-semibold text-white">Vano Pay</span> — clients tap, money lands in your bank in 1–2 days (3% fee).
       </p>
     </div>
 
@@ -309,11 +317,11 @@ const ReadyCard = ({
           type="button"
           onClick={onClaim}
           disabled={claiming}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:opacity-60"
         >
           {claiming ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Claiming...
+              <Loader2 className="h-4 w-4 animate-spin" /> Claiming…
             </>
           ) : (
             <>
@@ -325,7 +333,7 @@ const ReadyCard = ({
         <button
           type="button"
           onClick={onSignIn}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
         >
           Sign in to claim
         </button>

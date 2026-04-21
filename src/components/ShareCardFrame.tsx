@@ -234,7 +234,7 @@ export const ShareCardFrame = React.forwardRef<HTMLDivElement, ShareCardFramePro
                   <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                     {visibleSkills.map((s) => (
                       <div key={s} style={{ display: 'inline-flex' }}>
-                        <TagBadge label={s} />
+                        <TagBadge tag={s} />
                       </div>
                     ))}
                   </div>

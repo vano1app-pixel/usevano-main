@@ -22,6 +22,8 @@ type ScoutRow = {
   id: string;
   name: string;
   contact_email: string | null;
+  contact_instagram: string | null;
+  contact_linkedin: string | null;
   claim_token: string;
   brief_snapshot: string | null;
   status: string;
@@ -68,20 +70,19 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Idempotent claim: flip 'new' → 'outreach_sent' up front. If the
-    // update returns zero rows, another invocation already handled
-    // this scout (or it's been claimed since) and we must not send.
+    // Idempotent claim: flip 'new' → 'outreach_sent' up front. The
+    // channel isn't known yet (depends on which contact fields are
+    // populated) so we leave it null on this first atomic update and
+    // set it below once we've decided the path. If the update returns
+    // zero rows, another invocation already handled this scout (or
+    // it's been claimed since) and we must not proceed.
     const nowIso = new Date().toISOString();
     const { data: claimed } = await supabase
       .from('scouted_freelancers')
-      .update({
-        status: 'outreach_sent',
-        outreach_channel: 'email',
-        outreach_sent_at: nowIso,
-      })
+      .update({ status: 'outreach_sent' })
       .eq('id', scoutId)
       .eq('status', 'new')
-      .select('id, name, contact_email, claim_token, brief_snapshot, status')
+      .select('id, name, contact_email, contact_instagram, contact_linkedin, claim_token, brief_snapshot, status')
       .maybeSingle();
 
     if (!claimed) {
@@ -91,24 +92,45 @@ serve(async (req) => {
     }
 
     const scout = claimed as ScoutRow;
+    const hasEmail = !!scout.contact_email;
+    const hasSocial = !!scout.contact_instagram || !!scout.contact_linkedin;
 
-    // No email? We can't reach them through this channel. Roll the
-    // status back to 'new' so a future outreach path (LinkedIn, IG
-    // DM) can try — the downstream code will still no-op if by then
-    // they've been claimed some other way.
-    if (!scout.contact_email) {
+    // No email path: can't reach them via Resend, but we still record
+    // truth on the row so the hirer's results UI can tell them whether
+    // a manual DM is needed ('manual' — scraped an IG/LinkedIn handle
+    // the hirer can use) or the pick has no reachable contacts at all
+    // ('none'). Previously this rolled status back to 'new' and left
+    // the hirer's UI claiming an invite had been sent when it had
+    // not — that was the lying-UI bug.
+    if (!hasEmail) {
+      const fallbackChannel = hasSocial ? 'manual' : 'none';
       await supabase
         .from('scouted_freelancers')
         .update({
-          status: 'new',
-          outreach_channel: null,
-          outreach_sent_at: null,
+          outreach_channel: fallbackChannel,
+          outreach_sent_at: nowIso,
         })
         .eq('id', scout.id);
-      return new Response(JSON.stringify({ skipped: true, reason: 'no_email' }), {
+      return new Response(JSON.stringify({
+        sent: false,
+        channel: fallbackChannel,
+        reason: 'no_email',
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Email path: stamp the channel + timestamp now, before we send,
+    // so the hirer UI reflects "email queued" even if Resend is slow.
+    // On send failure we roll BOTH status and channel back to 'new'/null
+    // so a retry can try again with an unchanged row shape.
+    await supabase
+      .from('scouted_freelancers')
+      .update({
+        outreach_channel: 'email',
+        outreach_sent_at: nowIso,
+      })
+      .eq('id', scout.id);
 
     const claimUrl = `${siteUrl}/claim/${scout.claim_token}`;
     const greetingName = firstName(scout.name);
@@ -120,33 +142,33 @@ serve(async (req) => {
 
     const text =
       `Hi ${greetingName},\n\n` +
-      `A client on Vano (${siteUrl}) just searched for a freelancer and our AI picked you out of the open web. ` +
-      `You don't have a Vano profile yet — if you'd like to respond to them, claim one in under a minute:\n\n` +
+      `A client on Vano (${siteUrl}) was looking for a freelancer, and our AI picked you out of the open web. ` +
+      `You don't have a Vano profile yet — claim one in under a minute to reply:\n\n` +
       `${claimUrl}\n\n` +
       (briefSnippet ? `What they're looking for:\n"${briefSnippet}"\n\n` : '') +
-      `How Vano works for you:\n` +
-      `- 0% platform fee — clients pay you directly, no commission\n` +
-      `- You keep your phone number + portfolio link front-and-centre\n` +
-      `- We match you with more paid briefs in the future\n\n` +
-      `If this isn't for you, just ignore this email — we won't follow up again.\n\n` +
+      `Why freelancers use Vano:\n` +
+      `- Get paid safely through Vano Pay — clients tap, money lands in your bank in 1–2 days (3% fee)\n` +
+      `- Or agree your own off-platform terms — Vano takes 0% when you invoice directly\n` +
+      `- We keep matching you with paid briefs after this one\n\n` +
+      `If this isn't for you, just ignore this email — we won't follow up.\n\n` +
       `— The Vano team\n` +
       `${siteUrl}\n`;
 
     const html =
       `<p>Hi ${escapeHtml(greetingName)},</p>` +
-      `<p>A client on <a href="${siteUrl}">Vano</a> just searched for a freelancer, and our AI picked you out of the open web. ` +
-      `You don't have a Vano profile yet — if you'd like to respond to them, claim one in under a minute:</p>` +
+      `<p>A client on <a href="${siteUrl}">Vano</a> was looking for a freelancer, and our AI picked you out of the open web. ` +
+      `You don't have a Vano profile yet — claim one in under a minute to reply:</p>` +
       `<p><a href="${claimUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#000;color:#fff;text-decoration:none;font-weight:600;">Claim my profile</a></p>` +
       (briefSnippet
         ? `<p style="color:#555"><strong>What they're looking for:</strong><br>"${escapeHtml(briefSnippet)}"</p>`
         : '') +
-      `<p><strong>How Vano works for you:</strong></p>` +
+      `<p><strong>Why freelancers use Vano:</strong></p>` +
       `<ul>` +
-      `<li>0% platform fee — clients pay you directly, no commission</li>` +
-      `<li>You keep your phone number + portfolio link front-and-centre</li>` +
-      `<li>We match you with more paid briefs in the future</li>` +
+      `<li>Get paid safely through <strong>Vano Pay</strong> — clients tap, money lands in your bank in 1–2 days (3% fee)</li>` +
+      `<li>Or agree your own off-platform terms — Vano takes 0% when you invoice directly</li>` +
+      `<li>We keep matching you with paid briefs after this one</li>` +
       `</ul>` +
-      `<p style="color:#888;font-size:12px">If this isn't for you, just ignore this email — we won't follow up again.</p>` +
+      `<p style="color:#888;font-size:12px">If this isn't for you, just ignore this email — we won't follow up.</p>` +
       `<p style="color:#888;font-size:12px">— The Vano team · <a href="${siteUrl}">${siteUrl}</a></p>`;
 
     if (!resendKey) {

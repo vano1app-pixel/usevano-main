@@ -17,7 +17,7 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, Zap, Check, ChevronDown,
+  Shield, ShieldCheck, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { track } from '@/lib/track';
@@ -162,6 +162,7 @@ const HirePage = () => {
   // land right back on Step 3 with every field intact — no re-entry, no extra
   // clicks.
   const briefRestoredRef = useRef(false);
+  const [briefJustRestored, setBriefJustRestored] = useState(false);
   useEffect(() => {
     const brief = loadHireBrief();
     if (brief) {
@@ -172,6 +173,17 @@ const HirePage = () => {
       setTimeline(brief.timeline);
       setBudget(brief.budget);
       setStep(3);
+      setBriefJustRestored(true);
+      // Post-OAuth breadcrumb. Without this the user lands on Step 3 with
+      // their fields magically restored and no acknowledgement that
+      // anything happened — felt like a routing bug. Now they see a brief
+      // confirmation and the onus is on them to tap the €1 button (the
+      // previous auto-submit was a real UX trap that could charge a user
+      // who had no idea what they were clicking through to).
+      toast({
+        title: 'Welcome back',
+        description: 'Your brief is ready — review it, then tap Match me to continue.',
+      });
       return;
     }
     const cat = searchParams.get('category');
@@ -183,7 +195,12 @@ const HirePage = () => {
         // entirely. We validate against the known subtypes for the matching
         // category so a hand-typed bad param can't poison the brief.
         const st = searchParams.get('subtype');
-        if (st && found.subtypes.includes(st)) {
+        // `subtypes` is a `readonly` tuple of literal strings thanks to
+        // `as const`, so the strict `includes` signature rejects a
+        // runtime `string`. Widen it here — we've already guarded
+        // non-empty + the values are hard-coded so a bogus param
+        // simply fails the check.
+        if (st && (found.subtypes as readonly string[]).includes(st)) {
           setSubtype(st);
         }
       }
@@ -536,21 +553,14 @@ const HirePage = () => {
     }
   };
 
-  /* Auto-submit once on post-OAuth return. Fires when the restored brief meets
-   * the freshly-loaded session. */
-  const autoSubmittedRef = useRef(false);
-  useEffect(() => {
-    if (!briefRestoredRef.current || autoSubmittedRef.current) return;
-    if (!user || submitting || submitted) return;
-    // Post-OAuth auto-submit guard: accept either a typed description OR a
-    // category + sub-type pick, matching the new click-only Step 1.
-    const hasChipBrief = !!category && !!subtype;
-    if (!description.trim() && !hasChipBrief) return;
-    autoSubmittedRef.current = true;
-    void handleVanoSubmit(false);
-    // handleVanoSubmit depends on current field state; re-run only on user change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  /* Previously this auto-fired handleVanoSubmit(false) once the post-OAuth
+   * brief was restored and the session was live — the intent was "pick up
+   * exactly where you left off." But that pipeline went Google → site root →
+   * Step 3 → Stripe checkout in ~3 seconds, so a first-time hirer was charged
+   * €1 without any chance to review their brief. Removed. The user now lands
+   * on Step 3 with everything filled in + a "Welcome back" toast, and they
+   * tap the same €1 button they would have tapped before OAuth. One extra
+   * click in exchange for not mugging people mid-redirect is a great trade. */
 
   /* ── Message freelancer with pre-filled draft ── */
   const messageFreelancer = (freelancerUserId: string) => {
@@ -807,12 +817,16 @@ const HirePage = () => {
         );
       })()}
 
-      {/* Value props */}
+      {/* Value props — brand-aligned with Landing + escrow positioning.
+           Previous copy ("Student-friendly prices · Motivated talent")
+           was off-message post-repositioning; it sold cheap labour
+           instead of "hand-picked perfect match held safely until
+           you release". */}
       <div className="mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
         {[
-          { icon: Euro, label: 'Affordable rates', sub: 'Student-friendly prices' },
-          { icon: Zap, label: 'Fast turnaround', sub: 'Motivated talent' },
-          { icon: Shield, label: 'Vano vetted', sub: 'Quality assured' },
+          { icon: Sparkles, label: 'Hand-picked', sub: 'One perfect match' },
+          { icon: Zap, label: '60-second match', sub: 'Not 60 applications' },
+          { icon: ShieldCheck, label: 'Pay safely', sub: 'Held until released' },
         ].map(v => (
           <div key={v.label} className="flex flex-col items-center text-center gap-2 rounded-2xl border border-foreground/4 bg-foreground/[0.015] px-2.5 py-4 sm:py-5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/8">
@@ -825,9 +839,9 @@ const HirePage = () => {
       </div>
 
       <button type="button" onClick={() => goTo(2)} disabled={!canProceedStep1} className={cn(
-        'mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
+        'mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold transition-all duration-150 cursor-pointer select-none active:translate-y-0 active:scale-[0.99]',
         canProceedStep1
-          ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:brightness-110'
+          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
           : 'bg-muted text-muted-foreground cursor-not-allowed'
       )}>
         Continue <ArrowRight size={15} />
@@ -906,15 +920,17 @@ const HirePage = () => {
         </div>
       </div>
 
-      {/* Reassurance */}
+      {/* Reassurance — brand-aligned: the promise is "any budget, your
+           perfect match" not "cheap student labour". Also signals the
+           escrow safety net so the hirer knows the budget's protected. */}
       <p className="text-center text-[11px] sm:text-xs text-muted-foreground mb-4">
-        Student freelancers = affordable rates + real motivation to deliver great work for their portfolio.
+        Whatever your budget, we hand-pick who fits. Paid safely through Vano Pay — held until you release.
       </p>
 
       <button type="button" onClick={() => goTo(3)} disabled={!canProceedStep2} className={cn(
-        'flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none transition-all active:scale-[0.97]',
+        'flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none transition-all duration-150 active:translate-y-0 active:scale-[0.99]',
         canProceedStep2
-          ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:brightness-110'
+          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
           : 'bg-muted text-muted-foreground cursor-not-allowed'
       )}>
         See my options <ArrowRight size={15} />
@@ -944,73 +960,102 @@ const HirePage = () => {
            know where €1 sits in the story before they commit. */}
       <div>
         {!submitted ? (
-          <div className="relative overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
-            <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-5">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-              <div className="relative flex flex-wrap items-center gap-2 mb-2">
-                <Sparkles size={16} className="text-amber-200" />
-                <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow-sm">The €1 match</span>
-                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-50 ring-1 ring-emerald-300/40">
+          <div className="relative overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-b from-primary to-primary/90 text-white shadow-[0_24px_60px_-24px_hsl(var(--primary)/0.45)]">
+            {/* Ambient glow — one soft blob, no amber ring or double
+                 border. Restraint reads as premium. */}
+            <div className="pointer-events-none absolute -right-14 -top-20 h-56 w-56 rounded-full bg-amber-300/15 blur-3xl" />
+
+            <div className="relative px-6 pt-6 pb-5">
+              <div className="flex items-center justify-between">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                  <Sparkles size={13} className="text-amber-200" />
+                  €1 AI Find
+                </div>
+                <span className="inline-flex items-center rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/85">
                   Refunded if no match
                 </span>
               </div>
-              <h2 className="relative text-xl font-bold text-white sm:text-2xl">
-                Match me with the perfect freelancer for €1
+              <h2 className="mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight sm:text-[26px]">
+                A perfect freelancer, hand-picked in 60 seconds.
               </h2>
-              <p className="relative mt-1.5 text-[13px] leading-relaxed text-white/80">
-                Pay €1, we find your match in 60 seconds. Chat, agree a price together, pay them securely through Vano. We only take 3% when they get paid — that's it.
+              <p className="mt-2 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
+                One from our pool, one scouted from the web. You chat, agree a rate, then pay them safely through Vano Pay — we take 3%.
               </p>
             </div>
 
-            <div className="space-y-4 bg-gradient-to-b from-primary/95 to-primary/85 px-5 pb-5 pt-4">
-              {/* Four-step pipeline strip — makes the full story visible so
-                   the €1 CTA reads as "start the thing" not "gamble €1". */}
-              <div className="grid grid-cols-4 gap-1.5">
+            <div className="relative space-y-4 px-6 pb-6">
+              {/* Four-step pipeline strip — the story-in-miniature so the
+                   €1 CTA reads as "start the flow" not "gamble". Tighter,
+                   less boxy than before. */}
+              <ol className="grid grid-cols-4 gap-1">
                 {[
                   { num: '1', text: 'Pay €1' },
                   { num: '2', text: '60s match' },
                   { num: '3', text: 'Chat + agree' },
-                  { num: '4', text: 'Pay via Vano' },
-                ].map(s => (
-                  <div key={s.num} className="flex flex-col items-center gap-1 rounded-lg bg-white/10 px-1.5 py-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold text-white">{s.num}</span>
-                    <p className="text-[10px] font-medium text-white/85 text-center leading-tight">{s.text}</p>
-                  </div>
+                  { num: '4', text: 'Pay via Vano Pay' },
+                ].map((s, idx, arr) => (
+                  <li key={s.num} className="flex flex-col items-center gap-1.5 border-l border-white/10 first:border-l-0 py-0.5">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[11px] font-semibold text-white">
+                      {idx === arr.length - 1 ? <ShieldCheck size={12} /> : s.num}
+                    </span>
+                    <p className="text-[10.5px] font-medium text-white/80 text-center leading-tight">{s.text}</p>
+                  </li>
                 ))}
-              </div>
+              </ol>
 
-              {/* Brief summary — reminds the hirer what they're about to match for */}
-              <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-1">Your request</p>
-                <p className="text-xs text-white/85 line-clamp-2">{recap || 'Your request'}</p>
-                <div className="flex gap-1.5 mt-2 flex-wrap">
+              {/* "What you get for €1" — concrete deliverables so the
+                   click isn't a leap of faith. Four short lines, Check
+                   bullets, white-on-primary chip row. Placed between the
+                   pipeline (what happens) and the recap (what you asked
+                   for) so the flow reads: story → offer → your brief → go. */}
+              <ul className="grid grid-cols-1 gap-1.5 rounded-xl bg-white/[0.06] px-4 py-3 ring-1 ring-inset ring-white/10 sm:grid-cols-2">
+                {[
+                  'One match from Vano’s vetted pool',
+                  'One alternate scouted from the web',
+                  'Delivered to your inbox in ~60 seconds',
+                  'Full €1 refund if we can’t find a fit',
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-1.5 text-[12px] leading-snug text-white/85">
+                    <Check size={13} className="mt-0.5 shrink-0 text-amber-200" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Brief recap — lighter chrome, single line of tags. */}
+              <div className="rounded-xl bg-white/[0.08] px-4 py-3 ring-1 ring-inset ring-white/10">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Your request</p>
+                <p className="mt-1 text-[13px] leading-snug text-white/90 line-clamp-2">{recap || 'Your request'}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {[
                     category && CATEGORIES.find(c => c.id === category)?.label,
                     timeline && TIMELINES.find(t => t.id === timeline)?.label,
                     budget && BUDGETS.find(b => b.id === budget)?.label,
                   ].filter(Boolean).map(tag => (
-                    <span key={tag} className="inline-block rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/80">{tag}</span>
+                    <span key={tag} className="inline-block rounded-full bg-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/80">{tag}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Primary CTA — the €1 button. Large, white-on-primary, fills
-                   the card. Kept distinct from any secondary paths below. */}
+              {/* Primary CTA — white-on-primary, larger rounded, clear
+                   motion on hover/press. */}
               <button
                 data-mascot="hire-submit"
                 type="button"
                 onClick={handleAiFind}
                 disabled={aiFindLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-4 text-base font-bold text-primary shadow-md cursor-pointer select-none transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.02] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {aiFindLoading ? (
                   <><Loader2 size={16} className="animate-spin" /> Starting your match…</>
                 ) : (
-                  <><Sparkles size={16} className="text-amber-500" /> Match me now — €1</>
+                  <>
+                    <Sparkles size={16} className="text-amber-500" /> Match me now — €1
+                  </>
                 )}
               </button>
-              <p className="text-center text-[11px] text-white/65">
-                Secure checkout via Stripe · Refunded if no match · No commitment
+              <p className="text-center text-[11px] text-white/60">
+                Secure checkout via Stripe · no commitment
               </p>
             </div>
           </div>
@@ -1051,7 +1096,7 @@ const HirePage = () => {
             </div>
             <button
               type="button"
-              onClick={handleVanoSubmit}
+              onClick={() => { void handleVanoSubmit(); }}
               disabled={submitting}
               className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-muted active:scale-[0.98] disabled:opacity-60"
             >

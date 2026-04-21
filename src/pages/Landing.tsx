@@ -24,6 +24,7 @@ import {
   Video,
   TrendingUp,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -34,6 +35,8 @@ import { InteractiveButton } from '@/components/InteractiveButton';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
 import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
+import { cn } from '@/lib/utils';
+import { prefetchHandlers } from '@/lib/prefetchRoute';
 
 
 const Landing = () => {
@@ -62,6 +65,14 @@ const Landing = () => {
       return;
     }
     setGoogleOAuthIntent('student');
+    // Breadcrumb before the page redirects to Google. Without this the
+    // hero card just vanishes and a first-timer wonders if they broke
+    // something. The HirePage hirer flow already has an equivalent
+    // "Saving your brief…" toast; this is the freelancer-side parity.
+    toast({
+      title: 'Taking you to Google…',
+      description: "Sign in with Google and we'll bring you right back to finish setup.",
+    });
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -155,11 +166,23 @@ const Landing = () => {
   React.useEffect(() => {
     const finish = async () => {
       if (oauthHandledRef.current) return;
-      // Try Google first (sessionStorage-scoped), then magic-link
-      // (localStorage-scoped, survives tab changes). Both are idempotent
-      // and short-circuit when their own flag isn't set.
+      // Capture the "was coming back from OAuth" state BEFORE
+      // tryFinishGoogleOAuthRedirect clears the flag. Used below to
+      // post a welcome toast when the handoff succeeded — pairs with
+      // the "Taking you to Google…" toast we fire pre-OAuth so the
+      // round-trip has both a going-out and a coming-back breadcrumb.
+      const wasReturningFromOAuth = hasGoogleOAuthPending();
       const doneGoogle = await tryFinishGoogleOAuthRedirect(navigate);
-      if (doneGoogle) { oauthHandledRef.current = true; return; }
+      if (doneGoogle) {
+        oauthHandledRef.current = true;
+        if (wasReturningFromOAuth) {
+          toast({
+            title: 'Welcome to Vano',
+            description: "Signed in. Taking you to the next step.",
+          });
+        }
+        return;
+      }
       const doneMagic = await tryFinishMagicLinkRedirect(navigate);
       if (doneMagic) oauthHandledRef.current = true;
     };
@@ -170,7 +193,7 @@ const Landing = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, toast]);
 
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -198,9 +221,9 @@ const Landing = () => {
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Hire a Trusted Freelancer — Videography, Digital Sales, Web & Social"
-        description="VANO connects businesses with trusted freelancers for digital sales, videography, web design and content creation. Describe what you need and we'll match you."
-        keywords="hire freelancer, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway"
+        title="Hand-picked freelancers, paid safely"
+        description="€1 finds your freelancer in 60 seconds. Chat, agree a rate, then pay safely through Vano Pay. Freelancers: list yourself free — videography, content, web design, digital sales."
+        keywords="hire freelancer, freelance marketplace, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway, vano pay"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
       <Navbar />
@@ -211,83 +234,150 @@ const Landing = () => {
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
+          {/* Vano Match eyebrow — "hand-picked for you" sells the
+              bespoke promise without naming the price. */}
+          <div data-hero-eyebrow className="mb-5 flex justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              <Sparkles className="h-3 w-3" />
+              Hand-picked for you · in 60 seconds
+            </span>
+          </div>
+
+          {/* Display type — semibold (not bold), tighter tracking at
+              lg, two short declarative lines. The italic second line
+              is the emotional landing ("your perfect match") that
+              frames everything below. */}
           <div data-hero-title>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight lg:tracking-tighter text-foreground mb-5 sm:mb-6 leading-[1.05] text-balance">
-              <span className="inline-block">Local talent,</span><br />
-              <span
-                className="inline-block italic font-semibold text-primary"
-              >
-                instantly available.
+            <h1 className="mb-5 text-[40px] font-semibold leading-[0.98] tracking-tight text-foreground text-balance sm:mb-6 sm:text-[56px] md:text-[72px] lg:text-[92px] lg:tracking-[-0.035em]">
+              <span className="inline-block">Any brief. Any budget.</span><br />
+              <span className="inline-block italic font-semibold text-primary">
+                Your perfect match.
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="text-muted-foreground text-base lg:text-lg max-w-lg mx-auto mb-6 leading-relaxed">
-            Connect with trusted freelancers for digital sales, videography, web design, and more.
+          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] font-normal leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
+            Share your brief. We hand-pick two matches in 60 seconds — one from Vano, one scouted from the open web. You chat, agree a rate, then pay them safely through Vano Pay.
           </p>
 
-          {/* Hero tag cloud — replaces the old hero search bar. Clicking a tag
-              deep-links into /hire with both ?category and ?subtype preset, so
-              HirePage auto-advances past Step 1 to timeline/budget. Each tag
-              maps to an existing subtype in HirePage.tsx's CATEGORIES array,
-              so what's shown here is exactly what businesses pick manually on
-              Step 1 of the hire flow. Curated 12 (3 per category) to keep the
-              hero from going visually busy. */}
+          {/* Two path cards — the streamlined core of the hero. One
+              door for hirers (Vano Match), one for freelancers (list
+              in 30s). Balanced visual weight so both audiences see
+              themselves. Pricing stays off the landing page and is
+              introduced later inside the hire flow. Replaces the old
+              button row + redundant tag cloud (which duplicated the
+              category cards below). */}
           <div
-            data-hero-tags
-            className="mx-auto mb-7 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-2 sm:gap-x-2.5"
+            data-hero-paths
+            className={cn(
+              'mx-auto grid max-w-2xl gap-3 text-left sm:gap-4',
+              !session ? 'sm:grid-cols-2' : 'sm:grid-cols-1',
+            )}
           >
-            {[
-              { category: 'digital_sales', subtype: 'Cold calling / SDR',   label: 'Cold calling' },
-              { category: 'social_media',  subtype: 'Content / posts',      label: 'Content creation' },
-              { category: 'videography',   subtype: 'Reel / short-form',    label: 'Short-form video' },
-              { category: 'websites',      subtype: 'Landing page',         label: 'Landing page' },
-              { category: 'digital_sales', subtype: 'Lead generation',      label: 'Lead gen' },
-              { category: 'social_media',  subtype: 'Paid ads',             label: 'Paid ads' },
-              { category: 'videography',   subtype: 'Promo / ad',           label: 'Promo / ad' },
-              { category: 'websites',      subtype: 'Full website',         label: 'Full website' },
-              { category: 'digital_sales', subtype: 'Cold email outreach',  label: 'Cold email' },
-              { category: 'social_media',  subtype: 'Strategy & growth',    label: 'Social strategy' },
-              { category: 'videography',   subtype: 'Event / wedding',      label: 'Event filming' },
-              { category: 'websites',      subtype: 'Shopify / e-commerce', label: 'Shopify store' },
-            ].map((t) => (
-              <button
-                key={`${t.category}:${t.subtype}`}
-                type="button"
-                onClick={() => navigate(`/hire?category=${t.category}&subtype=${encodeURIComponent(t.subtype)}`)}
-                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-[12.5px] font-medium text-muted-foreground shadow-sm transition-all duration-150 hover:border-primary/40 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div data-hero-cta className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <InteractiveButton
-                data-mascot="hire-cta"
-                burstType="sparkle"
-                particleCount={25}
-                magneticStrength={0.35}
-                onClick={() => navigate('/hire')}
-                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-bold shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 hover:-translate-y-[1px] active:scale-[0.97]"
-              >
-                Hire a freelancer
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5">
-                  <ArrowRight size={14} />
+            {/* HIRER PATH — Vano Match. Primary gradient surface,
+                 mirrors the HirePage match card. €1 chip is visible
+                 because opacity-ambiguity about the price was the one
+                 place the old Landing was dishonest — €1 finds the
+                 match, then the hirer pays the freelancer directly
+                 through Vano Pay. Two-pill preview strip inside the
+                 card shows what the €1 produces so the click isn't a
+                 leap of faith. */}
+            <InteractiveButton
+              data-mascot="hire-cta"
+              burstType="sparkle"
+              particleCount={25}
+              magneticStrength={0.35}
+              onClick={() => navigate('/hire')}
+              {...prefetchHandlers('hire')}
+              className="group relative w-full overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-b from-primary to-primary/90 p-5 text-white shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.55)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_22px_50px_-22px_hsl(var(--primary)/0.6)] active:translate-y-0 active:scale-[0.99]"
+            >
+              <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl" />
+              <div className="relative flex h-full flex-col">
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
+                    <Sparkles size={12} className="text-amber-200" /> I want to hire
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold text-white ring-1 ring-white/20">
+                    €1 · 60s
+                  </span>
+                </div>
+                <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight sm:text-[20px]">
+                  Find my freelancer
+                </p>
+                <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
+                  €1 finds two matches. Chat, agree a rate, then pay safely via Vano Pay.
+                </p>
+                {/* Preview of the €1 deliverable — two pills showing
+                     "Vano pick" + "Web scout" so the hirer sees what
+                     they get before clicking. Both pills render the
+                     same shape so they read as peer options. */}
+                <div className="mt-4 grid grid-cols-2 gap-1.5">
+                  <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.1] px-2.5 py-1.5 ring-1 ring-white/15">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/20">
+                      <Sparkles size={10} className="text-amber-200" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-white/60">Vano pick</p>
+                      <p className="truncate text-[11px] font-semibold text-white">From the pool</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.1] px-2.5 py-1.5 ring-1 ring-white/15">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/20">
+                      <Shield size={10} className="text-emerald-200" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-white/60">Web scout</p>
+                      <p className="truncate text-[11px] font-semibold text-white">Found for you</p>
+                    </div>
+                  </div>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
+                  Start a Vano Match
+                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                 </span>
+              </div>
+            </InteractiveButton>
+
+            {/* FREELANCER PATH — Free to list. Soft card surface, same
+                 20px radius + same hover translate so the two doors feel
+                 equal even though primary fills the hirer card. */}
+            {!session ? (
+              <InteractiveButton
+                data-mascot="freelancer-cta"
+                burstType="sparkle"
+                particleCount={15}
+                magneticStrength={0.25}
+                onClick={handleFreelancerSignup}
+                {...prefetchHandlers('auth')}
+                className="group relative w-full overflow-hidden rounded-[20px] border border-border/70 bg-card p-5 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-[2px] hover:border-foreground/15 hover:shadow-[0_18px_40px_-20px_rgba(0,0,0,0.28)] active:translate-y-0 active:scale-[0.99]"
+              >
+                <div className="pointer-events-none absolute -right-10 -top-20 h-40 w-40 rounded-full bg-emerald-500/15 blur-3xl" />
+                <div className="relative flex h-full flex-col">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-70 motion-safe:animate-ping" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                      </span>
+                      I want to work
+                    </span>
+                    <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      Free
+                    </span>
+                  </div>
+                  <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight text-foreground sm:text-[20px]">
+                    Get found. Get paid.
+                  </p>
+                  <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">
+                    List yourself in 30 seconds. Paid safely through Vano Pay.
+                  </p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
+                    Join as a freelancer
+                    <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+                  </span>
+                </div>
               </InteractiveButton>
-              {!session ? (
-                <InteractiveButton
-                  data-mascot="freelancer-cta"
-                  burstType="sparkle"
-                  particleCount={15}
-                  magneticStrength={0.25}
-                  onClick={handleFreelancerSignup}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-border bg-card text-sm font-medium text-muted-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:text-foreground hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97]"
-                >
-                  Join as a freelancer
-                </InteractiveButton>
-              ) : null}
-            </div>
+            ) : null}
+          </div>
             {studentsLoaded && featuredStudents.length > 0 && (
               <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-6">
                 <span className="inline-flex items-center gap-2">
@@ -667,7 +757,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO connects businesses with trusted freelancers. Browse talent, hire for projects, and message in-app — all in one place.
+                  A marketplace for hand-picked freelancers. Tell us what you need — for €1 we match you with one freelancer from our pool and one scouted from the open web. You chat, agree a rate, then pay them safely through Vano Pay.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -675,7 +765,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Create an account, browse freelancers or tell us what you need on the hire page. We'll match you with the right person, or you can message freelancers directly.
+                  Start a Vano Match — tell us the category, timeline, and budget, and for €1 we hand-pick two freelancers in 60 seconds. You then message them, agree a rate, and pay through Vano Pay when you're ready. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="pay" className="border-border/80 px-2">
@@ -683,7 +773,7 @@ const Landing = () => {
                   How does payment work?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO helps you find each other and communicate. You and the other party agree payment method and timing directly — always confirm details clearly in your thread.
+                  Pay through Vano Pay and your money is held on Vano until you release it — so the freelancer has to deliver first. If nothing happens in 14 days it auto-releases. If the work doesn't land you can flag a problem and get a full refund. Vano takes 3%.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2">
@@ -691,7 +781,7 @@ const Landing = () => {
                   Is VANO only for Galway?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  VANO started in Galway and that's still our home base, but freelancers and clients outside Galway are welcome too. Each gig shows location so you can filter for local, nationwide, or remote work.
+                  Galway is our home base — it's where the density is highest. Freelancers and clients anywhere are welcome, and each match shows location so you can filter for local, nationwide, or remote.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="freelancer" className="border-border/80 px-2 border-b-0">
@@ -699,7 +789,7 @@ const Landing = () => {
                   I am a freelancer — how do I start?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Sign up as a freelancer, complete your profile and portfolio links, then browse open gigs and apply with a short message. Good profiles and reviews help you stand out.
+                  Sign up, publish a short listing in 30 seconds, then turn on Vano Pay so clients can tap a button to pay you safely. Money lands in your bank 1–2 days after release. Vano takes 3%; there's no monthly fee.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -714,11 +804,14 @@ const Landing = () => {
             {/* Floating magic orbs */}
             <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
             <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
-            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground/60">Free · No commission · AI matched</span>
-            <h2 className="relative text-3xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground tracking-tight leading-tight mb-4 text-balance">
-              Need something done? Tell us.
+            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">Hand-picked · Safely paid · Galway-built</span>
+            <h2 className="relative text-[30px] font-semibold text-primary-foreground tracking-tight leading-[1.05] mb-4 text-balance sm:text-[44px] lg:text-[56px] lg:tracking-[-0.03em]">
+              Your perfect match,<br />
+              <span className="italic font-semibold text-primary-foreground/95">hand-picked.</span>
             </h2>
-            <p className="relative text-primary-foreground/60 mb-10 text-base lg:text-lg max-w-sm lg:max-w-md mx-auto leading-relaxed">Quality work at affordable rates. Describe what you need — we'll match you with the right freelancer.</p>
+            <p className="relative text-primary-foreground/70 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
+              €1 finds your match in 60 seconds. You chat, agree a rate, then pay them safely through Vano Pay.
+            </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
                 burstType="confetti"
@@ -727,7 +820,7 @@ const Landing = () => {
                 onClick={() => navigate('/hire')}
                 className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px] active:scale-[0.97]"
               >
-                Hire a freelancer
+                Find my freelancer — €1
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>

@@ -6,7 +6,7 @@ import { ReviewList } from '@/components/ReviewList';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { personSchema } from '@/lib/structuredData';
-import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap, Instagram, Linkedin, Globe, Music2, Clock } from 'lucide-react';
+import { Star, Award, MessageCircle, Briefcase, ExternalLink, ArrowUpRight, Share2, Check, Tag, CheckCircle2, BookOpen, ArrowRight, ShieldCheck, Lock, X, ChevronLeft, ChevronRight, MessageSquareQuote, Zap, Instagram, Linkedin, Globe, Music2, Clock, MapPin, Sparkles } from 'lucide-react';
 import { QuoteModal } from '@/components/QuoteModal';
 import { HireNowModal } from '@/components/HireNowModal';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +14,7 @@ import { ModBadge } from '@/components/ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { parseWorkLinksJson } from '@/lib/socialLinks';
 import { FreelancerPublicHeader } from '@/components/FreelancerPublicHeader';
+import { StatusChip } from '@/components/ui/StatusChip';
 import { cn } from '@/lib/utils';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
@@ -105,7 +106,7 @@ const StudentProfile = () => {
         .maybeSingle(),
       supabase
         .from('student_profiles')
-        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links, expected_bonus_amount, expected_bonus_unit')
+        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, stripe_payouts_enabled, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links, expected_bonus_amount, expected_bonus_unit')
         .eq('user_id', id!)
         .maybeSingle(),
       supabase
@@ -216,9 +217,30 @@ const StudentProfile = () => {
   if (!profile) return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 pt-24 text-center">
-        <h1 className="text-2xl font-bold mb-4">Profile Not Found</h1>
-        <button onClick={() => navigate('/students')} className="text-primary hover:underline">Browse Profiles</button>
+      <div className="mx-auto max-w-md px-4 pt-28 sm:pt-32 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <MapPin size={22} className="text-muted-foreground" />
+        </div>
+        <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-foreground">Profile not found</h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
+          This freelancer may have removed their listing — or the link's gone stale. Plenty more where they came from.
+        </p>
+        <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={() => navigate('/hire')}
+            className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-primary px-5 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+          >
+            <Sparkles size={14} /> Start a Vano Match
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/students')}
+            className="inline-flex items-center justify-center rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
+          >
+            Browse freelancers
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -485,6 +507,23 @@ const StudentProfile = () => {
                     <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-primary/20">
                       {categoryLabel}
                     </span>
+                  )}
+                  {/* Vano Pay trust chip — only renders when the
+                       freelancer has finished Stripe Connect onboarding
+                       (stripe_payouts_enabled flips true on webhook).
+                       Pays double duty: social proof for the hirer
+                       (safe to pay through Vano = held till released)
+                       AND a visible reward for freelancers who opted
+                       in, which nudges the un-enabled ones toward
+                       setup. */}
+                  {(student as { stripe_payouts_enabled?: boolean })?.stripe_payouts_enabled && (
+                    <StatusChip
+                      tone="success"
+                      icon={ShieldCheck}
+                      title="Payments through Vano Pay are held until you release them (14-day auto-release fallback)."
+                    >
+                      Vano Pay
+                    </StatusChip>
                   )}
                   {expectedBonusLabel && (
                     <span

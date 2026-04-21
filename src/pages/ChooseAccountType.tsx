@@ -67,23 +67,22 @@ const ChooseAccountType = () => {
       // Run student_profiles upsert in parallel when relevant — previously it
       // waited for the profile write to finish even though they don't depend on
       // each other.
-      const writes: Promise<{ error: unknown }>[] = [
-        supabase
-          .from('profiles')
-          .upsert(
-            { user_id: uid, display_name: display, user_type: selected },
-            { onConflict: 'user_id', ignoreDuplicates: false },
-          ),
-      ];
-      if (selected === 'student') {
-        writes.push(
-          supabase
-            .from('student_profiles')
-            .upsert({ user_id: uid }, { onConflict: 'user_id' }),
+      // Supabase query-builders are thenable but not `Promise` at the
+      // type level; awaiting them yields the actual response. Collect
+      // the responses from each upsert and check for errors after both
+      // resolve.
+      const profileWrite = await supabase
+        .from('profiles')
+        .upsert(
+          { user_id: uid, display_name: display, user_type: selected },
+          { onConflict: 'user_id', ignoreDuplicates: false },
         );
-      }
-      const results = await Promise.all(writes);
-      const firstError = results.find((r) => r.error)?.error;
+      const studentWrite = selected === 'student'
+        ? await supabase
+            .from('student_profiles')
+            .upsert({ user_id: uid }, { onConflict: 'user_id' })
+        : null;
+      const firstError = profileWrite.error ?? studentWrite?.error ?? null;
       if (firstError) throw firstError;
 
       const path = await resolvePostGoogleAuthDestination(uid);

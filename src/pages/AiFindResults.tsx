@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Loader2,
@@ -39,6 +39,7 @@ type AiFindRow = {
   category: string | null;
   vano_match_user_id: string | null;
   vano_match_reason: string | null;
+  vano_match_score: number | null;
   web_scout_id: string | null;
   error_message: string | null;
   vano_match_feedback: 'up' | 'down' | null;
@@ -68,23 +69,14 @@ type WebPick = {
   contact_instagram: string | null;
   contact_linkedin: string | null;
   match_score: number | null;
-};
-
-// Narrow escape-hatch for tables that haven't been added to the
-// generated supabase types yet. Only covers the query shapes we use
-// here — keeps call sites typed at the return boundary via explicit
-// casts to AiFindRow / WebPick.
-type UntypedSupabase = {
-  from: (table: string) => {
-    select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        maybeSingle: () => Promise<{
-          data: Record<string, unknown> | null;
-          error: { message: string } | null;
-        }>;
-      };
-    };
-  };
+  /** How the outreach landed — 'email' sent, 'manual' means no email
+   *  was on file so the hirer should DM them via IG/LinkedIn, 'none'
+   *  means no reachable contact at all. Null while outreach is still
+   *  pending on the edge function side. Drives the status line on the
+   *  WebPickCard so the UI never claims an invite was sent when it
+   *  wasn't. */
+  outreach_channel: string | null;
+  outreach_sent_at: string | null;
 };
 
 const AiFindResults = () => {
@@ -96,6 +88,12 @@ const AiFindResults = () => {
   const [row, setRow] = useState<AiFindRow | null>(null);
   const [vanoPick, setVanoPick] = useState<VanoPick | null>(null);
   const [webPick, setWebPick] = useState<WebPick | null>(null);
+  // Track whether each pick's secondary fetch has settled. Without
+  // these, the "both picks null" branch triggers on a fresh 'complete'
+  // row before the profile/scout queries have landed — showing a
+  // "Match data missing" error for what is actually a loading state.
+  const [vanoFetchDone, setVanoFetchDone] = useState(false);
+  const [webFetchDone, setWebFetchDone] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // pollingStartedAt is stateful (not a const initializer) so the
   // "Check again" button can reset the window after a timeout.
@@ -104,6 +102,12 @@ const AiFindResults = () => {
   // UI state for retry-in-flight so the button spinner is per-side,
   // not global (both cards could hypothetically retry at once).
   const [retryingSide, setRetryingSide] = useState<'vano' | 'web' | null>(null);
+  // Celebratory reveal — fires once the row flips from scouting →
+  // complete and at least one pick has loaded. The chip fades in
+  // above the pick cards + a subtle confetti burst makes the moment
+  // feel earned instead of "the page silently filled in".
+  const [showMatchReveal, setShowMatchReveal] = useState(false);
+  const celebratedRef = useRef(false);
 
   // Save the thumbs verdict via the SECURITY DEFINER RPC. Optimistic
   // UI: flip the local row immediately so the thumb fills, revert on
@@ -144,7 +148,7 @@ const AiFindResults = () => {
       // faster.
       const { data: refreshed } = await supabase
         .from('ai_find_requests')
-        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
+        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, vano_match_score, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
         .eq('id', row.id)
         .maybeSingle();
       if (refreshed) setRow(refreshed as AiFindRow);
@@ -186,9 +190,9 @@ const AiFindResults = () => {
       // typed client errors out at compile time. Cast through the
       // untyped supabase client just for this one table — the runtime
       // is identical.
-      const { data, error } = await (supabase as unknown as UntypedSupabase)
+      const { data, error } = await supabase
         .from('ai_find_requests')
-        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
+        .select('id, status, brief, category, vano_match_user_id, vano_match_reason, vano_match_score, web_scout_id, error_message, vano_match_feedback, web_match_feedback, vano_retry_count, web_retry_count')
         .eq('id', id)
         .maybeSingle();
 
@@ -232,6 +236,53 @@ const AiFindResults = () => {
     // future-facing signals (e.g. posthog terminal event).
   }, [isTerminal]);
 
+  // Celebratory reveal — fires once per page load the first time the
+  // row reaches 'complete' AND at least one pick has hydrated. Runs a
+  // small confetti burst and flips the "Matched!" chip visible. The
+  // ref-gate means the chip doesn't refire on subsequent re-renders
+  // (realtime refresh, retries, etc).
+  useEffect(() => {
+    if (celebratedRef.current) return;
+    if (row?.status !== 'complete') return;
+    if (!vanoPick && !webPick) return;
+    celebratedRef.current = true;
+    setShowMatchReveal(true);
+    // Fire confetti off the main thread — async import so the module
+    // only loads on this moment, not on every AiFindResults mount.
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return;
+    void (async () => {
+      try {
+        const confetti = (await import('canvas-confetti')).default;
+        const end = Date.now() + 500;
+        const burst = () => {
+          confetti({
+            particleCount: 18,
+            spread: 55,
+            startVelocity: 35,
+            angle: 60,
+            origin: { x: 0.08, y: 0.35 },
+            colors: ['#10b981', '#fcd34d', '#ffffff'],
+          });
+          confetti({
+            particleCount: 18,
+            spread: 55,
+            startVelocity: 35,
+            angle: 120,
+            origin: { x: 0.92, y: 0.35 },
+            colors: ['#10b981', '#fcd34d', '#ffffff'],
+          });
+          if (Date.now() < end) window.setTimeout(burst, 140);
+        };
+        burst();
+      } catch {
+        // Confetti is a nicety, not critical — if the dynamic import
+        // fails for any reason, the chip still appears.
+      }
+    })();
+  }, [row?.status, vanoPick, webPick]);
+
   // 1-second tick to drive the staged loading copy. Only runs during
   // non-terminal polling so a completed request doesn't thrash React.
   useEffect(() => {
@@ -246,8 +297,10 @@ const AiFindResults = () => {
   useEffect(() => {
     if (!row?.vano_match_user_id) {
       setVanoPick(null);
+      setVanoFetchDone(true);
       return;
     }
+    setVanoFetchDone(false);
     let cancelled = false;
     void (async () => {
       const [{ data: profile }, { data: studentProfile }] = await Promise.all([
@@ -263,7 +316,7 @@ const AiFindResults = () => {
           .maybeSingle(),
       ]);
       if (cancelled) return;
-      if (!profile) { setVanoPick(null); return; }
+      if (!profile) { setVanoPick(null); setVanoFetchDone(true); return; }
       setVanoPick({
         user_id: profile.user_id as string,
         display_name: (profile.display_name as string) || 'Vano freelancer',
@@ -272,6 +325,7 @@ const AiFindResults = () => {
         skills: (studentProfile?.skills as string[] | null) ?? null,
         hourly_rate: (studentProfile?.hourly_rate as number | null) ?? null,
       });
+      setVanoFetchDone(true);
     })();
     return () => { cancelled = true; };
   }, [row?.vano_match_user_id]);
@@ -281,18 +335,21 @@ const AiFindResults = () => {
   useEffect(() => {
     if (!row?.web_scout_id) {
       setWebPick(null);
+      setWebFetchDone(true);
       return;
     }
+    setWebFetchDone(false);
     let cancelled = false;
     void (async () => {
-      const { data } = await (supabase as unknown as UntypedSupabase)
+      const { data } = await supabase
         .from('scouted_freelancers')
-        .select('name, avatar_url, bio, skills, location, portfolio_url, source_platform, contact_email, contact_instagram, contact_linkedin, match_score')
+        .select('name, avatar_url, bio, skills, location, portfolio_url, source_platform, contact_email, contact_instagram, contact_linkedin, match_score, outreach_channel, outreach_sent_at')
         .eq('id', row.web_scout_id)
         .maybeSingle();
       if (cancelled) return;
-      if (!data) { setWebPick(null); return; }
+      if (!data) { setWebPick(null); setWebFetchDone(true); return; }
       setWebPick(data as WebPick);
+      setWebFetchDone(true);
     })();
     return () => { cancelled = true; };
   }, [row?.web_scout_id]);
@@ -350,17 +407,25 @@ const AiFindResults = () => {
               }}
             />
           ) : row.status === 'paid' || row.status === 'scouting' ? (
+            // Staged loading copy tied to elapsed seconds so the wait
+            // reads as deliberate work (3 named passes) rather than a
+            // generic spinner. Matches what the ai-find-freelancer
+            // edge function is actually doing behind the scenes:
+            // 0–15s : pool + brief parsing
+            // 15–30s: Serper scout + web result parsing
+            // 30–60s: Gemini re-rank to pick the single best
+            // 60+s  : gracefully degrades to "almost there".
             <LoadingCard
               label={
                 elapsedSec < 15
                   ? "Scanning your Vano pool…"
                   : elapsedSec < 30
-                    ? "Searching the open web for candidates…"
+                    ? "Scouting the open web…"
                     : elapsedSec < 60
-                      ? "Picking the best match…"
-                      : "Just a moment more…"
+                      ? "Ranking the best fit…"
+                      : "Almost there — polishing your matches…"
               }
-              hint={elapsedSec < 60 ? "Usually under a minute." : "Taking a little longer than usual — hang tight."}
+              hint={elapsedSec < 60 ? "Usually under a minute. €1 refunded if we can't find one." : "Taking a little longer than usual — your €1 is safe, we'll email you if anything's off."}
             />
           ) : row.status === 'failed' ? (
             <StatusCard
@@ -380,49 +445,93 @@ const AiFindResults = () => {
               body="Your €1 has been refunded."
               action={{ label: 'Back to /hire', onClick: () => navigate('/hire') }}
             />
-          ) : (
-            <div className="space-y-4">
-              {vanoPick ? (
-                <VanoPickCard
-                  pick={vanoPick}
-                  reason={row.vano_match_reason ?? null}
-                  feedback={row.vano_match_feedback}
-                  retryCount={row.vano_retry_count}
-                  retrying={retryingSide === 'vano'}
-                  onMessage={() => navigate(`/messages?with=${vanoPick.user_id}`)}
-                  onFeedback={(verdict) => submitFeedback('vano', verdict)}
-                  onRetry={() => retry('vano')}
-                />
-              ) : null}
+          ) : (() => {
+            // Secondary fetches (profile + scout row) can lag the 'complete'
+            // flip by a tick. Without the fetch-done guards below, that
+            // race briefly showed a "Match data missing" error card for
+            // what was actually a loading state.
+            const picksHydrating = !vanoFetchDone || !webFetchDone;
+            const hadVanoMatchId = !!row.vano_match_user_id;
+            const hadWebScoutId = !!row.web_scout_id;
+            const noMatchesAtAll = !hadVanoMatchId && !hadWebScoutId;
+            const matchGoneStale = !noMatchesAtAll && !vanoPick && !webPick;
 
-              {webPick ? (
-                <WebPickCard
-                  pick={webPick}
-                  feedback={row.web_match_feedback}
-                  retryCount={row.web_retry_count}
-                  retrying={retryingSide === 'web'}
-                  onFeedback={(verdict) => submitFeedback('web', verdict)}
-                  onRetry={() => retry('web')}
-                />
-              ) : null}
+            if (picksHydrating) {
+              return <LoadingCard label="Loading your matches…" />;
+            }
 
-              {!vanoPick && !webPick ? (
-                <StatusCard
-                  tone="error"
-                  title="Match data missing"
-                  body="We completed your search but couldn't load the results. Please refresh."
-                />
-              ) : null}
+            return (
+              <div className="space-y-4">
+                {/* Celebratory chip — fades in the first time the row
+                     reaches 'complete' with at least one pick. Makes
+                     the moment feel earned; paired with a confetti
+                     burst from the reveal effect above. Fades out
+                     after 4 seconds on its own via CSS; the ref-gate
+                     ensures it doesn't refire. */}
+                {showMatchReveal && (
+                  <div
+                    className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-[12px] font-semibold text-emerald-700 shadow-[0_8px_24px_-10px_rgba(16,185,129,0.35)] animate-in fade-in slide-in-from-top-2 duration-500 dark:text-emerald-300"
+                    onAnimationEnd={() => {
+                      // Auto-hide after a breath so the chip doesn't
+                      // linger all session. Use rAF so the fade-out
+                      // runs on the next paint.
+                      window.setTimeout(() => setShowMatchReveal(false), 3800);
+                    }}
+                  >
+                    <CheckCircle2 size={13} strokeWidth={3} />
+                    Your match is ready
+                  </div>
+                )}
 
-              <button
-                type="button"
-                onClick={() => navigate('/hire')}
-                className="mt-2 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
-              >
-                Start another search
-              </button>
-            </div>
-          )}
+                {vanoPick ? (
+                  <VanoPickCard
+                    pick={vanoPick}
+                    reason={row.vano_match_reason ?? null}
+                    score={row.vano_match_score ?? null}
+                    feedback={row.vano_match_feedback}
+                    retryCount={row.vano_retry_count}
+                    retrying={retryingSide === 'vano'}
+                    onMessage={() => navigate(`/messages?with=${vanoPick.user_id}`)}
+                    onFeedback={(verdict) => submitFeedback('vano', verdict)}
+                    onRetry={() => retry('vano')}
+                  />
+                ) : null}
+
+                {webPick ? (
+                  <WebPickCard
+                    pick={webPick}
+                    feedback={row.web_match_feedback}
+                    retryCount={row.web_retry_count}
+                    retrying={retryingSide === 'web'}
+                    onFeedback={(verdict) => submitFeedback('web', verdict)}
+                    onRetry={() => retry('web')}
+                  />
+                ) : null}
+
+                {noMatchesAtAll ? (
+                  <StatusCard
+                    tone="neutral"
+                    title="No match this time"
+                    body="We couldn't find a good fit for this brief. Your €1 refund is on the way — give it a few minutes."
+                  />
+                ) : matchGoneStale ? (
+                  <StatusCard
+                    tone="neutral"
+                    title="Match is no longer available"
+                    body="Your picks existed a moment ago but aren't reachable now (the freelancer may have removed their profile). Start another search and we'll find you a fresh one."
+                  />
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/hire')}
+                  className="mt-2 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
+                >
+                  Start another search
+                </button>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </>
@@ -442,48 +551,86 @@ const FeedbackRow = ({
   onFeedback: (verdict: 'up' | 'down') => void;
   onRetry: () => void;
 }) => {
-  const canRetry = retryCount < 1 && feedback === 'down';
+  // Retry used to gate on `feedback === 'down'` — you had to
+  // actively thumbs-down before the "Show another" button appeared.
+  // Problem: a hirer who's lukewarm on the pick but doesn't click
+  // the thumb never sees that retry is even an option. Silent
+  // abandonment, one of the biggest Vano Match drop-offs.
+  //
+  // Now: show the retry link as soon as you have a match and still
+  // have a retry left in the budget (retry_count < 1). Muted by
+  // default so it reads as "option, not ask"; promoted to a filled
+  // primary chip once you thumbs-down so the recovery path is
+  // obvious. Thumbs-up users see a thank-you hint instead of the
+  // retry link, to signal their feedback was registered.
+  const retryLeft = retryCount < 1;
+  const downVoted = feedback === 'down';
+  const upVoted = feedback === 'up';
 
   return (
-    <div className="flex items-center gap-2 border-t border-border pt-3">
-      <p className="text-[11px] font-medium text-muted-foreground">How's this match?</p>
-      <button
-        type="button"
-        onClick={() => onFeedback('up')}
-        aria-label="Good match"
-        className={[
-          'ml-auto flex h-7 w-7 items-center justify-center rounded-full border transition',
-          feedback === 'up'
-            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700'
-            : 'border-border bg-card text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-700',
-        ].join(' ')}
-      >
-        <ThumbsUp size={13} strokeWidth={2.2} />
-      </button>
-      <button
-        type="button"
-        onClick={() => onFeedback('down')}
-        aria-label="Not a great match"
-        className={[
-          'flex h-7 w-7 items-center justify-center rounded-full border transition',
-          feedback === 'down'
-            ? 'border-amber-500 bg-amber-500/10 text-amber-700'
-            : 'border-border bg-card text-muted-foreground hover:border-amber-500/40 hover:text-amber-700',
-        ].join(' ')}
-      >
-        <ThumbsDown size={13} strokeWidth={2.2} />
-      </button>
-      {canRetry ? (
+    <div className="space-y-2 border-t border-border pt-3">
+      <div className="flex items-center gap-2">
+        <p className="text-[11px] font-medium text-muted-foreground">How's this match?</p>
         <button
           type="button"
-          onClick={onRetry}
-          disabled={retrying}
-          className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:brightness-110 disabled:opacity-60"
+          onClick={() => onFeedback('up')}
+          aria-label="Good match"
+          className={[
+            'ml-auto flex h-7 w-7 items-center justify-center rounded-full border transition',
+            upVoted
+              ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700'
+              : 'border-border bg-card text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-700',
+          ].join(' ')}
         >
-          {retrying ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} strokeWidth={2.5} />}
-          {retrying ? 'Finding…' : 'Show another'}
+          <ThumbsUp size={13} strokeWidth={2.2} />
         </button>
-      ) : null}
+        <button
+          type="button"
+          onClick={() => onFeedback('down')}
+          aria-label="Not a great match"
+          className={[
+            'flex h-7 w-7 items-center justify-center rounded-full border transition',
+            downVoted
+              ? 'border-amber-500 bg-amber-500/10 text-amber-700'
+              : 'border-border bg-card text-muted-foreground hover:border-amber-500/40 hover:text-amber-700',
+          ].join(' ')}
+        >
+          <ThumbsDown size={13} strokeWidth={2.2} />
+        </button>
+      </div>
+      {retryLeft && !upVoted && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {downVoted
+              ? "Sorry — let's try again."
+              : 'Not the right fit? Try again, free (once per brief).'}
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            className={[
+              'flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold shadow-sm transition disabled:opacity-60',
+              downVoted
+                ? 'bg-primary text-primary-foreground hover:brightness-110'
+                : 'border border-border bg-card text-foreground hover:bg-muted',
+            ].join(' ')}
+          >
+            {retrying ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} strokeWidth={2.5} />}
+            {retrying ? 'Finding…' : 'Show another'}
+          </button>
+        </div>
+      )}
+      {upVoted && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Thanks — your feedback helps rank future matches.
+        </p>
+      )}
+      {!retryLeft && downVoted && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          You've used your retry. Message them anyway to see where it leads, or start a fresh brief.
+        </p>
+      )}
     </div>
   );
 };
@@ -526,35 +673,60 @@ const StatusCard = ({
 );
 
 const VanoPickCard = ({
-  pick, reason, feedback, retryCount, retrying, onMessage, onFeedback, onRetry,
+  pick, reason, score, feedback, retryCount, retrying, onMessage, onFeedback, onRetry,
 }: {
   pick: VanoPick;
   reason: string | null;
+  score: number | null;
   feedback: 'up' | 'down' | null;
   retryCount: number;
   retrying: boolean;
   onMessage: () => void;
   onFeedback: (verdict: 'up' | 'down') => void;
   onRetry: () => void;
-}) => (
-  <div className="overflow-hidden rounded-2xl border-2 border-primary shadow-lg ring-1 ring-amber-300/40 ring-offset-2 ring-offset-background">
-    <div className="relative bg-gradient-to-br from-primary via-primary to-primary/90 px-5 py-4 text-primary-foreground">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-300/15 blur-2xl" />
-      <div className="relative flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-amber-200" />
-        <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950">
-          Vano's pick
-        </span>
-        <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-emerald-200">
-          Vetted · pay direct
-        </span>
+}) => {
+  // Bucket the raw Gemini score into honest confidence tiers —
+  // surfacing "Strong fit" / "Good fit" reads better than "94% match"
+  // which implies a precision Gemini doesn't actually have. Below 40
+  // is the deterministic-fallback path: the ranker couldn't find a
+  // tailored match but still returned the best-ranked freelancer from
+  // the requested category, so the label reads "From your category"
+  // rather than claiming a fit we don't have.
+  const scoreBucket: { label: string; tone: string } | null = (() => {
+    if (score == null) return null;
+    if (score >= 75) return { label: 'Strong fit', tone: 'bg-emerald-400/20 text-emerald-50 ring-1 ring-emerald-300/30' };
+    if (score >= 55) return { label: 'Good fit',   tone: 'bg-white/15 text-white/90 ring-1 ring-white/20' };
+    if (score >= 40) return { label: 'Plausible fit', tone: 'bg-white/10 text-white/80 ring-1 ring-white/15' };
+    return { label: 'From your category', tone: 'bg-white/10 text-white/70 ring-1 ring-white/15' };
+  })();
+  return (
+  <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">
+    <div className="relative overflow-hidden bg-gradient-to-b from-primary to-primary/90 px-5 py-4 text-primary-foreground">
+      <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/15 blur-3xl" />
+      <div className="relative flex items-center justify-between">
+        <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
+          <Sparkles className="h-3 w-3 text-amber-200" /> Vano's pick
+        </div>
+        <div className="inline-flex items-center gap-2">
+          {scoreBucket && (
+            <span
+              title={`Gemini-assigned match confidence: ${score}/100`}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${scoreBucket.tone}`}
+            >
+              {scoreBucket.label}
+            </span>
+          )}
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-100/90">
+            Vetted · on platform
+          </span>
+        </div>
       </div>
     </div>
 
     <div className="space-y-4 bg-card p-5">
       <div className="flex items-start gap-3">
         {pick.avatar_url ? (
-          <img src={pick.avatar_url} alt="" className="h-14 w-14 flex-shrink-0 rounded-full object-cover" />
+          <img src={pick.avatar_url} alt={pick.display_name} className="h-14 w-14 flex-shrink-0 rounded-full object-cover" />
         ) : (
           <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-base font-semibold text-muted-foreground">
             {pick.display_name.charAt(0).toUpperCase()}
@@ -600,6 +772,9 @@ const VanoPickCard = ({
       >
         <MessageCircle className="h-4 w-4" /> Message now
       </button>
+      <p className="text-center text-[11px] text-muted-foreground">
+        Agree a rate in chat, then pay via <span className="font-semibold text-foreground">Vano Pay</span> — safer for both of you.
+      </p>
       <FeedbackRow
         feedback={feedback}
         retryCount={retryCount}
@@ -609,7 +784,8 @@ const VanoPickCard = ({
       />
     </div>
   </div>
-);
+  );
+};
 
 const WebPickCard = ({
   pick, feedback, retryCount, retrying, onFeedback, onRetry,
@@ -625,16 +801,13 @@ const WebPickCard = ({
     !!pick.contact_email || !!pick.contact_instagram || !!pick.contact_linkedin || !!pick.portfolio_url;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Found on the web
-          </span>
+    <div className="overflow-hidden rounded-[20px] border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between bg-muted/60 px-5 py-3">
+        <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <Globe className="h-3 w-3" /> Found on the web
         </div>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
-          Unvetted · contact at your discretion
+        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-400">
+          Unvetted
         </span>
       </div>
 
@@ -643,7 +816,7 @@ const WebPickCard = ({
           {pick.avatar_url ? (
             <img
               src={pick.avatar_url}
-              alt=""
+              alt={pick.name}
               className="h-14 w-14 flex-shrink-0 rounded-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -724,8 +897,43 @@ const WebPickCard = ({
           </p>
         )}
 
+        {/* Truthful invite status — reads the outreach_channel the
+             notify function actually wrote on the row, so the hirer
+             sees what we really did (email sent, no email on file so
+             they need to DM manually, or no reachable contact). The
+             previous copy hard-coded "We've invited them" regardless
+             of whether any outreach actually went out. */}
+        {pick.outreach_channel === 'email' ? (
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-2.5 text-[12px] leading-relaxed text-emerald-900 dark:text-emerald-200">
+            <p className="font-semibold">We've emailed them to join Vano.</p>
+            <p className="mt-0.5 text-emerald-900/90 dark:text-emerald-200/85">
+              If they claim their profile, you can pay them via <span className="font-semibold">Vano Pay</span> — protected, in-app, money in their bank in 1–2 days.
+            </p>
+          </div>
+        ) : pick.outreach_channel === 'manual' ? (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-50/40 px-3.5 py-2.5 text-[12px] leading-relaxed text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/15 dark:text-amber-100">
+            <p className="font-semibold">We couldn't email them directly.</p>
+            <p className="mt-0.5 text-amber-900/90 dark:text-amber-100/85">
+              DM them via the links below — their Vano invite page is at <span className="font-mono text-[11px]">/claim</span> (we'll send it when they reply). Once they join, you can pay via <span className="font-semibold">Vano Pay</span>.
+            </p>
+          </div>
+        ) : pick.outreach_channel === 'none' ? (
+          <div className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
+            <p className="font-semibold text-foreground">No contact details on file.</p>
+            <p className="mt-0.5">
+              Open their portfolio to find a way to reach them — if they join Vano from there, you can pay safely via Vano Pay.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
+            <p className="font-semibold text-foreground">Reaching out to them now…</p>
+            <p className="mt-0.5">
+              Once they're contacted, we'll update this card. You can also reach out directly in the meantime.
+            </p>
+          </div>
+        )}
         <p className="text-[11px] text-muted-foreground">
-          Reach out directly. Vano hasn't reviewed this person — verify their work before sending money.
+          Vano hasn't reviewed this person — verify their work before sending money off-platform.
         </p>
         <FeedbackRow
           feedback={feedback}

@@ -44,7 +44,7 @@ export const ReviewList: React.FC<{ reviews: Review[] }> = ({ reviews }) => {
             {review.photos && review.photos.length > 0 && (
               <div className="flex gap-2 mt-3 flex-wrap">
                 {review.photos.map((url, i) => (
-                  <img key={i} src={url} alt="" className="w-20 h-20 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(url, '_blank')} />
+                  <img key={i} src={url} alt={`Review photo ${i + 1}`} className="w-20 h-20 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity" loading="lazy" decoding="async" onClick={() => window.open(url, '_blank')} />
                 ))}
               </div>
             )}

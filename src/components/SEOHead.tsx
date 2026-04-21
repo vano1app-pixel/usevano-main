@@ -30,8 +30,11 @@ function toAbsoluteImage(image: string): string {
 export const SEOHead = ({
   title,
   description,
-  keywords = 'VANO, Galway, freelancers, gigs, local jobs, hire students, community',
-  image = '/og.svg',
+  keywords = 'VANO, Ireland, Galway, freelancers, hire freelancer, gigs, local jobs, vano pay, community',
+  // 1200×630 PNG — the spec-compliant size / format for LinkedIn /
+  // Slack / WhatsApp / Facebook / Twitter previews. The old /og.svg
+  // rendered inconsistently across scrapers (many silently drop SVG).
+  image = '/og.png',
   url: urlProp,
   noindex = false,
   type = 'website',
@@ -66,6 +69,19 @@ export const SEOHead = ({
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={ogImageAbsolute} />
+      {/* Image dimensions + type help scrapers that don't download
+           the image eagerly reserve the correct card shape. Assumes
+           the default 1200x630 /og.png; per-page images that pass a
+           different `image` prop will still work — scrapers just fall
+           back to probing the file. */}
+      {image === '/og.png' && (
+        <>
+          <meta property="og:image:type" content="image/png" />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content="VANO — any brief, any budget, your perfect match." />
+        </>
+      )}
       {type === 'article' && publishedTime && (
         <meta property="article:published_time" content={publishedTime} />
       )}
@@ -79,6 +95,9 @@ export const SEOHead = ({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImageAbsolute} />
+      {image === '/og.png' && (
+        <meta name="twitter:image:alt" content="VANO — any brief, any budget, your perfect match." />
+      )}
 
       {/* Structured data */}
       {jsonLdArray.map((schema, i) => (

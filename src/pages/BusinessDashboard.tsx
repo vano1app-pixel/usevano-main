@@ -11,6 +11,10 @@ import {
   ArrowRight,
   MessagesSquare,
   Heart,
+  ShieldCheck,
+  RotateCcw,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
 import { MyTeamPanel } from '@/components/MyTeamPanel';
@@ -131,6 +135,27 @@ export default function BusinessDashboard() {
   const [reviewCount, setReviewCount] = useState(0);
   const [favourites, setFavourites] = useState<FavFreelancer[]>([]);
   const [recentConvos, setRecentConvos] = useState<RecentConvo[]>([]);
+
+  // Vano Pay history — last 5 non-transient payments (held, released,
+  // refunded) the hirer has sent. Drives the "Recent Vano Pay" tile
+  // so the dashboard shows the escrow pipeline at a glance and
+  // investors can see the flow beyond a single transaction.
+  type DashboardPaymentRow = {
+    id: string;
+    conversation_id: string;
+    freelancer_id: string;
+    amount_cents: number;
+    fee_cents: number;
+    status: 'paid' | 'transferred' | 'refunded';
+    auto_release_at: string | null;
+    released_at: string | null;
+    refunded_at: string | null;
+    created_at: string;
+    description: string | null;
+    freelancer_name: string | null;
+    freelancer_avatar: string | null;
+  };
+  const [recentPayments, setRecentPayments] = useState<DashboardPaymentRow[]>([]);
 
   /* ── data fetch ── */
   useEffect(() => {
@@ -290,6 +315,44 @@ export default function BusinessDashboard() {
         }
       }
 
+      // Vano Pay recent activity — last 5 held + released + refunded
+      // payments for this hirer so the dashboard reflects the escrow
+      // pipeline. Joined with profiles for the freelancer's name +
+      // avatar; RLS on vano_payments already restricts to the caller.
+      const { data: paymentsRaw } = await supabase
+        .from('vano_payments')
+        .select('id, conversation_id, freelancer_id, amount_cents, fee_cents, status, auto_release_at, released_at, refunded_at, created_at, description')
+        .eq('business_id', uid)
+        .in('status', ['paid', 'transferred', 'refunded'])
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      const payments = (paymentsRaw ?? []) as Array<Omit<DashboardPaymentRow, 'freelancer_name' | 'freelancer_avatar'>>;
+
+      if (payments.length > 0 && !cancelled) {
+        const freelancerIds = Array.from(new Set(payments.map((p) => p.freelancer_id)));
+        const { data: paymentProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, avatar_url')
+          .in('user_id', freelancerIds);
+        const pMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
+        for (const prof of paymentProfiles ?? []) {
+          pMap.set(prof.user_id, { display_name: prof.display_name, avatar_url: prof.avatar_url });
+        }
+        if (!cancelled) {
+          setRecentPayments(
+            payments.map((p) => {
+              const freelancerProfile = pMap.get(p.freelancer_id);
+              return {
+                ...p,
+                freelancer_name: freelancerProfile?.display_name ?? 'Freelancer',
+                freelancer_avatar: freelancerProfile?.avatar_url ?? null,
+              };
+            }),
+          );
+        }
+      }
+
       if (!cancelled) setLoading(false);
     };
 
@@ -430,6 +493,55 @@ export default function BusinessDashboard() {
               </motion.div>
             </div>
           </motion.section>
+
+          {/* First-hirer empty state — only when the dashboard has
+               nothing to display (no gigs, no applications, no Vano Pay
+               history). Without this, a fresh account sees a wall of
+               zero-stats that reads as "dead platform". Investors
+               landing on a demo hirer account would think nothing is
+               happening. The CTA pushes them into the Vano Match flow
+               (the revenue path) instead of sitting on the empty page. */}
+          {jobs.length === 0 && applications.length === 0 && recentPayments.length === 0 && (
+            <motion.section
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-10"
+            >
+              <motion.div variants={fadeUp}>
+                <div className="relative overflow-hidden rounded-[20px] border border-primary/25 bg-gradient-to-b from-primary/[0.04] to-primary/[0.02] px-6 py-8 sm:px-10 sm:py-10">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
+                  <div className="relative">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                      <Sparkles className="h-3 w-3" /> Let's get you a match
+                    </span>
+                    <h2 className="mt-3 text-[22px] font-semibold leading-tight tracking-tight text-foreground sm:text-[26px]">
+                      Any brief. Any budget. <span className="italic font-semibold text-primary">Your perfect match.</span>
+                    </h2>
+                    <p className="mt-2 max-w-[48ch] text-[13.5px] leading-relaxed text-muted-foreground">
+                      Tell us what you need and we'll hand-pick one freelancer from our pool plus one scouted from the open web. Paid safely through Vano Pay, held until you release.
+                    </p>
+                    <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/hire')}
+                        className="inline-flex items-center gap-1.5 rounded-2xl bg-primary px-5 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+                      >
+                        <Sparkles size={14} /> Start a Vano Match
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/students')}
+                        className="inline-flex items-center gap-1.5 rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
+                        Browse freelancers
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.section>
+          )}
 
           {/* ── Stat Cards ── */}
           <motion.section
@@ -765,6 +877,86 @@ export default function BusinessDashboard() {
                           </span>
                         </Link>
                       ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.section>
+          )}
+
+          {/* ── Recent Vano Pay activity ── */}
+          {recentPayments.length > 0 && (
+            <motion.section
+              variants={stagger}
+              initial="hidden"
+              animate="visible"
+              className="mb-10"
+            >
+              <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
+                Vano Pay
+              </motion.p>
+              <motion.div variants={fadeUp}>
+                <Card className="border-foreground/[0.06] shadow-none">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-[15px] font-semibold">Recent payments</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {recentPayments.map((p) => {
+                        const amountEuro = `€${(p.amount_cents / 100).toFixed(2)}`;
+                        const statusMeta = p.status === 'paid'
+                          ? {
+                              label: 'Held',
+                              icon: <ShieldCheck size={12} />,
+                              tone: 'bg-primary/10 text-primary border-primary/20',
+                              hint: p.auto_release_at
+                                ? `auto-releases ${format(parseISO(p.auto_release_at), 'd MMM')}`
+                                : 'awaiting release',
+                            }
+                          : p.status === 'transferred'
+                          ? {
+                              label: 'Paid',
+                              icon: <Check size={12} strokeWidth={3} />,
+                              tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25',
+                              hint: p.released_at
+                                ? `released ${format(parseISO(p.released_at), 'd MMM')}`
+                                : 'released',
+                            }
+                          : {
+                              label: 'Refunded',
+                              icon: <RotateCcw size={12} />,
+                              tone: 'bg-muted text-muted-foreground border-border',
+                              hint: p.refunded_at
+                                ? `refunded ${format(parseISO(p.refunded_at), 'd MMM')}`
+                                : 'refunded',
+                            };
+                        return (
+                          <Link
+                            key={p.id}
+                            to={`/messages?open=${p.conversation_id}`}
+                            className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.99]"
+                          >
+                            <Avatar className="h-10 w-10 border border-border/60">
+                              <AvatarImage src={p.freelancer_avatar ?? undefined} />
+                              <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
+                                {(p.freelancer_name ?? '?')[0]?.toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[14px] font-medium text-foreground/90 group-hover:text-primary transition-colors duration-200" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {amountEuro} · {p.freelancer_name}
+                              </p>
+                              <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                                {p.description ? `${p.description} · ` : ''}{statusMeta.hint}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusMeta.tone}`}>
+                              {statusMeta.icon}
+                              {statusMeta.label}
+                            </span>
+                          </Link>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>

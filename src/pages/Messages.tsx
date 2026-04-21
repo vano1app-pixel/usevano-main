@@ -3,8 +3,9 @@ import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ReviewForm } from '@/components/ReviewForm';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
@@ -19,6 +20,8 @@ import {
 import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface Conversation {
   id: string;
@@ -160,6 +163,46 @@ const Messages = () => {
   const [hireAgreement, setHireAgreement] = useState<{ id: string; business_id: string; freelancer_id: string; created_at: string } | null>(null);
   const [hiringInProgress, setHiringInProgress] = useState(false);
   const [vanoPayOpen, setVanoPayOpen] = useState(false);
+
+  // Held / released / refunded Vano Pay rows for the active thread.
+  // Drives the in-thread payment receipt banner so both parties can
+  // see the state of any held escrow payment + the hirer can release
+  // or flag a dispute without leaving the chat. Fetched when the
+  // selected conversation changes.
+  type ThreadPayment = {
+    id: string;
+    business_id: string;
+    freelancer_id: string;
+    amount_cents: number;
+    fee_cents: number;
+    currency: string;
+    status: 'awaiting_payment' | 'paid' | 'transferred' | 'failed' | 'refunded';
+    auto_release_at: string | null;
+    released_at: string | null;
+    refunded_at: string | null;
+    dispute_reason: string | null;
+    description: string | null;
+    created_at: string;
+  };
+  const [threadPayments, setThreadPayments] = useState<ThreadPayment[]>([]);
+  // Per-row in-flight flags so a double-click doesn't fire two
+  // release / refund calls. Keyed by payment id.
+  const [releasingId, setReleasingId] = useState<string | null>(null);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
+  // Dispute dialog state — opens with a payment id, collects an
+  // optional free-text reason, posts to refund-vano-payment.
+  const [disputeForPaymentId, setDisputeForPaymentId] = useState<string | null>(null);
+  const [disputeReason, setDisputeReason] = useState('');
+
+  // Review dialog state — opens ReviewForm scoped to a released
+  // vano_payment so the hirer can rate the freelancer. The id set
+  // below is the hirer's already-reviewed payments so the "Leave a
+  // review" button hides after the write lands; the reviews INSERT
+  // RLS also blocks duplicates via the UNIQUE partial on
+  // (vano_payment_id, reviewer_id).
+  const [reviewForPaymentId, setReviewForPaymentId] = useState<string | null>(null);
+  const [reviewedPaymentIds, setReviewedPaymentIds] = useState<Set<string>>(new Set());
+
   // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
   // Freelancer's own Vano Pay readiness — drives the in-thread "Enable
@@ -212,7 +255,14 @@ const Messages = () => {
       .select('user_type')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => setViewerUserType(data?.user_type || null));
+      .then(({ data, error }) => {
+        if (error) {
+          if (import.meta.env.DEV) console.warn('[Messages] viewer user_type fetch failed', error);
+          setViewerUserType(null);
+          return;
+        }
+        setViewerUserType(data?.user_type || null);
+      });
   }, [user?.id]);
 
   // Pull the viewer's own stripe_payouts_enabled so the "Enable Vano
@@ -228,7 +278,14 @@ const Messages = () => {
       .select('stripe_payouts_enabled')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => setViewerPayoutsEnabled(!!data?.stripe_payouts_enabled));
+      .then(({ data, error }) => {
+        if (error) {
+          if (import.meta.env.DEV) console.warn('[Messages] stripe_payouts_enabled fetch failed', error);
+          setViewerPayoutsEnabled(null);
+          return;
+        }
+        setViewerPayoutsEnabled(!!data?.stripe_payouts_enabled);
+      });
   }, [user?.id, viewerUserType]);
 
   // Fetch other-party metadata for the quick-reply chip row. Runs in parallel
@@ -260,17 +317,13 @@ const Messages = () => {
         supabase.from('community_posts').select('category').eq('user_id', otherId).limit(1).maybeSingle(),
         // We need this only when viewer is business, but it's a single
         // tiny query and gates a destructive UX (clicking into an error
-        // toast) so we always fetch and let the render decide. Cast
-        // through `never` because stripe_payouts_enabled isn't in the
-        // generated supabase types yet (same workaround as
-        // VanoPaySetupCard).
-        supabase.from('student_profiles' as never).select('stripe_payouts_enabled' as never).eq('user_id' as never, otherId as never).maybeSingle(),
+        // toast) so we always fetch and let the render decide.
+        supabase.from('student_profiles').select('stripe_payouts_enabled').eq('user_id', otherId).maybeSingle(),
       ]);
       if (cancelled) return;
       setOtherUserType((profileRes.data?.user_type as string | null) ?? null);
       setOtherCategory((postRes.data?.category as string | null) ?? null);
-      const payoutsRow = payoutsRes.data as { stripe_payouts_enabled?: boolean } | null;
-      setOtherPayoutsEnabled(!!payoutsRow?.stripe_payouts_enabled);
+      setOtherPayoutsEnabled(!!payoutsRes.data?.stripe_payouts_enabled);
     })();
     return () => { cancelled = true; };
   }, [selectedConvo, conversations]);
@@ -296,6 +349,66 @@ const Messages = () => {
         const agreement = await getActiveHireAgreement(selectedConvo);
         if (!cancelled) setHireAgreement(agreement);
       })
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConvo]);
+
+  // Held + released + refunded Vano Pay rows for the selected
+  // conversation. Drives the in-thread payment receipt card and the
+  // hirer's Release / Flag-a-problem actions. Fetches on selection
+  // change + on the Stripe-return query param so a hirer landing back
+  // from Checkout sees the fresh "held" state immediately.
+  useEffect(() => {
+    if (!selectedConvo) { setThreadPayments([]); setReviewedPaymentIds(new Set()); return; }
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from('vano_payments')
+        .select('id, business_id, freelancer_id, amount_cents, fee_cents, currency, status, auto_release_at, released_at, refunded_at, dispute_reason, description, created_at')
+        .eq('conversation_id', selectedConvo)
+        .in('status', ['paid', 'transferred', 'refunded'])
+        .order('created_at', { ascending: false });
+      if (cancelled) return;
+      const payments = (data ?? []) as ThreadPayment[];
+      setThreadPayments(payments);
+
+      // Load which of THIS viewer's reviews already exist for the
+      // released payments in this thread, so the "Leave a review"
+      // nudge hides once they've left one. RLS makes this safe: a
+      // non-reviewer viewer (freelancer side) still gets to read
+      // reviews (they're public), but the filter on reviewer_id
+      // scopes to what the hirer has submitted themselves.
+      if (!user) return;
+      const transferredIds = payments.filter((p) => p.status === 'transferred').map((p) => p.id);
+      if (transferredIds.length === 0) {
+        if (!cancelled) setReviewedPaymentIds(new Set());
+        return;
+      }
+      const { data: reviewRows } = await supabase
+        .from('reviews')
+        .select('vano_payment_id')
+        .eq('reviewer_id', user.id)
+        .in('vano_payment_id', transferredIds);
+      if (cancelled) return;
+      setReviewedPaymentIds(new Set((reviewRows ?? []).map((r) => r.vano_payment_id as string).filter(Boolean)));
+    };
+    void load();
+
+    // Realtime refresh so the receipt flips to "released" / "refunded"
+    // the instant the webhook or edge function writes — hirer clicks
+    // Release on desktop and sees the state change on their phone
+    // without reloading.
+    const channel = supabase
+      .channel(`vano-payments-${selectedConvo}-${sessionSuffixRef.current}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'vano_payments',
+        filter: `conversation_id=eq.${selectedConvo}`,
+      }, () => { void load(); })
       .subscribe();
     return () => {
       cancelled = true;
@@ -542,6 +655,39 @@ const Messages = () => {
     return () => { cancelled = true; };
   }, [loading, user, withOpenParam, draftOpenParam, loadConversations, setSearchParams]);
 
+  // Post-Stripe-Checkout return handler. When the hirer lands back on
+  // /messages?payment=<id>&status=success, show a confirming toast so
+  // the 1–3s gap between redirect and the stripe-webhook flipping the
+  // row to 'paid' (which realtime-pops the receipt card) doesn't feel
+  // like nothing happened. Also surface the cancel case. Params are
+  // stripped so a refresh doesn't re-toast.
+  const paymentParam = searchParams.get('payment');
+  const paymentStatusParam = searchParams.get('status');
+  useEffect(() => {
+    if (!paymentParam || !paymentStatusParam) return;
+    // Strip params FIRST so a refresh / back nav can't re-toast — even
+    // if the toast call throws, the URL is already clean. The captured
+    // status string is used below to decide which toast to fire.
+    const status = paymentStatusParam;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('payment');
+      next.delete('status');
+      return next;
+    }, { replace: true });
+    if (status === 'success') {
+      toast({
+        title: 'Payment held on Vano',
+        description: "We'll release it to the freelancer when you click Release here in the thread.",
+      });
+    } else if (status === 'cancel') {
+      toast({
+        title: 'Payment cancelled',
+        description: 'No money moved. Try again whenever you like.',
+      });
+    }
+  }, [paymentParam, paymentStatusParam, setSearchParams, toast]);
+
   const loadMessages = async (convoId: string) => {
     const { data } = await supabase.from('messages').select('*').eq('conversation_id', convoId).order('created_at', { ascending: true });
     setMessages(data || []);
@@ -622,7 +768,7 @@ const Messages = () => {
           // Message already landed in DB — recipient will see it on
           // next chat open. Push notification is extra; log so we can
           // spot a broken VAPID setup without hiding it from the user.
-          console.warn('[Messages] notify-new-message failed', err);
+          if (import.meta.env.DEV) console.warn('[Messages] notify-new-message failed', err);
         });
       });
 
@@ -670,7 +816,7 @@ const Messages = () => {
                     freelancer_phone: spPhone?.phone || null,
                   }),
                 }).catch((err) => {
-                  console.warn('[Messages] notify-admin-message failed', err);
+                  if (import.meta.env.DEV) console.warn('[Messages] notify-admin-message failed', err);
                 });
               }
             }
@@ -756,7 +902,7 @@ const Messages = () => {
                 </DialogHeader>
                 <div className="relative">
                   <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input autoFocus value={userSearch} onChange={(e) => { setUserSearch(e.target.value); searchUsers(e.target.value); }} placeholder="Search by name…" className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input autoFocus value={userSearch} onChange={(e) => { setUserSearch(e.target.value); searchUsers(e.target.value); }} placeholder="Search by name…" className="w-full rounded-xl border border-input bg-background py-2.5 pl-9 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div className="min-h-[4rem] space-y-1">
                   {searchingUsers && <p className="py-4 text-center text-sm text-muted-foreground">Searching…</p>}
@@ -764,7 +910,7 @@ const Messages = () => {
                   {userResults.map((u) => (
                     <button key={u.user_id} type="button" onClick={() => startConvoWith(u.user_id)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-secondary">
                       {u.avatar_url
-                        ? <img src={u.avatar_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                        ? <img src={u.avatar_url} alt={u.display_name || 'User'} className="h-9 w-9 shrink-0 rounded-full object-cover" loading="lazy" decoding="async" />
                         : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">{(u.display_name || '?')[0].toUpperCase()}</div>
                       }
                       <span className="text-sm font-medium">{u.display_name || 'User'}</span>
@@ -775,6 +921,27 @@ const Messages = () => {
             </Dialog>
 
             <div className="flex-1 overflow-y-auto">
+              {/* Start a Vano Match — persistent sidebar entry for
+                   hirers so they can kick off a fresh match from inside
+                   the inbox without bouncing back to home. Hidden for
+                   freelancers since the €1 flow is hirer-only. */}
+              {viewerUserType !== 'student' && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/hire')}
+                  className="group flex w-full items-center gap-3 border-b border-border/60 bg-primary/[0.04] px-4 py-3 text-left transition-colors hover:bg-primary/[0.08]"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                    <Sparkles size={15} className="text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">Start a Vano Match</p>
+                    <p className="truncate text-xs text-muted-foreground">Hand-picked freelancer in 60 seconds</p>
+                  </div>
+                  <ArrowRight size={14} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </button>
+              )}
+
               {/* Contact team */}
               <button type="button" onClick={() => setContactTeamOpen(true)} className="flex w-full items-center gap-3 border-b border-border/60 px-4 py-3 text-left transition-colors hover:bg-secondary/50">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -810,14 +977,22 @@ const Messages = () => {
               </Dialog>
 
               {conversations.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <MessageCircle size={22} className="text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">No conversations yet</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Message someone from a gig or talent listing to get started.</p>
-                  </div>
+                <div className="px-4 py-8">
+                  <EmptyState
+                    icon={MessageCircle}
+                    title="No messages yet"
+                    description={viewerUserType === 'student'
+                      // Freelancers on Vano don't apply to gigs — clients
+                      // message them first after finding their listing or
+                      // being matched by AI Find. Old copy said "apply to
+                      // a gig" which is the wrong mental model.
+                      ? "Once a client finds your listing we'll open the chat here. You'll also get a text when it happens."
+                      : "Start a Vano Match — we hand-pick someone for your brief, or message a freelancer directly from the talent board."}
+                    action={viewerUserType !== 'student' ? {
+                      label: 'Start a Vano Match',
+                      onClick: () => navigate('/hire'),
+                    } : undefined}
+                  />
                 </div>
               ) : (
                 conversations.map((convo) => {
@@ -834,7 +1009,7 @@ const Messages = () => {
                     >
                       {/* Avatar */}
                       {convo.otherAvatar
-                        ? <img src={convo.otherAvatar} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" loading="lazy" />
+                        ? <img src={convo.otherAvatar} alt={convo.otherName || 'User'} className="h-11 w-11 shrink-0 rounded-full object-cover" loading="lazy" />
                         : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground">{(convo.otherName || '?')[0].toUpperCase()}</div>
                       }
                       <div className="min-w-0 flex-1">
@@ -903,7 +1078,7 @@ const Messages = () => {
                 <div className="flex items-center gap-3 border-b border-border px-4 py-3">
                   <button onClick={() => setSelectedConvo(null)} className="text-sm text-muted-foreground transition-colors hover:text-foreground md:hidden">← Back</button>
                   {selectedConversation?.otherAvatar
-                    ? <img src={selectedConversation.otherAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    ? <img src={selectedConversation.otherAvatar} alt={selectedConversation.otherName || 'User'} className="h-8 w-8 rounded-full object-cover" />
                     : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">{(selectedConversation?.otherName || '?')[0].toUpperCase()}</div>
                   }
                   <div className="flex-1 min-w-0">
@@ -953,10 +1128,7 @@ const Messages = () => {
                     </button>
                   )}
                   {hireAgreement && (
-                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                      <BadgeCheck size={12} strokeWidth={2.5} />
-                      Hired
-                    </span>
+                    <StatusChip tone="success" icon={BadgeCheck} className="shrink-0">Hired</StatusChip>
                   )}
                   {/* Pay via Vano — only makes sense for businesses
                       paying freelancers whose Stripe Connect account is
@@ -1002,6 +1174,168 @@ const Messages = () => {
                     ) : null
                   )}
                 </div>
+
+                {/* Vano Pay escrow receipts — renders one row per Vano
+                     Pay payment attached to this conversation in a
+                     non-transient state (held / released / refunded).
+                     Hirer gets a Release button + Flag-a-problem link
+                     on held rows; freelancer gets a countdown. Both
+                     sides see the terminal chips. Realtime-refreshed,
+                     so a release by one side flips state on the other
+                     without reload. */}
+                {threadPayments.length > 0 && (
+                  <div className="space-y-2 border-b border-border/60 bg-muted/20 px-4 py-3">
+                    {threadPayments.map((p) => {
+                      const amountEuro = `€${(p.amount_cents / 100).toFixed(2)}`;
+                      const feeEuro = `€${(p.fee_cents / 100).toFixed(2)}`;
+                      const netEuro = `€${((p.amount_cents - p.fee_cents) / 100).toFixed(2)}`;
+                      const isHirer = !!user && p.business_id === user.id;
+                      // Days countdown to auto-release — reads as active
+                      // ("in 12 days") vs a static date which felt stale
+                      // the moment the page rendered. Negative values
+                      // (past-due rows not yet swept by the cron) read
+                      // as "any moment" rather than confusing negatives.
+                      const autoReleaseDays = p.auto_release_at
+                        ? Math.max(0, Math.ceil((new Date(p.auto_release_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                        : null;
+                      const autoReleaseCopy = autoReleaseDays === null
+                        ? null
+                        : autoReleaseDays === 0
+                          ? 'auto-releases any moment'
+                          : `auto-releases in ${autoReleaseDays} ${autoReleaseDays === 1 ? 'day' : 'days'}`;
+                      const doneDate = (p.released_at || p.refunded_at)
+                        ? new Date((p.released_at || p.refunded_at)!).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+                        : null;
+
+                      if (p.status === 'paid') {
+                        return (
+                          <div key={p.id} className="rounded-xl border border-border bg-card px-3.5 py-3 shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <ShieldCheck size={15} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[13.5px] font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  {amountEuro} <span className="font-medium text-muted-foreground">held on Vano</span>
+                                </p>
+                                {p.description && (
+                                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{p.description}</p>
+                                )}
+                                {/* Fee split — the freelancer needs to
+                                     know what actually lands in their
+                                     bank (amount - 3% Vano fee); the
+                                     hirer sees the same split so the
+                                     3% isn't a surprise on the receipt
+                                     after release. Kept tight + mono
+                                     so the two rows align. */}
+                                <p className="mt-1 text-[11.5px] text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  {isHirer
+                                    ? `Freelancer receives ${netEuro} · Vano fee ${feeEuro}`
+                                    : `You receive ${netEuro} · Vano fee ${feeEuro}`}
+                                </p>
+                                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                                  {isHirer
+                                    ? `Release when the work is done${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`
+                                    : `Your client will release it${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`}
+                                </p>
+                                {isHirer && (
+                                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                                    <button
+                                      type="button"
+                                      disabled={releasingId === p.id || refundingId === p.id}
+                                      onClick={async () => {
+                                        if (releasingId || refundingId) return;
+                                        setReleasingId(p.id);
+                                        try {
+                                          const { data, error } = await supabase.functions.invoke('release-vano-payment', {
+                                            body: { payment_id: p.id },
+                                          });
+                                          if (error) throw error;
+                                          const result = data as { ok?: boolean; already_released?: boolean } | null;
+                                          if (!result?.ok) throw new Error('Release did not return ok');
+                                          toast({
+                                            title: 'Payment released',
+                                            description: `${amountEuro} sent to the freelancer.`,
+                                          });
+                                        } catch (err) {
+                                          const ctxErr = (err as { context?: { error?: string } })?.context?.error;
+                                          toast({
+                                            title: "Couldn't release payment",
+                                            description: ctxErr || 'Please try again in a moment.',
+                                            variant: 'destructive',
+                                          });
+                                        } finally {
+                                          setReleasingId(null);
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground shadow-sm transition-colors hover:brightness-110 disabled:opacity-60"
+                                    >
+                                      {releasingId === p.id
+                                        ? <><Loader2 size={12} className="animate-spin" /> Releasing…</>
+                                        : <>Release {amountEuro}</>}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={releasingId === p.id || refundingId === p.id}
+                                      onClick={() => {
+                                        setDisputeForPaymentId(p.id);
+                                        setDisputeReason('');
+                                      }}
+                                      className="inline-flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-destructive hover:underline disabled:opacity-60"
+                                    >
+                                      <AlertTriangle size={11} /> Flag a problem
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (p.status === 'transferred') {
+                        const canReview = isHirer && !reviewedPaymentIds.has(p.id);
+                        return (
+                          <div key={p.id} className="flex flex-wrap items-center gap-2">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-3.5 py-1.5 text-[12px] text-emerald-900 dark:text-emerald-200" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                              <Check size={13} className="text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
+                              <span className="font-semibold">{amountEuro} paid</span>
+                              {doneDate && <span className="text-emerald-900/75 dark:text-emerald-200/75">· {doneDate}</span>}
+                            </div>
+                            {canReview && (
+                              // Review nudge — only shown to the hirer,
+                              // only for payments they haven't reviewed
+                              // yet. The button opens ReviewForm scoped
+                              // to this Vano Pay row; the submit feeds
+                              // the Vano Match ranker's review signal
+                              // (avg_rating × log(count+1) at 20%).
+                              <button
+                                type="button"
+                                onClick={() => setReviewForPaymentId(p.id)}
+                                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/[0.06] px-3 py-1 text-[11.5px] font-semibold text-primary transition hover:bg-primary/10"
+                              >
+                                <Star size={11} strokeWidth={2.5} />
+                                Leave a review
+                              </button>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      if (p.status === 'refunded') {
+                        return (
+                          <div key={p.id} className="flex items-center gap-2 rounded-full border border-border bg-muted px-3.5 py-1.5 text-[12px] text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            <RotateCcw size={12} />
+                            <span className="font-semibold text-foreground">{amountEuro} refunded</span>
+                            {doneDate && <span>· {doneDate}</span>}
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })}
+                  </div>
+                )}
 
                 {/* Broadcast banner — only renders for multi-send conversations.
                     Wording adapts to viewer (hirer vs freelancer) and status
@@ -1204,8 +1538,36 @@ const Messages = () => {
                 </div>
               </>
             ) : (
-              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                Select a conversation to start chatting
+              // Desktop right-pane empty state — previously a bare line
+              // of muted text that read as "dead app" on first-visit
+              // screenshots. Now a proper premium empty state that
+              // gives the viewer something to do. Audience-aware:
+              // hirers see "Start a Vano Match" as the primary path
+              // back into the funnel; freelancers see a browse-gigs
+              // nudge instead.
+              <div className="flex flex-1 items-center justify-center px-6 py-12">
+                <div className="flex max-w-sm flex-col items-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <MessageCircle size={20} />
+                  </div>
+                  <h2 className="mt-4 text-[18px] font-semibold leading-tight tracking-tight text-foreground">
+                    Pick a conversation
+                  </h2>
+                  <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+                    {viewerUserType === 'student'
+                      ? 'Your chats with businesses land here. Apply to a gig or reply to a client to get started.'
+                      : 'Your chats with freelancers land here. Kick off a Vano Match and we\'ll drop you straight into a thread.'}
+                  </p>
+                  {viewerUserType !== 'student' && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/hire')}
+                      className="mt-5 inline-flex items-center gap-1.5 rounded-2xl bg-primary px-5 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+                    >
+                      <Sparkles size={13} /> Start a Vano Match
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1222,6 +1584,127 @@ const Messages = () => {
           freelancerName={selectedConversation.otherName || 'this freelancer'}
         />
       )}
+
+      {/* Review dialog — hirer clicks "Leave a review" on a released
+           Vano Pay receipt, lands the rating + comment against the
+           payment row, feedback cascades into the Vano Match ranker
+           via the 20%-weighted review signal. Only the hirer sees
+           this trigger; RLS blocks doubles via a UNIQUE partial on
+           (vano_payment_id, reviewer_id). */}
+      {(() => {
+        const target = reviewForPaymentId ? threadPayments.find((p) => p.id === reviewForPaymentId) : null;
+        return (
+          <Dialog
+            open={reviewForPaymentId !== null}
+            onOpenChange={(open) => { if (!open) setReviewForPaymentId(null); }}
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Leave a review</DialogTitle>
+                <DialogDescription>
+                  How was the work? Your rating helps Vano hand-pick better matches next time.
+                </DialogDescription>
+              </DialogHeader>
+              {target && user ? (
+                <ReviewForm
+                  vanoPaymentId={target.id}
+                  reviewerId={user.id}
+                  revieweeId={target.freelancer_id}
+                  onReviewSubmitted={() => {
+                    setReviewedPaymentIds((prev) => {
+                      const next = new Set(prev);
+                      next.add(target.id);
+                      return next;
+                    });
+                    setReviewForPaymentId(null);
+                  }}
+                />
+              ) : null}
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
+
+      {/* Dispute / refund dialog — hirer clicks "Flag a problem" on a
+           held payment row, confirms with an optional free-text reason,
+           and we refund the card via refund-vano-payment. v1 is
+           full-refund only; partial refunds require admin handling. */}
+      <Dialog
+        open={disputeForPaymentId !== null}
+        onOpenChange={(open) => { if (!open) { setDisputeForPaymentId(null); setDisputeReason(''); } }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Flag a problem with this payment</DialogTitle>
+            <DialogDescription>
+              Refunds the full amount to your card. The freelancer will see the payment was refunded.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <label className="block text-[12px] font-semibold text-foreground">
+              What happened? (optional)
+              <textarea
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                placeholder="Work wasn't delivered, quality wasn't what we agreed, etc."
+                rows={3}
+                maxLength={500}
+                className="mt-1.5 w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+              />
+            </label>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => { setDisputeForPaymentId(null); setDisputeReason(''); }}
+                disabled={!!refundingId}
+                className="rounded-xl px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!disputeForPaymentId || !!refundingId}
+                onClick={async () => {
+                  if (!disputeForPaymentId || refundingId) return;
+                  const paymentId = disputeForPaymentId;
+                  setRefundingId(paymentId);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('refund-vano-payment', {
+                      body: {
+                        payment_id: paymentId,
+                        dispute_reason: disputeReason.trim() || undefined,
+                      },
+                    });
+                    if (error) throw error;
+                    const result = data as { ok?: boolean; already_refunded?: boolean } | null;
+                    if (!result?.ok) throw new Error('Refund did not return ok');
+                    toast({
+                      title: 'Payment refunded',
+                      description: 'Money is on its way back to your card (usually 3–5 days).',
+                    });
+                    setDisputeForPaymentId(null);
+                    setDisputeReason('');
+                  } catch (err) {
+                    const ctxErr = (err as { context?: { error?: string } })?.context?.error;
+                    toast({
+                      title: "Couldn't process refund",
+                      description: ctxErr || 'Please try again in a moment.',
+                      variant: 'destructive',
+                    });
+                  } finally {
+                    setRefundingId(null);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-destructive px-4 py-2 text-[13px] font-semibold text-destructive-foreground shadow-sm transition-colors hover:brightness-110 disabled:opacity-60"
+              >
+                {refundingId === disputeForPaymentId
+                  ? <><Loader2 size={13} className="animate-spin" /> Refunding…</>
+                  : 'Refund payment'}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

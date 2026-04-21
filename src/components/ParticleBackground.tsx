@@ -1,7 +1,6 @@
-import React, { useCallback, useMemo } from 'react';
-import Particles from '@tsparticles/react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Particles, { initParticlesEngine } from '@tsparticles/react';
 import { loadSlim } from '@tsparticles/slim';
-import type { Engine } from '@tsparticles/engine';
 import { interactiveBackground, vortexBackground } from '@/lib/animations/particles';
 
 type ParticleVariant = 'interactive' | 'vortex';
@@ -18,15 +17,34 @@ const variantConfigs: Record<ParticleVariant, typeof interactiveBackground> = {
   vortex: vortexBackground,
 };
 
+// Engine init is a one-time setup under @tsparticles/react v3 —
+// initParticlesEngine runs once, then every <Particles> mount is
+// a plain render. We memo the promise at module scope so multiple
+// ParticleBackground mounts on the same page share one init.
+let engineReady: Promise<void> | null = null;
+function ensureParticlesEngine(): Promise<void> {
+  if (!engineReady) {
+    engineReady = initParticlesEngine(async (engine) => {
+      await loadSlim(engine);
+    });
+  }
+  return engineReady;
+}
+
 export const ParticleBackground: React.FC<ParticleBackgroundProps> = ({
   variant = 'interactive',
   className = '',
   mobileReduction = 0.4,
 }) => {
   const prefersReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [ready, setReady] = useState(false);
 
-  const particlesInit = useCallback(async (engine: Engine) => {
-    await loadSlim(engine);
+  useEffect(() => {
+    let cancelled = false;
+    void ensureParticlesEngine().then(() => {
+      if (!cancelled) setReady(true);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const options = useMemo(() => {
@@ -42,12 +60,12 @@ export const ParticleBackground: React.FC<ParticleBackgroundProps> = ({
   }, [variant, mobileReduction]);
 
   if (prefersReduced) return null;
+  if (!ready) return null;
 
   return (
     <div className={`absolute inset-0 pointer-events-none ${className}`} style={{ zIndex: 0 }}>
       <Particles
         id={`particles-bg-${variant}`}
-        init={particlesInit}
         options={options}
         className="absolute inset-0"
       />

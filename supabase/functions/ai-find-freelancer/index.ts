@@ -23,6 +23,36 @@ const SERPER_URL = 'https://google.serper.dev/search';
 const VANO_CANDIDATE_LIMIT = 20;
 const SERPER_RESULT_LIMIT = 10;
 const BRIEF_MAX_CHARS = 2000;
+// Per-call budgets for external APIs. Without these, a stuck Gemini or
+// Serper request would block the edge function indefinitely — long past
+// the 120s the results page polls for — and strand the user on "Just a
+// moment more…" with no refund path. On abort the fetch rejects, which
+// propagates up to the per-side .catch in the Promise.all below and
+// becomes a null pick; if both sides end up null, markFailed fires the
+// auto-refund. Stripe gets a shorter budget because it's only reached on
+// the failure path and we don't want to pile timeout on top of timeout.
+const EXTERNAL_CALL_TIMEOUT_MS = 30_000;
+const STRIPE_CALL_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  label: string,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') {
+      console.error(`[ai-find-freelancer] ${label} aborted after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 type AiFindRow = {
   id: string;
@@ -46,6 +76,15 @@ type VanoCandidate = {
   rate_unit: string | null;
   skills: string[] | null;
   bio: string | null;
+  // Match-quality signals — added so Gemini can actually weigh
+  // "has 5 reviews at 4.8 stars, Vano Pay-ready" over "empty profile
+  // with 0 reviews and no payouts". Before this, the prompt was
+  // scoring on bio prose alone and had no way to prefer the real
+  // operators over the drive-bys.
+  avg_rating: number | null;      // 0-5 star average, null if no reviews
+  review_count: number;            // total reviews received
+  vano_pay_ready: boolean;         // stripe_payouts_enabled — can actually be paid through Vano
+  verified: boolean;               // student_verified — email-confirmed
 };
 
 type SerperResult = {
@@ -76,14 +115,19 @@ async function refundViaStripe(
   stripeKey: string,
 ): Promise<boolean> {
   try {
-    const resp = await fetch('https://api.stripe.com/v1/refunds', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${stripeKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const resp = await fetchWithTimeout(
+      'https://api.stripe.com/v1/refunds',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${stripeKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `payment_intent=${encodeURIComponent(paymentIntentId)}`,
       },
-      body: `payment_intent=${encodeURIComponent(paymentIntentId)}`,
-    });
+      STRIPE_CALL_TIMEOUT_MS,
+      'stripe refund',
+    );
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
       console.error('[ai-find-freelancer] stripe refund failed', resp.status, text.slice(0, 300));
@@ -134,22 +178,27 @@ async function callGemini(
   toolName: string,
   toolSchema: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
-  const resp = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+  const resp = await fetchWithTimeout(
+    GEMINI_URL,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: GEMINI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        tools: [{ type: 'function', function: { name: toolName, parameters: toolSchema } }],
+        tool_choice: { type: 'function', function: { name: toolName } },
+      }),
     },
-    body: JSON.stringify({
-      model: GEMINI_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      tools: [{ type: 'function', function: { name: toolName, parameters: toolSchema } }],
-      tool_choice: { type: 'function', function: { name: toolName } },
-    }),
-  });
+    EXTERNAL_CALL_TIMEOUT_MS,
+    `gemini ${toolName}`,
+  );
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
@@ -172,7 +221,7 @@ async function pickVanoMatch(
   supabase: ReturnType<typeof createClient>,
   row: AiFindRow,
   lovableKey: string,
-): Promise<{ userId: string; reason: string | null } | null> {
+): Promise<{ userId: string; reason: string | null; score: number } | null> {
   // Pull the top N approved community listings. Try the brief's
   // category first; if that returns zero rows (e.g. a category with
   // no published freelancers yet, or a typo in the DB), fall back to
@@ -180,6 +229,10 @@ async function pickVanoMatch(
   // context. Without this fallback, a popular-category brief hitting
   // an under-filled category would silently return null and only the
   // web pick would show.
+  // Pull the listing + the student_profiles flags that matter for
+  // match quality (student_verified, stripe_payouts_enabled). Reviews
+  // are a second round-trip below because Postgres doesn't do nested
+  // aggregates through PostgREST cleanly.
   const selectCols = `
       user_id,
       title,
@@ -188,7 +241,7 @@ async function pickVanoMatch(
       rate_min,
       rate_max,
       rate_unit,
-      student_profiles:student_profiles!inner(skills, bio)
+      student_profiles:student_profiles!inner(skills, bio, student_verified, stripe_payouts_enabled)
     `;
 
   let rows: unknown[] | null = null;
@@ -220,10 +273,49 @@ async function pickVanoMatch(
     rows = (data ?? []) as unknown[];
   }
 
+  // Batch-fetch review aggregates for the candidate pool in one round-
+  // trip. Without this, Gemini ranks a brand-new freelancer the same
+  // as a seasoned one with 10 five-star reviews — the single biggest
+  // accuracy gap in the old ranking. Aggregates are computed client-
+  // side because PostgREST doesn't expose GROUP BY for anon users.
+  const candidateUserIds = (rows ?? [])
+    .map((r: Record<string, unknown>) => r.user_id as string | undefined)
+    .filter((id): id is string => typeof id === 'string');
+
+  const ratingByUserId = new Map<string, { avg: number; count: number }>();
+  if (candidateUserIds.length > 0) {
+    const { data: reviewRows, error: reviewErr } = await supabase
+      .from('reviews')
+      .select('reviewee_id, rating')
+      .in('reviewee_id', candidateUserIds);
+    if (reviewErr) {
+      console.warn('[ai-find-freelancer] review aggregate fetch failed, ranking without ratings', reviewErr.message);
+    } else {
+      const buckets = new Map<string, number[]>();
+      for (const r of (reviewRows ?? []) as Array<{ reviewee_id: string; rating: number }>) {
+        const arr = buckets.get(r.reviewee_id) ?? [];
+        arr.push(r.rating);
+        buckets.set(r.reviewee_id, arr);
+      }
+      for (const [userId, ratings] of buckets.entries()) {
+        if (ratings.length === 0) continue;
+        const avg = ratings.reduce((s, v) => s + v, 0) / ratings.length;
+        ratingByUserId.set(userId, { avg: Math.round(avg * 10) / 10, count: ratings.length });
+      }
+    }
+  }
+
   const candidates: VanoCandidate[] = (rows ?? []).map((r: Record<string, unknown>) => {
-    const sp = (r.student_profiles as { skills?: string[]; bio?: string } | null) ?? null;
+    const sp = (r.student_profiles as {
+      skills?: string[];
+      bio?: string;
+      student_verified?: boolean;
+      stripe_payouts_enabled?: boolean;
+    } | null) ?? null;
+    const userId = r.user_id as string;
+    const rating = ratingByUserId.get(userId);
     return {
-      user_id: r.user_id as string,
+      user_id: userId,
       title: (r.title as string) ?? '',
       description: ((r.description as string) ?? '').slice(0, 300),
       category: (r.category as string | null) ?? null,
@@ -232,14 +324,44 @@ async function pickVanoMatch(
       rate_unit: (r.rate_unit as string | null) ?? null,
       skills: sp?.skills ?? null,
       bio: sp?.bio ? sp.bio.slice(0, 300) : null,
+      avg_rating: rating?.avg ?? null,
+      review_count: rating?.count ?? 0,
+      vano_pay_ready: !!sp?.stripe_payouts_enabled,
+      verified: !!sp?.student_verified,
     };
   });
 
   if (candidates.length === 0) return null;
 
+  // Ranking system prompt — explicit weighting so Gemini doesn't
+  // default to ranking on bio prose alone (which was the old
+  // behaviour and favoured verbose writers over actual fit).
+  //
+  // Priorities, in order:
+  //   1. Skill / category match against the brief.
+  //   2. Review signal — avg_rating * log(review_count + 1). A
+  //      freelancer with 5 reviews at 4.8 beats a freelancer with
+  //      zero track record even if the bio is marginally tighter.
+  //   3. vano_pay_ready — the hirer came to pay, so prefer someone
+  //      who can actually accept a Vano Pay charge.
+  //   4. Budget fit against rate_min/rate_max if budget is given.
+  //   5. Verification status as a small tiebreaker.
+  //
+  // Keep reason concise — it renders as "Why Vano picked them" on
+  // the result card, and runs under 280 chars of italic quote.
   const parsed = await callGemini(
     lovableKey,
-    'You rank freelancers in Vano\'s internal pool against a client brief. Return ONE best user_id with a 0-100 match score. If no candidate is a reasonable fit, set match_score to 0.',
+    `You rank freelancers in Vano's internal pool against a client brief. Return ONE best user_id with a 0-100 match score.
+
+Score weighting:
+- 60%: skill + category + description fit against the brief
+- 20%: review signal (avg_rating * log(review_count + 1)); null rating = neutral, not negative
+- 10%: vano_pay_ready=true preferred — client can actually pay this freelancer safely
+- 5%: budget fit against rate_min/rate_max if the brief gives a budget
+- 5%: verified=true as a tiebreaker
+
+Set match_score to 0 if no candidate is a reasonable fit for the brief — don't force a pick.
+Keep "reason" under 240 chars, concrete and grounded in the candidate's fields (not generic fluff).`,
     `Brief: ${row.brief}\nCategory: ${row.category ?? 'any'}\nBudget: ${row.budget_range ?? 'any'}\nTimeline: ${row.timeline ?? 'any'}\nLocation: ${row.location ?? 'any'}\n\nCandidates:\n${JSON.stringify(candidates)}`,
     'return_vano_pick',
     {
@@ -254,15 +376,71 @@ async function pickVanoMatch(
     },
   );
 
-  if (!parsed) return null;
+  // Deterministic fallback ranker. Used whenever Gemini either (a)
+  // failed outright, (b) scored every candidate below the confidence
+  // cutoff, or (c) hallucinated a user_id that isn't in our pool.
+  // Without this, a brief where Gemini can't find a "great" fit would
+  // return null and the hirer's €1 would refund even though we have a
+  // perfectly-serviceable freelancer sitting in the matching category.
+  // The user would rather see a decent-but-not-perfect pick than get
+  // their money back and a dead end.
+  //
+  // Ranking mirrors the weighting Gemini uses for interpretability —
+  // review signal first, then vano_pay_ready, then verified, then a
+  // stable tiebreak on user_id so results are reproducible.
+  const rankDeterministic = (c: VanoCandidate): number => {
+    const reviewSignal = c.avg_rating != null
+      ? c.avg_rating * Math.log(c.review_count + 1)
+      : 0;
+    return reviewSignal * 100
+      + (c.vano_pay_ready ? 10 : 0)
+      + (c.verified ? 2 : 0);
+  };
+  const fallbackPick = (): { userId: string; reason: string | null; score: number } => {
+    const sorted = [...candidates].sort((a, b) => {
+      const diff = rankDeterministic(b) - rankDeterministic(a);
+      if (diff !== 0) return diff;
+      return a.user_id.localeCompare(b.user_id);
+    });
+    const top = sorted[0];
+    // Reason reads honestly — we didn't have a tailored match, but
+    // this is a real freelancer from the relevant category. UI can
+    // still render it as a suggestion.
+    const categoryNote = row.category ? ` from our ${row.category.replace(/_/g, ' ')} pool` : '';
+    const ratingNote = top.avg_rating != null && top.review_count > 0
+      ? ` · ${top.avg_rating.toFixed(1)}★ (${top.review_count} ${top.review_count === 1 ? 'review' : 'reviews'})`
+      : '';
+    return {
+      userId: top.user_id,
+      reason: `A top-ranked freelancer${categoryNote}${ratingNote}. Start a chat to see if they're a fit.`,
+      // 40 is the confidence cutoff — label fallback picks just below
+      // so the UI can distinguish them from confident Gemini picks.
+      score: 39,
+    };
+  };
+
+  if (!parsed) {
+    console.warn('[ai-find-freelancer] gemini returned no parse — using deterministic fallback');
+    return fallbackPick();
+  }
   const userId = typeof parsed.user_id === 'string' ? parsed.user_id : null;
   const score = typeof parsed.match_score === 'number' ? parsed.match_score : 0;
   const reason = typeof parsed.reason === 'string' ? parsed.reason.trim().slice(0, 280) : null;
-  if (!userId || score < 40) return null;
-  // Sanity-check the returned id against the candidate list to catch
-  // hallucinations.
-  if (!candidates.some((c) => c.user_id === userId)) return null;
-  return { userId, reason: reason || null };
+
+  // Low confidence → fall back to deterministic pick so the hirer
+  // always sees someone, not a refund.
+  if (!userId || score < 40) {
+    console.info('[ai-find-freelancer] gemini low-confidence (score=%d) — using deterministic fallback', score);
+    return fallbackPick();
+  }
+  // Sanity-check the returned id against the candidate list. Gemini
+  // occasionally hallucinates UUIDs; we'd rather show our deterministic
+  // pick than ship an invalid FK.
+  if (!candidates.some((c) => c.user_id === userId)) {
+    console.warn('[ai-find-freelancer] gemini hallucinated id %s — using deterministic fallback', userId);
+    return fallbackPick();
+  }
+  return { userId, reason: reason || null, score: Math.max(0, Math.min(100, Math.round(score))) };
 }
 
 async function buildSearchQuery(
@@ -288,14 +466,19 @@ async function buildSearchQuery(
 }
 
 async function serperSearch(query: string, apiKey: string): Promise<SerperResult[]> {
-  const resp = await fetch(SERPER_URL, {
-    method: 'POST',
-    headers: {
-      'X-API-KEY': apiKey,
-      'Content-Type': 'application/json',
+  const resp = await fetchWithTimeout(
+    SERPER_URL,
+    {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ q: query, num: SERPER_RESULT_LIMIT }),
     },
-    body: JSON.stringify({ q: query, num: SERPER_RESULT_LIMIT }),
-  });
+    EXTERNAL_CALL_TIMEOUT_MS,
+    'serper search',
+  );
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
     console.error('[ai-find-freelancer] serper error', resp.status, text.slice(0, 200));
@@ -487,6 +670,7 @@ serve(async (req) => {
     ]);
     const vanoUserId = vanoPick?.userId ?? null;
     const vanoReason = vanoPick?.reason ?? null;
+    const vanoScore = vanoPick?.score ?? null;
 
     let webScoutId: string | null = null;
     if (webCandidate) {
@@ -535,6 +719,7 @@ serve(async (req) => {
         status: 'complete',
         vano_match_user_id: vanoUserId,
         vano_match_reason: vanoReason,
+        vano_match_score: vanoScore,
         web_scout_id: webScoutId,
         completed_at: new Date().toISOString(),
       })

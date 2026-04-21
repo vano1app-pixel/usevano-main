@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { jobPostingSchema } from '@/lib/structuredData';
 import { getCanonicalUrl } from '@/lib/siteUrl';
-import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Trash2, XCircle } from 'lucide-react';
+import { MapPin, Clock, ArrowLeft, MessageCircle, Flame, Trash2, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatJobScheduleDetail } from '@/lib/jobSchedule';
@@ -160,13 +160,41 @@ const JobDetail = () => {
   const isShiftPast = job ? new Date(job.shift_date) < new Date() : false;
   const canReview = user && isShiftPast && !hasReviewed && job && user.id !== job.posted_by;
 
-  if (loading) return <div className="min-h-[100dvh] bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (loading) return (
+    <div className="min-h-[100dvh] bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-muted-foreground text-sm">Loading gig…</p>
+      </div>
+    </div>
+  );
   if (!job) return (
     <div className="min-h-[100dvh] bg-background">
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 pt-24 text-center">
-        <h1 className="text-2xl font-bold mb-4">Job Not Found</h1>
-        <button onClick={() => navigate('/hire')} className="text-primary hover:underline">Browse Hiring</button>
+      <div className="mx-auto max-w-md px-4 pt-28 sm:pt-32 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <Clock size={22} className="text-muted-foreground" />
+        </div>
+        <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-foreground">Gig not found</h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
+          This gig may have closed or the link's gone stale. Plenty more where it came from.
+        </p>
+        <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={() => navigate('/hire')}
+            className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-primary px-5 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
+          >
+            Browse open gigs
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/students')}
+            className="inline-flex items-center justify-center rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
+          >
+            Browse freelancers
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -199,7 +227,7 @@ const JobDetail = () => {
           {poster && (
             <div className="flex items-center gap-3 border-b border-foreground/6 bg-muted/25 px-4 py-3 sm:px-6">
               {poster.avatar_url ? (
-                <img src={poster.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
+                <img src={poster.avatar_url} alt={poster.display_name || 'Client'} className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
               ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/10 text-sm font-semibold ring-2 ring-background">
                   {(poster.display_name || 'C')[0].toUpperCase()}
@@ -316,9 +344,10 @@ const JobDetail = () => {
               <button
                 onClick={handleApply}
                 disabled={applying}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {applying ? 'Applying...' : 'Apply Now'}
+                {applying && <Loader2 size={16} className="animate-spin" />}
+                {applying ? 'Applying…' : 'Apply Now'}
               </button>
             </div>
           ) : null}

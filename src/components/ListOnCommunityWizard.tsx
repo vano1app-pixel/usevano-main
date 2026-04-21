@@ -146,6 +146,18 @@ export interface ListOnCommunityInitial {
   phone?: string | null;
   expectedBonusAmount?: string;
   expectedBonusUnit?: 'percentage' | 'flat';
+  /** Existing community_posts row when editing an already-published
+   *  listing. Null for first-time publishes. Only the shape fields the
+   *  wizard reads are listed; the caller can spread a wider row. */
+  existingPost?: {
+    category?: string | null;
+    image_url?: string | null;
+    title?: string | null;
+    description?: string | null;
+    rate_unit?: string | null;
+    rate_min?: number | null;
+    rate_max?: number | null;
+  } | null;
 }
 
 interface ListOnCommunityDraft {
@@ -217,6 +229,7 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
       workLinks: parseDraftWorkLinks(parsed.workLinks),
       serviceArea: typeof parsed.serviceArea === 'string' ? parsed.serviceArea : '',
       university: typeof parsed.university === 'string' ? resolveUniversityKey(parsed.university) : '',
+      phone: typeof parsed.phone === 'string' ? parsed.phone : '',
       rateUnit: typeof parsed.rateUnit === 'string' ? parsed.rateUnit : 'hourly',
       rateMin: typeof parsed.rateMin === 'string' ? parsed.rateMin : '',
       rateMax: typeof parsed.rateMax === 'string' ? parsed.rateMax : '',
@@ -303,6 +316,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // core Step 2 is title + description + phone + (county if local).
   // Auto-expands for returning drafts so restored data isn't invisible.
   const [showOptionalDetails, setShowOptionalDetails] = useState(false);
+  // Sample-work photos on Step 1 used to render their full grid of upload
+  // slots up front. For a cold first-timer without 3 samples ready that
+  // amounts to visual homework they can't complete, and they'd bounce on
+  // the form. Now behind a disclosure so Step 1 reads as "pick a category,
+  // maybe add a banner." Auto-expands for returning drafts with samples.
+  const [showSampleWork, setShowSampleWork] = useState(false);
   // Mobile-only: the live card preview collapses to a slim sticky header to
   // keep the form readable on small screens. Tap to toggle expanded. On
   // desktop (lg+) the preview is always visible in its own column and this
@@ -917,6 +936,24 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         }
       }
 
+      // Welcome email — fire-and-forget. Session-storage guard
+      // prevents a dup if the user re-publishes in the same tab.
+      // Explicit .catch() (not just `void`) swallows rejections so
+      // an undeployed edge function or a Resend blip can never
+      // surface as an unhandled rejection mid-publish. The in-app
+      // success screen still fires; the email is additive.
+      try {
+        const sentKey = 'vano_welcome_email_sent';
+        if (!sessionStorage.getItem(sentKey)) {
+          sessionStorage.setItem(sentKey, '1');
+          supabase.functions
+            .invoke('welcome-freelancer-published', { body: {} })
+            .catch(() => { /* best-effort only */ });
+        }
+      } catch {
+        /* session storage unavailable; skip guard but still ok */
+      }
+
       markUserActed();
       track('listing_published', {
         category,
@@ -1218,41 +1255,72 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 )}
               </div>
 
-              <div>
-                <Label className="text-sm font-medium">Sample work photos <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <p className="mt-1 text-xs text-muted-foreground">Up to {MAX_LISTING_IMAGES} photos of your work.</p>
-                <input ref={listingInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleListingFiles} />
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {listingPreviews.map((preview, i) => (
-                    <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-border">
-                      <img src={preview} alt="" className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removeListingImage(i)}
-                        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  {listingPreviews.length < MAX_LISTING_IMAGES && (
+              {/* Sample-work disclosure. Visible as a dotted-border
+                   add-button when empty; expands into the full upload
+                   grid when the user taps it or returns to a draft with
+                   samples already on disk. Same auto-expand pattern as
+                   the Step 2 socials disclosure for consistency. */}
+              {(() => {
+                const anyUploaded = listingPreviews.length > 0;
+                const expanded = showSampleWork || anyUploaded;
+                if (!expanded) {
+                  return (
                     <button
                       type="button"
-                      onClick={() => listingInputRef.current?.click()}
-                      className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/20 text-xs text-muted-foreground hover:border-primary/30"
+                      onClick={() => setShowSampleWork(true)}
+                      className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                     >
-                      <ImagePlus className="h-5 w-5" />
-                      Add
+                      + Add sample work photos <span className="text-xs font-normal">(optional — up to {MAX_LISTING_IMAGES})</span>
                     </button>
-                  )}
-                </div>
-              </div>
+                  );
+                }
+                return (
+                  <div>
+                    <Label className="text-sm font-medium">Sample work photos <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Up to {MAX_LISTING_IMAGES} photos of your work.</p>
+                    <input ref={listingInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleListingFiles} />
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {listingPreviews.map((preview, i) => (
+                        <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-border">
+                          <img src={preview} alt={`Listing photo ${i + 1}`} className="h-full w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeListingImage(i)}
+                            aria-label={`Remove listing photo ${i + 1}`}
+                            className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {listingPreviews.length < MAX_LISTING_IMAGES && (
+                        <button
+                          type="button"
+                          onClick={() => listingInputRef.current?.click()}
+                          className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/20 text-xs text-muted-foreground hover:border-primary/30"
+                        >
+                          <ImagePlus className="h-5 w-5" />
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
-          {/* ── Step 2: Your story — pitch + contact details in one place ── */}
+          {/* ── Step 2: Your story — pitch + contact details in one place ──
+               Subsection headers ("Your pitch" / "How clients reach you")
+               make the two distinct intents scannable. Previously this
+               step read as one long column of six unrelated fields, and
+               returning users had to re-orient every time they scrolled.
+               Disclosures (social links, more about you) are unchanged. */}
           {step === 2 && (
             <div className="space-y-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                Your pitch
+              </p>
               <div>
                 <Label htmlFor="lc-title">Your title</Label>
                 <Input
@@ -1291,6 +1359,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               </div>
               <div className="h-px bg-border" />
 
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                How clients reach you
+              </p>
               <div>
                 <Label>Phone number <span className="text-rose-500">*</span></Label>
                 <Input
@@ -1492,10 +1563,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               {category === 'digital_sales' ? (
                 <>
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Digital sales is priced per hour — set your retainer rate and your starting client track record below.
+                    Digital sales is priced per hour — set your retainer rate (max €{MAX_DIGITAL_SALES_HOURLY}/hr) and your starting client track record below. Most of your earnings come from deal bonuses.
                   </div>
                   <div>
-                    <Label>Your hourly rate (€)</Label>
+                    <div className="flex items-baseline justify-between">
+                      <Label>Your hourly rate (€)</Label>
+                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_DIGITAL_SALES_HOURLY}/hr</span>
+                    </div>
                     <p className="mt-1 text-xs text-muted-foreground">Retainer rate businesses pay on top of commission.</p>
                     <Input
                       className="mt-1.5 h-11"
@@ -1505,7 +1579,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       onChange={(e) => setProfileHourly(e.target.value)}
                     />
                     {parseFloat(profileHourly.replace(',', '.')) > MAX_DIGITAL_SALES_HOURLY && (
-                      <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_DIGITAL_SALES_HOURLY}/hr</p>
+                      <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_DIGITAL_SALES_HOURLY} max — we&apos;ll save it as €{MAX_DIGITAL_SALES_HOURLY}/hr.</p>
                     )}
                   </div>
                   <div>
@@ -1555,27 +1629,40 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               ) : category === 'websites' ? (
                 <>
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Websites are priced per project — set the range you typically charge below.
+                    Websites are priced per project — set the range you typically charge. Max €{MAX_PROJECT_BUDGET} per project.
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">From (€)</Label>
-                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 200" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
-                      {parseFloat(rateMin.replace(',', '.')) > MAX_PROJECT_BUDGET && (
-                        <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_PROJECT_BUDGET}</p>
-                      )}
+                  <div>
+                    <div className="flex items-baseline justify-between">
+                      <Label className="text-sm font-medium">Project price range</Label>
+                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_PROJECT_BUDGET}</span>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 500" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                      {parseFloat(rateMax.replace(',', '.')) > MAX_PROJECT_BUDGET && (
-                        <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_PROJECT_BUDGET}</p>
-                      )}
+                    <div className="mt-1.5 grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">From (€)</Label>
+                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 200" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                        {parseFloat(rateMin.replace(',', '.')) > MAX_PROJECT_BUDGET && (
+                          <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_PROJECT_BUDGET} max — we&apos;ll save it as €{MAX_PROJECT_BUDGET}.</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                        <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 500" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                        {parseFloat(rateMax.replace(',', '.')) > MAX_PROJECT_BUDGET && (
+                          <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_PROJECT_BUDGET} max — we&apos;ll save it as €{MAX_PROJECT_BUDGET}.</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </>
               ) : (
                 <>
+                  {/* Intro banner matching the other two category paths —
+                       previously absent, which meant generic-category
+                       freelancers landed on Step 3 with no framing for
+                       what they were about to do or why the rates cap. */}
+                  <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                    Set what you charge. Vano caps student rates at €{MAX_HOURLY_RATE}/hr or €{MAX_DAY_OR_PROJECT_RATE}/day · project — keeps the pool accessible to small businesses.
+                  </div>
                   <div>
                     <Label>Pricing type</Label>
                     <Select value={rateUnit} onValueChange={setRateUnit}>
@@ -1594,30 +1681,39 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                     const cap = rateUnit === 'hourly' ? MAX_HOURLY_RATE : MAX_DAY_OR_PROJECT_RATE;
                     const label = rateUnit === 'hourly' ? `€${cap}/hr` : `€${cap}`;
                     return (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">From (€)</Label>
-                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
-                          {parseFloat(rateMin.replace(',', '.')) > cap && (
-                            <p className="mt-1 text-xs font-medium text-red-500">Can't exceed {label}</p>
-                          )}
+                      <div>
+                        <div className="flex items-baseline justify-between">
+                          <Label className="text-sm font-medium">Rate range</Label>
+                          <span className="text-[11px] font-medium text-muted-foreground">Max {label}</span>
                         </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                          {parseFloat(rateMax.replace(',', '.')) > cap && (
-                            <p className="mt-1 text-xs font-medium text-red-500">Can't exceed {label}</p>
-                          )}
+                        <div className="mt-1.5 grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">From (€)</Label>
+                            <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
+                            {parseFloat(rateMin.replace(',', '.')) > cap && (
+                              <p className="mt-1 text-xs font-medium text-red-500">Over {label} — we&apos;ll save it as {label}.</p>
+                            )}
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                            <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
+                            {parseFloat(rateMax.replace(',', '.')) > cap && (
+                              <p className="mt-1 text-xs font-medium text-red-500">Over {label} — we&apos;ll save it as {label}.</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
                   })()}
                   <div>
-                    <Label>Your hourly rate (€)</Label>
+                    <div className="flex items-baseline justify-between">
+                      <Label>Your hourly rate (€)</Label>
+                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_HOURLY_RATE}/hr</span>
+                    </div>
                     <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>
                     <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
                     {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
-                      <p className="mt-1 text-xs font-medium text-red-500">Can't exceed €{MAX_HOURLY_RATE}/hr</p>
+                      <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_HOURLY_RATE} max — we&apos;ll save it as €{MAX_HOURLY_RATE}/hr.</p>
                     )}
                   </div>
                 </>

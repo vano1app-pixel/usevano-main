@@ -4,14 +4,22 @@ import { Star, Plus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface ReviewFormProps {
-  jobId: string;
+// Reviews are scoped to EITHER a jobs row (legacy gig-flow) OR a
+// released Vano Pay payment (new escrow-flow). The reviews CHECK
+// constraint + RLS policy enforce exactly-one-of at insert time;
+// this component mirrors the contract via a discriminated union so
+// call sites can't accidentally pass both or neither.
+type ReviewSource =
+  | { jobId: string; vanoPaymentId?: never }
+  | { vanoPaymentId: string; jobId?: never };
+
+type ReviewFormProps = ReviewSource & {
   revieweeId: string;
   reviewerId: string;
   onReviewSubmitted: () => void;
-}
+};
 
-export const ReviewForm: React.FC<ReviewFormProps> = ({ jobId, revieweeId, reviewerId, onReviewSubmitted }) => {
+export const ReviewForm: React.FC<ReviewFormProps> = ({ jobId, vanoPaymentId, revieweeId, reviewerId, onReviewSubmitted }) => {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [rating, setRating] = useState(0);
@@ -58,7 +66,11 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ jobId, revieweeId, revie
     if (rating === 0) { toast({ title: 'Please select a rating', variant: 'destructive' }); return; }
     setSubmitting(true);
     const { error } = await supabase.from('reviews').insert({
-      job_id: jobId,
+      // Exactly one of job_id / vano_payment_id per the DB CHECK
+      // constraint. The discriminated union on props guarantees
+      // that the untouched one is undefined, not an empty string.
+      job_id: jobId ?? null,
+      vano_payment_id: vanoPaymentId ?? null,
       reviewer_id: reviewerId,
       reviewee_id: revieweeId,
       rating,
@@ -106,8 +118,13 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ jobId, revieweeId, revie
           <div className="flex gap-2 mb-2 flex-wrap">
             {photos.map((url, i) => (
               <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden">
-                <img src={url} alt="" className="w-full h-full object-cover" />
-                <button onClick={() => removePhoto(i)} className="absolute top-0.5 right-0.5 p-0.5 bg-background/80 rounded-full">
+                <img src={url} alt={`Review photo ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  aria-label={`Remove review photo ${i + 1}`}
+                  className="absolute top-0.5 right-0.5 p-0.5 bg-background/80 rounded-full"
+                >
                   <X size={10} />
                 </button>
               </div>

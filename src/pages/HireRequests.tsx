@@ -7,6 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import { budgetLabel, timelineLabel, DIRECT_HIRE_EXPIRY_HOURS } from '@/lib/hireOptions';
 import { Zap, Clock, Check, X, Loader2, Inbox, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StatusChip, type StatusTone } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface HireRequest {
   id: string;
@@ -46,17 +48,11 @@ const CountdownBadge: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
     : hours > 0
       ? `${hours}h ${rem}m left`
       : `${rem}m left`;
+  const tone: StatusTone = expired ? 'neutral' : urgent ? 'danger' : 'warning';
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1',
-        expired && 'bg-muted text-muted-foreground ring-border',
-        !expired && urgent && 'bg-destructive/10 text-destructive ring-destructive/30',
-        !expired && !urgent && 'bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-500/30',
-      )}
-    >
-      <Clock size={11} /> {label}
-    </span>
+    <StatusChip tone={tone} icon={Clock}>
+      {label}
+    </StatusChip>
   );
 };
 
@@ -227,13 +223,11 @@ const HireRequestsPage: React.FC = () => {
             </button>
           </div>
         ) : pending.length === 0 && past.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-            <Inbox size={28} className="mx-auto mb-3 text-muted-foreground" />
-            <p className="text-sm font-semibold">No hire requests yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              When a business clicks "Hire now" on your profile, it'll show up here.
-            </p>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No hire requests yet"
+            description="When a business taps Hire now on your profile, the request lands here. We'll text you too, so you can accept within the 2-hour window."
+          />
         ) : (
           <div className="space-y-6">
             {pending.length > 0 && (
@@ -256,6 +250,8 @@ const HireRequestsPage: React.FC = () => {
                             <img
                               src={p.avatar_url}
                               alt={name}
+                              loading="lazy"
+                              decoding="async"
                               className="h-10 w-10 rounded-full object-cover"
                             />
                           ) : (
@@ -346,6 +342,8 @@ const HireRequestsPage: React.FC = () => {
                           <img
                             src={p.avatar_url}
                             alt={name}
+                            loading="lazy"
+                            decoding="async"
                             className="h-8 w-8 rounded-full object-cover"
                           />
                         ) : (
@@ -357,16 +355,17 @@ const HireRequestsPage: React.FC = () => {
                           <p className="truncate text-sm font-medium" title={name}>{name}</p>
                           <p className="truncate text-xs text-muted-foreground" title={req.description || undefined}>{req.description}</p>
                         </div>
-                        <span
-                          className={cn(
-                            'text-[11px] font-semibold px-2 py-0.5 rounded-full',
-                            req.status === 'accepted' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-                            req.status === 'declined' && 'bg-muted text-muted-foreground',
-                            isExpired && 'bg-destructive/10 text-destructive',
-                          )}
+                        <StatusChip
+                          size="sm"
+                          tone={(() => {
+                            if (isExpired) return 'danger';
+                            if (req.status === 'accepted') return 'success';
+                            if (req.status === 'declined') return 'neutral';
+                            return 'neutral';
+                          })() as StatusTone}
                         >
                           {statusLabel}
-                        </span>
+                        </StatusChip>
                       </article>
                     );
                   })}
