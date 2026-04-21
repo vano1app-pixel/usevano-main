@@ -129,17 +129,16 @@ export function BusinessDealsPanel({
   }
 
   if (deals.length === 0) {
+    // Compact empty state — the full-card version pushed the actual
+    // chat below the fold on mobile for every brand-new digital-sales
+    // hire. Single-line pill keeps the "this panel exists, it's just
+    // empty" signal without stealing real estate.
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4">
-        <div className="flex items-start gap-3">
-          <Briefcase size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-          <div>
-            <p className="text-sm font-semibold text-foreground">No deals yet</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {freelancerName} hasn&apos;t logged any leads for you — once they do, you&apos;ll see them here to confirm the closes.
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        <Briefcase size={12} className="shrink-0" />
+        <span>
+          <span className="font-semibold text-foreground/80">{freelancerName}</span> hasn&apos;t logged any leads yet — they&apos;ll land here when they do.
+        </span>
       </div>
     );
   }
