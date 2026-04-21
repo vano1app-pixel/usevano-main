@@ -938,13 +938,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
       // Welcome email — fire-and-forget. Session-storage guard
       // prevents a dup if the user re-publishes in the same tab.
-      // Failure silently ignored; the in-app success screen still
-      // fires and the email is additive.
+      // Explicit .catch() (not just `void`) swallows rejections so
+      // an undeployed edge function or a Resend blip can never
+      // surface as an unhandled rejection mid-publish. The in-app
+      // success screen still fires; the email is additive.
       try {
         const sentKey = 'vano_welcome_email_sent';
         if (!sessionStorage.getItem(sentKey)) {
           sessionStorage.setItem(sentKey, '1');
-          void supabase.functions.invoke('welcome-freelancer-published', { body: {} });
+          supabase.functions
+            .invoke('welcome-freelancer-published', { body: {} })
+            .catch(() => { /* best-effort only */ });
         }
       } catch {
         /* session storage unavailable; skip guard but still ok */

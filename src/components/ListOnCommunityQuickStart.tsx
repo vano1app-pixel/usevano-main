@@ -95,14 +95,19 @@ export function ListOnCommunityQuickStart({
 
       // Fire the welcome email — non-blocking. Session-storage guard
       // prevents a dup if the user re-publishes in the same tab (e.g.
-      // they go back and change the pitch). Failures silently ignored;
-      // the in-app celebration modal carries the core "you're live"
-      // message, the email is bonus.
+      // they go back and change the pitch). Explicit .catch() (not
+      // just `void`) swallows any rejection so an undeployed edge
+      // function or a Resend blip can never surface as an unhandled
+      // rejection in the user's console mid-publish. The in-app
+      // celebration modal carries the core "you're live" message; the
+      // email is bonus.
       try {
         const sentKey = 'vano_welcome_email_sent';
         if (!sessionStorage.getItem(sentKey)) {
           sessionStorage.setItem(sentKey, '1');
-          void supabase.functions.invoke('welcome-freelancer-published', { body: {} });
+          supabase.functions
+            .invoke('welcome-freelancer-published', { body: {} })
+            .catch(() => { /* best-effort only */ });
         }
       } catch {
         /* session storage unavailable; skip guard but still ok */
