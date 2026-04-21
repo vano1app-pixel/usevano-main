@@ -14,6 +14,10 @@ import {
   ThumbsUp,
   ThumbsDown,
   RotateCcw,
+  Search,
+  Compass,
+  Trophy,
+  Check,
 } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
@@ -407,26 +411,15 @@ const AiFindResults = () => {
               }}
             />
           ) : row.status === 'paid' || row.status === 'scouting' ? (
-            // Staged loading copy tied to elapsed seconds so the wait
-            // reads as deliberate work (3 named passes) rather than a
-            // generic spinner. Matches what the ai-find-freelancer
-            // edge function is actually doing behind the scenes:
-            // 0–15s : pool + brief parsing
-            // 15–30s: Serper scout + web result parsing
-            // 30–60s: Gemini re-rank to pick the single best
-            // 60+s  : gracefully degrades to "almost there".
-            <LoadingCard
-              label={
-                elapsedSec < 15
-                  ? "Scanning your Vano pool…"
-                  : elapsedSec < 30
-                    ? "Scouting the open web…"
-                    : elapsedSec < 60
-                      ? "Ranking the best fit…"
-                      : "Almost there — polishing your matches…"
-              }
-              hint={elapsedSec < 60 ? "Usually under a minute. €1 refunded if we can't find one." : "Taking a little longer than usual — your €1 is safe, we'll email you if anything's off."}
-            />
+            // Named-stage progress view tied to elapsed seconds —
+            // replaces the old spinner because 60s of "loading" felt
+            // indistinguishable from a hang. Stage boundaries match
+            // what the ai-find-freelancer edge function actually does:
+            //   0–15s : pool scan + brief parsing
+            //   15–30s: Serper web scout + result parsing
+            //   30–60s: Gemini re-rank to pick the single best
+            //   60+s  : graceful "almost there" fallback.
+            <AiFindProgressStages elapsedSec={elapsedSec} />
           ) : row.status === 'failed' ? (
             <StatusCard
               tone="error"
@@ -642,6 +635,120 @@ const LoadingCard = ({ label, hint }: { label: string; hint?: string }) => (
     {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
   </div>
 );
+
+// Stage-aware "we're working on it" panel for the /ai-find/:id polling
+// window. Three named stages + a fallback beyond 60s. The active stage
+// pulses; completed stages show a check; future stages are muted.
+// Every boundary matches what the edge function is actually doing so
+// the copy isn't theatre — if the backend is on stage 2, the UI is too.
+function AiFindProgressStages({ elapsedSec }: { elapsedSec: number }) {
+  const stages = [
+    { id: 'scan',  label: 'Scanning your Vano pool',   icon: Search,  endAt: 15 },
+    { id: 'scout', label: 'Scouting the open web',     icon: Compass, endAt: 30 },
+    { id: 'rank',  label: 'Ranking the best fit',      icon: Trophy,  endAt: 60 },
+  ] as const;
+  // Active index advances as time passes. >= endAt means "done, move on."
+  const activeIdx = stages.findIndex((s) => elapsedSec < s.endAt);
+  // When elapsedSec is past the last stage's endAt, activeIdx becomes -1.
+  // Treat that as "all three done, polishing" and leave every row ticked.
+  const pastAll = activeIdx === -1;
+
+  const percent = (() => {
+    if (pastAll) return 96; // pinned near full during the polish tail.
+    const stage = stages[activeIdx];
+    // Each stage fills its slice linearly between prev.endAt → endAt.
+    const startAt = activeIdx === 0 ? 0 : stages[activeIdx - 1].endAt;
+    const within = (elapsedSec - startAt) / (stage.endAt - startAt);
+    const slice = 100 / stages.length;
+    return Math.max(4, Math.min(100, activeIdx * slice + within * slice));
+  })();
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      {/* Headline + elapsed counter — tabular-nums so the seconds don't
+           jitter as they tick up. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+            Finding your match
+          </p>
+          <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-foreground">
+            {pastAll ? 'Almost there — polishing your pick' : stages[activeIdx].label + '…'}
+          </h2>
+        </div>
+        <span
+          className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {elapsedSec}s
+        </span>
+      </div>
+
+      {/* Slim progress rail. Visually tied to percent-based fill so the
+           bar moves even within a stage — avoids the jump-then-pause
+           feel of step-only progress. */}
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-border">
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      {/* Stage ladder — the thing that makes the wait feel purposeful.
+           Checks on completed rows, pulsing dot on active, muted on
+           future. Icons carry meaning (Search / Compass / Trophy) so
+           the stage is readable at a glance without squinting at copy. */}
+      <ul className="mt-5 space-y-3">
+        {stages.map((s, i) => {
+          const Icon = s.icon;
+          const isDone = pastAll || i < activeIdx;
+          const isActive = !pastAll && i === activeIdx;
+          return (
+            <li key={s.id} className="flex items-center gap-3">
+              <span
+                className={
+                  isDone
+                    ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    : isActive
+                    ? 'relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary'
+                    : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground/50'
+                }
+              >
+                {isDone ? (
+                  <Check size={14} strokeWidth={3} />
+                ) : (
+                  <>
+                    <Icon size={13} strokeWidth={2.25} />
+                    {isActive && (
+                      <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+                    )}
+                  </>
+                )}
+              </span>
+              <p
+                className={
+                  isActive
+                    ? 'text-sm font-semibold text-foreground'
+                    : isDone
+                    ? 'text-sm font-medium text-foreground/70'
+                    : 'text-sm font-medium text-muted-foreground/60'
+                }
+              >
+                {s.label}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="mt-5 border-t border-border/60 pt-3 text-center text-[11px] text-muted-foreground">
+        {elapsedSec < 60
+          ? "Usually under a minute. €1 refunded if we can't find one."
+          : "Taking a little longer than usual — your €1 is safe, we'll email you if anything's off."}
+      </p>
+    </div>
+  );
+}
 
 const StatusCard = ({
   tone,

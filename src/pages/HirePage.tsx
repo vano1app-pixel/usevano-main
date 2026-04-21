@@ -20,6 +20,8 @@ import {
   Shield, ShieldCheck, Zap, Check, ChevronDown,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
+import { AiFindCheckoutModal } from '@/components/AiFindCheckoutModal';
+import { hasStripePublishableKey } from '@/lib/stripeClient';
 import { track } from '@/lib/track';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
@@ -144,13 +146,20 @@ const HirePage = () => {
   // Separate loading flag so the €1 AI Find button can spin without
   // freezing the primary "Send request to Vano" CTA.
   const [aiFindLoading, setAiFindLoading] = useState(false);
+  // Embedded-checkout state. client_secret comes back from the edge
+  // function when ui_mode='embedded'; we mount the modal with it so
+  // Stripe can render the checkout UI inline instead of redirecting
+  // the whole page. fallback_url is the hosted-mode URL kept around
+  // for "Open in new tab" on iframe-blocked browsers.
+  const [aiFindCheckoutOpen, setAiFindCheckoutOpen] = useState(false);
+  const [aiFindClientSecret, setAiFindClientSecret] = useState<string | null>(null);
+  const [aiFindFallbackUrl, setAiFindFallbackUrl] = useState<string | null>(null);
   // Step 1 "Add any extra detail" textarea is optional and chips already
   // build a usable description from category + subtype. We collapse it
   // behind a disclosure for known categories so happy-path hirers see a
   // shorter step. For "Other" the textarea is the only input path and
   // stays always-visible below. Auto-expands on HirePage load if a
   // restored brief already contains typed text so we never swallow it.
-  const [showExtraContext, setShowExtraContext] = useState(false);
   const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
   const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
@@ -239,11 +248,17 @@ const HirePage = () => {
     timeline: string;
     budget: string;
   }> = [
+    // Subtype strings MUST match CATEGORIES[*].subtypes verbatim — the
+    // pickers on Step 2 compare by string equality against that same
+    // array, so a chip that sets e.g. subtype='short_form' would
+    // render with no selected subtype and silently leak an invalid
+    // value into the brief. Timelines likewise must be one of the
+    // TIMELINES ids ('this_week' / '2_weeks' / '1_month' / 'flexible').
     {
       emoji: '🎥',
       label: '30-second TikTok edit',
       category: 'videography',
-      subtype: 'short_form',
+      subtype: 'Reel / short-form',
       description: 'Need a 30-second TikTok edit — short-form, punchy, with captions.',
       timeline: 'this_week',
       budget: '100_250',
@@ -252,27 +267,27 @@ const HirePage = () => {
       emoji: '🌐',
       label: 'New website for my business',
       category: 'websites',
-      subtype: 'marketing',
+      subtype: 'Full website',
       description: 'New website for my business — a few pages, mobile-friendly, easy to update.',
-      timeline: 'this_month',
+      timeline: '1_month',
       budget: '500_plus',
     },
     {
       emoji: '📣',
       label: 'Social media manager for 3 months',
       category: 'social_media',
-      subtype: 'management',
+      subtype: 'Community management',
       description: 'Looking for someone to run my Instagram + TikTok for 3 months — content, posting, engagement.',
-      timeline: 'ongoing',
+      timeline: 'flexible',
       budget: '500_plus',
     },
     {
       emoji: '💼',
       label: 'Cold caller for my business',
       category: 'digital_sales',
-      subtype: 'outbound',
+      subtype: 'Cold calling / SDR',
       description: 'Need a cold caller / outbound sales rep for my business — commission OK.',
-      timeline: 'ongoing',
+      timeline: 'flexible',
       budget: '250_500',
     },
   ];
@@ -405,7 +420,7 @@ const HirePage = () => {
           provider: 'google',
           options: {
             redirectTo: getAuthRedirectUrl(),
-            queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+            queryParams: { access_type: 'offline', prompt: 'select_account' },
           },
         });
         if (error) throw error;
@@ -490,7 +505,7 @@ const HirePage = () => {
           provider: 'google',
           options: {
             redirectTo: getAuthRedirectUrl(),
-            queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+            queryParams: { access_type: 'offline', prompt: 'select_account' },
           },
         });
         if (error) throw error;
@@ -509,33 +524,67 @@ const HirePage = () => {
     setAiFindLoading(true);
     try {
       const finalDescription = buildDescription();
-      // Persist the brief before the redirect so a Stripe failure
-      // (3DS abandon, network drop, payment declined) lands the user
-      // back on /hire with their work intact instead of a blank wizard.
+      // Persist the brief before the redirect / modal opens so a
+      // Stripe abandon (3DS, network drop, payment declined) lands
+      // the user back on /hire with their work intact instead of a
+      // blank wizard.
       saveHireBrief({ description, category, subtype, timeline, budget });
+      // Embedded Checkout temporarily disabled — users reported
+      // "Couldn't start AI Find" errors and the embedded path was
+      // the most recently-added variable. Flip this back to
+      // `hasStripePublishableKey()` once we can verify the edge
+      // function is creating ui_mode=embedded sessions cleanly in
+      // the target Stripe account. The hosted redirect path below
+      // has been working since launch — that's the safe default.
+      const useEmbedded = false;
       const { data, error } = await supabase.functions.invoke('create-ai-find-checkout', {
         body: {
           brief: finalDescription,
           category,
           budget_range: budget,
           timeline,
+          ui_mode: useEmbedded ? 'embedded' : 'hosted',
         },
       });
 
       if (error) throw error;
-      const url = (data as { url?: string } | null)?.url;
-      if (!url) throw new Error('No checkout URL returned');
+      const payload = data as { url?: string | null; client_secret?: string | null } | null;
+      const clientSecret = payload?.client_secret ?? null;
+      const url = payload?.url ?? null;
 
-      track('ai_find_checkout_started', { category, timeline, budget });
+      track('ai_find_checkout_started', {
+        category, timeline, budget,
+        ui_mode: useEmbedded && clientSecret ? 'embedded' : 'hosted',
+      });
+
+      if (useEmbedded && clientSecret) {
+        // Mount the embedded checkout in-page. Stripe handles the
+        // actual payment + 3DS + return_url redirect internally —
+        // when payment succeeds, the browser navigates itself to
+        // /ai-find/:id?session_id=...
+        setAiFindClientSecret(clientSecret);
+        setAiFindFallbackUrl(url);
+        setAiFindCheckoutOpen(true);
+        setAiFindLoading(false);
+        return;
+      }
+
+      // Hosted fallback.
+      if (!url) throw new Error('No checkout URL returned');
       window.location.href = url;
     } catch (err) {
       console.error('[ai-find] checkout failed', err);
-      // Surface the real error from the edge function. Common cases:
-      //  - "STRIPE_SECRET_KEY not configured" → ops issue, contact support
-      //  - "Brief is too short" → user needs to write more
-      //  - opaque network failures → generic retry message
+      // Pull the server-side message via several fallbacks. Supabase
+      // functions.invoke wraps the edge-function JSON error under
+      // `context.error`; other throw paths surface via `.message`.
+      // Also pull the HTTP status where we can so "500 Unexpected
+      // error" and "400 Brief is too short" are distinguishable on
+      // screen.
       const ctxErr = (err as { context?: { error?: string } })?.context?.error;
+      const status = (err as { status?: number; context?: { status?: number } })?.status
+        ?? (err as { context?: { status?: number } })?.context?.status;
       const rawMsg = ctxErr || (err as { message?: string })?.message || '';
+      const statusLine = status ? `[${status}] ` : '';
       const friendly =
         rawMsg.includes('STRIPE_SECRET_KEY')
           ? "Payments aren't configured yet — message us on WhatsApp and we'll find your match manually."
@@ -543,6 +592,14 @@ const HirePage = () => {
           ? rawMsg
         : rawMsg.toLowerCase().includes('unauthorized')
           ? 'Please sign out and back in, then try again.'
+        : rawMsg.toLowerCase().includes('forbidden origin')
+          ? 'Origin not allowed — if this is a preview URL, add it to the Supabase ALLOWED_ORIGINS env var.'
+        : rawMsg
+          // Show the raw edge-fn error when we don't have a better
+          // match; otherwise the user sees "try again" forever with
+          // no actionable signal. Truncate so a stack trace doesn't
+          // dominate the toast.
+          ? `${statusLine}${rawMsg.slice(0, 200)}`
         : 'Please try again in a moment, or use the free Vano Match button above.';
       toast({
         title: "Couldn't start AI Find",
@@ -785,37 +842,28 @@ const HirePage = () => {
             className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[96px] lg:min-h-[120px] text-[15px] sm:text-base"
           />
         </div>
-      ) : (() => {
-        const expanded = showExtraContext || description.trim().length > 0;
-        if (!expanded) {
-          return (
-            <button
-              type="button"
-              onClick={() => setShowExtraContext(true)}
-              className="w-full rounded-xl border border-dashed border-foreground/10 bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
-            >
-              + Add context <span className="text-xs font-normal">(optional — deadlines, examples, brand…)</span>
-            </button>
-          );
-        }
-        return (
-          <div className="rounded-2xl bg-card overflow-hidden border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid">
-            <div className="flex items-center justify-between px-4 pt-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Add any extra detail
-                <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>
-              </p>
-            </div>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Anything the freelancer should know upfront (deadline context, brand, examples…)"
-              className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-sm text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[72px] lg:min-h-[88px]"
-              autoFocus={showExtraContext}
-            />
+      ) : (
+        // "Add context" textarea is always inline now — the old
+        // disclosure button hid deadlines / brand / examples behind
+        // a click most first-time hirers never discovered, costing
+        // match quality silently. The field still reads as optional
+        // via the label + placeholder; the textarea compact-collapses
+        // to a single line until focused so the step doesn't bloat.
+        <div className="rounded-2xl bg-card overflow-hidden border border-dashed border-foreground/10 shadow-sm focus-within:border-primary/25 focus-within:border-solid">
+          <div className="flex items-center justify-between px-4 pt-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Add any extra detail
+              <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>
+            </p>
           </div>
-        );
-      })()}
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Deadline, brand, examples, anything a freelancer should know upfront…"
+            className="w-full resize-none bg-transparent px-4 pt-2 pb-3 leading-relaxed text-sm text-foreground placeholder:text-muted-foreground/45 focus:outline-none min-h-[56px] focus:min-h-[88px] transition-all"
+          />
+        </div>
+      )}
 
       {/* Value props — brand-aligned with Landing + escrow positioning.
            Previous copy ("Student-friendly prices · Motivated talent")
@@ -1044,10 +1092,15 @@ const HirePage = () => {
                 type="button"
                 onClick={handleAiFind}
                 disabled={aiFindLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.02] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.02] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-wait"
               >
                 {aiFindLoading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Starting your match…</>
+                  // Keep the label visually stable; swap the leading
+                  // icon for a spinner + shorten the "…€1" to " "
+                  // so the button reads active-but-busy instead of
+                  // flat-disabled. Cursor flips to 'wait' so the
+                  // click-lock is obvious on desktop.
+                  <><Loader2 size={16} className="animate-spin text-primary" /> Matching you now…</>
                 ) : (
                   <>
                     <Sparkles size={16} className="text-amber-500" /> Match me now — €1
@@ -1294,6 +1347,23 @@ const HirePage = () => {
         </div>
         )}
       </div>
+
+      {/* Embedded Stripe checkout — opens inline when
+           VITE_STRIPE_PUBLISHABLE_KEY is set so hirers never leave
+           /hire for the €1 match. Stripe handles payment + 3DS +
+           auto-redirect to the return_url on success. Hosted-flow
+           fallback still fires when the key is missing or the
+           edge function returns no client_secret. */}
+      <AiFindCheckoutModal
+        open={aiFindCheckoutOpen}
+        onClose={() => {
+          setAiFindCheckoutOpen(false);
+          setAiFindClientSecret(null);
+          setAiFindFallbackUrl(null);
+        }}
+        clientSecret={aiFindClientSecret}
+        fallbackUrl={aiFindFallbackUrl}
+      />
     </div>
   );
 };

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { SalesReferralsPanel } from '@/components/SalesReferralsPanel';
 import { MyTeamPanel } from '@/components/MyTeamPanel';
+import { BusinessSpendPanel } from '@/components/BusinessSpendPanel';
 import {
   BarChart,
   Bar,
@@ -162,6 +163,14 @@ export default function BusinessDashboard() {
     let cancelled = false;
 
     const load = async () => {
+      // Wrap the whole sequential fetch in try/finally so a single
+      // thrown query (RLS rejection, network blip, column-missing on
+      // an environment with pending migrations) can't leave the
+      // dashboard stuck on the loading spinner forever. Partial data
+      // is better than a hung page — any query that fails silently
+      // returns null data, the loader finishes, and the user sees
+      // whatever sections did load.
+      try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -353,7 +362,11 @@ export default function BusinessDashboard() {
         }
       }
 
-      if (!cancelled) setLoading(false);
+      } catch (err) {
+        console.error('[business-dashboard] load failed', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
 
     load();
@@ -884,82 +897,24 @@ export default function BusinessDashboard() {
             </motion.section>
           )}
 
-          {/* ── Recent Vano Pay activity ── */}
-          {recentPayments.length > 0 && (
+          {/* ── Vano Pay spend ──
+              Replaces the older "Recent payments" list with a
+              summary-up-top panel so the first thing a business
+              sees is their lifetime paid-out total + escrow + bonus
+              attribution, with the per-row receipts underneath. Rows
+              link back to the conversation for release / dispute /
+              refund actions. Realtime-subscribed inside the
+              component so a freelancer's release on their side
+              flips the row here without a refresh. */}
+          {uid && (
             <motion.section
               variants={stagger}
               initial="hidden"
               animate="visible"
               className="mb-10"
             >
-              <motion.p variants={fadeUp} className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
-                Vano Pay
-              </motion.p>
               <motion.div variants={fadeUp}>
-                <Card className="border-foreground/[0.06] shadow-none">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-[15px] font-semibold">Recent payments</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {recentPayments.map((p) => {
-                        const amountEuro = `€${(p.amount_cents / 100).toFixed(2)}`;
-                        const statusMeta = p.status === 'paid'
-                          ? {
-                              label: 'Held',
-                              icon: <ShieldCheck size={12} />,
-                              tone: 'bg-primary/10 text-primary border-primary/20',
-                              hint: p.auto_release_at
-                                ? `auto-releases ${format(parseISO(p.auto_release_at), 'd MMM')}`
-                                : 'awaiting release',
-                            }
-                          : p.status === 'transferred'
-                          ? {
-                              label: 'Paid',
-                              icon: <Check size={12} strokeWidth={3} />,
-                              tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25',
-                              hint: p.released_at
-                                ? `released ${format(parseISO(p.released_at), 'd MMM')}`
-                                : 'released',
-                            }
-                          : {
-                              label: 'Refunded',
-                              icon: <RotateCcw size={12} />,
-                              tone: 'bg-muted text-muted-foreground border-border',
-                              hint: p.refunded_at
-                                ? `refunded ${format(parseISO(p.refunded_at), 'd MMM')}`
-                                : 'refunded',
-                            };
-                        return (
-                          <Link
-                            key={p.id}
-                            to={`/messages?open=${p.conversation_id}`}
-                            className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.99]"
-                          >
-                            <Avatar className="h-10 w-10 border border-border/60">
-                              <AvatarImage src={p.freelancer_avatar ?? undefined} />
-                              <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
-                                {(p.freelancer_name ?? '?')[0]?.toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-[14px] font-medium text-foreground/90 group-hover:text-primary transition-colors duration-200" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                {amountEuro} · {p.freelancer_name}
-                              </p>
-                              <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
-                                {p.description ? `${p.description} · ` : ''}{statusMeta.hint}
-                              </p>
-                            </div>
-                            <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusMeta.tone}`}>
-                              {statusMeta.icon}
-                              {statusMeta.label}
-                            </span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
+                <BusinessSpendPanel userId={uid} />
               </motion.div>
             </motion.section>
           )}

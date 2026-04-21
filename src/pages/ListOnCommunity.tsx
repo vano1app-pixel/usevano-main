@@ -50,18 +50,17 @@ export default function ListOnCommunity() {
   // they're here.
   const justClaimed = searchParams.get('claimed') === '1';
   const [scoutBrief, setScoutBrief] = useState<string | null>(null);
-  // Freelancers who already have some data pre-filled from an abandoned
-  // prior session are better served by jumping straight into the full
-  // wizard (their work wouldn't fit in a 30-second form anyway). Cold
-  // first-timers start with the Quick-start.
+  // Gate for "show the 30-second Quick-start vs. drop into the full
+  // wizard." Skills is the one signal that reliably means "this user
+  // has committed enough that a Quick-start would feel like a
+  // demotion" — phone auto-fills from Google sign-in, bio can be empty
+  // by design, and work-link entry has been retired. Using skills
+  // alone keeps freelancers who bounced mid-sign-up (phone only, no
+  // picks made) on the fast path instead of dumping them back into a
+  // 4-step wizard that'll just make them bounce again.
   const isFirstTimer = useMemo(() => {
     if (!initial) return true;
-    return (
-      initial.skills.length === 0 &&
-      !initial.bio.trim() &&
-      !initial.phone.trim() &&
-      initial.workLinks.every((w) => !w.url?.trim())
-    );
+    return initial.skills.length === 0;
   }, [initial]);
 
   // Progress breakdown for the returning-user card. Six buckets so the
@@ -132,6 +131,23 @@ export default function ListOnCommunity() {
             : [{ url: '', label: '' }];
         })(),
         skills: normalizeFreelancerSkills(sp?.skills),
+        // Category-specific specialty + click-based tag arrays —
+        // migration 20260421120000 added these columns. Cast to `any`
+        // because the Supabase type-gen hasn't re-run yet; anything
+        // that isn't the expected shape defaults to empty so the
+        // wizard starts clean.
+        specialty:
+          typeof (sp as any)?.specialty === 'string' ? (sp as any).specialty : '',
+        clientTypes: Array.isArray((sp as any)?.client_types)
+          ? ((sp as any).client_types as unknown[]).filter(
+              (s): s is string => typeof s === 'string',
+            )
+          : [],
+        strengths: Array.isArray((sp as any)?.strengths)
+          ? ((sp as any).strengths as unknown[]).filter(
+              (s): s is string => typeof s === 'string',
+            )
+          : [],
         serviceArea: (sp as any)?.service_area || '',
         typicalBudgetMin:
           (sp as any)?.typical_budget_min != null && (sp as any).typical_budget_min > 0

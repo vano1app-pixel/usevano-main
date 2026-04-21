@@ -7,7 +7,7 @@ import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { FreshListingCelebration } from '@/components/FreshListingCelebration';
-import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2 } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2, ChevronDown } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { ShareCardFrame } from '@/components/ShareCardFrame';
 import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
@@ -24,6 +24,9 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
 import { HireRequestsInboxLink } from '@/components/HireRequestsInboxLink';
+import { ProfileStrengthCards } from '@/components/ProfileStrengthCards';
+import { SalesPipelineBoard } from '@/components/SalesPipelineBoard';
+import { FreelancerEarningsPanel } from '@/components/FreelancerEarningsPanel';
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
@@ -114,6 +117,18 @@ const Profile = () => {
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
   const [wizardStartStep, setWizardStartStep] = useState<number | undefined>(undefined);
+  // Skip-mode flag for the wizard. When the freelancer already has a
+  // published listing, tapping the generic "Edit listing" button opens
+  // the chip-picker grid instead of the linear 4-step flow so they can
+  // tweak one thing and close.
+  const [wizardInPicker, setWizardInPicker] = useState(false);
+  // Mobile-only collapse for the right-column ("extras") content —
+  // portfolio, referrals, pipeline, share link, sign-out. Default
+  // closed on mobile so the first paint focuses on the listing
+  // editor and "your details" cards instead of dumping a 2000px
+  // scroll in the user's face. Desktop (lg+) ignores this and
+  // renders everything as before.
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Share as image" flow. The ShareCardFrame is only mounted while
   // `sharingState === 'rendering'` — an off-screen 1080×1080 DOM node that
@@ -1036,6 +1051,38 @@ const Profile = () => {
                   <HireRequestsInboxLink />
                 )}
 
+                {/* Publish-then-polish nudges — only for LIVE listings.
+                    Cold freelancers who haven't published yet see the
+                    "Get listed" CTA above instead; there's no point
+                    pushing polish tasks at someone who hasn't gone live.
+                    The component returns null when every task is done
+                    so it self-retires as the listing matures. */}
+                {studentProfile?.community_board_status === 'approved' && (
+                  <ProfileStrengthCards
+                    slots={{
+                      hasCover: !!(existingPost?.image_url || (studentProfile as any)?.banner_url),
+                      strengthsCount: Array.isArray((studentProfile as any)?.strengths)
+                        ? (studentProfile as any).strengths.length
+                        : 0,
+                      skillsCount: Array.isArray(studentProfile?.skills)
+                        ? studentProfile.skills.length
+                        : 0,
+                      hasBio: !!(studentProfile?.bio && String(studentProfile.bio).trim().length > 0),
+                      hasAnySocial: !!(
+                        studentProfile?.tiktok_url ||
+                        studentProfile?.instagram_url ||
+                        studentProfile?.linkedin_url ||
+                        studentProfile?.website_url
+                      ),
+                      hasSpecialty: !!((studentProfile as any)?.specialty),
+                    }}
+                    onJumpToStep={(step) => {
+                      setWizardInPicker(false);
+                      openWizardAtStep(step);
+                    }}
+                  />
+                )}
+
                 {/* ── Live listing editor card ── */}
                 {studentProfile?.community_board_status === 'approved' && existingPost && (
                   <div>
@@ -1046,10 +1093,16 @@ const Profile = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => openWizardAtStep(1)}
+                        onClick={() => {
+                          // Published listings open in skip-mode so a
+                          // returning freelancer can tweak one thing
+                          // and close, instead of walking 4 steps again.
+                          setWizardInPicker(true);
+                          setListCommunityOpen(true);
+                        }}
                         className="text-[12px] font-semibold text-primary transition-colors duration-200 hover:text-primary/80 hover:underline"
                       >
-                        Edit full listing
+                        Edit listing
                       </button>
                     </div>
 
@@ -1366,8 +1419,63 @@ const Profile = () => {
               </div>
               {/* ── END LEFT COLUMN ── */}
 
-              {/* ── RIGHT COLUMN: Sidebar (quality + link) ── */}
-              <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+              {/* ── Mobile-only "Show extras" toggle ──
+                   Below lg: the right column collapses behind a single
+                   button so a first-paint scroll doesn't dump portfolio
+                   + pipeline + share-link + sign-out on someone who
+                   just wants to tweak their listing. Expanded state
+                   persists per-session via local state. On lg+ the
+                   button is hidden; the extras always render in the
+                   sticky sidebar. */}
+              <button
+                type="button"
+                onClick={() => setExtrasOpen((v) => !v)}
+                aria-expanded={extrasOpen}
+                className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-card px-5 py-4 text-left transition-colors hover:border-primary/30 hover:bg-muted/30 lg:hidden"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {extrasOpen ? 'Hide extras' : 'Portfolio, pipeline &amp; more'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {extrasOpen
+                      ? 'Tap to collapse — we’ll keep your place on this page.'
+                      : 'Tap to show your portfolio, Vano Pay, share link and more.'}
+                  </p>
+                </div>
+                <ChevronDown
+                  size={18}
+                  strokeWidth={2.25}
+                  className={cn(
+                    'shrink-0 text-muted-foreground transition-transform duration-200',
+                    extrasOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+
+              {/* ── RIGHT COLUMN: Sidebar (quality + link) ──
+                   Mobile: gated by `extrasOpen` (see toggle above).
+                   Desktop (lg+): always visible in the sticky column
+                   exactly as before. */}
+              <div
+                className={cn(
+                  'space-y-6 lg:sticky lg:top-24 lg:self-start',
+                  !extrasOpen && 'hidden lg:block',
+                )}
+              >
+
+                {/* ── Vano Pay earnings receipts ──
+                    Visible as soon as Stripe Connect is finished so a
+                    freelancer sees their running tally the first time
+                    a payment lands. Also mounts the realtime hook
+                    that fires the "+€X just landed" toast so a
+                    payout reaches them even if they're not looking
+                    at this panel. */}
+                {studentProfile?.stripe_payouts_enabled && user?.id && (
+                  <div>
+                    <FreelancerEarningsPanel userId={user.id} />
+                  </div>
+                )}
 
                 {/* ── Portfolio section ── */}
                 <div>
@@ -1378,6 +1486,32 @@ const Profile = () => {
                 {existingPost?.category === 'digital_sales' && user?.id && (
                   <div>
                     <SalesReferralsPanel mode="sales" currentUserId={user.id} />
+                  </div>
+                )}
+
+                {/* ── Sales deal pipeline (digital_sales only) ──
+                    Lives below the Referrals panel because referrals is
+                    the "clients I brought" lifetime stat; the pipeline
+                    is the operational "what's cooking now" view. Both
+                    only render for digital_sales freelancers — a
+                    videographer has no use for a pipeline surface. */}
+                {existingPost?.category === 'digital_sales' && user?.id && (
+                  <div>
+                    <SalesPipelineBoard
+                      userId={user.id}
+                      defaultBonusRate={
+                        typeof (studentProfile as any)?.expected_bonus_amount === 'number'
+                          ? (studentProfile as any).expected_bonus_amount as number
+                          : null
+                      }
+                      defaultBonusUnit={
+                        (studentProfile as any)?.expected_bonus_unit === 'flat'
+                          ? 'flat'
+                          : (studentProfile as any)?.expected_bonus_unit === 'percentage'
+                          ? 'percentage'
+                          : null
+                      }
+                    />
                   </div>
                 )}
 
@@ -1460,11 +1594,15 @@ const Profile = () => {
               open={listCommunityOpen}
               onOpenChange={(v) => {
                 setListCommunityOpen(v);
-                if (!v) setWizardStartStep(undefined);
+                if (!v) {
+                  setWizardStartStep(undefined);
+                  setWizardInPicker(false);
+                }
               }}
               userId={user.id}
               initial={listOnCommunityInitial}
               startAtStep={wizardStartStep}
+              startInPicker={wizardInPicker}
               onSubmittedForReview={() => {
                 void loadProfile();
               }}

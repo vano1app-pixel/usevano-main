@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ReviewForm } from '@/components/ReviewForm';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star, TrendingUp } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
+import { BusinessDealsPanel } from '@/components/BusinessDealsPanel';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import {
   TEAM_CONTACT_EMAIL,
@@ -182,6 +183,11 @@ const Messages = () => {
     refunded_at: string | null;
     dispute_reason: string | null;
     description: string | null;
+    /** Populated for payouts that originated from the digital-sales
+     *  pipeline — surfaces a "Bonus" badge on the receipt so the
+     *  row is distinguishable from a generic hourly/project payment
+     *  without opening the deal. */
+    sales_deal_id: string | null;
     created_at: string;
   };
   const [threadPayments, setThreadPayments] = useState<ThreadPayment[]>([]);
@@ -205,6 +211,30 @@ const Messages = () => {
 
   // Viewer's user_type so we can gate the "Mark as hired" button to businesses.
   const [viewerUserType, setViewerUserType] = useState<string | null>(null);
+  // "Work is done" detector — when the freelancer's latest message
+  // contains a done-ish phrase within the last 24h, we surface a small
+  // nudge inside the held-payment card so the hirer can act without
+  // re-reading the whole thread. Word-boundary regex so "I'm done for
+  // the day" triggers but "doneness" wouldn't. Memoised on messages +
+  // viewerUserType so it doesn't re-run on every keystroke. Placed
+  // here (after viewerUserType declaration) to satisfy the
+  // block-scoped dependency.
+  const DONE_PHRASES_RE = useMemo(() =>
+    /\b(done|finished|finishing|completed?|delivered|ready|wrapped up|all set|sent over|here you go|here'?s the)\b/i,
+  []);
+  const freelancerSaidDone = useMemo(() => {
+    if (!user?.id || viewerUserType !== 'business') return false;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.sender_id === user.id) continue;
+      // Only surface if recent (< 24h) — a month-old "done" is
+      // noise, not a nudge.
+      const ageMs = Date.now() - new Date(m.created_at).getTime();
+      if (ageMs > 24 * 60 * 60 * 1000) return false;
+      return DONE_PHRASES_RE.test(m.content);
+    }
+    return false;
+  }, [messages, user?.id, viewerUserType, DONE_PHRASES_RE]);
   // Freelancer's own Vano Pay readiness — drives the in-thread "Enable
   // Vano Pay" banner shown to students who have a chat with a business
   // but haven't linked a Stripe account yet. Null while loading so the
@@ -367,12 +397,16 @@ const Messages = () => {
     const load = async () => {
       const { data } = await supabase
         .from('vano_payments')
-        .select('id, business_id, freelancer_id, amount_cents, fee_cents, currency, status, auto_release_at, released_at, refunded_at, dispute_reason, description, created_at')
+        .select('id, business_id, freelancer_id, amount_cents, fee_cents, currency, status, auto_release_at, released_at, refunded_at, dispute_reason, description, sales_deal_id, created_at')
         .eq('conversation_id', selectedConvo)
         .in('status', ['paid', 'transferred', 'refunded'])
         .order('created_at', { ascending: false });
       if (cancelled) return;
-      const payments = (data ?? []) as ThreadPayment[];
+      // sales_deal_id was added by migration 20260421140000; the
+      // generated DB types haven't picked it up yet so we cast
+      // through unknown. The migration has run server-side — this
+      // is only a build-time typing gap.
+      const payments = (data ?? []) as unknown as ThreadPayment[];
       setThreadPayments(payments);
 
       // Load which of THIS viewer's reviews already exist for the
@@ -1175,6 +1209,28 @@ const Messages = () => {
                   )}
                 </div>
 
+                {/* Digital-sales deal pipeline — business-side view.
+                     Lives above the Vano Pay receipts so the "what's in
+                     play" context loads before the "money I've already
+                     committed" context. Gated to businesses talking to
+                     digital-sales freelancers; the panel itself handles
+                     the empty state so an un-logged pipeline isn't
+                     obtrusive. */}
+                {selectedConversation
+                  && user
+                  && viewerUserType === 'business'
+                  && otherUserType === 'student'
+                  && otherCategory === 'digital_sales'
+                  && selectedConversation.otherUserId && (
+                  <div className="border-b border-border/60 bg-muted/20 px-4 py-3">
+                    <BusinessDealsPanel
+                      businessId={user.id}
+                      freelancerId={selectedConversation.otherUserId}
+                      freelancerName={selectedConversation.otherName || 'Your freelancer'}
+                    />
+                  </div>
+                )}
+
                 {/* Vano Pay escrow receipts — renders one row per Vano
                      Pay payment attached to this conversation in a
                      non-transient state (held / released / refunded).
@@ -1218,8 +1274,18 @@ const Messages = () => {
                                 <p className="text-[13.5px] font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {amountEuro} <span className="font-medium text-muted-foreground">held on Vano</span>
                                 </p>
-                                {p.description && (
-                                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{p.description}</p>
+                                {(p.description || p.sales_deal_id) && (
+                                  <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground">
+                                    {p.sales_deal_id && (
+                                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                                        <TrendingUp size={9} strokeWidth={2.75} />
+                                        Bonus
+                                      </span>
+                                    )}
+                                    {p.description && (
+                                      <span className="truncate">{p.description}</span>
+                                    )}
+                                  </p>
                                 )}
                                 {/* Fee split — the freelancer needs to
                                      know what actually lands in their
@@ -1238,6 +1304,24 @@ const Messages = () => {
                                     ? `Release when the work is done${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`
                                     : `Your client will release it${autoReleaseCopy ? ` · ${autoReleaseCopy}` : ''}.`}
                                 </p>
+                                {isHirer && freelancerSaidDone && (
+                                  // Nudge above the Release button —
+                                  // only renders when the freelancer's
+                                  // latest message (within 24h) reads
+                                  // like "work delivered." Single line,
+                                  // amber tint so it reads as a prompt,
+                                  // not an alert; tapping acts as a
+                                  // soft cue, the button stays the
+                                  // action. Deliberately doesn't
+                                  // auto-release — a nudge, not a rule.
+                                  <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] leading-relaxed text-amber-800 dark:text-amber-200">
+                                    <Sparkles size={11} strokeWidth={2.5} className="mt-[2px] shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <span>
+                                      <span className="font-semibold">Looks like the work is done.</span>{' '}
+                                      <span className="text-amber-800/75 dark:text-amber-200/75">Release {amountEuro} below when you&apos;re ready.</span>
+                                    </span>
+                                  </div>
+                                )}
                                 {isHirer && (
                                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                                     <button

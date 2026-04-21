@@ -43,9 +43,6 @@ const AiFindResults = lazy(() => import("./pages/AiFindResults"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
-const MascotGuide = lazy(() =>
-  import("@/components/MascotGuide").then((m) => ({ default: m.MascotGuide })),
-);
 const WhatsAppFloatingButton = lazy(() =>
   import("./components/WhatsAppFloatingButton").then((m) => ({
     default: m.WhatsAppFloatingButton,
@@ -223,9 +220,13 @@ const App = () => {
         </Suspense>
       </div>
       <MobileBottomNav />
-      {/* Floating/ambient UI — deferred, fallback silently on load failure */}
+      {/* Floating/ambient UI — deferred, fallback silently on load failure.
+           MascotGuide (wizard + knight floating mascots) was removed —
+           users reported the animated speech bubbles and positioning
+           were interfering with real page CTAs. If we want ambient
+           nudges back, surface them inline in the relevant pages
+           (ProfileStrengthCards-style) rather than as a global float. */}
       <Suspense fallback={null}>
-        <MascotGuide />
         <WhatsAppFloatingButton />
         <CookieConsentBanner />
         <PWAInstallBanner />

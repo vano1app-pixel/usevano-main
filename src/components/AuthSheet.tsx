@@ -52,7 +52,12 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
         provider: 'google',
         options: {
           redirectTo: getAuthRedirectUrl(),
-          queryParams: { access_type: 'offline', prompt: 'consent select_account' },
+          // `select_account` alone reliably forces Google's account
+          // picker. Combining with `consent` sometimes caused Google to
+          // silently auto-select the previously-signed-in account —
+          // the "sign-up bounces to my old account" bug users hit on
+          // shared browsers.
+          queryParams: { access_type: 'offline', prompt: 'select_account' },
         },
       });
       if (error) throw error;

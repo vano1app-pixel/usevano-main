@@ -80,6 +80,13 @@ serve(async (req) => {
     const amountCents = Number.isInteger(body?.amount_cents) ? body.amount_cents as number : null;
     const description = typeof body?.description === 'string' ? body.description.trim() : '';
     const hireAgreementId = typeof body?.hire_agreement_id === 'string' ? body.hire_agreement_id : null;
+    // Optional — attached when the checkout is for a digital-sales
+    // bonus payout. Stamped onto vano_payments so the DB trigger that
+    // syncs sales_deals.bonus_status can find the originating deal
+    // when the webhook flips the payment to `transferred`. Loose
+    // reference on both sides (no FK) so a deleted deal doesn't
+    // cascade-block a legitimate payment that's already in flight.
+    const salesDealId = typeof body?.sales_deal_id === 'string' ? body.sales_deal_id : null;
 
     if (!conversationId) return bad(400, 'conversation_id is required');
     if (!amountCents || amountCents < MIN_AMOUNT_CENTS) {
@@ -147,20 +154,35 @@ serve(async (req) => {
 
     // Insert the pending payment row first so the session id has
     // somewhere to live and the webhook can find it on arrival.
+    // Build the row conditionally so a production DB that hasn't yet
+    // applied migration 20260421140000 (which adds sales_deal_id)
+    // still accepts inserts from ordinary-pay flows — the field is
+    // only spread in when the caller actually supplied a value, so
+    // 99% of Vano Pay traffic (non-bonus) doesn't care whether the
+    // column exists yet.
+    const paymentRow: Record<string, unknown> = {
+      business_id: callerId,
+      freelancer_id: otherId,
+      conversation_id: conversationId,
+      hire_agreement_id: hireAgreementId,
+      description: description || null,
+      amount_cents: amountCents,
+      fee_cents: feeCents,
+      currency: CURRENCY,
+      stripe_destination_account_id: freelancerProfile.stripe_account_id,
+      status: 'awaiting_payment',
+    };
+    if (salesDealId) {
+      // Present only for digital-sales bonus payouts. A DB trigger
+      // on vano_payments watches UPDATE events and flips the
+      // matching sales_deals.bonus_status to 'paid' once this
+      // payment reaches the `transferred` state.
+      paymentRow.sales_deal_id = salesDealId;
+    }
+
     const { data: inserted, error: insertError } = await supabase
       .from('vano_payments')
-      .insert({
-        business_id: callerId,
-        freelancer_id: otherId,
-        conversation_id: conversationId,
-        hire_agreement_id: hireAgreementId,
-        description: description || null,
-        amount_cents: amountCents,
-        fee_cents: feeCents,
-        currency: CURRENCY,
-        stripe_destination_account_id: freelancerProfile.stripe_account_id,
-        status: 'awaiting_payment',
-      })
+      .insert(paymentRow)
       .select('id')
       .single();
 

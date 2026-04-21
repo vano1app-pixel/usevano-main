@@ -99,6 +99,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let cancelled = false;
 
+    // Eager seed from whatever session is already in localStorage so the
+    // provider's `loading` flag can resolve before the async
+    // onAuthStateChange fires. Without this, a cold load where the
+    // INITIAL_SESSION event is slow to dispatch leaves every
+    // RequireVerifiedSession-wrapped route stuck on the "Loading…"
+    // spinner indefinitely — the "login gets stuck" symptom freelancers
+    // reported after recent deploys.
+    void supabase.auth.getSession().then(({ data: { session: existing } }) => {
+      if (cancelled) return;
+      setSession(existing);
+      setLoading(false);
+      const uid = existing?.user?.id ?? null;
+      if (uid && uid !== lastFetchedUserId.current) {
+        lastFetchedUserId.current = uid;
+        try { if (posthog.__loaded) posthog.identify(uid); } catch { /* ignore */ }
+        try { Sentry.setUser({ id: uid }); } catch { /* ignore */ }
+        void fetchProfile(uid);
+      }
+    }).catch(() => { if (!cancelled) setLoading(false); });
+
+    // Hard ceiling so loading cannot stay true forever even if both
+    // getSession and onAuthStateChange hang (network partition, Supabase
+    // outage, service worker weirdness). 8 seconds is generous; beyond
+    // that the user is better off seeing the signed-out UI than a
+    // frozen spinner.
+    const failSafe = window.setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 8000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       if (cancelled) return;
       setSession(s);
@@ -133,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       cancelled = true;
+      window.clearTimeout(failSafe);
       subscription.unsubscribe();
     };
   }, [fetchProfile]);

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import confetti from 'canvas-confetti';
+import { microCelebrate } from '@/lib/celebrate';
 import { useToast } from '@/hooks/use-toast';
 import {
   COMMUNITY_CATEGORY_ORDER,
@@ -38,6 +39,13 @@ import {
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
 import { SKILLS_BY_CATEGORY, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
+import { SPECIALTIES_BY_CATEGORY, isValidSpecialty } from '@/lib/categorySpecialties';
+import {
+  CLIENT_TYPES_BY_CATEGORY,
+  STRENGTH_OPTIONS,
+  findStrength,
+  findClientTypeLabel,
+} from '@/lib/freelancerTags';
 import { formatCommunityBudget } from '@/lib/communityBudget';
 import {
   normalizeTikTokUrl,
@@ -65,6 +73,7 @@ const STEP_LABELS = [
 ];
 
 const STEP_HEADINGS: Record<number, string> = {
+  0: 'Tweak your listing',
   1: 'Show what you do',
   2: 'Tell them about you',
   3: 'Set your price',
@@ -72,10 +81,11 @@ const STEP_HEADINGS: Record<number, string> = {
 };
 
 const STEP_DESCRIPTIONS: Record<number, string> = {
-  1: 'Pick your category, upload a cover photo, and share a few samples of your best work.',
-  2: 'Write a short pitch, add your contact details, and drop any links to past work.',
-  3: 'Set your price and pick your skills.',
-  4: 'Quick check before you go live.',
+  0: "You're already live — tap any row to jump in and change just that one thing.",
+  1: "Pick the kind of work you do. Add a cover photo if you've got one — you can always drop one in later.",
+  2: "A one-liner, a bit of detail, and how clients reach you. Two minutes tops.",
+  3: "How much you charge, and the things you're best at.",
+  4: "Everything looks good? Tap any row to tweak it before you go live.",
 };
 
 // Percent shown at the top of each step. Numbers are intentionally
@@ -97,15 +107,10 @@ function migrateDraftStep(old: number): number {
   return Math.min(old, STEP_LABELS.length);
 }
 
-/* ─── Student pricing caps ─── */
-const MAX_HOURLY_RATE = 20;              // €20/hr for videography, content creation (social_media id)
-const MAX_DIGITAL_SALES_HOURLY = 10;     // €10/hr retainer for digital sales — rest of earnings come via expected bonus / commission
-const MAX_DAY_OR_PROJECT_RATE = 200;     // €200 per day / per project
-const MAX_PROJECT_BUDGET = 500;          // €500 for websites
-
-/** Returns the hourly-rate cap that applies to a given category. */
-const hourlyCapFor = (cat: CommunityCategoryId | null): number =>
-  cat === 'digital_sales' ? MAX_DIGITAL_SALES_HOURLY : MAX_HOURLY_RATE;
+/* Rate caps used to live here (€20/hr, €200/day, €500/project, €10/hr
+ * for digital-sales retainers). They've been retired — freelancers
+ * on Vano now set whatever they charge. The inputs below are free-
+ * form numbers; the client-side clamp on publish is gone too. */
 
 /** True if a Supabase/PostgREST error is most likely caused by an expired or
  *  invalid JWT — used to decide whether to refresh-and-retry the publish RPC.
@@ -129,6 +134,17 @@ export interface ListOnCommunityInitial {
   websiteUrl?: string;
   workLinks: WorkLinkEntry[];
   skills: string[];
+  /** Category-specific specialty slug — the #1 filter dimension hirers
+   *  use on the talent board. Empty string for legacy rows that haven't
+   *  picked one yet. */
+  specialty?: string;
+  /** Tag arrays replacing the old free-text pitch. `clientTypes` is
+   *  category-specific (see CLIENT_TYPES_BY_CATEGORY); `strengths` is
+   *  a universal universal list with icons. Both feed into the
+   *  derived community_posts.description on publish so the ranker
+   *  keeps reading meaningful text. */
+  clientTypes?: string[];
+  strengths?: string[];
   /** Legacy free-text location; superseded by `county` + `remoteOk` below
    *  but kept so older callers compile until they migrate. */
   serviceArea: string;
@@ -163,9 +179,11 @@ export interface ListOnCommunityInitial {
 interface ListOnCommunityDraft {
   step: number;
   category: CommunityCategoryId | null;
+  specialty: string;
+  clientTypes: string[];
+  strengths: string[];
   bannerUrl: string;
   title: string;
-  description: string;
   aboutMe: string;
   tiktokUrl: string;
   instagramUrl: string;
@@ -218,9 +236,15 @@ function parseDraft(raw: string): ListOnCommunityDraft | null {
         if (raw === 'photography') return null;
         return isCommunityCategoryId(raw) ? raw : null;
       })(),
+      specialty: typeof parsed.specialty === 'string' ? parsed.specialty : '',
+      clientTypes: Array.isArray(parsed.clientTypes)
+        ? parsed.clientTypes.filter((s): s is string => typeof s === 'string')
+        : [],
+      strengths: Array.isArray(parsed.strengths)
+        ? parsed.strengths.filter((s): s is string => typeof s === 'string')
+        : [],
       bannerUrl: typeof parsed.bannerUrl === 'string' ? parsed.bannerUrl : '',
       title: typeof parsed.title === 'string' ? parsed.title : '',
-      description: typeof parsed.description === 'string' ? parsed.description : '',
       aboutMe: typeof parsed.aboutMe === 'string' ? parsed.aboutMe : '',
       tiktokUrl: typeof parsed.tiktokUrl === 'string' ? parsed.tiktokUrl : '',
       instagramUrl: typeof parsed.instagramUrl === 'string' ? parsed.instagramUrl : '',
@@ -255,6 +279,12 @@ interface ListOnCommunityWizardProps {
   onSubmittedForReview: (category: CommunityCategoryId) => void;
   /** Jump straight to a specific step (0-indexed). Skips draft restore. */
   startAtStep?: number;
+  /** Returning-user "skip mode" — opens on a chip picker instead of
+   *  the full 4-step flow. Tapping any section chip jumps straight
+   *  to that step; saving republishes and closes. Replaces the old
+   *  "edit from the start" UX for freelancers who just want to tweak
+   *  one thing without walking the whole wizard. */
+  startInPicker?: boolean;
 }
 
 export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
@@ -264,6 +294,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   initial,
   onSubmittedForReview,
   startAtStep,
+  startInPicker,
 }) => {
   const { toast } = useToast();
   const [step, setStep] = useState(0);
@@ -273,7 +304,23 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   const [listingFiles, setListingFiles] = useState<File[]>([]);
   const [listingPreviews, setListingPreviews] = useState<string[]>([]);
   const [title, setTitle] = useState('');
+  // Click-first pitch — two multi-select tag arrays replace the old
+  // freeform textarea + 3-prompt text inputs. "Who you work with"
+  // is category-specific; "What sets you apart" is universal and
+  // rendered on the card as icon chips. Both are slug arrays so the
+  // copy can evolve without touching saved rows; the card and the
+  // AI ranker resolve slugs to labels via freelancerTags helpers.
+  const [clientTypes, setClientTypes] = useState<string[]>([]);
+  const [strengths, setStrengths] = useState<string[]>([]);
+  // Derived on publish from the category + specialty + the two tag
+  // arrays above. Kept as state so the preview / review / publish
+  // paths all read the same canonical string instead of re-deriving
+  // four times.
   const [description, setDescription] = useState('');
+  // Category-specific specialty pill ("Weddings", "Shopify", "TikTok", etc.)
+  // — single-select on Step 3. Rendered on the card next to the category
+  // pill so hirers can filter one more level down without opening the profile.
+  const [specialty, setSpecialty] = useState('');
   const [aboutMe, setAboutMe] = useState('');
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
@@ -327,6 +374,18 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // desktop (lg+) the preview is always visible in its own column and this
   // flag is ignored.
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  // Skip-mode flag. Flips to true when the wizard opens in picker mode
+  // (startInPicker) so sub-step navigation knows to return to the
+  // picker chip grid instead of the linear Back/Continue flow. Kept as
+  // state (not derived from step) so the user can jump between chips
+  // and hop back without losing the "I'm editing one thing" intent.
+  const [pickerMode, setPickerMode] = useState(false);
+  // Auto-save status — stamped every time the draft write useEffect runs.
+  // Surfaced as a "Saved ✓" chip in the wizard header so freelancers know
+  // they can close the tab without losing work. Not a toast: toasts on
+  // every keystroke are noise. Google-Docs-style persistent indicator is
+  // the least intrusive way to build trust in the auto-save.
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
   const MAX_LISTING_IMAGES = 5;
@@ -342,7 +401,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setProfileLinkCopied(false);
     // Skip the info-only intro step — land directly on the category picker.
     // `startAtStep` (when provided by the caller) still takes precedence.
-    setStep(startAtStep ?? 1);
+    // startInPicker opens step 0 (the skip-picker chip grid). startAtStep
+    // still wins when set so "jump to pricing from /profile" keeps working.
+    setStep(startAtStep ?? (startInPicker ? 0 : 1));
+    setPickerMode(!!startInPicker);
 
     const ep = initial.existingPost ?? null;
 
@@ -357,7 +419,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setListingFiles([]);
     setListingPreviews(ep?.image_url ? [ep.image_url] : []);
     setTitle(ep?.title ?? '');
-    setDescription(ep?.description ?? '');
+    setClientTypes(initial.clientTypes ? [...initial.clientTypes] : []);
+    setStrengths(initial.strengths ? [...initial.strengths] : []);
+    setSpecialty(initial.specialty || '');
     setAboutMe(initial.bio || '');
     setUniversity(resolveUniversityKey(initial.university) || '');
     setTiktokUrl(initial.tiktokUrl || '');
@@ -412,9 +476,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         // Migrate legacy 0–6 step values to the 3-step flow.
         setStep(migrateDraftStep(draft.step));
         setCategory(draft.category);
+        setSpecialty(draft.specialty || '');
+        setClientTypes(draft.clientTypes || []);
+        setStrengths(draft.strengths || []);
         setBannerUrl(draft.bannerUrl || initial.bannerUrl || '');
         setTitle(draft.title);
-        setDescription(draft.description);
         setAboutMe(draft.aboutMe || '');
         setUniversity(resolveUniversityKey(draft.university) || '');
         if (typeof (draft as any).phone === 'string') setPhone((draft as any).phone);
@@ -442,7 +508,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
 
     setDraftReady(true);
-  }, [open, initial, userId, startAtStep, toast]);
+  }, [open, initial, userId, startAtStep, startInPicker, toast]);
 
   useEffect(() => {
     if (!open || !draftReady) return;
@@ -450,9 +516,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     const draft: ListOnCommunityDraft = {
       step,
       category,
+      specialty,
+      clientTypes,
+      strengths,
       bannerUrl: bannerUrl.startsWith('http') ? bannerUrl : '',
       title,
-      description,
       aboutMe,
       tiktokUrl,
       instagramUrl,
@@ -476,6 +544,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
     try {
       localStorage.setItem(listOnCommunityDraftKey(userId), JSON.stringify(draft));
+      // Stamp the save so the header can reflect "Saved" status. Runs on
+      // every field change already thanks to the dep array below — the
+      // indicator is debounced visually via a short animation, so we
+      // don't need to throttle the write.
+      setLastSavedAt(Date.now());
     } catch {
       // Ignore quota/storage restrictions - the wizard should still work without draft persistence.
     }
@@ -485,9 +558,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     userId,
     step,
     category,
+    specialty,
+    clientTypes,
+    strengths,
     bannerUrl,
     title,
-    description,
     aboutMe,
     tiktokUrl,
     instagramUrl,
@@ -515,6 +590,49 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     else if (category === 'digital_sales') setRateUnit('hourly');
   }, [category]);
 
+  // Derive the community_posts.description payload from the click-
+  // based answers (specialty + clientTypes + strengths). Joined as a
+  // short human-readable sentence so the AI-find ranker and the
+  // legacy display path still have meaningful text to search/show.
+  // Runs whenever any input changes; `description` state stays the
+  // canonical joined value so the preview, review, and publish RPC
+  // all read the same source. Title is intentionally excluded —
+  // community_posts stores the title separately.
+  useEffect(() => {
+    const parts: string[] = [];
+    if (category && isValidSpecialty(category, specialty)) {
+      const lbl = SPECIALTIES_BY_CATEGORY[category].options.find((o) => o.id === specialty)?.label;
+      if (lbl) parts.push(lbl);
+    }
+    if (clientTypes.length > 0) {
+      const labels = clientTypes
+        .map((slug) => findClientTypeLabel(category, slug))
+        .filter((x): x is string => !!x);
+      if (labels.length) parts.push(`works with ${labels.join(', ')}`);
+    }
+    if (strengths.length > 0) {
+      const labels = strengths
+        .map((slug) => findStrength(slug)?.label)
+        .filter((x): x is string => !!x);
+      if (labels.length) parts.push(labels.join(' · ').toLowerCase());
+    }
+    setDescription(parts.join(' · '));
+  }, [category, specialty, clientTypes, strengths]);
+
+  // If a previously-picked specialty or client-type slug isn't valid
+  // for the current category (e.g. "shopify" left over after switching
+  // from Websites to Videography), clear it so meaningless slugs can't
+  // end up on the card. Drop the check when category is still null so
+  // initial mount doesn't wipe valid values we just loaded from the DB.
+  useEffect(() => {
+    if (!category) return;
+    setSpecialty((prev) => (isValidSpecialty(category, prev) ? prev : ''));
+    setClientTypes((prev) => {
+      const valid = new Set(CLIENT_TYPES_BY_CATEGORY[category].map((o) => o.id));
+      return prev.filter((slug) => valid.has(slug));
+    });
+  }, [category]);
+
   // Auto-advance step 1 → 2 once a category is picked. Saves one click on
   // every wizard run — the happy path now registers the pick and moves
   // automatically, same pattern HirePage step 1 already uses. 350ms delay
@@ -524,9 +642,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   useEffect(() => {
     if (step !== 1) return;
     if (!category) return;
-    const t = window.setTimeout(() => setStep(2), 350);
+    // Picker mode: returning user came from step 0 to tweak the
+    // category. Bounce them back to the picker chip grid after the
+    // selection registers so the "I'm editing one thing" flow stays
+    // clean. Full wizard behaves as before and advances to step 2.
+    const t = window.setTimeout(() => setStep(pickerMode ? 0 : 2), 350);
     return () => window.clearTimeout(t);
-  }, [step, category]);
+  }, [step, category, pickerMode]);
 
   // Stage 2/3 — location defaults follow the category's location model.
   // Digital categories are remote-by-default across Ireland, so we clear
@@ -593,10 +715,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         {
           const cat = category ? COMMUNITY_CATEGORIES[category] : null;
           const needsCounty = cat?.locationModel === 'local';
+          const phoneShapeOk = /^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim());
+          // Pitch is click-based now — require at least one client-type
+          // pick so the card has real signal. Strengths stay fully
+          // optional (a brand-new freelancer shouldn't be gated on
+          // claiming "award-winning" just to publish).
+          const hasAnyClientType = clientTypes.length > 0;
           return (
             title.trim().length > 0 &&
-            description.trim().length > 0 &&
+            hasAnyClientType &&
             phone.trim().length > 0 &&
+            phoneShapeOk &&
             (!needsCounty || county.trim().length > 0)
           );
         }
@@ -625,9 +754,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         const cat = category ? COMMUNITY_CATEGORIES[category] : null;
         const needsCounty = cat?.locationModel === 'local';
         const missing: string[] = [];
-        if (title.trim().length === 0) missing.push('Headline');
-        if (description.trim().length === 0) missing.push('What you do');
+        if (title.trim().length === 0) missing.push('One-liner');
+        if (clientTypes.length === 0) missing.push('who you work with');
         if (phone.trim().length === 0) missing.push('Phone number');
+        else if (!/^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim())) missing.push('a valid phone number');
         if (needsCounty && county.trim().length === 0) missing.push('County');
         return missing;
       }
@@ -642,19 +772,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       default:
         return [];
     }
-  };
-
-  const addWorkLinkRow = () => {
-    if (workLinks.length >= 12) return;
-    setWorkLinks((p) => [...p, { url: '', label: '' }]);
-  };
-
-  const updateWorkLink = (i: number, field: 'url' | 'label', value: string) => {
-    setWorkLinks((p) => p.map((row, j) => (j === i ? { ...row, [field]: value } : row)));
-  };
-
-  const removeWorkLink = (i: number) => {
-    setWorkLinks((p) => (p.length <= 1 ? [{ url: '', label: '' }] : p.filter((_, j) => j !== i)));
   };
 
   const toggleSkill = (s: string) => {
@@ -800,13 +917,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       let rate_min: number | null = null;
       let rate_max: number | null = null;
       let rate_unit_out: string | null = rateUnit;
-      // Cap: €500 for websites, €50/hr for digital sales retainers, €20/hr for other hourly,
-      // €200 day/project for non-website categories
-      const ratecap = category === 'websites'
-        ? MAX_PROJECT_BUDGET
-        : rateUnit === 'hourly' ? hourlyCapFor(category)
-        : (rateUnit === 'day' || rateUnit === 'project') ? MAX_DAY_OR_PROJECT_RATE
-        : null;
       if (rateUnit === 'negotiable') {
         rate_min = null;
         rate_max = null;
@@ -814,11 +924,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       } else {
         if (rateMin.trim()) {
           const n = parseFloat(rateMin.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_min = ratecap != null ? Math.min(n, ratecap) : n;
+          if (!Number.isNaN(n) && n >= 0) rate_min = n;
         }
         if (rateMax.trim()) {
           const n = parseFloat(rateMax.replace(',', '.'));
-          if (!Number.isNaN(n) && n >= 0) rate_max = ratecap != null ? Math.min(n, ratecap) : n;
+          if (!Number.isNaN(n) && n >= 0) rate_max = n;
         }
         if (rate_min != null && rate_max != null && rate_max < rate_min) {
           toast({ title: 'Invalid range', description: 'Maximum should be ≥ minimum.', variant: 'destructive' });
@@ -834,8 +944,15 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       const tbMax = category === 'websites'
         ? (rate_max ?? null)
         : (typicalBudgetMax.trim() && parseInt(typicalBudgetMax, 10) > 0 ? parseInt(typicalBudgetMax, 10) : null);
-      const hourlyNum = parseFloat(profileHourly.replace(',', '.'));
-      const hourly_rate = !Number.isNaN(hourlyNum) && hourlyNum > 0 ? Math.min(hourlyNum, hourlyCapFor(category)) : 0;
+      // When the freelancer picked hourly as their pricing type we reuse
+      // their Rate-range minimum as the public hourly_rate — it's the same
+      // number and asking twice was confusing. `profileHourly` only takes
+      // precedence for non-hourly pricing types (day / project / negotiable)
+      // where the main rate isn't expressed per hour.
+      const hourlyInput = profileHourly.trim()
+        ? parseFloat(profileHourly.replace(',', '.'))
+        : (rateUnit === 'hourly' && rate_min != null ? rate_min : NaN);
+      const hourly_rate = !Number.isNaN(hourlyInput) && hourlyInput > 0 ? hourlyInput : 0;
 
       const studentPatch: Record<string, unknown> = {
         tiktok_url: normalizeTikTokUrl(tiktokUrl),
@@ -860,6 +977,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         // store NULL so the profile page doesn't echo their pitch as their bio.
         bio: aboutMe.trim() || null,
       };
+      // Specialty + tag arrays. Added by migration 20260421120000 —
+      // conditionally spread in so a production environment where
+      // that migration hasn't run yet can still publish. The card
+      // pill + chips just won't render for this listing until the
+      // migration lands; every other piece of the wizard still
+      // works. Arrays only get written when non-empty so an empty
+      // pick doesn't burn a write on a column that doesn't exist.
+      const validSpecialty = isValidSpecialty(category, specialty) ? specialty : null;
+      if (validSpecialty) studentPatch.specialty = validSpecialty;
+      if (clientTypes.length > 0) studentPatch.client_types = clientTypes;
+      if (strengths.length > 0) studentPatch.strengths = strengths;
       if (category === 'digital_sales') {
         const n = parseInt(initialClientsBrought, 10);
         studentPatch.initial_clients_brought = Number.isNaN(n) || n < 0 ? 0 : n;
@@ -1108,12 +1236,32 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:border-r lg:border-border">
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
+              {/* Auto-save indicator. Appears the first time the draft
+                  effect writes — before that the wizard has nothing to
+                  save, so showing a stale "Saved" would be a lie. The
+                  key prop on the Check icon re-mounts it on every save,
+                  so the subtle scale-in animation replays as proof the
+                  save actually happened. */}
+              {lastSavedAt != null && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-400">
+                  <Check
+                    key={lastSavedAt}
+                    size={11}
+                    strokeWidth={3}
+                    className="animate-in zoom-in-50 duration-200"
+                  />
+                  Saved
+                </span>
+              )}
+            </div>
             <DialogTitle className="text-xl font-semibold tracking-tight">{STEP_HEADINGS[step] ?? 'List yourself'}</DialogTitle>
             {/* Percent progress bar — front-loaded (step 1 lands at 20%) so
-                the form feels lighter than it is. The tick marks below show
-                the three sections at a glance. */}
-            {(() => {
+                the form feels lighter than it is. Hidden in picker mode
+                because "20% complete" on a listing that's already live
+                reads as a regression. */}
+            {!pickerMode && step > 0 && (() => {
               const percent = submitting ? 100 : (STEP_PROGRESS[step] ?? 20);
               return (
                 <>
@@ -1170,6 +1318,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <StudentCardPreview
                   userId={userId}
                   category={category}
+                  specialty={specialty}
+                  strengths={strengths}
                   bannerUrl={bannerUrl}
                   title={title}
                   description={description}
@@ -1190,12 +1340,85 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
             )}
           </div>
 
+          {/* ── Step 0: Skip picker — chip grid for returning users who
+               want to tweak one thing without walking the full wizard.
+               Each row shows a section's current value (or a prompt if
+               empty) and jumps straight to the corresponding step on
+               tap. Save & close in the footer writes the whole listing
+               through the same publish RPC as a fresh wizard run. */}
+          {step === 0 && (() => {
+            const hasCover = !!(bannerFile || bannerUrl);
+            const currentCategory = category ? COMMUNITY_CATEGORIES[category].label : null;
+            const currentSpecialty = category && isValidSpecialty(category, specialty)
+              ? SPECIALTIES_BY_CATEGORY[category].options.find((o) => o.id === specialty)?.label ?? null
+              : null;
+            const priceLabel = (() => {
+              if (rateUnit === 'negotiable') return 'Negotiable';
+              if (rateMin && rateMax) return `€${rateMin}–€${rateMax}`;
+              if (rateMin) return `From €${rateMin}`;
+              if (profileHourly) return `€${profileHourly}/hr`;
+              return null;
+            })();
+            const rows: Array<{
+              key: string; label: string; value: string | null; targetStep: number;
+            }> = [
+              { key: 'category',   label: 'Category',           value: currentCategory,                   targetStep: 1 },
+              { key: 'cover',      label: 'Cover photo',        value: hasCover ? 'Uploaded' : null,      targetStep: 1 },
+              { key: 'title',      label: 'One-liner',          value: title.trim() || null,              targetStep: 2 },
+              { key: 'who',        label: 'Who you work with',  value: clientTypes.length > 0
+                  ? `${clientTypes.length} picked`
+                  : null, targetStep: 2 },
+              { key: 'strengths',  label: 'What sets you apart',value: strengths.length > 0
+                  ? `${strengths.length} picked`
+                  : null, targetStep: 2 },
+              { key: 'contact',    label: 'Phone',              value: phone.trim()
+                  ? phone.trim().replace(/\d(?=\d{3})/g, '•')
+                  : null, targetStep: 2 },
+              { key: 'price',      label: 'Price',              value: priceLabel,                         targetStep: 3 },
+              { key: 'specialty',  label: 'Specialty',          value: currentSpecialty,                   targetStep: 3 },
+              { key: 'skills',     label: 'Skills',             value: skills.length > 0
+                  ? `${skills.length} picked`
+                  : null, targetStep: 3 },
+            ];
+            return (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Tap anything you want to tweak. Changes save when you hit <span className="font-semibold text-foreground">Save & close</span>.
+                </div>
+                <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                  {rows.map((r) => (
+                    <li key={r.key}>
+                      <button
+                        type="button"
+                        onClick={() => setStep(r.targetStep)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                            {r.label}
+                          </p>
+                          <p className={cn(
+                            'mt-0.5 truncate text-sm',
+                            r.value ? 'font-medium text-foreground' : 'italic text-muted-foreground/70',
+                          )}>
+                            {r.value ?? 'Not set'}
+                          </p>
+                        </div>
+                        <ArrowRight size={14} className="shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
+
           {/* ── Step 1: Your work — category + cover photo + work samples ── */}
           {step === 1 && (
             <div className="space-y-6">
               <div className="space-y-3">
                 <Label className="text-sm font-medium">Pick your category</Label>
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {COMMUNITY_CATEGORY_ORDER.map((id) => {
                     const item = COMMUNITY_CATEGORIES[id];
                     const Icon = item.icon;
@@ -1204,22 +1427,31 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       <button
                         key={id}
                         type="button"
-                        onClick={() => setCategory(id)}
+                        onClick={() => {
+                          const firstPick = category !== id;
+                          setCategory(id);
+                          if (firstPick) microCelebrate();
+                        }}
                         className={cn(
-                          'flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all',
+                          'group relative flex h-full flex-col gap-2 rounded-2xl border p-4 text-left transition-all',
                           sel
-                            ? 'border-primary bg-primary/8 shadow-sm ring-1 ring-primary/20'
-                            : 'border-border bg-card hover:border-primary/25',
+                            ? 'border-primary bg-primary/8 shadow-sm ring-1 ring-primary/25'
+                            : 'border-border bg-card hover:-translate-y-px hover:border-primary/30 hover:shadow-sm',
                         )}
                       >
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
-                          <Icon className="h-5 w-5" strokeWidth={2} />
-                        </div>
-                        <div className="min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={cn(
+                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
+                              sel ? 'bg-primary/15 text-primary' : 'bg-muted text-foreground/80',
+                            )}
+                          >
+                            <Icon className="h-5 w-5" strokeWidth={2} />
+                          </div>
                           <p className="font-semibold text-foreground">{item.label}</p>
-                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                          {sel && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" strokeWidth={2.75} />}
                         </div>
-                        {sel && <Check className="ml-auto h-5 w-5 shrink-0 text-primary" strokeWidth={2.5} />}
+                        <p className="text-xs leading-relaxed text-muted-foreground">{item.description}</p>
                       </button>
                     );
                   })}
@@ -1318,11 +1550,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                Disclosures (social links, more about you) are unchanged. */}
           {step === 2 && (
             <div className="space-y-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs font-semibold text-foreground/70">
                 Your pitch
               </p>
               <div>
-                <Label htmlFor="lc-title">Your title</Label>
+                <Label htmlFor="lc-title">Your one-liner</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The one thing businesses should know about you.
+                </p>
                 <Input
                   id="lc-title"
                   className="mt-1.5 h-11"
@@ -1337,41 +1572,110 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   maxLength={120}
                 />
               </div>
+              {/* Click-first pitch — two pill pickers instead of three
+                   freeform inputs. "Who you work with" is the only
+                   required question (needs at least one pick) so Step 2
+                   stays publishable in under 10 seconds. Strengths are
+                   optional but surface on the card as icon chips, so
+                   freelancers get a visible payoff for tapping them. */}
+              {category && (
+                <div>
+                  <Label className="text-sm font-medium">Who do you work with?</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Tap any that fit — multi-pick is fine.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {CLIENT_TYPES_BY_CATEGORY[category].map((opt) => {
+                      const sel = clientTypes.includes(opt.id);
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() =>
+                            setClientTypes((prev) =>
+                              sel ? prev.filter((x) => x !== opt.id) : [...prev, opt.id],
+                            )
+                          }
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                            sel
+                              ? 'border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]'
+                              : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 active:scale-[0.97]',
+                          )}
+                        >
+                          {sel && <Check size={11} strokeWidth={2.75} className="animate-in zoom-in-50 duration-150" />}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div>
-                <Label htmlFor="lc-desc">What you do</Label>
-                <p className="mt-1 text-xs text-muted-foreground">Shown on your listing card and on the board.</p>
-                <Textarea
-                  id="lc-desc"
-                  className="mt-1.5 min-h-[110px] text-sm"
-                  placeholder={
-                    category === 'websites'
-                      ? "What tech stack do you work with? Past clients or launches?"
-                      : category === 'social_media'
-                      ? "Which platforms, formats, and past results?"
-                      : category === 'digital_sales'
-                      ? "Who do you sell to, what channels (cold email / LinkedIn / calls), and what results have you gotten?"
-                      : "What do you shoot, what gear, and what kind of clients?"
-                  }
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  maxLength={2000}
-                />
+                <Label className="text-sm font-medium">
+                  What sets you apart? <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Up to 3. These show up as icon chips on your card.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {STRENGTH_OPTIONS.map((opt) => {
+                    const sel = strengths.includes(opt.id);
+                    const Icon = opt.icon;
+                    const disabled = !sel && strengths.length >= 3;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() =>
+                          setStrengths((prev) =>
+                            sel
+                              ? prev.filter((x) => x !== opt.id)
+                              : prev.length < 3
+                              ? [...prev, opt.id]
+                              : prev,
+                          )
+                        }
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                          sel
+                            ? 'border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]'
+                            : disabled
+                            ? 'border-border/40 bg-card text-muted-foreground/40 cursor-not-allowed'
+                            : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 active:scale-[0.97]',
+                        )}
+                      >
+                        <Icon size={12} strokeWidth={2.25} />
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="h-px bg-border" />
 
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs font-semibold text-foreground/70">
                 How clients reach you
               </p>
               <div>
-                <Label>Phone number <span className="text-rose-500">*</span></Label>
+                <Label>Phone number</Label>
                 <Input
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   className="mt-1.5 h-11"
                   placeholder="e.g. 089 981 7111"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
+                {phone.trim().length > 0 && !/^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim()) ? (
+                  <p className="mt-1 text-[11px] font-medium text-rose-500">
+                    That doesn&apos;t look like a phone number — digits only, 7+ characters.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-muted-foreground">We&apos;ll text you when a business reaches out. Never shared publicly.</p>
+                )}
               </div>
               {/* Location question — structured and category-aware. Local
                   categories (videography) require a county so the matcher
@@ -1382,7 +1686,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               {category && COMMUNITY_CATEGORIES[category].locationModel === 'local' ? (
                 <div className="space-y-2">
                   <div>
-                    <Label>Which county do you cover? <span className="text-rose-500">*</span></Label>
+                    <Label>Which county do you cover?</Label>
                     <Select value={county} onValueChange={setCounty}>
                       <SelectTrigger className="mt-1.5 h-11">
                         <SelectValue placeholder="Select your county" />
@@ -1471,15 +1775,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   </>
                 );
               })()}
-              {/* "Add more about you" — collapses About bio, University,
-                  and past-work links behind one disclosure so Step 2 lands
-                  at 4 visible fields (title, desc, phone, county). Auto-
-                  expands if a returning draft has any of these filled so
-                  the user can see their previous work. Each field saves
-                  to the same profile row as before — no data loss. */}
+              {/* "Add more about you" — collapses About bio and University
+                  behind one disclosure so Step 2 lands at 4 visible fields
+                  (title, desc, phone, county). Auto-expands if a returning
+                  draft has any of these filled so the user can see their
+                  previous work. "Links to past work" used to live here too
+                  but it leans the UX toward "apply for a job" — Vano is a
+                  freelancing board, so portfolio URLs already go in the
+                  Website social field and the Sample work photos on Step 1
+                  carry the visual proof. */}
               {(() => {
-                const hasWorkLink = workLinks.some((w) => !!w.url?.trim());
-                const anyOptionalFilled = !!aboutMe.trim() || !!university || hasWorkLink;
+                const anyOptionalFilled = !!aboutMe.trim() || !!university;
                 const expanded = showOptionalDetails || anyOptionalFilled;
                 if (!expanded) {
                   return (
@@ -1488,7 +1794,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       onClick={() => setShowOptionalDetails(true)}
                       className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                     >
-                      + Add more about you <span className="text-xs font-normal">(optional — bio, university, past work links)</span>
+                      + Add more about you <span className="text-xs font-normal">(optional — bio, university)</span>
                     </button>
                   );
                 }
@@ -1523,34 +1829,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label>Links to past work <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                      <p className="mt-1 text-xs text-muted-foreground">Portfolio site, Behance, Drive, etc.</p>
-                      <div className="mt-2 space-y-2">
-                        {workLinks.map((row, i) => (
-                          <div key={i} className="flex flex-col gap-2 sm:flex-row">
-                            <Input
-                              placeholder="Label"
-                              value={row.label}
-                              onChange={(e) => updateWorkLink(i, 'label', e.target.value)}
-                              className="h-10"
-                            />
-                            <Input
-                              placeholder="https://…"
-                              value={row.url}
-                              onChange={(e) => updateWorkLink(i, 'url', e.target.value)}
-                              className="h-10 flex-1"
-                            />
-                            <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" onClick={() => removeWorkLink(i)}>
-                              Remove
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      <Button type="button" variant="ghost" size="sm" className="mt-2 h-9 text-xs" onClick={addWorkLinkRow}>
-                        + Add link
-                      </Button>
-                    </div>
                   </div>
                 );
               })()}
@@ -1563,13 +1841,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               {category === 'digital_sales' ? (
                 <>
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Digital sales is priced per hour — set your retainer rate (max €{MAX_DIGITAL_SALES_HOURLY}/hr) and your starting client track record below. Most of your earnings come from deal bonuses.
+                    Digital sales pays two ways — a small hourly retainer plus a bonus when you close. The real upside is in the bonus, so most freelancers keep the hourly modest.
                   </div>
                   <div>
-                    <div className="flex items-baseline justify-between">
-                      <Label>Your hourly rate (€)</Label>
-                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_DIGITAL_SALES_HOURLY}/hr</span>
-                    </div>
+                    <Label>Your hourly rate (€)</Label>
                     <p className="mt-1 text-xs text-muted-foreground">Retainer rate businesses pay on top of commission.</p>
                     <Input
                       className="mt-1.5 h-11"
@@ -1578,9 +1853,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       value={profileHourly}
                       onChange={(e) => setProfileHourly(e.target.value)}
                     />
-                    {parseFloat(profileHourly.replace(',', '.')) > MAX_DIGITAL_SALES_HOURLY && (
-                      <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_DIGITAL_SALES_HOURLY} max — we&apos;ll save it as €{MAX_DIGITAL_SALES_HOURLY}/hr.</p>
-                    )}
                   </div>
                   <div>
                     <Label>Expected bonus per closed deal</Label>
@@ -1629,39 +1901,30 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               ) : category === 'websites' ? (
                 <>
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Websites are priced per project — set the range you typically charge. Max €{MAX_PROJECT_BUDGET} per project.
+                    Websites are priced per project — pop in the range you typically charge.
                   </div>
                   <div>
-                    <div className="flex items-baseline justify-between">
-                      <Label className="text-sm font-medium">Project price range</Label>
-                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_PROJECT_BUDGET}</span>
-                    </div>
+                    <Label className="text-sm font-medium">Project price range</Label>
                     <div className="mt-1.5 grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs text-muted-foreground">From (€)</Label>
                         <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 200" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
-                        {parseFloat(rateMin.replace(',', '.')) > MAX_PROJECT_BUDGET && (
-                          <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_PROJECT_BUDGET} max — we&apos;ll save it as €{MAX_PROJECT_BUDGET}.</p>
-                        )}
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Up to (€)</Label>
                         <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 500" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                        {parseFloat(rateMax.replace(',', '.')) > MAX_PROJECT_BUDGET && (
-                          <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_PROJECT_BUDGET} max — we&apos;ll save it as €{MAX_PROJECT_BUDGET}.</p>
-                        )}
                       </div>
                     </div>
                   </div>
                 </>
               ) : (
                 <>
-                  {/* Intro banner matching the other two category paths —
-                       previously absent, which meant generic-category
-                       freelancers landed on Step 3 with no framing for
-                       what they were about to do or why the rates cap. */}
+                  {/* Generic-category intro — no cap language now that
+                       rates are freelancer-set. Keeps the framing positive
+                       so Step 3 lands as "pick a number" instead of "pass
+                       a compliance check." */}
                   <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Set what you charge. Vano caps student rates at €{MAX_HOURLY_RATE}/hr or €{MAX_DAY_OR_PROJECT_RATE}/day · project — keeps the pool accessible to small businesses.
+                    Pick what you charge. Keep rates realistic and you&apos;ll get hired fastest — small businesses on Vano move quick when the price feels right.
                   </div>
                   <div>
                     <Label>Pricing type</Label>
@@ -1677,47 +1940,72 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
-                  {rateUnit !== 'negotiable' && (() => {
-                    const cap = rateUnit === 'hourly' ? MAX_HOURLY_RATE : MAX_DAY_OR_PROJECT_RATE;
-                    const label = rateUnit === 'hourly' ? `€${cap}/hr` : `€${cap}`;
-                    return (
-                      <div>
-                        <div className="flex items-baseline justify-between">
-                          <Label className="text-sm font-medium">Rate range</Label>
-                          <span className="text-[11px] font-medium text-muted-foreground">Max {label}</span>
+                  {rateUnit !== 'negotiable' && (
+                    <div>
+                      <Label className="text-sm font-medium">Rate range</Label>
+                      <div className="mt-1.5 grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">From (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
                         </div>
-                        <div className="mt-1.5 grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">From (€)</Label>
-                            <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={rateMin} onChange={(e) => setRateMin(e.target.value)} />
-                            {parseFloat(rateMin.replace(',', '.')) > cap && (
-                              <p className="mt-1 text-xs font-medium text-red-500">Over {label} — we&apos;ll save it as {label}.</p>
-                            )}
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Up to (€)</Label>
-                            <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
-                            {parseFloat(rateMax.replace(',', '.')) > cap && (
-                              <p className="mt-1 text-xs font-medium text-red-500">Over {label} — we&apos;ll save it as {label}.</p>
-                            )}
-                          </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Up to (€)</Label>
+                          <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="Optional" value={rateMax} onChange={(e) => setRateMax(e.target.value)} />
                         </div>
                       </div>
-                    );
-                  })()}
-                  <div>
-                    <div className="flex items-baseline justify-between">
-                      <Label>Your hourly rate (€)</Label>
-                      <span className="text-[11px] font-medium text-muted-foreground">Max €{MAX_HOURLY_RATE}/hr</span>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Shown on your profile — for ongoing or recurring work.</p>
-                    <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
-                    {parseFloat(profileHourly.replace(',', '.')) > MAX_HOURLY_RATE && (
-                      <p className="mt-1 text-xs font-medium text-red-500">Over the €{MAX_HOURLY_RATE} max — we&apos;ll save it as €{MAX_HOURLY_RATE}/hr.</p>
-                    )}
-                  </div>
+                  )}
+                  {/* "Your hourly rate" — only surfaced when the user picked a
+                       non-hourly pricing type (day / project / negotiable).
+                       When rateUnit === 'hourly', Rate range above already
+                       captures the hourly; asking again here was the "why
+                       is it asking twice?" snag. */}
+                  {rateUnit !== 'hourly' && (
+                    <div>
+                      <Label>Your hourly rate (€) <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <p className="mt-1 text-xs text-muted-foreground">Shown on your profile for ongoing or recurring work — on top of your {rateUnit === 'project' ? 'project' : rateUnit === 'day' ? 'day' : 'main'} rate.</p>
+                      <Input className="mt-1.5 h-11" inputMode="decimal" placeholder="e.g. 15" value={profileHourly} onChange={(e) => setProfileHourly(e.target.value)} />
+                    </div>
+                  )}
                 </>
               )}
+
+              {/* Specialty picker — the #1 filter dimension hirers use on
+                   the talent board. Single-select pills with category-
+                   specific prompts. Renders directly above the skills
+                   grid because that's the mental bucket ("what kind of
+                   work do you do?") and keeps Step 3 as one tight
+                   pick-things section. */}
+              {category && (
+                <div>
+                  <Label className="text-sm font-medium">{SPECIALTIES_BY_CATEGORY[category].prompt}</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pick one — this is what hirers filter by first.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {SPECIALTIES_BY_CATEGORY[category].options.map((opt) => {
+                      const sel = specialty === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setSpecialty(sel ? '' : opt.id)}
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                            sel
+                              ? 'border-primary bg-primary text-primary-foreground shadow-sm scale-[1.02]'
+                              : 'border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 active:scale-[0.97]',
+                          )}
+                        >
+                          {sel && <Check size={11} strokeWidth={2.75} className="animate-in zoom-in-50 duration-150" />}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Skills</Label>
@@ -1728,15 +2016,15 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       submit?" trap. */}
                   <span className={cn(
                     'text-[11px] font-semibold',
-                    skills.length === 0 ? 'text-rose-500'
+                    skills.length === 0 ? 'text-muted-foreground'
                       : skills.length < 3 ? 'text-amber-600'
                       : 'text-emerald-600',
                   )}>
                     {skills.length === 0
-                      ? 'Pick at least 1'
+                      ? 'Tap any that fit'
                       : skills.length < 3
-                        ? `${skills.length} selected · ${3 - skills.length} more for top matches`
-                        : `${skills.length} selected ✓`}
+                        ? `${skills.length} picked · ${3 - skills.length} more for top matches`
+                        : `${skills.length} picked ✓`}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">One is enough to publish — three or more helps businesses find you faster.</p>
@@ -1880,11 +2168,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         {listingPreviews.length > 0 ? (
                           <span className="rounded-full bg-muted px-2.5 py-1">{listingPreviews.length} portfolio photo{listingPreviews.length === 1 ? '' : 's'}</span>
                         ) : null}
-                        {workLinks.some((link) => link.url.trim()) ? (
-                          <span className="rounded-full bg-muted px-2.5 py-1">
-                            {workLinks.filter((link) => link.url.trim()).length} work link{workLinks.filter((link) => link.url.trim()).length === 1 ? '' : 's'}
-                          </span>
-                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -1937,14 +2220,23 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Contact</p>
-                      <p className="mt-0.5 truncate text-sm font-medium text-foreground">
-                        {phone.trim() ? phone.trim().replace(/\d(?=\d{2})/g, '•') : 'No phone'}
-                        <span className="mx-1.5 text-muted-foreground/40">·</span>
-                        {university.trim() ? (
-                          <span className="text-foreground/80">{university.trim()}</span>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-foreground">
+                        {phone.trim() ? (
+                          <>
+                            <span>{phone.trim()}</span>
+                            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                              Private
+                            </span>
+                          </>
                         ) : (
-                          <span className="text-rose-500">No university</span>
+                          <span className="text-rose-500">No phone</span>
                         )}
+                        {university.trim() ? (
+                          <>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className="text-foreground/80">{university.trim()}</span>
+                          </>
+                        ) : null}
                       </p>
                     </div>
                     <span className="self-center text-xs font-semibold text-primary">Edit</span>
@@ -1965,8 +2257,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                           if (instagramUrl.trim()) parts.push('Instagram');
                           if (linkedinUrl.trim()) parts.push('LinkedIn');
                           if (websiteUrl.trim()) parts.push('Website');
-                          const workCount = workLinks.filter((l) => l.url.trim()).length;
-                          if (workCount > 0) parts.push(`${workCount} work link${workCount === 1 ? '' : 's'}`);
                           return parts.length ? parts.join(' · ') : <span className="text-muted-foreground">None added</span>;
                         })()}
                       </p>
@@ -2058,55 +2348,105 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           {/* Inline hint when Continue is gated: spell out which required
               fields are still empty so users aren't left guessing. The
               old UX just greyed the button out silently — by far the
-              #1 reason freelancers bounced mid-wizard. */}
-          {step < totalSteps && !canNext() && missingFields().length > 0 ? (
+              #1 reason freelancers bounced mid-wizard. Picker mode
+              never shows this — the skip picker gates nothing. */}
+          {!pickerMode && step > 0 && step < totalSteps && !canNext() && missingFields().length > 0 ? (
             <p className="text-center text-xs text-amber-700 dark:text-amber-400">
               Fill in <span className="font-semibold">{missingFields().join(', ')}</span> to continue.
             </p>
           ) : null}
           <div className="flex gap-2">
-          {step > 1 ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 flex-1 rounded-xl"
-              onClick={() => setStep((s) => s - 1)}
-              disabled={submitting}
-            >
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              Back
-            </Button>
-          ) : (
-            <Button type="button" variant="ghost" className="h-11 rounded-xl" onClick={() => onOpenChange(false)} disabled={submitting}>
-              Cancel
-            </Button>
-          )}
-          {step < totalSteps ? (
-            <Button
-              type="button"
-              className="h-11 flex-1 rounded-xl font-semibold"
-              onClick={() => setStep((s) => s + 1)}
-              disabled={!canNext()}
-            >
-              {step === totalSteps - 1 ? 'Review' : 'Continue'}
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              className="h-11 flex-1 rounded-xl font-semibold"
-              onClick={publish}
-              disabled={submitting || !category || !title.trim() || skills.length < 1}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Publishing…
-                </>
+          {step === 0 ? (
+            // Skip picker — Cancel on the left, Save & close on the right.
+            // Save runs the same publish RPC as the full flow; if any
+            // required field is still missing we pop back to the
+            // relevant step instead of failing silently.
+            <>
+              <Button type="button" variant="ghost" className="h-11 rounded-xl" onClick={() => onOpenChange(false)} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-11 flex-1 rounded-xl font-semibold"
+                onClick={publish}
+                disabled={submitting || !category || !title.trim() || skills.length < 1}
+              >
+                {submitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
+                ) : (
+                  'Save & close'
+                )}
+              </Button>
+            </>
+          ) : pickerMode ? (
+            // From a sub-step back to the picker — replace the linear
+            // Back/Continue with a single "Done" pill so the one-thing
+            // edit intent stays clean. Nothing publishes from here;
+            // the user re-lands on step 0 and hits Save & close.
+            <>
+              <Button type="button" variant="outline" className="h-11 flex-1 rounded-xl" onClick={() => setStep(0)} disabled={submitting}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Back to list
+              </Button>
+              <Button type="button" className="h-11 flex-1 rounded-xl font-semibold" onClick={() => setStep(0)} disabled={submitting}>
+                Done
+              </Button>
+            </>
+          ) : step > 1 ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 rounded-xl"
+                onClick={() => setStep((s) => s - 1)}
+                disabled={submitting}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Back
+              </Button>
+              {step < totalSteps ? (
+                <Button
+                  type="button"
+                  className="h-11 flex-1 rounded-xl font-semibold"
+                  onClick={() => setStep((s) => s + 1)}
+                  disabled={!canNext()}
+                >
+                  {step === totalSteps - 1 ? 'Review' : 'Continue'}
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
               ) : (
-                'Go live'
+                <Button
+                  type="button"
+                  className="h-11 flex-1 rounded-xl font-semibold"
+                  onClick={publish}
+                  disabled={submitting || !category || !title.trim() || skills.length < 1}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing…
+                    </>
+                  ) : (
+                    'Go live'
+                  )}
+                </Button>
               )}
-            </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="ghost" className="h-11 rounded-xl" onClick={() => onOpenChange(false)} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-11 flex-1 rounded-xl font-semibold"
+                onClick={() => setStep((s) => s + 1)}
+                disabled={!canNext()}
+              >
+                Continue
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </>
           )}
           </div>
         </div>

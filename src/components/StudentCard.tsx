@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote, Clock, TrendingUp, Sparkles } from 'lucide-react';
 import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
@@ -9,6 +9,10 @@ import { formatLocation } from '@/lib/irelandCounties';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { getUniversityStyle } from '@/lib/universities';
+import { findSpecialtyLabel } from '@/lib/categorySpecialties';
+import { findStrength } from '@/lib/freelancerTags';
+import { useReplySeconds, formatReplyTime } from '@/hooks/useReplySeconds';
+import { useFreelancerSalesStats, formatSalesStats } from '@/hooks/useFreelancerSalesStats';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
@@ -42,6 +46,16 @@ interface StudentProfile {
   typical_budget_max?: number | null;
   university?: string | null;
   student_verified?: boolean | null;
+  /** Category-specific specialty slug (e.g. "weddings" for videography).
+   *  Rendered as an accent pill alongside the category on the banner so
+   *  hirers get the "what kind" signal without opening the profile. */
+  specialty?: string | null;
+  /** Up to 3 strength slugs (see STRENGTH_OPTIONS) — rendered as icon
+   *  chips in the card body, above the bio. The whole point of pushing
+   *  the wizard to click-only answers is making the card more visual,
+   *  so these chips are the payoff for freelancers who bother to tap
+   *  them on Step 2. */
+  strengths?: string[] | null;
   /** True when the freelancer has finished Stripe Connect onboarding
    *  and is ready to accept Vano Pay. Surfaced as a trust chip on the
    *  card so hirers can pick someone they can pay safely in one tap. */
@@ -159,6 +173,19 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
   // Top 3 skills for banner keyword line
   const bannerSkills = (student.skills || []).slice(0, 3);
+  // Median reply time across the freelancer's last 50 messages.
+  // Renders as a trust chip on the banner when the RPC returns a
+  // real number (>= 5 reply pairs). Null otherwise — the chip just
+  // doesn't render, which is strictly better than showing a fake
+  // "Replies fast" badge for a freelancer who's never replied.
+  const replySeconds = useReplySeconds(student.user_id);
+  const replyLabel = formatReplyTime(replySeconds);
+  // Aggregate sales track record — only relevant for digital-sales
+  // freelancers; the hook silently returns (0, 0) for everyone
+  // else and the formatter returns null on zero so the chip just
+  // doesn't render for non-sales (or brand-new sales) freelancers.
+  const salesStats = useFreelancerSalesStats(student.user_id);
+  const salesLabel = formatSalesStats(salesStats);
 
   return (
     <div
@@ -218,14 +245,48 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/55" />
 
-        {/* Top-left: skill keywords line */}
-        {bannerSkills.length > 0 && (
-          <div className="absolute left-3 top-3">
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">
-              {bannerSkills.join(' · ')}
-            </p>
-          </div>
-        )}
+        {/* Top-left stack: skill keywords + trust chips. Chips are
+            mutually exclusive by precedence — sales stats wins when
+            there's real track record (digital-sales with closed wins),
+            otherwise reply-time wins when we have the reply-pair
+            samples, otherwise "New on Vano" for genuinely new listings
+            so a cold banner never reads as abandoned. Every chip is
+            data-driven — no user-chosen claims — so a listing can't
+            fake any of these signals. */}
+        {(() => {
+          const chip = salesLabel
+            ? { kind: 'sales' as const, label: salesLabel }
+            : replyLabel
+            ? { kind: 'reply' as const, label: replyLabel }
+            : replySeconds === null
+            ? { kind: 'new' as const, label: 'New on Vano' }
+            : null;
+          if (bannerSkills.length === 0 && !chip) return null;
+          return (
+            <div className="absolute left-3 top-3 flex max-w-[calc(100%-8rem)] flex-col items-start gap-1.5">
+              {bannerSkills.length > 0 && (
+                <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
+                  {bannerSkills.join(' · ')}
+                </p>
+              )}
+              {chip && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm',
+                    chip.kind === 'sales' && 'bg-primary/85',
+                    chip.kind === 'reply' && 'bg-emerald-500/85',
+                    chip.kind === 'new'   && 'bg-sky-500/85',
+                  )}
+                >
+                  {chip.kind === 'sales' && <TrendingUp size={10} strokeWidth={2.5} />}
+                  {chip.kind === 'reply' && <Clock size={10} strokeWidth={2.5} />}
+                  {chip.kind === 'new'   && <Sparkles size={10} strokeWidth={2.5} />}
+                  {chip.label}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Top-right: verified + medal + demo badge + favourite */}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
@@ -285,6 +346,19 @@ export const StudentCard: React.FC<StudentCardProps> = ({
               {category}
             </span>
           )}
+          {(() => {
+            // Specialty pill — one accent-coloured step down from the
+            // category to signal "same bucket, finer grain" (e.g.
+            // Videography → Weddings). Only renders when the slug
+            // resolves to a known label so deleted options fail quiet.
+            const specialtyName = findSpecialtyLabel(student.specialty);
+            if (!specialtyName) return null;
+            return (
+              <span className="rounded-full bg-primary/80 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm backdrop-blur-sm">
+                {specialtyName}
+              </span>
+            );
+          })()}
           {area && (
             <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
               <MapPin size={9} className="shrink-0 text-white/80" />
@@ -359,18 +433,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             )}
           </div>
 
-          {/* Right: available + admin */}
+          {/* Right: admin badge only. "Available" used to render here as a
+              pill but the avatar already carries a green pulsing dot for the
+              same signal — two copies read as a bug, so the pill is dropped
+              to let the body's name + rating row breathe. */}
           <div className="flex flex-wrap items-center gap-1 pb-1">
             {isAdmin && <ModBadge size="sm" />}
-            {student.is_available && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
-                Available
-              </span>
-            )}
           </div>
         </div>
 
@@ -404,6 +472,36 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         )}
 
+        {/* Strength chips — visual payoff for freelancers who picked
+            them in the wizard. Icons + compact pills scan instantly
+            as "what's this person like to work with": fast turnaround,
+            own gear, etc. Rendered above the bio so they grab the eye
+            before the text does. Up to 3, and we silently drop any
+            slug that doesn't resolve (deleted / renamed options). */}
+        {(() => {
+          const rows = (student.strengths ?? [])
+            .map((slug) => findStrength(slug))
+            .filter((s): s is NonNullable<ReturnType<typeof findStrength>> => !!s)
+            .slice(0, 3);
+          if (rows.length === 0) return null;
+          return (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {rows.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <span
+                    key={s.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                  >
+                    <Icon size={11} strokeWidth={2.5} />
+                    {s.label}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {/* Bio */}
         {student.bio && (
           <p className="mt-3 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
@@ -432,13 +530,15 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           </div>
         )}
 
-        {/* CTA — two rows so both conversion paths are visible without leaving the card */}
+        {/* CTA — Message leads as the primary conversion path; Hire-now
+            collapses to a compact icon button so the row stops fighting
+            itself with two equally-weighted full-width buttons. "View
+            profile" is the implicit card click, surfaced as a subtle
+            footer on hover rather than a third button competing for
+            attention. */}
         {clickable && (
-          <div className="mt-4 pt-3 border-t border-foreground/5 space-y-2">
-            {/* Row 1: Message (primary) + Hire now (secondary pill) — hidden on your own card.
-                Two equally-weighted buttons created choice paralysis. Message is the
-                lower-friction first action; Hire-now is reserved for users who already know. */}
-            {!isOwnCard && (
+          <div className="mt-4 pt-3 border-t border-foreground/5">
+            {!isOwnCard ? (
               <div className="flex items-stretch gap-2">
                 <button
                   type="button"
@@ -451,23 +551,18 @@ export const StudentCard: React.FC<StudentCardProps> = ({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setHireOpen(true); }}
-                  title="Send an instant hire request with a 2hr lock"
-                  className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300 transition-all duration-200 hover:bg-amber-500/15 active:scale-[0.97]"
+                  title="Hire now — instant 2-hour lock"
+                  aria-label="Hire now"
+                  className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-700 shadow-sm transition-all duration-200 hover:bg-amber-500/20 active:scale-[0.94] dark:text-amber-300"
                 >
-                  <Zap size={12} strokeWidth={2.5} />
-                  Hire now
+                  <Zap size={14} strokeWidth={2.75} />
                 </button>
               </div>
+            ) : (
+              <span className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/8 px-3 py-2.5 text-[11px] font-semibold text-primary transition-all duration-300 ease-out-quint group-hover:bg-primary group-hover:text-primary-foreground">
+                View your profile <ArrowRight size={11} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
+              </span>
             )}
-            {/* Row 2: View profile (always available) */}
-            <span className={cn(
-              'w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold transition-all duration-300 ease-out-quint',
-              isOwnCard
-                ? 'bg-primary/8 py-2.5 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
-                : 'bg-primary/5 py-2 text-primary/80 group-hover:bg-primary/10 group-hover:text-primary',
-            )}>
-              {isOwnCard ? 'View your profile' : 'View profile'} <ArrowRight size={11} strokeWidth={2.5} className="transition-transform duration-300 ease-out-quint group-hover:translate-x-0.5" />
-            </span>
           </div>
         )}
       </div>

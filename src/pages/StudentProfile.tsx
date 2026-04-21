@@ -19,6 +19,10 @@ import { cn } from '@/lib/utils';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
 import { computeProfilePercent, computeProfileTier } from '@/lib/profileCompleteness';
+import { findSpecialtyLabel } from '@/lib/categorySpecialties';
+import { findStrength, findClientTypeLabel } from '@/lib/freelancerTags';
+import { useFreelancerSalesStats, formatSalesStats } from '@/hooks/useFreelancerSalesStats';
+import type { CommunityCategoryId } from '@/lib/communityCategories';
 
 const StudentProfile = () => {
   const { id } = useParams();
@@ -45,6 +49,12 @@ const StudentProfile = () => {
   // reads from public viewers). `undefined` while loading, `null` when too few
   // data points (we render "New on Vano" instead).
   const [replySeconds, setReplySeconds] = useState<number | null | undefined>(undefined);
+  // Public stats — pulled via the shared hook so the numbers match
+  // whatever the card chip on the discovery board shows. Hook
+  // handles its own caching so re-visiting this page mid-session
+  // doesn't re-fetch. Null for non-sales freelancers.
+  const salesStats = useFreelancerSalesStats(id ?? null);
+  const salesStatsLabel = formatSalesStats(salesStats);
 
   const scrollToTab = useCallback((tab: 'about' | 'portfolio' | 'reviews') => {
     setActiveTab(tab);
@@ -655,6 +665,86 @@ const StudentProfile = () => {
                 </span>
               </div>
             </div>
+
+            {/* Proof strip — visual trust signals pulled from the
+                 freelancer's profile row. Sits between the stats
+                 block and the free-text "What I do" so the high-
+                 signal category metadata (specialty, client types,
+                 strengths, sales stats) is the first thing a hirer
+                 sees before any paragraph of copy. Each chip is
+                 data-driven, not self-reported — same guarantee as
+                 on the StudentCard chips. Render nothing when
+                 every signal is absent so we don't create an empty
+                 block on legacy rows. */}
+            {(() => {
+              const categoryId = (communityPost?.category as CommunityCategoryId | undefined) ?? null;
+              const specialtyLbl = findSpecialtyLabel((student as any)?.specialty ?? null);
+              const clientTypes: string[] = Array.isArray((student as any)?.client_types)
+                ? ((student as any).client_types as string[])
+                : [];
+              const clientTypeLabels = clientTypes
+                .map((slug) => findClientTypeLabel(categoryId, slug))
+                .filter((x): x is string => !!x);
+              const strengthSlugs: string[] = Array.isArray((student as any)?.strengths)
+                ? ((student as any).strengths as string[])
+                : [];
+              const strengthOpts = strengthSlugs
+                .map((slug) => findStrength(slug))
+                .filter((s): s is NonNullable<ReturnType<typeof findStrength>> => !!s);
+              const hasAny =
+                !!specialtyLbl ||
+                clientTypeLabels.length > 0 ||
+                strengthOpts.length > 0 ||
+                !!salesStatsLabel;
+              if (!hasAny) return null;
+              return (
+                <div className="space-y-3 rounded-2xl border border-foreground/6 bg-card p-5 shadow-tinted sm:p-6">
+                  {salesStatsLabel && (
+                    <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                        <Sparkles size={13} strokeWidth={2.5} />
+                      </span>
+                      <p className="text-[13px] font-semibold text-foreground">
+                        {salesStatsLabel}
+                      </p>
+                    </div>
+                  )}
+                  {(specialtyLbl || clientTypeLabels.length > 0) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {specialtyLbl && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground shadow-sm">
+                          {specialtyLbl}
+                        </span>
+                      )}
+                      {clientTypeLabels.map((lbl) => (
+                        <span
+                          key={lbl}
+                          className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-semibold text-foreground"
+                        >
+                          {lbl}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {strengthOpts.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {strengthOpts.slice(0, 4).map((s) => {
+                        const Icon = s.icon;
+                        return (
+                          <span
+                            key={s.id}
+                            className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                          >
+                            <Icon size={11} strokeWidth={2.5} />
+                            {s.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* What I do — surfaced above tabs */}
             {communityPost?.description && (

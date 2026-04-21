@@ -42,9 +42,15 @@ export const Navbar: React.FC = () => {
   // name so both nav surfaces can mount without stepping on each other.
   const [unreadCount, setUnreadCount] = useState(0);
 
-  /* ── Glass effect on scroll ── */
+  /* ── Glass effect on scroll ──
+     Mobile flips opaque the instant the user scrolls at all so the
+     transparent-to-blurred transition doesn't feel laggy on touch
+     devices (where small scroll deltas at thumb speed made the 50px
+     threshold feel late). Desktop keeps the old 50px hold so the
+     hero area stays clean when the page first loads. */
   const handleScroll = useCallback(() => {
-    setScrolled(window.scrollY > 50);
+    const threshold = window.innerWidth < 768 ? 4 : 50;
+    setScrolled(window.scrollY > threshold);
   }, []);
 
   useEffect(() => {

@@ -7,6 +7,7 @@ import {
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
 import { Loader2, Sparkles, ArrowRight, Eye } from 'lucide-react';
+import { microCelebrate } from '@/lib/celebrate';
 
 // First-time "Quick list" entry point for freelancers. Collapses the full
 // 4-step wizard to a single screen with just the three fields anyone needs
@@ -164,7 +165,11 @@ export function ListOnCommunityQuickStart({
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setCategory(id)}
+                  onClick={() => {
+                    const firstPick = category !== id;
+                    setCategory(id);
+                    if (firstPick) microCelebrate();
+                  }}
                   className={[
                     'flex items-center gap-2 rounded-xl border px-3.5 py-3 text-left transition',
                     active
@@ -217,6 +222,8 @@ export function ListOnCommunityQuickStart({
           <input
             id="qs-phone"
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+353 …"
