@@ -976,18 +976,18 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         // the work pitch (community_posts.description). If they leave it blank we
         // store NULL so the profile page doesn't echo their pitch as their bio.
         bio: aboutMe.trim() || null,
-        // Specialty + tag arrays — wizard's click-based pitch writes
-        // directly to these columns, and the derived description
-        // (saved via the RPC below) concatenates their labels for
-        // legacy readers and the AI-find ranker. Specialty null when
-        // unselected so the card's category pill stays clean instead
-        // of rendering an empty slug. Arrays always write (empty
-        // arrays are valid) so the DB reflects exactly what the user
-        // sees in the picker.
-        specialty: isValidSpecialty(category, specialty) ? specialty : null,
-        client_types: clientTypes,
-        strengths,
       };
+      // Specialty + tag arrays. Added by migration 20260421120000 —
+      // conditionally spread in so a production environment where
+      // that migration hasn't run yet can still publish. The card
+      // pill + chips just won't render for this listing until the
+      // migration lands; every other piece of the wizard still
+      // works. Arrays only get written when non-empty so an empty
+      // pick doesn't burn a write on a column that doesn't exist.
+      const validSpecialty = isValidSpecialty(category, specialty) ? specialty : null;
+      if (validSpecialty) studentPatch.specialty = validSpecialty;
+      if (clientTypes.length > 0) studentPatch.client_types = clientTypes;
+      if (strengths.length > 0) studentPatch.strengths = strengths;
       if (category === 'digital_sales') {
         const n = parseInt(initialClientsBrought, 10);
         studentPatch.initial_clients_brought = Number.isNaN(n) || n < 0 ? 0 : n;
