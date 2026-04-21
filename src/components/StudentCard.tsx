@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TagBadge } from './TagBadge';
-import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote } from 'lucide-react';
+import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote, Clock } from 'lucide-react';
 import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
 import { formatTypicalBudget } from '@/lib/freelancerProfile';
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getUniversityStyle } from '@/lib/universities';
 import { findSpecialtyLabel } from '@/lib/categorySpecialties';
 import { findStrength } from '@/lib/freelancerTags';
+import { useReplySeconds, formatReplyTime } from '@/hooks/useReplySeconds';
 import { ModBadge } from './ModBadge';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
@@ -171,6 +172,13 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
   // Top 3 skills for banner keyword line
   const bannerSkills = (student.skills || []).slice(0, 3);
+  // Median reply time across the freelancer's last 50 messages.
+  // Renders as a trust chip on the banner when the RPC returns a
+  // real number (>= 5 reply pairs). Null otherwise — the chip just
+  // doesn't render, which is strictly better than showing a fake
+  // "Replies fast" badge for a freelancer who's never replied.
+  const replySeconds = useReplySeconds(student.user_id);
+  const replyLabel = formatReplyTime(replySeconds);
 
   return (
     <div
@@ -230,15 +238,29 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/55" />
 
-        {/* Top-left: skill keywords line. Sits on the banner so the card
-            is scannable at a glance; size bumped from 9→10.5px and weight
-            stepped to semibold with a subtle shadow so it stays legible on
-            busy cover photos without fighting the name for attention. */}
-        {bannerSkills.length > 0 && (
-          <div className="absolute left-3 top-3 max-w-[calc(100%-8rem)]">
-            <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
-              {bannerSkills.join(' · ')}
-            </p>
+        {/* Top-left stack: skill keywords + reply-time trust chip.
+            Skills size bumped from 9→10.5px and weight stepped to
+            semibold with a subtle shadow so they stay legible on
+            busy cover photos. The reply-time chip below is the
+            single biggest hire-decision signal we have — surfaces
+            the median reply time computed server-side (SECURITY
+            DEFINER RPC, no message content leaks) and hides itself
+            when the freelancer has fewer than 5 reply pairs so
+            cold listings don't display a fabricated "fast reply"
+            claim. */}
+        {(bannerSkills.length > 0 || replyLabel) && (
+          <div className="absolute left-3 top-3 flex max-w-[calc(100%-8rem)] flex-col items-start gap-1.5">
+            {bannerSkills.length > 0 && (
+              <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
+                {bannerSkills.join(' · ')}
+              </p>
+            )}
+            {replyLabel && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/85 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
+                <Clock size={10} strokeWidth={2.5} />
+                {replyLabel}
+              </span>
+            )}
           </div>
         )}
 
