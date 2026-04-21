@@ -24,6 +24,8 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { normalizeTikTokUrl, parseWorkLinksJson, workLinksToJson, type WorkLinkEntry } from '@/lib/socialLinks';
 import { ListOnCommunityWizard, type ListOnCommunityInitial } from '@/components/ListOnCommunityWizard';
 import { HireRequestsInboxLink } from '@/components/HireRequestsInboxLink';
+import { ProfileStrengthCards } from '@/components/ProfileStrengthCards';
+import { SalesPipelineBoard } from '@/components/SalesPipelineBoard';
 import { normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { resolveUniversityKey } from '@/lib/universities';
 import { Button } from '@/components/ui/button';
@@ -114,6 +116,11 @@ const Profile = () => {
   const [typicalBudgetMax, setTypicalBudgetMax] = useState('');
   const [listCommunityOpen, setListCommunityOpen] = useState(false);
   const [wizardStartStep, setWizardStartStep] = useState<number | undefined>(undefined);
+  // Skip-mode flag for the wizard. When the freelancer already has a
+  // published listing, tapping the generic "Edit listing" button opens
+  // the chip-picker grid instead of the linear 4-step flow so they can
+  // tweak one thing and close.
+  const [wizardInPicker, setWizardInPicker] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Share as image" flow. The ShareCardFrame is only mounted while
   // `sharingState === 'rendering'` — an off-screen 1080×1080 DOM node that
@@ -1036,6 +1043,38 @@ const Profile = () => {
                   <HireRequestsInboxLink />
                 )}
 
+                {/* Publish-then-polish nudges — only for LIVE listings.
+                    Cold freelancers who haven't published yet see the
+                    "Get listed" CTA above instead; there's no point
+                    pushing polish tasks at someone who hasn't gone live.
+                    The component returns null when every task is done
+                    so it self-retires as the listing matures. */}
+                {studentProfile?.community_board_status === 'approved' && (
+                  <ProfileStrengthCards
+                    slots={{
+                      hasCover: !!(existingPost?.image_url || (studentProfile as any)?.banner_url),
+                      strengthsCount: Array.isArray((studentProfile as any)?.strengths)
+                        ? (studentProfile as any).strengths.length
+                        : 0,
+                      skillsCount: Array.isArray(studentProfile?.skills)
+                        ? studentProfile.skills.length
+                        : 0,
+                      hasBio: !!(studentProfile?.bio && String(studentProfile.bio).trim().length > 0),
+                      hasAnySocial: !!(
+                        studentProfile?.tiktok_url ||
+                        studentProfile?.instagram_url ||
+                        studentProfile?.linkedin_url ||
+                        studentProfile?.website_url
+                      ),
+                      hasSpecialty: !!((studentProfile as any)?.specialty),
+                    }}
+                    onJumpToStep={(step) => {
+                      setWizardInPicker(false);
+                      openWizardAtStep(step);
+                    }}
+                  />
+                )}
+
                 {/* ── Live listing editor card ── */}
                 {studentProfile?.community_board_status === 'approved' && existingPost && (
                   <div>
@@ -1046,10 +1085,16 @@ const Profile = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => openWizardAtStep(1)}
+                        onClick={() => {
+                          // Published listings open in skip-mode so a
+                          // returning freelancer can tweak one thing
+                          // and close, instead of walking 4 steps again.
+                          setWizardInPicker(true);
+                          setListCommunityOpen(true);
+                        }}
                         className="text-[12px] font-semibold text-primary transition-colors duration-200 hover:text-primary/80 hover:underline"
                       >
-                        Edit full listing
+                        Edit listing
                       </button>
                     </div>
 
@@ -1381,6 +1426,32 @@ const Profile = () => {
                   </div>
                 )}
 
+                {/* ── Sales deal pipeline (digital_sales only) ──
+                    Lives below the Referrals panel because referrals is
+                    the "clients I brought" lifetime stat; the pipeline
+                    is the operational "what's cooking now" view. Both
+                    only render for digital_sales freelancers — a
+                    videographer has no use for a pipeline surface. */}
+                {existingPost?.category === 'digital_sales' && user?.id && (
+                  <div>
+                    <SalesPipelineBoard
+                      userId={user.id}
+                      defaultBonusRate={
+                        typeof (studentProfile as any)?.expected_bonus_amount === 'number'
+                          ? (studentProfile as any).expected_bonus_amount as number
+                          : null
+                      }
+                      defaultBonusUnit={
+                        (studentProfile as any)?.expected_bonus_unit === 'flat'
+                          ? 'flat'
+                          : (studentProfile as any)?.expected_bonus_unit === 'percentage'
+                          ? 'percentage'
+                          : null
+                      }
+                    />
+                  </div>
+                )}
+
                 {/* Shareable profile link — sidebar on desktop */}
                 {displayName && (
                   <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -1460,11 +1531,15 @@ const Profile = () => {
               open={listCommunityOpen}
               onOpenChange={(v) => {
                 setListCommunityOpen(v);
-                if (!v) setWizardStartStep(undefined);
+                if (!v) {
+                  setWizardStartStep(undefined);
+                  setWizardInPicker(false);
+                }
               }}
               userId={user.id}
               initial={listOnCommunityInitial}
               startAtStep={wizardStartStep}
+              startInPicker={wizardInPicker}
               onSubmittedForReview={() => {
                 void loadProfile();
               }}

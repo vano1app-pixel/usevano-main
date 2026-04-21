@@ -73,6 +73,7 @@ const STEP_LABELS = [
 ];
 
 const STEP_HEADINGS: Record<number, string> = {
+  0: 'Tweak your listing',
   1: 'Show what you do',
   2: 'Tell them about you',
   3: 'Set your price',
@@ -80,6 +81,7 @@ const STEP_HEADINGS: Record<number, string> = {
 };
 
 const STEP_DESCRIPTIONS: Record<number, string> = {
+  0: "You're already live — tap any row to jump in and change just that one thing.",
   1: "Pick the kind of work you do. Add a cover photo if you've got one — you can always drop one in later.",
   2: "A one-liner, a bit of detail, and how clients reach you. Two minutes tops.",
   3: "How much you charge, and the things you're best at.",
@@ -277,6 +279,12 @@ interface ListOnCommunityWizardProps {
   onSubmittedForReview: (category: CommunityCategoryId) => void;
   /** Jump straight to a specific step (0-indexed). Skips draft restore. */
   startAtStep?: number;
+  /** Returning-user "skip mode" — opens on a chip picker instead of
+   *  the full 4-step flow. Tapping any section chip jumps straight
+   *  to that step; saving republishes and closes. Replaces the old
+   *  "edit from the start" UX for freelancers who just want to tweak
+   *  one thing without walking the whole wizard. */
+  startInPicker?: boolean;
 }
 
 export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
@@ -286,6 +294,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   initial,
   onSubmittedForReview,
   startAtStep,
+  startInPicker,
 }) => {
   const { toast } = useToast();
   const [step, setStep] = useState(0);
@@ -365,6 +374,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // desktop (lg+) the preview is always visible in its own column and this
   // flag is ignored.
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  // Skip-mode flag. Flips to true when the wizard opens in picker mode
+  // (startInPicker) so sub-step navigation knows to return to the
+  // picker chip grid instead of the linear Back/Continue flow. Kept as
+  // state (not derived from step) so the user can jump between chips
+  // and hop back without losing the "I'm editing one thing" intent.
+  const [pickerMode, setPickerMode] = useState(false);
   // Auto-save status — stamped every time the draft write useEffect runs.
   // Surfaced as a "Saved ✓" chip in the wizard header so freelancers know
   // they can close the tab without losing work. Not a toast: toasts on
@@ -386,7 +401,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     setProfileLinkCopied(false);
     // Skip the info-only intro step — land directly on the category picker.
     // `startAtStep` (when provided by the caller) still takes precedence.
-    setStep(startAtStep ?? 1);
+    // startInPicker opens step 0 (the skip-picker chip grid). startAtStep
+    // still wins when set so "jump to pricing from /profile" keeps working.
+    setStep(startAtStep ?? (startInPicker ? 0 : 1));
+    setPickerMode(!!startInPicker);
 
     const ep = initial.existingPost ?? null;
 
@@ -490,7 +508,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     }
 
     setDraftReady(true);
-  }, [open, initial, userId, startAtStep, toast]);
+  }, [open, initial, userId, startAtStep, startInPicker, toast]);
 
   useEffect(() => {
     if (!open || !draftReady) return;
@@ -624,9 +642,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   useEffect(() => {
     if (step !== 1) return;
     if (!category) return;
-    const t = window.setTimeout(() => setStep(2), 350);
+    // Picker mode: returning user came from step 0 to tweak the
+    // category. Bounce them back to the picker chip grid after the
+    // selection registers so the "I'm editing one thing" flow stays
+    // clean. Full wizard behaves as before and advances to step 2.
+    const t = window.setTimeout(() => setStep(pickerMode ? 0 : 2), 350);
     return () => window.clearTimeout(t);
-  }, [step, category]);
+  }, [step, category, pickerMode]);
 
   // Stage 2/3 — location defaults follow the category's location model.
   // Digital categories are remote-by-default across Ireland, so we clear
@@ -1236,9 +1258,10 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
             </div>
             <DialogTitle className="text-xl font-semibold tracking-tight">{STEP_HEADINGS[step] ?? 'List yourself'}</DialogTitle>
             {/* Percent progress bar — front-loaded (step 1 lands at 20%) so
-                the form feels lighter than it is. The tick marks below show
-                the three sections at a glance. */}
-            {(() => {
+                the form feels lighter than it is. Hidden in picker mode
+                because "20% complete" on a listing that's already live
+                reads as a regression. */}
+            {!pickerMode && step > 0 && (() => {
               const percent = submitting ? 100 : (STEP_PROGRESS[step] ?? 20);
               return (
                 <>
@@ -1316,6 +1339,79 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               </div>
             )}
           </div>
+
+          {/* ── Step 0: Skip picker — chip grid for returning users who
+               want to tweak one thing without walking the full wizard.
+               Each row shows a section's current value (or a prompt if
+               empty) and jumps straight to the corresponding step on
+               tap. Save & close in the footer writes the whole listing
+               through the same publish RPC as a fresh wizard run. */}
+          {step === 0 && (() => {
+            const hasCover = !!(bannerFile || bannerUrl);
+            const currentCategory = category ? COMMUNITY_CATEGORIES[category].label : null;
+            const currentSpecialty = category && isValidSpecialty(category, specialty)
+              ? SPECIALTIES_BY_CATEGORY[category].options.find((o) => o.id === specialty)?.label ?? null
+              : null;
+            const priceLabel = (() => {
+              if (rateUnit === 'negotiable') return 'Negotiable';
+              if (rateMin && rateMax) return `€${rateMin}–€${rateMax}`;
+              if (rateMin) return `From €${rateMin}`;
+              if (profileHourly) return `€${profileHourly}/hr`;
+              return null;
+            })();
+            const rows: Array<{
+              key: string; label: string; value: string | null; targetStep: number;
+            }> = [
+              { key: 'category',   label: 'Category',           value: currentCategory,                   targetStep: 1 },
+              { key: 'cover',      label: 'Cover photo',        value: hasCover ? 'Uploaded' : null,      targetStep: 1 },
+              { key: 'title',      label: 'One-liner',          value: title.trim() || null,              targetStep: 2 },
+              { key: 'who',        label: 'Who you work with',  value: clientTypes.length > 0
+                  ? `${clientTypes.length} picked`
+                  : null, targetStep: 2 },
+              { key: 'strengths',  label: 'What sets you apart',value: strengths.length > 0
+                  ? `${strengths.length} picked`
+                  : null, targetStep: 2 },
+              { key: 'contact',    label: 'Phone',              value: phone.trim()
+                  ? phone.trim().replace(/\d(?=\d{3})/g, '•')
+                  : null, targetStep: 2 },
+              { key: 'price',      label: 'Price',              value: priceLabel,                         targetStep: 3 },
+              { key: 'specialty',  label: 'Specialty',          value: currentSpecialty,                   targetStep: 3 },
+              { key: 'skills',     label: 'Skills',             value: skills.length > 0
+                  ? `${skills.length} picked`
+                  : null, targetStep: 3 },
+            ];
+            return (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Tap anything you want to tweak. Changes save when you hit <span className="font-semibold text-foreground">Save & close</span>.
+                </div>
+                <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                  {rows.map((r) => (
+                    <li key={r.key}>
+                      <button
+                        type="button"
+                        onClick={() => setStep(r.targetStep)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                            {r.label}
+                          </p>
+                          <p className={cn(
+                            'mt-0.5 truncate text-sm',
+                            r.value ? 'font-medium text-foreground' : 'italic text-muted-foreground/70',
+                          )}>
+                            {r.value ?? 'Not set'}
+                          </p>
+                        </div>
+                        <ArrowRight size={14} className="shrink-0 text-muted-foreground" strokeWidth={2.25} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           {/* ── Step 1: Your work — category + cover photo + work samples ── */}
           {step === 1 && (
@@ -2250,55 +2346,105 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           {/* Inline hint when Continue is gated: spell out which required
               fields are still empty so users aren't left guessing. The
               old UX just greyed the button out silently — by far the
-              #1 reason freelancers bounced mid-wizard. */}
-          {step < totalSteps && !canNext() && missingFields().length > 0 ? (
+              #1 reason freelancers bounced mid-wizard. Picker mode
+              never shows this — the skip picker gates nothing. */}
+          {!pickerMode && step > 0 && step < totalSteps && !canNext() && missingFields().length > 0 ? (
             <p className="text-center text-xs text-amber-700 dark:text-amber-400">
               Fill in <span className="font-semibold">{missingFields().join(', ')}</span> to continue.
             </p>
           ) : null}
           <div className="flex gap-2">
-          {step > 1 ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 flex-1 rounded-xl"
-              onClick={() => setStep((s) => s - 1)}
-              disabled={submitting}
-            >
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              Back
-            </Button>
-          ) : (
-            <Button type="button" variant="ghost" className="h-11 rounded-xl" onClick={() => onOpenChange(false)} disabled={submitting}>
-              Cancel
-            </Button>
-          )}
-          {step < totalSteps ? (
-            <Button
-              type="button"
-              className="h-11 flex-1 rounded-xl font-semibold"
-              onClick={() => setStep((s) => s + 1)}
-              disabled={!canNext()}
-            >
-              {step === totalSteps - 1 ? 'Review' : 'Continue'}
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              className="h-11 flex-1 rounded-xl font-semibold"
-              onClick={publish}
-              disabled={submitting || !category || !title.trim() || skills.length < 1}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Publishing…
-                </>
+          {step === 0 ? (
+            // Skip picker — Cancel on the left, Save & close on the right.
+            // Save runs the same publish RPC as the full flow; if any
+            // required field is still missing we pop back to the
+            // relevant step instead of failing silently.
+            <>
+              <Button type="button" variant="ghost" className="h-11 rounded-xl" onClick={() => onOpenChange(false)} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-11 flex-1 rounded-xl font-semibold"
+                onClick={publish}
+                disabled={submitting || !category || !title.trim() || skills.length < 1}
+              >
+                {submitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
+                ) : (
+                  'Save & close'
+                )}
+              </Button>
+            </>
+          ) : pickerMode ? (
+            // From a sub-step back to the picker — replace the linear
+            // Back/Continue with a single "Done" pill so the one-thing
+            // edit intent stays clean. Nothing publishes from here;
+            // the user re-lands on step 0 and hits Save & close.
+            <>
+              <Button type="button" variant="outline" className="h-11 flex-1 rounded-xl" onClick={() => setStep(0)} disabled={submitting}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Back to list
+              </Button>
+              <Button type="button" className="h-11 flex-1 rounded-xl font-semibold" onClick={() => setStep(0)} disabled={submitting}>
+                Done
+              </Button>
+            </>
+          ) : step > 1 ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 rounded-xl"
+                onClick={() => setStep((s) => s - 1)}
+                disabled={submitting}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Back
+              </Button>
+              {step < totalSteps ? (
+                <Button
+                  type="button"
+                  className="h-11 flex-1 rounded-xl font-semibold"
+                  onClick={() => setStep((s) => s + 1)}
+                  disabled={!canNext()}
+                >
+                  {step === totalSteps - 1 ? 'Review' : 'Continue'}
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
               ) : (
-                'Go live'
+                <Button
+                  type="button"
+                  className="h-11 flex-1 rounded-xl font-semibold"
+                  onClick={publish}
+                  disabled={submitting || !category || !title.trim() || skills.length < 1}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing…
+                    </>
+                  ) : (
+                    'Go live'
+                  )}
+                </Button>
               )}
-            </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="ghost" className="h-11 rounded-xl" onClick={() => onOpenChange(false)} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-11 flex-1 rounded-xl font-semibold"
+                onClick={() => setStep((s) => s + 1)}
+                disabled={!canNext()}
+              >
+                Continue
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </>
           )}
           </div>
         </div>
