@@ -21,6 +21,7 @@ import { getSupabaseProjectRef } from '@/lib/supabaseEnv';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface Conversation {
   id: string;
@@ -976,27 +977,22 @@ const Messages = () => {
               </Dialog>
 
               {conversations.length === 0 ? (
-                <div className="flex flex-col items-center gap-4 px-4 py-12 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <MessageCircle size={22} className="text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">No conversations yet</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {viewerUserType === 'student'
-                        ? 'Apply to a gig or reply to a client to get started.'
-                        : 'Start a Vano Match — we hand-pick someone for your brief.'}
-                    </p>
-                  </div>
-                  {viewerUserType !== 'student' && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('/hire')}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[12.5px] font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
-                    >
-                      <Sparkles size={13} /> Start a Vano Match
-                    </button>
-                  )}
+                <div className="px-4 py-8">
+                  <EmptyState
+                    icon={MessageCircle}
+                    title="No messages yet"
+                    description={viewerUserType === 'student'
+                      // Freelancers on Vano don't apply to gigs — clients
+                      // message them first after finding their listing or
+                      // being matched by AI Find. Old copy said "apply to
+                      // a gig" which is the wrong mental model.
+                      ? "Once a client finds your listing we'll open the chat here. You'll also get a text when it happens."
+                      : "Start a Vano Match — we hand-pick someone for your brief, or message a freelancer directly from the talent board."}
+                    action={viewerUserType !== 'student' ? {
+                      label: 'Start a Vano Match',
+                      onClick: () => navigate('/hire'),
+                    } : undefined}
+                  />
                 </div>
               ) : (
                 conversations.map((convo) => {

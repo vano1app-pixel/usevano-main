@@ -8,6 +8,7 @@ import { budgetLabel, timelineLabel, DIRECT_HIRE_EXPIRY_HOURS } from '@/lib/hire
 import { Zap, Clock, Check, X, Loader2, Inbox, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatusChip, type StatusTone } from '@/components/ui/StatusChip';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface HireRequest {
   id: string;
@@ -222,13 +223,11 @@ const HireRequestsPage: React.FC = () => {
             </button>
           </div>
         ) : pending.length === 0 && past.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-            <Inbox size={28} className="mx-auto mb-3 text-muted-foreground" />
-            <p className="text-sm font-semibold">No hire requests yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              When a business clicks "Hire now" on your profile, it'll show up here.
-            </p>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No hire requests yet"
+            description="When a business taps Hire now on your profile, the request lands here. We'll text you too, so you can accept within the 2-hour window."
+          />
         ) : (
           <div className="space-y-6">
             {pending.length > 0 && (
