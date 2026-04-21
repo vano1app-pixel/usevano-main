@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import confetti from 'canvas-confetti';
+import { microCelebrate } from '@/lib/celebrate';
 import { useToast } from '@/hooks/use-toast';
 import {
   COMMUNITY_CATEGORY_ORDER,
@@ -327,6 +328,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // desktop (lg+) the preview is always visible in its own column and this
   // flag is ignored.
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  // Auto-save status — stamped every time the draft write useEffect runs.
+  // Surfaced as a "Saved ✓" chip in the wizard header so freelancers know
+  // they can close the tab without losing work. Not a toast: toasts on
+  // every keystroke are noise. Google-Docs-style persistent indicator is
+  // the least intrusive way to build trust in the auto-save.
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const listingInputRef = useRef<HTMLInputElement>(null);
   const MAX_LISTING_IMAGES = 5;
@@ -476,6 +483,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
 
     try {
       localStorage.setItem(listOnCommunityDraftKey(userId), JSON.stringify(draft));
+      // Stamp the save so the header can reflect "Saved" status. Runs on
+      // every field change already thanks to the dep array below — the
+      // indicator is debounced visually via a short animation, so we
+      // don't need to throttle the write.
+      setLastSavedAt(Date.now());
     } catch {
       // Ignore quota/storage restrictions - the wizard should still work without draft persistence.
     }
@@ -1105,7 +1117,26 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:border-r lg:border-border">
         <div className="border-b border-border bg-muted/40 px-5 py-4">
           <DialogHeader className="space-y-3 text-left">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Community</p>
+              {/* Auto-save indicator. Appears the first time the draft
+                  effect writes — before that the wizard has nothing to
+                  save, so showing a stale "Saved" would be a lie. The
+                  key prop on the Check icon re-mounts it on every save,
+                  so the subtle scale-in animation replays as proof the
+                  save actually happened. */}
+              {lastSavedAt != null && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-400">
+                  <Check
+                    key={lastSavedAt}
+                    size={11}
+                    strokeWidth={3}
+                    className="animate-in zoom-in-50 duration-200"
+                  />
+                  Saved
+                </span>
+              )}
+            </div>
             <DialogTitle className="text-xl font-semibold tracking-tight">{STEP_HEADINGS[step] ?? 'List yourself'}</DialogTitle>
             {/* Percent progress bar — front-loaded (step 1 lands at 20%) so
                 the form feels lighter than it is. The tick marks below show
@@ -1201,7 +1232,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       <button
                         key={id}
                         type="button"
-                        onClick={() => setCategory(id)}
+                        onClick={() => {
+                          const firstPick = category !== id;
+                          setCategory(id);
+                          if (firstPick) microCelebrate();
+                        }}
                         className={cn(
                           'group relative flex h-full flex-col gap-2 rounded-2xl border p-4 text-left transition-all',
                           sel
@@ -1378,6 +1413,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <Label>Phone number <span className="text-rose-500">*</span></Label>
                 <Input
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   className="mt-1.5 h-11"
                   placeholder="e.g. 089 981 7111"
                   value={phone}

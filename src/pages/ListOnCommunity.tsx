@@ -50,18 +50,17 @@ export default function ListOnCommunity() {
   // they're here.
   const justClaimed = searchParams.get('claimed') === '1';
   const [scoutBrief, setScoutBrief] = useState<string | null>(null);
-  // Freelancers who already have some data pre-filled from an abandoned
-  // prior session are better served by jumping straight into the full
-  // wizard (their work wouldn't fit in a 30-second form anyway). Cold
-  // first-timers start with the Quick-start.
+  // Gate for "show the 30-second Quick-start vs. drop into the full
+  // wizard." Skills is the one signal that reliably means "this user
+  // has committed enough that a Quick-start would feel like a
+  // demotion" — phone auto-fills from Google sign-in, bio can be empty
+  // by design, and work-link entry has been retired. Using skills
+  // alone keeps freelancers who bounced mid-sign-up (phone only, no
+  // picks made) on the fast path instead of dumping them back into a
+  // 4-step wizard that'll just make them bounce again.
   const isFirstTimer = useMemo(() => {
     if (!initial) return true;
-    return (
-      initial.skills.length === 0 &&
-      !initial.bio.trim() &&
-      !initial.phone.trim() &&
-      initial.workLinks.every((w) => !w.url?.trim())
-    );
+    return initial.skills.length === 0;
   }, [initial]);
 
   // Progress breakdown for the returning-user card. Six buckets so the
