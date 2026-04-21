@@ -52,7 +52,7 @@ import { StudentCardPreview } from '@/components/StudentCardPreview';
 import { GhostStudentCard } from '@/components/GhostStudentCard';
 import { cn } from '@/lib/utils';
 import { getSupabaseErrorMessage, logSupabaseError } from '@/lib/supabaseError';
-import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
+import { resolveUniversityKey } from '@/lib/universities';
 import { IRELAND_COUNTIES, isIrelandCounty } from '@/lib/irelandCounties';
 import { markUserActed } from '@/lib/userActivity';
 import { track } from '@/lib/track';
@@ -310,12 +310,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
   // Hide them behind an "Add social links" toggle so the required fields
   // (bio + phone + university) read as the focus.
   const [showSocialFields, setShowSocialFields] = useState(false);
-  // About-you + University + Work-links are all optional and previously
-  // lived inline on Step 2, blowing it out to 10+ visible fields. Now
-  // collapsed behind a single "Add more about you" disclosure so the
-  // core Step 2 is title + description + phone + (county if local).
-  // Auto-expands for returning drafts so restored data isn't invisible.
-  const [showOptionalDetails, setShowOptionalDetails] = useState(false);
   // Sample-work photos on Step 1 used to render their full grid of upload
   // slots up front. For a cold first-timer without 3 samples ready that
   // amounts to visual homework they can't complete, and they'd bounce on
@@ -645,19 +639,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       default:
         return [];
     }
-  };
-
-  const addWorkLinkRow = () => {
-    if (workLinks.length >= 12) return;
-    setWorkLinks((p) => [...p, { url: '', label: '' }]);
-  };
-
-  const updateWorkLink = (i: number, field: 'url' | 'label', value: string) => {
-    setWorkLinks((p) => p.map((row, j) => (j === i ? { ...row, [field]: value } : row)));
-  };
-
-  const removeWorkLink = (i: number) => {
-    setWorkLinks((p) => (p.length <= 1 ? [{ url: '', label: '' }] : p.filter((_, j) => j !== i)));
   };
 
   const toggleSkill = (s: string) => {
@@ -1502,89 +1483,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   </>
                 );
               })()}
-              {/* "Add more about you" — collapses About bio, University,
-                  and past-work links behind one disclosure so Step 2 lands
-                  at 4 visible fields (title, desc, phone, county). Auto-
-                  expands if a returning draft has any of these filled so
-                  the user can see their previous work. Each field saves
-                  to the same profile row as before — no data loss. */}
-              {(() => {
-                const hasWorkLink = workLinks.some((w) => !!w.url?.trim());
-                const anyOptionalFilled = !!aboutMe.trim() || !!university || hasWorkLink;
-                const expanded = showOptionalDetails || anyOptionalFilled;
-                if (!expanded) {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setShowOptionalDetails(true)}
-                      className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
-                    >
-                      + Add more about you <span className="text-xs font-normal">(optional — bio, university, past work links)</span>
-                    </button>
-                  );
-                }
-                return (
-                  <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
-                    <div>
-                      <Label htmlFor="lc-about">About you <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Shown on your profile page above your work.
-                      </p>
-                      <Textarea
-                        id="lc-about"
-                        className="mt-1.5 min-h-[70px] text-sm"
-                        placeholder="Where you're from, what you're passionate about."
-                        value={aboutMe}
-                        onChange={(e) => setAboutMe(e.target.value)}
-                        maxLength={500}
-                      />
-                    </div>
-                    <div>
-                      <Label>University <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                      <Select value={university} onValueChange={setUniversity}>
-                        <SelectTrigger className="mt-1.5 h-11">
-                          <SelectValue placeholder="Select your university" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {UNIVERSITIES.map((uni) => (
-                            <SelectItem key={uni.key} value={uni.key}>
-                              {uni.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Links to past work <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                      <p className="mt-1 text-xs text-muted-foreground">Portfolio site, Behance, Drive, etc.</p>
-                      <div className="mt-2 space-y-2">
-                        {workLinks.map((row, i) => (
-                          <div key={i} className="flex flex-col gap-2 sm:flex-row">
-                            <Input
-                              placeholder="Label"
-                              value={row.label}
-                              onChange={(e) => updateWorkLink(i, 'label', e.target.value)}
-                              className="h-10"
-                            />
-                            <Input
-                              placeholder="https://…"
-                              value={row.url}
-                              onChange={(e) => updateWorkLink(i, 'url', e.target.value)}
-                              className="h-10 flex-1"
-                            />
-                            <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" onClick={() => removeWorkLink(i)}>
-                              Remove
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      <Button type="button" variant="ghost" size="sm" className="mt-2 h-9 text-xs" onClick={addWorkLinkRow}>
-                        + Add link
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Bio / University / past-work links used to live in a
+                  collapsible "more about you" disclosure here. Cut in
+                  favour of keeping Step 2 to what a business actually
+                  needs to hire someone (pitch + phone + location);
+                  personal-identity fields were adding weight without
+                  driving a single hire. State stays wired up so
+                  returning users don't lose data saved in the old flow. */}
             </div>
           )}
 
@@ -1986,12 +1891,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         ) : (
                           <span className="text-rose-500">No phone</span>
                         )}
-                        {university.trim() ? (
-                          <>
-                            <span className="text-muted-foreground/40">·</span>
-                            <span className="text-foreground/80">{university.trim()}</span>
-                          </>
-                        ) : null}
                       </p>
                     </div>
                     <span className="self-center text-xs font-semibold text-primary">Edit</span>
@@ -2012,8 +1911,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                           if (instagramUrl.trim()) parts.push('Instagram');
                           if (linkedinUrl.trim()) parts.push('LinkedIn');
                           if (websiteUrl.trim()) parts.push('Website');
-                          const workCount = workLinks.filter((l) => l.url.trim()).length;
-                          if (workCount > 0) parts.push(`${workCount} work link${workCount === 1 ? '' : 's'}`);
                           return parts.length ? parts.join(' · ') : <span className="text-muted-foreground">None added</span>;
                         })()}
                       </p>
