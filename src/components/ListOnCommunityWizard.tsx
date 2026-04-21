@@ -936,6 +936,20 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         }
       }
 
+      // Welcome email — fire-and-forget. Session-storage guard
+      // prevents a dup if the user re-publishes in the same tab.
+      // Failure silently ignored; the in-app success screen still
+      // fires and the email is additive.
+      try {
+        const sentKey = 'vano_welcome_email_sent';
+        if (!sessionStorage.getItem(sentKey)) {
+          sessionStorage.setItem(sentKey, '1');
+          void supabase.functions.invoke('welcome-freelancer-published', { body: {} });
+        }
+      } catch {
+        /* session storage unavailable; skip guard but still ok */
+      }
+
       markUserActed();
       track('listing_published', {
         category,

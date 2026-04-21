@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, CheckCircle2, Banknote, ExternalLink, AlertCircle, Circle } from 'lucide-react';
+import { Loader2, CheckCircle2, Banknote, ExternalLink, AlertCircle, Circle, CreditCard, Lock, Briefcase, Unlock, Wallet, HelpCircle } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { cardBase } from '@/lib/cardStyles';
 
@@ -29,6 +30,14 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
 
   const [status, setStatus] = useState<VanoPayStatus>('loading');
   const [redirecting, setRedirecting] = useState(false);
+  // "How does this work?" explainer modal. Freelancers reading the
+  // card's body copy ("funds are held on Vano until the client
+  // releases them on delivery, or auto-release after 14 days") get
+  // the gist, but a first-time freelancer often wants to SEE the
+  // flow before committing to 3 minutes of Stripe onboarding. The
+  // modal walks through each step visually so Vano Pay doesn't
+  // feel like a black box.
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   // When status resolves to 'pending', we fetch the actual list of
   // Stripe requirements (currently_due + past_due) so the freelancer
   // sees exactly what's missing — "Link a bank account", "Add your
@@ -219,6 +228,13 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
                 <>Finish Vano Pay setup <ExternalLink size={13} /></>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowHowItWorks(true)}
+              className="mx-auto flex items-center gap-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <HelpCircle size={11} /> How does this work?
+            </button>
           </>
         ) : (
           <>
@@ -242,9 +258,105 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
                 <>Enable Vano Pay <ExternalLink size={13} /></>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowHowItWorks(true)}
+              className="mx-auto flex items-center gap-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <HelpCircle size={11} /> How does this work?
+            </button>
           </>
         )}
       </div>
+
+      {/* "How Vano Pay works for freelancers" explainer modal — opened
+           from the "How does this work?" link in the not-set-up and
+           pending states. Visual 5-step walk so Vano Pay doesn't feel
+           like a black box before the freelancer commits to 3 minutes
+           of Stripe onboarding. Not linked from the 'enabled' state —
+           they already did it. */}
+      <Dialog open={showHowItWorks} onOpenChange={setShowHowItWorks}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-primary/10 via-card to-card px-6 py-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-primary">
+                  How Vano Pay works
+                </p>
+                <DialogHeader className="mt-1">
+                  <DialogTitle className="text-[20px] font-semibold leading-tight tracking-tight">
+                    Protected payments, no chasing
+                  </DialogTitle>
+                  <DialogDescription className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+                    The client pays up-front into escrow. You see it&apos;s there before you start the work — no invoicing, no ghosting, no chasing for payment after delivery.
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+            </div>
+          </div>
+
+          <ol className="space-y-3 px-6 py-5">
+            {[
+              {
+                num: 1,
+                icon: CreditCard,
+                title: 'Client pays through Vano',
+                body: 'They tap "Pay via Vano" in your chat and enter their card details with Stripe. The full amount leaves their account immediately.',
+              },
+              {
+                num: 2,
+                icon: Lock,
+                title: 'Money sits in escrow',
+                body: 'Funds are held by Stripe on the Vano platform. The client can\'t take it back once it\'s paid; you can see it\'s secured before starting.',
+              },
+              {
+                num: 3,
+                icon: Briefcase,
+                title: 'You deliver the work',
+                body: 'Chat through Vano, share files, do the job. The money stays held the whole time — no risk of them disappearing mid-project.',
+              },
+              {
+                num: 4,
+                icon: Unlock,
+                title: 'Client releases (or auto-release in 14 days)',
+                body: 'When the work is done, they tap Release. If they ghost, the money auto-releases to you 14 days after the hold started — you can\'t be left hanging.',
+              },
+              {
+                num: 5,
+                icon: Wallet,
+                title: 'Lands in your bank in 1–2 days',
+                body: 'Stripe pays out the freelancer amount (payment minus 3% Vano fee) to your linked bank account within 1–2 business days.',
+              },
+            ].map((step) => {
+              const Icon = step.icon;
+              return (
+                <li key={step.num} className="flex gap-3">
+                  <div className="flex shrink-0 flex-col items-center">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-[13px] font-bold text-primary">
+                      {step.num}
+                    </span>
+                  </div>
+                  <div className="min-w-0 pt-1">
+                    <p className="flex items-center gap-1.5 text-[13.5px] font-semibold text-foreground">
+                      <Icon size={13} className="text-primary" />
+                      {step.title}
+                    </p>
+                    <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">
+                      {step.body}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+
+          <div className="border-t border-border/60 bg-muted/30 px-6 py-3.5">
+            <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Vano takes 3%</span> — no monthly fee, no per-transaction extras. If the client disputes, an admin reviews and can refund them or release to you.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -738,6 +738,16 @@ const Profile = () => {
             url.searchParams.delete('listed');
             window.history.replaceState({}, '', url.toString());
           }
+          // Point them at the "View public profile" link so they know
+          // they can see exactly what a client sees. Without this, a
+          // first-time freelancer often forgets they have a public-facing
+          // page until they get their first message. Toast persists for
+          // ~6s so they catch it after the modal closes.
+          toast({
+            title: 'You can see your listing from a client\'s view',
+            description: 'Tap "View public profile" at the top to preview what businesses see.',
+            duration: 6000,
+          });
         }}
       />
       <Navbar />
