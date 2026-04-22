@@ -122,6 +122,15 @@ export function VanoPayModal({
         variant: 'destructive',
       });
       setSubmitting(false);
+      // Clear a structurally-valid-but-server-rejected session so the
+      // next action forces a real re-auth instead of looping on the
+      // same bad JWT. AuthContext's onAuthStateChange listener will
+      // bounce protected routes to /auth; we also close the modal so
+      // the error isn't stuck behind it.
+      if (isAuthFailure) {
+        try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
+        onClose();
+      }
     }
   };
 

@@ -234,6 +234,12 @@ export function BusinessDealsPanel({
           : 'Please try again in a moment.',
         variant: 'destructive',
       });
+      // Drop the server-rejected session so the next click doesn't
+      // loop on the same bad JWT — AuthContext routes to /auth on
+      // the resulting SIGNED_OUT event.
+      if (isAuthFailure) {
+        try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
+      }
     }
   };
 
