@@ -4,6 +4,7 @@ import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw } from 'luc
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useVanoPayConfig } from '@/lib/vanoPayConfig';
+import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 
 // Business-side modal for initiating a Vano Pay payment inside a
 // conversation. Collects amount (€) + optional description, shows a
@@ -116,9 +117,10 @@ export function VanoPayModal({
         : message
           ? `${statusLine}${message.slice(0, 200)}`
         : 'Please try again in a moment.';
+      const diag = isAuthFailure ? await diagnoseAuthFailure() : null;
       toast({
         title: "Couldn't start Vano Pay",
-        description: friendly,
+        description: diag ?? friendly,
         variant: 'destructive',
       });
       setSubmitting(false);

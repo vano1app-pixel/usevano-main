@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 import { Button } from '@/components/ui/button';
 import {
   BONUS_STATUS_LABELS,
@@ -224,10 +225,13 @@ export function BusinessDealsPanel({
         ?? (err as { context?: { status?: number } })?.context?.status;
       const isAuthFailure = status === 401 || status === 403
         || message.toLowerCase().includes('unauthorized');
+      const diag = isAuthFailure ? await diagnoseAuthFailure() : null;
       toast({
         title: "Couldn't start the bonus payout",
         description:
-          isAuthFailure
+          diag
+            ? diag
+          : isAuthFailure
             ? 'Your sign-in expired — please sign in again and try once more.'
           : message.includes('not enabled Vano Pay')
             ? `${freelancerName} hasn't enabled Vano Pay yet — ask them to turn it on in their profile, then retry.`

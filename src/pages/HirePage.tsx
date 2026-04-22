@@ -13,6 +13,7 @@ import { clearHireBrief, loadHireBrief, saveHireBrief } from '@/lib/hireFlow';
 import { setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { markUserActed } from '@/lib/userActivity';
+import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
@@ -627,9 +628,15 @@ const HirePage = () => {
           // dominate the toast.
           ? `${statusLine}${rawMsg.slice(0, 200)}`
         : 'Please try again in a moment, or use the free Vano Match button above.';
+      // If the gateway rejected with 401/403, try to diagnose why —
+      // an env mismatch (VITE_SUPABASE_URL project ≠ session project)
+      // produces the same status as a stale token but with completely
+      // different remediation, so surfacing the actual cause beats a
+      // generic "sign in again" nudge.
+      const diag = isAuthFailure ? await diagnoseAuthFailure() : null;
       toast({
         title: "Couldn't start AI Find",
-        description: friendly,
+        description: diag ?? friendly,
         variant: 'destructive',
       });
       setAiFindLoading(false);
