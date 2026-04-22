@@ -61,36 +61,6 @@ function readHeader(headers: VercelReq['headers'], name: string): string | null 
   return typeof v === 'string' ? v : null;
 }
 
-// Echo the request origin when it looks like a Vano host so same-site
-// fetches that the browser decides to preflight (www vs apex, preview
-// deploy URLs, in-app browsers that treat nav-host as different from
-// fetch-host) still clear CORS. Any other origin falls back to the
-// production domain — we don't return '*' because we send credentials.
-function resolveAllowedOrigin(headers: VercelReq['headers']): string {
-  const origin = readHeader(headers, 'origin');
-  if (!origin) return 'https://vanojobs.com';
-  try {
-    const u = new URL(origin);
-    if (
-      u.hostname === 'vanojobs.com' ||
-      u.hostname.endsWith('.vanojobs.com') ||
-      u.hostname.endsWith('.vercel.app') ||
-      u.hostname === 'localhost'
-    ) {
-      return origin;
-    }
-  } catch { /* fall through */ }
-  return 'https://vanojobs.com';
-}
-
-function applyCors(res: VercelRes, headers: VercelReq['headers']): void {
-  res.setHeader('Access-Control-Allow-Origin', resolveAllowedOrigin(headers));
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-  res.setHeader('Access-Control-Max-Age', '86400');
-}
-
 // Stripe's REST API uses form-urlencoded with square-bracket notation
 // for nested fields. Matches the pattern already used by the edge
 // function version.
@@ -129,20 +99,8 @@ async function supabaseRest<T = unknown>(
 }
 
 export default async function handler(req: VercelReq, res: VercelRes) {
-  applyCors(res, req.headers);
-
-  // CORS preflight — browsers send this before POST when the request
-  // includes Authorization / JSON content-type and the target is
-  // treated as cross-origin. Must be answered with 2xx + CORS headers
-  // or the actual POST is silently aborted (observed as: 0 POST logs,
-  // only OPTIONS 405 in Vercel runtime logs).
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Allow', 'POST, OPTIONS');
-    return res.status(204).end();
-  }
-
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST, OPTIONS');
+    res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
