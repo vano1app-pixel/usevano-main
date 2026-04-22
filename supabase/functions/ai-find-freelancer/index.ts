@@ -608,29 +608,33 @@ serve(async (req) => {
     });
   }
 
+  // Parsed upfront so the outer catch below can mark the row failed +
+  // auto-refund even if an env check or query crashes mid-run. Before
+  // this, a missing API key or DB blip would return 500 and leave the
+  // row stuck at 'paid' — the hirer's results page polled forever and
+  // the €1 was never refunded.
+  const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY') ?? null;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  let requestId: string | null = null;
+  let supabase: ReturnType<typeof createClient> | null = null;
+
   try {
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
-    // STRIPE_SECRET_KEY is optional here — only needed for auto-refund
-    // on failure. If missing, a failed request flips to 'failed' with
-    // the "manual refund required" note so ops can handle it.
-    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY') ?? null;
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), { status: 500 });
-    }
-    if (!SERPER_API_KEY) {
-      return new Response(JSON.stringify({ error: 'SERPER_API_KEY not configured' }), { status: 500 });
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, serviceKey);
-
     const body = await req.json().catch(() => ({}));
-    const requestId = typeof body?.request_id === 'string' ? body.request_id : null;
+    requestId = typeof body?.request_id === 'string' ? body.request_id : null;
     if (!requestId) {
       return new Response(JSON.stringify({ error: 'request_id required' }), { status: 400 });
     }
+
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error('Supabase env not configured');
+    }
+    supabase = createClient(supabaseUrl, serviceKey);
+
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+    if (!SERPER_API_KEY) throw new Error('SERPER_API_KEY not configured');
 
     // Flip paid → scouting. Same idempotent pattern as stripe-webhook —
     // a retry after we've already started does nothing.
@@ -731,6 +735,40 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error('[ai-find-freelancer] unhandled', err);
+    // Safety net: if we know which row we were processing, flip it to
+    // failed and auto-refund the €1. Without this, any throw above
+    // (missing env key, Supabase outage, DNS hiccup) would leave the
+    // hirer polling a row stuck at 'paid' forever with no refund.
+    // markFailed is itself idempotent on the underlying Stripe call
+    // (via the refund API's implicit de-dup on payment_intent) so a
+    // retry delivery from Stripe won't double-refund.
+    if (requestId && supabase) {
+      try {
+        const { data: existing } = await supabase
+          .from('ai_find_requests')
+          .select('status, stripe_payment_intent_id')
+          .eq('id', requestId)
+          .maybeSingle();
+        // Only flip non-terminal states. A partial success that
+        // completed but then errored on a follow-up shouldn't be
+        // overwritten with 'failed'.
+        const alreadyDone = !existing
+          || existing.status === 'complete'
+          || existing.status === 'refunded'
+          || existing.status === 'failed';
+        if (!alreadyDone) {
+          await markFailed(
+            supabase,
+            requestId,
+            (existing?.stripe_payment_intent_id as string | null) ?? null,
+            STRIPE_SECRET_KEY,
+            (err as { message?: string })?.message || 'unhandled_error',
+          );
+        }
+      } catch (cleanupErr) {
+        console.error('[ai-find-freelancer] failure-path cleanup errored', cleanupErr);
+      }
+    }
     return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500 });
   }
 });
