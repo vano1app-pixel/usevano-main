@@ -633,6 +633,17 @@ const HirePage = () => {
         variant: 'destructive',
       });
       setAiFindLoading(false);
+      // A 401/403 from the gateway means the JWT we just sent is
+      // structurally valid (it passed getSession) but server-rejected
+      // — most often a rotated JWT secret or a session from a
+      // previous auth provider config. Tapping the button again just
+      // loops on the same bad token, so clear it and route to /auth
+      // for a fresh sign-in. Brief was persisted before the invoke,
+      // so the user lands back on Step 3 intact.
+      if (isAuthFailure) {
+        try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
+        navigate('/auth');
+      }
     }
   };
 
