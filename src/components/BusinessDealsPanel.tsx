@@ -190,6 +190,19 @@ export function BusinessDealsPanel({
     }
     setBusy(deal.id);
     try {
+      // Guard against a stale JWT — without this, an expired session
+      // bubbles up as "[401] Edge Function returned a non-2xx status
+      // code" and the user has no idea they just need to sign in again.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        setBusy(null);
+        toast({
+          title: 'Your sign-in expired',
+          description: 'Please sign in again to pay the bonus.',
+          variant: 'destructive',
+        });
+        return;
+      }
       const { data, error } = await supabase.functions.invoke('create-vano-payment-checkout', {
         body: {
           conversation_id: deal.conversation_id,
@@ -207,10 +220,16 @@ export function BusinessDealsPanel({
       const message = (err as { message?: string; context?: { error?: string } })?.context?.error
         || (err as { message?: string })?.message
         || '';
+      const status = (err as { status?: number; context?: { status?: number } })?.status
+        ?? (err as { context?: { status?: number } })?.context?.status;
+      const isAuthFailure = status === 401 || status === 403
+        || message.toLowerCase().includes('unauthorized');
       toast({
         title: "Couldn't start the bonus payout",
         description:
-          message.includes('not enabled Vano Pay')
+          isAuthFailure
+            ? 'Your sign-in expired — please sign in again and try once more.'
+          : message.includes('not enabled Vano Pay')
             ? `${freelancerName} hasn't enabled Vano Pay yet — ask them to turn it on in their profile, then retry.`
           : 'Please try again in a moment.',
         variant: 'destructive',
