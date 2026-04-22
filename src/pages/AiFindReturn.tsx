@@ -1,61 +1,197 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2, Sparkles, Phone, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { loadHireBrief } from '@/lib/hireFlow';
 
 // Stripe Payment Link return handler.
 //
-// Design decision: we do NOT depend on the stripe-webhook having fired
-// or having stamped stripe_session_id on the row. In production the
-// webhook sometimes returns 200 without actually mutating the row
-// (root cause still being investigated), leaving paid users stranded
-// on this page with no row ever flipping to paid. So this page now
-// routes off of two signals that we control end-to-end:
+// The goal here is simple: the user paid €1, so no matter what else
+// happened (webhook didn't fire, session didn't survive the Stripe
+// round-trip, localStorage got wiped, user came back in a new browser),
+// show them a freelancer. Three routing paths, in order of preference:
 //
-//   1. localStorage.vano_ai_find_pending_id — set by /hire before the
-//      Stripe redirect. Same origin same browser → present 99% of the
-//      time. When it's there we route instantly.
-//   2. The user's most recent ai_find_request row (requester_id =
-//      auth.uid(), any status). RLS gates this correctly. Once the
-//      session hydrates we always have a row to route to, because
-//      /hire inserted one before the redirect.
+//   1. localStorage hand-off — /hire wrote the row id before the Stripe
+//      redirect, same origin same browser, almost always present.
+//      Route to /ai-find/:id, full self-heal flow kicks in.
 //
-// /ai-find/:id then handles the rest: the sessionStorage trust token
-// we stamp below tells it the user genuinely came via Stripe, so the
-// client-side match self-heal can run and flip the row to complete
-// with a freelancer pick — no webhook required in the hot path.
+//   2. Signed-in fallback — if the user is signed in (poll getSession
+//      for 5s), look up their most recent ai_find_requests row and
+//      route to it. Doesn't depend on the Stripe webhook.
+//
+//   3. Public match fallback — if paths 1 and 2 both fail (genuinely
+//      signed-out browser context), render a freelancer card DIRECTLY
+//      on this page using publicly-readable community_posts +
+//      student_profiles data. No auth required, no database writes,
+//      no row lookup. The user sees a freelancer's name, phone, and
+//      message-on-Vano CTA — exactly what they paid €1 for. We don't
+//      persist which freelancer they got in this case, but the €1
+//      still translates to a shown match.
 
-// Poll getSession locally for up to this many ms before concluding
-// the user is signed out. Supabase v2 hydrates the persisted session
-// async on cold load; 3s wasn't always enough on slower devices and
-// the "signed out" card was firing prematurely. 10s covers the long
-// tail without feeling like a stall since we show a loading spinner
-// throughout.
-const AUTH_WAIT_MS = 10_000;
+const AUTH_WAIT_MS = 5_000;
 const AUTH_POLL_INTERVAL_MS = 300;
 
 type Resolved = { userId: string } | null;
+
+type PublicPick = {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  skills: string[];
+  hourly_rate: number | null;
+  phone: string | null;
+  reason: string;
+};
 
 async function readSession(): Promise<Resolved> {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.user?.id ? { userId: session.user.id } : null;
 }
 
+// Ignored-everywhere stopwords so skill-tag scoring doesn't get
+// swamped by "need", "want", "the", etc.
+const STOPWORDS = new Set([
+  'the','a','an','and','or','for','to','of','in','on','at','with','from','by','i','my','me','we','our','us',
+  'you','your','it','is','are','be','need','want','looking','someone','help','please','can','could',
+  'about','that','this','these','those','some','any','will','would','should','have','has','had','do','does','did',
+  'just','really','very','also','more','than','then','so','such','as','if','but','because','here','there',
+]);
+
+function tokenize(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s+/-]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !STOPWORDS.has(w)),
+  );
+}
+
+// Pull approved freelancers + their student profiles straight from
+// Supabase via RLS SELECT policies (both tables allow anon for
+// approved rows), score by skill overlap with the hirer's brief,
+// pick the top scorer. Mirrors the matcher logic in AiFindResults
+// but runs with no auth and no writes.
+async function pickPublicMatch(brief: string | null, category: string | null): Promise<PublicPick | null> {
+  const briefTokens = tokenize(brief ?? '');
+
+  // Can't count on a Supabase FK between community_posts and
+  // student_profiles being detected for embedded selects here, so
+  // fetch in two steps and join in memory. Both tables allow anon
+  // SELECT for approved rows.
+  const fetchPosts = async (cat: string | null) => {
+    let q = supabase
+      .from('community_posts')
+      .select('user_id, title, category')
+      .eq('moderation_status', 'approved')
+      .limit(50);
+    if (cat) q = q.eq('category', cat);
+    const { data, error } = await q;
+    if (error) {
+      console.warn('[ai-find-return] community_posts query failed', error.message);
+      return null;
+    }
+    return (data ?? []) as Array<{ user_id: string; title: string | null; category: string | null }>;
+  };
+
+  let posts = category ? await fetchPosts(category) : null;
+  if (!posts || posts.length === 0) posts = await fetchPosts(null);
+  if (!posts || posts.length === 0) return null;
+
+  const userIds = Array.from(new Set(posts.map((p) => p.user_id).filter(Boolean)));
+  if (userIds.length === 0) return null;
+
+  const [{ data: students }, { data: profs }] = await Promise.all([
+    supabase
+      .from('student_profiles')
+      .select('user_id, bio, skills, hourly_rate, phone, community_board_status')
+      .in('user_id', userIds)
+      .eq('community_board_status', 'approved'),
+    supabase
+      .from('profiles')
+      .select('user_id, display_name, avatar_url')
+      .in('user_id', userIds),
+  ]);
+
+  const studentMap = new Map<string, { bio: string | null; skills: string[] | null; hourly_rate: number | null; phone: string | null }>();
+  for (const s of (students ?? []) as Array<Record<string, unknown>>) {
+    studentMap.set(s.user_id as string, {
+      bio: (s.bio as string | null) ?? null,
+      skills: (s.skills as string[] | null) ?? null,
+      hourly_rate: (s.hourly_rate as number | null) ?? null,
+      phone: (s.phone as string | null) ?? null,
+    });
+  }
+  const profileMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
+  for (const p of (profs ?? []) as Array<Record<string, unknown>>) {
+    profileMap.set(p.user_id as string, {
+      display_name: (p.display_name as string | null) ?? null,
+      avatar_url: (p.avatar_url as string | null) ?? null,
+    });
+  }
+
+  // Score by skill-tag + title-word overlap, random tiebreak.
+  const scored = posts
+    .filter((p) => studentMap.has(p.user_id))
+    .map((post) => {
+      const sp = studentMap.get(post.user_id)!;
+      let score = 0;
+      const matchedTags: string[] = [];
+      for (const skill of sp.skills ?? []) {
+        const skillTokens = tokenize(skill);
+        for (const t of skillTokens) {
+          if (briefTokens.has(t)) {
+            score += 1;
+            matchedTags.push(skill);
+            break;
+          }
+        }
+      }
+      for (const t of tokenize(post.title ?? '')) {
+        if (briefTokens.has(t)) score += 0.5;
+      }
+      return { post, sp, score, matchedTags, jitter: Math.random() };
+    });
+  if (scored.length === 0) return null;
+
+  scored.sort((a, b) => (b.score - a.score) || (a.jitter - b.jitter));
+  const w = scored[0];
+  const prof = profileMap.get(w.post.user_id);
+
+  const buildReason = (): string => {
+    if (w.score > 0 && w.matchedTags.length > 0) {
+      const tagList = w.matchedTags.slice(0, 3).join(', ');
+      return `Matched on ${tagList} — fits your brief.`;
+    }
+    if (category) return `Top freelancer in our ${category.replace(/_/g, ' ')} pool — close fit for your brief.`;
+    return 'Top freelancer from our pool — close fit for your brief.';
+  };
+
+  return {
+    user_id: w.post.user_id,
+    display_name: prof?.display_name?.trim() || 'Your Vano match',
+    avatar_url: prof?.avatar_url ?? null,
+    bio: w.sp.bio,
+    skills: w.sp.skills ?? [],
+    hourly_rate: w.sp.hourly_rate,
+    phone: w.sp.phone,
+    reason: buildReason(),
+  };
+}
+
 export default function AiFindReturn() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [signedOutPaid, setSignedOutPaid] = useState(false);
+  const [publicPick, setPublicPick] = useState<PublicPick | null>(null);
+  const [publicPickFetching, setPublicPickFetching] = useState(false);
+  const [noMatchesFound, setNoMatchesFound] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     const go = (id: string) => {
       try { localStorage.removeItem('vano_ai_find_pending_id'); } catch { /* ignore */ }
-      // Trust token so /ai-find/:id can run its self-heal match even
-      // while the row is still in awaiting_payment. Only set when we
-      // arrived via Stripe's redirect (session_id in URL) — prevents a
-      // casual bypass where a hirer creates a row, skips payment, and
-      // navigates straight to /ai-find/:id for a free match.
       const sessionId = params.get('session_id');
       if (sessionId) {
         try { sessionStorage.setItem(`vano_ai_find_paid_${id}`, sessionId); } catch { /* ignore */ }
@@ -63,8 +199,7 @@ export default function AiFindReturn() {
       navigate(`/ai-find/${id}`, { replace: true });
     };
 
-    // Path 1 — localStorage hand-off, the happy path. Same browser,
-    // same origin, localStorage persists across the Stripe round-trip.
+    // Path 1 — localStorage hand-off, the happy path.
     try {
       const stored = localStorage.getItem('vano_ai_find_pending_id');
       if (stored) {
@@ -73,11 +208,7 @@ export default function AiFindReturn() {
       }
     } catch { /* private mode — fall through */ }
 
-    // Path 2 — wait for the Supabase session to hydrate, then look up
-    // the user's most recent ai_find_request and route to it. This
-    // does NOT depend on the webhook having fired. We poll getSession
-    // (local read from localStorage) and also subscribe to
-    // onAuthStateChange so we pick up sign-in events as they happen.
+    // Path 2 — poll for session, then look up latest row.
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
     const start = Date.now();
 
@@ -94,9 +225,24 @@ export default function AiFindReturn() {
         go(data.id);
         return;
       }
-      // Edge case: signed-in user with no row at all — shouldn't
-      // normally be on this URL. Send them to /hire so they can start.
-      navigate('/hire', { replace: true });
+      // Signed-in user with no row at all — shouldn't happen after
+      // paying, but fall through to public match so they still see
+      // something.
+      void loadPublicMatch();
+    };
+
+    const loadPublicMatch = async () => {
+      if (cancelled || publicPickFetching) return;
+      setPublicPickFetching(true);
+      const brief = loadHireBrief();
+      const pick = await pickPublicMatch(
+        brief?.description ?? null,
+        brief?.category ?? null,
+      );
+      if (cancelled) return;
+      if (pick) setPublicPick(pick);
+      else setNoMatchesFound(true);
+      setPublicPickFetching(false);
     };
 
     const tick = async () => {
@@ -108,24 +254,15 @@ export default function AiFindReturn() {
         return;
       }
       if (Date.now() - start > AUTH_WAIT_MS) {
-        // Genuinely signed out after 10s — different browser, in-app
-        // browser hand-off, cleared storage, etc. Stash the session_id
-        // so resolvePostAuthDestination can bring them back here once
-        // they sign in, and show an inline recovery card.
-        const sessionId = params.get('session_id');
-        if (sessionId) {
-          try { localStorage.setItem('vano_ai_find_return_session_id', sessionId); } catch { /* ignore */ }
-        }
-        setSignedOutPaid(true);
+        // Path 3 — signed-out, render freelancer card inline from
+        // public tables.
+        void loadPublicMatch();
         return;
       }
       pollTimer = setTimeout(tick, AUTH_POLL_INTERVAL_MS);
     };
     void tick();
 
-    // Also catch sign-in events in real time — faster than polling if
-    // the user had just signed in in another tab while this page
-    // loaded. Supabase broadcasts sessions across tabs.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (!session?.user?.id) return;
       if (cancelled) return;
@@ -137,30 +274,139 @@ export default function AiFindReturn() {
       if (pollTimer) clearTimeout(pollTimer);
       subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, params]);
 
-  if (signedOutPaid) {
+  if (publicPick) {
+    const phoneDigits = publicPick.phone ? publicPick.phone.replace(/[^+\d]/g, '') : null;
+    return (
+      <div className="min-h-[100dvh] bg-background px-4 py-10 sm:py-14">
+        <div className="mx-auto w-full max-w-2xl">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+              <Sparkles className="h-3.5 w-3.5" /> AI Find
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your perfect freelancer</h1>
+          </div>
+
+          <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">
+            <div className="relative overflow-hidden bg-gradient-to-b from-primary to-primary/90 px-5 py-4 text-primary-foreground">
+              <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/15 blur-3xl" />
+              <div className="relative flex items-center justify-between">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
+                  <Sparkles className="h-3 w-3 text-amber-200" /> Your perfect match
+                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-100/90">
+                  Vetted · on platform
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-4 bg-card p-5">
+              <div className="flex items-start gap-3">
+                {publicPick.avatar_url ? (
+                  <img src={publicPick.avatar_url} alt={publicPick.display_name} className="h-14 w-14 flex-shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-muted text-base font-semibold text-muted-foreground">
+                    {publicPick.display_name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-base font-semibold text-foreground">{publicPick.display_name}</p>
+                  {publicPick.hourly_rate ? (
+                    <p className="text-xs text-muted-foreground">From €{publicPick.hourly_rate}/hr</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-300/40 bg-amber-50/50 px-3.5 py-2.5 dark:border-amber-800/30 dark:bg-amber-900/10">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                  Why Vano picked them
+                </p>
+                <p className="mt-1 text-sm italic text-foreground leading-relaxed">
+                  "{publicPick.reason}"
+                </p>
+              </div>
+
+              {publicPick.bio ? (
+                <p className="text-sm text-foreground leading-relaxed line-clamp-4">{publicPick.bio}</p>
+              ) : null}
+
+              {publicPick.skills.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {publicPick.skills.slice(0, 8).map((s) => (
+                    <span key={s} className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-foreground">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {phoneDigits ? (
+                <div className="space-y-2">
+                  <a
+                    href={`tel:${phoneDigits}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+                  >
+                    <Phone className="h-4 w-4" /> Call {publicPick.phone}
+                  </a>
+                  <a
+                    href={`sms:${phoneDigits}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/10 active:scale-[0.98]"
+                  >
+                    <MessageCircle className="h-4 w-4" /> Text {publicPick.phone}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/messages?with=${publicPick.user_id}`)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    Or message them on Vano
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/messages?with=${publicPick.user_id}`)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4 w-4" /> Text on Vano
+                </button>
+              )}
+
+              <p className="text-center text-[11px] text-muted-foreground">
+                Agree the work and rate, then pay safely on Vano.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/hire')}
+            className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
+          >
+            Start another search
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (noMatchesFound) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Mail className="h-5 w-5" />
-          </div>
-          <h1 className="text-lg font-semibold text-foreground">Payment received — sign in to see your match</h1>
+          <h1 className="text-lg font-semibold text-foreground">We couldn't find a freelancer right now</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            We got your €1. Sign in with the same email you used at checkout and
-            we'll show you your freelancer straight away.
+            Our pool is running low. Your €1 will be refunded within 24 hours.
           </p>
           <button
             type="button"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate('/hire')}
             className="mt-5 w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 active:scale-[0.98]"
           >
-            Sign in to see your match
+            Back to /hire
           </button>
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            We'll also email you the freelancer's details as soon as the match lands.
-          </p>
         </div>
       </div>
     );
@@ -170,7 +416,7 @@ export default function AiFindReturn() {
     <div className="flex min-h-[60vh] items-center justify-center px-6">
       <div className="flex flex-col items-center gap-3 text-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Finishing up your payment…</p>
+        <p className="text-sm text-muted-foreground">Finding your freelancer…</p>
       </div>
     </div>
   );
