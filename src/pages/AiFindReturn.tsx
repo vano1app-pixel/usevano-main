@@ -8,20 +8,19 @@ import { supabase } from '@/integrations/supabase/client';
 // Payment Links can only template {CHECKOUT_SESSION_ID} into their
 // success URL — they can't inject arbitrary path segments. So our
 // success URL is just this page, and the request id lives in
-// localStorage (written by /hire before the redirect) OR, as a
-// belt-and-braces fallback, is looked up by stripe_session_id once
-// the webhook has stamped it on the row.
+// localStorage (written by /hire before the redirect) OR we look it
+// up by stripe_session_id once the webhook lands OR — as a final
+// belt-and-braces fallback — we grab the user's most recent
+// in-flight ai_find_request and use that.
 //
-// Flow:
-//   1. Read pending id from localStorage → redirect to /ai-find/:id.
-//   2. If missing (private-mode Safari, user switched browsers),
-//      pull session_id from URL and poll ai_find_requests until
-//      stripe_session_id matches (webhook landed). Then redirect.
-//   3. Bail to /hire after a short grace period if neither surfaces —
-//      the user can re-kick the flow from there.
+// The third path matters because the previous version dumped users
+// back on /hire when localStorage was missing AND the webhook hadn't
+// landed within 20s. They'd then re-click AI Find, insert a new row,
+// and pay again. Double-charges and a "looped" experience. We never
+// want to bounce a user who just paid back to the start screen.
 
-const FALLBACK_POLL_INTERVAL_MS = 1500;
-const FALLBACK_POLL_MAX_MS = 20_000;
+const POLL_INTERVAL_MS = 1500;
+const POLL_MAX_MS = 8_000;
 
 export default function AiFindReturn() {
   const navigate = useNavigate();
@@ -33,28 +32,67 @@ export default function AiFindReturn() {
 
     const go = (id: string) => {
       try { localStorage.removeItem('vano_ai_find_pending_id'); } catch { /* ignore */ }
+      // Stamp a trust token so /ai-find/:id can self-heal an
+      // awaiting_payment row even when the Stripe webhook hasn't
+      // landed yet. Only set when we got here via Stripe's redirect
+      // (presence of session_id is the signal). Stops a casual
+      // bypass where someone creates a row, skips paying, and
+      // navigates directly to /ai-find/:id.
+      const sessionId = params.get('session_id');
+      if (sessionId) {
+        try { sessionStorage.setItem(`vano_ai_find_paid_${id}`, sessionId); } catch { /* ignore */ }
+      }
       navigate(`/ai-find/${id}`, { replace: true });
     };
 
-    // Path 1 — localStorage hand-off.
+    // Path 1 — localStorage hand-off, the happy path.
     try {
       const stored = localStorage.getItem('vano_ai_find_pending_id');
       if (stored) {
         go(stored);
         return;
       }
-    } catch { /* private mode — fall through to path 2 */ }
+    } catch { /* private mode — fall through */ }
 
-    // Path 2 — poll by session_id. The webhook updates
-    // stripe_session_id on the row the moment it handles the event,
-    // so once it lands we can find the row even without localStorage.
+    // Path 2 — poll by session_id. The webhook stamps stripe_session_id
+    // on the row when it handles the event, so once it lands we can
+    // find the row even without localStorage. We give it a short
+    // window then fall through to path 3 instead of stranding the
+    // user.
     const sessionId = params.get('session_id');
-    if (!sessionId) {
+    const start = Date.now();
+
+    const fallbackToLatest = async () => {
+      if (cancelled) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Genuinely signed out — bounce to /auth so they can sign back
+        // in; their row exists and will be findable on next visit.
+        navigate('/auth', { replace: true });
+        return;
+      }
+      const { data } = await supabase
+        .from('ai_find_requests')
+        .select('id')
+        .eq('requester_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data?.id) {
+        go(data.id);
+        return;
+      }
+      // User has no ai_find_requests row at all — they shouldn't be on
+      // this URL. Send them home.
       navigate('/hire', { replace: true });
+    };
+
+    if (!sessionId) {
+      void fallbackToLatest();
       return;
     }
 
-    const start = Date.now();
     const tick = async () => {
       if (cancelled) return;
       const { data } = await supabase
@@ -67,11 +105,11 @@ export default function AiFindReturn() {
         go(data.id);
         return;
       }
-      if (Date.now() - start > FALLBACK_POLL_MAX_MS) {
-        navigate('/hire', { replace: true });
+      if (Date.now() - start > POLL_MAX_MS) {
+        void fallbackToLatest();
         return;
       }
-      pollTimer = setTimeout(tick, FALLBACK_POLL_INTERVAL_MS);
+      pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
     };
     tick();
 

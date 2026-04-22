@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
-import { StudentCard } from '@/components/StudentCard';
 import { useToast } from '@/hooks/use-toast';
 import { isEmailVerified } from '@/lib/authSession';
 import { teamWhatsAppHref } from '@/lib/contact';
@@ -233,74 +232,6 @@ const HirePage = () => {
     // Always reset sub-type when switching categories — stale chips from a
     // different category would silently feed into the synthesized description.
     setSubtype(null);
-  };
-
-  // Example chips at the top of step 1. Each one pre-fills the whole
-  // brief (category, subtype, description, timeline, budget) and jumps
-  // straight to step 3 so a typical hirer can go from "I need X" to
-  // "Choose how to hire" in one tap. Cures blank-page freeze for
-  // first-time users who can't be bothered filling free-text fields.
-  const EXAMPLE_BRIEFS: Array<{
-    emoji: string;
-    label: string;
-    category: string;
-    subtype: string;
-    description: string;
-    timeline: string;
-    budget: string;
-  }> = [
-    // Subtype strings MUST match CATEGORIES[*].subtypes verbatim — the
-    // pickers on Step 2 compare by string equality against that same
-    // array, so a chip that sets e.g. subtype='short_form' would
-    // render with no selected subtype and silently leak an invalid
-    // value into the brief. Timelines likewise must be one of the
-    // TIMELINES ids ('this_week' / '2_weeks' / '1_month' / 'flexible').
-    {
-      emoji: '🎥',
-      label: '30-second TikTok edit',
-      category: 'videography',
-      subtype: 'Reel / short-form',
-      description: 'Need a 30-second TikTok edit — short-form, punchy, with captions.',
-      timeline: 'this_week',
-      budget: '100_250',
-    },
-    {
-      emoji: '🌐',
-      label: 'New website for my business',
-      category: 'websites',
-      subtype: 'Full website',
-      description: 'New website for my business — a few pages, mobile-friendly, easy to update.',
-      timeline: '1_month',
-      budget: '500_plus',
-    },
-    {
-      emoji: '📣',
-      label: 'Social media manager for 3 months',
-      category: 'social_media',
-      subtype: 'Community management',
-      description: 'Looking for someone to run my Instagram + TikTok for 3 months — content, posting, engagement.',
-      timeline: 'flexible',
-      budget: '500_plus',
-    },
-    {
-      emoji: '💼',
-      label: 'Cold caller for my business',
-      category: 'digital_sales',
-      subtype: 'Cold calling / SDR',
-      description: 'Need a cold caller / outbound sales rep for my business — commission OK.',
-      timeline: 'flexible',
-      budget: '250_500',
-    },
-  ];
-
-  const applyExampleBrief = (ex: typeof EXAMPLE_BRIEFS[number]) => {
-    setCategory(ex.category);
-    setSubtype(ex.subtype);
-    setDescription(ex.description);
-    setTimeline(ex.timeline);
-    setBudget(ex.budget);
-    track('hire_step_viewed', { step: 3, source: 'example_chip', label: ex.label });
-    goTo(3);
   };
 
   /* ── Fetch matched freelancers ── */
@@ -575,6 +506,53 @@ const HirePage = () => {
         return;
       }
 
+      // Resume in-flight rows instead of creating a duplicate. If the
+      // user came back from Stripe via an unlucky path (webhook lag,
+      // localStorage cleared, in-app browser hand-off) /ai-find-return
+      // would previously dump them on /hire — and re-clicking AI Find
+      // would create a NEW row and NEW Stripe session, charging them
+      // twice. Now: if they have a non-terminal row from the last 30
+      // minutes, route them to its results page instead.
+      const RESUME_WINDOW_MS = 30 * 60 * 1000;
+      const resumeAfter = new Date(Date.now() - RESUME_WINDOW_MS).toISOString();
+      const { data: existing } = await supabase
+        .from('ai_find_requests')
+        .select('id, status')
+        .eq('requester_id', userId)
+        .in('status', ['awaiting_payment', 'paid', 'scouting', 'complete'])
+        .gte('created_at', resumeAfter)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing?.id) {
+        const existingStatus = existing.status as string;
+        if (existingStatus === 'awaiting_payment') {
+          // They opened a request but never finished paying. Resume
+          // the SAME row through Stripe instead of inserting a new
+          // one — same client_reference_id so the webhook ties the
+          // payment back to it, no double-charge. AiFindResults will
+          // self-heal once they come back through /ai-find-return
+          // (which drops the trust token).
+          const paymentLinkBase =
+            (import.meta.env.VITE_STRIPE_AI_FIND_PAYMENT_LINK as string | undefined)?.trim();
+          if (paymentLinkBase) {
+            try { localStorage.setItem('vano_ai_find_pending_id', existing.id as string); } catch { /* ignore */ }
+            const linkUrl = new URL(paymentLinkBase);
+            linkUrl.searchParams.set('client_reference_id', existing.id as string);
+            const userEmail = sessionData.session?.user?.email;
+            if (userEmail) linkUrl.searchParams.set('prefilled_email', userEmail);
+            window.location.href = linkUrl.toString();
+            return;
+          }
+        }
+        // paid / scouting / complete — payment is server-confirmed,
+        // just show the results page.
+        try { localStorage.setItem('vano_ai_find_pending_id', existing.id as string); } catch { /* ignore */ }
+        navigate(`/ai-find/${existing.id}`);
+        return;
+      }
+
       const { data: inserted, error: insertErr } = await supabase
         .from('ai_find_requests')
         .insert({
@@ -682,27 +660,6 @@ const HirePage = () => {
    * tap the same €1 button they would have tapped before OAuth. One extra
    * click in exchange for not mugging people mid-redirect is a great trade. */
 
-  /* ── Message freelancer with pre-filled draft ── */
-  const messageFreelancer = (freelancerUserId: string) => {
-    track('freelancer_card_clicked', { freelancer_id: freelancerUserId, source: 'hire_step3', category });
-    if (!user) { navigate('/auth'); return; }
-    const budgetLabel = BUDGETS.find(b => b.id === budget)?.label || '';
-    const timelineLabel = TIMELINES.find(t => t.id === timeline)?.label || '';
-    const ask = buildDescription();
-    const draft = `Hi! I'm looking for help with: ${ask}${budgetLabel ? ` | Budget: ${budgetLabel}` : ''}${timelineLabel ? ` | Timeline: ${timelineLabel}` : ''}`;
-    navigate(`/messages?with=${freelancerUserId}&draft=${encodeURIComponent(draft)}`);
-  };
-
-  /* ── Multi-send: fan the brief out to the top N matched freelancers. ──
-     The structural fix to the "single freelancer ghosted me" leak. We send
-     to up to 3 of the visible matches in parallel; the first to reply wins
-     (DB trigger handles the open → filled transition). */
-  // Toggles the inline freelancer list on Step 3. Collapsed by default so
-  // the Vano-match card above reads as the primary CTA; users who want to
-  // pick directly open the list with the "Choose a freelancer yourself"
-  // button.
-  const [showDirectList, setShowDirectList] = useState(false);
-
   useEffect(() => {
     if (step === 3) fetchMatches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -782,30 +739,6 @@ const HirePage = () => {
           Pick a category, pick what you need — we'll take it from there.
         </p>
       </header>
-
-      {/* Example-brief chips. Tappable seeds that pre-fill category,
-          subtype, description, timeline, AND budget in one go, then
-          jump straight to step 3. For first-time hirers staring at
-          the category grid wondering where to start, this is the
-          "just give me something that looks like what I want" path. */}
-      <div className="mb-5 rounded-2xl border border-primary/20 bg-primary/[0.03] p-4">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-          Or skip ahead — common asks
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {EXAMPLE_BRIEFS.map((ex) => (
-            <button
-              key={ex.label}
-              type="button"
-              onClick={() => applyExampleBrief(ex)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 active:scale-[0.97]"
-            >
-              <span>{ex.emoji}</span>
-              <span>{ex.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Category chips — intentionally the largest controls on this step.
           These are the decision. Everything below (optional detail, value
@@ -962,8 +895,12 @@ const HirePage = () => {
 
   const renderStep2 = () => (
     <div>
-      <button type="button" onClick={() => goTo(1)} className="mb-4 flex items-center gap-1 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition cursor-pointer">
-        <ArrowLeft size={14} /> Back
+      <button
+        type="button"
+        onClick={() => goTo(1)}
+        className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-sm transition hover:border-primary/40 hover:bg-primary/5 active:scale-[0.97]"
+      >
+        <ArrowLeft size={15} /> Back
       </button>
 
       <header className="mb-5">
@@ -1051,8 +988,12 @@ const HirePage = () => {
 
   const renderStep3 = () => (
     <div>
-      <button type="button" onClick={() => goTo(2)} className="mb-4 flex items-center gap-1 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition cursor-pointer">
-        <ArrowLeft size={14} /> Back
+      <button
+        type="button"
+        onClick={() => goTo(2)}
+        className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground shadow-sm transition hover:border-primary/40 hover:bg-primary/5 active:scale-[0.97]"
+      >
+        <ArrowLeft size={15} /> Back
       </button>
 
       <header className="mb-5">
@@ -1090,7 +1031,7 @@ const HirePage = () => {
                 A perfect freelancer, hand-picked in 60 seconds.
               </h2>
               <p className="mt-2 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
-                One from our pool, one scouted from the web. You chat, agree a rate, then pay them safely through Vano Pay — we take 3%.
+                We'll match you with the perfect freelancer for €1. You chat, agree a rate, then pay them safely through Vano Pay — we take 3%.
               </p>
             </div>
 
@@ -1121,9 +1062,9 @@ const HirePage = () => {
                    for) so the flow reads: story → offer → your brief → go. */}
               <ul className="grid grid-cols-1 gap-1.5 rounded-xl bg-white/[0.06] px-4 py-3 ring-1 ring-inset ring-white/10 sm:grid-cols-2">
                 {[
-                  'One match from Vano’s vetted pool',
-                  'One alternate scouted from the web',
-                  'Delivered to your inbox in ~60 seconds',
+                  'Hand-picked from Vano’s vetted pool',
+                  'Matched to your category, budget and brief',
+                  'Delivered in ~5 seconds — no waiting',
                   'Full €1 refund if we can’t find a fit',
                 ].map((line) => (
                   <li key={line} className="flex items-start gap-1.5 text-[12px] leading-snug text-white/85">
@@ -1184,11 +1125,6 @@ const HirePage = () => {
               <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
               within 24h. You'll also get an email.
             </p>
-            {/* Reinforce that the user isn't blocked — they can also browse and
-                message a freelancer directly from the list below. */}
-            <p className="mt-3 text-xs text-muted-foreground/90 leading-relaxed max-w-sm mx-auto">
-              Want a reply faster? Tap <span className="font-semibold text-foreground">Choose a freelancer yourself</span> below and message one directly — most reply within the hour.
-            </p>
             <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
               <MessageCircle size={15} /> Chat with us on WhatsApp
             </a>
@@ -1222,89 +1158,6 @@ const HirePage = () => {
         </div>
       )}
 
-      {/* ── TERTIARY — Pick a freelancer yourself (reveal list on click) ── */}
-      <button
-        type="button"
-        onClick={() => setShowDirectList((s) => !s)}
-        aria-expanded={showDirectList}
-        className={cn(
-          'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 bg-card px-6 py-4 text-sm sm:text-base font-semibold text-foreground shadow-sm transition-all cursor-pointer select-none active:scale-[0.98]',
-          showDirectList ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/25 hover:bg-primary/5',
-        )}
-      >
-        <MessageCircle size={15} className="text-muted-foreground" />
-        Choose a freelancer yourself
-        <ChevronDown
-          size={15}
-          className={cn('text-muted-foreground transition-transform duration-200', showDirectList && 'rotate-180')}
-        />
-      </button>
-
-      {showDirectList && (
-      <div className="mt-4 animate-fade-in">
-        <div className="flex items-baseline justify-between mb-2 px-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Or pick a freelancer yourself
-          </p>
-          {matchedStudents.length > 3 && (
-            <button
-              type="button"
-              onClick={() => navigate('/students')}
-              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
-            >
-              View all {matchedStudents.length} <ArrowRight size={12} />
-            </button>
-          )}
-        </div>
-
-        {matchLoading ? (
-          <div className="flex flex-col gap-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="overflow-hidden rounded-2xl border border-foreground/10 bg-card animate-pulse">
-                <div className="h-32 w-full bg-muted/60" />
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-full bg-muted" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3 w-28 rounded bg-muted" />
-                      <div className="h-2.5 w-20 rounded bg-muted" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : matchedStudents.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {matchedStudents.slice(0, 3).map((student) => {
-              const ratingInfo = matchedReviews[student.user_id];
-              return (
-                <div key={student.id}>
-                  <StudentCard
-                    student={student}
-                    displayName={matchedProfiles[student.user_id]?.name || 'Freelancer'}
-                    profileAvatarUrl={matchedProfiles[student.user_id]?.avatar || null}
-                    showFavourite={false}
-                    avgRating={ratingInfo?.avg ?? null}
-                    reviewCount={ratingInfo?.count}
-                  />
-                  <button type="button" onClick={() => messageFreelancer(student.user_id)} className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2 text-[13px] font-semibold text-primary cursor-pointer select-none transition hover:bg-primary/10">
-                    <MessageCircle size={14} /> Message with your brief
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-border/60 bg-card text-center py-5">
-            <p className="text-sm text-muted-foreground">No matches found right now.</p>
-            <button type="button" onClick={() => navigate('/students')} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
-              Browse all freelancers <ArrowRight size={14} />
-            </button>
-          </div>
-        )}
-      </div>
-      )}
     </div>
   );
 

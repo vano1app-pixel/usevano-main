@@ -77,7 +77,7 @@ export function AiFindCheckoutModal({ open, onClose, clientSecret, fallbackUrl }
               Vano Match · €1
             </p>
             <p className="text-[11px] leading-tight text-muted-foreground">
-              Hand-picked match delivered in ~60s. Full refund if we can&apos;t find one.
+              Your perfect freelancer, hand-picked in seconds. Full refund if we can&apos;t find one.
             </p>
           </div>
           <div className="hidden shrink-0 items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 sm:inline-flex">
