@@ -40,6 +40,7 @@ const UserSlugRedirect = lazy(() => import("./pages/UserSlugRedirect"));
 const HireRequests = lazy(() => import("./pages/HireRequests"));
 const ClaimProfile = lazy(() => import("./pages/ClaimProfile"));
 const AiFindResults = lazy(() => import("./pages/AiFindResults"));
+const AiFindReturn = lazy(() => import("./pages/AiFindReturn"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -211,6 +212,11 @@ const App = () => {
                 </RequireVerifiedSession>
               }
             />
+            {/* Stripe Payment Link success landing. Reads the pending
+                request id from localStorage (written pre-redirect) and
+                bounces to /ai-find/:id. Public route — the results
+                page itself enforces the session gate. */}
+            <Route path="/ai-find-return" element={<P><AiFindReturn /></P>} />
             <Route path="/u/:slug" element={<P><UserSlugRedirect /></P>} />
             <Route path="/blog/vano-v1" element={<P><BlogPost /></P>} />
             <Route path="/privacy" element={<P><Privacy /></P>} />

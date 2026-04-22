@@ -531,16 +531,14 @@ const HirePage = () => {
       // blank wizard.
       saveHireBrief({ description, category, subtype, timeline, budget });
 
-      // The cached `user` from useAuth can outlive the real session —
-      // on mobile especially, tab backgrounding + an expired refresh
-      // token leaves `user` truthy but `session.access_token` null.
-      // When that happens, functions.invoke hits the edge gateway with
-      // no Bearer JWT and we get the opaque "[401] Edge Function
-      // returned a non-2xx status code" toast. Force a fresh session
-      // lookup here so the JWT is live before we pay; if refresh fails,
-      // bounce to /auth with the brief already saved.
+      // Session check is still useful so we don't insert as anon and
+      // hit a redirect-to-Stripe with no row tied to the user. Fresh
+      // refresh covers the "tab backgrounded, token stale in
+      // localStorage" case on mobile.
+      await supabase.auth.refreshSession().catch(() => { /* fall through */ });
       const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.access_token) {
+      const userId = sessionData.session?.user?.id;
+      if (!userId) {
         toast({
           title: 'Your sign-in expired',
           description: 'Please sign in again — your brief is saved.',
@@ -551,49 +549,75 @@ const HirePage = () => {
         return;
       }
 
-      // Embedded Checkout temporarily disabled — users reported
-      // "Couldn't start AI Find" errors and the embedded path was
-      // the most recently-added variable. Flip this back to
-      // `hasStripePublishableKey()` once we can verify the edge
-      // function is creating ui_mode=embedded sessions cleanly in
-      // the target Stripe account. The hosted redirect path below
-      // has been working since launch — that's the safe default.
-      const useEmbedded = false;
-      const { data, error } = await supabase.functions.invoke('create-ai-find-checkout', {
-        body: {
-          brief: finalDescription,
-          category,
-          budget_range: budget,
-          timeline,
-          ui_mode: useEmbedded ? 'embedded' : 'hosted',
-        },
-      });
-
-      if (error) throw error;
-      const payload = data as { url?: string | null; client_secret?: string | null } | null;
-      const clientSecret = payload?.client_secret ?? null;
-      const url = payload?.url ?? null;
-
-      track('ai_find_checkout_started', {
-        category, timeline, budget,
-        ui_mode: useEmbedded && clientSecret ? 'embedded' : 'hosted',
-      });
-
-      if (useEmbedded && clientSecret) {
-        // Mount the embedded checkout in-page. Stripe handles the
-        // actual payment + 3DS + return_url redirect internally —
-        // when payment succeeds, the browser navigates itself to
-        // /ai-find/:id?session_id=...
-        setAiFindClientSecret(clientSecret);
-        setAiFindFallbackUrl(url);
-        setAiFindCheckoutOpen(true);
+      // Payment Link flow. We bypass the create-ai-find-checkout edge
+      // function entirely because the Supabase functions gateway has
+      // been rejecting JWTs (UNAUTHORIZED_INVALID_JWT_FORMAT) — see
+      // 20260422120000_ai_find_client_insert.sql. Instead:
+      //   1. Insert the ai_find_requests row directly via RLS.
+      //   2. Redirect to a pre-configured Stripe Payment Link with
+      //      client_reference_id=<row id>. stripe-webhook picks that up
+      //      and flips the row to 'paid' + fires ai-find-freelancer,
+      //      same as before.
+      //   3. Stash the row id in localStorage so /ai-find-return can
+      //      bounce the user to /ai-find/:id on success (Payment Links
+      //      can't templatize arbitrary path segments into the return
+      //      URL, only {CHECKOUT_SESSION_ID}).
+      const paymentLinkBase =
+        (import.meta.env.VITE_STRIPE_AI_FIND_PAYMENT_LINK as string | undefined)?.trim();
+      if (!paymentLinkBase) {
+        toast({
+          title: "Payments aren't configured yet",
+          description:
+            "Message us on WhatsApp and we'll find your match manually — your brief is saved.",
+          variant: 'destructive',
+        });
         setAiFindLoading(false);
         return;
       }
 
-      // Hosted fallback.
-      if (!url) throw new Error('No checkout URL returned');
-      window.location.href = url;
+      const { data: inserted, error: insertErr } = await supabase
+        .from('ai_find_requests')
+        .insert({
+          requester_id: userId,
+          brief: finalDescription,
+          category,
+          budget_range: budget,
+          timeline,
+          amount_eur: 1,
+          status: 'awaiting_payment',
+        })
+        .select('id')
+        .single();
+
+      if (insertErr || !inserted?.id) {
+        console.error('[ai-find] insert failed', insertErr);
+        throw new Error(insertErr?.message || 'Could not start your request.');
+      }
+
+      const requestId = inserted.id as string;
+
+      // Persist for /ai-find-return fallback. The success URL on the
+      // Payment Link is a single static path; we need this to route
+      // back to the correct results page after Stripe bounces the user.
+      try {
+        localStorage.setItem('vano_ai_find_pending_id', requestId);
+      } catch { /* private-mode Safari etc. — non-fatal */ }
+
+      track('ai_find_checkout_started', {
+        category, timeline, budget,
+        ui_mode: 'payment_link',
+      });
+
+      // Compose the Payment Link URL. client_reference_id is the
+      // contract with stripe-webhook; Stripe forwards it verbatim on
+      // the checkout.session.completed event.
+      const linkUrl = new URL(paymentLinkBase);
+      linkUrl.searchParams.set('client_reference_id', requestId);
+      const userEmail = sessionData.session?.user?.email;
+      if (userEmail) linkUrl.searchParams.set('prefilled_email', userEmail);
+
+      window.location.href = linkUrl.toString();
+      return;
     } catch (err) {
       console.error('[ai-find] checkout failed', err);
       // Pull the server-side message via several fallbacks. Supabase

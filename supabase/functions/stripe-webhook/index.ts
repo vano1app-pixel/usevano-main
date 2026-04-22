@@ -90,16 +90,24 @@ async function handleAiFindCheckoutCompleted(
   session: StripeCheckoutSession,
   requestId: string,
 ): Promise<Response> {
+  // Stamp stripe_session_id in the update instead of filtering on it.
+  // The edge-function path (create-ai-find-checkout) pre-populates
+  // stripe_session_id when the row is inserted; the Payment Link path
+  // (client-side insert) can't — Stripe issues the session id only
+  // after the customer hits the link. Filtering on session id would
+  // reject every Payment Link payment. status='awaiting_payment' is
+  // sufficient for idempotency: a replayed webhook won't match once
+  // the row is already flipped to 'paid'.
   const { data: flipped, error: flipError } = await supabase
     .from('ai_find_requests')
     .update({
       status: 'paid',
+      stripe_session_id: session.id ?? null,
       stripe_payment_status: session.payment_status ?? 'paid',
       stripe_payment_intent_id: session.payment_intent ?? null,
       paid_at: new Date().toISOString(),
     })
     .eq('id', requestId)
-    .eq('stripe_session_id', session.id)
     .eq('status', 'awaiting_payment')
     .select('id')
     .maybeSingle();
