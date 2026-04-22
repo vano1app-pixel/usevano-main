@@ -30,6 +30,7 @@ type PaymentRow = {
   currency: string | null;
   stripe_payment_intent_id: string | null;
   stripe_destination_account_id: string | null;
+  freelancer_id: string | null;
 };
 
 function formEncode(obj: Record<string, string>): string {
@@ -69,7 +70,7 @@ serve(async (_req) => {
     // vano_payments_auto_release_due_idx covers exactly this predicate.
     const { data: due, error: queryError } = await supabase
       .from('vano_payments')
-      .select('id, conversation_id, amount_cents, fee_cents, currency, stripe_payment_intent_id, stripe_destination_account_id')
+      .select('id, conversation_id, amount_cents, fee_cents, currency, stripe_payment_intent_id, stripe_destination_account_id, freelancer_id')
       .eq('status', 'paid')
       .is('dispute_reason', null)
       .is('stripe_transfer_id', null)
@@ -104,6 +105,41 @@ serve(async (_req) => {
         console.warn('[auto-release-held-payments] skip row with non-positive transfer', { id: row.id });
         failed++;
         continue;
+      }
+      // Fee bound check: a corrupted fee_cents (e.g. 5000 on a €100
+      // payment) would silently underpay the freelancer. Reject fees
+      // greater than 20% of the gross — well above any real config
+      // (current fee is 3%), so this never fires in normal flow but
+      // catches data corruption before money moves.
+      if (row.fee_cents < 0 || row.fee_cents > Math.floor(row.amount_cents * 0.2)) {
+        console.error('[auto-release-held-payments] fee out of bounds', {
+          id: row.id,
+          amount_cents: row.amount_cents,
+          fee_cents: row.fee_cents,
+        });
+        failed++;
+        continue;
+      }
+      // Re-check the freelancer's Connect account is still able to
+      // receive transfers. Stripe will reject the transfer otherwise
+      // and we'd roll back to null and retry every cron run forever.
+      // Skipping here leaves the row in 'paid' state so the next run
+      // can re-check; if ops resolves the account issue the row
+      // auto-releases on the next cron. No silent money-loss path.
+      if (row.freelancer_id) {
+        const { data: freelancerProfile } = await supabase
+          .from('student_profiles')
+          .select('stripe_payouts_enabled')
+          .eq('user_id', row.freelancer_id)
+          .maybeSingle();
+        if (!freelancerProfile?.stripe_payouts_enabled) {
+          console.warn('[auto-release-held-payments] freelancer payouts disabled, deferring', {
+            id: row.id,
+            freelancer_id: row.freelancer_id,
+          });
+          failed++;
+          continue;
+        }
       }
 
       // Reserve with a pending sentinel so if this function gets

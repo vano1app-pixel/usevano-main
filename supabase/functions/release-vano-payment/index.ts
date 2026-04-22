@@ -125,6 +125,20 @@ serve(async (req) => {
 
     const transferAmount = payment.amount_cents - payment.fee_cents;
     if (transferAmount <= 0) return bad(500, 'Transfer amount is non-positive');
+    // Fee bound check: catches a corrupted fee_cents (e.g. via a bad
+    // migration or direct DB write) that would silently underpay the
+    // freelancer. 20% is an absolute ceiling — well above the real
+    // config (3%) so this never trips in normal flow. Runs after the
+    // non-positive check so we only surface this error when the
+    // transfer would otherwise have proceeded with bad numbers.
+    if (payment.fee_cents < 0 || payment.fee_cents > Math.floor(payment.amount_cents * 0.2)) {
+      console.error('[release-vano-payment] fee out of bounds', {
+        id: paymentId,
+        amount_cents: payment.amount_cents,
+        fee_cents: payment.fee_cents,
+      });
+      return bad(500, 'Fee mismatch on payment row — contact support');
+    }
 
     // Optimistic flip: reserve the row with a pending-transfer marker
     // so a concurrent call (double-click on release) sees status != 'paid'

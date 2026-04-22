@@ -24,7 +24,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //
 // All handlers are idempotent on replay.
 
-const TOLERANCE_SECONDS = 300;
+// 10 minutes — Stripe's baseline is 5 min, but we've seen legitimate
+// webhooks dropped under NTP jitter on the Supabase edge region. 10 min
+// is the widely-used safe margin; still short enough that a replayed
+// request from an attacker who captured a signature gets rejected.
+const TOLERANCE_SECONDS = 600;
 // How long we hold funds before the cron auto-releases them. 14 days
 // gives the hirer time to receive and review the work; long enough to
 // matter as protection, short enough that freelancers aren't left
