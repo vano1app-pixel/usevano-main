@@ -633,17 +633,12 @@ const HirePage = () => {
         variant: 'destructive',
       });
       setAiFindLoading(false);
-      // A 401/403 from the gateway means the JWT we just sent is
-      // structurally valid (it passed getSession) but server-rejected
-      // — most often a rotated JWT secret or a session from a
-      // previous auth provider config. Tapping the button again just
-      // loops on the same bad token, so clear it and route to /auth
-      // for a fresh sign-in. Brief was persisted before the invoke,
-      // so the user lands back on Step 3 intact.
-      if (isAuthFailure) {
-        try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
-        navigate('/auth');
-      }
+      // Don't auto sign-out on 401/403 here — production hit a case
+      // where the Vercel env had mismatched VITE_SUPABASE_URL /
+      // VITE_SUPABASE_PUBLISHABLE_KEY (pointing at different Supabase
+      // projects), which produces the same gateway 401 but a fresh
+      // sign-in can't recover it. Auto-kicking just traps the user in
+      // a sign-in loop. The toast tells them what to do; let them drive.
     }
   };
 
