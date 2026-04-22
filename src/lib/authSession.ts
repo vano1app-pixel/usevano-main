@@ -5,6 +5,12 @@ import { isCommunityCategoryId } from '@/lib/communityCategories';
 
 const TALENT_BOARD_RETURN_KEY = 'vano_post_auth_talent_return';
 const PENDING_CLAIM_TOKEN_KEY = 'vano_pending_claim_token';
+// Set by /ai-find-return when the user lands there signed-out after
+// paying via Stripe Payment Link. Post-auth resolvers consume it so
+// the user goes straight back to their paid match instead of a
+// generic dashboard. Kept in localStorage (not session-) because
+// magic-link sign-in opens a new tab.
+const AI_FIND_RETURN_KEY = 'vano_ai_find_return_session_id';
 
 /**
  * A UUID v4 that the /claim/:token page sets before redirecting to /auth,
@@ -61,9 +67,39 @@ function clearTalentBoardReturn(): void {
 }
 
 /**
+ * Peek-and-clear helper for the AI Find paid-but-signed-out recovery.
+ * Returns the Stripe checkout session_id if one was stashed by
+ * /ai-find-return, and clears it so a second sign-in doesn't route
+ * to a stale return page. UUID-ish shape check keeps a random value
+ * written by something else from forcing a redirect.
+ */
+function consumePendingAiFindReturn(): string | null {
+  try {
+    const raw = localStorage.getItem(AI_FIND_RETURN_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(AI_FIND_RETURN_KEY);
+    // Stripe checkout session IDs are `cs_` followed by a long
+    // alphanumeric suffix. Reject anything else.
+    if (!/^cs_[A-Za-z0-9_]{20,}$/.test(raw)) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Same as getPostAuthPath, but if the user meant to return to the talent board, send them there instead of /profile.
  */
 export async function resolvePostAuthDestination(userId: string): Promise<string> {
+  // A paid AI Find that needs recovering takes the very top slot —
+  // the user spent €1 to reach this sign-in and deserves to land on
+  // their match, not a generic dashboard. /ai-find-return will use
+  // the session_id to locate the row and route on to /ai-find/:id.
+  const aiFindSessionId = consumePendingAiFindReturn();
+  if (aiFindSessionId) {
+    return `/ai-find-return?session_id=${encodeURIComponent(aiFindSessionId)}`;
+  }
+
   // A pending scouted-freelancer claim takes priority over every other
   // post-auth destination — the visitor literally clicked a claim link
   // and then got funneled through /auth. Send them straight back so
@@ -85,6 +121,13 @@ export async function resolvePostAuthDestination(userId: string): Promise<string
  * Same as getPostGoogleAuthPath, with talent-board return preference when landing on /profile.
  */
 export async function resolvePostGoogleAuthDestination(userId: string): Promise<string> {
+  // See resolvePostAuthDestination — paid AI Find wins over every
+  // other post-auth destination.
+  const aiFindSessionId = consumePendingAiFindReturn();
+  if (aiFindSessionId) {
+    return `/ai-find-return?session_id=${encodeURIComponent(aiFindSessionId)}`;
+  }
+
   const claimToken = peekPendingClaimToken();
   if (claimToken) return `/claim/${claimToken}`;
 
