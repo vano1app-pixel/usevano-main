@@ -480,54 +480,39 @@ const HirePage = () => {
         return;
       }
 
-      // Stripe Checkout Session flow (replaces the Payment Link
-      // redirect). A Vercel API route mints a real Checkout Session
-      // with success_url=/ai-find/:id?session_id={CHECKOUT_SESSION_ID}
-      // — so Stripe redirects straight to the match page instead of
-      // bouncing through /ai-find-return with localStorage hand-off.
-      // Client still inserts the row via RLS (no service-role key on
-      // Vercel); the API route just creates the Stripe session with
-      // the row id baked into the success URL.
-      const token = sessionData.session?.access_token;
-      if (!token) {
-        // Should be unreachable — we just validated session above —
-        // but bail cleanly if the JWT vanished between calls.
+      // Payment Link flow. We bypass the create-ai-find-checkout edge
+      // function entirely because the Supabase functions gateway has
+      // been rejecting JWTs (UNAUTHORIZED_INVALID_JWT_FORMAT) — see
+      // 20260422120000_ai_find_client_insert.sql. Instead:
+      //   1. Insert the ai_find_requests row directly via RLS.
+      //   2. Redirect to a pre-configured Stripe Payment Link with
+      //      client_reference_id=<row id>. stripe-webhook picks that up
+      //      and flips the row to 'paid' + fires ai-find-freelancer,
+      //      same as before.
+      //   3. Stash the row id in localStorage so /ai-find-return can
+      //      bounce the user to /ai-find/:id on success (Payment Links
+      //      can't templatize arbitrary path segments into the return
+      //      URL, only {CHECKOUT_SESSION_ID}).
+      const paymentLinkBase =
+        (import.meta.env.VITE_STRIPE_AI_FIND_PAYMENT_LINK as string | undefined)?.trim();
+      if (!paymentLinkBase) {
         toast({
-          title: 'Your sign-in expired',
-          description: 'Please sign in again — your brief is saved.',
+          title: "Payments aren't configured yet",
+          description:
+            "Message us on WhatsApp and we'll find your match manually — your brief is saved.",
           variant: 'destructive',
         });
         setAiFindLoading(false);
-        navigate('/auth');
         return;
       }
 
-      const startCheckout = async (rowId: string): Promise<void> => {
-        const resp = await fetch('/api/create-ai-find-checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ request_id: rowId }),
-        });
-        if (!resp.ok) {
-          const errBody = await resp.json().catch(() => ({} as { error?: string }));
-          const msg = typeof errBody?.error === 'string' ? errBody.error : 'Could not start your payment.';
-          throw new Error(msg);
-        }
-        const data = (await resp.json()) as { url?: string };
-        if (!data.url) throw new Error('Payment provider returned no URL.');
-        window.location.href = data.url;
-      };
-
       // Resume in-flight rows instead of creating a duplicate. If the
-      // user came back from Stripe via an unlucky path /ai-find-return
+      // user came back from Stripe via an unlucky path (webhook lag,
+      // localStorage cleared, in-app browser hand-off) /ai-find-return
       // would previously dump them on /hire — and re-clicking AI Find
       // would create a NEW row and NEW Stripe session, charging them
       // twice. Now: if they have a non-terminal row from the last 30
-      // minutes, either resume it through Stripe (awaiting_payment) or
-      // route straight to the results page (paid / scouting / complete).
+      // minutes, route them to its results page instead.
       const RESUME_WINDOW_MS = 30 * 60 * 1000;
       const resumeAfter = new Date(Date.now() - RESUME_WINDOW_MS).toISOString();
       const { data: existing } = await supabase
@@ -543,14 +528,27 @@ const HirePage = () => {
       if (existing?.id) {
         const existingStatus = existing.status as string;
         if (existingStatus === 'awaiting_payment') {
-          // Same row id → same client_reference_id on the new session,
-          // so even if the previous checkout session is abandoned the
-          // webhook still correlates the eventual payment to this row.
-          await startCheckout(existing.id as string);
-          return;
+          // They opened a request but never finished paying. Resume
+          // the SAME row through Stripe instead of inserting a new
+          // one — same client_reference_id so the webhook ties the
+          // payment back to it, no double-charge. AiFindResults will
+          // self-heal once they come back through /ai-find-return
+          // (which drops the trust token).
+          const paymentLinkBase =
+            (import.meta.env.VITE_STRIPE_AI_FIND_PAYMENT_LINK as string | undefined)?.trim();
+          if (paymentLinkBase) {
+            try { localStorage.setItem('vano_ai_find_pending_id', existing.id as string); } catch { /* ignore */ }
+            const linkUrl = new URL(paymentLinkBase);
+            linkUrl.searchParams.set('client_reference_id', existing.id as string);
+            const userEmail = sessionData.session?.user?.email;
+            if (userEmail) linkUrl.searchParams.set('prefilled_email', userEmail);
+            window.location.href = linkUrl.toString();
+            return;
+          }
         }
         // paid / scouting / complete — payment is server-confirmed,
         // just show the results page.
+        try { localStorage.setItem('vano_ai_find_pending_id', existing.id as string); } catch { /* ignore */ }
         navigate(`/ai-find/${existing.id}`);
         return;
       }
@@ -576,12 +574,27 @@ const HirePage = () => {
 
       const requestId = inserted.id as string;
 
+      // Persist for /ai-find-return fallback. The success URL on the
+      // Payment Link is a single static path; we need this to route
+      // back to the correct results page after Stripe bounces the user.
+      try {
+        localStorage.setItem('vano_ai_find_pending_id', requestId);
+      } catch { /* private-mode Safari etc. — non-fatal */ }
+
       track('ai_find_checkout_started', {
         category, timeline, budget,
-        ui_mode: 'checkout_session',
+        ui_mode: 'payment_link',
       });
 
-      await startCheckout(requestId);
+      // Compose the Payment Link URL. client_reference_id is the
+      // contract with stripe-webhook; Stripe forwards it verbatim on
+      // the checkout.session.completed event.
+      const linkUrl = new URL(paymentLinkBase);
+      linkUrl.searchParams.set('client_reference_id', requestId);
+      const userEmail = sessionData.session?.user?.email;
+      if (userEmail) linkUrl.searchParams.set('prefilled_email', userEmail);
+
+      window.location.href = linkUrl.toString();
       return;
     } catch (err) {
       console.error('[ai-find] checkout failed', err);

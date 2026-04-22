@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Loader2,
   Sparkles,
@@ -72,25 +72,9 @@ type VanoPick = {
 
 const AiFindResults = () => {
   const { id } = useParams<{ id: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { session } = useAuth();
   const { toast } = useToast();
-
-  // Stripe's success_url on the new Checkout Session lands the user
-  // here with ?session_id={CHECKOUT_SESSION_ID}. Stash it as the
-  // trust token and strip the param so a refresh doesn't leave it in
-  // the address bar forever. Without this the self-heal check inside
-  // the poll effect can't prove the user paid when the webhook lags.
-  useEffect(() => {
-    if (!id) return;
-    const sid = searchParams.get('session_id');
-    if (!sid) return;
-    try { sessionStorage.setItem(`vano_ai_find_paid_${id}`, sid); } catch { /* ignore */ }
-    const next = new URLSearchParams(searchParams);
-    next.delete('session_id');
-    setSearchParams(next, { replace: true });
-  }, [id, searchParams, setSearchParams]);
 
   const [row, setRow] = useState<AiFindRow | null>(null);
   const [vanoPick, setVanoPick] = useState<VanoPick | null>(null);
