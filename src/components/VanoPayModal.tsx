@@ -64,6 +64,21 @@ export function VanoPayModal({
     if (!canSubmit) return;
     setSubmitting(true);
     try {
+      // Force-refresh the session before hitting the gateway —
+      // otherwise a stale JWT (tab idled past token expiry, refresh
+      // token aged out) surfaces as the opaque "[401] Edge Function
+      // returned a non-2xx status code" toast and users have no idea
+      // they just need to sign back in.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        toast({
+          title: 'Your sign-in expired',
+          description: 'Please sign in again to continue.',
+          variant: 'destructive',
+        });
+        setSubmitting(false);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke('create-vano-payment-checkout', {
         body: {
           conversation_id: conversationId,
@@ -87,8 +102,12 @@ export function VanoPayModal({
       const status = (err as { status?: number; context?: { status?: number } })?.status
         ?? (err as { context?: { status?: number } })?.context?.status;
       const statusLine = status ? `[${status}] ` : '';
+      const isAuthFailure = status === 401 || status === 403
+        || message.toLowerCase().includes('unauthorized');
       const friendly =
-        message.includes('not enabled Vano Pay')
+        isAuthFailure
+          ? 'Your sign-in expired — please sign in again and try once more.'
+        : message.includes('not enabled Vano Pay')
           ? `${freelancerName} hasn't enabled Vano Pay yet. Ask them to turn it on in their profile.`
         : message.includes('at least €1')
           ? 'Amount must be at least €1.00.'

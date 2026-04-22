@@ -529,6 +529,27 @@ const HirePage = () => {
       // the user back on /hire with their work intact instead of a
       // blank wizard.
       saveHireBrief({ description, category, subtype, timeline, budget });
+
+      // The cached `user` from useAuth can outlive the real session —
+      // on mobile especially, tab backgrounding + an expired refresh
+      // token leaves `user` truthy but `session.access_token` null.
+      // When that happens, functions.invoke hits the edge gateway with
+      // no Bearer JWT and we get the opaque "[401] Edge Function
+      // returned a non-2xx status code" toast. Force a fresh session
+      // lookup here so the JWT is live before we pay; if refresh fails,
+      // bounce to /auth with the brief already saved.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        toast({
+          title: 'Your sign-in expired',
+          description: 'Please sign in again — your brief is saved.',
+          variant: 'destructive',
+        });
+        setAiFindLoading(false);
+        navigate('/auth');
+        return;
+      }
+
       // Embedded Checkout temporarily disabled — users reported
       // "Couldn't start AI Find" errors and the embedded path was
       // the most recently-added variable. Flip this back to
@@ -585,13 +606,18 @@ const HirePage = () => {
         ?? (err as { context?: { status?: number } })?.context?.status;
       const rawMsg = ctxErr || (err as { message?: string })?.message || '';
       const statusLine = status ? `[${status}] ` : '';
+      // A bare 401/403 almost always means the edge-function gateway
+      // rejected the JWT — map it to a sign-in prompt instead of the
+      // raw "non-2xx" gibberish the user otherwise sees.
+      const isAuthFailure = status === 401 || status === 403
+        || rawMsg.toLowerCase().includes('unauthorized');
       const friendly =
-        rawMsg.includes('STRIPE_SECRET_KEY')
+        isAuthFailure
+          ? 'Your sign-in expired — please sign in again and try once more.'
+        : rawMsg.includes('STRIPE_SECRET_KEY')
           ? "Payments aren't configured yet — message us on WhatsApp and we'll find your match manually."
         : rawMsg.toLowerCase().includes('brief')
           ? rawMsg
-        : rawMsg.toLowerCase().includes('unauthorized')
-          ? 'Please sign out and back in, then try again.'
         : rawMsg.toLowerCase().includes('forbidden origin')
           ? 'Origin not allowed — if this is a preview URL, add it to the Supabase ALLOWED_ORIGINS env var.'
         : rawMsg
