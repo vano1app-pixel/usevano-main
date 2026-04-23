@@ -243,7 +243,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
             )}
           </button>
           <p className="text-center text-[11px] text-muted-foreground">
-            No commitment — they reply in Messages, and you can pay safely through Vano Pay when you're ready.
+            No commitment — they reply in Messages; you agree a rate and pay them directly when you're ready.
           </p>
         </div>
       </DialogContent>

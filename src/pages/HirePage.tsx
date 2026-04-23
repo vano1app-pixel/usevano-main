@@ -14,7 +14,7 @@ import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { markUserActed } from '@/lib/userActivity';
 import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 import {
-  ArrowRight, ArrowLeft, Sparkles, MessageCircle, Send,
+  ArrowRight, ArrowLeft, Sparkles, MessageCircle,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
   Shield, ShieldCheck, Zap, Check, ChevronDown,
@@ -83,42 +83,63 @@ const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
   unsure: { min: 0, max: 9999 },
 };
 
-const PRICING_PACKAGES = [
-  {
-    name: 'Content Creation',
-    price: '249',
-    period: '/mo',
-    features: [
-      'Content calendar & strategy',
-      '12 posts per month',
-      'Community engagement',
-      'Monthly performance report',
-    ],
-  },
-  {
-    name: 'Website Build',
-    price: '499',
-    period: ' one-off',
-    popular: true,
-    features: [
-      'Custom responsive design',
-      'Up to 5 pages',
-      'SEO setup',
-      'Contact form & analytics',
-    ],
-  },
-  {
-    name: 'Content Bundle',
-    price: '349',
-    period: '/mo',
-    features: [
-      'Outbound sales campaign',
-      'Short-form video content',
-      'Editing & post-production',
-      'Brand-ready deliverables',
-    ],
-  },
-];
+// Category-specific "vibe / style / platform" chips surfaced on Step 1
+// after the sub-type pick. Single-tap, skippable, and their label is
+// concatenated into the brief string before it hits the matcher — so
+// picking "Cinematic" bumps freelancers whose skills or post titles
+// mention cinematic, without any schema change.
+//
+// Each entry is a free-form token the matcher already tokenizes via
+// the existing word-boundary scorer in AiFindResults.pickVanoMatchClientSide;
+// no matcher code touches this const. Edit freely per category.
+const STYLE_TAGS: Record<string, readonly string[]> = {
+  videography:   ['Cinematic', 'Casual', 'Luxury', 'Fun', 'Corporate'],
+  digital_sales: ['B2B', 'B2C', 'Both'],
+  websites:      ['Business site', 'Portfolio', 'E-commerce', 'Landing page', 'Web app'],
+  social_media:  ['TikTok', 'Instagram', 'YouTube', 'LinkedIn', 'All platforms'],
+  other:         [],
+};
+
+const STYLE_TAG_PROMPTS: Record<string, string> = {
+  videography:   'What vibe?',
+  digital_sales: 'Who are you selling to?',
+  websites:      "What's it for?",
+  social_media:  'Which platform?',
+  other:         '',
+};
+
+/* ─── Helpers ─── */
+
+// Fire-and-forget: send a fresh verification email and tell the user
+// where it went. Previously we just toasted "Please verify your email
+// first" and expected them to find the email from days ago in their
+// inbox — most didn't. Now we always push a new one on click, so the
+// user's next tab is their mail app instead of their browser history.
+async function resendVerifyEmail(
+  email: string | null,
+  toast: (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void,
+): Promise<void> {
+  if (!email) {
+    toast({ title: 'Please verify your email first', variant: 'destructive' });
+    return;
+  }
+  try {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) throw error;
+    toast({
+      title: 'Verification email sent',
+      description: `Check ${email} and tap the link, then come back and try again.`,
+    });
+  } catch (err) {
+    // Rate limit / network fail — keep it informative rather than silent.
+    console.warn('[HirePage] resend verify failed', err);
+    toast({
+      title: 'Please verify your email first',
+      description: `We couldn't send a new link right now. Check ${email} for the original one.`,
+      variant: 'destructive',
+    });
+  }
+}
 
 /* ─── Component ─── */
 
@@ -135,6 +156,14 @@ const HirePage = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string | null>(searchParams.get('category'));
   const [subtype, setSubtype] = useState<string | null>(null);
+  // Style / vibe / platform tag — optional per-category signal that
+  // the matcher treats like an extra brief token. Not persisted across
+  // the OAuth round-trip; losing it is a single tap to redo. Reset
+  // alongside subtype whenever the category changes.
+  const [styleTag, setStyleTag] = useState<string | null>(null);
+  // "Who's it for?" — category-independent, so it persists across
+  // category swaps unlike styleTag. Also appended to the brief.
+  const [audience, setAudience] = useState<string | null>(null);
   // Stage 5 Ireland-scale: only asked for local categories (videography).
   // Digital categories skip the question entirely — zero added clicks.
   const [hirerCounty, setHirerCounty] = useState<string>('');
@@ -160,10 +189,13 @@ const HirePage = () => {
   // shorter step. For "Other" the textarea is the only input path and
   // stays always-visible below. Auto-expands on HirePage load if a
   // restored brief already contains typed text so we never swallow it.
-  const [matchedStudents, setMatchedStudents] = useState<any[]>([]);
-  const [matchedProfiles, setMatchedProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
-  const [matchedReviews, setMatchedReviews] = useState<Record<string, { avg: string; count: number }>>({});
-  const [matchLoading, setMatchLoading] = useState(false);
+  // The `matchedStudents` / `matchedProfiles` / `matchedReviews` /
+  // `matchLoading` state + `fetchMatches()` function that used to live
+  // here was dead code — it populated on Step 3 but nothing rendered
+  // the results (a leftover from the earlier "preview your options"
+  // design). Removed on 2026-04-23 to stop four Supabase queries
+  // firing on every Step 3 load for no UI benefit. The actual match
+  // happens server-side after the €1 payment via the AI Find flow.
   const [user, setUser] = useState<any>(null);
 
   // On mount: restore a brief persisted across Google OAuth if one is pending.
@@ -229,93 +261,18 @@ const HirePage = () => {
 
   const handleCategoryPick = (id: string) => {
     setCategory(id);
-    // Always reset sub-type when switching categories — stale chips from a
-    // different category would silently feed into the synthesized description.
+    // Always reset sub-type + style-tag when switching categories —
+    // stale chips from a different category would silently feed into
+    // the synthesized description and mis-score the match.
     setSubtype(null);
+    setStyleTag(null);
   };
 
-  /* ── Fetch matched freelancers ── */
-  const fetchMatches = async () => {
-    setMatchLoading(true);
-    try {
-      const [{ data: studentData }, { data: profileData }] = await Promise.all([
-        supabase.from('student_profiles').select('*').eq('is_available', true).eq('community_board_status', 'approved'),
-        supabase.from('profiles').select('user_id, display_name, avatar_url'),
-      ]);
-      const students = studentData || [];
-      const profs = profileData || [];
-      const catObj = CATEGORIES.find(c => c.id === category);
-      const keywords = catObj?.keywords || [];
-      const budgetRange = budget ? BUDGET_TO_RANGE[budget] : null;
-
-      // Stage 5 Ireland-scale location filter — wrapped in a helper so
-      // both branches below share the exact same policy.
-      // • Local category (videography) + hirerCounty chosen → keep
-      //   freelancers whose county matches OR who opt into remote work
-      //   from other counties (`remote_ok = true`). This means a
-      //   Galway videographer willing to travel still matches a Cork
-      //   hire — the explicit opt-in is what makes it sensible.
-      // • Local category but hirerCounty blank → no location filter
-      //   (preserves today's behaviour on the first render before the
-      //   user picks a county).
-      // • Digital category → require `remote_ok` is not false. Matches
-      //   the wizard's auto-set default of `true` for digital categories
-      //   and still respects a freelancer who explicitly flipped it off.
-      const catLocationModel = category && isCommunityCategoryId(category)
-        ? COMMUNITY_CATEGORIES[category].locationModel
-        : null;
-      const passesLocation = (s: any): boolean => {
-        if (catLocationModel === 'local') {
-          if (!hirerCounty) return true;
-          return s.county === hirerCounty || s.remote_ok === true;
-        }
-        if (catLocationModel === 'digital') {
-          return s.remote_ok !== false;
-        }
-        return true;
-      };
-
-      let matched: any[];
-      if (keywords.length > 0) {
-        matched = students.filter(s => {
-          const skills = (s.skills || []).map((sk: string) => sk.toLowerCase());
-          if (!skills.some((skill: string) => keywords.some(kw => skill.includes(kw)))) return false;
-          if (budgetRange && s.typical_budget_min != null && s.typical_budget_max != null) {
-            if (budgetRange.max < s.typical_budget_min || budgetRange.min > s.typical_budget_max) return false;
-          }
-          if (!passesLocation(s)) return false;
-          return true;
-        });
-        if (matched.length === 0) matched = students;
-      } else {
-        matched = students;
-      }
-      setMatchedStudents(matched);
-
-      const profMap: Record<string, { name: string; avatar: string }> = {};
-      profs.forEach((p: any) => { profMap[p.user_id] = { name: p.display_name, avatar: p.avatar_url || '' }; });
-      setMatchedProfiles(profMap);
-
-      if (matched.length > 0) {
-        const ids = matched.map((s: any) => s.user_id);
-        const { data: revData } = await supabase.from('reviews').select('reviewee_id, rating').in('reviewee_id', ids);
-        if (revData && revData.length > 0) {
-          const map: Record<string, { sum: number; count: number }> = {};
-          for (const r of revData) {
-            if (!map[r.reviewee_id]) map[r.reviewee_id] = { sum: 0, count: 0 };
-            map[r.reviewee_id].sum += r.rating;
-            map[r.reviewee_id].count += 1;
-          }
-          const result: Record<string, { avg: string; count: number }> = {};
-          for (const [uid, { sum, count }] of Object.entries(map)) {
-            result[uid] = { avg: (sum / count).toFixed(1), count };
-          }
-          setMatchedReviews(result);
-        }
-      }
-    } catch { /* silent */ }
-    setMatchLoading(false);
-  };
+  // `fetchMatches()` used to live here — fetched approved freelancers
+  // on Step 3 mount and stored them in state. Removed with the
+  // matched* state above (2026-04-23): nothing in the render ever
+  // displayed the results. The real matching happens after payment
+  // inside AiFindResults / AiFindReturn.
 
   /* ── Submit Vano request ── */
   // `autoOpenWhatsApp` is false when this runs automatically after a Google
@@ -364,7 +321,7 @@ const HirePage = () => {
       return;
     }
     if (!isEmailVerified({ user } as any)) {
-      toast({ title: 'Please verify your email first', variant: 'destructive' });
+      void resendVerifyEmail(user.email ?? null, toast);
       return;
     }
     setSubmitting(true);
@@ -448,7 +405,7 @@ const HirePage = () => {
       return;
     }
     if (!isEmailVerified({ user } as any)) {
-      toast({ title: 'Please verify your email first', variant: 'destructive' });
+      void resendVerifyEmail(user.email ?? null, toast);
       return;
     }
     if (aiFindLoading) return;
@@ -660,10 +617,9 @@ const HirePage = () => {
    * tap the same €1 button they would have tapped before OAuth. One extra
    * click in exchange for not mugging people mid-redirect is a great trade. */
 
-  useEffect(() => {
-    if (step === 3) fetchMatches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, hirerCounty]);
+  // (Removed: Step-3 fetchMatches effect. See the comment block above
+  // `const [user, setUser] = ...` for context — Step 3 used to fetch
+  // freelancer previews that were never rendered.)
 
   // Funnel visibility: every step view is an event so we can see drop-off.
   useEffect(() => {
@@ -682,19 +638,10 @@ const HirePage = () => {
     }
   }, [step, timeline, budget]);
 
-  /* Auto-advance step 1 → step 2 once both category + sub-type are picked.
-   * Happy path becomes literally two clicks on step 1. Skip for "Other" since
-   * there's no sub-type row — the user must type + click Continue themselves. */
-  useEffect(() => {
-    if (step !== 1) return;
-    if (!category || category === 'other') return;
-    if (!subtype) return;
-    const t = window.setTimeout(() => {
-      setStepDirection(1);
-      setStep(2);
-    }, 220);
-    return () => window.clearTimeout(t);
-  }, [step, category, subtype]);
+  /* Step 1 → 2 used to auto-advance 220ms after a sub-type pick. That took
+   * the "Add any extra detail" textarea away before the user even saw it,
+   * and the micro-hijack felt like a routing bug to first-timers. Removed —
+   * the Continue button is front-and-centre, glowing once Step 1 unlocks. */
 
   // Step 1 unlocks when the user has chosen a category AND either picked a
   // sub-type chip (frictionless click path) or typed a short free-form hint
@@ -705,6 +652,38 @@ const HirePage = () => {
   );
   const canProceedStep2 = !!timeline && !!budget;
 
+  /* Enter-to-continue — keyboard users on desktop can hit Return to
+   * advance Step 1 → 2 and 2 → 3 without mousing to the Continue pill.
+   * Step 3 is intentionally excluded: pressing Enter must NEVER trigger
+   * the €1 payment, otherwise an accidental keypress while a hirer is
+   * reading the recap could charge them. Guards:
+   *   - skip when a textarea has focus (Enter adds a newline there)
+   *   - skip when a button/link is focused (native Enter clicks it)
+   *   - skip when inside a Radix Select or combobox so Enter keeps its
+   *     native "select this option" behaviour
+   */
+  useEffect(() => {
+    if (step !== 1 && step !== 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toUpperCase();
+      if (tag === 'TEXTAREA') return;
+      if (tag === 'BUTTON' || tag === 'A') return;
+      if (target?.closest('[role="combobox"]') || target?.closest('[role="listbox"]')) return;
+      if (step === 1 && canProceedStep1) {
+        e.preventDefault();
+        goTo(2);
+      } else if (step === 2 && canProceedStep2) {
+        e.preventDefault();
+        goTo(3);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, canProceedStep1, canProceedStep2]);
+
   // Canonical description built from the chips. The textarea is optional
   // extra detail; if it's empty, downstream consumers still get
   // "Video — Reel / short-form" etc. Satisfies the NOT NULL constraint on
@@ -714,6 +693,15 @@ const HirePage = () => {
     const parts: string[] = [];
     if (catLabel && subtype) parts.push(`${catLabel} — ${subtype}`);
     else if (catLabel) parts.push(catLabel);
+    // Style-tag goes into the brief as a "Style: X" sentence. The
+    // matcher tokenizes on word boundaries, so "Cinematic" becomes a
+    // match token that boosts freelancers with "cinematic" in their
+    // skills. No schema change needed — it rides along in the
+    // existing `brief` column.
+    if (styleTag) parts.push(`Style: ${styleTag}`);
+    // "Who's it for?" adds context the freelancer reads first. Also a
+    // free signal to the matcher's tokenizer.
+    if (audience) parts.push(`For: ${audience}`);
     const extra = description.trim();
     if (extra) parts.push(extra);
     return parts.join('. ') || extra || catLabel || 'New hire request';
@@ -723,8 +711,9 @@ const HirePage = () => {
   const recap = (() => {
     const catLabel = category ? CATEGORY_LABEL[category] : '';
     const extra = description.trim();
-    if (catLabel && subtype) return `${catLabel} — ${subtype}${extra ? ` · ${extra}` : ''}`;
-    return extra || catLabel || '';
+    const styleBit = styleTag ? ` · ${styleTag}` : '';
+    if (catLabel && subtype) return `${catLabel} — ${subtype}${styleBit}${extra ? ` · ${extra}` : ''}`;
+    return `${catLabel}${styleBit}` || extra || catLabel || '';
   })();
 
   /* ── Render helpers ── */
@@ -818,6 +807,44 @@ const HirePage = () => {
           </div>
         );
       })()}
+
+      {/* Style / vibe / platform chips — optional. Surfaces only once
+          the user has picked a sub-type, so Step 1 still feels fast for
+          the truly decisive. The label and options are category-aware
+          (STYLE_TAGS / STYLE_TAG_PROMPTS consts at the top of the file).
+          Picking a chip appends "Style: X" to the brief, boosting any
+          freelancer whose skills/title tokens overlap with the chip
+          word — zero matcher change needed. */}
+      {category && subtype && STYLE_TAGS[category] && STYLE_TAGS[category].length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {STYLE_TAG_PROMPTS[category]}
+            <span className="font-normal normal-case tracking-normal text-muted-foreground/60">
+              (optional — helps us match the right feel)
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {STYLE_TAGS[category].map((tag) => {
+              const active = styleTag === tag;
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setStyleTag(active ? null : tag)}
+                  className={cn(
+                    'rounded-full border px-4 py-2 text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
+                    active
+                      ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
+                      : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5',
+                  )}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Optional scratch space for extra context.
           - "Other" category → always visible, solid card (it IS the input).
@@ -968,11 +995,45 @@ const HirePage = () => {
         </div>
       </div>
 
+      {/* Who's it for? — optional audience chip. Not a required field
+           (some hirers don't want to categorise themselves); tapping
+           gives the matcher + the freelancer extra context about the
+           project before they reply. Renders after Budget so the
+           user's established the concrete bits first, then answers
+           the softer question. */}
+      <div className="mb-5">
+        <p className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Who's it for?
+          <span className="font-normal normal-case tracking-normal text-muted-foreground/60">
+            (optional)
+          </span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {['Me', 'My business', 'My brand', 'A client', 'An event'].map((label) => {
+            const active = audience === label;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setAudience(active ? null : label)}
+                className={cn(
+                  'rounded-full border px-4 py-2 text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
+                  active
+                    ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
+                    : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5',
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Reassurance — brand-aligned: the promise is "any budget, your
-           perfect match" not "cheap student labour". Also signals the
-           escrow safety net so the hirer knows the budget's protected. */}
+           perfect match" not "cheap student labour". */}
       <p className="text-center text-[11px] sm:text-xs text-muted-foreground mb-4">
-        Whatever your budget, we hand-pick who fits. Paid safely through Vano Pay — held until you release.
+        Whatever your budget, we hand-pick who fits.
       </p>
 
       <button type="button" onClick={() => goTo(3)} disabled={!canProceedStep2} className={cn(
@@ -981,7 +1042,7 @@ const HirePage = () => {
           ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
           : 'bg-muted text-muted-foreground cursor-not-allowed'
       )}>
-        See my options <ArrowRight size={15} />
+        Match me with a freelancer <ArrowRight size={15} />
       </button>
     </div>
   );
@@ -1004,6 +1065,32 @@ const HirePage = () => {
           €1 now, vetted match in 60 seconds. Refunded if we don't find one.
         </p>
       </header>
+
+      {/* Persistent resume chip. The "Welcome back" toast disappears in a
+           few seconds, so after a restored-brief return (Stripe abandon,
+           OAuth round-trip) the user loses the only signal that their work
+           was saved. This chip stays until they click it or dismiss. */}
+      {briefJustRestored && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3">
+          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <CheckCircle2 size={14} className="text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-foreground">Picking up where you left off</p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+              Your brief is restored. Review it below, then tap <span className="font-medium text-foreground">Match me</span> to continue.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBriefJustRestored(false)}
+            aria-label="Dismiss"
+            className="mt-0.5 text-muted-foreground/60 transition hover:text-foreground"
+          >
+            <span className="block h-4 w-4 rounded-full text-center text-[11px] leading-4">×</span>
+          </button>
+        </div>
+      )}
 
       {/* ── PRIMARY HERO — €1 AI Find ──
            This is the offer the whole site narrates toward. Big, confident,
@@ -1028,65 +1115,35 @@ const HirePage = () => {
                 </span>
               </div>
               <h2 className="mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight sm:text-[26px]">
-                A perfect freelancer, hand-picked in 60 seconds.
+                Your freelancer, matched in 60 seconds.
               </h2>
               <p className="mt-2 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
-                We'll match you with the perfect freelancer for €1. You chat, agree a rate, then pay them safely through Vano Pay — we take 3%.
+                Pay €1 → meet your freelancer in 60 seconds. Refunded if we can't find one.
               </p>
             </div>
 
             <div className="relative space-y-4 px-6 pb-6">
-              {/* Four-step pipeline strip — the story-in-miniature so the
-                   €1 CTA reads as "start the flow" not "gamble". Tighter,
-                   less boxy than before. */}
-              <ol className="grid grid-cols-4 gap-1">
+              {/* Brief recap — one tight line of tags above the CTA. The
+                   old heavy card + "Your request" eyebrow lived here;
+                   since Step 3 now has one goal, the recap stays to
+                   confirm what we heard without stealing focus from the
+                   button. Style/audience tags ride along via buildDescription. */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-white/80">
+                <span className="font-semibold uppercase tracking-[0.14em] text-white/50">
+                  You asked for
+                </span>
                 {[
-                  { num: '1', text: 'Pay €1' },
-                  { num: '2', text: '60s match' },
-                  { num: '3', text: 'Chat + agree' },
-                  { num: '4', text: 'Pay via Vano Pay' },
-                ].map((s, idx, arr) => (
-                  <li key={s.num} className="flex flex-col items-center gap-1.5 border-l border-white/10 first:border-l-0 py-0.5">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[11px] font-semibold text-white">
-                      {idx === arr.length - 1 ? <ShieldCheck size={12} /> : s.num}
-                    </span>
-                    <p className="text-[10.5px] font-medium text-white/80 text-center leading-tight">{s.text}</p>
-                  </li>
+                  category && CATEGORIES.find(c => c.id === category)?.label,
+                  subtype,
+                  styleTag,
+                  audience,
+                  timeline && TIMELINES.find(t => t.id === timeline)?.label,
+                  budget && BUDGETS.find(b => b.id === budget)?.label,
+                ].filter(Boolean).map(tag => (
+                  <span key={tag as string} className="inline-block rounded-full bg-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/85">
+                    {tag}
+                  </span>
                 ))}
-              </ol>
-
-              {/* "What you get for €1" — concrete deliverables so the
-                   click isn't a leap of faith. Four short lines, Check
-                   bullets, white-on-primary chip row. Placed between the
-                   pipeline (what happens) and the recap (what you asked
-                   for) so the flow reads: story → offer → your brief → go. */}
-              <ul className="grid grid-cols-1 gap-1.5 rounded-xl bg-white/[0.06] px-4 py-3 ring-1 ring-inset ring-white/10 sm:grid-cols-2">
-                {[
-                  'Hand-picked from Vano’s vetted pool',
-                  'Matched to your category, budget and brief',
-                  'Delivered in ~5 seconds — no waiting',
-                  'Full €1 refund if we can’t find a fit',
-                ].map((line) => (
-                  <li key={line} className="flex items-start gap-1.5 text-[12px] leading-snug text-white/85">
-                    <Check size={13} className="mt-0.5 shrink-0 text-amber-200" />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Brief recap — lighter chrome, single line of tags. */}
-              <div className="rounded-xl bg-white/[0.08] px-4 py-3 ring-1 ring-inset ring-white/10">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">Your request</p>
-                <p className="mt-1 text-[13px] leading-snug text-white/90 line-clamp-2">{recap || 'Your request'}</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {[
-                    category && CATEGORIES.find(c => c.id === category)?.label,
-                    timeline && TIMELINES.find(t => t.id === timeline)?.label,
-                    budget && BUDGETS.find(b => b.id === budget)?.label,
-                  ].filter(Boolean).map(tag => (
-                    <span key={tag} className="inline-block rounded-full bg-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/80">{tag}</span>
-                  ))}
-                </div>
               </div>
 
               {/* Primary CTA — white-on-primary, larger rounded, clear
@@ -1132,29 +1189,23 @@ const HirePage = () => {
         )}
       </div>
 
-      {/* ── SECONDARY — Free Vano Match (the "wait 24h" alternative) ──
-           Previously this was the primary, but "€1 + refund" is a stronger
-           offer than "free + wait". Slim card, outlined, reads as the
-           "prefer to wait" alternative so it doesn't compete. Hidden after
-           submit (free request already sent). */}
+      {/* ── SECONDARY — single-line WhatsApp 24h fallback. The primary
+           €1 AI Match is the focus of Step 3; this is just the escape
+           hatch for hirers who'd rather wait for a human pick.
+           Demoted from a bordered card to a muted button-link so it
+           doesn't compete with the hero. Hidden after submit. */}
       {!submitted && (
-        <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">Prefer to wait? Free match in 24h</p>
-              <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
-                We&apos;ll hand-pick a freelancer and message you. No AI, no €1.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => { void handleVanoSubmit(); }}
-              disabled={submitting}
-              className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-muted active:scale-[0.98] disabled:opacity-60"
-            >
-              {submitting ? <><Loader2 size={13} className="animate-spin" /> Sending…</> : <><Send size={13} /> Send free</>}
-            </button>
-          </div>
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => { void handleVanoSubmit(); }}
+            disabled={submitting}
+            className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground underline-offset-2 transition hover:text-foreground hover:underline disabled:opacity-60"
+          >
+            {submitting
+              ? <><Loader2 size={12} className="animate-spin" /> Sending…</>
+              : <>Prefer to wait? Free match via WhatsApp in 24h →</>}
+          </button>
         </div>
       )}
 
@@ -1200,68 +1251,11 @@ const HirePage = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* ── Done-for-you pricing packages (step 3 only — don't distract
-             from the brief while it's being filled in) ── */}
-        {step === 3 && (
-        <div className="mt-14 border-t border-foreground/[0.06] pt-10 mb-4">
-          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Done for you
-          </p>
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-            Or pick a package
-          </h2>
-          <p className="mt-1.5 mb-6 text-sm text-muted-foreground leading-relaxed">
-            Fixed-price packages — we handle everything from start to finish.
-          </p>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            {PRICING_PACKAGES.map((pkg) => (
-              <div
-                key={pkg.name}
-                className={cn(
-                  'relative flex flex-col rounded-2xl border bg-card p-5 transition-all hover:shadow-md',
-                  pkg.popular
-                    ? 'border-primary/30 shadow-[0_0_0_1px_hsl(221_83%_53%/0.08)]'
-                    : 'border-foreground/[0.06]'
-                )}
-              >
-                {pkg.popular && (
-                  <span className="absolute -top-3 left-5 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                    Most popular
-                  </span>
-                )}
-
-                <h3 className="text-[14px] font-semibold">{pkg.name}</h3>
-
-                <p className="mt-2 mb-3 flex items-baseline gap-0.5">
-                  <span className="text-xs text-muted-foreground">€</span>
-                  <span className="text-2xl font-bold tracking-tighter tabular-nums">{pkg.price}</span>
-                  <span className="text-xs text-muted-foreground">{pkg.period}</span>
-                </p>
-
-                <ul className="mb-4 flex-1 space-y-1.5">
-                  {pkg.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-[12px] text-muted-foreground leading-snug">
-                      <Check size={12} className="mt-0.5 shrink-0 text-primary/70" strokeWidth={2.5} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <a
-                  href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I'm interested in the ${pkg.name} package (€${pkg.price}${pkg.period}).`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-white transition-all hover:bg-[#1fba59] hover:shadow-[0_4px_12px_-4px_rgba(37,211,102,0.4)] active:scale-[0.97]"
-                >
-                  <MessageCircle size={15} strokeWidth={1.8} />
-                  Get started
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-        )}
+        {/* The old "Or pick a package" row with 3 fixed-price packages
+             used to live here. Removed on 2026-04-23 to focus the end
+             of the hire flow on a single decision: AI Match (€1) or
+             the WhatsApp 24h fallback. Having three more pricing CTAs
+             after the hero diluted the conversion. */}
       </div>
 
       {/* Embedded Stripe checkout — opens inline when
@@ -1280,6 +1274,42 @@ const HirePage = () => {
         clientSecret={aiFindClientSecret}
         fallbackUrl={aiFindFallbackUrl}
       />
+
+      {/* Mobile-only sticky CTA for Step 3. The primary €1 button lives
+           inside the gradient card (which is great on desktop, where the
+           card stays in view) but on mobile a thumb-scroller can blow
+           straight past it toward the pricing packages and lose the
+           main action. This duplicates the button at the viewport
+           bottom so the conversion path stays one tap away no matter
+           where they've scrolled. `md:hidden` keeps desktop clean;
+           hidden on submitted/loading states so nothing competes for
+           attention after they've acted. Safe-area padding means the
+           iOS home indicator doesn't eat it.
+
+           The page's `pb-24 md:pb-12` reserves 96px of bottom padding
+           on mobile already, so the sticky bar doesn't occlude the
+           last real content. */}
+      {step === 3 && !submitted && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/92 backdrop-blur-md md:hidden"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="mx-auto max-w-2xl px-4 py-3">
+            <button
+              type="button"
+              onClick={handleAiFind}
+              disabled={aiFindLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-[0_6px_20px_-6px_hsl(var(--primary)/0.5)] transition hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+            >
+              {aiFindLoading ? (
+                <><Loader2 size={15} className="animate-spin" /> Matching you now…</>
+              ) : (
+                <><Sparkles size={15} className="text-amber-200" /> Match me now — €1</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

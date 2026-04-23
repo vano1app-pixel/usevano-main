@@ -66,6 +66,30 @@ const StudentProfile = () => {
     if (id) loadAll();
   }, [id]);
 
+  // Record a profile view — fire-and-forget so a slow/failing view log
+  // never blocks the page. The RPC skips self-views server-side; we
+  // additionally debounce per-viewer via sessionStorage so a hirer
+  // refreshing five times in five minutes counts once. 30-minute
+  // window is long enough to ignore accidental refreshes and short
+  // enough that a genuine second visit later in the day still counts.
+  useEffect(() => {
+    if (!id) return;
+    const flagKey = `vano_pv_${id}`;
+    const now = Date.now();
+    try {
+      const last = Number(sessionStorage.getItem(flagKey) || '0');
+      if (last && now - last < 30 * 60 * 1000) return;
+      sessionStorage.setItem(flagKey, String(now));
+    } catch { /* private-mode — still record, no dedupe */ }
+    void (async () => {
+      try {
+        await supabase.rpc('record_profile_view' as never, { _viewed_user_id: id } as never);
+      } catch (err) {
+        console.warn('[profile-view] record failed', err);
+      }
+    })();
+  }, [id]);
+
   // Fetch median reply time for the trust badge. Fire-and-forget; never blocks
   // the page render, defaults to "New on Vano" if the call fails or returns null.
   useEffect(() => {

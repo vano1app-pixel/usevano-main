@@ -294,12 +294,13 @@ export default function ListOnCommunity() {
 
             {/* First-time Quick-start. No multi-step wizard, no side
                 preview, no social fields. Category chip + pitch +
-                phone → live. The full wizard is one tap away via the
-                "customise everything" escape hatch. */}
+                phone → live. The old "set up the full listing now"
+                escape to the wizard was removed — polish happens from
+                /profile after going live, to keep first-time
+                abandonment off the 4-step form. */}
             <ListOnCommunityQuickStart
               userId={userId}
               onPublished={handlePublished}
-              onOpenFullWizard={() => setWizardOpen(true)}
             />
 
             {/* Three-point value pitch sits below so the page still has

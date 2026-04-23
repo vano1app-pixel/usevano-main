@@ -64,6 +64,12 @@ import { UNIVERSITIES, resolveUniversityKey } from '@/lib/universities';
 import { IRELAND_COUNTIES, isIrelandCounty } from '@/lib/irelandCounties';
 import { markUserActed } from '@/lib/userActivity';
 import { track } from '@/lib/track';
+import {
+  loadServerDraft,
+  saveServerDraft,
+  clearServerDraft,
+} from '@/lib/freelancerWizardDraft';
+import { normalizeIrishPhone } from '@/lib/phoneNormalize';
 
 const STEP_LABELS = [
   'Your work',
@@ -111,6 +117,15 @@ function migrateDraftStep(old: number): number {
  * for digital-sales retainers). They've been retired — freelancers
  * on Vano now set whatever they charge. The inputs below are free-
  * form numbers; the client-side clamp on publish is gone too. */
+
+// Minimum skill tags a freelancer must pick before publishing. Creative
+// categories lean on tag breadth for discoverability; sales/websites
+// match well on a couple of precise tags; "other" stays permissive.
+function minSkillsForCategory(category: string | null): number {
+  if (category === 'videography' || category === 'social_media') return 3;
+  if (category === 'digital_sales' || category === 'websites') return 2;
+  return 1;
+}
 
 /** True if a Supabase/PostgREST error is most likely caused by an expired or
  *  invalid JWT — used to decide whether to refresh-and-retry the publish RPC.
@@ -471,8 +486,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         }
       })();
 
-      const draft = rawDraft ? parseDraft(rawDraft) : null;
-      if (draft) {
+      const applyDraft = (source: 'local' | 'server', rawJson: string) => {
+        const draft = parseDraft(rawJson);
+        if (!draft) return false;
         // Migrate legacy 0–6 step values to the 3-step flow.
         setStep(migrateDraftStep(draft.step));
         setCategory(draft.category);
@@ -501,13 +517,35 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         setExpectedBonusAmount(draft.expectedBonusAmount || '');
         setExpectedBonusUnit(draft.expectedBonusUnit ?? 'percentage');
         toast({
-          title: 'Draft restored',
-          description: 'We restored your listing draft on this device. Re-add photos if needed.',
+          title: source === 'server' ? 'Draft restored from another device' : 'Draft restored',
+          description: source === 'server'
+            ? "We synced your listing draft to this device. Re-add photos if needed."
+            : 'We restored your listing draft on this device. Re-add photos if needed.',
         });
-      }
-    }
+        return true;
+      };
 
-    setDraftReady(true);
+      if (rawDraft) {
+        // localStorage wins — it's the source of truth for the current
+        // device and matches the behavior users have always had.
+        applyDraft('local', rawDraft);
+        setDraftReady(true);
+      } else {
+        // Empty localStorage — try the server-side backup (set when the
+        // user filled part of the wizard on another device). Best-effort:
+        // any failure silently falls through to a blank wizard.
+        let cancelled = false;
+        void (async () => {
+          const result = await loadServerDraft(userId);
+          if (cancelled) return;
+          if (result.kind === 'fresh') applyDraft('server', result.draftJson);
+          setDraftReady(true);
+        })();
+        return () => { cancelled = true; };
+      }
+    } else {
+      setDraftReady(true);
+    }
   }, [open, initial, userId, startAtStep, startInPicker, toast]);
 
   useEffect(() => {
@@ -542,8 +580,9 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       expectedBonusUnit,
     };
 
+    const serializedDraft = JSON.stringify(draft);
     try {
-      localStorage.setItem(listOnCommunityDraftKey(userId), JSON.stringify(draft));
+      localStorage.setItem(listOnCommunityDraftKey(userId), serializedDraft);
       // Stamp the save so the header can reflect "Saved" status. Runs on
       // every field change already thanks to the dep array below — the
       // indicator is debounced visually via a short animation, so we
@@ -552,6 +591,17 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
     } catch {
       // Ignore quota/storage restrictions - the wizard should still work without draft persistence.
     }
+
+    // Server-side backup for cross-device continuity. Debounced because
+    // the localStorage effect fires on every keystroke; hitting Supabase
+    // per-keystroke would waste connections and look like a DOS to our
+    // own API. 3s strikes the balance: fast enough that a device switch
+    // after 10s of typing carries meaningful state, slow enough to
+    // coalesce a burst of edits into one write.
+    const serverSaveTimer = window.setTimeout(() => {
+      void saveServerDraft(userId, serializedDraft);
+    }, 3000);
+    return () => window.clearTimeout(serverSaveTimer);
   }, [
     open,
     draftReady,
@@ -730,9 +780,8 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           );
         }
       case 3:
-        // Your price + skills. Lowered from 3 to 1 — getting live with one
-        // honest tag beats abandoning the form trying to invent two more.
-        return skills.length >= 1;
+        // Skills floor is category-aware — see minSkillsForCategory.
+        return skills.length >= minSkillsForCategory(category);
       case 4:
         // Review step is just a summary — Go live button enables when category + title are present.
         return !!category && title.trim().length > 0;
@@ -761,8 +810,16 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         if (needsCounty && county.trim().length === 0) missing.push('County');
         return missing;
       }
-      case 3:
-        return skills.length < 1 ? ['at least one skill'] : [];
+      case 3: {
+        // Category-aware floor: creative/portfolio-heavy categories
+        // (video, content) need richer tag coverage for matching to work
+        // well; sales/websites do fine with 2 precise tags; "other" keeps
+        // the old minimum-of-1 forgiveness.
+        const min = minSkillsForCategory(category);
+        if (skills.length >= min) return [];
+        const needs = min - skills.length;
+        return [needs === 1 ? 'one more skill' : `${needs} more skills`];
+      }
       case 4: {
         const missing: string[] = [];
         if (!category) missing.push('Category');
@@ -1095,6 +1152,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       } catch {
         // Ignore storage restrictions - successful publish is the important part.
       }
+      // Also wipe the cross-device backup so a next-day "start another
+      // listing" doesn't auto-hydrate from the row we just published.
+      // Best-effort; a lingering server draft would only cause a stale-
+      // data rehydrate on a clean-localStorage device, and the 7-day
+      // staleness window in loadServerDraft caps the blast radius.
+      void clearServerDraft(userId);
       // Render the in-dialog success screen instead of closing immediately so the
       // freelancer gets a clear "you're live" moment + share link + next steps.
       // onSubmittedForReview is deferred until the user dismisses the success screen
@@ -1665,9 +1728,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   inputMode="tel"
                   autoComplete="tel"
                   className="mt-1.5 h-11"
-                  placeholder="e.g. 089 981 7111"
+                  placeholder="+353 87 123 4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => {
+                    const normalised = normalizeIrishPhone(phone);
+                    if (normalised !== phone) setPhone(normalised);
+                  }}
                 />
                 {phone.trim().length > 0 && !/^\+?[0-9][0-9\s\-()]{6,}$/.test(phone.trim()) ? (
                   <p className="mt-1 text-[11px] font-medium text-rose-500">
@@ -1686,7 +1753,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               {category && COMMUNITY_CATEGORIES[category].locationModel === 'local' ? (
                 <div className="space-y-2">
                   <div>
-                    <Label>Which county do you cover?</Label>
+                    <Label>
+                      Which county do you cover?{' '}
+                      <span className="font-semibold text-rose-500" aria-hidden>*</span>
+                      <span className="sr-only">(required)</span>
+                    </Label>
                     <Select value={county} onValueChange={setCounty}>
                       <SelectTrigger className="mt-1.5 h-11">
                         <SelectValue placeholder="Select your county" />
@@ -1697,6 +1768,11 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         ))}
                       </SelectContent>
                     </Select>
+                    {county.trim().length === 0 && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Required for {COMMUNITY_CATEGORIES[category].label} — we use it to route nearby jobs to you first.
+                      </p>
+                    )}
                   </div>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <input
@@ -2027,7 +2103,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                         : `${skills.length} picked ✓`}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">One is enough to publish — three or more helps businesses find you faster.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {(() => {
+                    const min = minSkillsForCategory(category);
+                    if (min <= 1) return 'One is enough to publish — three or more helps businesses find you faster.';
+                    if (min === 2) return 'Pick at least two so we can match you accurately — more helps businesses find you faster.';
+                    return 'Pick at least three so we can match you accurately — more helps businesses find you faster.';
+                  })()}
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(category ? SKILLS_BY_CATEGORY[category] : []).map((s) => (
                     <TagBadge key={s} tag={s} selected={skills.includes(s)} onClick={() => toggleSkill(s)} />
@@ -2369,7 +2452,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 type="button"
                 className="h-11 flex-1 rounded-xl font-semibold"
                 onClick={publish}
-                disabled={submitting || !category || !title.trim() || skills.length < 1}
+                disabled={submitting || !category || !title.trim() || skills.length < minSkillsForCategory(category)}
               >
                 {submitting ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
@@ -2419,7 +2502,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                   type="button"
                   className="h-11 flex-1 rounded-xl font-semibold"
                   onClick={publish}
-                  disabled={submitting || !category || !title.trim() || skills.length < 1}
+                  disabled={submitting || !category || !title.trim() || skills.length < minSkillsForCategory(category)}
                 >
                   {submitting ? (
                     <>

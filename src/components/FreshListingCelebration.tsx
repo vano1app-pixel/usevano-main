@@ -4,6 +4,7 @@ import { CheckCircle2, Copy, Share2, X, Banknote, ExternalLink, Loader2 } from '
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
 
 // Overlay shown right after a freelancer publishes their Quick-start
 // listing. Fires confetti, surfaces the shareable profile URL, and
@@ -193,42 +194,41 @@ export function FreshListingCelebration({
             Share to Instagram / TikTok / anywhere
           </button>
 
-          {/* ── Vano Pay activation — the real money moment ──
-               Promoted from a passive blurb to the primary CTA. A
-               freelancer who completes payouts here starts earning
-               through the platform; one who doesn't leaves money on
-               the table. Same edge function the profile card calls,
-               same Stripe-hosted flow, same return URL — just moved
-               five clicks closer to the publish-celebration high. */}
-          <div className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card">
-            <div className="space-y-3 p-4">
-              <div className="flex items-start gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <Banknote size={16} strokeWidth={2} />
+          {/* Vano Pay activation block — hidden while the feature is
+               still being stabilised (see VANO_PAY_VISIBLE flag). The
+               celebration flow now just shows the share link + primary
+               action; the payouts upsell comes back when the flag flips. */}
+          {VANO_PAY_VISIBLE && (
+            <div className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card">
+              <div className="space-y-3 p-4">
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                    <Banknote size={16} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-semibold leading-tight text-foreground">
+                      Get paid through Vano
+                    </p>
+                    <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                      3-min Stripe setup. Clients get a Pay button in chat · funds land in your bank 1–2 days after release. 3% fee, no monthly charge.
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13.5px] font-semibold leading-tight text-foreground">
-                    Get paid through Vano
-                  </p>
-                  <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-                    3-min Stripe setup. Clients get a Pay button in chat · funds land in your bank 1–2 days after release. 3% fee, no monthly charge.
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={startVanoPay}
+                  disabled={vanoPayLoading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[13.5px] font-bold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {vanoPayLoading ? (
+                    <><Loader2 size={14} className="animate-spin" /> Opening Stripe…</>
+                  ) : (
+                    <>Turn on Vano Pay <ExternalLink size={13} strokeWidth={2.5} /></>
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={startVanoPay}
-                disabled={vanoPayLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[13.5px] font-bold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {vanoPayLoading ? (
-                  <><Loader2 size={14} className="animate-spin" /> Opening Stripe…</>
-                ) : (
-                  <>Turn on Vano Pay <ExternalLink size={13} strokeWidth={2.5} /></>
-                )}
-              </button>
             </div>
-          </div>
+          )}
 
           <button
             type="button"

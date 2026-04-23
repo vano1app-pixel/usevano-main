@@ -10,21 +10,41 @@ export const NotificationBell: React.FC = () => {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    loadNotifications();
+    // We only know the user-scoped channel name AND filter after reading
+    // the session, so the subscription is set up inside an async block.
+    // The `active` flag guards against a sign-out-then-sign-back-in race
+    // where the effect cleanup runs while the setup is still in-flight.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
 
-    // Realtime subscription
-    const channel = supabase
-      .channel('notifications')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-      }, () => {
-        loadNotifications();
-      })
-      .subscribe();
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!active || !session) return;
+      loadNotifications();
 
-    return () => { supabase.removeChannel(channel); };
+      // Previous version listened to `event: 'INSERT'` on the whole table
+      // with no filter, which (a) fired loadNotifications for every user's
+      // inserts site-wide — wasteful — and (b) missed UPDATE events, so a
+      // "mark as read" from another tab left this badge stale. Scope to
+      // this user's rows + listen to all event types to keep cross-tab
+      // counts in sync.
+      channel = supabase
+        .channel(`notifications:${session.user.id}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${session.user.id}`,
+        }, () => {
+          loadNotifications();
+        })
+        .subscribe();
+    })();
+
+    return () => {
+      active = false;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadNotifications = async () => {

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Sparkles, Phone, MessageCircle } from 'lucide-react';
+import { Sparkles, Phone, MessageCircle, Search, Compass, Trophy, Check, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { loadHireBrief } from '@/lib/hireFlow';
 
@@ -30,6 +30,10 @@ import { loadHireBrief } from '@/lib/hireFlow';
 
 const AUTH_WAIT_MS = 5_000;
 const AUTH_POLL_INTERVAL_MS = 300;
+// Hold the staged progress bar on screen for this long before revealing
+// the inline public-match card, so the €1 moment feels intentional
+// instead of a jump-cut.
+const REVEAL_DELAY_MS = 5_000;
 
 type Resolved = { userId: string } | null;
 
@@ -186,6 +190,56 @@ export default function AiFindReturn() {
   const [publicPick, setPublicPick] = useState<PublicPick | null>(null);
   const [publicPickFetching, setPublicPickFetching] = useState(false);
   const [noMatchesFound, setNoMatchesFound] = useState(false);
+  const [revealReady, setRevealReady] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [showMatchReveal, setShowMatchReveal] = useState(false);
+  const mountedAtRef = useRef<number>(Date.now());
+  const celebratedRef = useRef(false);
+
+  // Reveal curtain — lift after REVEAL_DELAY_MS so the progress bar
+  // always plays out in full even if the DB match arrives instantly.
+  useEffect(() => {
+    const t = setTimeout(() => setRevealReady(true), REVEAL_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Elapsed ticker drives both the stage swap and the progress bar.
+  // 250ms resolution is enough: the bar has a CSS ease-out transition
+  // that smooths the gaps, and the "Xs" counter only shows whole seconds.
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setElapsedSec((Date.now() - mountedAtRef.current) / 1000);
+    }, 250);
+    return () => clearInterval(tick);
+  }, []);
+
+  // Confetti + "match is ready" badge, fires once when both the pick
+  // and the curtain are ready. Mirrors the reveal on AiFindResults so
+  // Path 3 (signed-out public pick) feels the same as the signed-in flow.
+  useEffect(() => {
+    if (celebratedRef.current) return;
+    if (!publicPick) return;
+    if (!revealReady) return;
+    celebratedRef.current = true;
+    setShowMatchReveal(true);
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return;
+    void (async () => {
+      try {
+        const confetti = (await import('canvas-confetti')).default;
+        const end = Date.now() + 500;
+        const burst = () => {
+          confetti({ particleCount: 18, spread: 55, startVelocity: 35, angle: 60,
+            origin: { x: 0.08, y: 0.35 }, colors: ['#10b981', '#fcd34d', '#ffffff'] });
+          confetti({ particleCount: 18, spread: 55, startVelocity: 35, angle: 120,
+            origin: { x: 0.92, y: 0.35 }, colors: ['#10b981', '#fcd34d', '#ffffff'] });
+          if (Date.now() < end) window.setTimeout(burst, 140);
+        };
+        burst();
+      } catch { /* confetti is a nicety */ }
+    })();
+  }, [publicPick, revealReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -277,7 +331,7 @@ export default function AiFindReturn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, params]);
 
-  if (publicPick) {
+  if (publicPick && revealReady) {
     const phoneDigits = publicPick.phone ? publicPick.phone.replace(/[^+\d]/g, '') : null;
     return (
       <div className="min-h-[100dvh] bg-background px-4 py-10 sm:py-14">
@@ -288,6 +342,18 @@ export default function AiFindReturn() {
             </div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your perfect freelancer</h1>
           </div>
+
+          {showMatchReveal && (
+            <div
+              className="mx-auto mb-4 flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-[12px] font-semibold text-emerald-700 shadow-[0_8px_24px_-10px_rgba(16,185,129,0.35)] animate-in fade-in slide-in-from-top-2 duration-500 dark:text-emerald-300"
+              onAnimationEnd={() => {
+                window.setTimeout(() => setShowMatchReveal(false), 3800);
+              }}
+            >
+              <CheckCircle2 size={13} strokeWidth={3} />
+              Your match is ready
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-[20px] border border-primary/30 bg-card shadow-[0_18px_44px_-22px_hsl(var(--primary)/0.45)]">
             <div className="relative overflow-hidden bg-gradient-to-b from-primary to-primary/90 px-5 py-4 text-primary-foreground">
@@ -392,7 +458,7 @@ export default function AiFindReturn() {
     );
   }
 
-  if (noMatchesFound) {
+  if (noMatchesFound && revealReady) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
@@ -412,11 +478,114 @@ export default function AiFindReturn() {
     );
   }
 
+  // Quiet the lint while we silently consume the fetch flag — it's only
+  // used inside the effect above to prevent a double-fire.
+  void publicPickFetching;
+
+  return <AiFindProgressStages elapsedSec={elapsedSec} />;
+}
+
+// Three-stage progress bar with an ease-out curve: bar sprints through
+// the first two stages, then crawls on "Picking your perfect match" so
+// the last beat before the reveal feels like real work. Visual language
+// matches AiFindResults so the two post-payment paths feel identical.
+function AiFindProgressStages({ elapsedSec }: { elapsedSec: number }) {
+  const TOTAL_SEC = 5;
+  const stages = [
+    { id: 'scan', label: 'Reading your brief',           icon: Search,  endAt: 1.5 },
+    { id: 'pool', label: 'Scanning our freelancer pool', icon: Compass, endAt: 3 },
+    { id: 'rank', label: 'Picking your perfect match',   icon: Trophy,  endAt: 5 },
+  ] as const;
+  const activeIdx = stages.findIndex((s) => elapsedSec < s.endAt);
+  const pastAll = activeIdx === -1;
+
+  const t = Math.min(1, elapsedSec / TOTAL_SEC);
+  const eased = 1 - Math.pow(1 - t, 2);
+  const percent = pastAll ? 96 : Math.max(4, Math.min(96, eased * 100));
+  const wholeSec = Math.floor(elapsedSec);
+
   return (
-    <div className="flex min-h-[60vh] items-center justify-center px-6">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Finding your freelancer…</p>
+    <div className="min-h-[100dvh] bg-background px-4 py-10 sm:py-14">
+      <div className="mx-auto w-full max-w-2xl">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+            <Sparkles className="h-3.5 w-3.5" /> AI Find
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your perfect freelancer</h1>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                Finding your perfect freelancer
+              </p>
+              <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-foreground">
+                {pastAll ? 'Almost there — polishing your pick' : stages[activeIdx].label + '…'}
+              </h2>
+            </div>
+            <span
+              className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {wholeSec}s
+            </span>
+          </div>
+
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-border">
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+
+          <ul className="mt-5 space-y-3">
+            {stages.map((s, i) => {
+              const Icon = s.icon;
+              const isDone = pastAll || i < activeIdx;
+              const isActive = !pastAll && i === activeIdx;
+              return (
+                <li key={s.id} className="flex items-center gap-3">
+                  <span
+                    className={
+                      isDone
+                        ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : isActive
+                        ? 'relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary'
+                        : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground/50'
+                    }
+                  >
+                    {isDone ? (
+                      <Check size={14} strokeWidth={3} />
+                    ) : (
+                      <>
+                        <Icon size={13} strokeWidth={2.25} />
+                        {isActive && (
+                          <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+                        )}
+                      </>
+                    )}
+                  </span>
+                  <p
+                    className={
+                      isActive
+                        ? 'text-sm font-semibold text-foreground'
+                        : isDone
+                        ? 'text-sm font-medium text-foreground/70'
+                        : 'text-sm font-medium text-muted-foreground/60'
+                    }
+                  >
+                    {s.label}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="mt-5 border-t border-border/60 pt-3 text-center text-[11px] text-muted-foreground">
+            Hand-picked from our freelancer pool. €1 refunded if we can't find one.
+          </p>
+        </div>
       </div>
     </div>
   );

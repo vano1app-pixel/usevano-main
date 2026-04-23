@@ -246,9 +246,9 @@ const Landing = () => {
   return (
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
-        title="Hand-picked freelancers, paid safely"
-        description="€1 finds your freelancer in 60 seconds. Chat, agree a rate, then pay safely through Vano Pay. Freelancers: list yourself free — videography, content, web design, digital sales."
-        keywords="hire freelancer, freelance marketplace, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway, vano pay"
+        title="Hand-picked freelancers — no more scrolling through gigs"
+        description="€1 finds your freelancer in 60 seconds. No browsing, no shortlists — one brief, one match. Freelancers: list yourself free — videography, content, web design, digital sales."
+        keywords="hire freelancer, freelance marketplace, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
       <Navbar />
@@ -281,7 +281,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] font-normal leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            Share your brief. We hand-pick two matches in 60 seconds — one from Vano, one scouted from the open web. You chat, agree a rate, then pay them safely through Vano Pay.
+            No scrolling 40 gigs. No shortlists. Share your brief, pay €1, meet your freelancer in 60 seconds — refunded if we can't find one.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -302,10 +302,10 @@ const Landing = () => {
                  mirrors the HirePage match card. €1 chip is visible
                  because opacity-ambiguity about the price was the one
                  place the old Landing was dishonest — €1 finds the
-                 match, then the hirer pays the freelancer directly
-                 through Vano Pay. Two-pill preview strip inside the
-                 card shows what the €1 produces so the click isn't a
-                 leap of faith. */}
+                 match, refunded if no fit. The old two-pill preview
+                 (Vano pick + Web scout) was removed so the card reads
+                 as one clear offer instead of two subtly-different
+                 ones. */}
             <InteractiveButton
               burstType="sparkle"
               particleCount={25}
@@ -328,33 +328,9 @@ const Landing = () => {
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  €1 finds two matches. Chat, agree a rate, then pay safely via Vano Pay.
+                  €1, hand-picked in 60 seconds. Refunded if we can't find the right fit.
                 </p>
-                {/* Preview of the €1 deliverable — two pills showing
-                     "Vano pick" + "Web scout" so the hirer sees what
-                     they get before clicking. Both pills render the
-                     same shape so they read as peer options. */}
-                <div className="mt-4 grid grid-cols-2 gap-1.5">
-                  <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.1] px-2.5 py-1.5 ring-1 ring-white/15">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/20">
-                      <Sparkles size={10} className="text-amber-200" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-white/60">Vano pick</p>
-                      <p className="truncate text-[11px] font-semibold text-white">From the pool</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.1] px-2.5 py-1.5 ring-1 ring-white/15">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/20">
-                      <Shield size={10} className="text-emerald-200" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-white/60">Web scout</p>
-                      <p className="truncate text-[11px] font-semibold text-white">Found for you</p>
-                    </div>
-                  </div>
-                </div>
-                <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
+                <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
                   <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                 </span>
@@ -392,7 +368,7 @@ const Landing = () => {
                     Get found. Get paid.
                   </p>
                   <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">
-                    List yourself in 30 seconds. Paid safely through Vano Pay.
+                    List yourself in 30 seconds. Businesses find you, message you, and hire you.
                   </p>
                   <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
                     Join as a freelancer
@@ -425,7 +401,7 @@ const Landing = () => {
 
 
       {/* What do you need? */}
-      <section data-section-categories className="py-14 md:py-20 px-4 md:px-8 lg:px-12">
+      <section data-section-categories className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-5xl lg:max-w-6xl mx-auto">
           <div>
           <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-4">What do you need?</span>
@@ -492,7 +468,7 @@ const Landing = () => {
         </div>
       </section>
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
-        <section data-section-freelancers className="py-8 md:py-12 overflow-hidden">
+        <section data-section-freelancers className="py-10 md:py-14 overflow-hidden">
           <div
             className="max-w-5xl lg:max-w-6xl mx-auto px-4 md:px-8 lg:px-12"
           >
@@ -687,7 +663,7 @@ const Landing = () => {
       )}
 
       {/* Why VANO */}
-      <section data-section-why className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+      <section data-section-why className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-4xl lg:max-w-5xl mx-auto">
           <div className="text-center">
             <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</span>
@@ -781,7 +757,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  A marketplace for hand-picked freelancers. Tell us what you need — for €1 we match you with one freelancer from our pool and one scouted from the open web. You chat, agree a rate, then pay them safely through Vano Pay.
+                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1, and we'll match you with a freelancer in 60 seconds — refunded if we can't find the right fit. You chat, agree a rate, and hire them directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -789,7 +765,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Start a Vano Match — tell us the category, timeline, and budget, and for €1 we hand-pick two freelancers in 60 seconds. You then message them, agree a rate, and pay through Vano Pay when you're ready. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
+                  Start a Vano Match — tell us the category, timeline, and budget, and for €1 we hand-pick a freelancer in 60 seconds. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="pay" className="border-border/80 px-2">
@@ -797,7 +773,7 @@ const Landing = () => {
                   How does payment work?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Pay through Vano Pay and your money is held on Vano until you release it — so the freelancer has to deliver first. If nothing happens in 14 days it auto-releases. If the work doesn't land you can flag a problem and get a full refund. Vano takes 3%.
+                  You pay €1 for the match — refunded if we can't find you a fit. After that, you agree a rate with the freelancer directly in chat and pay them how you like (bank transfer / their invoice). No platform fees right now.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2">
@@ -813,7 +789,7 @@ const Landing = () => {
                   I am a freelancer — how do I start?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Sign up, publish a short listing in 30 seconds, then turn on Vano Pay so clients can tap a button to pay you safely. Money lands in your bank 1–2 days after release. Vano takes 3%; there's no monthly fee.
+                  Sign up, publish a short listing in 30 seconds, and you're visible to businesses hiring on Vano. Completely free to list — no subscriptions, no commission, no monthly fee.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -822,7 +798,7 @@ const Landing = () => {
       </section>
 
       {/* CTA */}
-      <section data-section-cta className="py-20 md:py-32 px-4 md:px-8 lg:px-12">
+      <section data-section-cta className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
           <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-5 py-10 sm:px-10 sm:py-14 lg:px-20 lg:py-20 text-center">
             {/* Floating magic orbs */}
@@ -834,7 +810,7 @@ const Landing = () => {
               <span className="italic font-semibold text-primary-foreground/95">hand-picked.</span>
             </h2>
             <p className="relative text-primary-foreground/70 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              €1 finds your match in 60 seconds. You chat, agree a rate, then pay them safely through Vano Pay.
+              €1 finds your match in 60 seconds. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton

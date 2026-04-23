@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TagBadge } from './TagBadge';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
 import { Heart, MapPin, ArrowRight, ShieldCheck, Star, MessageSquareQuote, Trash2, Zap, Instagram, Linkedin, Globe, Music2, Banknote, Clock, TrendingUp, Sparkles } from 'lucide-react';
 import { QuoteModal } from './QuoteModal';
 import { HireNowModal } from './HireNowModal';
@@ -155,6 +157,92 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
 
+  // Quick-preview state — desktop hover (400ms delay so a passing mouse
+  // doesn't fire it) + mobile long-press (500ms) open a popover with
+  // the full bio and all skills. A normal tap/click still navigates;
+  // after a long-press we suppress the immediate click via
+  // wasLongPressRef so the user doesn't get yanked off the list on
+  // their first interaction.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const hoverOpenTimerRef = useRef<number | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const wasLongPressRef = useRef(false);
+  // Initial touch coords so we can cancel the long-press when the user
+  // is actually scrolling the feed, not holding down on a card.
+  const pointerDownCoordRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hoverOpenTimerRef.current) window.clearTimeout(hoverOpenTimerRef.current);
+      if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
+
+  const cancelHoverTimer = () => {
+    if (hoverOpenTimerRef.current) {
+      window.clearTimeout(hoverOpenTimerRef.current);
+      hoverOpenTimerRef.current = null;
+    }
+  };
+  const cancelLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (!clickable) return;
+    if (e.pointerType !== 'mouse') return;
+    cancelHoverTimer();
+    hoverOpenTimerRef.current = window.setTimeout(() => setPreviewOpen(true), 400);
+  };
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse') return;
+    cancelHoverTimer();
+    setPreviewOpen(false);
+  };
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!clickable) return;
+    if (e.pointerType === 'mouse') return;
+    wasLongPressRef.current = false;
+    pointerDownCoordRef.current = { x: e.clientX, y: e.clientY };
+    cancelLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(() => {
+      wasLongPressRef.current = true;
+      setPreviewOpen(true);
+    }, 500);
+  };
+  const handlePointerMove = (e: React.PointerEvent) => {
+    // Scroll detection — if the user has moved their finger more than
+    // 10px since touchdown we assume they're scrolling the feed, not
+    // trying to long-press a card, and cancel the pending timer.
+    if (e.pointerType === 'mouse') return;
+    const start = pointerDownCoordRef.current;
+    if (!start) return;
+    const dx = Math.abs(e.clientX - start.x);
+    const dy = Math.abs(e.clientY - start.y);
+    if (dx > 10 || dy > 10) {
+      cancelLongPressTimer();
+      pointerDownCoordRef.current = null;
+    }
+  };
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    cancelLongPressTimer();
+    pointerDownCoordRef.current = null;
+  };
+  const handleCardClick = () => {
+    if (!clickable) return;
+    // Suppress the navigation click that follows a long-press. Reset
+    // the flag so a subsequent normal tap still navigates.
+    if (wasLongPressRef.current) {
+      wasLongPressRef.current = false;
+      return;
+    }
+    navigate(`/students/${student.user_id}`);
+  };
+
   const handleRemoveListing = async () => {
     setRemoving(true);
     const { error } = await supabase
@@ -188,13 +276,21 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const salesLabel = formatSalesStats(salesStats);
 
   return (
+    <Popover open={previewOpen} onOpenChange={setPreviewOpen}>
+      <PopoverAnchor asChild>
     <div
       className={cn(
         'relative overflow-hidden rounded-2xl border border-foreground/6 bg-card shadow-tinted transition-all duration-300 ease-out-quint',
         clickable && 'cursor-pointer hover:-translate-y-[3px] hover:border-primary/20 hover:shadow-tinted-lg active:scale-[0.98] group',
         !clickable && 'cursor-default',
       )}
-      onClick={clickable ? () => navigate(`/students/${student.user_id}`) : undefined}
+      onClick={handleCardClick}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={cancelLongPressTimer}
     >
       {/* Hover glow ring */}
       {clickable && (
@@ -332,7 +428,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
               Verified
             </span>
           )}
-          {student.stripe_payouts_enabled && (
+          {VANO_PAY_VISIBLE && student.stripe_payouts_enabled && (
             <span
               title="Pay this freelancer through Vano — secure card checkout, money in their bank in 1–2 days."
               className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm"
@@ -618,5 +714,76 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         </Dialog>
       )}
     </div>
+      </PopoverAnchor>
+
+      {/* Quick-preview popover — appears on desktop hover (400ms) or
+           mobile long-press (500ms). Portal-rendered so it escapes the
+           card's overflow-hidden. Click inside shouldn't navigate
+           (stopPropagation on the wrapper prevents the card's click
+           handler from firing when a tap lands on the preview). */}
+      <PopoverContent
+        side="bottom"
+        align="start"
+        sideOffset={8}
+        collisionPadding={12}
+        // Keep the card's own hover-focus chain intact when the popover
+        // is open — the trigger (PopoverAnchor) isn't a focusable
+        // element, so Radix's default focus-trap would jump to the
+        // close button on mount. `onOpenAutoFocus` preventDefault keeps
+        // focus where the user left it.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="w-[calc(100vw-2rem)] max-w-sm p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          {resolvedAvatar ? (
+            <img
+              src={resolvedAvatar}
+              alt={displayName || 'Freelancer'}
+              className="h-10 w-10 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+              {(displayName || 'S')[0].toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {displayName || 'Freelancer'}
+            </p>
+            {category && (
+              <p className="text-[11px] font-medium text-muted-foreground">{category}</p>
+            )}
+          </div>
+        </div>
+
+        {student.bio && (
+          <p className="mt-3 text-[12.5px] leading-relaxed text-foreground/85">
+            {student.bio}
+          </p>
+        )}
+
+        {student.skills?.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {student.skills.map((skill) => (
+              <TagBadge key={skill} tag={skill} />
+            ))}
+          </div>
+        )}
+
+        {clickable && (
+          <button
+            type="button"
+            onClick={() => {
+              setPreviewOpen(false);
+              navigate(`/students/${student.user_id}`);
+            }}
+            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+          >
+            View full profile <ArrowRight size={12} strokeWidth={2.5} />
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 };

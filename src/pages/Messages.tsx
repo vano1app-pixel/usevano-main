@@ -9,6 +9,7 @@ import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, 
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
 import { BusinessDealsPanel } from '@/components/BusinessDealsPanel';
+import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import {
   TEAM_CONTACT_EMAIL,
@@ -1170,7 +1171,7 @@ const Messages = () => {
                       but gating the button up here means we don't hand
                       users a confusing error toast after a click on a
                       freelancer who hasn't enabled Vano Pay yet. */}
-                  {selectedConversation && user && viewerUserType === 'business' && otherUserType === 'student' && (
+                  {VANO_PAY_VISIBLE && selectedConversation && user && viewerUserType === 'business' && otherUserType === 'student' && (
                     otherPayoutsEnabled ? (
                       <button
                         type="button"

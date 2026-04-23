@@ -7,7 +7,7 @@ import { AvatarUpload } from '@/components/AvatarUpload';
 import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { FreshListingCelebration } from '@/components/FreshListingCelebration';
-import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2, ChevronDown } from 'lucide-react';
+import { Briefcase, Trash2, CheckCircle2, Link2, Check, ImagePlus, Pencil, ExternalLink, Plus, Camera, LogOut, MapPin, Share2, Loader2, ChevronDown, Zap, ZapOff, Eye } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { ShareCardFrame } from '@/components/ShareCardFrame';
 import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { cardBase, cardDanger } from '@/lib/cardStyles';
 import { computeProfileChecks } from '@/lib/profileCompleteness';
 import { VanoPaySetupCard } from '@/components/VanoPaySetupCard';
+import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
 
 const ModBadgeIfAdmin = ({ userId }: { userId: string }) => {
   const isAdmin = useIsAdmin(userId);
@@ -789,6 +790,21 @@ const Profile = () => {
 
         {profile?.user_type === 'student' && user && (
           <>
+            {/* Availability quick-toggle — one tap to flip a fresh/cold
+                signal hirers see on your card. Writes the single
+                is_available column directly, decoupled from the big
+                Save Profile button so a returning freelancer who just
+                wants to flip their status in five seconds doesn't have
+                to scroll, edit, and Save the whole form. Uses the
+                existing isAvailable state so the rest of the page stays
+                in sync after the optimistic toggle. */}
+            <AvailabilityQuickToggle
+              userId={user.id}
+              isAvailable={isAvailable}
+              onChange={setIsAvailable}
+            />
+            <ProfileViewsThisWeek userId={user.id} />
+
             {/* The old "You're not on the talent board yet" nudge banner was
                 removed here — it duplicated the amber "Not visible yet" card
                 rendered further down (with its "Get listed" button), and the
@@ -807,7 +823,7 @@ const Profile = () => {
                 instance disappears and the card reverts to its regular
                 place in the left column so it doesn't crowd returning
                 users. The eyebrow frames it as a guided first step. */}
-            {!studentProfile?.stripe_account_id && !celebrationShownThisSession && (
+            {VANO_PAY_VISIBLE && !studentProfile?.stripe_account_id && !celebrationShownThisSession && (
               <div className="mb-6" id="vano-pay-setup">
                 <div className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/12 text-[11px] font-semibold text-primary">1</span>
@@ -1410,7 +1426,7 @@ const Profile = () => {
                     block), so we skip it here to avoid a duplicate.
                     The wrapper id lets the post-publish basics card
                     scroll-into-view on tap. */}
-                {studentProfile?.stripe_account_id && (
+                {VANO_PAY_VISIBLE && studentProfile?.stripe_account_id && (
                   <div id="vano-pay-setup">
                     <VanoPaySetupCard userId={user.id} />
                   </div>
@@ -1559,6 +1575,16 @@ const Profile = () => {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {/* Refer-a-friend card — founder manually rewards repeat
+                     referrers with a bump in AI Match placement, so the
+                     UI promises a boost but there's no automated code
+                     behind it. Link carries ?ref=<userId> so inbound
+                     visits can be attributed via Vercel / analytics
+                     when the founder reviews referrals by hand. */}
+                {user && (
+                  <ReferralShareCard userId={user.id} displayName={displayName || 'a freelancer'} />
                 )}
 
                 {/* Signed in as + Sign out */}
@@ -1814,3 +1840,218 @@ const Profile = () => {
 };
 
 export default Profile;
+
+// Profile-views-this-week stat card. Dumb count query against the
+// profile_views table (RLS gates it to the viewing user's own rows).
+// Renders nothing while loading, and nothing if the count is zero on
+// a brand-new profile — a prominent "0 views" is worse than silence.
+function ProfileViewsThisWeek({ userId }: { userId: string }) {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      try {
+        const { count: c, error } = await supabase
+          .from('profile_views' as never)
+          .select('*', { count: 'exact', head: true })
+          .eq('viewed_user_id', userId)
+          .gte('viewed_at', since);
+        if (cancelled) return;
+        if (error) { setCount(0); return; }
+        setCount(c ?? 0);
+      } catch {
+        if (!cancelled) setCount(0);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  // Hide until we have a count, and hide the zero state so a blank new
+  // profile doesn't shout "0 views" at the owner on day one.
+  if (count === null || count === 0) return null;
+
+  return (
+    <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Eye size={16} strokeWidth={2.25} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">
+            {count} {count === 1 ? 'profile view' : 'profile views'} this week
+          </p>
+          <p className="text-[11.5px] leading-snug text-muted-foreground">
+            Hirers are looking — keep your listing fresh to turn views into messages.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Refer-a-friend card. The "boost in AI Matches" promise is founder-
+// honoured (they give the bump in person / manually tune results);
+// this component doesn't write to any boost column. Keep that
+// distinction in mind before adding logic here.
+function ReferralShareCard({ userId, displayName }: { userId: string; displayName: string }) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+  const referralUrl = `${getSiteOrigin()}/list-on-community?ref=${userId}`;
+  const shareMessage = `I'm using VANO to get hired in Ireland — you should list yourself too. Quick to set up: ${referralUrl}`;
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(referralUrl);
+      setCopied(true);
+      toast({ title: 'Referral link copied' });
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: "Couldn't copy", description: 'Long-press to copy manually.', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="w-full rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/5 via-card to-card p-4 shadow-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+        Help VANO grow
+      </p>
+      <h3 className="mt-1 text-sm font-semibold text-foreground">
+        Invite a freelancer friend
+      </h3>
+      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+        Know another freelancer who'd fit on VANO? Share your link — we'll boost your profile in AI Matches as thanks.
+      </p>
+      <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+        <Link2 size={14} className="shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-[12px] text-foreground/80">
+          {referralUrl}
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] font-semibold text-foreground transition hover:bg-muted active:scale-[0.98]"
+        >
+          {copied ? <><Check size={13} className="text-emerald-500" /> Copied</> : <><Link2 size={13} /> Copy link</>}
+        </button>
+        <a
+          href={whatsappHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-3 py-2.5 text-[13px] font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+        >
+          <Share2 size={13} /> Share on WhatsApp
+        </a>
+      </div>
+      <p className="mt-2 text-[10.5px] leading-relaxed text-muted-foreground/80">
+        Your friend sees: "{displayName} invited you to VANO."
+      </p>
+    </div>
+  );
+}
+
+// Lightweight availability quick-toggle for the top of the student
+// profile. Writes directly to student_profiles so returning freelancers
+// can flip on/off without touching the big form + Save Profile flow.
+// Optimistic: flips the UI immediately, rolls back + toasts on failure.
+function AvailabilityQuickToggle({
+  userId,
+  isAvailable,
+  onChange,
+}: {
+  userId: string;
+  isAvailable: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+
+  const handleToggle = async () => {
+    const next = !isAvailable;
+    onChange(next); // optimistic
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('student_profiles')
+        .update({ is_available: next } as any)
+        .eq('user_id', userId);
+      if (error) throw error;
+      // Confetti-free: this is a low-stakes flip, not a publish.
+      // A short toast keeps the action visible without stealing focus.
+      toast({
+        title: next ? "You're available this week" : 'Paused for now',
+        description: next
+          ? 'Your card will show a fresh "available" badge to hirers.'
+          : "You'll still appear in search but without the fresh badge.",
+      });
+    } catch (err) {
+      onChange(!next); // rollback
+      const message = (err as { message?: string })?.message || '';
+      toast({
+        title: "Couldn't update availability",
+        description: message || 'Please try again in a moment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const Icon = isAvailable ? Zap : ZapOff;
+  return (
+    <div
+      className={cn(
+        'mb-6 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors',
+        isAvailable
+          ? 'border-emerald-500/30 bg-emerald-500/[0.04]'
+          : 'border-border bg-muted/30',
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+            isAvailable ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground',
+          )}
+        >
+          <Icon size={16} strokeWidth={2.25} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">
+            {isAvailable ? 'Available this week' : 'Taking a break'}
+          </p>
+          <p className="text-[11.5px] leading-snug text-muted-foreground">
+            {isAvailable
+              ? 'Hirers see a fresh "available now" badge on your card.'
+              : "You're hidden from the top of matches until you flip this back on."}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleToggle}
+        disabled={saving}
+        role="switch"
+        aria-checked={isAvailable}
+        aria-label={isAvailable ? 'Pause availability' : 'Set yourself available'}
+        className={cn(
+          'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors disabled:opacity-60',
+          isAvailable
+            ? 'border-emerald-500/50 bg-emerald-500'
+            : 'border-border bg-muted',
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+            isAvailable ? 'translate-x-6' : 'translate-x-1',
+          )}
+        />
+      </button>
+    </div>
+  );
+}

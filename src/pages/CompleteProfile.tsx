@@ -6,6 +6,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
 import { Phone, UserCircle } from 'lucide-react';
+import { normalizeIrishPhone } from '@/lib/phoneNormalize';
 
 // Businesses only. Freelancers are routed straight to /list-on-community by
 // getPostAuthPath — the wizard captures bio, phone, skills, banner, etc., and
@@ -139,8 +140,12 @@ const CompleteProfile = () => {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                onBlur={() => {
+                  const normalised = normalizeIrishPhone(phone);
+                  if (normalised !== phone) setPhone(normalised);
+                }}
                 className={inputClass}
-                placeholder="e.g. 089 123 4567"
+                placeholder="+353 87 123 4567"
                 autoComplete="tel"
                 inputMode="tel"
                 required

@@ -347,7 +347,7 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
           <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
             <ShieldCheck size={11} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span>
-              Once {freelancerName} accepts, pay safely through Vano Pay — your money is held until you release it. Vano takes 3%.
+              Once {freelancerName} accepts, you'll agree a rate in chat and pay them directly — no platform fees right now.
             </span>
           </p>
         </div>
