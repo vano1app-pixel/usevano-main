@@ -93,12 +93,16 @@ export const MobileBottomNav: React.FC = () => {
   }, [user]);
 
   const loadUnread = async (userId: string) => {
-    const { count } = await supabase
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .neq('sender_id', userId)
-      .eq('read', false);
-    setUnreadCount(count || 0);
+    try {
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .neq('sender_id', userId)
+        .eq('read', false);
+      setUnreadCount(count || 0);
+    } catch {
+      // Realtime subscription refreshes on next event — keep last count.
+    }
   };
 
   const loadPendingHires = async (userId: string) => {

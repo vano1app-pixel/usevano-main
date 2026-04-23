@@ -77,12 +77,17 @@ export const Navbar: React.FC = () => {
     if (!user) { setUnreadCount(0); return; }
 
     const load = async () => {
-      const { count } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .neq('sender_id', user.id)
-        .eq('read', false);
-      setUnreadCount(count || 0);
+      try {
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .neq('sender_id', user.id)
+          .eq('read', false);
+        setUnreadCount(count || 0);
+      } catch {
+        // Realtime channel will refresh on the next message event — degrade
+        // to the last known count rather than throwing into React.
+      }
     };
 
     void load();
