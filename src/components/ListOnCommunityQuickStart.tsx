@@ -122,32 +122,87 @@ export function ListOnCommunityQuickStart({
   const publish = async () => {
     if (!canPublish || submitting || !category) return;
     setSubmitting(true);
+    let succeeded = false;
     try {
-      // Guarantee `profiles.user_type = 'student'` BEFORE the publish RPC.
-      // The RPC (publish_community_listing, migration 20260416130000) hard-
-      // requires this — without it the RPC raises "only students can
-      // publish listings" (errcode 42501) and the user sees a generic
-      // "Couldn't publish your listing" toast with no clue why. Most
-      // freelancers go through ChooseAccountType which sets this, but
-      // anyone who lands on /list-on-community via the scout-claim flow,
-      // a stale OAuth round-trip, or a direct URL hits the wall. Cheap
-      // upsert eliminates the failure mode entirely.
-      await supabase
-        .from('profiles')
-        .upsert({ user_id: userId, user_type: 'student' }, { onConflict: 'user_id' });
+      // Step 0: refresh the JWT. Long sign-up sessions plus the email-
+      // verify round-trip plus reading the form for a minute can push
+      // the access token past expiry by the time we hit Publish. RPC
+      // call would then 401 with no useful message. Cheap to refresh.
+      await supabase.auth.refreshSession().catch(() => {
+        /* fall through — getSession below will surface the real issue */
+      });
 
-      // Upsert empty defaults on student_profiles (and phone if the user
-      // gave one) so the row exists before the community_posts INSERT.
+      // Step 1: confirm we still have a session. If the refresh failed
+      // and there's no token, every subsequent write would fail with
+      // RLS errors that look like data corruption to the user. Bail
+      // with a clear message instead.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('Your sign-in expired. Refresh the page and try again.');
+      }
+      if (session.user.id !== userId) {
+        // Mismatched user — defensive guard; the wizard was loaded for
+        // someone else. Don't write to the wrong profile.
+        throw new Error('Account mismatch — please refresh and try again.');
+      }
+
+      // Step 2: ensure `profiles.user_type = 'student'`. The publish RPC
+      // (migration 20260416130000) hard-requires this; without it the
+      // RPC raises 42501. Most freelancers reach here via ChooseAccountType
+      // which already sets it, but the scout-claim flow, OAuth edge cases,
+      // and direct URLs skip that step. Read-then-write so we don't blow
+      // away other profile fields with an empty INSERT.
+      const { data: prof, error: profErr } = await supabase
+        .from('profiles')
+        .select('user_id, user_type')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (profErr) {
+        throw new Error(`Profile lookup failed — ${profErr.message}`);
+      }
+
+      if (!prof) {
+        // Profile row missing entirely. Insert with the minimum the
+        // schema requires; the user can fill in display_name + bio
+        // later from /profile.
+        const { error: insErr } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: userId,
+            user_type: 'student',
+            display_name: session.user.user_metadata?.full_name
+              || session.user.email?.split('@')[0]
+              || '',
+          } as never);
+        if (insErr) {
+          throw new Error(`Couldn't set up your profile — ${insErr.message}`);
+        }
+      } else if (prof.user_type !== 'student') {
+        const { error: updErr } = await supabase
+          .from('profiles')
+          .update({ user_type: 'student' } as never)
+          .eq('user_id', userId);
+        if (updErr) {
+          throw new Error(`Couldn't set account type — ${updErr.message}`);
+        }
+      }
+
+      // Step 3: ensure the student_profiles row exists (and write the
+      // phone if they gave one). Capture .error explicitly — supabase-js
+      // returns errors in the result, it doesn't throw, and silently
+      // ignoring them was making downstream RPC failures look mysterious.
       const upsertPayload: { user_id: string; phone?: string } = { user_id: userId };
       if (trimmedPhone) upsertPayload.phone = trimmedPhone;
-      await supabase
+      const { error: spErr } = await supabase
         .from('student_profiles')
         .upsert(upsertPayload, { onConflict: 'user_id' });
+      if (spErr) {
+        throw new Error(`Couldn't save your details — ${spErr.message}`);
+      }
 
-      // Call the same publish RPC the full wizard uses. Description is
-      // empty on purpose — the user can polish later. Rates default to 0
-      // (interpreted as "ask for a quote") since we haven't asked yet.
-      const { data: postId, error } = await supabase.rpc(
+      // Step 4: the publish RPC. Description empty + rates 0 are "ask
+      // for a quote" defaults; the user polishes from /profile later.
+      const { data: postId, error: rpcErr } = await supabase.rpc(
         'publish_community_listing' as never,
         {
           _category: category,
@@ -159,17 +214,13 @@ export function ListOnCommunityQuickStart({
           _rate_unit: 'hourly',
         } as never,
       );
+      if (rpcErr) {
+        throw new Error(`Publish failed — ${rpcErr.message}`);
+      }
 
-      if (error) throw error;
-
-      // Fire the welcome email — non-blocking. Session-storage guard
-      // prevents a dup if the user re-publishes in the same tab (e.g.
-      // they go back and change the pitch). Explicit .catch() (not
-      // just `void`) swallows any rejection so an undeployed edge
-      // function or a Resend blip can never surface as an unhandled
-      // rejection in the user's console mid-publish. The in-app
-      // celebration modal carries the core "you're live" message; the
-      // email is bonus.
+      // Step 5: fire the welcome email (best-effort). Session-storage
+      // guard prevents dup sends in the same tab. Wrapped so a failed
+      // edge function never blocks the celebration.
       try {
         const sentKey = 'vano_welcome_email_sent';
         if (!sessionStorage.getItem(sentKey)) {
@@ -179,20 +230,35 @@ export function ListOnCommunityQuickStart({
             .catch(() => { /* best-effort only */ });
         }
       } catch {
-        /* session storage unavailable; skip guard but still ok */
+        /* sessionStorage unavailable in private mode etc; safe to skip */
       }
 
+      // Mark success so `finally` doesn't reset submitting back to false
+      // before the parent unmounts us via navigate. Without this flag,
+      // the button briefly flicks back to "Go live" before the Profile
+      // page mounts, which reads as "did it actually publish?".
+      succeeded = true;
       onPublished({ postId: (postId as unknown as string) || '', category });
     } catch (err) {
-      const message = (err as { message?: string })?.message || '';
+      // Surface the REAL message in the toast description so the founder
+      // can grep / screenshot exactly what broke. The previous heuristic
+      // ("Please try again in a moment") was useless — it hid a wide
+      // variety of root causes behind one generic line.
+      const raw = (err as { message?: string })?.message || 'Unknown error.';
+      const description = raw.length > 180 ? raw.slice(0, 180) + '…' : raw;
+      console.error('[ListOnCommunityQuickStart] publish failed', err);
       toast({
         title: "Couldn't publish your listing",
-        description: message.includes('permission')
-          ? 'Please refresh the page and try again.'
-          : 'Please try again in a moment.',
+        description,
         variant: 'destructive',
       });
-      setSubmitting(false);
+    } finally {
+      // Always reset the button state. On success the parent navigates
+      // away and we unmount, so resetting is harmless. On failure the
+      // user needs the button live again to retry. The previous version
+      // only reset in catch, which meant a thrown-but-still-on-page case
+      // could leave the button stuck on "Publishing…" indefinitely.
+      if (!succeeded) setSubmitting(false);
     }
   };
 

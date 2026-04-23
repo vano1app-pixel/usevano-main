@@ -203,8 +203,17 @@ export default function ListOnCommunity() {
   // Profile page reads the ?listed=1 flag; we also pass ?welcome=1 on the
   // Quick-start path so the celebratory "you're live" moment (confetti +
   // share-link copy) renders there on landing.
-  const handlePublished = async (_payload?: { postId?: string; category?: string }) => {
-    await refreshProfile();
+  //
+  // refreshProfile() used to be awaited here — it re-fetches profiles +
+  // community_posts to update the AuthContext's `hasListing` cache. That
+  // await was blocking the navigate, so a hung Supabase round-trip left
+  // the user staring at a "Publishing…" button until the request timed
+  // out. The cache update isn't load-bearing for the next page (Profile
+  // does its own fetch); fire it async so the navigate happens
+  // immediately and the user gets the "you're live" celebration without
+  // delay.
+  const handlePublished = (_payload?: { postId?: string; category?: string }) => {
+    void refreshProfile();
     const quickFlag = _payload ? '&welcome=1' : '';
     navigate(`/profile?listed=1${quickFlag}`, { replace: true });
   };
