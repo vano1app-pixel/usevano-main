@@ -109,16 +109,16 @@ export function ListOnCommunityQuickStart({
   // they'll tap it themselves. The input ref is kept for the
   // starter-template buttons that still need to restore focus.
 
-  // Phone is optional — businesses can always reach a freelancer through
-  // in-app messages. Forcing a phone upfront was the #1 abandonment point;
-  // dropping the requirement lets uncertain users get listed in seconds and
-  // add their number later when a real client conversation is happening.
-  // When they DO enter one, we at least require it to look phone-shaped
-  // (digits, optionally with + / spaces / dashes / parens, 7+ chars) so
-  // a typo like "1234" or "asdf" can't be saved.
+  // Phone is required (founder's call, 2026-04-23). Reasoning: when a
+  // hirer matches with a freelancer who has no phone on file, the only
+  // contact path is in-app messages — which the freelancer must
+  // actively check. Real conversion happens when the hirer can text /
+  // call directly the moment they're matched. The required marker (red
+  // asterisk on the label) is paired with copy that explains it's
+  // never shown publicly so users don't get spooked into bouncing.
   const trimmedPhone = phone.trim();
   const phoneLooksValid =
-    trimmedPhone.length === 0 ||
+    trimmedPhone.length > 0 &&
     /^\+?[0-9][0-9\s\-()]{6,}$/.test(trimmedPhone);
   const canPublish =
     category !== null &&
@@ -314,8 +314,7 @@ export function ListOnCommunityQuickStart({
               Show businesses what you do
             </h1>
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
-              Just the basics — pick a category and write one line about yourself.
-              Phone is optional. You can polish the rest later.
+              Just the basics — three quick fields to go live. Bio, rates, portfolio and more unlock from your profile after publishing.
             </p>
           </div>
         </div>
@@ -325,7 +324,7 @@ export function ListOnCommunityQuickStart({
         {/* Category */}
         <div>
           <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            What do you do?
+            What do you do? <span className="text-destructive" aria-label="required">*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             {COMMUNITY_CATEGORY_ORDER.map((id) => {
@@ -375,7 +374,7 @@ export function ListOnCommunityQuickStart({
         {/* Pitch */}
         <div>
           <label htmlFor="qs-pitch" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            One-line pitch
+            One-line pitch <span className="text-destructive" aria-label="required">*</span>
           </label>
           <input
             ref={pitchInputRef}
@@ -433,11 +432,8 @@ export function ListOnCommunityQuickStart({
 
         {/* Phone */}
         <div>
-          <label htmlFor="qs-phone" className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <span>Phone number</span>
-            <span className="font-normal normal-case tracking-normal text-muted-foreground/70">
-              Optional
-            </span>
+          <label htmlFor="qs-phone" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Phone number <span className="text-destructive" aria-label="required">*</span>
           </label>
           <input
             id="qs-phone"
@@ -458,7 +454,7 @@ export function ListOnCommunityQuickStart({
             className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            We'll text you the second a business wants to hire you. Never shown publicly. Leave blank and they can only message you here on Vano.
+            We'll text you the second a business wants to hire you. Never shown publicly — only used to send you hire notifications.
           </p>
         </div>
 
