@@ -655,11 +655,21 @@ const Messages = () => {
   }, []);
 
   const loadUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { navigate('/auth'); return; }
-    setUser(session.user);
-    await loadConversations(session.user.id);
-    setLoading(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { navigate('/auth'); return; }
+      setUser(session.user);
+      await loadConversations(session.user.id);
+    } catch (err) {
+      console.error('[Messages] loadUser failed', err);
+      toast({
+        title: "Couldn't load messages",
+        description: 'Pull to refresh, or check your connection.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const withOpenParam = searchParams.get('with');
