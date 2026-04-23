@@ -4,8 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { isEmailVerified } from '@/lib/authSession';
 
 /**
- * Redirects logged-in users to /complete-profile if they're missing
- * a display_name or avatar_url.
+ * Redirects logged-in users to /complete-profile if they're missing a
+ * display_name. Avatar is intentionally NOT required — the only page that
+ * lets a freelancer upload one is /profile, and gating access to /profile
+ * on "has avatar" created an infinite redirect trap for anyone who signed
+ * up via magic link (OTP sign-ups have no user_metadata.avatar_url, so
+ * the profile row was created with avatar_url NULL and the guard bounced
+ * them from /profile → /complete-profile → /list-on-community forever).
+ * Avatar upload stays encouraged via the profile-completion card inside
+ * /profile; it's no longer a hard block.
  */
 export function useProfileCompletion() {
   const [complete, setComplete] = useState<boolean | null>(null);
@@ -37,17 +44,14 @@ export function useProfileCompletion() {
         if (cancelled) return;
         const { data: profile } = await supabase
           .from('profiles')
-          .select('display_name, avatar_url, user_type')
+          .select('display_name, user_type')
           .eq('user_id', session.user.id)
           .maybeSingle();
 
         if (cancelled) return;
         const hasName = profile?.display_name && profile.display_name.trim().length > 0;
-        const hasAvatar = profile?.avatar_url && profile.avatar_url.trim().length > 0;
-        const isBusiness = profile?.user_type === 'business';
 
-        // Business only needs name; students need name + avatar
-        if (isBusiness ? !hasName : !hasName || !hasAvatar) {
+        if (!hasName) {
           navigate('/complete-profile', { replace: true });
           setComplete(false);
           return;
