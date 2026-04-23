@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -6,30 +6,48 @@ import {
   COMMUNITY_CATEGORY_ORDER,
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
-import { Loader2, Sparkles, ArrowRight, Eye, Wand2 } from 'lucide-react';
+import { Loader2, Sparkles, ArrowRight, Eye } from 'lucide-react';
 import { microCelebrate } from '@/lib/celebrate';
 import { normalizeIrishPhone } from '@/lib/phoneNormalize';
 
-// Keyword → category inference. Runs when someone starts typing a pitch
-// before picking a category, so we can surface a "Looks like Video?"
-// nudge that saves the tap. Order matters: first match wins. Digital
-// sales is checked first because its keywords ("sales", "closer") are
-// more specific than the looser "website"/"video" stems.
-const CATEGORY_INFERENCE_KEYWORDS: Array<[CommunityCategoryId, readonly string[]]> = [
-  ['digital_sales', ['sales', 'sdr', 'bdr', 'closer', 'outbound', 'cold call', 'cold email', 'lead gen', 'prospect', 'b2b', 'saas']],
-  ['videography',   ['video', 'film', 'reel', 'wedding', 'drone', 'cinematic', 'editor', 'filming', 'videographer', 'premiere', 'davinci']],
-  ['websites',      ['web', 'website', 'react', 'next', 'shopify', 'landing', 'wordpress', 'developer', 'frontend', 'ecommerce', 'html', 'css']],
-  ['social_media',  ['tiktok', 'instagram', 'reels', 'ugc', 'content creator', 'social', 'creator', 'influencer', 'marketing']],
-];
-
-function inferCategoryFromPitch(pitch: string): CommunityCategoryId | null {
-  const lowered = pitch.toLowerCase();
-  if (lowered.length < 6) return null;
-  for (const [id, keywords] of CATEGORY_INFERENCE_KEYWORDS) {
-    if (keywords.some((k) => lowered.includes(k))) return id;
-  }
-  return null;
-}
+// Sub-type chips per category — exact mirror of HirePage's CATEGORIES
+// subtype list (HirePage.tsx:39-53). Same labels intentionally: when a
+// hirer's brief includes the same subtype phrasing the freelancer picked
+// here, the AI Find matcher scores them higher because the tokens
+// overlap word-for-word. Replacing the freeform "one-line pitch" with a
+// chip pick (a) eliminates the typing barrier on first-time sign-up and
+// (b) keeps freelancer-self-described work and hirer-asked-for work in
+// the same vocabulary, so the matcher doesn't have to bridge synonyms.
+const SUBTYPES_BY_CATEGORY: Record<CommunityCategoryId, readonly string[]> = {
+  videography: [
+    'Reel / short-form',
+    'Promo / ad',
+    'Event / wedding',
+    'Corporate / explainer',
+    'Podcast / interview',
+  ],
+  digital_sales: [
+    'Cold email outreach',
+    'Cold calling / SDR',
+    'Lead generation',
+    'Appointment setting',
+    'Sales closing',
+  ],
+  websites: [
+    'Landing page',
+    'Full website',
+    'Shopify / e-commerce',
+    'Fix / improve existing',
+    'Web app / dashboard',
+  ],
+  social_media: [
+    'Content / posts',
+    'Strategy & growth',
+    'Paid ads',
+    'Community management',
+    'Short-form (TikTok / Reels)',
+  ],
+};
 
 // One default skill per category. The talent board (BrowseStudents +
 // StudentsByCategory) excludes any student_profile with `skills = '{}'`,
@@ -43,33 +61,6 @@ const DEFAULT_SKILL_BY_CATEGORY: Record<CommunityCategoryId, string> = {
   digital_sales: 'Sales',
   websites: 'Web development',
   social_media: 'Social media',
-};
-
-// Three fill-in-the-blank pitch starters per category. Beats staring at
-// an empty input; first-timers who don't know what "good" looks like
-// get a concrete, editable scaffold. Templates use em-dashes so freshly
-// tapped ones read well even before the user edits them.
-const PITCH_STARTERS: Record<CommunityCategoryId, readonly string[]> = {
-  videography: [
-    'Wedding & event videographer — reels + full films',
-    'Brand videographer — reels, ads & promo',
-    'Short-form editor — TikToks, Reels & YouTube Shorts',
-  ],
-  digital_sales: [
-    'B2B sales closer for SaaS brands — outbound & demos',
-    'Cold-email SDR for startups — booked meetings, not spam',
-    'Lead gen & appointment setter — pipeline built fast',
-  ],
-  websites: [
-    'Full-stack websites in React & Next.js — fast and clean',
-    'Shopify stores built to sell — speed + conversion',
-    'Landing pages & web apps — design to deploy',
-  ],
-  social_media: [
-    'UGC creator & TikTok editor for lifestyle brands',
-    'Social media manager — content, posting, engagement',
-    'Short-form content creator — Reels & TikToks that land',
-  ],
 };
 
 // First-time "Quick list" entry point for freelancers. Collapses the full
@@ -96,18 +87,15 @@ export function ListOnCommunityQuickStart({
 }) {
   const { toast } = useToast();
   const [category, setCategory] = useState<CommunityCategoryId | null>(null);
-  const [pitch, setPitch] = useState('');
+  // Subtype replaces the old freeform "one-line pitch" input. Picked from
+  // a category-specific chip grid (mirrors HirePage Step 1). Reset to
+  // null whenever the category changes so a stale pick from a previous
+  // category can't be carried over (e.g. user picks "Reel / short-form"
+  // under Video, then switches to Websites — that subtype isn't valid
+  // there).
+  const [subtype, setSubtype] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const pitchInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-focus on category pick was removed (2026-04-23): on mobile it
-  // popped the soft keyboard the moment a category was tapped, the
-  // viewport shrank, and the page scrolled the input into view — felt
-  // like the page was bouncing. Users said "the wizard keeps bouncing
-  // up". The pitch input is visually next on the page; if they want it
-  // they'll tap it themselves. The input ref is kept for the
-  // starter-template buttons that still need to restore focus.
 
   // Phone is required (founder's call, 2026-04-23). Reasoning: when a
   // hirer matches with a freelancer who has no phone on file, the only
@@ -122,19 +110,11 @@ export function ListOnCommunityQuickStart({
     /^\+?[0-9][0-9\s\-()]{6,}$/.test(trimmedPhone);
   const canPublish =
     category !== null &&
-    pitch.trim().length >= 6 &&
+    subtype !== null &&
     phoneLooksValid;
 
-  // Suggest a category based on what they've already typed, but only
-  // when they haven't picked one yet. Memoised so we don't re-scan the
-  // keyword list on every keystroke of a long pitch.
-  const suggestedCategory = useMemo(
-    () => (category === null ? inferCategoryFromPitch(pitch) : null),
-    [category, pitch],
-  );
-
   const publish = async () => {
-    if (!canPublish || submitting || !category) return;
+    if (!canPublish || submitting || !category || !subtype) return;
     setSubmitting(true);
     let succeeded = false;
     try {
@@ -237,13 +217,16 @@ export function ListOnCommunityQuickStart({
         throw new Error(`Couldn't save your details — ${spErr.message}`);
       }
 
-      // Step 4: the publish RPC. Description empty + rates 0 are "ask
-      // for a quote" defaults; the user polishes from /profile later.
+      // Step 4: the publish RPC. Title is the chosen subtype directly —
+      // matches HirePage's brief vocabulary verbatim so the AI Find
+      // matcher gets a clean token-overlap score. Description empty +
+      // rates 0 are "ask for a quote" defaults; the user polishes from
+      // /profile later.
       const { data: postId, error: rpcErr } = await supabase.rpc(
         'publish_community_listing' as never,
         {
           _category: category,
-          _title: pitch.trim(),
+          _title: subtype,
           _description: '',
           _image_url: '',
           _rate_min: 0,
@@ -338,7 +321,13 @@ export function ListOnCommunityQuickStart({
                   onClick={() => {
                     const firstPick = category !== id;
                     setCategory(id);
-                    if (firstPick) microCelebrate();
+                    // Reset subtype when category changes — a "Reel /
+                    // short-form" pick under Video isn't valid under
+                    // Websites and would orphan if we kept it around.
+                    if (firstPick) {
+                      setSubtype(null);
+                      microCelebrate();
+                    }
                   }}
                   className={[
                     'flex items-center gap-2 rounded-xl border px-3.5 py-3 text-left transition',
@@ -353,82 +342,41 @@ export function ListOnCommunityQuickStart({
               );
             })}
           </div>
-          {/* Category inference nudge — only shows if they started
-               typing the pitch before picking. Single-tap accept.
-               Disappears once they pick anything manually. */}
-          {suggestedCategory && (
-            <button
-              type="button"
-              onClick={() => {
-                setCategory(suggestedCategory);
-                microCelebrate();
-              }}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-[12px] font-medium text-primary transition hover:bg-primary/10 active:scale-[0.98]"
-            >
-              <Wand2 size={12} />
-              Looks like {COMMUNITY_CATEGORIES[suggestedCategory].label}? Tap to pick
-            </button>
-          )}
         </div>
 
-        {/* Pitch */}
-        <div>
-          <label htmlFor="qs-pitch" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            One-line pitch <span className="text-destructive" aria-label="required">*</span>
-          </label>
-          <input
-            ref={pitchInputRef}
-            id="qs-pitch"
-            type="text"
-            value={pitch}
-            onChange={(e) => setPitch(e.target.value)}
-            placeholder={
-              category === 'videography' ? 'e.g. Event videographer — weddings & reels'
-              : category === 'websites' ? 'e.g. Full-stack websites in React + Shopify'
-              : category === 'digital_sales' ? 'e.g. B2B sales closer for SaaS brands'
-              : category === 'social_media' ? 'e.g. UGC creator & TikTok editor'
-              : 'One line — what you do and who you work with'
-            }
-            maxLength={120}
-            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {/* Starter templates — surfaces once a category is picked and
-               the pitch is still short/empty. Tapping fills the input so
-               users edit from a concrete scaffold instead of staring at
-               a blank field. Hidden the moment they've started writing
-               something longer than a template's length so it doesn't
-               offer to overwrite real work. */}
-          {category && pitch.trim().length < 8 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Start from:
-              </span>
-              {PITCH_STARTERS[category].map((template) => (
-                <button
-                  key={template}
-                  type="button"
-                  onClick={() => {
-                    setPitch(template);
-                    // Hand focus back so they can tweak immediately,
-                    // placing the cursor at the end of the filled text.
-                    window.setTimeout(() => {
-                      const el = pitchInputRef.current;
-                      if (!el) return;
-                      el.focus();
-                      el.setSelectionRange(template.length, template.length);
-                    }, 0);
-                  }}
-                  className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
-                >
-                  {template}
-                </button>
-              ))}
+        {/* Subtype — appears the moment a category is picked. Mirrors
+             HirePage Step 1 chip pattern so the freelancer's work and
+             a hirer's brief use the exact same vocabulary; the AI Find
+             matcher gets a clean token-overlap score. Single-select to
+             keep the flow short — they can polish nuance from /profile
+             later. Required (red asterisk) like the other two fields. */}
+        {category && (
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              What kind of {COMMUNITY_CATEGORIES[category].label.toLowerCase()}? <span className="text-destructive" aria-label="required">*</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {SUBTYPES_BY_CATEGORY[category].map((option) => {
+                const active = subtype === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setSubtype(active ? null : option)}
+                    className={[
+                      'rounded-full border px-3.5 py-2 text-sm font-semibold transition cursor-pointer select-none active:scale-[0.97]',
+                      active
+                        ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                        : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5',
+                    ].join(' ')}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
             </div>
-          )}
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {pitch.length}/120 · you can expand this later
-          </p>
-        </div>
+          </div>
+        )}
 
         {/* Phone */}
         <div>
@@ -458,15 +406,15 @@ export function ListOnCommunityQuickStart({
           </p>
         </div>
 
-        {/* Preview — appears once category + pitch are filled so the
-             freelancer sees EXACTLY what businesses will see on the
-             talent board before they commit. Without this, a cold
+        {/* Preview — appears once category + subtype + phone are filled
+             so the freelancer sees EXACTLY what businesses will see on
+             the talent board before they commit. Without this, a cold
              first-timer hits Publish without knowing what the output
              looks like ("did I just post something ugly?"), which is
              the single biggest source of "I want to delete my listing"
              support pings. Subtle styling so it doesn't dominate the
              form. */}
-        {canPublish && category && (() => {
+        {canPublish && category && subtype && (() => {
           const cat = COMMUNITY_CATEGORIES[category];
           const Icon = cat.icon;
           return (
@@ -484,7 +432,7 @@ export function ListOnCommunityQuickStart({
                       {cat.label}
                     </p>
                     <p className="mt-0.5 truncate text-[13px] font-semibold text-foreground">
-                      {pitch.trim()}
+                      {subtype}
                     </p>
                   </div>
                 </div>
