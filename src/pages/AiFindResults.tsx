@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { useToast } from '@/hooks/use-toast';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
@@ -788,6 +789,25 @@ function AiFindProgressStages({ elapsedSec }: { elapsedSec: number }) {
       <p className="mt-5 border-t border-border/60 pt-3 text-center text-[11px] text-muted-foreground">
         Hand-picked from our freelancer pool. €1 refunded if we can't find one.
       </p>
+
+      {/* Past 60s the row is almost certainly stalled (webhook + RLS
+           self-heal both quiet). Surface a manual escape so the user
+           never feels stranded with a spinning page — a one-tap
+           WhatsApp message to the team gets a human picking immediately
+           while the auto-refund clock keeps running. */}
+      {elapsedSec >= 60 && (
+        <div className="mt-3 flex flex-col items-center gap-1.5 border-t border-border/60 pt-3">
+          <p className="text-[11px] text-muted-foreground">Taking longer than usual?</p>
+          <a
+            href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi! My AI Find match is taking a while — can you check?")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-semibold text-emerald-700 transition hover:bg-emerald-500/15 dark:text-emerald-300"
+          >
+            <MessageCircle size={12} /> Message us on WhatsApp
+          </a>
+        </div>
+      )}
     </div>
   );
 }

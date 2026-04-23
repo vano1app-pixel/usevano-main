@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, Phone, MessageCircle, Search, Compass, Trophy, Check, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { loadHireBrief } from '@/lib/hireFlow';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 // Stripe Payment Link return handler.
 //
@@ -422,22 +423,37 @@ export default function AiFindReturn() {
                   >
                     <MessageCircle className="h-4 w-4" /> Text {publicPick.phone}
                   </a>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/messages?with=${publicPick.user_id}`)}
+                  {/* "Message on Vano" only meaningful when this page is
+                       reached with an authenticated session (rare on this
+                       Path-3 fallback, but harmless to offer — /messages
+                       gates on its own and the user can sign in inline). */}
+                  <a
+                    href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I matched with ${publicPick.display_name} via AI Find — can you connect us on Vano?`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   >
-                    Or message them on Vano
-                  </button>
+                    Or have us connect you
+                  </a>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/messages?with=${publicPick.user_id}`)}
+                /* No phone on the freelancer's profile + no signed-in
+                    session here = the old "Text on Vano" button just
+                    bounced the hirer to /auth (RequireVerifiedSession on
+                    /messages). They paid €1 and got a sign-in wall.
+                    Route them straight to the team on WhatsApp instead;
+                    the message is pre-filled with the freelancer's name
+                    so we can broker the connection manually without the
+                    hirer creating an account. Founder rule: never gate
+                    a paid flow behind sign-in. */
+                <a
+                  href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi! I just matched with ${publicPick.display_name} via AI Find but they don't have a phone listed. Can you connect us?`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
                 >
-                  <MessageCircle className="h-4 w-4" /> Text on Vano
-                </button>
+                  <MessageCircle className="h-4 w-4" /> Connect with {publicPick.display_name.split(' ')[0]} on WhatsApp
+                </a>
               )}
 
               <p className="text-center text-[11px] text-muted-foreground">

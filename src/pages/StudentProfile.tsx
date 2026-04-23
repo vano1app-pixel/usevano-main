@@ -348,9 +348,9 @@ const StudentProfile = () => {
       {showHireActions && !user && (
         <a
           href={`/auth?intent=quote&freelancer=${id}`}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[11rem] sm:px-6 flex items-center justify-center gap-2"
+          className="group w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-primary-glow transition-all duration-200 ease-out-expo hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:px-6 flex items-center justify-center gap-2"
         >
-          <MessageSquareQuote size={18} strokeWidth={2} /> Sign in to hire
+          <MessageSquareQuote size={17} strokeWidth={1.75} /> Get a free quote
         </a>
       )}
       {showHireActions && user && (
@@ -358,16 +358,16 @@ const StudentProfile = () => {
           <button
             type="button"
             onClick={() => setQuoteOpen(true)}
-            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92 sm:w-auto sm:min-w-[11rem] sm:px-6 flex items-center justify-center gap-2"
+            className="group w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-primary-glow transition-all duration-200 ease-out-expo hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99] sm:w-auto sm:min-w-[11rem] sm:px-6 flex items-center justify-center gap-2"
           >
-            <MessageSquareQuote size={18} strokeWidth={2} /> Ask for a quote
+            <MessageSquareQuote size={17} strokeWidth={1.75} /> Get a free quote
           </button>
           <button
             type="button"
             onClick={() => setHireOpen(true)}
-            className="w-full rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted/50 sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
+            className="w-full rounded-xl border border-border bg-card py-3.5 text-sm font-semibold text-foreground shadow-tinted-sm transition-all duration-200 ease-out-expo hover:-translate-y-[1px] hover:border-amber-500/40 hover:bg-amber-500/[0.04] active:translate-y-0 active:scale-[0.99] sm:w-auto sm:min-w-[10rem] sm:px-6 flex items-center justify-center gap-2"
           >
-            <Zap size={18} strokeWidth={2} className="text-amber-500" /> Hire now
+            <Zap size={17} strokeWidth={1.75} className="text-amber-500" /> Hire instantly
           </button>
         </>
       )}
@@ -407,7 +407,7 @@ const StudentProfile = () => {
           href={`/auth?intent=quote&freelancer=${id}`}
           className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92"
         >
-          <MessageSquareQuote size={16} strokeWidth={2} /> Sign in to hire
+          <MessageSquareQuote size={16} strokeWidth={2} /> Get a free quote
         </a>
       ) : (
         <div className="flex gap-2">
@@ -416,14 +416,14 @@ const StudentProfile = () => {
             onClick={() => setQuoteOpen(true)}
             className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/92"
           >
-            <MessageSquareQuote size={16} strokeWidth={2} /> Message
+            <MessageSquareQuote size={16} strokeWidth={2} /> Get a quote
           </button>
           <button
             type="button"
             onClick={() => setHireOpen(true)}
             className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-background text-sm font-semibold text-foreground transition-colors hover:bg-muted/50"
           >
-            <Zap size={16} strokeWidth={2} className="text-amber-500" /> Hire now
+            <Zap size={16} strokeWidth={2} className="text-amber-500" /> Hire instantly
           </button>
         </div>
       )}
@@ -653,38 +653,41 @@ const StudentProfile = () => {
               </div>
             )}
 
-            {/* Stats row — foxpop style */}
+            {/* Stats row — three editorial counters above a quiet trust
+                 strip. Type weight on the numbers (display-lg) anchors
+                 the eye; sub-labels use the consistent eyebrow tracking
+                 so every page's metadata reads in the same voice. */}
             <div className="rounded-2xl border border-foreground/6 bg-card shadow-tinted overflow-hidden">
               <div className="grid grid-cols-3 divide-x divide-border">
                 {[
-                  { label: reviews.length === 1 ? 'review' : 'reviews', value: avgRating ?? reviews.length.toString(), sub: avgRating ? `★ (${reviews.length} reviews)` : null },
+                  { label: reviews.length === 1 ? 'Review' : 'Reviews', value: avgRating ?? reviews.length.toString(), sub: avgRating ? `${reviews.length} reviews` : null },
                   { label: 'Gigs done', value: completedJobs.length.toString(), sub: null },
                   { label: 'Skills', value: (student?.skills?.length || 0).toString(), sub: null },
                 ].map(({ label, value, sub }) => (
-                  <div key={label} className="flex flex-col items-center justify-center gap-0.5 py-5 px-2">
-                    <span className="text-2xl font-bold tabular-nums text-foreground">{value}</span>
-                    {sub ? (
-                      <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">{sub}</span>
-                    ) : (
-                      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
-                    )}
+                  <div key={label} className="flex flex-col items-center justify-center gap-1 py-5 px-2">
+                    <span className="text-[28px] font-semibold tabular-nums tracking-[-0.02em] text-foreground">{value}</span>
+                    <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {sub ?? label}
+                    </span>
                   </div>
                 ))}
               </div>
-              {/* Trust bar */}
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-emerald-500/5 px-4 py-2.5">
+              {/* Trust bar — emerald is the codex's "trust" colour, kept
+                   subtle so it sits as a footer to the stats rather than
+                   competing with them. */}
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border bg-emerald-500/[0.04] px-4 py-2.5">
                 {student?.student_verified && (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                    <ShieldCheck size={13} className="text-emerald-500" />
+                    <ShieldCheck size={13} className="text-emerald-500" strokeWidth={1.75} />
                     Student Verified
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                  <Lock size={11} className="text-emerald-500" />
+                  <Lock size={11} className="text-emerald-500" strokeWidth={1.75} />
                   Secure Messaging
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                  <Check size={11} className="text-emerald-500" />
+                  <Check size={11} className="text-emerald-500" strokeWidth={2.25} />
                   VANO Community
                 </span>
               </div>

@@ -268,20 +268,21 @@ const Landing = () => {
             </span>
           </div>
 
-          {/* Display type — semibold (not bold), tighter tracking at
-              lg, two short declarative lines. The italic second line
-              is the emotional landing ("your perfect match") that
-              frames everything below. */}
+          {/* Display type — drops the inline scale ladder for the
+              `display-xl` token in index.css. Same intent (semibold,
+              negative tracking, balanced wrap) but consistent across
+              every page. The italic second line is the emotional
+              landing that frames everything below. */}
           <div data-hero-title>
-            <h1 className="mb-5 text-[40px] font-semibold leading-[0.98] tracking-tight text-foreground text-balance sm:mb-6 sm:text-[56px] md:text-[72px] lg:text-[92px] lg:tracking-[-0.035em]">
+            <h1 className="display-xl mb-5 text-foreground sm:mb-6">
               <span className="inline-block">Any brief. Any budget.</span><br />
-              <span className="inline-block italic font-semibold text-primary">
+              <span className="inline-block italic text-primary">
                 Your perfect match.
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] font-normal leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            No scrolling 40 gigs. No shortlists. Share your brief, pay €1, meet your freelancer in 60 seconds — refunded if we can't find one.
+          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
+            No scrolling 40 gigs. No shortlists. Share your brief, pay <span className="tabular-nums">€1</span>, meet your freelancer in 60 seconds — refunded if we can't find one.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -318,9 +319,9 @@ const Landing = () => {
               <div className="relative flex h-full flex-col">
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
-                    <Sparkles size={12} className="text-amber-200" /> I want to hire
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" /> I want to hire
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold text-white ring-1 ring-white/20">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold tabular-nums text-white ring-1 ring-white/20">
                     €1 · 60s
                   </span>
                 </div>
@@ -354,10 +355,7 @@ const Landing = () => {
                 <div className="relative flex h-full flex-col">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-70 motion-safe:animate-ping" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                      </span>
+                      <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       I want to work
                     </span>
                     <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
@@ -404,7 +402,7 @@ const Landing = () => {
       <section data-section-categories className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-5xl lg:max-w-6xl mx-auto">
           <div>
-          <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-4">What do you need?</span>
+          <span className="eyebrow mb-5">What do you need</span>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' as string | null },
@@ -421,7 +419,7 @@ const Landing = () => {
                   key={slug}
                   type="button"
                   onClick={() => { navigate(`/hire?category=${slug}`); }}
-                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-sm transition-all duration-250 active:scale-[0.97] hover:border-foreground/20 hover:shadow-lg hover:-translate-y-[2px]"
+                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-tinted transition-all duration-300 ease-out-expo active:scale-[0.98] hover:border-foreground/20 hover:shadow-tinted-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
                 >
                   {item.image ? (
@@ -449,7 +447,12 @@ const Landing = () => {
                     // icon avoids the blank-white card look.
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-emerald-500/20 pointer-events-none" />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none" />
+                  {/* Warm-dark photo wash. Pure black-on-image is the
+                      most generic photo-card overlay; biasing the dark
+                      side toward the brand's warm-neutral foreground
+                      ties the cards into the cream background instead
+                      of fighting it. */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[hsl(25_30%_8%/0.55)] via-[hsl(25_30%_8%/0.18)] to-transparent pointer-events-none" />
                   <div className="relative z-10 flex flex-col gap-3 md:gap-4">
                     <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm transition-all duration-200 group-hover:bg-white/25">
                       <item.icon size={18} className="transition-colors duration-200 text-white group-hover:text-white md:hidden" strokeWidth={2} />
@@ -474,8 +477,8 @@ const Landing = () => {
           >
             <div data-section-label className="flex items-end justify-between mb-4">
               <div>
-                <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">On VANO now</span>
-                <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-foreground">Freelancers available today</h2>
+                <span className="eyebrow">On VANO now</span>
+                <h2 className="mt-2 text-lg font-semibold tracking-tight text-foreground">Freelancers available today</h2>
               </div>
               <button
                 type="button"
@@ -666,22 +669,25 @@ const Landing = () => {
       <section data-section-why className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-4xl lg:max-w-5xl mx-auto">
           <div className="text-center">
-            <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-medium text-primary uppercase tracking-[0.2em] mb-4">Why VANO</span>
-            <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-5 tracking-tight leading-[1.1] text-balance">Built different, on purpose</h2>
+            <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10.5px] font-semibold text-primary uppercase tracking-[0.18em] mb-5">Why VANO</span>
+            <h2 className="display-lg text-foreground mb-5 mx-auto max-w-[16ch]">Built for the people who actually do the work.</h2>
             <p className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5">
-            {/* Hyperlocal — 2 cols row 1 */}
+            {/* Hyperlocal — 2 cols row 1.
+                Switched off raw blue-500 onto the `primary` theme token so
+                the card automatically tracks any future palette change and
+                matches the rest of the site's primary surfaces. */}
             <div
               data-why-card
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-blue-500/[0.08] bg-blue-500/[0.02] dark:bg-blue-500/[0.04] p-7 sm:p-8 lg:p-10 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-primary/15 bg-primary/[0.025] dark:bg-primary/[0.05] p-7 sm:p-8 lg:p-10 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25"
             >
-              <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-blue-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-blue-500/[0.12]" />
-              <div>
-                <div data-why-icon className="mb-5 flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
-                  <MapPin size={22} className="text-blue-600 dark:text-blue-400" strokeWidth={2} />
+              <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-primary/[0.07] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-primary/[0.12]" />
+              <div className="relative">
+                <div data-why-icon className="mb-5 flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
+                  <MapPin size={22} className="text-primary" strokeWidth={1.75} />
                 </div>
-                <h3 className="text-xl lg:text-2xl font-semibold text-foreground mb-2">Hyperlocal, by design</h3>
+                <h3 className="display-lg text-foreground mb-2">Hyperlocal, by design</h3>
                 <p className="text-base text-muted-foreground leading-relaxed max-w-sm lg:max-w-md">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
               </div>
             </div>
@@ -689,27 +695,32 @@ const Landing = () => {
             {/* Speed — 1 col row 1 */}
             <div
               data-why-card
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-card p-5 lg:p-7 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/25"
             >
-              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-emerald-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-emerald-500/[0.12]" />
-              <div>
-                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 transition-colors group-hover:bg-emerald-500/20">
-                  <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-emerald-500/[0.07] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-emerald-500/[0.12]" />
+              <div className="relative">
+                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 transition-colors group-hover:bg-emerald-500/15">
+                  <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                 </div>
                 <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Hire in minutes</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">Describe what you need, get matched, pick someone — done.</p>
               </div>
             </div>
 
-            {/* Chat — 1 col row 2 */}
+            {/* Chat — 1 col row 2.
+                Restained to a neutral surface so the bento sticks to the
+                brand codex (primary / emerald / amber / muted only). The
+                violet here was the lone off-palette accent and the whole
+                grid read as three competing colors. Now it reads as one
+                quiet card supporting two louder ones. */}
             <div
               data-why-card
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-violet-500/[0.08] bg-card p-5 lg:p-7 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/8 bg-card p-5 lg:p-7 transition-all duration-300 hover:-translate-y-0.5 hover:border-foreground/15"
             >
-              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-violet-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-violet-500/[0.12]" />
+              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-foreground/[0.04] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40" />
               <div>
-                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 transition-colors group-hover:bg-violet-500/20">
-                  <MessageSquare size={18} className="text-violet-600 dark:text-violet-400" strokeWidth={2} />
+                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/[0.06] transition-colors group-hover:bg-foreground/[0.1]">
+                  <MessageSquare size={18} className="text-foreground/80" strokeWidth={1.75} />
                 </div>
                 <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Chat on platform</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
@@ -719,12 +730,12 @@ const Landing = () => {
             {/* Trust — 2 cols row 2 */}
             <div
               data-why-card
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/[0.08] bg-amber-500/[0.02] dark:bg-amber-500/[0.04] p-6 lg:p-8 flex items-center gap-5 transition-transform duration-200 hover:scale-[1.02] hover:-translate-y-1"
+              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/15 bg-amber-500/[0.025] dark:bg-amber-500/[0.05] p-6 lg:p-8 flex items-center gap-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-500/25"
             >
-              <div className="pointer-events-none absolute -left-8 -bottom-8 h-40 w-40 rounded-full bg-amber-500/[0.06] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-amber-500/[0.12]" />
-              <div className="flex items-center gap-5">
-                <div data-why-icon className="flex h-12 w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/20">
-                  <Shield size={22} className="text-amber-600 dark:text-amber-400" strokeWidth={2} />
+              <div className="pointer-events-none absolute -left-8 -bottom-8 h-40 w-40 rounded-full bg-amber-500/[0.07] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-amber-500/[0.12]" />
+              <div className="relative flex items-center gap-5">
+                <div data-why-icon className="flex h-12 w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/15">
+                  <Shield size={22} className="text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
                 </div>
                 <div>
                   <h3 className="text-base lg:text-lg font-semibold text-foreground mb-0.5">Built on trust</h3>
@@ -739,11 +750,11 @@ const Landing = () => {
       {/* FAQ */}
       <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
-          <div className="text-center mb-6">
-            <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.2em] mb-4">
+          <div className="text-center mb-8">
+            <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10.5px] font-semibold text-muted-foreground uppercase tracking-[0.18em] mb-5">
               FAQ
             </span>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground text-balance">
+            <h2 className="display-lg text-foreground">
               Common questions
             </h2>
             <p className="mt-3 text-base text-muted-foreground">
@@ -800,17 +811,27 @@ const Landing = () => {
       {/* CTA */}
       <section data-section-cta className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
-          <div data-cta-box className="relative overflow-hidden rounded-3xl bg-primary px-5 py-10 sm:px-10 sm:py-14 lg:px-20 lg:py-20 text-center">
-            {/* Floating magic orbs */}
-            <div data-cta-orb className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-white/[0.08] blur-3xl" />
-            <div data-cta-orb className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-white/[0.06] blur-3xl" />
-            <span className="relative inline-block rounded-full bg-white/[0.1] px-3 py-1 mb-5 text-[10px] lg:text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">Hand-picked · Safely paid · Galway-built</span>
-            <h2 className="relative text-[30px] font-semibold text-primary-foreground tracking-tight leading-[1.05] mb-4 text-balance sm:text-[44px] lg:text-[56px] lg:tracking-[-0.03em]">
-              Your perfect match,<br />
-              <span className="italic font-semibold text-primary-foreground/95">hand-picked.</span>
+          <div data-cta-box className="relative overflow-hidden rounded-[28px] bg-primary px-5 py-12 sm:px-10 sm:py-16 lg:px-20 lg:py-20 text-center shadow-primary-glow">
+            {/* Single radial mesh light source — replaces two competing
+                blur orbs. Off-axis (top-right) suggests a single sun
+                without the symmetrical "two-orb" AI tic. */}
+            <div
+              data-cta-orb
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(70% 50% at 78% 18%, hsl(45 100% 80% / 0.18), transparent 60%)',
+              }}
+            />
+            {/* Subtle grain — breaks the flat blue plane so the CTA
+                doesn't read as a generic SaaS billboard. */}
+            <div className="grain pointer-events-none absolute inset-0" />
+            <h2 className="relative display-lg text-primary-foreground mb-4">
+              Your perfect match, hand-picked.
             </h2>
-            <p className="relative text-primary-foreground/70 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              €1 finds your match in 60 seconds. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
+            <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
+              <span className="tabular-nums">€1</span> finds your match in 60 seconds. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -818,9 +839,9 @@ const Landing = () => {
                 particleCount={35}
                 magneticStrength={0.4}
                 onClick={() => navigate('/hire')}
-                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-bold text-base shadow-lg shadow-black/10 transition-all duration-200 hover:bg-primary-foreground/90 hover:shadow-xl hover:-translate-y-[1px] active:scale-[0.97]"
+                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-semibold text-[15px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-primary-foreground/95 hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.4)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]"
               >
-                Find my freelancer — €1
+                Find my freelancer — <span className="tabular-nums">€1</span>
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>
@@ -830,7 +851,7 @@ const Landing = () => {
                 particleCount={15}
                 magneticStrength={0.3}
                 onClick={handleFreelancerSignup}
-                className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:-translate-y-[1px] active:scale-[0.97]"
+                className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:border-primary-foreground/40 hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]"
               >
                 Join as a freelancer
               </InteractiveButton>

@@ -17,7 +17,7 @@ import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, ShieldCheck, Zap, Check, ChevronDown,
+  Shield, ShieldCheck, Zap, Check, ChevronDown, MailWarning,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
 import { AiFindCheckoutModal } from '@/components/AiFindCheckoutModal';
@@ -197,6 +197,13 @@ const HirePage = () => {
   // firing on every Step 3 load for no UI benefit. The actual match
   // happens server-side after the €1 payment via the AI Find flow.
   const [user, setUser] = useState<any>(null);
+  // Surfaces email-verification status before the user taps the €1 button.
+  // Without this, signed-in-but-unverified hirers fill the whole wizard,
+  // tap "Match me — €1", and get a destructive toast asking them to verify.
+  // The banner lets them resend the link inline and come back, instead of
+  // bouncing to their inbox, hunting for an old email, and losing the brief.
+  const [resendingVerify, setResendingVerify] = useState(false);
+  const userEmailUnverified = !!user && !isEmailVerified({ user } as any);
 
   // On mount: restore a brief persisted across Google OAuth if one is pending.
   // This lets signed-out hirers fill the whole wizard, bounce through auth, and
@@ -385,6 +392,11 @@ const HirePage = () => {
         return;
       }
       setGoogleOAuthIntent('business');
+      // Flip aiFindLoading so the €1 button shows "Taking you to Google…"
+      // instead of standing idle while the redirect kicks in. Without
+      // this the page just freezes for a beat and the user wonders if
+      // their tap registered.
+      setAiFindLoading(true);
       toast({
         title: 'Saving your brief…',
         description: "We'll bring you right back to finish.",
@@ -400,6 +412,7 @@ const HirePage = () => {
         if (error) throw error;
       } catch {
         clearHireBrief();
+        setAiFindLoading(false);
         toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
       }
       return;
@@ -1092,6 +1105,54 @@ const HirePage = () => {
         </div>
       )}
 
+      {/* Pre-flight email-verification banner. Surfaces BEFORE the user
+           taps €1 so they don't fill the wizard, get a destructive toast,
+           and have to leave the page to find an old verification email.
+           Inline resend keeps them on /hire — they verify in another tab,
+           come back, and tap. */}
+      {userEmailUnverified && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.06] px-4 py-3">
+          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15">
+            <MailWarning size={14} className="text-amber-700 dark:text-amber-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-foreground">Verify your email to continue</p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+              {user?.email ? <>We sent a link to <span className="font-medium text-foreground">{user.email}</span>. </> : null}
+              Tap it, then come back here.
+            </p>
+            <button
+              type="button"
+              disabled={resendingVerify}
+              onClick={async () => {
+                if (!user?.email || resendingVerify) return;
+                setResendingVerify(true);
+                try {
+                  const { error } = await supabase.auth.resend({ type: 'signup', email: user.email });
+                  if (error) throw error;
+                  toast({
+                    title: 'Verification email sent',
+                    description: `Check ${user.email} — then come back and tap Match me.`,
+                  });
+                } catch (err) {
+                  console.warn('[HirePage] inline resend failed', err);
+                  toast({
+                    title: 'Could not resend',
+                    description: 'Please try again in a moment.',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setResendingVerify(false);
+                }
+              }}
+              className="mt-1.5 text-[12px] font-semibold text-amber-700 underline underline-offset-2 hover:no-underline disabled:opacity-50 dark:text-amber-400"
+            >
+              {resendingVerify ? 'Sending…' : 'Resend verification email'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── PRIMARY HERO — €1 AI Find ──
            This is the offer the whole site narrates toward. Big, confident,
            amber-gold premium ring. Spells out the full pipeline
@@ -1099,26 +1160,36 @@ const HirePage = () => {
            know where €1 sits in the story before they commit. */}
       <div>
         {!submitted ? (
-          <div className="relative overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-b from-primary to-primary/90 text-white shadow-[0_24px_60px_-24px_hsl(var(--primary)/0.45)]">
-            {/* Ambient glow — one soft blob, no amber ring or double
-                 border. Restraint reads as premium. */}
-            <div className="pointer-events-none absolute -right-14 -top-20 h-56 w-56 rounded-full bg-amber-300/15 blur-3xl" />
+          <div className="relative overflow-hidden rounded-[24px] border border-primary/30 bg-gradient-to-b from-primary to-primary/95 text-white shadow-primary-glow">
+            {/* Single radial mesh light source — replaces the side blob
+                 with an off-axis sun. Suggests one direction of light
+                 instead of "blob in corner", which is the AI tic. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(60% 45% at 80% 12%, hsl(45 100% 80% / 0.22), transparent 65%)',
+              }}
+            />
+            {/* Premium grain — kills the flat-blue plane. */}
+            <div className="grain pointer-events-none absolute inset-0" />
 
             <div className="relative px-6 pt-6 pb-5">
               <div className="flex items-center justify-between">
-                <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                  <Sparkles size={13} className="text-amber-200" />
+                <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">
+                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
                   €1 AI Find
                 </div>
                 <span className="inline-flex items-center rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/85">
                   Refunded if no match
                 </span>
               </div>
-              <h2 className="mt-3 text-[22px] font-semibold leading-[1.15] tracking-tight sm:text-[26px]">
+              <h2 className="mt-4 text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[28px] text-balance">
                 Your freelancer, matched in 60 seconds.
               </h2>
-              <p className="mt-2 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
-                Pay €1 → meet your freelancer in 60 seconds. Refunded if we can't find one.
+              <p className="mt-2.5 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
+                Pay <span className="tabular-nums">€1</span> → meet your freelancer in 60 seconds. Refunded if we can't find one.
               </p>
             </div>
 
@@ -1146,25 +1217,23 @@ const HirePage = () => {
                 ))}
               </div>
 
-              {/* Primary CTA — white-on-primary, larger rounded, clear
-                   motion on hover/press. */}
+              {/* Primary CTA — white-on-primary. The trailing arrow
+                   reads as forward motion without leaning on a Sparkles
+                   icon (the most-overused AI-product tell). The €1 stays
+                   tabular-nums so it lines up with the rest of the page. */}
               <button
                 data-mascot="hire-submit"
                 type="button"
                 onClick={handleAiFind}
                 disabled={aiFindLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.02] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-wait"
+                className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.3)] transition-all duration-200 ease-out-expo hover:-translate-y-[1px] hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.35)] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-wait disabled:opacity-90"
               >
                 {aiFindLoading ? (
-                  // Keep the label visually stable; swap the leading
-                  // icon for a spinner + shorten the "…€1" to " "
-                  // so the button reads active-but-busy instead of
-                  // flat-disabled. Cursor flips to 'wait' so the
-                  // click-lock is obvious on desktop.
                   <><Loader2 size={16} className="animate-spin text-primary" /> Matching you now…</>
                 ) : (
                   <>
-                    <Sparkles size={16} className="text-amber-500" /> Match me now — €1
+                    Match me now — <span className="tabular-nums">€1</span>
+                    <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" />
                   </>
                 )}
               </button>

@@ -163,8 +163,24 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   // after a long-press we suppress the immediate click via
   // wasLongPressRef so the user doesn't get yanked off the list on
   // their first interaction.
+  //
+  // BOUNCING-BUG FIX (2026-04-23):
+  // Using Popover for a hover-preview is a known antipattern — Popover has
+  // no hover-bridge logic. When the popover opens, its portaled content
+  // can sit between the cursor and the card or flip onto the card itself
+  // via collision detection. The card's onPointerLeave then fires
+  // ("cursor left the card to enter the popover"), which immediately set
+  // previewOpen=false. The popover unmounts, the cursor is back on the
+  // card → onPointerEnter → 400ms timer → open again. The whole talent
+  // page (and any other surface that renders StudentCards) appeared to
+  // "bounce" from the user's perspective.
+  //
+  // Fix: defer the close on card-leave (200ms grace), and cancel the
+  // pending close when the cursor enters the popover content. Mirrors
+  // Radix HoverCard's bridge but without rewriting the whole control.
   const [previewOpen, setPreviewOpen] = useState(false);
   const hoverOpenTimerRef = useRef<number | null>(null);
+  const hoverCloseTimerRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
   const wasLongPressRef = useRef(false);
   // Initial touch coords so we can cancel the long-press when the user
@@ -174,6 +190,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   useEffect(() => {
     return () => {
       if (hoverOpenTimerRef.current) window.clearTimeout(hoverOpenTimerRef.current);
+      if (hoverCloseTimerRef.current) window.clearTimeout(hoverCloseTimerRef.current);
       if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
     };
   }, []);
@@ -182,6 +199,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({
     if (hoverOpenTimerRef.current) {
       window.clearTimeout(hoverOpenTimerRef.current);
       hoverOpenTimerRef.current = null;
+    }
+  };
+  const cancelCloseTimer = () => {
+    if (hoverCloseTimerRef.current) {
+      window.clearTimeout(hoverCloseTimerRef.current);
+      hoverCloseTimerRef.current = null;
     }
   };
   const cancelLongPressTimer = () => {
@@ -195,12 +218,19 @@ export const StudentCard: React.FC<StudentCardProps> = ({
     if (!clickable) return;
     if (e.pointerType !== 'mouse') return;
     cancelHoverTimer();
+    cancelCloseTimer();
     hoverOpenTimerRef.current = window.setTimeout(() => setPreviewOpen(true), 400);
   };
   const handlePointerLeave = (e: React.PointerEvent) => {
     if (e.pointerType !== 'mouse') return;
     cancelHoverTimer();
-    setPreviewOpen(false);
+    cancelCloseTimer();
+    // Schedule close instead of firing immediately. The popover content's
+    // own onPointerEnter cancels this timer if the cursor crossed onto
+    // the popover (the bridge), so the preview stays up while the user
+    // reads it. Without this delay, hover toggles ad infinitum the
+    // moment Radix flips the popover onto the card via collision.
+    hoverCloseTimerRef.current = window.setTimeout(() => setPreviewOpen(false), 180);
   };
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!clickable) return;
@@ -734,6 +764,16 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         onOpenAutoFocus={(e) => e.preventDefault()}
         className="w-[calc(100vw-2rem)] max-w-sm p-4"
         onClick={(e) => e.stopPropagation()}
+        // Hover-bridge: cursor entering the popover cancels the pending
+        // close so the user can read it / click "View full profile"
+        // without the preview vanishing under their cursor. Leaving the
+        // popover starts a short close timer so it tidies up on its own.
+        onPointerEnter={cancelCloseTimer}
+        onPointerLeave={(e) => {
+          if (e.pointerType !== 'mouse') return;
+          cancelCloseTimer();
+          hoverCloseTimerRef.current = window.setTimeout(() => setPreviewOpen(false), 180);
+        }}
       >
         <div className="flex items-start gap-3">
           {resolvedAvatar ? (
