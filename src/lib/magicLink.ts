@@ -130,15 +130,22 @@ export function hasMagicLinkPending(): boolean {
 
 /**
  * Mirrors tryFinishGoogleOAuthRedirect but for magic-link. Runs on Landing
- * mount (alongside the Google variant). Returns true if it handled the
- * session (routed the user), false otherwise.
+ * mount (alongside the Google variant). Returns a status object so callers
+ * can surface a real toast if the finish step fails — the old boolean return
+ * meant a thrown profile-setup error became an indistinguishable "nothing
+ * happened", which the user experienced as "I can't log in".
  */
+export type AuthFinishResult =
+  | { status: 'routed' }
+  | { status: 'not-applicable' }
+  | { status: 'error'; message: string };
+
 export async function tryFinishMagicLinkRedirect(
   navigate: NavigateFunction,
-): Promise<boolean> {
-  if (!hasMagicLinkPending()) return false;
+): Promise<AuthFinishResult> {
+  if (!hasMagicLinkPending()) return { status: 'not-applicable' };
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user || !isEmailVerified(session)) return false;
+  if (!session?.user || !isEmailVerified(session)) return { status: 'not-applicable' };
   try {
     let stored: string | null = null;
     try { stored = localStorage.getItem(MAGIC_LINK_USER_TYPE_KEY); } catch { /* ignore */ }
@@ -152,14 +159,16 @@ export async function tryFinishMagicLinkRedirect(
     // that flow; otherwise send them to their natural landing page.
     if (hasPendingHireBrief()) {
       navigate('/hire', { replace: true });
-      return true;
+      return { status: 'routed' };
     }
     const path = await resolvePostGoogleAuthDestination(session.user.id);
     navigate(path, { replace: true });
-    return true;
-  } catch {
+    return { status: 'routed' };
+  } catch (err) {
     clearMagicLinkIntent();
-    return false;
+    const message = (err as { message?: string })?.message || 'Sign-in finished but we could not set up your profile.';
+    console.error('[tryFinishMagicLinkRedirect] profile setup failed', err);
+    return { status: 'error', message };
   }
 }
 

@@ -171,8 +171,8 @@ const Landing = () => {
       // the "Taking you to Google…" toast we fire pre-OAuth so the
       // round-trip has both a going-out and a coming-back breadcrumb.
       const wasReturningFromOAuth = hasGoogleOAuthPending();
-      const doneGoogle = await tryFinishGoogleOAuthRedirect(navigate);
-      if (doneGoogle) {
+      const googleResult = await tryFinishGoogleOAuthRedirect(navigate);
+      if (googleResult.status === 'routed') {
         oauthHandledRef.current = true;
         if (wasReturningFromOAuth) {
           toast({
@@ -182,8 +182,26 @@ const Landing = () => {
         }
         return;
       }
-      const doneMagic = await tryFinishMagicLinkRedirect(navigate);
-      if (doneMagic) oauthHandledRef.current = true;
+      if (googleResult.status === 'error') {
+        oauthHandledRef.current = true;
+        toast({
+          title: "Couldn't finish signing in",
+          description: googleResult.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+      const magicResult = await tryFinishMagicLinkRedirect(navigate);
+      if (magicResult.status === 'routed') {
+        oauthHandledRef.current = true;
+      } else if (magicResult.status === 'error') {
+        oauthHandledRef.current = true;
+        toast({
+          title: "Couldn't finish signing in",
+          description: magicResult.message,
+          variant: 'destructive',
+        });
+      }
     };
     void finish();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
