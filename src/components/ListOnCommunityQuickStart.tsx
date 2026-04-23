@@ -31,6 +31,20 @@ function inferCategoryFromPitch(pitch: string): CommunityCategoryId | null {
   return null;
 }
 
+// One default skill per category. The talent board (BrowseStudents +
+// StudentsByCategory) excludes any student_profile with `skills = '{}'`,
+// so a freelancer who publishes via QuickStart needs at least one skill
+// on file to actually show up. We seed a sensible category-aligned
+// default and the user refines it from /profile after publish — beats
+// adding a "pick your skills" step on the QuickStart and re-introducing
+// the abandonment we just removed.
+const DEFAULT_SKILL_BY_CATEGORY: Record<CommunityCategoryId, string> = {
+  videography: 'Video editing',
+  digital_sales: 'Sales',
+  websites: 'Web development',
+  social_media: 'Social media',
+};
+
 // Three fill-in-the-blank pitch starters per category. Beats staring at
 // an empty input; first-timers who don't know what "good" looks like
 // get a concrete, editable scaffold. Templates use em-dashes so freshly
@@ -187,15 +201,38 @@ export function ListOnCommunityQuickStart({
         }
       }
 
-      // Step 3: ensure the student_profiles row exists (and write the
-      // phone if they gave one). Capture .error explicitly — supabase-js
-      // returns errors in the result, it doesn't throw, and silently
-      // ignoring them was making downstream RPC failures look mysterious.
-      const upsertPayload: { user_id: string; phone?: string } = { user_id: userId };
+      // Step 3: write the student_profiles row with the THREE flags
+      // BrowseStudents.tsx and StudentsByCategory.tsx both require to
+      // show a freelancer on the talent board:
+      //   .eq('is_available', true)
+      //   .eq('community_board_status', 'approved')
+      //   .not('skills', 'eq', '{}')
+      //
+      // Without this, the publish RPC creates a community_posts row but
+      // the freelancer is invisible on /students and the category pages
+      // — which the founder reported as "they should be on the talent
+      // board". Skills aren't asked in QuickStart, so we seed one
+      // category-derived default; the user can refine from /profile.
+      // Capture .error explicitly so an RLS / NOT NULL failure surfaces
+      // in the toast description instead of cascading into an
+      // unexplained RPC error two lines later.
+      const defaultSkill = DEFAULT_SKILL_BY_CATEGORY[category];
+      const upsertPayload: {
+        user_id: string;
+        phone?: string;
+        community_board_status: string;
+        is_available: boolean;
+        skills: string[];
+      } = {
+        user_id: userId,
+        community_board_status: 'approved',
+        is_available: true,
+        skills: [defaultSkill],
+      };
       if (trimmedPhone) upsertPayload.phone = trimmedPhone;
       const { error: spErr } = await supabase
         .from('student_profiles')
-        .upsert(upsertPayload, { onConflict: 'user_id' });
+        .upsert(upsertPayload as never, { onConflict: 'user_id' });
       if (spErr) {
         throw new Error(`Couldn't save your details — ${spErr.message}`);
       }
