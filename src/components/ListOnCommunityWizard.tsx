@@ -933,6 +933,21 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
           'Only freelancer (student) accounts can submit a Community listing. Your account is set as a business.',
         );
       }
+      // Promote a null user_type to 'student' before the publish RPC.
+      // Mirrors the QuickStart fix — the RPC hard-fails 42501 if the
+      // profile row exists with user_type IS NULL, which happens when
+      // someone reaches /list-on-community without going through
+      // ChooseAccountType (scout-claim flow, edge OAuth paths). Cheap
+      // upsert; no-op when user_type is already 'student'.
+      if (!profileRow.user_type) {
+        const { error: setTypeErr } = await supabase
+          .from('profiles')
+          .upsert({ user_id: userId, user_type: 'student' }, { onConflict: 'user_id' });
+        if (setTypeErr) {
+          logSupabaseError('ListOnCommunityWizard: promote to student', setTypeErr);
+          throw setTypeErr;
+        }
+      }
 
       let uploadedBanner: string | null = null;
       if (bannerFile) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -87,17 +87,13 @@ export function ListOnCommunityQuickStart({
   const [submitting, setSubmitting] = useState(false);
   const pitchInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus the pitch input once the user picks a category. On mobile
-  // this saves an extra tap (the next thing they need to do is type); on
-  // desktop it visually hands the flow forward without ambiguity about
-  // "what do I do now?". Skipped on first mount so the page doesn't
-  // yank focus before the user has looked at the category grid.
-  useEffect(() => {
-    if (!category) return;
-    // Short delay so the soft-keyboard-friendly layout is stable.
-    const t = window.setTimeout(() => pitchInputRef.current?.focus(), 80);
-    return () => window.clearTimeout(t);
-  }, [category]);
+  // Auto-focus on category pick was removed (2026-04-23): on mobile it
+  // popped the soft keyboard the moment a category was tapped, the
+  // viewport shrank, and the page scrolled the input into view — felt
+  // like the page was bouncing. Users said "the wizard keeps bouncing
+  // up". The pitch input is visually next on the page; if they want it
+  // they'll tap it themselves. The input ref is kept for the
+  // starter-template buttons that still need to restore focus.
 
   // Phone is optional — businesses can always reach a freelancer through
   // in-app messages. Forcing a phone upfront was the #1 abandonment point;
@@ -127,6 +123,19 @@ export function ListOnCommunityQuickStart({
     if (!canPublish || submitting || !category) return;
     setSubmitting(true);
     try {
+      // Guarantee `profiles.user_type = 'student'` BEFORE the publish RPC.
+      // The RPC (publish_community_listing, migration 20260416130000) hard-
+      // requires this — without it the RPC raises "only students can
+      // publish listings" (errcode 42501) and the user sees a generic
+      // "Couldn't publish your listing" toast with no clue why. Most
+      // freelancers go through ChooseAccountType which sets this, but
+      // anyone who lands on /list-on-community via the scout-claim flow,
+      // a stale OAuth round-trip, or a direct URL hits the wall. Cheap
+      // upsert eliminates the failure mode entirely.
+      await supabase
+        .from('profiles')
+        .upsert({ user_id: userId, user_type: 'student' }, { onConflict: 'user_id' });
+
       // Upsert empty defaults on student_profiles (and phone if the user
       // gave one) so the row exists before the community_posts INSERT.
       const upsertPayload: { user_id: string; phone?: string } = { user_id: userId };
@@ -346,7 +355,7 @@ export function ListOnCommunityQuickStart({
             className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Add one and we'll text you the moment a business reaches out — never shared publicly. Skip to chat in-app only.
+            We'll text you the second a business wants to hire you. Never shown publicly. Leave blank and they can only message you here on Vano.
           </p>
         </div>
 
