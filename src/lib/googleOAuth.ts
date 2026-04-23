@@ -111,29 +111,36 @@ export async function ensureProfileAfterAuth(
     if (upErr) throw upErr;
   }
 
-  // Student-side row. Make sure it exists (idempotent insert), and only seed
+  // Student-side row. Make sure it exists (idempotent), and only seed
   // avatar_url when the row is missing one — never overwrite a custom upload
   // with OAuth metadata on re-login.
+  //
+  // Important: DO NOT reintroduce the old SELECT-then-INSERT pattern here.
+  // Historical SELECT RLS on student_profiles hid the owner's own row when
+  // community_board_status != 'approved', which made the SELECT return null
+  // for anyone who'd signed up but never published. The blind INSERT that
+  // followed then hit the UNIQUE(user_id) constraint, threw, and tanked the
+  // whole auth-finish handler — which presented to the user as "I can't log
+  // in" because Landing silently swallowed the error. Fixed the RLS in
+  // migration 20260423150000, but keep the client idempotent so a similar
+  // policy regression can never silently break login again.
   const isOrBecomingStudent =
     (!existing.user_type && intent === 'student') || existing.user_type === 'student';
   if (isOrBecomingStudent) {
-    const { data: spExisting } = await supabase
+    const { error: ensErr } = await supabase
       .from('student_profiles')
-      .select('user_id, avatar_url')
-      .eq('user_id', userId)
-      .maybeSingle();
+      .upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true });
+    if (ensErr) throw ensErr;
 
-    if (!spExisting) {
-      const { error: spErr } = await supabase
-        .from('student_profiles')
-        .insert({ user_id: userId, avatar_url: avatarUrl ?? undefined });
-      if (spErr) throw spErr;
-    } else if (!spExisting.avatar_url && avatarUrl) {
-      const { error: spErr } = await supabase
+    // Backfill the OAuth avatar only when the row doesn't already have one.
+    // Guarded at the DB layer (avatar_url IS NULL OR '') so we never clobber
+    // a custom upload the user set from /profile.
+    if (avatarUrl) {
+      await supabase
         .from('student_profiles')
         .update({ avatar_url: avatarUrl })
-        .eq('user_id', userId);
-      if (spErr) throw spErr;
+        .eq('user_id', userId)
+        .or('avatar_url.is.null,avatar_url.eq.');
     }
   }
 }
