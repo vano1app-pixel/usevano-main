@@ -9,6 +9,11 @@ import {
   HIRE_BUDGETS,
   DIRECT_HIRE_EXPIRY_HOURS,
 } from '@/lib/hireOptions';
+import {
+  saveDirectHireDraft,
+  loadDirectHireDraft,
+  clearDirectHireDraft,
+} from '@/lib/directHireDraft';
 import { cn } from '@/lib/utils';
 import { Zap, Loader2, Clock, MailWarning, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { track } from '@/lib/track';
@@ -69,6 +74,23 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
     return () => { cancelled = true; };
   }, [open]);
 
+  // Restore a saved draft when the modal opens. Two cases this covers:
+  //  1. The user filled the form, the JWT expired, we redirected them to
+  //     /auth (line ~120 below). They sign back in and re-open this
+  //     freelancer's modal — their brief / timeline / budget come back.
+  //  2. They closed the modal mid-fill and re-opened on the same tab.
+  //
+  // Keyed by freelancerId so a draft for freelancer A never appears in
+  // the modal for freelancer B (loadDirectHireDraft enforces the match).
+  useEffect(() => {
+    if (!open) return;
+    const draft = loadDirectHireDraft(freelancerId);
+    if (!draft) return;
+    setBrief(draft.brief);
+    setTimeline(draft.timeline);
+    setBudget(draft.budget);
+  }, [open, freelancerId]);
+
   const handleResend = async () => {
     if (!userEmail || resending) return;
     setResending(true);
@@ -102,6 +124,17 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
+        // Persist the brief / timeline / budget BEFORE we redirect to
+        // /auth — without this the user signs back in, re-opens the
+        // modal, and finds the form empty. They have to retype the
+        // whole brief just because their JWT expired mid-flow.
+        // Mirrors saveHireBrief() in HirePage's signed-out path.
+        saveDirectHireDraft({
+          freelancerId,
+          brief,
+          timeline,
+          budget,
+        });
         navigate(`/auth?intent=hire&freelancer=${freelancerId}`);
         return;
       }
@@ -162,6 +195,12 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
         timeline,
         budget,
       });
+
+      // Drop any persisted draft now that the request is in — without
+      // this, a successful send followed by a fresh open of the same
+      // freelancer's modal would re-fill the form with the just-sent
+      // brief, which reads as "did my hire request go through?".
+      clearDirectHireDraft();
 
       toast({
         title: `Hire request sent to ${freelancerName}! ⚡`,

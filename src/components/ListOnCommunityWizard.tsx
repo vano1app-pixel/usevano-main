@@ -40,6 +40,7 @@ import {
 } from '@/lib/communityCategories';
 import { SKILLS_BY_CATEGORY, normalizeFreelancerSkills } from '@/lib/freelancerSkills';
 import { SPECIALTIES_BY_CATEGORY, isValidSpecialty } from '@/lib/categorySpecialties';
+import { isSubtypeLabel } from '@/lib/communitySubtypes';
 import {
   CLIENT_TYPES_BY_CATEGORY,
   STRENGTH_OPTIONS,
@@ -1636,6 +1637,19 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                 <p className="mt-1 text-xs text-muted-foreground">
                   The one thing businesses should know about you.
                 </p>
+                {/* Auto-fill hint: if the freelancer published via the
+                     QuickStart, `title` was set to the chosen subtype
+                     label ("Reel / short-form" etc.), not a freeform
+                     pitch. Without this hint a returning user reads the
+                     pre-filled value as locked and skips refining it.
+                     The hint invites a tweak without forcing one — the
+                     subtype is still a perfectly valid headline if they
+                     leave it alone. */}
+                {isSubtypeLabel(category, title) && (
+                  <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/8 px-2 py-0.5 text-[11px] font-medium text-primary">
+                    Auto-filled from your category — refine or leave as-is
+                  </p>
+                )}
                 <Input
                   id="lc-title"
                   className="mt-1.5 h-11"

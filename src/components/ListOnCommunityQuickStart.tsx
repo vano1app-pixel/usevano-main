@@ -6,48 +6,13 @@ import {
   COMMUNITY_CATEGORY_ORDER,
   type CommunityCategoryId,
 } from '@/lib/communityCategories';
+// Subtype labels live in a shared lib so the wizard can use the same
+// list to detect a QuickStart-auto-filled title and surface a "we filled
+// this from your category" hint. Keep both in lockstep here.
+import { SUBTYPES_BY_CATEGORY } from '@/lib/communitySubtypes';
 import { Loader2, Sparkles, ArrowRight, Eye } from 'lucide-react';
 import { microCelebrate } from '@/lib/celebrate';
 import { normalizeIrishPhone } from '@/lib/phoneNormalize';
-
-// Sub-type chips per category — exact mirror of HirePage's CATEGORIES
-// subtype list (HirePage.tsx:39-53). Same labels intentionally: when a
-// hirer's brief includes the same subtype phrasing the freelancer picked
-// here, the AI Find matcher scores them higher because the tokens
-// overlap word-for-word. Replacing the freeform "one-line pitch" with a
-// chip pick (a) eliminates the typing barrier on first-time sign-up and
-// (b) keeps freelancer-self-described work and hirer-asked-for work in
-// the same vocabulary, so the matcher doesn't have to bridge synonyms.
-const SUBTYPES_BY_CATEGORY: Record<CommunityCategoryId, readonly string[]> = {
-  videography: [
-    'Reel / short-form',
-    'Promo / ad',
-    'Event / wedding',
-    'Corporate / explainer',
-    'Podcast / interview',
-  ],
-  digital_sales: [
-    'Cold email outreach',
-    'Cold calling / SDR',
-    'Lead generation',
-    'Appointment setting',
-    'Sales closing',
-  ],
-  websites: [
-    'Landing page',
-    'Full website',
-    'Shopify / e-commerce',
-    'Fix / improve existing',
-    'Web app / dashboard',
-  ],
-  social_media: [
-    'Content / posts',
-    'Strategy & growth',
-    'Paid ads',
-    'Community management',
-    'Short-form (TikTok / Reels)',
-  ],
-};
 
 // One default skill per category. The talent board (BrowseStudents +
 // StudentsByCategory) excludes any student_profile with `skills = '{}'`,
