@@ -1119,9 +1119,62 @@ const StudentProfile = () => {
             })()}
           </>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
-            <p className="text-sm font-medium text-foreground">Freelancer profile isn&apos;t finished yet.</p>
-            <p className="mt-1 text-xs text-muted-foreground">They may still be completing their VANO setup.</p>
+          // Freelancer has a profile row but no student_profiles row yet —
+          // they've signed up but haven't run the listing wizard. Instead of
+          // a "not finished" dead-end, show whatever IS on their profile
+          // (avatar, name, work_description/bio) plus a Message CTA so the
+          // viewer can still reach them. If they finish the wizard later,
+          // the full view takes over on the next visit.
+          <div className="rounded-2xl border border-foreground/6 bg-card p-6 md:p-8 shadow-tinted">
+            <div className="flex items-start gap-5 mb-5">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-3xl sm:text-4xl shrink-0">
+                  {displayName[0].toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-1 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-bold">{displayName}</h1>
+                  <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground">Freelancer</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Still setting up their profile — here's what they've shared so far.
+                </p>
+              </div>
+            </div>
+            {(workDesc || profile.bio) && (
+              <div className="mb-5">
+                <h2 className="text-sm font-semibold mb-2">About</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {workDesc || profile.bio}
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              {!user ? (
+                <a
+                  href="/auth"
+                  className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={16} /> Sign in to message
+                </a>
+              ) : user.id !== id && !(currentUserType === 'student' && profile?.user_type === 'business') ? (
+                <button
+                  type="button"
+                  onClick={handleMessage}
+                  className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={16} /> Message
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
 
