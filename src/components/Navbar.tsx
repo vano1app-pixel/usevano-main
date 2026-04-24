@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { signOutCleanly } from '@/lib/signOut';
 import { AuthSheet } from './AuthSheet';
 import { NotificationBell } from './NotificationBell';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
@@ -29,6 +31,7 @@ export const Navbar: React.FC = () => {
   // across Navbar, WhatsApp button, MascotGuide, etc. Replaces the old
   // Navbar-local onAuthStateChange + SELECT user_type round-trip.
   const { user, userType } = useAuth();
+  const queryClient = useQueryClient();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -222,7 +225,7 @@ export const Navbar: React.FC = () => {
             {user && <NotificationBell />}
             {user ? (
               <button
-                onClick={async () => { await supabase.auth.signOut(); }}
+                onClick={async () => { await signOutCleanly(queryClient); }}
                 className="ml-1 px-3.5 py-2 text-[13px] font-medium text-foreground/50 hover:text-destructive transition-colors duration-150 rounded-xl"
               >
                 Sign out

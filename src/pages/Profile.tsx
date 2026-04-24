@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
+import { signOutCleanly } from '@/lib/signOut';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { AvatarUpload } from '@/components/AvatarUpload';
@@ -60,6 +62,7 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T
 
 const Profile = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   useProfileCompletion();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
@@ -1629,12 +1632,7 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={async () => {
-                      await supabase.auth.signOut({ scope: 'global' });
-                      Object.keys(localStorage).forEach((key) => {
-                        if (key.startsWith('sb-') || key.includes('supabase')) {
-                          localStorage.removeItem(key);
-                        }
-                      });
+                      await signOutCleanly(queryClient);
                       window.location.href = '/auth?mode=signup';
                     }}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground/20 hover:bg-muted/50 hover:text-foreground"
@@ -1828,12 +1826,7 @@ const Profile = () => {
               <button
                 type="button"
                 onClick={async () => {
-                  await supabase.auth.signOut({ scope: 'global' });
-                  Object.keys(localStorage).forEach((key) => {
-                    if (key.startsWith('sb-') || key.includes('supabase')) {
-                      localStorage.removeItem(key);
-                    }
-                  });
+                  await signOutCleanly(queryClient);
                   window.location.href = '/auth?mode=signup';
                 }}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground/20 hover:bg-muted/50 hover:text-foreground"
