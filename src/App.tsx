@@ -6,6 +6,8 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { PageTransition } from "@/components/PageTransition";
 import { ScrollProgress } from "@/components/ScrollProgress";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { RouteSuspenseFallback } from "@/components/RouteSuspenseFallback";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -82,11 +84,15 @@ function getVariant(path: string): TransitionVariant {
   return 'default';
 }
 
-// Route-level Suspense boundary intentionally uses `fallback={null}` below:
-// the PageTransition AnimatePresence already provides a smooth swap, and
-// showing a full-screen spinner for the ~100-300ms chunk fetch made the site
-// feel janky. The brief blank frame is imperceptible on fast networks and
-// more tolerable on slow ones than a pop-in spinner.
+// Route-level Suspense now renders a thin top-of-page progress bar
+// (see RouteSuspenseFallback). The previous `fallback={null}` left a
+// ~1s blank frame on slow networks (LTE); a centered spinner felt
+// janky; a 2px pulsing bar is present-but-ignorable.
+//
+// The inline RouteErrorBoundary below contains any page-level crash
+// to the Routes subtree so the navbar + bottom nav stay visible.
+// The top-level ErrorBoundary in main.tsx still catches anything
+// that escapes (provider errors, router errors, etc).
 
 const App = () => {
   const location = useLocation();
@@ -111,7 +117,8 @@ const App = () => {
           fast navigations and surfaced the "Failed to execute 'removeChild'
           on 'Node'" error via the global ErrorBoundary. PageTransition still
           plays an enter fade per page; exit is simply skipped. */}
-        <Suspense fallback={null}>
+        <RouteErrorBoundary routeKey={location.pathname}>
+        <Suspense fallback={<RouteSuspenseFallback />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<P><Landing /></P>} />
             <Route path="/hire" element={<P><HirePage /></P>} />
@@ -224,6 +231,7 @@ const App = () => {
             <Route path="*" element={<P><NotFound /></P>} />
           </Routes>
         </Suspense>
+        </RouteErrorBoundary>
       </div>
       <MobileBottomNav />
       {/* Floating/ambient UI — deferred, fallback silently on load failure.
