@@ -1085,14 +1085,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
         if (keep) studentPatch.banner_url = keep;
       }
 
-      const { error: spErr } = await supabase
-        .from('student_profiles')
-        .upsert({ user_id: userId, ...studentPatch }, { onConflict: 'user_id' });
-      if (spErr) {
-        logSupabaseError('ListOnCommunityWizard: student_profiles upsert', spErr);
-        throw spErr;
-      }
-
       // Publish via the SECURITY DEFINER RPC — direct INSERT into
       // community_posts with moderation_status='approved' is blocked by
       // the 20260411 security-hardening RLS (users can't self-approve
@@ -1100,6 +1092,13 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       // and runs the delete+insert with elevated privileges, preserving
       // "instant go-live" without reopening the RLS hole. See migration
       // 20260416130000_publish_community_listing_rpc.sql.
+      //
+      // Runs BEFORE the student_profiles upsert so that if the RPC
+      // fails, we never leave the freelancer "approved on the talent
+      // board with no community_posts row" (the original QuickStart
+      // bug — see PR #105). The RPC itself is DELETE + INSERT so
+      // re-publishing is idempotent; on failure, student_profiles is
+      // untouched and Profile shows "Get listed" for a clean retry.
       const rpcArgs = {
         _category: category,
         _title: title.trim(),
@@ -1121,6 +1120,14 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
       if (postErr) {
         logSupabaseError('ListOnCommunityWizard: publish_community_listing rpc', postErr);
         throw postErr;
+      }
+
+      const { error: spErr } = await supabase
+        .from('student_profiles')
+        .upsert({ user_id: userId, ...studentPatch }, { onConflict: 'user_id' });
+      if (spErr) {
+        logSupabaseError('ListOnCommunityWizard: student_profiles upsert', spErr);
+        throw spErr;
       }
 
       // Save uploaded images as portfolio items
