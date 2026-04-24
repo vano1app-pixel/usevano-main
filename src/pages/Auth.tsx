@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { SEOHead } from '@/components/SEOHead';
+import { signOutCleanly } from '@/lib/signOut';
 import logo from '@/assets/logo.png';
 import { Briefcase, GraduationCap, LogOut } from 'lucide-react';
 import { isEmailVerified, rememberTalentBoardReturn, resolvePostAuthDestination } from '@/lib/authSession';
@@ -18,6 +20,7 @@ import { sendMagicLink } from '@/lib/magicLink';
 import { Mail, Loader2, Check as CheckIcon } from 'lucide-react';
 
 const Auth = () => {
+  const queryClient = useQueryClient();
   const [isLogin, setIsLogin] = useState(true);
   // Default to business because the site's primary growth lever is
   // hirer signups: most cold visitors land here from hirer-facing
@@ -264,13 +267,7 @@ const Auth = () => {
               <button
                 type="button"
                 onClick={async () => {
-                  await supabase.auth.signOut({ scope: 'global' });
-                  Object.keys(localStorage).forEach((key) => {
-                    if (key.startsWith('sb-') || key.includes('supabase')) {
-                      localStorage.removeItem(key);
-                    }
-                  });
-                  clearGoogleOAuthIntent();
+                  await signOutCleanly(queryClient);
                   setExistingEmail(null);
                   setExistingUserId(null);
                 }}

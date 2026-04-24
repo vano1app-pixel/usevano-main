@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, Users, MessageCircle, User, LayoutDashboard, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuthContext';
 import { cn } from '@/lib/utils';
 import { prefetchHandlers } from '@/lib/prefetchRoute';
 
@@ -19,8 +20,14 @@ const PATH_TO_PREFETCH_KEY: Record<string, Parameters<typeof prefetchHandlers>[0
 export const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
-  const [userType, setUserType] = useState<string | null>(null);
+  // Read user + user_type from the shared AuthContext instead of keeping
+  // a duplicate subscription + profiles.user_type fetch here. The previous
+  // version had its own onAuthStateChange listener, which lagged behind
+  // the shared context on fast account switches — the user reported
+  // this as "nav tabs glitch between my business and freelancer accounts".
+  // Single source of truth means the nav flips atomically with the rest
+  // of the app the moment the auth state changes.
+  const { user, userType } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   // Pending direct-hire requests for freelancers. Surfaced as a dot on the
   // Profile tab so freelancers don't need to open the app and scroll to
@@ -28,38 +35,17 @@ export const MobileBottomNav: React.FC = () => {
   const [pendingHireCount, setPendingHireCount] = useState(0);
 
   useEffect(() => {
-    const fetchUserType = async (userId: string | undefined) => {
-      if (!userId) { setUserType(null); return; }
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_type')
-        .eq('user_id', userId)
-        .maybeSingle();
-      setUserType(data?.user_type ?? null);
-    };
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadUnread(session.user.id);
-        loadPendingHires(session.user.id);
-        fetchUserType(session.user.id);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadUnread(session.user.id);
-        loadPendingHires(session.user.id);
-        fetchUserType(session.user.id);
-      } else {
-        setUnreadCount(0);
-        setPendingHireCount(0);
-        setUserType(null);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+    if (user?.id) {
+      loadUnread(user.id);
+      loadPendingHires(user.id);
+    } else {
+      // Sign-out: wipe the badges immediately so a stale count from the
+      // previous account doesn't linger on the nav during the brief
+      // moment before the next user signs in.
+      setUnreadCount(0);
+      setPendingHireCount(0);
+    }
+  }, [user?.id]);
 
   // Real-time: refresh unread count when messages arrive or are read
   useEffect(() => {

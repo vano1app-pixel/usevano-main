@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import posthog from 'posthog-js';
 import * as Sentry from '@sentry/react';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,6 +53,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CachedProfile | null>(null);
@@ -134,8 +136,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
 
       const uid = s?.user?.id ?? null;
-      if (uid !== lastFetchedUserId.current) {
+      const prevUid = lastFetchedUserId.current;
+      if (uid !== prevUid) {
         lastFetchedUserId.current = uid;
+        // Clear the React Query cache whenever the signed-in user
+        // changes — sign-out, sign-in-as-different-user, or session
+        // expiry. Prevents the next user seeing the previous user's
+        // cached profiles / messages / hire requests briefly before
+        // the fresh fetches resolve. signOutCleanly() also does this
+        // for call sites that go through the shared helper; this is
+        // the belt-and-braces path for everything else (auto-expiry,
+        // magic-link-on-top-of-stale-session, etc).
+        if (prevUid !== null) queryClient.clear();
         if (uid) {
           // Tell PostHog who this is so every event from here on is
           // attributed to the Supabase user id, and earlier anonymous
