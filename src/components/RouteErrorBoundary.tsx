@@ -77,27 +77,18 @@ export class RouteErrorBoundary extends Component<Props, State> {
     }
   }
 
-  handleRetry = () => {
-    this.setState({ hasError: false, message: '', transient: false });
-  };
-
   render() {
+    // Non-transient page-level errors render NOTHING instead of a visible
+    // fallback. The user sees the page area collapse to whatever rendered
+    // before the throw (often: the parts of the page above the failing
+    // component), with the navbar + bottom nav still intact. The error is
+    // still captured to Sentry above so we can trace the root cause from
+    // production telemetry; the routeKey auto-reset means a tap into the
+    // nav always recovers. Top-level ErrorBoundary in main.tsx remains
+    // the visible backstop for catastrophic failures (provider/router
+    // crashes that escape this boundary).
     if (this.state.hasError && !this.state.transient) {
-      return (
-        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
-          <p className="text-2xl font-bold text-foreground">Something went wrong on this page</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            {this.state.message || 'Try again, or use the nav to go somewhere else.'}
-          </p>
-          <button
-            type="button"
-            onClick={this.handleRetry}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
-          </button>
-        </div>
-      );
+      return null;
     }
     return this.props.children;
   }
