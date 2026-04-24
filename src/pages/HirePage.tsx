@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
+import { PreviousMatchesPanel } from '@/components/PreviousMatchesPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isEmailVerified } from '@/lib/authSession';
@@ -1325,6 +1326,14 @@ const HirePage = () => {
              of the hire flow on a single decision: AI Match (€1) or
              the WhatsApp 24h fallback. Having three more pricing CTAs
              after the hero diluted the conversion. */}
+
+        {/* Previous matches — surfaces any Vano-picked freelancer the
+             user paid €1 for in the past, so a business that did the
+             match flow then navigated away can find their freelancer
+             again instead of re-paying. Renders null when signed out
+             or with no prior matches, and on any query failure, so it
+             never adds an error surface to the bottom of the page. */}
+        {user?.id && <PreviousMatchesPanel userId={user.id} />}
       </div>
 
       {/* Embedded Stripe checkout — opens inline when
