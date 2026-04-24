@@ -146,21 +146,49 @@ export function ListOnCommunityQuickStart({
         }
       }
 
-      // Step 3: write the student_profiles row with the THREE flags
+      // Step 3: the publish RPC. Runs BEFORE the student_profiles
+      // upsert so that if the RPC fails, we never leave the user in the
+      // "approved on the talent board but no community_posts row" state
+      // that renders a listing with no edit UI (the original bug report:
+      // "his listing got published but he can't edit it"). If the RPC
+      // fails here, student_profiles is untouched — retry is a clean
+      // re-run. The RPC itself is DELETE + INSERT so re-publishing on
+      // top of a prior community_posts row is safe.
+      //
+      // Title is the chosen subtype directly — matches HirePage's brief
+      // vocabulary verbatim so the AI Find matcher gets a clean
+      // token-overlap score. Description empty + rates 0 are "ask for a
+      // quote" defaults; the user polishes from /profile later.
+      const { data: postId, error: rpcErr } = await supabase.rpc(
+        'publish_community_listing' as never,
+        {
+          _category: category,
+          _title: subtype,
+          _description: '',
+          _image_url: '',
+          _rate_min: 0,
+          _rate_max: 0,
+          _rate_unit: 'hourly',
+        } as never,
+      );
+      if (rpcErr) {
+        throw new Error(`Publish failed — ${rpcErr.message}`);
+      }
+
+      // Step 4: write the student_profiles row with the THREE flags
       // BrowseStudents.tsx and StudentsByCategory.tsx both require to
       // show a freelancer on the talent board:
       //   .eq('is_available', true)
       //   .eq('community_board_status', 'approved')
       //   .not('skills', 'eq', '{}')
       //
-      // Without this, the publish RPC creates a community_posts row but
+      // Without this, the RPC above created a community_posts row but
       // the freelancer is invisible on /students and the category pages
       // — which the founder reported as "they should be on the talent
       // board". Skills aren't asked in QuickStart, so we seed one
       // category-derived default; the user can refine from /profile.
       // Capture .error explicitly so an RLS / NOT NULL failure surfaces
-      // in the toast description instead of cascading into an
-      // unexplained RPC error two lines later.
+      // in the toast description instead of a generic failure.
       const defaultSkill = DEFAULT_SKILL_BY_CATEGORY[category];
       const upsertPayload: {
         user_id: string;
@@ -180,27 +208,6 @@ export function ListOnCommunityQuickStart({
         .upsert(upsertPayload as never, { onConflict: 'user_id' });
       if (spErr) {
         throw new Error(`Couldn't save your details — ${spErr.message}`);
-      }
-
-      // Step 4: the publish RPC. Title is the chosen subtype directly —
-      // matches HirePage's brief vocabulary verbatim so the AI Find
-      // matcher gets a clean token-overlap score. Description empty +
-      // rates 0 are "ask for a quote" defaults; the user polishes from
-      // /profile later.
-      const { data: postId, error: rpcErr } = await supabase.rpc(
-        'publish_community_listing' as never,
-        {
-          _category: category,
-          _title: subtype,
-          _description: '',
-          _image_url: '',
-          _rate_min: 0,
-          _rate_max: 0,
-          _rate_unit: 'hourly',
-        } as never,
-      );
-      if (rpcErr) {
-        throw new Error(`Publish failed — ${rpcErr.message}`);
       }
 
       // Step 5: fire the welcome email (best-effort). Session-storage
