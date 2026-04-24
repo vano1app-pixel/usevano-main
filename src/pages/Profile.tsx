@@ -1099,6 +1099,39 @@ const Profile = () => {
                   />
                 )}
 
+                {/* Data-consistency fallback: freelancer is on the talent
+                     board (student_profiles.community_board_status = 'approved')
+                     but has no approved community_posts row — possible if the
+                     QuickStart publish's RPC step failed silently after the
+                     student_profiles upsert succeeded. Without this branch
+                     Profile renders NO edit UI at all, so the freelancer is
+                     stuck live with no way to edit. Render a minimal card
+                     that always gives them the wizard entry point. Re-
+                     publishing recreates the missing community_posts row. */}
+                {studentProfile?.community_board_status === 'approved' && !existingPost && (
+                  <div className={cn(cardBase, 'px-5 py-4')}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                          <p className="text-sm font-semibold text-foreground">Live on talent board</p>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                          Finish your listing details to get hired faster — add a photo, rate, and a line about what you do.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="h-11 w-full shrink-0 rounded-xl px-5 text-sm font-semibold shadow-md sm:h-12 sm:w-auto sm:min-w-[9.5rem] transition-all duration-200 hover:shadow-lg hover:-translate-y-[1px]"
+                        onClick={() => setListCommunityOpen(true)}
+                      >
+                        Edit listing
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Live listing editor card ── */}
                 {studentProfile?.community_board_status === 'approved' && existingPost && (
                   <div>
