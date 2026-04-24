@@ -132,17 +132,47 @@ const StudentProfile = () => {
     // via /students/:id) so we never want `select('*')` returning future
     // private-by-default columns (email, phone, notes, tokens, etc). Add a
     // column here only after confirming it's safe to expose publicly.
-    const [{ data: prof }, { data: sp }, { data: revs }, { data: badges }, { data: items }, { data: post }] = await Promise.all([
+    //
+    // Two-stage student_profiles fetch: the wide list includes relatively
+    // new columns (expected_bonus_*, work_links, student_verified, etc).
+    // If any one of them hasn't landed in the live DB yet (partial migration
+    // state), the whole query 42703s and the row disappears — which looks
+    // like "freelancer hasn't finished their profile" even for a freelancer
+    // who's live on the talent board. Fall back to the core columns the
+    // talent board already uses so the profile still renders.
+    const CORE_STUDENT_COLS = 'user_id, bio, skills, hourly_rate, is_available, stripe_payouts_enabled, tiktok_url, instagram_url, linkedin_url, website_url';
+    const WIDE_STUDENT_COLS = `${CORE_STUDENT_COLS}, typical_budget_min, typical_budget_max, service_area, university, student_verified, banner_url, work_links, expected_bonus_amount, expected_bonus_unit`;
+
+    const fetchStudent = async () => {
+      const wide = await supabase
+        .from('student_profiles')
+        .select(WIDE_STUDENT_COLS)
+        .eq('user_id', id!)
+        .maybeSingle();
+      if (!wide.error) return wide.data;
+      // Likely a missing-column error (42703) from an unapplied migration.
+      // Log + retry with the core columns that every talent-board freelancer
+      // has. The extra columns degrade to undefined; UI already handles that.
+      console.warn('[StudentProfile] wide student_profiles select failed, retrying core columns', wide.error);
+      const core = await supabase
+        .from('student_profiles')
+        .select(CORE_STUDENT_COLS)
+        .eq('user_id', id!)
+        .maybeSingle();
+      if (core.error) {
+        console.error('[StudentProfile] core student_profiles select also failed', core.error);
+        return null;
+      }
+      return core.data;
+    };
+
+    const [{ data: prof }, sp, { data: revs }, { data: badges }, { data: items }, { data: post }] = await Promise.all([
       supabase
         .from('profiles')
         .select('user_id, user_type, display_name, avatar_url, bio, work_description')
         .eq('user_id', id!)
         .maybeSingle(),
-      supabase
-        .from('student_profiles')
-        .select('user_id, bio, skills, hourly_rate, typical_budget_min, typical_budget_max, is_available, service_area, university, student_verified, stripe_payouts_enabled, banner_url, tiktok_url, instagram_url, linkedin_url, website_url, work_links, expected_bonus_amount, expected_bonus_unit')
-        .eq('user_id', id!)
-        .maybeSingle(),
+      fetchStudent(),
       supabase
         .from('reviews')
         .select('id, reviewer_id, rating, comment, photos, created_at')
@@ -161,7 +191,7 @@ const StudentProfile = () => {
     ]);
 
     setProfile(prof);
-    setStudent(sp);
+    setStudent(sp as any);
     setCommunityPost(post);
     setAchievements(badges || []);
     setPortfolioItems(items || []);
