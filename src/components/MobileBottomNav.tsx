@@ -106,14 +106,18 @@ export const MobileBottomNav: React.FC = () => {
   };
 
   const loadPendingHires = async (userId: string) => {
-    const { count } = await supabase
-      .from('hire_requests' as any)
-      .select('id', { count: 'exact', head: true })
-      .eq('kind', 'direct')
-      .eq('target_freelancer_id', userId)
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString());
-    setPendingHireCount(count || 0);
+    try {
+      const { count } = await supabase
+        .from('hire_requests' as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('kind', 'direct')
+        .eq('target_freelancer_id', userId)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString());
+      setPendingHireCount(count || 0);
+    } catch {
+      // Realtime subscription refreshes on next event — keep last count.
+    }
   };
 
   const navItems = useMemo(() => [
