@@ -55,6 +55,16 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   // 0 or null rate are kept in all buckets because "negotiable" is common
   // and we'd rather surface them than hide them.
   const [rateFilter, setRateFilter] = useState<'all' | 'lt30' | '30to60' | 'gt60'>('all');
+  // Location filter — sits above rate because it answers a coarser
+  // question first ("can this person actually do the work for me?")
+  // before the budget question. Galway is the brand promise (the
+  // platform's home county), so it gets its own chip; the more
+  // expansive options sit either side. Counties live on
+  // student_profiles.county (added in migration 20260416120000) and
+  // `remote_ok` is the boolean flag the wizard collects; freelancers
+  // without a county set stay visible in 'all' so we don't hide
+  // willing-to-work-anywhere listings.
+  const [locFilter, setLocFilter] = useState<'all' | 'galway' | 'remote'>('all');
   // Sort order on the visible list. Default is "newest" (updated_at desc)
   // so freshly-listed or recently-edited freelancers surface to the top —
   // the page used to render in raw insertion order, which gave anyone
@@ -136,6 +146,18 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   // visible in every bucket so we don't hide willing-to-chat freelancers.
   const visibleStudents = students
     .filter((s) => {
+      // Location: 'galway' shows only freelancers based in Galway county;
+      // 'remote' shows only those who flagged remote_ok. 'all' shows
+      // everyone. Freelancers with no county set stay visible in 'all'
+      // (we'd rather surface them than hide them) but get filtered out
+      // of the geo-specific buckets so the chip's promise holds.
+      if (locFilter === 'galway') {
+        const county = (s.county || '').toString().toLowerCase();
+        if (county !== 'galway') return false;
+      }
+      if (locFilter === 'remote') {
+        if (!s.remote_ok) return false;
+      }
       if (rateFilter === 'all') return true;
       const r = Number(s.hourly_rate);
       if (!r || Number.isNaN(r) || r <= 0) return true;
@@ -207,7 +229,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           </div>
           {!loading && (
             <StatusChip tone="success" className="ml-auto">
-              {visibleStudents.length} {rateFilter === 'all' ? 'available' : `of ${students.length}`}
+              {visibleStudents.length} {rateFilter === 'all' && locFilter === 'all' ? 'available' : `of ${students.length}`}
             </StatusChip>
           )}
         </div>
@@ -229,6 +251,38 @@ const StudentsByCategory = ({ categoryId }: Props) => {
               {students.length === 1 ? 'freelancer online now' : 'freelancers online now'}
             </span>
           </p>
+        )}
+
+        {/* Location filter chips — answer "can they do the work for me?"
+            before the budget question. Galway is the brand-home county, so
+            it sits in the middle as a primary option. Freelancers with no
+            county set stay visible in "Anywhere" (we don't hide willing-to-
+            work-anywhere listings) but get filtered out of the geo buckets. */}
+        {!loading && students.length > 0 && (
+          <div className="mb-2.5 flex flex-wrap gap-1.5">
+            {([
+              { id: 'all', label: 'Anywhere' },
+              { id: 'galway', label: 'Galway' },
+              { id: 'remote', label: 'Remote OK' },
+            ] as const).map((chip) => {
+              const active = locFilter === chip.id;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setLocFilter(chip.id)}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors',
+                    active
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                      : 'border-border bg-card text-foreground/70 hover:border-emerald-500/40 hover:text-foreground',
+                  )}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {/* Budget filter chips — helps budget-constrained hirers narrow down
