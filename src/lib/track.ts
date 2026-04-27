@@ -14,7 +14,6 @@
  *
  * Backed by the `analytics_events` table (migration 20260415130000_analytics_events.sql).
  */
-import posthog from 'posthog-js';
 import { supabase } from '@/integrations/supabase/client';
 
 export type TrackEvent =
@@ -34,16 +33,21 @@ export type TrackEvent =
   | 'ai_find_checkout_started';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
-  // PostHog mirror — synchronous and safe; SDK internally queues if it
-  // hasn't finished init. Wrapped in try/catch because PostHog can
-  // throw when localStorage is blocked (private-mode Safari, cookie
-  // policies) and analytics must never break the call site.
-  try {
-    if (posthog.__loaded) {
-      posthog.capture(event, props);
-    }
-  } catch {
-    /* swallow */
+  // PostHog mirror — dynamic import keeps posthog-js out of the entry
+  // bundle (it's ~50KB gzipped). main.tsx initialises PostHog during
+  // requestIdleCallback so by the time a user clicks anything that calls
+  // track(), the SDK is almost always already loaded; if not, the import
+  // resolves first and capture() runs once it's available. Wrapped in
+  // try/catch because PostHog throws when localStorage is blocked
+  // (private-mode Safari) and analytics must never break the call site.
+  if (import.meta.env.VITE_POSTHOG_KEY) {
+    void import('posthog-js').then(({ default: posthog }) => {
+      try {
+        if (posthog.__loaded) posthog.capture(event, props);
+      } catch {
+        /* swallow */
+      }
+    }).catch(() => { /* swallow */ });
   }
 
   // Defer the Supabase insert so we never block the calling render/handler.

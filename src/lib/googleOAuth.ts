@@ -68,7 +68,7 @@ export async function ensureProfileAfterAuth(
   const name =
     (meta.full_name as string | undefined) ||
     (meta.name as string | undefined) ||
-    session.user.email?.split('@')[0] ||
+    session.user.email?.split('@')?.[0] ||
     'User';
 
   // Google provides a profile picture on `user_metadata.avatar_url`; some

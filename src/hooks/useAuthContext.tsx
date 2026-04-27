@@ -9,8 +9,7 @@ import React, {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
-import posthog from 'posthog-js';
-import * as Sentry from '@sentry/react';
+import { identifyUser, resetUser, setUser as setSentryUser } from '@/lib/observability';
 import { supabase } from '@/integrations/supabase/client';
 import { isEmailVerified } from '@/lib/authSession';
 
@@ -115,8 +114,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const uid = existing?.user?.id ?? null;
       if (uid && uid !== lastFetchedUserId.current) {
         lastFetchedUserId.current = uid;
-        try { if (posthog.__loaded) posthog.identify(uid); } catch { /* ignore */ }
-        try { Sentry.setUser({ id: uid }); } catch { /* ignore */ }
+        identifyUser(uid);
+        setSentryUser({ id: uid });
         void fetchProfile(uid);
       }
     }).catch(() => { if (!cancelled) setLoading(false); });
@@ -149,23 +148,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // magic-link-on-top-of-stale-session, etc).
         if (prevUid !== null) queryClient.clear();
         if (uid) {
-          // Tell PostHog who this is so every event from here on is
-          // attributed to the Supabase user id, and earlier anonymous
-          // events in the same session get stitched to them too.
-          // Wrapped in try/catch because PostHog throws on some
-          // browsers when localStorage is disabled (private mode
-          // Safari, etc.) and auth must not fail on analytics errors.
-          try { if (posthog.__loaded) posthog.identify(uid); } catch { /* ignore */ }
-          // Attach the Supabase user id to every Sentry event that
-          // follows — makes "it only errors for this one freelancer"
-          // actually debuggable. Also a no-op if Sentry isn't init'd.
-          try { Sentry.setUser({ id: uid }); } catch { /* ignore */ }
+          // Tell PostHog + Sentry who this is so every event/error from
+          // here on is attributed to the Supabase user id; the lazy
+          // observability shim handles the case where the SDKs haven't
+          // finished loading yet (calls are buffered until init resolves).
+          identifyUser(uid);
+          setSentryUser({ id: uid });
           void fetchProfile(uid);
         } else {
           // Sign-out: clear the distinct_id so the next anonymous
           // events don't get mis-attributed to the previous user.
-          try { if (posthog.__loaded) posthog.reset(); } catch { /* ignore */ }
-          try { Sentry.setUser(null); } catch { /* ignore */ }
+          resetUser();
+          setSentryUser(null);
           setProfile(null);
           setProfileLoading(false);
         }

@@ -61,8 +61,23 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const rawUrl = event.notification.data?.url || '/';
-  // Prevent open redirect — only allow relative paths
-  const url = rawUrl.startsWith('/') ? rawUrl : '/';
+  // Prevent open redirect. The previous `rawUrl.startsWith('/')` check
+  // accepted protocol-relative URLs ("//evil.com/phish") because they
+  // also start with '/'. Combined with the fact that any user can
+  // currently push-notify any other (notify-new-message accepts a
+  // free-text body), this was a one-tap phishing vector. Canonicalise
+  // through `new URL(...).pathname + .search` so only the path part
+  // of the user-supplied URL survives — same-origin, no scheme/host
+  // smuggling possible.
+  let url = '/';
+  try {
+    const parsed = new URL(rawUrl, self.location.origin);
+    if (parsed.origin === self.location.origin) {
+      url = parsed.pathname + parsed.search;
+    }
+  } catch {
+    /* malformed URL — fall back to '/' */
+  }
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

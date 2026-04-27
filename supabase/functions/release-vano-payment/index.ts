@@ -201,7 +201,16 @@ serve(async (req) => {
     const transfer = await stripeResp.json() as { id: string };
 
     const nowIso = new Date().toISOString();
-    const { error: finalError } = await supabase
+    // Filter on the 'pending' sentinel we set during reserve, NOT just
+    // the row id. If something concurrent (admin refund / dispute /
+    // chargeback webhook) flipped the row between our reserve and
+    // here, the row's stripe_transfer_id is no longer 'pending' and
+    // the UPDATE matches zero rows — we surface that as a hard error
+    // so ops can reconcile, instead of silently overwriting the newer
+    // terminal state with 'transferred'. The Stripe transfer DID
+    // succeed (money moved), so this is a real inconsistency that
+    // needs a manual reverse.
+    const { data: stamped, error: finalError } = await supabase
       .from('vano_payments')
       .update({
         status: 'transferred',
@@ -211,7 +220,10 @@ serve(async (req) => {
         completed_at: nowIso,
         auto_release_at: null,
       })
-      .eq('id', paymentId);
+      .eq('id', paymentId)
+      .eq('stripe_transfer_id', 'pending')
+      .select('id')
+      .maybeSingle();
 
     if (finalError) {
       console.error('[release-vano-payment] final state write failed', finalError);
@@ -220,6 +232,13 @@ serve(async (req) => {
       // reconcile. The row still carries the transfer id so the state
       // isn't silently lost.
       return bad(500, 'Transfer succeeded but DB write failed. Check support.');
+    }
+    if (!stamped) {
+      console.error('[release-vano-payment] race detected: row no longer in pending state after transfer succeeded', {
+        paymentId,
+        stripeTransferId: transfer.id,
+      });
+      return bad(409, 'Transfer succeeded but the payment state changed concurrently. Contact support to reconcile.');
     }
 
     if (payment.conversation_id) {

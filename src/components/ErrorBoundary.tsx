@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
-import * as Sentry from '@sentry/react';
+import { captureException } from '@/lib/observability';
+import { isChunkLoadError } from '@/lib/lazyWithRetry';
 
 interface Props {
   children: ReactNode;
@@ -10,6 +11,8 @@ interface State {
   message: string;
   /** True for transient DOM reconciliation errors we can silently recover from. */
   transient: boolean;
+  /** True when the error came from a stale lazy chunk after a deploy. */
+  staleChunk: boolean;
 }
 
 /**
@@ -48,12 +51,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, message: '', transient: false };
+    this.state = { hasError: false, message: '', transient: false, staleChunk: false };
   }
 
   static getDerivedStateFromError(error: unknown): State {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    return { hasError: true, message, transient: isTransientDomError(message) };
+    return {
+      hasError: true,
+      message,
+      transient: isTransientDomError(message),
+      staleChunk: isChunkLoadError(error),
+    };
   }
 
   componentDidCatch(error: unknown, info: { componentStack: string }) {
@@ -64,7 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
       // self-heal, so alerting on them would only create noise.
       console.warn('[ErrorBoundary] transient DOM error recovered', error);
       this.transientRecoveryTimer = window.setTimeout(() => {
-        this.setState({ hasError: false, message: '', transient: false });
+        this.setState({ hasError: false, message: '', transient: false, staleChunk: false });
       }, 50);
       return;
     }
@@ -72,9 +80,9 @@ export class ErrorBoundary extends Component<Props, State> {
     // Real crash — report to Sentry with the React component stack so we
     // can pin it to the tree path. SDK is a no-op when VITE_SENTRY_DSN
     // isn't set (e.g. local dev without the env var).
-    Sentry.captureException(error, {
+    captureException(error, {
       extra: { componentStack: info.componentStack },
-      tags: { source: 'ErrorBoundary' },
+      tags: { source: 'ErrorBoundary', kind: this.state.staleChunk ? 'stale_chunk' : 'crash' },
     });
   }
 
@@ -86,13 +94,20 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, message: '', transient: false });
+    this.setState({ hasError: false, message: '', transient: false, staleChunk: false });
     window.location.href = '/';
+  };
+
+  handleReload = () => {
+    // Most catastrophic-fallback errors (stale chunk after a deploy,
+    // wedged provider state, transient SDK init failure) clear on a
+    // fresh page load. Offer it as the primary recovery path.
+    window.location.reload();
   };
 
   goTo = (path: string) => {
     // Reset state before navigating so the user doesn't stay stuck in the boundary.
-    this.setState({ hasError: false, message: '', transient: false });
+    this.setState({ hasError: false, message: '', transient: false, staleChunk: false });
     window.location.href = path;
   };
 
@@ -100,19 +115,33 @@ export class ErrorBoundary extends Component<Props, State> {
     // Transient errors: render children normally on the recovery tick — the
     // crashed commit has been replaced by whichever DOM mutator won.
     if (this.state.hasError && !this.state.transient) {
+      const staleChunk = this.state.staleChunk;
       return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-background px-4 text-center">
-          <p className="text-4xl font-bold text-foreground">Something went wrong</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            {this.state.message || 'An unexpected error occurred. Refresh the page or go back home.'}
+          <p className="text-4xl font-bold text-foreground">
+            {staleChunk ? 'New version of Vano' : 'Something went wrong'}
           </p>
-          <button
-            type="button"
-            onClick={this.handleReset}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Back to home
-          </button>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {staleChunk
+              ? "We've shipped an update — tap reload to pick it up."
+              : this.state.message || 'An unexpected error occurred. Refresh the page or go back home.'}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={this.handleReload}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={this.handleReset}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+            >
+              Back to home
+            </button>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
             <span className="text-muted-foreground">or</span>
             <button

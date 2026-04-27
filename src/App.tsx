@@ -1,4 +1,5 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
+import { lazyWithRetry, markChunkLoadRecovered } from "@/lib/lazyWithRetry";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +9,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { RouteSuspenseFallback } from "@/components/RouteSuspenseFallback";
+import { SilentErrorBoundary } from "@/components/SilentErrorBoundary";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -21,28 +23,34 @@ import { AuthProvider } from "@/hooks/useAuthContext";
 // on HirePage, etc.) don't ship to visitors who never hit those routes.
 import Landing from "./pages/Landing";
 
-const JobDetail = lazy(() => import("./pages/JobDetail"));
-const HirePage = lazy(() => import("./pages/HirePage"));
-const BrowseStudents = lazy(() => import("./pages/BrowseStudents"));
-const StudentsByCategory = lazy(() => import("./pages/StudentsByCategory"));
-const Profile = lazy(() => import("./pages/Profile"));
-const Messages = lazy(() => import("./pages/Messages"));
-const StudentProfilePage = lazy(() => import("./pages/StudentProfile"));
-const Auth = lazy(() => import("./pages/Auth"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
-const ChooseAccountType = lazy(() => import("./pages/ChooseAccountType"));
-const ListOnCommunity = lazy(() => import("./pages/ListOnCommunity"));
-const Admin = lazy(() => import("./pages/Admin"));
-const BusinessDashboard = lazy(() => import("./pages/BusinessDashboard"));
-const BlogPost = lazy(() => import("./pages/BlogPost"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
-const UserSlugRedirect = lazy(() => import("./pages/UserSlugRedirect"));
-const HireRequests = lazy(() => import("./pages/HireRequests"));
-const ClaimProfile = lazy(() => import("./pages/ClaimProfile"));
-const AiFindResults = lazy(() => import("./pages/AiFindResults"));
-const AiFindReturn = lazy(() => import("./pages/AiFindReturn"));
+// All page-level routes use lazyWithRetry instead of bare React.lazy so a
+// stale chunk URL after a deploy doesn't dead-end on the route boundary's
+// "Something went wrong" fallback. lazyWithRetry catches "Failed to fetch
+// dynamically imported module" and forces one hard reload, which fetches
+// fresh HTML pointing at the new chunk URLs. Loop-guarded via sessionStorage
+// so it can't reload forever if the deploy is genuinely broken.
+const JobDetail = lazyWithRetry(() => import("./pages/JobDetail"));
+const HirePage = lazyWithRetry(() => import("./pages/HirePage"));
+const BrowseStudents = lazyWithRetry(() => import("./pages/BrowseStudents"));
+const StudentsByCategory = lazyWithRetry(() => import("./pages/StudentsByCategory"));
+const Profile = lazyWithRetry(() => import("./pages/Profile"));
+const Messages = lazyWithRetry(() => import("./pages/Messages"));
+const StudentProfilePage = lazyWithRetry(() => import("./pages/StudentProfile"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const CompleteProfile = lazyWithRetry(() => import("./pages/CompleteProfile"));
+const ChooseAccountType = lazyWithRetry(() => import("./pages/ChooseAccountType"));
+const ListOnCommunity = lazyWithRetry(() => import("./pages/ListOnCommunity"));
+const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const BusinessDashboard = lazyWithRetry(() => import("./pages/BusinessDashboard"));
+const BlogPost = lazyWithRetry(() => import("./pages/BlogPost"));
+const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
+const Terms = lazyWithRetry(() => import("./pages/Terms"));
+const UserSlugRedirect = lazyWithRetry(() => import("./pages/UserSlugRedirect"));
+const HireRequests = lazyWithRetry(() => import("./pages/HireRequests"));
+const ClaimProfile = lazyWithRetry(() => import("./pages/ClaimProfile"));
+const AiFindResults = lazyWithRetry(() => import("./pages/AiFindResults"));
+const AiFindReturn = lazyWithRetry(() => import("./pages/AiFindReturn"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -99,16 +107,34 @@ const App = () => {
   const variant = getVariant(location.pathname);
   const P = ({ children }: { children: React.ReactNode }) => <PageTransition variant={variant}>{children}</PageTransition>;
 
+  // Clear the chunk-reload flag, but only after the page has been
+  // stable for 10 seconds. App mounts BEFORE the lazy chunk has even
+  // started loading — clearing immediately would defeat the loop guard
+  // (a chunk failure in the next 100ms would trigger another reload,
+  // and another, ad infinitum). Waiting 10s means we only clear the
+  // flag once we're confident the user is past the chunk-load risk
+  // window for THIS session, leaving the door open for the NEXT deploy
+  // to auto-recover.
+  useEffect(() => {
+    const t = window.setTimeout(() => markChunkLoadRecovered(), 10_000);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <AuthProvider>
     <TooltipProvider>
-      <ScrollProgress />
-      <ScrollToTop />
-      <RedirectToAccountTypeIfNeeded />
-      <RedirectUnlistedFreelancerToWizard />
+      {/* Ambient/utility components — wrapped in SilentErrorBoundary so a
+          single broken widget can't bubble up and replace the whole app
+          with the global "Something went wrong" screen. The error is
+          still reported to Sentry with a source tag so we can find and
+          fix the underlying bug. */}
+      <SilentErrorBoundary source="ScrollProgress"><ScrollProgress /></SilentErrorBoundary>
+      <SilentErrorBoundary source="ScrollToTop"><ScrollToTop /></SilentErrorBoundary>
+      <SilentErrorBoundary source="RedirectToAccountTypeIfNeeded"><RedirectToAccountTypeIfNeeded /></SilentErrorBoundary>
+      <SilentErrorBoundary source="RedirectUnlistedFreelancerToWizard"><RedirectUnlistedFreelancerToWizard /></SilentErrorBoundary>
       {/* Self-gating: renders null on real browsers. Warns users in Fiverr /
           Instagram / TikTok / etc in-app browsers that Google OAuth will fail. */}
-      <InAppBrowserBanner />
+      <SilentErrorBoundary source="InAppBrowserBanner"><InAppBrowserBanner /></SilentErrorBoundary>
       <Toaster />
       <Sonner />
       <div className="md:pt-14 lg:pt-16" style={{ perspective: '1200px' }}>
@@ -233,19 +259,22 @@ const App = () => {
         </Suspense>
         </RouteErrorBoundary>
       </div>
-      <MobileBottomNav />
+      <SilentErrorBoundary source="MobileBottomNav"><MobileBottomNav /></SilentErrorBoundary>
       {/* Floating/ambient UI — deferred, fallback silently on load failure.
            MascotGuide (wizard + knight floating mascots) was removed —
            users reported the animated speech bubbles and positioning
            were interfering with real page CTAs. If we want ambient
            nudges back, surface them inline in the relevant pages
-           (ProfileStrengthCards-style) rather than as a global float. */}
+           (ProfileStrengthCards-style) rather than as a global float.
+           Each is wrapped in its own SilentErrorBoundary so a crash in
+           one (e.g. a stale virtual:pwa-register update toast after a
+           deploy) can't take down the rest of the floating UI. */}
       <Suspense fallback={null}>
-        <WhatsAppFloatingButton />
-        <CookieConsentBanner />
-        <PWAInstallBanner />
-        <PushNotificationPrompt />
-        <PwaUpdateToast />
+        <SilentErrorBoundary source="WhatsAppFloatingButton"><WhatsAppFloatingButton /></SilentErrorBoundary>
+        <SilentErrorBoundary source="CookieConsentBanner"><CookieConsentBanner /></SilentErrorBoundary>
+        <SilentErrorBoundary source="PWAInstallBanner"><PWAInstallBanner /></SilentErrorBoundary>
+        <SilentErrorBoundary source="PushNotificationPrompt"><PushNotificationPrompt /></SilentErrorBoundary>
+        <SilentErrorBoundary source="PwaUpdateToast"><PwaUpdateToast /></SilentErrorBoundary>
       </Suspense>
     </TooltipProvider>
     </AuthProvider>

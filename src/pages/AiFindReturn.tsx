@@ -107,10 +107,18 @@ async function pickPublicMatch(brief: string | null, category: string | null): P
   const userIds = Array.from(new Set(posts.map((p) => p.user_id).filter(Boolean)));
   if (userIds.length === 0) return null;
 
+  // Phone is intentionally NOT selected here — this query runs in an
+  // anonymous (signed-out) browser context. Migration
+  // 20260427163500_lock_pii_columns_from_anon.sql blocks the anon role
+  // from reading phone (and other PII columns) on student_profiles, so
+  // including phone in the SELECT would 403 the entire query. The
+  // signed-out fallback below renders the "Connect via WhatsApp" CTA
+  // instead of a tel:/sms: button when phone is null, so the UX
+  // degrades gracefully — the visitor still sees their match.
   const [{ data: students }, { data: profs }] = await Promise.all([
     supabase
       .from('student_profiles')
-      .select('user_id, bio, skills, hourly_rate, phone, community_board_status')
+      .select('user_id, bio, skills, hourly_rate, community_board_status')
       .in('user_id', userIds)
       .eq('community_board_status', 'approved'),
     supabase
@@ -125,7 +133,8 @@ async function pickPublicMatch(brief: string | null, category: string | null): P
       bio: (s.bio as string | null) ?? null,
       skills: (s.skills as string[] | null) ?? null,
       hourly_rate: (s.hourly_rate as number | null) ?? null,
-      phone: (s.phone as string | null) ?? null,
+      // Always null in this anon path — see SELECT comment above.
+      phone: null,
     });
   }
   const profileMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
