@@ -475,19 +475,40 @@ export default function AiFindReturn() {
   }
 
   if (noMatchesFound && revealReady) {
+    // Pull the Stripe checkout session id off the URL and surface the
+    // last 8 chars as a human-quotable reference. Signed-out hirers
+    // have no account, no order history, and no way to follow up if
+    // the auto-refund silently fails — giving them a ref code + a
+    // WhatsApp escape hatch closes that black-hole loop.
+    const sessionId = params.get('session_id');
+    const refSnippet = sessionId ? sessionId.slice(-8) : null;
+    const waText = `Hi, I tried Vano AI Find but no match was found${refSnippet ? ` (ref ${refSnippet})` : ''}. Can you help?`;
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
           <h1 className="text-lg font-semibold text-foreground">We couldn't find a freelancer right now</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Our pool is running low. Your €1 will be refunded within 24 hours.
+          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+            Our pool is running low for what you asked for. Your €1 is being refunded automatically — you'll see it back on your card within 24 hours, no action needed.
           </p>
+          {refSnippet && (
+            <p className="mt-3 text-[11px] text-muted-foreground/80">
+              Reference: <span className="font-mono">{refSnippet}</span>
+            </p>
+          )}
+          <a
+            href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15"
+          >
+            <MessageCircle size={15} /> Talk to us on WhatsApp
+          </a>
           <button
             type="button"
             onClick={() => navigate('/hire')}
-            className="mt-5 w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 active:scale-[0.98]"
+            className="mt-2 w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110 active:scale-[0.98]"
           >
-            Back to /hire
+            Try a different brief
           </button>
         </div>
       </div>

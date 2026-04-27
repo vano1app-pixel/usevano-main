@@ -1076,7 +1076,7 @@ const HirePage = () => {
           Match me with a freelancer
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          €1 now, vetted match in 60 seconds. Refunded if we don't find one.
+          €1 now for an AI match in 20 seconds, or free hand-picked by Vano in 24h. Refunded if we don't find one.
         </p>
       </header>
 
@@ -1180,17 +1180,17 @@ const HirePage = () => {
               <div className="flex items-center justify-between">
                 <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">
                   <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
-                  €1 AI Find
+                  €1 · AI in 20 seconds
                 </div>
                 <span className="inline-flex items-center rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/85">
                   Refunded if no match
                 </span>
               </div>
               <h2 className="mt-4 text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[28px] text-balance">
-                Your freelancer, matched in 60 seconds.
+                Your freelancer, matched by AI in 20 seconds.
               </h2>
               <p className="mt-2.5 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
-                Pay <span className="tabular-nums">€1</span> → meet your freelancer in 60 seconds. Refunded if we can't find one.
+                Pay <span className="tabular-nums">€1</span> → our AI scans the pool and picks your match in 20 seconds. Refunded if we can't find one.
               </p>
             </div>
 
@@ -1233,7 +1233,7 @@ const HirePage = () => {
                   <><Loader2 size={16} className="animate-spin text-primary" /> Matching you now…</>
                 ) : (
                   <>
-                    Match me now — <span className="tabular-nums">€1</span>
+                    Match me with AI — <span className="tabular-nums">€1</span>
                     <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" />
                   </>
                 )}
@@ -1274,7 +1274,7 @@ const HirePage = () => {
           >
             {submitting
               ? <><Loader2 size={12} className="animate-spin" /> Sending…</>
-              : <>Prefer to wait? Free match via WhatsApp in 24h →</>}
+              : <>Prefer a human pick? Free, hand-picked by Vano in 24h →</>}
           </button>
         </div>
       )}

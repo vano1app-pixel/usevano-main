@@ -532,7 +532,7 @@ export default function BusinessDashboard() {
                       Any brief. Any budget. <span className="italic font-semibold text-primary">Your perfect match.</span>
                     </h2>
                     <p className="mt-2 max-w-[48ch] text-[13.5px] leading-relaxed text-muted-foreground">
-                      Tell us what you need and we'll hand-pick a freelancer from our pool in under 60 seconds. €1 to match, refunded if we can't find one.
+                      Tell us what you need — €1 for an AI match in 20 seconds, or free hand-picked by Vano in 24h. Refunded if we can't find one.
                     </p>
                     <div className="mt-5 flex flex-wrap items-center gap-2.5">
                       <button

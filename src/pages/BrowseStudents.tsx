@@ -233,7 +233,7 @@ const BrowseStudents = () => {
                   The talent board is quiet right now.
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Tell us what you need and Vano hand-picks a freelancer in 60 seconds.
+                  Tell us what you need — €1 for an AI match in 20 seconds, or free hand-picked in 24h.
                 </p>
               </div>
               <button
