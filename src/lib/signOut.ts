@@ -19,11 +19,16 @@ const GLOBAL_LOCAL_STORAGE_KEYS = [
   'vano_magiclink_pending',
   'vano_ai_find_return_session_id',
   'vano_direct_hire_draft',
+  // Hire brief moved to localStorage (with TTL) so it survives the OAuth
+  // round-trip on browsers that clear sessionStorage (mobile Safari with
+  // cross-site tracking prevention, some in-app browsers). Cleared on
+  // sign-out so the next user on the same device doesn't inherit it.
+  'vano_hire_brief_v1',
+  'vano_hire_brief_autopay_v1',
 ];
 
 const GLOBAL_SESSION_STORAGE_KEYS = [
   'vano_welcome_email_sent',
-  'vano_hire_brief_v1',
 ];
 
 /**
