@@ -1,10 +1,14 @@
-/** Allowed image MIME types for uploads. */
+/** Allowed image MIME types for uploads.
+ *
+ * SVG is intentionally NOT in this set. SVG files can contain inline
+ * <script> tags that execute when the file is opened directly in a
+ * browser (e.g. via the public storage URL). Allowing SVG uploads on
+ * a public-read bucket is a stored-XSS vector. Stick to raster formats. */
 const ALLOWED_IMAGE_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
-  'image/svg+xml',
 ]);
 
 /**

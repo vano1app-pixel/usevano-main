@@ -262,7 +262,7 @@ const Auth = () => {
                 }}
                 className="flex-1 rounded-2xl bg-primary px-4 py-3 text-[14px] font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.5)] transition-all duration-150 hover:-translate-y-[1px] hover:brightness-[1.05] active:translate-y-0 active:scale-[0.99]"
               >
-                Continue as {existingEmail?.split('@')[0]}
+                Continue as {existingEmail?.split('@')?.[0] ?? 'user'}
               </button>
               <button
                 type="button"

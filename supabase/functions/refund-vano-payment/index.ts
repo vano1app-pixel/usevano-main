@@ -184,14 +184,30 @@ serve(async (req) => {
       updatePayload.disputed_at = nowIso;
     }
 
-    const { error: finalError } = await supabase
+    // Same race-protection pattern as release-vano-payment: filter on
+    // the 'pending' sentinel so a concurrent state change between
+    // reserve and stamp surfaces as a hard error instead of silently
+    // overwriting newer terminal state. The Stripe refund DID succeed
+    // (money will return to the card), so an inconsistency here is
+    // a real one that needs ops reconciliation.
+    const { data: stamped, error: finalError } = await supabase
       .from('vano_payments')
       .update(updatePayload)
-      .eq('id', paymentId);
+      .eq('id', paymentId)
+      .eq('stripe_refund_id', 'pending')
+      .select('id')
+      .maybeSingle();
 
     if (finalError) {
       console.error('[refund-vano-payment] final state write failed', finalError);
       return bad(500, 'Refund succeeded but DB write failed. Check support.');
+    }
+    if (!stamped) {
+      console.error('[refund-vano-payment] race detected: row no longer in pending state after refund succeeded', {
+        paymentId,
+        stripeRefundId: refund.id,
+      });
+      return bad(409, 'Refund succeeded but the payment state changed concurrently. Contact support to reconcile.');
     }
 
     if (payment.conversation_id) {

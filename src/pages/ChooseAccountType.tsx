@@ -58,7 +58,7 @@ const ChooseAccountType = () => {
       const uid = session.user.id;
       const display =
         (session.user.user_metadata?.full_name as string | undefined) ||
-        session.user.email?.split('@')[0] ||
+        session.user.email?.split('@')?.[0] ||
         'User';
 
       // One upsert on profiles replaces the old SELECT → (INSERT or UPDATE) pair.

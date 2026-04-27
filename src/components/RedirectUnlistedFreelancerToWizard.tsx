@@ -33,6 +33,13 @@ const SKIP_PREFIXES = [
   // case a student ever pays for an AI Find (different signed-in
   // account, same device).
   '/ai-find',
+  // The Stripe Payment Link return endpoint. /ai-find-return is a
+  // SIBLING of /ai-find, not a child, so the path-startsWith match
+  // below doesn't catch it via '/ai-find' alone. Without this entry, a
+  // student-type user who paid €1 via the Payment Link path lands here
+  // signed-out, signs in (via the magic-link in their email), and gets
+  // bounced straight to /list-on-community — losing the paid match.
+  '/ai-find-return',
   // Freelancers are allowed to hire other freelancers. The guard was
   // bouncing them off /hire mid-flow — they'd fill the brief, tap
   // "Send request to Vano", and land back on /list-on-community with

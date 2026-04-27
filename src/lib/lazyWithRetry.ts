@@ -78,10 +78,16 @@ export function lazyWithRetry<T extends ComponentType<unknown>>(
         throw err;
       }
       window.location.reload();
-      // The reload races React's render — return a never-resolving thenable
-      // so Suspense keeps showing its fallback until the page actually
-      // navigates away. (Throwing here would defeat the purpose.)
-      return new Promise<{ default: T }>(() => { /* never resolves */ });
+      // The reload races React's render — return a thenable that
+      // resolves only when the page actually unloads. (Throwing here
+      // would surface the error boundary before the reload completes.)
+      // BUT add a 5s watchdog: if reload was somehow blocked (private
+      // mode iframe, beforeunload handler, embedded WebView with
+      // navigation suppressed), fall back to surfacing the error so
+      // Suspense doesn't show the loading bar forever.
+      return new Promise<{ default: T }>((_resolve, reject) => {
+        setTimeout(() => reject(err), 5000);
+      });
     }),
   );
 }

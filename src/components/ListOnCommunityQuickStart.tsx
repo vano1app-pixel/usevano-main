@@ -130,7 +130,7 @@ export function ListOnCommunityQuickStart({
             user_id: userId,
             user_type: 'student',
             display_name: session.user.user_metadata?.full_name
-              || session.user.email?.split('@')[0]
+              || session.user.email?.split('@')?.[0]
               || '',
           } as never);
         if (insErr) {

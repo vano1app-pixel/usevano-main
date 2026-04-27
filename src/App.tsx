@@ -107,11 +107,17 @@ const App = () => {
   const variant = getVariant(location.pathname);
   const P = ({ children }: { children: React.ReactNode }) => <PageTransition variant={variant}>{children}</PageTransition>;
 
-  // App rendered without throwing — clear the chunk-reload flag so the
-  // NEXT deploy in this same session can also auto-recover. Without
-  // this, lazyWithRetry only auto-reloads once per browser session.
+  // Clear the chunk-reload flag, but only after the page has been
+  // stable for 10 seconds. App mounts BEFORE the lazy chunk has even
+  // started loading — clearing immediately would defeat the loop guard
+  // (a chunk failure in the next 100ms would trigger another reload,
+  // and another, ad infinitum). Waiting 10s means we only clear the
+  // flag once we're confident the user is past the chunk-load risk
+  // window for THIS session, leaving the door open for the NEXT deploy
+  // to auto-recover.
   useEffect(() => {
-    markChunkLoadRecovered();
+    const t = window.setTimeout(() => markChunkLoadRecovered(), 10_000);
+    return () => window.clearTimeout(t);
   }, []);
 
   return (
