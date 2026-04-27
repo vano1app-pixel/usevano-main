@@ -184,6 +184,11 @@ const Landing = () => {
       }
       if (googleResult.status === 'error') {
         oauthHandledRef.current = true;
+        // Drop the OAuth skeleton so the user sees the toast + a usable
+        // page instead of a frozen "Signing you in" placeholder. Without
+        // this the error path leaves Landing rendering the splash forever
+        // (the user reports this as "the site keeps loading").
+        setReturningFromOAuth(false);
         toast({
           title: "Couldn't finish signing in",
           description: googleResult.message,
@@ -196,6 +201,7 @@ const Landing = () => {
         oauthHandledRef.current = true;
       } else if (magicResult.status === 'error') {
         oauthHandledRef.current = true;
+        setReturningFromOAuth(false);
         toast({
           title: "Couldn't finish signing in",
           description: magicResult.message,
@@ -221,9 +227,20 @@ const Landing = () => {
   // Brief splash when returning from Google OAuth — prevents the hero from
   // flashing for 100–300ms on mobile while Supabase restores the session
   // and tryFinishGoogleOAuthRedirect navigates the user to their destination.
-  const [returningFromOAuth] = React.useState(
+  //
+  // Has a setter so the finish() effect above can dismiss it on the
+  // error path (success unmounts Landing via navigate). 8s fail-safe
+  // covers any path that resolves silently — better to drop the user
+  // onto a usable Landing than leave them on a frozen skeleton.
+  const [returningFromOAuth, setReturningFromOAuth] = React.useState(
     () => (typeof window !== 'undefined' && hasGoogleOAuthPending()),
   );
+
+  React.useEffect(() => {
+    if (!returningFromOAuth) return;
+    const t = window.setTimeout(() => setReturningFromOAuth(false), 8000);
+    return () => window.clearTimeout(t);
+  }, [returningFromOAuth]);
 
   if (returningFromOAuth) {
     // OAuth-return placeholder. Previous copy ("One sec…") + a

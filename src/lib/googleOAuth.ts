@@ -80,28 +80,34 @@ export async function ensureProfileAfterAuth(
     : (typeof meta.picture === 'string' && meta.picture.trim()) ? meta.picture.trim()
     : null;
 
+  // Race-proof profile bootstrap. The handle_new_user trigger
+  // (migration 20251029164531) fires AFTER INSERT ON auth.users and
+  // seeds a profiles row with display_name only — no user_type. The
+  // client used to do SELECT-then-INSERT, which threw a UNIQUE
+  // violation if the trigger had already committed when the SELECT
+  // ran — a timing window only realistically hit when the OAuth
+  // round-trip was slow (e.g. users with multiple Google accounts
+  // pausing on the picker). Use upsert(ignoreDuplicates) so whoever
+  // got there first keeps the row, then patch missing fields below.
+  const { error: upsertErr } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        user_id: userId,
+        display_name: name,
+        user_type: intent ?? undefined,
+        avatar_url: avatarUrl ?? undefined,
+      },
+      { onConflict: 'user_id', ignoreDuplicates: true },
+    );
+  if (upsertErr) throw upsertErr;
+
   const { data: existing } = await supabase
     .from('profiles')
     .select('user_id, user_type, avatar_url')
     .eq('user_id', userId)
     .maybeSingle();
-
-  if (!existing) {
-    const { error: insErr } = await supabase.from('profiles').insert({
-      user_id: userId,
-      display_name: name,
-      user_type: intent ?? undefined,
-      avatar_url: avatarUrl ?? undefined,
-    });
-    if (insErr) throw insErr;
-    if (intent === 'student') {
-      const { error: spErr } = await supabase
-        .from('student_profiles')
-        .upsert({ user_id: userId, avatar_url: avatarUrl ?? undefined }, { onConflict: 'user_id' });
-      if (spErr) throw spErr;
-    }
-    return;
-  }
+  if (!existing) throw new Error('Profile row missing after upsert');
 
   const patch: { user_type?: string; avatar_url?: string } = {};
   if (!existing.user_type && intent) patch.user_type = intent;
