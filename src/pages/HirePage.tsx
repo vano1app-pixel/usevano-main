@@ -9,7 +9,7 @@ import { isEmailVerified } from '@/lib/authSession';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { clearHireBrief, loadHireBrief, saveHireBrief } from '@/lib/hireFlow';
+import { clearHireBrief, consumeHireBriefAutoPay, loadHireBrief, saveHireBrief } from '@/lib/hireFlow';
 import { setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { markUserActed } from '@/lib/userActivity';
@@ -212,6 +212,13 @@ const HirePage = () => {
   // clicks.
   const briefRestoredRef = useRef(false);
   const [briefJustRestored, setBriefJustRestored] = useState(false);
+  // Auto-pay intent captured at brief-restore time. Set when the user clicked
+  // "Match me with AI — €1" or "Free hand-pick" before being bounced to OAuth.
+  // A second useEffect (below) waits for `user` to load, then fires the
+  // appropriate handler exactly once. Stripe still requires a final "Pay"
+  // click in its own iframe — we're skipping the redundant tap of our button,
+  // not charging without consent.
+  const [autoPayIntent, setAutoPayIntent] = useState<'ai' | 'vano' | null>(null);
   useEffect(() => {
     const brief = loadHireBrief();
     if (brief) {
@@ -223,16 +230,25 @@ const HirePage = () => {
       setBudget(brief.budget);
       setStep(3);
       setBriefJustRestored(true);
-      // Post-OAuth breadcrumb. Without this the user lands on Step 3 with
-      // their fields magically restored and no acknowledgement that
-      // anything happened — felt like a routing bug. Now they see a brief
-      // confirmation and the onus is on them to tap the €1 button (the
-      // previous auto-submit was a real UX trap that could charge a user
-      // who had no idea what they were clicking through to).
-      toast({
-        title: 'Welcome back',
-        description: 'Your brief is ready — review it, then tap Match me to continue.',
-      });
+      // Single-use read of the intent flag — clears immediately so a refresh
+      // or remount can never re-fire the handler.
+      const intent = consumeHireBriefAutoPay();
+      if (intent) {
+        setAutoPayIntent(intent);
+        toast({
+          title: 'Welcome back',
+          description: intent === 'ai'
+            ? 'Resuming your match — opening checkout…'
+            : 'Resuming your match — sending your brief now.',
+        });
+      } else {
+        // No auto-pay intent (user typed in the wizard but didn't submit
+        // before signing in). Show the original "review and tap" copy.
+        toast({
+          title: 'Welcome back',
+          description: 'Your brief is ready — review it, then tap Match me to continue.',
+        });
+      }
       return;
     }
     const cat = searchParams.get('category');
@@ -262,6 +278,31 @@ const HirePage = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Post-OAuth auto-trigger. Fires exactly once when:
+  //   1. The brief was just restored from a signed-out submit attempt
+  //   2. The user is now signed in (so the handler will skip its own
+  //      signed-out OAuth-redirect branch and go straight to the real flow)
+  //   3. An auto-pay intent flag was captured (only set when the user
+  //      clicked Match me / Free hand-pick before being bounced)
+  // Setting autoPayIntent back to null after firing prevents a re-fire
+  // if `user` flips (e.g. token refresh emits a new session reference).
+  useEffect(() => {
+    if (!autoPayIntent || !user) return;
+    const intent = autoPayIntent;
+    setAutoPayIntent(null);
+    if (intent === 'ai') {
+      void handleAiFind();
+    } else if (intent === 'vano') {
+      void handleVanoSubmit();
+    }
+    // handleAiFind / handleVanoSubmit are defined below in the same component;
+    // they're stable references for our purposes (no useCallback wrapping)
+    // but ESLint can't see that, so we deliberately omit them from deps to
+    // avoid an infinite loop on every render. The effect's only true deps
+    // are the two values we gate on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPayIntent, user]);
+
   const goTo = (s: number) => {
     setStepDirection(s > step ? 1 : -1);
     setStep(s);
@@ -288,9 +329,12 @@ const HirePage = () => {
   // and the submitted-state UI already surfaces a WhatsApp button.
   const handleVanoSubmit = async (autoOpenWhatsApp = true) => {
     if (!user) {
-      // Persist the brief so it survives the OAuth round-trip, then kick off
-      // Google sign-in directly from here. No /auth page detour.
-      saveHireBrief({ description, category, subtype, timeline, budget });
+      // Persist the brief + auto-pay intent so the post-OAuth return can
+      // re-fire this handler automatically — the user explicitly tapped
+      // "send", they shouldn't have to tap it again after Google bounces
+      // them back. The 'vano' intent flag is single-use (consumed on the
+      // next page load), so a refresh after submission won't re-fire.
+      saveHireBrief({ description, category, subtype, timeline, budget }, 'vano');
       // Short-circuit Google OAuth inside in-app browsers (Fiverr, Instagram,
       // TikTok, …). Brief stays saved via saveHireBrief so when they re-open
       // in Safari/Chrome and sign in, Step 3 resumes as before.
@@ -378,11 +422,12 @@ const HirePage = () => {
   // polls until the AI picks are ready.
   const handleAiFind = async () => {
     if (!user) {
-      // Same OAuth round-trip as Vano Match so signed-out hirers can
-      // discover the €1 product without the friction of bouncing
-      // through /auth manually. Brief is saved and Step 3 resumes
-      // intact on return; they tap AI Find again to go to Stripe.
-      saveHireBrief({ description, category, subtype, timeline, budget });
+      // Save brief + auto-pay intent so the post-OAuth return can re-fire
+      // this handler automatically — Stripe still requires a final "Pay"
+      // click in its own iframe, so we're not charging without consent;
+      // we're just skipping the redundant tap of our €1 button after
+      // Google bounces the user back. The 'ai' intent flag is single-use.
+      saveHireBrief({ description, category, subtype, timeline, budget }, 'ai');
       if (isInAppBrowser()) {
         track('in_app_browser_blocked', { source: 'hire_ai_find_signedout' });
         toast({
