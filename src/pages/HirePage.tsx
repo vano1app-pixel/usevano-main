@@ -1227,9 +1227,12 @@ const HirePage = () => {
                   <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
                   €1 · AI in 20 seconds
                 </div>
-                <span className="inline-flex items-center rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/85">
-                  Refunded if no match
-                </span>
+                {/* "Refunded if no match" chip used to live here, pinned
+                    right next to the €1 eyebrow. Reads as defensive —
+                    advertising a refund route at the moment of purchase
+                    makes the €1 itself look fragile. The same line is
+                    in the body copy two lines down where it serves as
+                    reassurance after the offer is made, not before. */}
               </div>
               <h2 className="mt-4 text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[28px] text-balance">
                 Your freelancer, matched by AI in 20 seconds.
