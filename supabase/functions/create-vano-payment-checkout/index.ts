@@ -3,17 +3,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 import {
   VANO_PAY_CURRENCY,
-  VANO_PAY_FEE_BPS,
   VANO_PAY_MAX_CENTS,
   VANO_PAY_MIN_CENTS,
+  computeVanoPaySplit,
 } from "../_shared/vanoPayConfig.ts";
 
 // Business-side entry point for Vano Pay. Given a conversation id and
-// an amount, creates a vano_payments row and a Stripe Checkout Session
-// that charges the hirer on the platform Stripe account. Funds are
-// HELD on the platform until either the hirer releases them (via the
-// release-vano-payment edge function) or the auto-release cron fires
-// 14 days after the hold started.
+// an AGREED PRICE (what the freelancer quoted in chat), creates a
+// vano_payments row and a Stripe Checkout Session that charges the
+// hirer the gross-up (agreed price + 4% hirer fee) on the platform
+// Stripe account. Funds are HELD on the platform until either the
+// hirer releases them (via the release-vano-payment edge function) or
+// the auto-release cron fires 14 days after the hold started.
+//
+// Fee model is split 4% / 4% (see _shared/vanoPayConfig.ts):
+//   - Hirer charge   = agreed + 4% (this is what Stripe collects).
+//   - Freelancer net = agreed − 4% (released at hold-end).
+//   - Vano take      = 8% of agreed (= amount_cents − freelancer_net).
 //
 // Guards:
 //   - Caller must be the business participant of the conversation.
@@ -21,15 +27,17 @@ import {
 //     (we snapshot the account id onto vano_payments.stripe_destination_account_id
 //     so the release transfer still works if the freelancer later
 //     disconnects their Connect account).
-//   - Amount must be >= €1.00 (Stripe minimum for EUR).
+//   - Agreed price must be >= €1.00 (mirrors Stripe EUR minimum).
 //   - Funds are charged to the platform account (no destination
 //     transfer at checkout). release-vano-payment handles the actual
 //     transfer to the freelancer when the hirer releases or the cron
 //     auto-releases. stripe_transfer_id on the row gets populated then.
+//
+// Wire compatibility: the request body now prefers
+// `agreed_price_cents` but accepts the legacy `amount_cents` as an
+// alias so a stale client still works while the new client is
+// deploying. Both are interpreted as the AGREED price (pre-fee).
 
-// Fee/bounds live in _shared/vanoPayConfig.ts so the public
-// get-vano-pay-config endpoint reads the same values.
-const VANO_FEE_BPS = VANO_PAY_FEE_BPS;
 const MIN_AMOUNT_CENTS = VANO_PAY_MIN_CENTS;
 const MAX_AMOUNT_CENTS = VANO_PAY_MAX_CENTS;
 const CURRENCY = VANO_PAY_CURRENCY;
@@ -77,7 +85,16 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const conversationId = typeof body?.conversation_id === 'string' ? body.conversation_id : null;
-    const amountCents = Number.isInteger(body?.amount_cents) ? body.amount_cents as number : null;
+    // The AGREED price (what the freelancer quoted in chat). The
+    // hirer's actual charge is grossed up by 4% on top of this — see
+    // computeVanoPaySplit. We accept both `agreed_price_cents` (new
+    // canonical name) and `amount_cents` (legacy alias) so a stale
+    // client during the rollout window still posts a valid payload.
+    const rawAgreedPriceCents = Number.isInteger(body?.agreed_price_cents)
+      ? body.agreed_price_cents as number
+      : Number.isInteger(body?.amount_cents)
+        ? body.amount_cents as number
+        : null;
     const description = typeof body?.description === 'string' ? body.description.trim() : '';
     const hireAgreementId = typeof body?.hire_agreement_id === 'string' ? body.hire_agreement_id : null;
     // Optional — attached when the checkout is for a digital-sales
@@ -89,15 +106,16 @@ serve(async (req) => {
     const salesDealId = typeof body?.sales_deal_id === 'string' ? body.sales_deal_id : null;
 
     if (!conversationId) return bad(400, 'conversation_id is required');
-    if (!amountCents || amountCents < MIN_AMOUNT_CENTS) {
-      return bad(400, 'Amount must be at least €1.00');
+    if (!rawAgreedPriceCents || rawAgreedPriceCents < MIN_AMOUNT_CENTS) {
+      return bad(400, 'Agreed price must be at least €1.00');
     }
-    if (amountCents > MAX_AMOUNT_CENTS) {
-      return bad(400, 'Amount exceeds the €5,000 ceiling. Split into multiple payments.');
+    if (rawAgreedPriceCents > MAX_AMOUNT_CENTS) {
+      return bad(400, 'Agreed price exceeds the €5,000 ceiling. Split into multiple payments.');
     }
     if (description.length > 200) {
       return bad(400, 'Description too long (max 200 chars)');
     }
+    const agreedPriceCents = rawAgreedPriceCents;
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -150,7 +168,15 @@ serve(async (req) => {
       );
     }
 
-    const feeCents = Math.max(1, Math.round((amountCents * VANO_FEE_BPS) / 10000));
+    // Compute the 4% / 4% split. amountCents is what Stripe charges
+    // (agreed + hirer fee). feeCents is Vano's combined take. The
+    // existing display invariant `amount − fee = freelancer payout`
+    // still holds because freelancer_payout = agreed − freelancer_fee
+    //                                       = (agreed + hirerFee) − (hirerFee + freelancerFee)
+    //                                       = amount − fee.
+    const split = computeVanoPaySplit(agreedPriceCents);
+    const amountCents = split.amountCents;
+    const feeCents = split.feeCents;
 
     // Insert the pending payment row first so the session id has
     // somewhere to live and the webhook can find it on arrival.
@@ -258,9 +284,15 @@ serve(async (req) => {
       JSON.stringify({
         url: session.url,
         id: paymentId,
+        // Full breakdown so a caller can confirm the split client-side
+        // for analytics / receipts. amount_cents is the gross Stripe
+        // charge (= agreed + hirer fee).
+        agreed_price_cents: split.agreedCents,
+        hirer_fee_cents: split.hirerFeeCents,
+        freelancer_fee_cents: split.freelancerFeeCents,
         amount_cents: amountCents,
         fee_cents: feeCents,
-        freelancer_receives_cents: amountCents - feeCents,
+        freelancer_receives_cents: split.freelancerCents,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

@@ -377,16 +377,18 @@ export const HireNowModal: React.FC<HireNowModalProps> = ({
             )}
           </button>
 
-          {/* Trust footer — rewritten for the escrow-era product. The
-               previous copy ("VANO takes no commission · payment
-               arranged directly") directly contradicted the Vano Pay
-               3% fee + hold-until-released mechanic shipped in this
-               branch. Now tells the hirer the protection story so
-               they see what the 3% buys them. */}
+          {/* Trust footer — sets expectations for what happens after
+               the request lands. Once the freelancer accepts, the
+               hirer can agree a rate in chat and either pay outside
+               Vano or use Vano Pay (escrow, 4% from each side, money
+               released on delivery or auto-released after 14 days).
+               Kept short so the modal stays a request, not a sales
+               pitch — the protection story is in the chat thread when
+               they actually go to pay. */}
           <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
             <ShieldCheck size={11} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span>
-              Once {freelancerName} accepts, you'll agree a rate in chat and pay them directly — no platform fees right now.
+              Once {freelancerName} accepts, you'll agree a rate in chat. Pay directly or use Vano Pay for held-in-escrow protection (4% from each side).
             </span>
           </p>
         </div>

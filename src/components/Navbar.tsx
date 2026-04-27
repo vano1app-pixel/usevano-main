@@ -13,6 +13,7 @@ import logo from '@/assets/logo.png';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 import { prefetchHandlers } from '@/lib/prefetchRoute';
+import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
 
 // Maps a route pathname to the prefetch key so hover on a nav item
 // kicks off the JS chunk download before the actual click. Keep the
@@ -24,6 +25,7 @@ const PATH_TO_PREFETCH_KEY: Record<string, Parameters<typeof prefetchHandlers>[0
   '/messages': 'messages',
   '/business-dashboard': 'business-dashboard',
   '/auth': 'auth',
+  '/vano-pay': 'vano-pay',
 };
 
 export const Navbar: React.FC = () => {
@@ -111,8 +113,15 @@ export const Navbar: React.FC = () => {
     { label: 'Talent Board', href: '/students', requiresAuth: false, isNew: true },
   ];
 
+  // Auth-gated nav items, in the order they appear from left → right.
+  // Vano Pay sits between Messages and Dashboard/Profile when the
+  // feature flag is on. Both userTypes see it (the page itself adapts:
+  // hirers see spend + send-CTA, freelancers see earnings + setup).
+  // Visitors are not shown the link at all — there's nothing useful to
+  // see without an account behind it.
   const authNavItems = [
     { label: 'Messages', href: '/messages' },
+    ...(VANO_PAY_VISIBLE ? [{ label: 'Vano Pay', href: '/vano-pay' }] : []),
     userType === 'business'
       ? { label: 'Dashboard', href: '/business-dashboard' }
       : { label: 'Profile', href: '/profile' },

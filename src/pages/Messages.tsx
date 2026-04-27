@@ -1300,15 +1300,19 @@ const Messages = () => {
                                 )}
                                 {/* Fee split — the freelancer needs to
                                      know what actually lands in their
-                                     bank (amount - 3% Vano fee); the
+                                     bank (amount − Vano fee); the
                                      hirer sees the same split so the
-                                     3% isn't a surprise on the receipt
-                                     after release. Kept tight + mono
-                                     so the two rows align. */}
+                                     fee isn't a surprise on the
+                                     receipt after release. The "4%
+                                     each side" suffix flags the
+                                     split-fee model so neither party
+                                     thinks Vano took the whole 8%
+                                     out of one side. Kept tight +
+                                     mono so the two rows align. */}
                                 <p className="mt-1 text-[11.5px] text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {isHirer
-                                    ? `Freelancer receives ${netEuro} · Vano fee ${feeEuro}`
-                                    : `You receive ${netEuro} · Vano fee ${feeEuro}`}
+                                    ? `Freelancer receives ${netEuro} · Vano fee ${feeEuro} (4% each side)`
+                                    : `You receive ${netEuro} · Vano fee ${feeEuro} (4% each side)`}
                                 </p>
                                 <p className="mt-0.5 text-[11.5px] text-muted-foreground">
                                   {isHirer
@@ -1493,7 +1497,7 @@ const Messages = () => {
                       <p className="mt-0.5 text-[11px] text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
                         Set up once (about 5 minutes) and this client can tap a
                         "Pay via Vano" button — money lands in your bank in
-                        1–2 days, 3% fee.
+                        1–2 days. Vano takes 4% from each side.
                       </p>
                       <div className="mt-2 flex items-center gap-2">
                         <button

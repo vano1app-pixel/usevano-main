@@ -172,7 +172,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
         ) : status === 'enabled' ? (
           <>
             <p className="text-sm text-foreground leading-relaxed">
-              Clients can pay you safely through Vano Pay. Funds are held on Vano until the client releases them (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 3%.
+              Clients can pay you safely through Vano Pay. Funds are held on Vano until the client releases them (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 4% from each side (the client pays 4% on top, you have 4% deducted).
             </p>
             <button
               type="button"
@@ -239,7 +239,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
         ) : (
           <>
             <p className="text-sm text-foreground leading-relaxed">
-              Let clients pay you safely through Vano Pay. Funds are held on Vano until the client releases them on delivery (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 3%, no monthly charge. Powered by Stripe.
+              Let clients pay you safely through Vano Pay. Funds are held on Vano until the client releases them on delivery (or auto-release after 14 days) — then they land in your bank in 1–2 days. Vano takes 4% from each side, no monthly charge. Powered by Stripe.
             </p>
             <ul className="space-y-1.5 text-xs text-muted-foreground">
               <li>• One-time 3-minute setup with Stripe (bank + ID)</li>
@@ -325,7 +325,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
                 num: 5,
                 icon: Wallet,
                 title: 'Lands in your bank in 1–2 days',
-                body: 'Stripe pays out the freelancer amount (payment minus 3% Vano fee) to your linked bank account within 1–2 business days.',
+                body: 'Stripe pays out the freelancer amount (the agreed price minus a 4% Vano fee on your side) to your linked bank account within 1–2 business days. The client pays a separate 4% on top of the agreed price, so neither side carries the full fee.',
               },
             ].map((step) => {
               const Icon = step.icon;
@@ -352,7 +352,7 @@ export function VanoPaySetupCard({ userId }: { userId: string }) {
 
           <div className="border-t border-border/60 bg-muted/30 px-6 py-3.5">
             <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">Vano takes 3%</span> — no monthly fee, no per-transaction extras. If the client disputes, an admin reviews and can refund them or release to you.
+              <span className="font-semibold text-foreground">Vano takes 4% from each side</span> — the client adds 4% on top of the agreed price, you have 4% deducted. No monthly fee, no per-transaction extras. If the client disputes, an admin reviews and can refund them or release to you.
             </p>
           </div>
         </DialogContent>

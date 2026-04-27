@@ -163,7 +163,7 @@ export function BusinessSpendPanel({ userId }: BusinessSpendPanelProps) {
               maximumFractionDigits: 2,
             })}
             <span className="ml-1.5 text-xs font-semibold text-muted-foreground">
-              paid to freelancers
+              spent through Vano Pay
             </span>
           </h2>
           <p className="mt-1 text-[12px] text-muted-foreground">

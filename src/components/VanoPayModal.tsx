@@ -3,13 +3,17 @@ import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw } from 'luc
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useVanoPayConfig } from '@/lib/vanoPayConfig';
+import { computeVanoPaySplit, useVanoPayConfig } from '@/lib/vanoPayConfig';
 import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 
 // Business-side modal for initiating a Vano Pay payment inside a
-// conversation. Collects amount (€) + optional description, shows a
-// preview of "you pay / freelancer receives / Vano keeps" splits,
-// and hands off to Stripe Checkout.
+// conversation. Collects the agreed price (what the freelancer quoted
+// in chat) + optional description, shows a preview of the 4%/4% split
+// (you pay / freelancer receives / Vano keeps), and hands off to
+// Stripe Checkout.
+//
+// Fee model: 4% on each side of the AGREED price. Hirer is charged
+// agreed + 4%; freelancer receives agreed − 4%; Vano keeps 8% total.
 //
 // The edge function does all the validation (freelancer must have
 // Vano Pay enabled, amount bounds, etc.) — we surface its errors
@@ -29,9 +33,16 @@ export function VanoPayModal({
   freelancerName: string;
 }) {
   const { toast } = useToast();
-  const { feeBps, minCents } = useVanoPayConfig();
-  const feePercentLabel = `${(feeBps / 100).toFixed(feeBps % 100 === 0 ? 0 : 1)}%`;
-  const [amount, setAmount] = useState('');
+  const config = useVanoPayConfig();
+  const { hirerFeeBps, freelancerFeeBps, minCents } = config;
+  // Side labels for the breakdown ("4%" / "4%"). Each side's BPS is
+  // treated independently so an asymmetric split (e.g. 5/3) renders
+  // cleanly without any modal change.
+  const formatPercent = (bps: number) =>
+    `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
+  const hirerFeePercent = formatPercent(hirerFeeBps);
+  const freelancerFeePercent = formatPercent(freelancerFeeBps);
+  const [agreedPrice, setAgreedPrice] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,7 +50,7 @@ export function VanoPayModal({
   // doesn't ghost the next one.
   useEffect(() => {
     if (open) {
-      setAmount('');
+      setAgreedPrice('');
       setDescription('');
       setSubmitting(false);
     }
@@ -55,11 +66,16 @@ export function VanoPayModal({
 
   if (!open) return null;
 
-  const amountNumber = Number.parseFloat(amount);
-  const amountCents = Number.isFinite(amountNumber) && amountNumber > 0 ? Math.round(amountNumber * 100) : 0;
-  const feeCents = amountCents > 0 ? Math.max(1, Math.round((amountCents * feeBps) / 10000)) : 0;
-  const freelancerCents = amountCents - feeCents;
-  const canSubmit = amountCents >= minCents && !submitting;
+  const agreedNumber = Number.parseFloat(agreedPrice);
+  const agreedCents = Number.isFinite(agreedNumber) && agreedNumber > 0
+    ? Math.round(agreedNumber * 100)
+    : 0;
+  // Pure-function preview of the same split the server computes at
+  // checkout. agreedCents is the figure both parties see in chat;
+  // amountCents is the gross hirer charge that lands at Stripe.
+  const split = computeVanoPaySplit(agreedCents, config);
+  const { amountCents, feeCents, freelancerCents } = split;
+  const canSubmit = agreedCents >= minCents && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -83,7 +99,12 @@ export function VanoPayModal({
       const { data, error } = await supabase.functions.invoke('create-vano-payment-checkout', {
         body: {
           conversation_id: conversationId,
-          amount_cents: amountCents,
+          // Send the AGREED price (pre-fee). The server grosses up by
+          // 4% for the Stripe charge. We also pass amount_cents as a
+          // legacy alias with the same semantics in case a deploy
+          // window has the old function shape briefly.
+          agreed_price_cents: agreedCents,
+          amount_cents: agreedCents,
           description: description.trim() || undefined,
         },
       });
@@ -111,7 +132,7 @@ export function VanoPayModal({
         : message.includes('not enabled Vano Pay')
           ? `${freelancerName} hasn't enabled Vano Pay yet. Ask them to turn it on in their profile.`
         : message.includes('at least €1')
-          ? 'Amount must be at least €1.00.'
+          ? 'Agreed price must be at least €1.00.'
         : message.toLowerCase().includes('forbidden origin')
           ? 'Origin not allowed — Supabase function ALLOWED_ORIGINS needs this site in the list.'
         : message
@@ -155,11 +176,17 @@ export function VanoPayModal({
             Pay <span className="text-primary">{freelancerName}</span>
           </h2>
 
-          {/* Amount input is the hero. Big tabular-nums digits, prefixed
-              €, minimal chrome. Feels like a POS screen, not a form. */}
+          {/* Agreed-price input is the hero. Big tabular-nums digits,
+              prefixed €, minimal chrome. Feels like a POS screen, not
+              a form. The label calls it out as the agreed price (not
+              "amount") because the hirer's actual charge is grossed-up
+              by the 4% hirer fee shown in the breakdown below. */}
           <div className="mt-6">
-            <label htmlFor="vano-pay-amount" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Amount
+            <label htmlFor="vano-pay-amount" className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <span>Agreed price</span>
+              <span className="text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+                What {freelancerName} quoted
+              </span>
             </label>
             <div className="group relative flex items-baseline rounded-2xl border border-input bg-background px-4 py-4 transition-colors focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10">
               <span className="mr-1.5 text-[28px] font-semibold text-muted-foreground">€</span>
@@ -169,8 +196,8 @@ export function VanoPayModal({
                 inputMode="decimal"
                 min="1"
                 step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                value={agreedPrice}
+                onChange={(e) => setAgreedPrice(e.target.value)}
                 placeholder="0.00"
                 autoFocus
                 className="w-full bg-transparent text-[32px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
@@ -191,30 +218,32 @@ export function VanoPayModal({
             />
           </div>
 
-          {/* Breakdown — stripped of the bordered-box look. Rows with a
-              hairline divider above the fee line so the eye lands on
-              "freelancer receives" first. Tabular-nums keeps euros
+          {/* Breakdown — three rows that make the 4%/4% split obvious.
+              "You pay" is the gross hirer charge (agreed + 4%);
+              "{name} receives" is agreed − 4%; "Vano keeps" is the
+              combined 8% with a tiny "4% from each side" hint so
+              there's no math homework. Tabular-nums keeps euros
               aligned. */}
-          {amountCents >= minCents ? (
+          {agreedCents >= minCents ? (
             <dl className="mt-5 space-y-2 text-[13px]" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">You pay</dt>
-                <dd className="font-medium text-foreground">€{(amountCents / 100).toFixed(2)}</dd>
+                <dt className="text-muted-foreground">You pay <span className="text-muted-foreground/70">(incl. {hirerFeePercent} fee)</span></dt>
+                <dd className="font-semibold text-foreground">€{(amountCents / 100).toFixed(2)}</dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">{freelancerName} receives</dt>
+                <dt className="text-muted-foreground">{freelancerName} receives <span className="text-muted-foreground/70">(after {freelancerFeePercent} fee)</span></dt>
                 <dd className="font-semibold text-emerald-700 dark:text-emerald-300">
                   €{(freelancerCents / 100).toFixed(2)}
                 </dd>
               </div>
               <div className="flex items-center justify-between border-t border-border/70 pt-2 text-[12px]">
-                <dt className="text-muted-foreground">Vano fee · {feePercentLabel}</dt>
+                <dt className="text-muted-foreground">Vano keeps <span className="text-muted-foreground/70">({hirerFeePercent} from each side)</span></dt>
                 <dd className="text-muted-foreground">€{(feeCents / 100).toFixed(2)}</dd>
               </div>
             </dl>
           ) : (
             <p className="mt-4 text-[12px] text-muted-foreground">
-              Minimum €{(minCents / 100).toFixed(2)}. Vano takes {feePercentLabel}; the rest goes straight to {freelancerName}.
+              Minimum €{(minCents / 100).toFixed(2)}. Both sides pay {hirerFeePercent} — you add it on top, {freelancerName} has it taken off.
             </p>
           )}
 
@@ -223,8 +252,9 @@ export function VanoPayModal({
                they've already clicked. Each row pairs an icon with
                one short clause so the whole strip scans in under a
                second: money held, release when done, full refund on
-               dispute. This is the core of why the 3% fee makes sense
-               and it belongs in the decision-moment, not as a footer. */}
+               dispute. This is the core of why the {hirerFeePercent} hirer fee
+               makes sense and it belongs in the decision-moment, not
+               as a footer. */}
           <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3.5">
             <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
               <ShieldCheck size={12} strokeWidth={2.5} />
@@ -263,14 +293,14 @@ export function VanoPayModal({
           >
             {submitting ? (
               <><Loader2 size={16} className="animate-spin" /> Opening Stripe…</>
-            ) : amountCents >= minCents ? (
+            ) : agreedCents >= minCents ? (
               <>
                 <ShieldCheck size={15} strokeWidth={2.5} />
                 Pay €{(amountCents / 100).toFixed(2)} — held by Vano
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
               </>
             ) : (
-              'Enter an amount'
+              'Enter the agreed price'
             )}
           </button>
 

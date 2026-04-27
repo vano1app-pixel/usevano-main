@@ -90,10 +90,10 @@ export function AiFindCheckoutModal({ open, onClose, clientSecret, fallbackUrl }
                doesn't perceive a hidden second charge. The €1 is the
                only platform fee for the match itself; the hire amount
                (handled separately via Vano Pay) has its own fee
-               disclosed in that modal. */}
+               disclosed in that modal (4% from each side). */}
           <ul className="mt-2.5 ml-9 space-y-0.5 text-[10.5px] leading-snug text-muted-foreground/90">
             <li>· €1 covers the AI match + a verified contact</li>
-            <li>· No platform fee on the hire itself — agree a rate directly</li>
+            <li>· Agree a rate directly — pay outside Vano or use Vano Pay (4% each side, held in escrow)</li>
             <li>· Auto-refund if we don&apos;t find a fit</li>
           </ul>
         </div>
