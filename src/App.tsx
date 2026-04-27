@@ -1,4 +1,5 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
+import { lazyWithRetry, markChunkLoadRecovered } from "@/lib/lazyWithRetry";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,28 +23,34 @@ import { AuthProvider } from "@/hooks/useAuthContext";
 // on HirePage, etc.) don't ship to visitors who never hit those routes.
 import Landing from "./pages/Landing";
 
-const JobDetail = lazy(() => import("./pages/JobDetail"));
-const HirePage = lazy(() => import("./pages/HirePage"));
-const BrowseStudents = lazy(() => import("./pages/BrowseStudents"));
-const StudentsByCategory = lazy(() => import("./pages/StudentsByCategory"));
-const Profile = lazy(() => import("./pages/Profile"));
-const Messages = lazy(() => import("./pages/Messages"));
-const StudentProfilePage = lazy(() => import("./pages/StudentProfile"));
-const Auth = lazy(() => import("./pages/Auth"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const CompleteProfile = lazy(() => import("./pages/CompleteProfile"));
-const ChooseAccountType = lazy(() => import("./pages/ChooseAccountType"));
-const ListOnCommunity = lazy(() => import("./pages/ListOnCommunity"));
-const Admin = lazy(() => import("./pages/Admin"));
-const BusinessDashboard = lazy(() => import("./pages/BusinessDashboard"));
-const BlogPost = lazy(() => import("./pages/BlogPost"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
-const UserSlugRedirect = lazy(() => import("./pages/UserSlugRedirect"));
-const HireRequests = lazy(() => import("./pages/HireRequests"));
-const ClaimProfile = lazy(() => import("./pages/ClaimProfile"));
-const AiFindResults = lazy(() => import("./pages/AiFindResults"));
-const AiFindReturn = lazy(() => import("./pages/AiFindReturn"));
+// All page-level routes use lazyWithRetry instead of bare React.lazy so a
+// stale chunk URL after a deploy doesn't dead-end on the route boundary's
+// "Something went wrong" fallback. lazyWithRetry catches "Failed to fetch
+// dynamically imported module" and forces one hard reload, which fetches
+// fresh HTML pointing at the new chunk URLs. Loop-guarded via sessionStorage
+// so it can't reload forever if the deploy is genuinely broken.
+const JobDetail = lazyWithRetry(() => import("./pages/JobDetail"));
+const HirePage = lazyWithRetry(() => import("./pages/HirePage"));
+const BrowseStudents = lazyWithRetry(() => import("./pages/BrowseStudents"));
+const StudentsByCategory = lazyWithRetry(() => import("./pages/StudentsByCategory"));
+const Profile = lazyWithRetry(() => import("./pages/Profile"));
+const Messages = lazyWithRetry(() => import("./pages/Messages"));
+const StudentProfilePage = lazyWithRetry(() => import("./pages/StudentProfile"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const CompleteProfile = lazyWithRetry(() => import("./pages/CompleteProfile"));
+const ChooseAccountType = lazyWithRetry(() => import("./pages/ChooseAccountType"));
+const ListOnCommunity = lazyWithRetry(() => import("./pages/ListOnCommunity"));
+const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const BusinessDashboard = lazyWithRetry(() => import("./pages/BusinessDashboard"));
+const BlogPost = lazyWithRetry(() => import("./pages/BlogPost"));
+const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
+const Terms = lazyWithRetry(() => import("./pages/Terms"));
+const UserSlugRedirect = lazyWithRetry(() => import("./pages/UserSlugRedirect"));
+const HireRequests = lazyWithRetry(() => import("./pages/HireRequests"));
+const ClaimProfile = lazyWithRetry(() => import("./pages/ClaimProfile"));
+const AiFindResults = lazyWithRetry(() => import("./pages/AiFindResults"));
+const AiFindReturn = lazyWithRetry(() => import("./pages/AiFindReturn"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -99,6 +106,13 @@ const App = () => {
   const location = useLocation();
   const variant = getVariant(location.pathname);
   const P = ({ children }: { children: React.ReactNode }) => <PageTransition variant={variant}>{children}</PageTransition>;
+
+  // App rendered without throwing — clear the chunk-reload flag so the
+  // NEXT deploy in this same session can also auto-recover. Without
+  // this, lazyWithRetry only auto-reloads once per browser session.
+  useEffect(() => {
+    markChunkLoadRecovered();
+  }, []);
 
   return (
     <AuthProvider>

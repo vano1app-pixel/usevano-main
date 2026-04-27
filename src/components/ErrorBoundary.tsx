@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { captureException } from '@/lib/observability';
+import { isChunkLoadError } from '@/lib/lazyWithRetry';
 
 interface Props {
   children: ReactNode;
@@ -10,6 +11,8 @@ interface State {
   message: string;
   /** True for transient DOM reconciliation errors we can silently recover from. */
   transient: boolean;
+  /** True when the error came from a stale lazy chunk after a deploy. */
+  staleChunk: boolean;
 }
 
 /**
@@ -48,12 +51,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, message: '', transient: false };
+    this.state = { hasError: false, message: '', transient: false, staleChunk: false };
   }
 
   static getDerivedStateFromError(error: unknown): State {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    return { hasError: true, message, transient: isTransientDomError(message) };
+    return {
+      hasError: true,
+      message,
+      transient: isTransientDomError(message),
+      staleChunk: isChunkLoadError(error),
+    };
   }
 
   componentDidCatch(error: unknown, info: { componentStack: string }) {
@@ -64,7 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
       // self-heal, so alerting on them would only create noise.
       console.warn('[ErrorBoundary] transient DOM error recovered', error);
       this.transientRecoveryTimer = window.setTimeout(() => {
-        this.setState({ hasError: false, message: '', transient: false });
+        this.setState({ hasError: false, message: '', transient: false, staleChunk: false });
       }, 50);
       return;
     }
@@ -74,7 +82,7 @@ export class ErrorBoundary extends Component<Props, State> {
     // isn't set (e.g. local dev without the env var).
     captureException(error, {
       extra: { componentStack: info.componentStack },
-      tags: { source: 'ErrorBoundary' },
+      tags: { source: 'ErrorBoundary', kind: this.state.staleChunk ? 'stale_chunk' : 'crash' },
     });
   }
 
@@ -86,7 +94,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, message: '', transient: false });
+    this.setState({ hasError: false, message: '', transient: false, staleChunk: false });
     window.location.href = '/';
   };
 
@@ -99,7 +107,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   goTo = (path: string) => {
     // Reset state before navigating so the user doesn't stay stuck in the boundary.
-    this.setState({ hasError: false, message: '', transient: false });
+    this.setState({ hasError: false, message: '', transient: false, staleChunk: false });
     window.location.href = path;
   };
 
@@ -107,11 +115,16 @@ export class ErrorBoundary extends Component<Props, State> {
     // Transient errors: render children normally on the recovery tick — the
     // crashed commit has been replaced by whichever DOM mutator won.
     if (this.state.hasError && !this.state.transient) {
+      const staleChunk = this.state.staleChunk;
       return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-background px-4 text-center">
-          <p className="text-4xl font-bold text-foreground">Something went wrong</p>
+          <p className="text-4xl font-bold text-foreground">
+            {staleChunk ? 'New version of Vano' : 'Something went wrong'}
+          </p>
           <p className="max-w-sm text-sm text-muted-foreground">
-            {this.state.message || 'An unexpected error occurred. Refresh the page or go back home.'}
+            {staleChunk
+              ? "We've shipped an update — tap reload to pick it up."
+              : this.state.message || 'An unexpected error occurred. Refresh the page or go back home.'}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <button
