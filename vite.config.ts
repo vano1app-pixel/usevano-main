@@ -47,7 +47,23 @@ export default defineConfig(({ mode }) => ({
       registerType: "prompt",
       includeAssets: ["favicon.png", "favicon.ico"],
       injectManifest: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Precache only the essentials. The previous "**/*.{...,png,...}" glob
+        // pulled every category PNG from /public into the precache (cat-*.png
+        // are 700–860KB each, ~4MB total) so first-visit users paid for assets
+        // they only ever see if they tap into the hire flow. Keep the JS/CSS
+        // shell + the PWA icons + favicons + OG image in the precache; let the
+        // browser fetch category images on demand (they're already responsive
+        // <picture> sources with webp variants and loading="lazy").
+        globPatterns: [
+          "**/*.{js,css,html,woff2}",
+          "favicon.*",
+          "pwa-*.png",
+          "og.png",
+        ],
+        // Above the workbox default (~2MB) so the JS shell isn't dropped when
+        // the entry chunk grows; still small enough to keep first install
+        // under a few hundred KB on a fresh device.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       devOptions: {
         enabled: false,

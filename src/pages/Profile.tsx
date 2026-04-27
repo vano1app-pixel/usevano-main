@@ -292,7 +292,10 @@ const Profile = () => {
       if (!prof) {
         const { data: newProf } = await supabase.from('profiles').insert({
           user_id: session.user.id,
-          display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
+          // `email?.split('@')[0]` crashes when email is null because
+          // `undefined[0]` throws before the `||` can fall through.
+          // Wrap the optional chain on the array index too.
+          display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')?.[0] || '',
         }).select().single();
         if (stale()) return;
         prof = newProf;

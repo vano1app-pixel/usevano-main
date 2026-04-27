@@ -8,6 +8,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { RouteSuspenseFallback } from "@/components/RouteSuspenseFallback";
+import { SilentErrorBoundary } from "@/components/SilentErrorBoundary";
 
 import { RequireVerifiedSession } from "@/components/RequireVerifiedSession";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -102,13 +103,18 @@ const App = () => {
   return (
     <AuthProvider>
     <TooltipProvider>
-      <ScrollProgress />
-      <ScrollToTop />
-      <RedirectToAccountTypeIfNeeded />
-      <RedirectUnlistedFreelancerToWizard />
+      {/* Ambient/utility components — wrapped in SilentErrorBoundary so a
+          single broken widget can't bubble up and replace the whole app
+          with the global "Something went wrong" screen. The error is
+          still reported to Sentry with a source tag so we can find and
+          fix the underlying bug. */}
+      <SilentErrorBoundary source="ScrollProgress"><ScrollProgress /></SilentErrorBoundary>
+      <SilentErrorBoundary source="ScrollToTop"><ScrollToTop /></SilentErrorBoundary>
+      <SilentErrorBoundary source="RedirectToAccountTypeIfNeeded"><RedirectToAccountTypeIfNeeded /></SilentErrorBoundary>
+      <SilentErrorBoundary source="RedirectUnlistedFreelancerToWizard"><RedirectUnlistedFreelancerToWizard /></SilentErrorBoundary>
       {/* Self-gating: renders null on real browsers. Warns users in Fiverr /
           Instagram / TikTok / etc in-app browsers that Google OAuth will fail. */}
-      <InAppBrowserBanner />
+      <SilentErrorBoundary source="InAppBrowserBanner"><InAppBrowserBanner /></SilentErrorBoundary>
       <Toaster />
       <Sonner />
       <div className="md:pt-14 lg:pt-16" style={{ perspective: '1200px' }}>
@@ -233,19 +239,22 @@ const App = () => {
         </Suspense>
         </RouteErrorBoundary>
       </div>
-      <MobileBottomNav />
+      <SilentErrorBoundary source="MobileBottomNav"><MobileBottomNav /></SilentErrorBoundary>
       {/* Floating/ambient UI — deferred, fallback silently on load failure.
            MascotGuide (wizard + knight floating mascots) was removed —
            users reported the animated speech bubbles and positioning
            were interfering with real page CTAs. If we want ambient
            nudges back, surface them inline in the relevant pages
-           (ProfileStrengthCards-style) rather than as a global float. */}
+           (ProfileStrengthCards-style) rather than as a global float.
+           Each is wrapped in its own SilentErrorBoundary so a crash in
+           one (e.g. a stale virtual:pwa-register update toast after a
+           deploy) can't take down the rest of the floating UI. */}
       <Suspense fallback={null}>
-        <WhatsAppFloatingButton />
-        <CookieConsentBanner />
-        <PWAInstallBanner />
-        <PushNotificationPrompt />
-        <PwaUpdateToast />
+        <SilentErrorBoundary source="WhatsAppFloatingButton"><WhatsAppFloatingButton /></SilentErrorBoundary>
+        <SilentErrorBoundary source="CookieConsentBanner"><CookieConsentBanner /></SilentErrorBoundary>
+        <SilentErrorBoundary source="PWAInstallBanner"><PWAInstallBanner /></SilentErrorBoundary>
+        <SilentErrorBoundary source="PushNotificationPrompt"><PushNotificationPrompt /></SilentErrorBoundary>
+        <SilentErrorBoundary source="PwaUpdateToast"><PwaUpdateToast /></SilentErrorBoundary>
       </Suspense>
     </TooltipProvider>
     </AuthProvider>

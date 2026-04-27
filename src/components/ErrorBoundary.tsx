@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react';
-import * as Sentry from '@sentry/react';
+import { captureException } from '@/lib/observability';
 
 interface Props {
   children: ReactNode;
@@ -72,7 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
     // Real crash — report to Sentry with the React component stack so we
     // can pin it to the tree path. SDK is a no-op when VITE_SENTRY_DSN
     // isn't set (e.g. local dev without the env var).
-    Sentry.captureException(error, {
+    captureException(error, {
       extra: { componentStack: info.componentStack },
       tags: { source: 'ErrorBoundary' },
     });
@@ -88,6 +88,13 @@ export class ErrorBoundary extends Component<Props, State> {
   handleReset = () => {
     this.setState({ hasError: false, message: '', transient: false });
     window.location.href = '/';
+  };
+
+  handleReload = () => {
+    // Most catastrophic-fallback errors (stale chunk after a deploy,
+    // wedged provider state, transient SDK init failure) clear on a
+    // fresh page load. Offer it as the primary recovery path.
+    window.location.reload();
   };
 
   goTo = (path: string) => {
@@ -106,13 +113,22 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="max-w-sm text-sm text-muted-foreground">
             {this.state.message || 'An unexpected error occurred. Refresh the page or go back home.'}
           </p>
-          <button
-            type="button"
-            onClick={this.handleReset}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Back to home
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={this.handleReload}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={this.handleReset}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+            >
+              Back to home
+            </button>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
             <span className="text-muted-foreground">or</span>
             <button
