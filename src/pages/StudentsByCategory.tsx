@@ -85,11 +85,45 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   }, [categoryId]);
 
   const fetchData = async () => {
+    // Explicit safe-column list — this page is anon-accessible and the
+    // anon role can no longer SELECT PII columns (phone, payment_details,
+    // verified_email, student_number, stripe_account_id) per migration
+    // 20260427163500_lock_pii_columns_from_anon. A bare `select('*')`
+    // would now 403 the entire query for signed-out visitors. Mirror
+    // BrowseStudents.tsx's pattern: enumerate every column the page +
+    // StudentCard render, omit anything sensitive. New columns added
+    // to student_profiles must be added here intentionally — that's
+    // the trade-off for catching PII leaks at compile time.
+    //
+    // community_board_status='approved' already guarantees they've completed
+    // the wizard; bio is now an optional personal line (null is fine), so we
+    // don't filter on it. Keep the skills check as a sanity filter.
+    const SAFE_STUDENT_COLS = [
+      'user_id',
+      'is_available',
+      'hourly_rate',
+      'avatar_url',
+      'skills',
+      'bio',
+      'tiktok_url',
+      'instagram_url',
+      'linkedin_url',
+      'website_url',
+      'stripe_payouts_enabled',
+      'county',
+      'remote_ok',
+      'service_area',
+      'banner_url',
+      'specialty',
+      'strengths',
+      'student_verified',
+      'typical_budget_min',
+      'typical_budget_max',
+      'university',
+      'community_board_status',
+    ].join(', ');
     const [{ data: studentData, error: studentErr }, { data: profileData, error: profileErr }] = await Promise.all([
-      // community_board_status='approved' already guarantees they've completed
-      // the wizard; bio is now an optional personal line (null is fine), so we
-      // don't filter on it. Keep the skills check as a sanity filter.
-      supabase.from('student_profiles').select('*').eq('is_available', true).eq('community_board_status', 'approved').not('skills', 'eq', '{}'),
+      supabase.from('student_profiles').select(SAFE_STUDENT_COLS).eq('is_available', true).eq('community_board_status', 'approved').not('skills', 'eq', '{}'),
       supabase.from('profiles').select('user_id, display_name, avatar_url'),
     ]);
 
