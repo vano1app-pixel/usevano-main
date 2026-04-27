@@ -65,25 +65,37 @@ export function AiFindCheckoutModal({ open, onClose, clientSecret, fallbackUrl }
         </button>
 
         {/* Brand header — tiny so Stripe's checkout owns the frame.
-             Mentions the €1 price + the return promise so the user
-             knows what they're buying without scrolling inside the
-             iframe. */}
-        <div className="flex items-center gap-2 border-b border-border/60 bg-gradient-to-br from-primary/6 via-card to-card px-5 py-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
-            <Sparkles size={13} strokeWidth={2.5} />
+             States exactly what €1 buys + the refund promise so the
+             user can decide without scrolling inside the iframe.
+             Aligned with the AI-vs-human positioning on /hire. */}
+        <div className="border-b border-border/60 bg-gradient-to-br from-primary/6 via-card to-card px-5 py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+              <Sparkles size={13} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                AI Match · €1
+              </p>
+              <p className="text-[11px] leading-tight text-muted-foreground">
+                Our AI picks your freelancer in 20 seconds. Refunded if we can&apos;t find one.
+              </p>
+            </div>
+            <div className="hidden shrink-0 items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 sm:inline-flex">
+              <ShieldCheck size={10} strokeWidth={2.5} />
+              Secure
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-              Vano Match · €1
-            </p>
-            <p className="text-[11px] leading-tight text-muted-foreground">
-              Your perfect freelancer, hand-picked in seconds. Full refund if we can&apos;t find one.
-            </p>
-          </div>
-          <div className="hidden shrink-0 items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 sm:inline-flex">
-            <ShieldCheck size={10} strokeWidth={2.5} />
-            Secure
-          </div>
+          {/* What the €1 actually buys — small breakdown so the user
+               doesn't perceive a hidden second charge. The €1 is the
+               only platform fee for the match itself; the hire amount
+               (handled separately via Vano Pay) has its own fee
+               disclosed in that modal. */}
+          <ul className="mt-2.5 ml-9 space-y-0.5 text-[10.5px] leading-snug text-muted-foreground/90">
+            <li>· €1 covers the AI match + a verified contact</li>
+            <li>· No platform fee on the hire itself — agree a rate directly</li>
+            <li>· Auto-refund if we don&apos;t find a fit</li>
+          </ul>
         </div>
 
         {/* Stripe mount point. The iframe Stripe injects has a min
