@@ -33,11 +33,18 @@ export default defineConfig(({ mode }) => ({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
-      // Auto-replace the cached bundle on next visit so returning users don't
-      // stay stuck on stale pre-perf builds. "prompt" needed the user to tap a
-      // toast which a lot of people never do. VANO forms are short so the
-      // small risk of a mid-form reload is acceptable.
-      registerType: "autoUpdate",
+      // "prompt" surfaces the PwaUpdateToast (src/components/PwaUpdateToast.tsx)
+      // when a new SW is detected. Switched back from "autoUpdate" because:
+      //   1. The SW (src/sw.ts) only skip-waits on receiving SKIP_WAITING — it
+      //      was already designed for prompt mode; autoUpdate left the toast
+      //      component dead-code and the SW behaviour mismatched.
+      //   2. autoUpdate replaces the bundle on the next *visit*, but users who
+      //      keep a tab open (a real pattern for this app's mobile users) keep
+      //      running stale JS forever. After multi-Google-account hang fix
+      //      (#109) we need users to actually pick up new code.
+      // Risk acknowledged: some users won't tap the toast — net cost is they
+      // stay on the version they already had. Better than silent stale code.
+      registerType: "prompt",
       includeAssets: ["favicon.png", "favicon.ico"],
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
