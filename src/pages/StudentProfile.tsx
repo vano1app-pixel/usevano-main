@@ -18,6 +18,7 @@ import { StatusChip } from '@/components/ui/StatusChip';
 import { cn } from '@/lib/utils';
 import { nameToSlug } from '@/lib/slugify';
 import { getSiteOrigin } from '@/lib/siteUrl';
+import { formatTime } from '@/lib/formatTime';
 import { computeProfilePercent, computeProfileTier } from '@/lib/profileCompleteness';
 import { findSpecialtyLabel } from '@/lib/categorySpecialties';
 import { findStrength, findClientTypeLabel } from '@/lib/freelancerTags';
@@ -1082,7 +1083,7 @@ const StudentProfile = () => {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{job.title}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          {job.shift_date && <span className="text-xs text-muted-foreground">{new Date(job.shift_date).toLocaleDateString()}</span>}
+                          {job.shift_date && <span className="text-xs text-muted-foreground">{formatTime(job.shift_date, 'short')}</span>}
                           {job.tags?.slice(0, 2).map((t: string) => (
                             <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-md bg-secondary text-secondary-foreground">{t}</span>
                           ))}
@@ -1224,7 +1225,7 @@ const StudentProfile = () => {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{job.title}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      {job.shift_date && <span className="text-xs text-muted-foreground">{new Date(job.shift_date).toLocaleDateString()}</span>}
+                      {job.shift_date && <span className="text-xs text-muted-foreground">{formatTime(job.shift_date, 'short')}</span>}
                       {job.tags?.slice(0, 2).map((t: string) => (
                         <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-md bg-secondary text-secondary-foreground">{t}</span>
                       ))}
