@@ -343,7 +343,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
               {/* Hirer path */}
               <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-4 py-4">
                 <p className="text-xs font-semibold text-foreground">Looking to hire?</p>
-                <p className="text-[11px] text-muted-foreground">Vano finds one for you in 60 seconds.</p>
+                <p className="text-[11px] text-muted-foreground">Vano AI-matches you in 20 seconds, or hand-picks free in 24h.</p>
                 <button
                   type="button"
                   onClick={() => navigate(`/hire?category=${encodeURIComponent(categoryId)}`)}

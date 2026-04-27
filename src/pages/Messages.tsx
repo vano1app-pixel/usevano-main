@@ -981,7 +981,7 @@ const Messages = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground">Start a Vano Match</p>
-                    <p className="truncate text-xs text-muted-foreground">Hand-picked freelancer in 60 seconds</p>
+                    <p className="truncate text-xs text-muted-foreground">AI match in 20s, or free hand-picked in 24h</p>
                   </div>
                   <ArrowRight size={14} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </button>

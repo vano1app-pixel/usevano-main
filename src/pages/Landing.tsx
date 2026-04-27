@@ -282,7 +282,7 @@ const Landing = () => {
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="Hand-picked freelancers — no more scrolling through gigs"
-        description="€1 finds your freelancer in 60 seconds. No browsing, no shortlists — one brief, one match. Freelancers: list yourself free — videography, content, web design, digital sales."
+        description="€1 AI-matches your freelancer in 20 seconds, or free hand-picked by Vano in 24h. No browsing, no shortlists — one brief, one match. Freelancers: list yourself free — videography, content, web design, digital sales."
         keywords="hire freelancer, freelance marketplace, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
@@ -299,7 +299,7 @@ const Landing = () => {
           <div data-hero-eyebrow className="mb-5 flex justify-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              Hand-picked for you · in 60 seconds
+              AI-matched in 20 seconds · or free hand-picked in 24h
             </span>
           </div>
 
@@ -317,7 +317,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            No scrolling 40 gigs. No shortlists. Share your brief, pay <span className="tabular-nums">€1</span>, meet your freelancer in 60 seconds — refunded if we can't find one.
+            No scrolling 40 gigs. No shortlists. Share your brief, pay <span className="tabular-nums">€1</span>, AI-matched in 20 seconds — or free hand-picked by Vano in 24h. Refunded if we can't find one.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -357,14 +357,14 @@ const Landing = () => {
                     <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" /> I want to hire
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold tabular-nums text-white ring-1 ring-white/20">
-                    €1 · 60s
+                    €1 · 20s
                   </span>
                 </div>
                 <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight sm:text-[20px]">
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  €1, hand-picked in 60 seconds. Refunded if we can't find the right fit.
+                  €1 for an AI match in 20 seconds, or free hand-picked in 24h. Refunded if we can't find a fit.
                 </p>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
@@ -803,7 +803,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1, and we'll match you with a freelancer in 60 seconds — refunded if we can't find the right fit. You chat, agree a rate, and hire them directly.
+                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1 for an AI match in 20 seconds — or wait 24h for a free hand-pick by the Vano team. Refunded if we can't find a fit. You chat, agree a rate, and hire them directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -811,7 +811,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Start a Vano Match — tell us the category, timeline, and budget, and for €1 we hand-pick a freelancer in 60 seconds. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
+                  Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or wait 24h for a free hand-pick by the Vano team. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="pay" className="border-border/80 px-2">
@@ -866,7 +866,7 @@ const Landing = () => {
               Your perfect match, hand-picked.
             </h2>
             <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              <span className="tabular-nums">€1</span> finds your match in 60 seconds. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
+              <span className="tabular-nums">€1</span> for an AI match in 20 seconds, or free hand-picked by Vano in 24h. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
