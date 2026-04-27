@@ -12,10 +12,6 @@ import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { useToast } from '@/hooks/use-toast';
 import {
   ArrowRight,
-  Clock,
-  Shield,
-  MapPin,
-  MessageSquare,
   Megaphone,
   Linkedin,
   Instagram,
@@ -700,88 +696,6 @@ const Landing = () => {
         </section>
       )}
 
-      {/* Why VANO */}
-      <section data-section-why className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
-        <div className="max-w-4xl lg:max-w-5xl mx-auto">
-          <div className="text-center">
-            <span className="inline-block rounded-full bg-primary/[0.08] px-3 py-1 text-[10.5px] font-semibold text-primary uppercase tracking-[0.18em] mb-5">Why VANO</span>
-            <h2 className="display-lg text-foreground mb-5 mx-auto max-w-[16ch]">Built for the people who actually do the work.</h2>
-            <p className="text-center text-muted-foreground mb-14 max-w-lg lg:max-w-xl mx-auto text-base leading-relaxed">Not another global marketplace. VANO is designed for local communities — starting with Galway.</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-5">
-            {/* Hyperlocal — 2 cols row 1.
-                Switched off raw blue-500 onto the `primary` theme token so
-                the card automatically tracks any future palette change and
-                matches the rest of the site's primary surfaces. */}
-            <div
-              data-why-card
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-primary/15 bg-primary/[0.025] dark:bg-primary/[0.05] p-7 sm:p-8 lg:p-10 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25"
-            >
-              <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-primary/[0.07] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-primary/[0.12]" />
-              <div className="relative">
-                <div data-why-icon className="mb-5 flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
-                  <MapPin size={22} className="text-primary" strokeWidth={1.75} />
-                </div>
-                <h3 className="display-lg text-foreground mb-2">Hyperlocal, by design</h3>
-                <p className="text-base text-muted-foreground leading-relaxed max-w-sm lg:max-w-md">Built for Galway first — every gig shows location, and you can always filter for work nearby or remote.</p>
-              </div>
-            </div>
-
-            {/* Speed — 1 col row 1 */}
-            <div
-              data-why-card
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-card p-5 lg:p-7 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/25"
-            >
-              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-emerald-500/[0.07] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40 group-hover:bg-emerald-500/[0.12]" />
-              <div className="relative">
-                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 transition-colors group-hover:bg-emerald-500/15">
-                  <Clock size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                </div>
-                <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Hire in minutes</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Describe what you need, get matched, pick someone — done.</p>
-              </div>
-            </div>
-
-            {/* Chat — 1 col row 2.
-                Restained to a neutral surface so the bento sticks to the
-                brand codex (primary / emerald / amber / muted only). The
-                violet here was the lone off-palette accent and the whole
-                grid read as three competing colors. Now it reads as one
-                quiet card supporting two louder ones. */}
-            <div
-              data-why-card
-              className="col-span-1 group relative overflow-hidden rounded-2xl border border-foreground/8 bg-card p-5 lg:p-7 transition-all duration-300 hover:-translate-y-0.5 hover:border-foreground/15"
-            >
-              <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-foreground/[0.04] blur-2xl transition-all duration-500 group-hover:h-40 group-hover:w-40" />
-              <div>
-                <div data-why-icon className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/[0.06] transition-colors group-hover:bg-foreground/[0.1]">
-                  <MessageSquare size={18} className="text-foreground/80" strokeWidth={1.75} />
-                </div>
-                <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1">Chat on platform</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Keep briefs and updates in VANO — no juggling apps.</p>
-              </div>
-            </div>
-
-            {/* Trust — 2 cols row 2 */}
-            <div
-              data-why-card
-              className="col-span-2 sm:col-span-2 group relative overflow-hidden rounded-2xl border border-amber-500/15 bg-amber-500/[0.025] dark:bg-amber-500/[0.05] p-6 lg:p-8 flex items-center gap-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-500/25"
-            >
-              <div className="pointer-events-none absolute -left-8 -bottom-8 h-40 w-40 rounded-full bg-amber-500/[0.07] blur-2xl transition-all duration-500 group-hover:h-56 group-hover:w-56 group-hover:bg-amber-500/[0.12]" />
-              <div className="relative flex items-center gap-5">
-                <div data-why-icon className="flex h-12 w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 transition-colors group-hover:bg-amber-500/15">
-                  <Shield size={22} className="text-amber-600 dark:text-amber-400" strokeWidth={1.75} />
-                </div>
-                <div>
-                  <h3 className="text-base lg:text-lg font-semibold text-foreground mb-0.5">Built on trust</h3>
-                  <p className="text-base text-muted-foreground leading-relaxed">Profiles with portfolios, reviews, and verified gigs — so you know who you're dealing with before you hire.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* FAQ */}
       <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
@@ -814,28 +728,12 @@ const Landing = () => {
                   Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or wait 24h for a free hand-pick by the Vano team. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="pay" className="border-border/80 px-2">
-                <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
-                  How does payment work?
-                </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  You pay €1 for the match — refunded if we can't find you a fit. After that, you agree a rate with the freelancer directly in chat and pay them how you like (bank transfer / their invoice). No platform fees right now.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="galway" className="border-border/80 px-2">
+              <AccordionItem value="galway" className="border-border/80 px-2 border-b-0">
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   Is VANO only for Galway?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
                   Galway is our home base — it's where the density is highest. Freelancers and clients anywhere are welcome, and each match shows location so you can filter for local, nationwide, or remote.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="freelancer" className="border-border/80 px-2 border-b-0">
-                <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
-                  I am a freelancer — how do I start?
-                </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Sign up, publish a short listing in 30 seconds, and you're visible to businesses hiring on Vano. Completely free to list — no subscriptions, no commission, no monthly fee.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
