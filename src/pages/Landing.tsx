@@ -313,7 +313,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            No scrolling 40 gigs. No shortlists. Share your brief, pay <span className="tabular-nums">€1</span>, AI-matched in 20 seconds — or free hand-picked by Vano in 24h. Refunded if we can't find one.
+            Find, chat and pay — all on one platform.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
