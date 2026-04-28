@@ -74,7 +74,7 @@ import { normalizeIrishPhone } from '@/lib/phoneNormalize';
 
 const STEP_LABELS = [
   'Your work',
-  'Your story',
+  'About you',
   'Your price',
   'Review',
 ];
@@ -82,7 +82,7 @@ const STEP_LABELS = [
 const STEP_HEADINGS: Record<number, string> = {
   0: 'Tweak your listing',
   1: 'Show what you do',
-  2: 'Tell them about you',
+  2: 'About you',
   3: 'Set your price',
   4: 'Looks good?',
 };
@@ -1906,7 +1906,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       onClick={() => setShowOptionalDetails(true)}
                       className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                     >
-                      + Add more about you <span className="text-xs font-normal">(optional — bio, university)</span>
+                      + Add bio & university <span className="text-xs font-normal">(optional)</span>
                     </button>
                   );
                 }
