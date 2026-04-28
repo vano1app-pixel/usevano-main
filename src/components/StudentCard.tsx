@@ -128,13 +128,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const isAdmin = useIsAdmin(student.user_id);
   const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
-  // Web design is overwhelmingly priced per-project, not per-hour. When a
-  // website freelancer has a project range set, lead the banner price tag
-  // with that range — matches their actual billing model and gives the
-  // hirer a useful number to scan. Regex covers both label variants
-  // ("Websites" from communityCategories.ts and "Website Design" from
-  // StudentsByCategory.tsx).
-  const projectFirst = !!category && /website/i.test(category) && !!budgetLabel;
+  // Web design is overwhelmingly priced per-project, not per-hour. On the
+  // talent board (which passes "Website Design" as the label), lead the
+  // banner price with the project range. The wizard preview passes a
+  // different label ("Websites") and is intentionally left alone here so
+  // the freelancer's editing view stays untouched.
+  const projectFirst = category === 'Website Design' && !!budgetLabel;
   // Prefer structured county/remote_ok; fall back to legacy service_area
   // for rows that haven't been migrated yet. Returns null when neither
   // is set, which hides the location chip entirely rather than showing
