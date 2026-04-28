@@ -3,17 +3,24 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 import {
   VANO_PAY_CURRENCY,
-  VANO_PAY_FEE_BPS,
+  VANO_PAY_LEGACY_FEE_BPS,
   VANO_PAY_MAX_CENTS,
   VANO_PAY_MIN_CENTS,
+  computeVanoPaySplit,
 } from "../_shared/vanoPayConfig.ts";
 
 // Business-side entry point for Vano Pay. Given a conversation id and
-// an amount, creates a vano_payments row and a Stripe Checkout Session
-// that charges the hirer on the platform Stripe account. Funds are
-// HELD on the platform until either the hirer releases them (via the
-// release-vano-payment edge function) or the auto-release cron fires
-// 14 days after the hold started.
+// an AGREED PRICE (what the freelancer quoted in chat), creates a
+// vano_payments row and a Stripe Checkout Session that charges the
+// hirer the gross-up (agreed price + 4% hirer fee) on the platform
+// Stripe account. Funds are HELD on the platform until either the
+// hirer releases them (via the release-vano-payment edge function) or
+// the auto-release cron fires 14 days after the hold started.
+//
+// Fee model is split 4% / 4% (see _shared/vanoPayConfig.ts):
+//   - Hirer charge   = agreed + 4% (this is what Stripe collects).
+//   - Freelancer net = agreed − 4% (released at hold-end).
+//   - Vano take      = 8% of agreed (= amount_cents − freelancer_net).
 //
 // Guards:
 //   - Caller must be the business participant of the conversation.
@@ -21,15 +28,17 @@ import {
 //     (we snapshot the account id onto vano_payments.stripe_destination_account_id
 //     so the release transfer still works if the freelancer later
 //     disconnects their Connect account).
-//   - Amount must be >= €1.00 (Stripe minimum for EUR).
+//   - Agreed price must be >= €1.00 (mirrors Stripe EUR minimum).
 //   - Funds are charged to the platform account (no destination
 //     transfer at checkout). release-vano-payment handles the actual
 //     transfer to the freelancer when the hirer releases or the cron
 //     auto-releases. stripe_transfer_id on the row gets populated then.
+//
+// Wire compatibility: the request body now prefers
+// `agreed_price_cents` but accepts the legacy `amount_cents` as an
+// alias so a stale client still works while the new client is
+// deploying. Both are interpreted as the AGREED price (pre-fee).
 
-// Fee/bounds live in _shared/vanoPayConfig.ts so the public
-// get-vano-pay-config endpoint reads the same values.
-const VANO_FEE_BPS = VANO_PAY_FEE_BPS;
 const MIN_AMOUNT_CENTS = VANO_PAY_MIN_CENTS;
 const MAX_AMOUNT_CENTS = VANO_PAY_MAX_CENTS;
 const CURRENCY = VANO_PAY_CURRENCY;
@@ -77,9 +86,50 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const conversationId = typeof body?.conversation_id === 'string' ? body.conversation_id : null;
-    const amountCents = Number.isInteger(body?.amount_cents) ? body.amount_cents as number : null;
+    // The AGREED price (what the freelancer quoted in chat). The
+    // hirer's actual charge is grossed up by 4% on top of this — see
+    // computeVanoPaySplit. We accept both `agreed_price_cents` (new
+    // canonical name) and `amount_cents` (legacy alias) so a stale
+    // client during the rollout window still posts a valid payload.
+    const rawAgreedPriceCents = Number.isInteger(body?.agreed_price_cents)
+      ? body.agreed_price_cents as number
+      : Number.isInteger(body?.amount_cents)
+        ? body.amount_cents as number
+        : null;
     const description = typeof body?.description === 'string' ? body.description.trim() : '';
     const hireAgreementId = typeof body?.hire_agreement_id === 'string' ? body.hire_agreement_id : null;
+    // Optional hirer-supplied delivery deadline. Drives the
+    // auto-release timer (see computeAutoReleaseMs in
+    // _shared/vanoPayConfig.ts and the stripe-webhook handler that
+    // stamps auto_release_at when the row enters 'paid' state). Null
+    // → keep the legacy 14-day flat hold. We accept ISO 8601 strings
+    // and validate the parsed value sits within a sensible window so
+    // a typo or junk payload can't end up as Stripe metadata.
+    const rawDeadlineAt = typeof body?.deadline_at === 'string' ? body.deadline_at : null;
+    let deadlineAtIso: string | null = null;
+    if (rawDeadlineAt) {
+      const ms = Date.parse(rawDeadlineAt);
+      if (!Number.isFinite(ms)) {
+        return bad(400, 'deadline_at is not a valid date');
+      }
+      const nowMs = Date.now();
+      // Reject deadlines in the past — there's no useful release
+      // semantics ("auto-release fires three days after a date that's
+      // already gone" is just "auto-release ASAP", which the hirer
+      // gets for free by tapping Release manually).
+      if (ms < nowMs - 60_000) {
+        return bad(400, 'deadline_at must be in the future');
+      }
+      // Reject deadlines more than 90 days out so a stray date input
+      // can't park escrow funds for half a year. The 30-day ceiling
+      // inside computeAutoReleaseMs already caps the actual release
+      // window; this stops the deadline from being even more
+      // misleading on the receipt card.
+      if (ms > nowMs + 90 * 24 * 60 * 60 * 1000) {
+        return bad(400, 'deadline_at cannot be more than 90 days in the future');
+      }
+      deadlineAtIso = new Date(ms).toISOString();
+    }
     // Optional — attached when the checkout is for a digital-sales
     // bonus payout. Stamped onto vano_payments so the DB trigger that
     // syncs sales_deals.bonus_status can find the originating deal
@@ -87,24 +137,38 @@ serve(async (req) => {
     // reference on both sides (no FK) so a deleted deal doesn't
     // cascade-block a legitimate payment that's already in flight.
     const salesDealId = typeof body?.sales_deal_id === 'string' ? body.sales_deal_id : null;
+    // Target-based milestone payment marker. When true, the checkout
+    // is paying out a "every X deals = €Y" milestone for the given
+    // conversation rather than a per-deal bonus or a regular Vano Pay
+    // payment. Validated below: the conversation must have a target
+    // configured AND a pending milestone, and the agreed price must
+    // match the configured bonus exactly. Stamps
+    // is_sales_milestone_payment on the row so the
+    // handle_milestone_payout DB trigger can advance the cycle when
+    // the transfer settles.
+    const fromMilestone = body?.from_milestone === true;
 
     if (!conversationId) return bad(400, 'conversation_id is required');
-    if (!amountCents || amountCents < MIN_AMOUNT_CENTS) {
-      return bad(400, 'Amount must be at least €1.00');
+    if (!rawAgreedPriceCents || rawAgreedPriceCents < MIN_AMOUNT_CENTS) {
+      return bad(400, 'Agreed price must be at least €1.00');
     }
-    if (amountCents > MAX_AMOUNT_CENTS) {
-      return bad(400, 'Amount exceeds the €5,000 ceiling. Split into multiple payments.');
+    if (rawAgreedPriceCents > MAX_AMOUNT_CENTS) {
+      return bad(400, 'Agreed price exceeds the €5,000 ceiling. Split into multiple payments.');
     }
     if (description.length > 200) {
       return bad(400, 'Description too long (max 200 chars)');
     }
+    const agreedPriceCents = rawAgreedPriceCents;
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Resolve the conversation: who are the two participants?
+    // Resolve the conversation: who are the two participants? Pull
+    // the target columns too so milestone payments can validate
+    // against them without a second round-trip. The columns are
+    // nullable for non-engagement conversations, which is fine.
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('id, participant_1, participant_2')
+      .select('id, participant_1, participant_2, sales_target_count, sales_target_bonus_cents, sales_target_milestone_pending')
       .eq('id', conversationId)
       .maybeSingle();
 
@@ -150,7 +214,81 @@ serve(async (req) => {
       );
     }
 
-    const feeCents = Math.max(1, Math.round((amountCents * VANO_FEE_BPS) / 10000));
+    // Three fee paths, branched on the kind of payment:
+    //
+    //   - Target-based milestone (from_milestone=true): pays the
+    //     conversation's configured bonus_cents. Validates the
+    //     conversation actually has a pending milestone so we can't
+    //     accidentally drain a bonus that hasn't been earned. Uses
+    //     legacy 3% single-side fee like the per-deal sales path —
+    //     a milestone is just a batched-up sales bonus.
+    //
+    //   - Per-deal sales bonus (sales_deal_id present): legacy single
+    //     -side 3% fee. The bonus_amount_cents the BusinessDealsPanel
+    //     sends is already the agreed gross to the rep.
+    //
+    //   - Regular Vano Pay (neither marker set): split 4% / 4% on the
+    //     AGREED price. Server grosses up by 4% so the hirer pays
+    //     agreed + 4%; the rep receives agreed − 4%; Vano keeps 8%
+    //     total. This is the model surfaced in VanoPayModal.
+    //
+    // All three branches preserve the row invariant
+    //   amount_cents − fee_cents = freelancer_payout
+    // so release-vano-payment, auto-release-held-payments, the spend
+    // / earnings panels, and the in-thread receipt copy keep working
+    // unchanged regardless of which model produced the row.
+    let amountCents: number;
+    let feeCents: number;
+    if (fromMilestone) {
+      // Refuse if the conversation has no target configured or no
+      // pending milestone — the user can't pay a milestone that
+      // hasn't fired yet, and they can't pay a stale one twice.
+      const targetCount = (conversation as { sales_target_count?: number | null }).sales_target_count;
+      const targetBonus = (conversation as { sales_target_bonus_cents?: number | null }).sales_target_bonus_cents;
+      const pending = (conversation as { sales_target_milestone_pending?: boolean | null }).sales_target_milestone_pending;
+      if (!targetCount || !targetBonus) {
+        return bad(409, 'No commission target set on this conversation');
+      }
+      if (!pending) {
+        return bad(409, 'No milestone is currently due');
+      }
+      // The agreed price the modal sends MUST match the configured
+      // bonus — protects against tampering or a stale client showing
+      // an old bonus number.
+      if (agreedPriceCents !== targetBonus) {
+        return bad(400, 'Milestone amount does not match the configured bonus');
+      }
+      // Race guard: refuse a second checkout for the same milestone
+      // while one is already in flight. Without this, a hirer who
+      // taps Pay then closes/reopens the page mid-redirect could
+      // create two Stripe sessions for the same milestone — both
+      // would settle, the trigger would advance the cycle twice,
+      // and the hirer would be double-charged. The narrow window
+      // makes this rare but not impossible. The "in flight" set
+      // is anything in awaiting_payment OR paid (held) state for
+      // this conversation flagged as a milestone payment; once the
+      // payment transfers (or is refunded/cancelled) the gate
+      // releases for the next cycle.
+      const { data: inflight } = await supabase
+        .from('vano_payments')
+        .select('id, status')
+        .eq('conversation_id', conversationId)
+        .eq('is_sales_milestone_payment', true)
+        .in('status', ['awaiting_payment', 'paid'])
+        .limit(1);
+      if (inflight && inflight.length > 0) {
+        return bad(409, 'A milestone payment is already in flight for this conversation');
+      }
+      amountCents = agreedPriceCents;
+      feeCents = Math.max(1, Math.round((amountCents * VANO_PAY_LEGACY_FEE_BPS) / 10000));
+    } else if (salesDealId) {
+      amountCents = agreedPriceCents;
+      feeCents = Math.max(1, Math.round((amountCents * VANO_PAY_LEGACY_FEE_BPS) / 10000));
+    } else {
+      const split = computeVanoPaySplit(agreedPriceCents);
+      amountCents = split.amountCents;
+      feeCents = split.feeCents;
+    }
 
     // Insert the pending payment row first so the session id has
     // somewhere to live and the webhook can find it on arrival.
@@ -172,12 +310,26 @@ serve(async (req) => {
       stripe_destination_account_id: freelancerProfile.stripe_account_id,
       status: 'awaiting_payment',
     };
+    if (deadlineAtIso) {
+      // Same conditional-spread pattern as sales_deal_id below: only
+      // include the field when the caller actually supplied a value
+      // so a production DB that hasn't yet applied the deadline
+      // migration still accepts inserts from no-deadline flows.
+      paymentRow.deadline_at = deadlineAtIso;
+    }
     if (salesDealId) {
       // Present only for digital-sales bonus payouts. A DB trigger
       // on vano_payments watches UPDATE events and flips the
       // matching sales_deals.bonus_status to 'paid' once this
       // payment reaches the `transferred` state.
       paymentRow.sales_deal_id = salesDealId;
+    }
+    if (fromMilestone) {
+      // Marks the row as a target-based milestone payout so the
+      // handle_milestone_payout DB trigger advances the conversation
+      // cycle (paid_count += target_count, pending = false) when the
+      // transfer settles.
+      paymentRow.is_sales_milestone_payment = true;
     }
 
     const { data: inserted, error: insertError } = await supabase
@@ -258,9 +410,15 @@ serve(async (req) => {
       JSON.stringify({
         url: session.url,
         id: paymentId,
+        // Full breakdown so a caller can confirm the split client-side
+        // for analytics / receipts. amount_cents is the gross Stripe
+        // charge (= agreed + hirer fee).
+        agreed_price_cents: split.agreedCents,
+        hirer_fee_cents: split.hirerFeeCents,
+        freelancer_fee_cents: split.freelancerFeeCents,
         amount_cents: amountCents,
         fee_cents: feeCents,
-        freelancer_receives_cents: amountCents - feeCents,
+        freelancer_receives_cents: split.freelancerCents,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

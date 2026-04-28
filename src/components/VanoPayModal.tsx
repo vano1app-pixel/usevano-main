@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw } from 'lucide-react';
+import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw, CalendarDays, Plus } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useVanoPayConfig } from '@/lib/vanoPayConfig';
+import { computeAutoReleaseMs, computeVanoPaySplit, useVanoPayConfig } from '@/lib/vanoPayConfig';
 import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 
 // Business-side modal for initiating a Vano Pay payment inside a
-// conversation. Collects amount (€) + optional description, shows a
-// preview of "you pay / freelancer receives / Vano keeps" splits,
-// and hands off to Stripe Checkout.
+// conversation. Collects the agreed price (what the freelancer quoted
+// in chat) + optional description, shows a preview of the 4%/4% split
+// (you pay / freelancer receives / Vano keeps), and hands off to
+// Stripe Checkout.
+//
+// Fee model: 4% on each side of the AGREED price. Hirer is charged
+// agreed + 4%; freelancer receives agreed − 4%; Vano keeps 8% total.
 //
 // The edge function does all the validation (freelancer must have
 // Vano Pay enabled, amount bounds, etc.) — we surface its errors
@@ -29,18 +33,40 @@ export function VanoPayModal({
   freelancerName: string;
 }) {
   const { toast } = useToast();
-  const { feeBps, minCents } = useVanoPayConfig();
-  const feePercentLabel = `${(feeBps / 100).toFixed(feeBps % 100 === 0 ? 0 : 1)}%`;
-  const [amount, setAmount] = useState('');
+  const config = useVanoPayConfig();
+  const { hirerFeeBps, freelancerFeeBps, minCents } = config;
+  // Side labels for the breakdown ("4%" / "4%"). Each side's BPS is
+  // treated independently so an asymmetric split (e.g. 5/3) renders
+  // cleanly without any modal change.
+  const formatPercent = (bps: number) =>
+    `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
+  const hirerFeePercent = formatPercent(hirerFeeBps);
+  const freelancerFeePercent = formatPercent(freelancerFeeBps);
+  const [agreedPrice, setAgreedPrice] = useState('');
   const [description, setDescription] = useState('');
+  // Optional delivery deadline (YYYY-MM-DD from <input type="date">).
+  // When set, the server stamps it on the row and the webhook computes
+  // auto_release_at as deadline + 72h grace (clamped 48h floor / 30d
+  // ceiling) so the freelancer gets paid shortly after the work is
+  // due rather than waiting the flat 14 days. See
+  // computeAutoReleaseMs for the exact logic.
+  const [deadline, setDeadline] = useState('');
+  // Description + deadline are collapsed behind a single "Add details"
+  // toggle so the default modal is just price → breakdown → Pay (the
+  // 80%-case "tap and pay" flow). Power users tap to expand. Note +
+  // deadline are independent fields but share one expander since both
+  // are optional context for the same payment.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Reset fields when the modal opens so a previous aborted payment
   // doesn't ghost the next one.
   useEffect(() => {
     if (open) {
-      setAmount('');
+      setAgreedPrice('');
       setDescription('');
+      setDeadline('');
+      setDetailsOpen(false);
       setSubmitting(false);
     }
   }, [open]);
@@ -55,11 +81,56 @@ export function VanoPayModal({
 
   if (!open) return null;
 
-  const amountNumber = Number.parseFloat(amount);
-  const amountCents = Number.isFinite(amountNumber) && amountNumber > 0 ? Math.round(amountNumber * 100) : 0;
-  const feeCents = amountCents > 0 ? Math.max(1, Math.round((amountCents * feeBps) / 10000)) : 0;
-  const freelancerCents = amountCents - feeCents;
-  const canSubmit = amountCents >= minCents && !submitting;
+  const agreedNumber = Number.parseFloat(agreedPrice);
+  const agreedCents = Number.isFinite(agreedNumber) && agreedNumber > 0
+    ? Math.round(agreedNumber * 100)
+    : 0;
+  // Pure-function preview of the same split the server computes at
+  // checkout. agreedCents is the figure both parties see in chat;
+  // amountCents is the gross hirer charge that lands at Stripe.
+  const split = computeVanoPaySplit(agreedCents, config);
+  const { amountCents, feeCents, freelancerCents } = split;
+  const canSubmit = agreedCents >= minCents && !submitting;
+
+  // Today, in YYYY-MM-DD local time — used as the min for the date
+  // input so the picker greys out past days. Computed inline rather
+  // than memoised because the modal lifetime is short and the cost
+  // is one Date allocation per render.
+  const todayLocalIso = (() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  })();
+
+  // Convert the YYYY-MM-DD picker value into "end of day local time"
+  // so a hirer who picks "May 5" gets a deadline of 23:59:59 local on
+  // May 5, not midnight (which would mean "before May 5 starts" — the
+  // opposite of what they expect). Returns null when the input is
+  // empty or malformed; the server validates again either way.
+  const deadlineMs = (() => {
+    if (!deadline) return null;
+    const parts = deadline.split('-');
+    if (parts.length !== 3) return null;
+    const y = Number(parts[0]);
+    const m = Number(parts[1]);
+    const d = Number(parts[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+    const ms = new Date(y, m - 1, d, 23, 59, 59, 0).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  })();
+  const deadlineIso = deadlineMs != null ? new Date(deadlineMs).toISOString() : null;
+
+  // Auto-release preview — shows the hirer when the freelancer would
+  // get paid even if nobody taps Release. Recomputed per render so a
+  // change to the deadline date updates the preview immediately.
+  const autoReleaseMs = computeAutoReleaseMs(Date.now(), deadlineMs);
+  const autoReleaseDate = new Date(autoReleaseMs);
+  const autoReleaseLabel = autoReleaseDate.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  });
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -83,8 +154,19 @@ export function VanoPayModal({
       const { data, error } = await supabase.functions.invoke('create-vano-payment-checkout', {
         body: {
           conversation_id: conversationId,
-          amount_cents: amountCents,
+          // Send the AGREED price (pre-fee). The server grosses up by
+          // 4% for the Stripe charge. We also pass amount_cents as a
+          // legacy alias with the same semantics in case a deploy
+          // window has the old function shape briefly.
+          agreed_price_cents: agreedCents,
+          amount_cents: agreedCents,
           description: description.trim() || undefined,
+          // Optional. When set, the server stamps it on the row and
+          // the webhook computes auto_release_at = deadline + 72h
+          // grace (clamped 48h floor / 30d ceiling). When omitted,
+          // the legacy 14-day flat hold applies. ISO 8601, end of
+          // local day for the picked date.
+          deadline_at: deadlineIso || undefined,
         },
       });
       if (error) throw error;
@@ -111,7 +193,7 @@ export function VanoPayModal({
         : message.includes('not enabled Vano Pay')
           ? `${freelancerName} hasn't enabled Vano Pay yet. Ask them to turn it on in their profile.`
         : message.includes('at least €1')
-          ? 'Amount must be at least €1.00.'
+          ? 'Agreed price must be at least €1.00.'
         : message.toLowerCase().includes('forbidden origin')
           ? 'Origin not allowed — Supabase function ALLOWED_ORIGINS needs this site in the list.'
         : message
@@ -155,11 +237,17 @@ export function VanoPayModal({
             Pay <span className="text-primary">{freelancerName}</span>
           </h2>
 
-          {/* Amount input is the hero. Big tabular-nums digits, prefixed
-              €, minimal chrome. Feels like a POS screen, not a form. */}
+          {/* Agreed-price input is the hero. Big tabular-nums digits,
+              prefixed €, minimal chrome. Feels like a POS screen, not
+              a form. The label calls it out as the agreed price (not
+              "amount") because the hirer's actual charge is grossed-up
+              by the 4% hirer fee shown in the breakdown below. */}
           <div className="mt-6">
-            <label htmlFor="vano-pay-amount" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Amount
+            <label htmlFor="vano-pay-amount" className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <span>Agreed price</span>
+              <span className="text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+                What {freelancerName} quoted
+              </span>
             </label>
             <div className="group relative flex items-baseline rounded-2xl border border-input bg-background px-4 py-4 transition-colors focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10">
               <span className="mr-1.5 text-[28px] font-semibold text-muted-foreground">€</span>
@@ -169,8 +257,8 @@ export function VanoPayModal({
                 inputMode="decimal"
                 min="1"
                 step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                value={agreedPrice}
+                onChange={(e) => setAgreedPrice(e.target.value)}
                 placeholder="0.00"
                 autoFocus
                 className="w-full bg-transparent text-[32px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
@@ -179,42 +267,89 @@ export function VanoPayModal({
             </div>
           </div>
 
-          {/* Optional note — visually quieter so it reads as optional. */}
-          <div className="mt-3">
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What's this for? (optional)"
-              maxLength={200}
-              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
-            />
-          </div>
+          {/* Optional details (note + deadline) — collapsed behind a
+              single toggle so the default modal stays a tap-and-pay
+              flow. The 80% case is "type amount, see split, pay";
+              hirers who want to label the payment or set a delivery
+              deadline tap to expand. Once expanded we don't auto-
+              collapse, so the user can tweak both fields freely
+              before submitting. */}
+          {!detailsOpen ? (
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(true)}
+              className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Plus size={11} strokeWidth={2.5} />
+              Add a note or deadline
+            </button>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What's this for? (optional)"
+                maxLength={200}
+                className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+              />
+              {/* Native <input type="date"> keeps the modal lightweight
+                  and gives us mobile-friendly pickers for free. The
+                  preview line below the input shows the resulting
+                  auto-release date so the hirer can see exactly when
+                  the freelancer would be auto-paid. */}
+              <div>
+                <label
+                  htmlFor="vano-pay-deadline"
+                  className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+                >
+                  <CalendarDays size={11} strokeWidth={2.25} />
+                  Deadline (optional)
+                </label>
+                <input
+                  id="vano-pay-deadline"
+                  type="date"
+                  value={deadline}
+                  min={todayLocalIso}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                />
+                <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground/85">
+                  {deadlineMs
+                    ? `Auto-release ${autoReleaseLabel} — 3 days after the deadline so you have time to review.`
+                    : `Without a deadline, auto-release is ${autoReleaseLabel} (14 days). Add one to pay the freelancer sooner.`}
+                </p>
+              </div>
+            </div>
+          )}
 
-          {/* Breakdown — stripped of the bordered-box look. Rows with a
-              hairline divider above the fee line so the eye lands on
-              "freelancer receives" first. Tabular-nums keeps euros
+          {/* Breakdown — three rows that make the 4%/4% split obvious.
+              "You pay" is the gross hirer charge (agreed + 4%);
+              "{name} receives" is agreed − 4%; "Vano keeps" is the
+              combined 8% with a tiny "4% from each side" hint so
+              there's no math homework. Tabular-nums keeps euros
               aligned. */}
-          {amountCents >= minCents ? (
+          {agreedCents >= minCents ? (
             <dl className="mt-5 space-y-2 text-[13px]" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">You pay</dt>
-                <dd className="font-medium text-foreground">€{(amountCents / 100).toFixed(2)}</dd>
+                <dt className="text-muted-foreground">You pay <span className="text-muted-foreground/70">(incl. {hirerFeePercent} fee)</span></dt>
+                <dd className="font-semibold text-foreground">€{(amountCents / 100).toFixed(2)}</dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">{freelancerName} receives</dt>
+                <dt className="text-muted-foreground">{freelancerName} receives <span className="text-muted-foreground/70">(after {freelancerFeePercent} fee)</span></dt>
                 <dd className="font-semibold text-emerald-700 dark:text-emerald-300">
                   €{(freelancerCents / 100).toFixed(2)}
                 </dd>
               </div>
               <div className="flex items-center justify-between border-t border-border/70 pt-2 text-[12px]">
-                <dt className="text-muted-foreground">Vano fee · {feePercentLabel}</dt>
+                <dt className="text-muted-foreground">Vano keeps <span className="text-muted-foreground/70">({hirerFeePercent} from each side)</span></dt>
                 <dd className="text-muted-foreground">€{(feeCents / 100).toFixed(2)}</dd>
               </div>
             </dl>
           ) : (
             <p className="mt-4 text-[12px] text-muted-foreground">
-              Minimum €{(minCents / 100).toFixed(2)}. Vano takes {feePercentLabel}; the rest goes straight to {freelancerName}.
+              Minimum €{(minCents / 100).toFixed(2)}. Both sides pay {hirerFeePercent} — you add it on top, {freelancerName} has it taken off.
             </p>
           )}
 
@@ -223,8 +358,9 @@ export function VanoPayModal({
                they've already clicked. Each row pairs an icon with
                one short clause so the whole strip scans in under a
                second: money held, release when done, full refund on
-               dispute. This is the core of why the 3% fee makes sense
-               and it belongs in the decision-moment, not as a footer. */}
+               dispute. This is the core of why the {hirerFeePercent} hirer fee
+               makes sense and it belongs in the decision-moment, not
+               as a footer. */}
           <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3.5">
             <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
               <ShieldCheck size={12} strokeWidth={2.5} />
@@ -242,7 +378,11 @@ export function VanoPayModal({
                 <Check size={12} strokeWidth={2.5} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span>
                   <span className="font-medium text-foreground">Release when the work is done.</span>{' '}
-                  <span className="text-muted-foreground">Or auto-releases in 14 days if you forget.</span>
+                  <span className="text-muted-foreground">
+                    {deadlineMs
+                      ? `Or auto-releases ${autoReleaseLabel} (3 days after your deadline).`
+                      : 'Or auto-releases in 14 days if you forget.'}
+                  </span>
                 </span>
               </li>
               <li className="flex items-start gap-2">
@@ -263,19 +403,25 @@ export function VanoPayModal({
           >
             {submitting ? (
               <><Loader2 size={16} className="animate-spin" /> Opening Stripe…</>
-            ) : amountCents >= minCents ? (
+            ) : agreedCents >= minCents ? (
               <>
                 <ShieldCheck size={15} strokeWidth={2.5} />
                 Pay €{(amountCents / 100).toFixed(2)} — held by Vano
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
               </>
             ) : (
-              'Enter an amount'
+              'Enter the agreed price'
             )}
           </button>
 
-          <p className="mt-3 text-center text-[11px] text-muted-foreground">
-            Secure Stripe checkout · card never touches Vano
+          {/* Footer hint — flags Apple Pay / Google Pay so users on
+              modern devices know they don't have to type card details.
+              Stripe Checkout auto-enables both for EUR; we just have
+              to surface that they exist. The PCI assurance ("card
+              never touches Vano") stays on a second line so the trust
+              signal isn't lost. */}
+          <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
+            Apple Pay, Google Pay, or card · card never touches Vano
           </p>
         </div>
       </div>

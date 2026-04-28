@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ChevronDown, LogOut, User as UserIcon, LayoutDashboard, Banknote, Shield } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuthContext';
@@ -13,6 +15,14 @@ import logo from '@/assets/logo.png';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 import { prefetchHandlers } from '@/lib/prefetchRoute';
+import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Maps a route pathname to the prefetch key so hover on a nav item
 // kicks off the JS chunk download before the actual click. Keep the
@@ -24,6 +34,7 @@ const PATH_TO_PREFETCH_KEY: Record<string, Parameters<typeof prefetchHandlers>[0
   '/messages': 'messages',
   '/business-dashboard': 'business-dashboard',
   '/auth': 'auth',
+  '/vano-pay': 'vano-pay',
 };
 
 export const Navbar: React.FC = () => {
@@ -105,18 +116,46 @@ export const Navbar: React.FC = () => {
   }, [user]);
 
   const navItems = [
-    { label: 'Home', href: '/', requiresAuth: false, isNew: false },
-    // "Hire" only for business users or visitors (not students)
+    // "Hire" only for business users or visitors (not students). The
+    // logo doubles as a Home link (industry-standard) so we don't
+    // ship an explicit Home item — it would be redundant chrome.
     ...(userType !== 'student' ? [{ label: 'Hire', href: '/hire', requiresAuth: false, isNew: true }] : []),
-    { label: 'Talent Board', href: '/students', requiresAuth: false, isNew: true },
+    { label: 'Talent', href: '/students', requiresAuth: false, isNew: true },
   ];
 
-  const authNavItems = [
-    { label: 'Messages', href: '/messages' },
+  // Avatar-dropdown destinations (low-frequency "your account" surfaces
+  // that don't earn a top-level slot). Order is fixed: Vano Pay first
+  // because that's the new product surface we want users to discover;
+  // Dashboard/Profile second; Admin only for staff; Sign out last,
+  // separated by a divider so it doesn't get tapped by accident.
+  //
+  // Messages stays in the visible nav (high-frequency surface with
+  // unread badges that need to be seen at a glance). Hire / Talent
+  // also stay visible — those are the discovery surfaces we want
+  // logged-out visitors to see immediately.
+  type AvatarItem = {
+    label: string;
+    href: string;
+    icon: LucideIcon;
+    tone?: 'default' | 'destructive';
+  };
+  const avatarItems: AvatarItem[] = [
+    ...(VANO_PAY_VISIBLE
+      ? [{ label: 'Vano Pay', href: '/vano-pay', icon: Banknote }] satisfies AvatarItem[]
+      : []),
     userType === 'business'
-      ? { label: 'Dashboard', href: '/business-dashboard' }
-      : { label: 'Profile', href: '/profile' },
+      ? { label: 'Dashboard', href: '/business-dashboard', icon: LayoutDashboard }
+      : { label: 'Profile', href: '/profile', icon: UserIcon },
+    ...(showAdminLink
+      ? [{ label: 'Admin', href: '/admin', icon: Shield, tone: 'destructive' as const }]
+      : []),
   ];
+
+  // Highlight the avatar trigger with the same primary tint as a top-
+  // level nav item when the user is on any of its dropdown
+  // destinations. Without this cue the user has no "you are here"
+  // signal when on /vano-pay, /profile, /business-dashboard or /admin.
+  const avatarRouteActive = avatarItems.some((item) => isActiveRoute(item.href));
 
   const handleNavClick = (href: string, requiresAuth: boolean) => {
     if (requiresAuth && !user) {
@@ -187,23 +226,19 @@ export const Navbar: React.FC = () => {
             })}
             <div className="w-px h-5 bg-border/60 mx-1.5" />
 
-            {user && authNavItems.map((item) => {
-              const prefetchKey = PATH_TO_PREFETCH_KEY[item.href];
-              const prefetch = prefetchKey ? prefetchHandlers(prefetchKey) : undefined;
-              return (
+            {user && (
               <Link
-                key={item.href}
-                to={item.href}
-                {...prefetch}
+                to="/messages"
+                {...prefetchHandlers('messages')}
                 className={cn(
                   "relative px-3.5 py-2 text-[13px] font-medium rounded-xl transition-all duration-150",
-                  isActiveRoute(item.href)
+                  isActiveRoute('/messages')
                     ? "text-primary bg-primary/10 font-semibold"
                     : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]"
                 )}
               >
-                {item.label}
-                {item.href === '/messages' && unreadCount > 0 ? (
+                Messages
+                {unreadCount > 0 ? (
                   <span
                     className="absolute -top-0.5 -right-0.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground shadow-sm"
                     aria-label={`${unreadCount} unread messages`}
@@ -212,24 +247,79 @@ export const Navbar: React.FC = () => {
                   </span>
                 ) : null}
               </Link>
-              );
-            })}
-            {user && showAdminLink && (
-              <Link
-                to="/admin"
-                className="px-3.5 py-2 text-[13px] font-medium text-destructive/80 hover:text-destructive transition-colors duration-150 rounded-xl hover:bg-destructive/5"
-              >
-                Admin
-              </Link>
             )}
             {user && <NotificationBell />}
             {user ? (
-              <button
-                onClick={async () => { await signOutCleanly(queryClient); }}
-                className="ml-1 px-3.5 py-2 text-[13px] font-medium text-foreground/50 hover:text-destructive transition-colors duration-150 rounded-xl"
-              >
-                Sign out
-              </button>
+              // Avatar dropdown — collapses Vano Pay + Dashboard/Profile
+              // + Admin (if applicable) + Sign out into one trigger so
+              // the visible nav stays calm. Active-route highlight on
+              // the trigger so the user has a "you're here" cue when
+              // on any of the dropdown destinations.
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Account menu"
+                    className={cn(
+                      "ml-1 inline-flex items-center gap-1 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all duration-150",
+                      avatarRouteActive
+                        ? "text-primary bg-primary/10"
+                        : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                        avatarRouteActive
+                          ? "bg-primary/15 text-primary"
+                          : "bg-foreground/[0.06] text-foreground/70",
+                      )}
+                    >
+                      <UserIcon size={14} strokeWidth={2.25} />
+                    </span>
+                    <ChevronDown size={12} strokeWidth={2.5} className="opacity-60" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  className="min-w-[200px] rounded-xl"
+                >
+                  {avatarItems.map((item) => {
+                    const Icon = item.icon;
+                    const prefetchKey = PATH_TO_PREFETCH_KEY[item.href];
+                    const prefetch = prefetchKey ? prefetchHandlers(prefetchKey) : undefined;
+                    const active = isActiveRoute(item.href);
+                    return (
+                      <DropdownMenuItem
+                        key={item.href}
+                        asChild
+                        // Tone destructive items in red so /admin is
+                        // visually flagged from the Sign out divider
+                        // group below; no behavioural change.
+                        className={cn(
+                          'gap-2.5 rounded-lg text-[13px] font-medium focus:bg-foreground/[0.05]',
+                          active && 'bg-primary/10 text-primary',
+                          item.tone === 'destructive' && !active && 'text-destructive/85 focus:text-destructive focus:bg-destructive/[0.06]',
+                        )}
+                      >
+                        <Link to={item.href} {...prefetch}>
+                          <Icon size={14} strokeWidth={2.25} />
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={async () => { await signOutCleanly(queryClient); }}
+                    className="gap-2.5 rounded-lg text-[13px] font-medium text-foreground/70 focus:bg-destructive/[0.06] focus:text-destructive"
+                  >
+                    <LogOut size={14} strokeWidth={2.25} />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <button
                 onClick={() => navigate('/auth')}

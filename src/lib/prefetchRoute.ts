@@ -28,7 +28,8 @@ type RouteKey =
   | 'hire-requests'
   | 'list-on-community'
   | 'ai-find-results'
-  | 'job-detail';
+  | 'job-detail'
+  | 'vano-pay';
 
 // The map mirrors the lazy() imports in App.tsx exactly — keep in
 // sync if routes change. Splitting this out of App.tsx means a hover
@@ -46,6 +47,7 @@ const routeImports: Record<RouteKey, () => Promise<unknown>> = {
   'list-on-community':     () => import('@/pages/ListOnCommunity'),
   'ai-find-results':       () => import('@/pages/AiFindResults'),
   'job-detail':            () => import('@/pages/JobDetail'),
+  'vano-pay':              () => import('@/pages/VanoPay'),
 };
 
 const alreadyPrefetched = new Set<RouteKey>();

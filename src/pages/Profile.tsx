@@ -933,7 +933,7 @@ const Profile = () => {
                       key: 'vano_pay',
                       done: !!(studentProfile?.stripe_account_id),
                       label: 'Get paid through Vano',
-                      hint: 'One 3-min Stripe setup. Money in your bank in 1–2 days. 3% fee.',
+                      hint: 'One 3-min Stripe setup. Money in your bank in 1–2 days. 4% fee on your side (client pays 4% on top).',
                       action: () => {
                         document
                           .getElementById('vano-pay-setup')

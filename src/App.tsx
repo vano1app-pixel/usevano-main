@@ -51,6 +51,7 @@ const HireRequests = lazyWithRetry(() => import("./pages/HireRequests"));
 const ClaimProfile = lazyWithRetry(() => import("./pages/ClaimProfile"));
 const AiFindResults = lazyWithRetry(() => import("./pages/AiFindResults"));
 const AiFindReturn = lazyWithRetry(() => import("./pages/AiFindReturn"));
+const VanoPay = lazyWithRetry(() => import("./pages/VanoPay"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -87,7 +88,7 @@ import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'liquid';
   if (path === '/hire') return 'dissolve';
-  if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages'].includes(path)) return 'rise';
+  if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages', '/vano-pay'].includes(path)) return 'rise';
   if (path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
   return 'default';
 }
@@ -194,6 +195,14 @@ const App = () => {
               element={
                 <RequireVerifiedSession>
                   <P><Messages /></P>
+                </RequireVerifiedSession>
+              }
+            />
+            <Route
+              path="/vano-pay"
+              element={
+                <RequireVerifiedSession>
+                  <P><VanoPay /></P>
                 </RequireVerifiedSession>
               }
             />
