@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 import {
   VANO_PAY_CURRENCY,
+  VANO_PAY_LEGACY_FEE_BPS,
   VANO_PAY_MAX_CENTS,
   VANO_PAY_MIN_CENTS,
   computeVanoPaySplit,
@@ -200,15 +201,35 @@ serve(async (req) => {
       );
     }
 
-    // Compute the 4% / 4% split. amountCents is what Stripe charges
-    // (agreed + hirer fee). feeCents is Vano's combined take. The
-    // existing display invariant `amount − fee = freelancer payout`
-    // still holds because freelancer_payout = agreed − freelancer_fee
-    //                                       = (agreed + hirerFee) − (hirerFee + freelancerFee)
-    //                                       = amount − fee.
-    const split = computeVanoPaySplit(agreedPriceCents);
-    const amountCents = split.amountCents;
-    const feeCents = split.feeCents;
+    // Two fee models, branched on whether this is a sales-deal bonus
+    // payout vs. a regular client → freelancer payment:
+    //
+    //   - Sales bonus (sales_deal_id present): legacy single-side
+    //     fee. The bonus_amount_cents the BusinessDealsPanel sends is
+    //     already the agreed gross to the rep; we charge that exactly
+    //     to the hirer and take 3% off the rep's payout. No gross-up,
+    //     so the "Pay €500 bonus" button stays honest at Stripe.
+    //
+    //   - Regular Vano Pay (no sales_deal_id): split 4% / 4% on the
+    //     AGREED price. Server grosses up by 4% so the hirer pays
+    //     agreed + 4%; the rep receives agreed − 4%; Vano keeps 8%
+    //     total. This is the model surfaced in VanoPayModal.
+    //
+    // Both branches preserve the row invariant
+    //   amount_cents − fee_cents = freelancer_payout
+    // so release-vano-payment, auto-release-held-payments, the spend
+    // / earnings panels, and the in-thread receipt copy keep working
+    // unchanged regardless of which model produced the row.
+    let amountCents: number;
+    let feeCents: number;
+    if (salesDealId) {
+      amountCents = agreedPriceCents;
+      feeCents = Math.max(1, Math.round((amountCents * VANO_PAY_LEGACY_FEE_BPS) / 10000));
+    } else {
+      const split = computeVanoPaySplit(agreedPriceCents);
+      amountCents = split.amountCents;
+      feeCents = split.feeCents;
+    }
 
     // Insert the pending payment row first so the session id has
     // somewhere to live and the webhook can find it on arrival.

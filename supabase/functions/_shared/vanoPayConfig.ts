@@ -20,6 +20,16 @@
 
 export const VANO_PAY_HIRER_FEE_BPS = 400;        // 4.00% added on top of agreed price
 export const VANO_PAY_FREELANCER_FEE_BPS = 400;   // 4.00% deducted from agreed price
+
+// Legacy single-side fee — used by the digital-sales bonus payout
+// path only (BusinessDealsPanel.tsx → create-vano-payment-checkout
+// with sales_deal_id set). Bonuses pre-date the split-fee model and
+// the rep + business already have the bonus_amount_cents agreed in
+// the deal record; treating it as the gross hirer charge minus a 3%
+// platform fee preserves that behaviour and keeps the "Pay €X
+// bonus" button in the panel honest. New (non-bonus) Vano Pay flows
+// use the split 4%/4% model above.
+export const VANO_PAY_LEGACY_FEE_BPS = 300;       // 3.00% taken from the gross (bonus flow only)
 // Combined % of the AGREED price that Vano takes — handy for copy
 // ("Vano keeps 8%"). Not the same as fee_cents / amount_cents because
 // amount_cents is grossed-up; this is the reference figure both
