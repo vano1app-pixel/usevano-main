@@ -13,7 +13,6 @@ import { isAdminOwnerEmail } from '@/lib/adminOwner';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
-import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 import { prefetchHandlers } from '@/lib/prefetchRoute';
 import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
 import {
@@ -119,8 +118,8 @@ export const Navbar: React.FC = () => {
     // "Hire" only for business users or visitors (not students). The
     // logo doubles as a Home link (industry-standard) so we don't
     // ship an explicit Home item — it would be redundant chrome.
-    ...(userType !== 'student' ? [{ label: 'Hire', href: '/hire', requiresAuth: false, isNew: true }] : []),
-    { label: 'Talent', href: '/students', requiresAuth: false, isNew: true },
+    ...(userType !== 'student' ? [{ label: 'Hire', href: '/hire', requiresAuth: false }] : []),
+    { label: 'Talent', href: '/students', requiresAuth: false },
   ];
 
   // Avatar-dropdown destinations (low-frequency "your account" surfaces
@@ -220,7 +219,6 @@ export const Navbar: React.FC = () => {
                   )}
                 >
                   {item.label}
-                  {item.isNew ? <NewFeatureBadge /> : null}
                 </button>
               );
             })}

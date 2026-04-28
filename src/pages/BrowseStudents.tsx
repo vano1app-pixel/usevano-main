@@ -6,8 +6,6 @@ import { breadcrumbSchema } from '@/lib/structuredData';
 import { Monitor, Video, Megaphone, TrendingUp, ArrowRight, Users, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
-import { StatusChip } from '@/components/ui/StatusChip';
-import { CardSkeleton } from '@/components/ui/CardSkeleton';
 
 const TALENT_HUB_CATEGORIES: {
   cat: CommunityCategoryId;
@@ -61,7 +59,6 @@ const BrowseStudents = () => {
   };
 
   const getDisplayName = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.display_name || 'Student';
-  const getAvatarUrl = (uid: string) => profiles.find((p: any) => p.user_id === uid)?.avatar_url || '';
 
   const countsByCategory = useMemo(() => {
     const out: Record<CommunityCategoryId, number> = { videography: 0, digital_sales: 0, websites: 0, social_media: 0 };
@@ -113,7 +110,6 @@ const BrowseStudents = () => {
           </span>
         </button>
 
-        <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Or browse by category</p>
         <div className="grid grid-cols-2 gap-3">
           {TALENT_HUB_CATEGORIES.map((item, idx) => {
             const Icon = item.icon;
@@ -170,89 +166,24 @@ const BrowseStudents = () => {
           })}
         </div>
 
-        {/* Freelancer preview strip */}
-        <div className="mt-8 flex flex-col gap-5">
-          {loading ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3" aria-busy aria-label="Loading freelancers">
-              {[1, 2, 3].map((i) => (
-                <CardSkeleton key={i} variant="compact" />
-              ))}
+        {/* Empty-state nudge — only shown when nothing's available. */}
+        {!loading && students.length === 0 && (
+          <div className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Users size={20} strokeWidth={2} />
             </div>
-          ) : students.length > 0 ? (
-            <>
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  On VANO now
-                </p>
-                <StatusChip tone="success">{students.length} available</StatusChip>
-              </div>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {students.slice(0, 3).map((s, idx) => {
-                  const name = getDisplayName(s.user_id);
-                  return (
-                    <div
-                      key={s.user_id}
-                      onClick={() => navigate(`/students/${primaryCategoryForStudent(s, name)}`)}
-                      className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-foreground/10 bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md animate-fade-in opacity-0"
-                      style={{ animationDelay: `${idx * 100}ms` }}
-                    >
-                      {getAvatarUrl(s.user_id) ? (
-                        <img src={getAvatarUrl(s.user_id)} alt={name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-card" loading="lazy" decoding="async" />
-                      ) : (
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 ring-card">
-                          {name[0].toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="truncate text-[13px] font-semibold text-foreground">{name}</p>
-                        {s.hourly_rate > 0 && (
-                          <p className="text-[11px] font-medium text-emerald-700">€{s.hourly_rate}/hr</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-center text-xs text-muted-foreground">
-                Pick a category above to browse all freelancers
-              </p>
-            </>
-          ) : (
-            // Empty state. Weighted CTA hierarchy instead of two
-            // equal-size cards: hirer path (Vano Match — the revenue
-            // flow) gets the hero treatment, freelancer path drops to
-            // a quiet text link underneath. The old symmetric layout
-            // created choice paralysis for first-time hirer visitors,
-            // who are the ones we actually need to convert here.
-            <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-foreground/15 bg-muted/30 px-6 py-10 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Users size={20} strokeWidth={2} />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  The talent board is quiet right now.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Tell us what you need — €1 for an AI match in 20 seconds, or free hand-picked in 24h.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/hire')}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition hover:brightness-110 hover:shadow-lg active:scale-[0.98]"
-              >
-                <Sparkles size={14} strokeWidth={2.5} /> Start a Vano Match
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/profile')}
-                className="text-[11.5px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-              >
-                Or list yourself as a freelancer &rarr;
-              </button>
-            </div>
-          )}
-        </div>
+            <p className="text-sm font-medium text-foreground">
+              The talent board is quiet right now.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/hire')}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition hover:brightness-110 hover:shadow-lg active:scale-[0.98]"
+            >
+              <Sparkles size={14} strokeWidth={2.5} /> Start a Vano Match
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

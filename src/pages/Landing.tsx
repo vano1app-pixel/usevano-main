@@ -29,7 +29,6 @@ import { RequestFeatureLink } from '@/components/RequestFeatureLink';
 import { InteractiveButton } from '@/components/InteractiveButton';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
-import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 import { cn } from '@/lib/utils';
 import { prefetchHandlers } from '@/lib/prefetchRoute';
 
@@ -290,20 +289,13 @@ const Landing = () => {
         <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
-          {/* Vano Match eyebrow — "hand-picked for you" sells the
-              bespoke promise without naming the price. */}
           <div data-hero-eyebrow className="mb-5 flex justify-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              AI-matched in 20 seconds · or free hand-picked in 24h
+              Hand-picked freelancers
             </span>
           </div>
 
-          {/* Display type — drops the inline scale ladder for the
-              `display-xl` token in index.css. Same intent (semibold,
-              negative tracking, balanced wrap) but consistent across
-              every page. The italic second line is the emotional
-              landing that frames everything below. */}
           <div data-hero-title>
             <h1 className="display-xl mb-5 text-foreground sm:mb-6">
               <span className="inline-block">Any brief. Any budget.</span><br />
@@ -312,8 +304,8 @@ const Landing = () => {
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            No scrolling 40 gigs. No shortlists. Share your brief, pay <span className="tabular-nums">€1</span>, AI-matched in 20 seconds — or free hand-picked by Vano in 24h. Refunded if we can't find one.
+          <p data-hero-sub className="mx-auto mb-8 max-w-[42ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
+            Tell us what you need. We'll match you with the right freelancer — no scrolling, no shortlists.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -408,9 +400,8 @@ const Landing = () => {
             ) : null}
           </div>
             {studentsLoaded && featuredStudents.length > 0 && (
-              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-6">
+              <div data-hero-badge className="mt-6 flex justify-center">
                 <span className="inline-flex items-center gap-2">
-                  {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -419,10 +410,6 @@ const Landing = () => {
                     {featuredStudents.length} freelancers online now
                   </p>
                 </span>
-                {/* Social-proof counter. Self-gating: renders null until the
-                    RPC returns ≥3 so the platform doesn't advertise itself
-                    as dead when the table's empty. */}
-                <LiveMatchesCounter />
               </div>
             )}
         </div>
@@ -507,10 +494,7 @@ const Landing = () => {
             className="max-w-5xl lg:max-w-6xl mx-auto px-4 md:px-8 lg:px-12"
           >
             <div data-section-label className="flex items-end justify-between mb-4">
-              <div>
-                <span className="eyebrow">On VANO now</span>
-                <h2 className="mt-2 text-lg font-semibold tracking-tight text-foreground">Freelancers available today</h2>
-              </div>
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Available today</h2>
               <button
                 type="button"
                 onClick={() => navigate('/students')}
@@ -564,9 +548,8 @@ const Landing = () => {
                     )}
                   </div>
                   {featured.bio && (
-                    <p className="mt-1.5 text-[11px] text-muted-foreground truncate">
-                      {featured.bio.trim().split(' ').slice(0, 5).join(' ')}
-                      <span className="pointer-events-none select-none blur-[3px]"> {featured.bio.trim().split(' ').slice(5, 9).join(' ')}</span>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground line-clamp-1">
+                      {featured.bio.trim()}
                     </p>
                   )}
                 </div>
@@ -717,7 +700,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1 for an AI match in 20 seconds — or wait 24h for a free hand-pick by the Vano team. Refunded if we can't find a fit. You chat, agree a rate, and hire them directly.
+                  A marketplace for hand-picked freelancers. Tell us what you need and we match you with the right one. You chat, agree a rate, and hire them directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -725,15 +708,15 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or wait 24h for a free hand-pick by the Vano team. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
+                  Tap <em>Find my freelancer</em>, share a quick brief, and we'll send your match. Or browse the talent board by category and message anyone directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="why-vano" className="border-border/80 px-2">
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
-                  Why use Vano instead of just messaging someone directly?
+                  Why use Vano instead of messaging someone directly?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — we hand-pick a fit in 20 seconds (or 24h for a free pick). Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
+                  We hand-pick the right fit so you're not scrolling Fiverr or Instagram for hours. And Vano Pay holds the money safely until you say the work's done — so you're never paying up front to someone who might ghost.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="vano-pay" className="border-border/80 px-2">
@@ -741,7 +724,7 @@ const Landing = () => {
                   What's Vano Pay? What if the work isn't done?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Vano Pay is the safe-pay button inside your chat. Card details go through Stripe (Apple Pay / Google Pay too); the money is then held by Vano — not sent to the freelancer yet. When the work's delivered, you tap Release and it lands in their bank in 1–2 days. If it isn't delivered, tap Flag a problem during the hold window and you get a full refund. If you forget, we auto-release after 14 days (or 3 days after the agreed deadline) so the freelancer isn't left waiting.
+                  A safe-pay button inside your chat. Vano holds the money — not the freelancer. Tap Release when the work lands and it pays out in 1–2 days. If it doesn't land, flag it and get a refund.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="fees" className="border-border/80 px-2">
@@ -749,7 +732,7 @@ const Landing = () => {
                   What does it cost?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Browsing the talent board is free. Vano Match is €1 per AI pick (refunded if no fit). Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
+                  Browsing and direct hires are free. Vano Match is €1 per AI pick, refunded if there's no fit. Vano Pay adds 4% on each side when you choose the safe-pay option. No monthly fees.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2 border-b-0">
@@ -785,32 +768,23 @@ const Landing = () => {
                 doesn't read as a generic SaaS billboard. */}
             <div className="grain pointer-events-none absolute inset-0" />
             <h2 className="relative display-lg text-primary-foreground mb-4">
-              Your perfect match, hand-picked.
+              Ready when you are.
             </h2>
-            <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              <span className="tabular-nums">€1</span> for an AI match in 20 seconds, or free hand-picked by Vano in 24h. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
+            <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[40ch] mx-auto leading-relaxed text-balance">
+              Tell us what you need. We'll match you with the right freelancer.
             </p>
-            <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="relative flex justify-center">
               <InteractiveButton
                 burstType="confetti"
                 particleCount={35}
                 magneticStrength={0.4}
                 onClick={() => navigate('/hire')}
-                className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-semibold text-[15px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-primary-foreground/95 hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.4)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]"
+                className="group inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-semibold text-[15px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-primary-foreground/95 hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.4)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]"
               >
-                Find my freelancer — <span className="tabular-nums">€1</span>
+                Find my freelancer
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>
-              </InteractiveButton>
-              <InteractiveButton
-                burstType="sparkle"
-                particleCount={15}
-                magneticStrength={0.3}
-                onClick={handleFreelancerSignup}
-                className="w-full sm:w-auto px-7 py-3.5 border border-primary-foreground/25 text-primary-foreground rounded-full font-medium text-sm transition-all duration-200 hover:bg-primary-foreground/10 hover:border-primary-foreground/40 hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]"
-              >
-                Join as a freelancer
               </InteractiveButton>
             </div>
           </div>
