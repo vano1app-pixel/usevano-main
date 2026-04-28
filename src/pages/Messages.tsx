@@ -1324,21 +1324,26 @@ const Messages = () => {
                                     )}
                                   </p>
                                 )}
-                                {/* Fee split — the freelancer needs to
-                                     know what actually lands in their
-                                     bank (amount − Vano fee); the
-                                     hirer sees the same split so the
-                                     fee isn't a surprise on the
-                                     receipt after release. The "4%
-                                     each side" suffix flags the
-                                     split-fee model so neither party
-                                     thinks Vano took the whole 8%
-                                     out of one side. Kept tight +
-                                     mono so the two rows align. */}
+                                {/* Fee split — every receipt names
+                                     all three figures so the math is
+                                     self-evident from either side and
+                                     nobody reads "Vano fee €X" as
+                                     "Vano took it all from me". The
+                                     hirer sees their gross charge +
+                                     freelancer net + fee; the
+                                     freelancer sees their net + the
+                                     hirer's gross + fee. The third
+                                     number is always the difference
+                                     of the other two so the split
+                                     model speaks for itself without
+                                     needing a "(4% each side)" gloss
+                                     that wouldn't apply to legacy
+                                     single-side-fee rows. Kept tight +
+                                     mono so the columns align. */}
                                 <p className="mt-1 text-[11.5px] text-muted-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {isHirer
-                                    ? `Freelancer receives ${netEuro} · Vano fee ${feeEuro} (4% each side)`
-                                    : `You receive ${netEuro} · Vano fee ${feeEuro} (4% each side)`}
+                                    ? `You paid ${amountEuro} · Freelancer gets ${netEuro} · Vano fee ${feeEuro}`
+                                    : `You receive ${netEuro} · Hirer paid ${amountEuro} · Vano fee ${feeEuro}`}
                                 </p>
                                 <p className="mt-0.5 text-[11.5px] text-muted-foreground">
                                   {isHirer
