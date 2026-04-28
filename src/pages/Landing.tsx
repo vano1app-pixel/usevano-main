@@ -295,7 +295,7 @@ const Landing = () => {
           <div data-hero-eyebrow className="mb-5 flex justify-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              AI-matched in 20 seconds · or free hand-picked in 24h
+              Matched in 20 seconds · or free in 24h
             </span>
           </div>
 
@@ -360,7 +360,7 @@ const Landing = () => {
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  €1 for an AI match in 20 seconds, or free hand-picked in 24h. Refunded if we can't find a fit.
+                  €1 to get matched in 20 seconds. Or free in 24h.
                 </p>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
@@ -788,7 +788,7 @@ const Landing = () => {
               Your perfect match, hand-picked.
             </h2>
             <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              <span className="tabular-nums">€1</span> for an AI match in 20 seconds, or free hand-picked by Vano in 24h. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
+              Tell us what you need. Matched in 20 seconds for <span className="tabular-nums">€1</span>, or free in 24h.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -827,7 +827,7 @@ const Landing = () => {
                 <span className="text-xl font-bold text-foreground">VANO</span>
               </div>
               <p className="text-base text-muted-foreground max-w-xs lg:max-w-sm leading-relaxed">
-                Connecting businesses with trusted freelancers, anywhere. Fast and simple.
+                Find freelancers. Hire them. Anywhere.
               </p>
             </div>
 
