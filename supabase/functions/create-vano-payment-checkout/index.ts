@@ -258,6 +258,27 @@ serve(async (req) => {
       if (agreedPriceCents !== targetBonus) {
         return bad(400, 'Milestone amount does not match the configured bonus');
       }
+      // Race guard: refuse a second checkout for the same milestone
+      // while one is already in flight. Without this, a hirer who
+      // taps Pay then closes/reopens the page mid-redirect could
+      // create two Stripe sessions for the same milestone — both
+      // would settle, the trigger would advance the cycle twice,
+      // and the hirer would be double-charged. The narrow window
+      // makes this rare but not impossible. The "in flight" set
+      // is anything in awaiting_payment OR paid (held) state for
+      // this conversation flagged as a milestone payment; once the
+      // payment transfers (or is refunded/cancelled) the gate
+      // releases for the next cycle.
+      const { data: inflight } = await supabase
+        .from('vano_payments')
+        .select('id, status')
+        .eq('conversation_id', conversationId)
+        .eq('is_sales_milestone_payment', true)
+        .in('status', ['awaiting_payment', 'paid'])
+        .limit(1);
+      if (inflight && inflight.length > 0) {
+        return bad(409, 'A milestone payment is already in flight for this conversation');
+      }
       amountCents = agreedPriceCents;
       feeCents = Math.max(1, Math.round((amountCents * VANO_PAY_LEGACY_FEE_BPS) / 10000));
     } else if (salesDealId) {

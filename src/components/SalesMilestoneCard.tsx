@@ -126,6 +126,8 @@ export function SalesMilestoneCard({
             ? 'Your sign-in expired — please sign in again.'
           : message.includes('No milestone is currently due')
             ? 'This milestone has already been paid or retracted. Refresh the chat.'
+          : message.includes('already in flight')
+            ? 'You already started paying this milestone — check your other tab or wait for the redirect.'
           : message.includes('not enabled Vano Pay')
             ? 'The freelancer needs to enable Vano Pay first. Ask them to set it up in their profile.'
           : 'Please try again in a moment.',
