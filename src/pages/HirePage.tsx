@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
 import { PreviousMatchesPanel } from '@/components/PreviousMatchesPanel';
+import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isEmailVerified } from '@/lib/authSession';
@@ -1127,6 +1128,12 @@ const HirePage = () => {
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
           €1 now for an AI match in 20 seconds, or free hand-picked by Vano in 24h. Refunded if we don't find one.
         </p>
+        {/* Social proof at the moment of decision — self-gates if recent
+             match count < 3, so quiet weeks render nothing rather than a
+             dead-platform signal. */}
+        <div className="mt-3">
+          <LiveMatchesCounter />
+        </div>
       </header>
 
       {/* Persistent resume chip. The "Welcome back" toast disappears in a

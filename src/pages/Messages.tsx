@@ -1274,7 +1274,7 @@ const Messages = () => {
                         className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition-colors hover:brightness-110"
                       >
                         <Banknote size={12} strokeWidth={2.5} />
-                        Pay via Vano
+                        Pay safely via Vano
                       </button>
                     ) : otherPayoutsEnabled === false ? (
                       <button
