@@ -408,20 +408,13 @@ const Landing = () => {
             ) : null}
           </div>
             {studentsLoaded && featuredStudents.length > 0 && (
-              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-6">
-                <span className="inline-flex items-center gap-2">
-                  {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
-                  <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  </span>
-                  <p className="text-xs font-medium text-muted-foreground">
+              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-6">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <p className="text-[11px] text-muted-foreground">
                     {featuredStudents.length} freelancers online now
                   </p>
                 </span>
-                {/* Social-proof counter. Self-gating: renders null until the
-                    RPC returns ≥3 so the platform doesn't advertise itself
-                    as dead when the table's empty. */}
                 <LiveMatchesCounter />
               </div>
             )}
@@ -534,7 +527,7 @@ const Landing = () => {
             {studentsLoaded && featured && (
               <button
                 type="button"
-                onClick={() => navigate(`/students/${featured.user_id}`)}
+                onClick={() => navigate(session ? '/students' : '/auth')}
                 data-featured-card
                 className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
               >
@@ -781,9 +774,6 @@ const Landing = () => {
                   'radial-gradient(70% 50% at 78% 18%, hsl(45 100% 80% / 0.18), transparent 60%)',
               }}
             />
-            {/* Subtle grain — breaks the flat blue plane so the CTA
-                doesn't read as a generic SaaS billboard. */}
-            <div className="grain pointer-events-none absolute inset-0" />
             <h2 className="relative display-lg text-primary-foreground mb-4">
               Your perfect match, hand-picked.
             </h2>
