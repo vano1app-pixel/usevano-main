@@ -5,10 +5,12 @@ import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ReviewForm } from '@/components/ReviewForm';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star, TrendingUp, CalendarDays } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star, TrendingUp, CalendarDays, Target } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
 import { BusinessDealsPanel } from '@/components/BusinessDealsPanel';
+import { SetTargetModal } from '@/components/SetTargetModal';
+import { SalesMilestoneCard } from '@/components/SalesMilestoneCard';
 import { VANO_PAY_VISIBLE } from '@/lib/featureFlags';
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import {
@@ -33,6 +35,22 @@ interface Conversation {
   updated_at: string;
   /** Set when this conversation is part of a multi-send broadcast. NULL for normal 1:1s. */
   broadcast_id?: string | null;
+  /** Target-based commission rule for digital-sales engagements.
+   *  When sales_target_count + sales_target_bonus_cents are both set,
+   *  the conversation is on the "every X deals = €Y" model: closed_won
+   *  deals roll up into a single milestone payout instead of paying
+   *  per-deal. NULL on every other conversation. See migration
+   *  20260428130000_sales_milestones.sql for the math. */
+  sales_target_count?: number | null;
+  sales_target_bonus_cents?: number | null;
+  /** Cumulative deals already covered by previous milestone payouts.
+   *  Drives the unpaid-cycle progress: count(closed_won) - paid_count. */
+  sales_target_paid_count?: number | null;
+  /** True between "milestone card dropped" and "milestone payout
+   *  transferred". Stops the trigger from firing a second card while
+   *  one is in flight. Cleared by handle_milestone_payout DB trigger. */
+  sales_target_milestone_pending?: boolean | null;
+  sales_target_set_at?: string | null;
   otherUserId?: string;
   otherName?: string;
   otherAvatar?: string | null;
@@ -66,6 +84,16 @@ interface Message {
   created_at: string;
   image_url?: string | null;
   optimistic?: boolean;
+  /** Discriminator for system-rendered cards. NULL = ordinary chat
+   *  bubble. ''sales_milestone'' = target-based commission milestone
+   *  card. Generic so we can add more card types later without
+   *  another migration. */
+  kind?: string | null;
+  /** Card-specific structured data. For sales_milestone:
+   *  { target_count, bonus_cents, deal_ids: [..] } captured at
+   *  trigger-fire time so the card renders consistently even if a
+   *  deal is later moved out of closed_won. */
+  metadata?: Record<string, unknown> | null;
 }
 
 const TypingIndicator = () => (
@@ -165,6 +193,11 @@ const Messages = () => {
   const [hireAgreement, setHireAgreement] = useState<{ id: string; business_id: string; freelancer_id: string; created_at: string } | null>(null);
   const [hiringInProgress, setHiringInProgress] = useState(false);
   const [vanoPayOpen, setVanoPayOpen] = useState(false);
+  // Target-based commission modal — set / re-edit the
+  // "every X deals = €Y" rule for the active digital-sales
+  // conversation. Either party can set/adjust; the conversations
+  // RLS policy already permits participant updates.
+  const [setTargetOpen, setSetTargetOpen] = useState(false);
 
   // Held / released / refunded Vano Pay rows for the active thread.
   // Drives the in-thread payment receipt banner so both parties can
@@ -1181,6 +1214,52 @@ const Messages = () => {
                   {hireAgreement && (
                     <StatusChip tone="success" icon={BadgeCheck} className="shrink-0">Hired</StatusChip>
                   )}
+                  {/* Commission target — only relevant on digital-sales
+                       conversations. When unset, both parties see a
+                       muted "Set target" pill so either can propose the
+                       rule. When set, a primary-tinted chip shows
+                       "🎯 N deals · €X" so the engagement terms are
+                       glanceable from the header; tapping it opens the
+                       same modal so they can adjust mid-flight. The
+                       modal writes straight to the conversation row;
+                       the chip refreshes from a follow-up
+                       loadConversations call so a stale cache doesn't
+                       linger. */}
+                  {selectedConversation
+                    && user
+                    && otherCategory === 'digital_sales'
+                    && otherUserType === 'student'
+                    && (
+                      selectedConversation.sales_target_count != null
+                        && selectedConversation.sales_target_bonus_cents != null
+                      ? (
+                        <button
+                          type="button"
+                          onClick={() => setSetTargetOpen(true)}
+                          title="Adjust the commission target"
+                          className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary transition-colors hover:bg-primary/15"
+                          style={{ fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          <Target size={11} strokeWidth={2.75} />
+                          {selectedConversation.sales_target_count} {selectedConversation.sales_target_count === 1 ? 'deal' : 'deals'}
+                          <span className="text-primary/70">·</span>
+                          €{((selectedConversation.sales_target_bonus_cents ?? 0) / 100).toLocaleString('en-IE', {
+                            minimumFractionDigits: (selectedConversation.sales_target_bonus_cents ?? 0) % 100 === 0 ? 0 : 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setSetTargetOpen(true)}
+                          title="Agree how the bonus is paid (every X deals = €Y)"
+                          className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-[11px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                          <Target size={11} strokeWidth={2.5} />
+                          Set commission target
+                        </button>
+                      )
+                    )}
                   {/* Pay via Vano — only makes sense for businesses
                       paying freelancers whose Stripe Connect account is
                       ready. The modal still re-validates server-side,
@@ -1553,6 +1632,25 @@ const Messages = () => {
                 {/* Messages */}
                 <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
                   {messages.map((msg) => {
+                    // System cards (kind != null) render as full-width
+                    // interactive surfaces instead of left/right bubbles.
+                    // Currently: 'sales_milestone'. Future: any other
+                    // structured-card kind we add to the messages table.
+                    if (msg.kind === 'sales_milestone') {
+                      return (
+                        <SalesMilestoneCard
+                          key={msg.id}
+                          message={msg}
+                          conversationId={selectedConversation?.id ?? null}
+                          isHirer={selectedConversation
+                            ? selectedConversation.participant_1 === user?.id
+                              || selectedConversation.participant_2 === user?.id
+                              ? viewerUserType === 'business'
+                              : false
+                            : false}
+                        />
+                      );
+                    }
                     const isMine = msg.sender_id === user?.id;
                     return (
                       <div key={msg.id} className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
@@ -1712,6 +1810,25 @@ const Messages = () => {
           onClose={() => setVanoPayOpen(false)}
           conversationId={selectedConversation.id}
           freelancerName={selectedConversation.otherName || 'this freelancer'}
+        />
+      )}
+
+      {/* Set / adjust the target-based commission rule. Refreshes the
+           conversations list on save so the header chip flips from
+           "Set commission target" to "🎯 3 deals · €1,500" without a
+           manual reload. Keyed on the selected conversation id so
+           switching threads while it's open resets cleanly. */}
+      {selectedConversation && (
+        <SetTargetModal
+          key={`target-${selectedConversation.id}`}
+          open={setTargetOpen}
+          onClose={() => setSetTargetOpen(false)}
+          conversationId={selectedConversation.id}
+          initialCount={selectedConversation.sales_target_count ?? null}
+          initialBonusCents={selectedConversation.sales_target_bonus_cents ?? null}
+          onSaved={() => {
+            if (user) void loadConversations(user.id);
+          }}
         />
       )}
 

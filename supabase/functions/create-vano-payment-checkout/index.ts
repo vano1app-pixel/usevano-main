@@ -137,6 +137,16 @@ serve(async (req) => {
     // reference on both sides (no FK) so a deleted deal doesn't
     // cascade-block a legitimate payment that's already in flight.
     const salesDealId = typeof body?.sales_deal_id === 'string' ? body.sales_deal_id : null;
+    // Target-based milestone payment marker. When true, the checkout
+    // is paying out a "every X deals = €Y" milestone for the given
+    // conversation rather than a per-deal bonus or a regular Vano Pay
+    // payment. Validated below: the conversation must have a target
+    // configured AND a pending milestone, and the agreed price must
+    // match the configured bonus exactly. Stamps
+    // is_sales_milestone_payment on the row so the
+    // handle_milestone_payout DB trigger can advance the cycle when
+    // the transfer settles.
+    const fromMilestone = body?.from_milestone === true;
 
     if (!conversationId) return bad(400, 'conversation_id is required');
     if (!rawAgreedPriceCents || rawAgreedPriceCents < MIN_AMOUNT_CENTS) {
@@ -152,10 +162,13 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Resolve the conversation: who are the two participants?
+    // Resolve the conversation: who are the two participants? Pull
+    // the target columns too so milestone payments can validate
+    // against them without a second round-trip. The columns are
+    // nullable for non-engagement conversations, which is fine.
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('id, participant_1, participant_2')
+      .select('id, participant_1, participant_2, sales_target_count, sales_target_bonus_cents, sales_target_milestone_pending')
       .eq('id', conversationId)
       .maybeSingle();
 
@@ -201,28 +214,53 @@ serve(async (req) => {
       );
     }
 
-    // Two fee models, branched on whether this is a sales-deal bonus
-    // payout vs. a regular client → freelancer payment:
+    // Three fee paths, branched on the kind of payment:
     //
-    //   - Sales bonus (sales_deal_id present): legacy single-side
-    //     fee. The bonus_amount_cents the BusinessDealsPanel sends is
-    //     already the agreed gross to the rep; we charge that exactly
-    //     to the hirer and take 3% off the rep's payout. No gross-up,
-    //     so the "Pay €500 bonus" button stays honest at Stripe.
+    //   - Target-based milestone (from_milestone=true): pays the
+    //     conversation's configured bonus_cents. Validates the
+    //     conversation actually has a pending milestone so we can't
+    //     accidentally drain a bonus that hasn't been earned. Uses
+    //     legacy 3% single-side fee like the per-deal sales path —
+    //     a milestone is just a batched-up sales bonus.
     //
-    //   - Regular Vano Pay (no sales_deal_id): split 4% / 4% on the
+    //   - Per-deal sales bonus (sales_deal_id present): legacy single
+    //     -side 3% fee. The bonus_amount_cents the BusinessDealsPanel
+    //     sends is already the agreed gross to the rep.
+    //
+    //   - Regular Vano Pay (neither marker set): split 4% / 4% on the
     //     AGREED price. Server grosses up by 4% so the hirer pays
     //     agreed + 4%; the rep receives agreed − 4%; Vano keeps 8%
     //     total. This is the model surfaced in VanoPayModal.
     //
-    // Both branches preserve the row invariant
+    // All three branches preserve the row invariant
     //   amount_cents − fee_cents = freelancer_payout
     // so release-vano-payment, auto-release-held-payments, the spend
     // / earnings panels, and the in-thread receipt copy keep working
     // unchanged regardless of which model produced the row.
     let amountCents: number;
     let feeCents: number;
-    if (salesDealId) {
+    if (fromMilestone) {
+      // Refuse if the conversation has no target configured or no
+      // pending milestone — the user can't pay a milestone that
+      // hasn't fired yet, and they can't pay a stale one twice.
+      const targetCount = (conversation as { sales_target_count?: number | null }).sales_target_count;
+      const targetBonus = (conversation as { sales_target_bonus_cents?: number | null }).sales_target_bonus_cents;
+      const pending = (conversation as { sales_target_milestone_pending?: boolean | null }).sales_target_milestone_pending;
+      if (!targetCount || !targetBonus) {
+        return bad(409, 'No commission target set on this conversation');
+      }
+      if (!pending) {
+        return bad(409, 'No milestone is currently due');
+      }
+      // The agreed price the modal sends MUST match the configured
+      // bonus — protects against tampering or a stale client showing
+      // an old bonus number.
+      if (agreedPriceCents !== targetBonus) {
+        return bad(400, 'Milestone amount does not match the configured bonus');
+      }
+      amountCents = agreedPriceCents;
+      feeCents = Math.max(1, Math.round((amountCents * VANO_PAY_LEGACY_FEE_BPS) / 10000));
+    } else if (salesDealId) {
       amountCents = agreedPriceCents;
       feeCents = Math.max(1, Math.round((amountCents * VANO_PAY_LEGACY_FEE_BPS) / 10000));
     } else {
@@ -264,6 +302,13 @@ serve(async (req) => {
       // matching sales_deals.bonus_status to 'paid' once this
       // payment reaches the `transferred` state.
       paymentRow.sales_deal_id = salesDealId;
+    }
+    if (fromMilestone) {
+      // Marks the row as a target-based milestone payout so the
+      // handle_milestone_payout DB trigger advances the conversation
+      // cycle (paid_count += target_count, pending = false) when the
+      // transfer settles.
+      paymentRow.is_sales_milestone_payment = true;
     }
 
     const { data: inserted, error: insertError } = await supabase

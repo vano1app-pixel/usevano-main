@@ -728,6 +728,30 @@ const Landing = () => {
                   Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or wait 24h for a free hand-pick by the Vano team. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
                 </AccordionContent>
               </AccordionItem>
+              <AccordionItem value="why-vano" className="border-border/80 px-2">
+                <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
+                  Why use Vano instead of just messaging someone directly?
+                </AccordionTrigger>
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
+                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — we hand-pick a fit in 20 seconds (or 24h for a free pick). Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="vano-pay" className="border-border/80 px-2">
+                <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
+                  What's Vano Pay? What if the work isn't done?
+                </AccordionTrigger>
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
+                  Vano Pay is the safe-pay button inside your chat. Card details go through Stripe (Apple Pay / Google Pay too); the money is then held by Vano — not sent to the freelancer yet. When the work's delivered, you tap Release and it lands in their bank in 1–2 days. If it isn't delivered, tap Flag a problem during the hold window and you get a full refund. If you forget, we auto-release after 14 days (or 3 days after the agreed deadline) so the freelancer isn't left waiting.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="fees" className="border-border/80 px-2">
+                <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
+                  What does it cost?
+                </AccordionTrigger>
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
+                  Browsing the talent board is free. Vano Match is €1 per AI pick (refunded if no fit). Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
+                </AccordionContent>
+              </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2 border-b-0">
                 <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline py-4">
                   Is VANO only for Galway?

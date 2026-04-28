@@ -956,7 +956,11 @@ const HirePage = () => {
         {[
           { icon: Sparkles, label: 'Hand-picked', sub: 'One perfect match' },
           { icon: Zap, label: '60-second match', sub: 'Not 60 applications' },
-          { icon: ShieldCheck, label: 'Pay safely', sub: 'Held until released' },
+          // Tightened from "Held until released" — that was jargon to a
+          // first-time hirer. The new sub-line says what the protection
+          // actually does in 4 words. Full mechanics still live in the
+          // VanoPayModal trust strip + the Landing FAQ.
+          { icon: ShieldCheck, label: 'Pay safely', sub: 'Refund if not done' },
         ].map(v => (
           <div key={v.label} className="flex flex-col items-center text-center gap-2 rounded-2xl border border-foreground/4 bg-foreground/[0.015] px-2.5 py-4 sm:py-5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/8">
