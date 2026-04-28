@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw, CalendarDays } from 'lucide-react';
+import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw, CalendarDays, Plus } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,12 @@ export function VanoPayModal({
   // due rather than waiting the flat 14 days. See
   // computeAutoReleaseMs for the exact logic.
   const [deadline, setDeadline] = useState('');
+  // Description + deadline are collapsed behind a single "Add details"
+  // toggle so the default modal is just price → breakdown → Pay (the
+  // 80%-case "tap and pay" flow). Power users tap to expand. Note +
+  // deadline are independent fields but share one expander since both
+  // are optional context for the same payment.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Reset fields when the modal opens so a previous aborted payment
@@ -60,6 +66,7 @@ export function VanoPayModal({
       setAgreedPrice('');
       setDescription('');
       setDeadline('');
+      setDetailsOpen(false);
       setSubmitting(false);
     }
   }, [open]);
@@ -260,49 +267,62 @@ export function VanoPayModal({
             </div>
           </div>
 
-          {/* Optional note — visually quieter so it reads as optional. */}
-          <div className="mt-3">
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What's this for? (optional)"
-              maxLength={200}
-              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
-            />
-          </div>
-
-          {/* Optional deadline — controls when the auto-release timer
-              fires if the hirer never taps Release manually. Without
-              a deadline it's a flat 14-day hold; with a deadline,
-              auto-release fires ~3 days after the deadline (clamped
-              to a 48h floor + 30d ceiling). The hirer can always
-              release earlier; this is just the passive-ghost timer.
-              Native <input type="date"> keeps the modal lightweight
-              and gives us mobile-friendly pickers for free. */}
-          <div className="mt-3">
-            <label
-              htmlFor="vano-pay-deadline"
-              className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+          {/* Optional details (note + deadline) — collapsed behind a
+              single toggle so the default modal stays a tap-and-pay
+              flow. The 80% case is "type amount, see split, pay";
+              hirers who want to label the payment or set a delivery
+              deadline tap to expand. Once expanded we don't auto-
+              collapse, so the user can tweak both fields freely
+              before submitting. */}
+          {!detailsOpen ? (
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(true)}
+              className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              <CalendarDays size={11} strokeWidth={2.25} />
-              Deadline (optional)
-            </label>
-            <input
-              id="vano-pay-deadline"
-              type="date"
-              value={deadline}
-              min={todayLocalIso}
-              onChange={(e) => setDeadline(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            />
-            <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground/85">
-              {deadlineMs
-                ? `Auto-release ${autoReleaseLabel} — 3 days after the deadline so you have time to review.`
-                : `No deadline set — auto-release ${autoReleaseLabel} (14 days). Add a deadline to pay the freelancer sooner.`}
-            </p>
-          </div>
+              <Plus size={11} strokeWidth={2.5} />
+              Add a note or deadline
+            </button>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What's this for? (optional)"
+                maxLength={200}
+                className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+              />
+              {/* Native <input type="date"> keeps the modal lightweight
+                  and gives us mobile-friendly pickers for free. The
+                  preview line below the input shows the resulting
+                  auto-release date so the hirer can see exactly when
+                  the freelancer would be auto-paid. */}
+              <div>
+                <label
+                  htmlFor="vano-pay-deadline"
+                  className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+                >
+                  <CalendarDays size={11} strokeWidth={2.25} />
+                  Deadline (optional)
+                </label>
+                <input
+                  id="vano-pay-deadline"
+                  type="date"
+                  value={deadline}
+                  min={todayLocalIso}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                />
+                <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground/85">
+                  {deadlineMs
+                    ? `Auto-release ${autoReleaseLabel} — 3 days after the deadline so you have time to review.`
+                    : `Without a deadline, auto-release is ${autoReleaseLabel} (14 days). Add one to pay the freelancer sooner.`}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Breakdown — three rows that make the 4%/4% split obvious.
               "You pay" is the gross hirer charge (agreed + 4%);
@@ -394,8 +414,14 @@ export function VanoPayModal({
             )}
           </button>
 
-          <p className="mt-3 text-center text-[11px] text-muted-foreground">
-            Secure Stripe checkout · card never touches Vano
+          {/* Footer hint — flags Apple Pay / Google Pay so users on
+              modern devices know they don't have to type card details.
+              Stripe Checkout auto-enables both for EUR; we just have
+              to surface that they exist. The PCI assurance ("card
+              never touches Vano") stays on a second line so the trust
+              signal isn't lost. */}
+          <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
+            Apple Pay, Google Pay, or card · card never touches Vano
           </p>
         </div>
       </div>
