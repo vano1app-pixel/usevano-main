@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, LogOut, User as UserIcon, LayoutDashboard, Banknote, Shield } from 'lucide-react';
+import { LogOut, User as UserIcon, LayoutDashboard, Banknote, Shield } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useQueryClient } from '@tanstack/react-query';
@@ -222,8 +222,6 @@ export const Navbar: React.FC = () => {
                 </button>
               );
             })}
-            <div className="w-px h-5 bg-border/60 mx-1.5" />
-
             {user && (
               <Link
                 to="/messages"
@@ -259,23 +257,13 @@ export const Navbar: React.FC = () => {
                     type="button"
                     aria-label="Account menu"
                     className={cn(
-                      "ml-1 inline-flex items-center gap-1 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all duration-150",
+                      "ml-1 flex h-9 w-9 items-center justify-center rounded-full transition-colors",
                       avatarRouteActive
-                        ? "text-primary bg-primary/10"
-                        : "text-foreground/65 hover:text-foreground hover:bg-foreground/[0.04]",
+                        ? "bg-primary/15 text-primary"
+                        : "bg-foreground/[0.06] text-foreground/70 hover:bg-foreground/[0.1] hover:text-foreground",
                     )}
                   >
-                    <span
-                      className={cn(
-                        "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
-                        avatarRouteActive
-                          ? "bg-primary/15 text-primary"
-                          : "bg-foreground/[0.06] text-foreground/70",
-                      )}
-                    >
-                      <UserIcon size={14} strokeWidth={2.25} />
-                    </span>
-                    <ChevronDown size={12} strokeWidth={2.5} className="opacity-60" />
+                    <UserIcon size={15} strokeWidth={2.25} />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent

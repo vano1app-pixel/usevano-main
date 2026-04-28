@@ -423,10 +423,10 @@ const Landing = () => {
           <span className="eyebrow mb-5">What do you need</span>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             {[
-              { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' as string | null },
-              { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-digital_sales.png' as string | null },
-              { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' as string | null },
-              { label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
+              { label: 'Videography', icon: Video, cat: 'videography', image: '/cat-videography.png' as string | null },
+              { label: 'Digital Sales', icon: TrendingUp, cat: 'digital_sales', image: '/cat-digital_sales.png' as string | null },
+              { label: 'Website Design', icon: Monitor, cat: 'websites', image: '/cat-websites.png' as string | null },
+              { label: 'Content Creation', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
             ].map((item) => {
               // Image paths derived from the naming convention used in /public.
               // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.
@@ -476,10 +476,7 @@ const Landing = () => {
                       <item.icon size={18} className="transition-colors duration-200 text-white group-hover:text-white md:hidden" strokeWidth={2} />
                       <item.icon size={22} className="transition-colors duration-200 text-white group-hover:text-white hidden md:block" strokeWidth={2} />
                     </div>
-                    <div>
-                      <p className="text-[13px] md:text-[15px] font-bold text-white leading-snug drop-shadow-sm">{item.label}</p>
-                      <p className="text-[11px] md:text-[13px] text-white/80 mt-0.5 leading-snug">{item.sub}</p>
-                    </div>
+                    <p className="text-[14px] md:text-[16px] font-bold text-white leading-snug drop-shadow-sm">{item.label}</p>
                   </div>
                 </button>
               );
@@ -752,21 +749,6 @@ const Landing = () => {
       <section data-section-cta className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
           <div data-cta-box className="relative overflow-hidden rounded-[28px] bg-primary px-5 py-12 sm:px-10 sm:py-16 lg:px-20 lg:py-20 text-center shadow-primary-glow">
-            {/* Single radial mesh light source — replaces two competing
-                blur orbs. Off-axis (top-right) suggests a single sun
-                without the symmetrical "two-orb" AI tic. */}
-            <div
-              data-cta-orb
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(70% 50% at 78% 18%, hsl(45 100% 80% / 0.18), transparent 60%)',
-              }}
-            />
-            {/* Subtle grain — breaks the flat blue plane so the CTA
-                doesn't read as a generic SaaS billboard. */}
-            <div className="grain pointer-events-none absolute inset-0" />
             <h2 className="relative display-lg text-primary-foreground mb-4">
               Ready when you are.
             </h2>

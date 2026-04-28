@@ -216,9 +216,7 @@ export const MobileBottomNav: React.FC = () => {
 
   return (
     <>
-      {/* Gradient scrim */}
-      <div className="pointer-events-none fixed bottom-[3.25rem] left-0 right-0 z-[1999] h-16 bg-gradient-to-t from-background via-background/60 to-transparent md:hidden" />
-      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/25 bg-card/75 backdrop-blur-2xl backdrop-saturate-[1.2] md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-[2000] safe-area-bottom border-t border-border/40 bg-card/85 backdrop-blur-2xl backdrop-saturate-[1.2] md:hidden">
         <div className="mx-auto flex max-w-lg items-stretch justify-around px-1.5 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom,0px))]">
           {navItems.map(({ label, icon: Icon, href }) => {
             const active = isActive(href);

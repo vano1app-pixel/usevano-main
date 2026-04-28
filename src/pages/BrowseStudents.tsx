@@ -10,14 +10,13 @@ import { type CommunityCategoryId } from '@/lib/communityCategories';
 const TALENT_HUB_CATEGORIES: {
   cat: CommunityCategoryId;
   label: string;
-  sub: string;
   icon: typeof Monitor;
   image?: string;
 }[] = [
-  { cat: 'digital_sales', label: 'Digital Sales',   sub: 'Outbound, lead gen & closing', icon: TrendingUp, image: '/cat-digital_sales.png' },
-  { cat: 'videography',  label: 'Videography',    sub: 'Filming, reels & promos',     icon: Video,     image: '/cat-videography.png' },
-  { cat: 'websites',     label: 'Website Design',  sub: 'Get a site built or fixed',   icon: Monitor,   image: '/cat-websites.png' },
-  { cat: 'social_media', label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, image: '/cat-social_media.png' },
+  { cat: 'digital_sales', label: 'Digital Sales',    icon: TrendingUp, image: '/cat-digital_sales.png' },
+  { cat: 'videography',   label: 'Videography',      icon: Video,      image: '/cat-videography.png' },
+  { cat: 'websites',      label: 'Website Design',   icon: Monitor,    image: '/cat-websites.png' },
+  { cat: 'social_media',  label: 'Content Creation', icon: Megaphone,  image: '/cat-social_media.png' },
 ];
 
 const CAT_KEYWORDS: Record<CommunityCategoryId, string[]> = {
@@ -149,10 +148,7 @@ const BrowseStudents = () => {
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
                     <Icon size={22} strokeWidth={2} className="text-white" />
                   </div>
-                  <div>
-                    <p className="text-[15px] font-bold leading-snug text-white drop-shadow-sm">{item.label}</p>
-                    <p className="mt-0.5 text-xs leading-snug text-white/90 font-medium drop-shadow-sm">{item.sub}</p>
-                  </div>
+                  <p className="text-[16px] font-bold leading-snug text-white drop-shadow-sm">{item.label}</p>
                 </div>
                 {/* Freelancer count — bottom left pill */}
                 {!loading && count > 0 && (
