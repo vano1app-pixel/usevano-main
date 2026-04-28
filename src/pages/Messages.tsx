@@ -5,7 +5,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ReviewForm } from '@/components/ReviewForm';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star, TrendingUp } from 'lucide-react';
+import { MessageCircle, Send, Image, Check, CheckCheck, Mail, Phone, Instagram, SquarePen, Search, BadgeCheck, Loader2, Banknote, Sparkles, ArrowRight, ShieldCheck, AlertTriangle, RotateCcw, Star, TrendingUp, CalendarDays } from 'lucide-react';
 import { createHireAgreement, getActiveHireAgreement, HireAgreementError } from '@/lib/hireAgreement';
 import { VanoPayModal } from '@/components/VanoPayModal';
 import { BusinessDealsPanel } from '@/components/BusinessDealsPanel';
@@ -180,6 +180,12 @@ const Messages = () => {
     currency: string;
     status: 'awaiting_payment' | 'paid' | 'transferred' | 'failed' | 'refunded';
     auto_release_at: string | null;
+    /** Optional hirer-supplied delivery deadline (ISO timestamp).
+     *  When set, the receipt card shows a "Due [date]" tag so both
+     *  parties have the agreed deadline visible alongside the
+     *  amount. Null on rows where the hirer didn't set one (default
+     *  flat 14-day hold). */
+    deadline_at: string | null;
     released_at: string | null;
     refunded_at: string | null;
     dispute_reason: string | null;
@@ -398,7 +404,7 @@ const Messages = () => {
     const load = async () => {
       const { data } = await supabase
         .from('vano_payments')
-        .select('id, business_id, freelancer_id, amount_cents, fee_cents, currency, status, auto_release_at, released_at, refunded_at, dispute_reason, description, sales_deal_id, created_at')
+        .select('id, business_id, freelancer_id, amount_cents, fee_cents, currency, status, auto_release_at, deadline_at, released_at, refunded_at, dispute_reason, description, sales_deal_id, created_at')
         .eq('conversation_id', selectedConvo)
         .in('status', ['paid', 'transferred', 'refunded'])
         .order('created_at', { ascending: false });
@@ -1285,12 +1291,32 @@ const Messages = () => {
                                 <p className="text-[13.5px] font-semibold text-foreground" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {amountEuro} <span className="font-medium text-muted-foreground">held on Vano</span>
                                 </p>
-                                {(p.description || p.sales_deal_id) && (
+                                {(p.description || p.sales_deal_id || p.deadline_at) && (
                                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground">
                                     {p.sales_deal_id && (
                                       <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                                         <TrendingUp size={9} strokeWidth={2.75} />
                                         Bonus
+                                      </span>
+                                    )}
+                                    {p.deadline_at && (
+                                      // Hirer-supplied deadline pill —
+                                      // surfaces the agreed delivery
+                                      // date so both parties have it
+                                      // visible on the receipt without
+                                      // having to scroll back through
+                                      // the chat. Drives the auto-
+                                      // release timer (deadline + 72h
+                                      // grace, clamped to a 48h floor /
+                                      // 30d ceiling) computed in the
+                                      // stripe-webhook handler when
+                                      // the row entered 'paid' state.
+                                      <span
+                                        title={`Auto-releases ~3 days after this date if not released manually.`}
+                                        className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300"
+                                      >
+                                        <CalendarDays size={9} strokeWidth={2.75} />
+                                        Due {new Date(p.deadline_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                                       </span>
                                     )}
                                     {p.description && (

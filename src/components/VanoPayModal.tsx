@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw } from 'lucide-react';
+import { X, Loader2, ShieldCheck, ArrowRight, Lock, Check, RotateCcw, CalendarDays } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { computeVanoPaySplit, useVanoPayConfig } from '@/lib/vanoPayConfig';
+import { computeAutoReleaseMs, computeVanoPaySplit, useVanoPayConfig } from '@/lib/vanoPayConfig';
 import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 
 // Business-side modal for initiating a Vano Pay payment inside a
@@ -44,6 +44,13 @@ export function VanoPayModal({
   const freelancerFeePercent = formatPercent(freelancerFeeBps);
   const [agreedPrice, setAgreedPrice] = useState('');
   const [description, setDescription] = useState('');
+  // Optional delivery deadline (YYYY-MM-DD from <input type="date">).
+  // When set, the server stamps it on the row and the webhook computes
+  // auto_release_at as deadline + 72h grace (clamped 48h floor / 30d
+  // ceiling) so the freelancer gets paid shortly after the work is
+  // due rather than waiting the flat 14 days. See
+  // computeAutoReleaseMs for the exact logic.
+  const [deadline, setDeadline] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Reset fields when the modal opens so a previous aborted payment
@@ -52,6 +59,7 @@ export function VanoPayModal({
     if (open) {
       setAgreedPrice('');
       setDescription('');
+      setDeadline('');
       setSubmitting(false);
     }
   }, [open]);
@@ -76,6 +84,46 @@ export function VanoPayModal({
   const split = computeVanoPaySplit(agreedCents, config);
   const { amountCents, feeCents, freelancerCents } = split;
   const canSubmit = agreedCents >= minCents && !submitting;
+
+  // Today, in YYYY-MM-DD local time — used as the min for the date
+  // input so the picker greys out past days. Computed inline rather
+  // than memoised because the modal lifetime is short and the cost
+  // is one Date allocation per render.
+  const todayLocalIso = (() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  })();
+
+  // Convert the YYYY-MM-DD picker value into "end of day local time"
+  // so a hirer who picks "May 5" gets a deadline of 23:59:59 local on
+  // May 5, not midnight (which would mean "before May 5 starts" — the
+  // opposite of what they expect). Returns null when the input is
+  // empty or malformed; the server validates again either way.
+  const deadlineMs = (() => {
+    if (!deadline) return null;
+    const parts = deadline.split('-');
+    if (parts.length !== 3) return null;
+    const y = Number(parts[0]);
+    const m = Number(parts[1]);
+    const d = Number(parts[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+    const ms = new Date(y, m - 1, d, 23, 59, 59, 0).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  })();
+  const deadlineIso = deadlineMs != null ? new Date(deadlineMs).toISOString() : null;
+
+  // Auto-release preview — shows the hirer when the freelancer would
+  // get paid even if nobody taps Release. Recomputed per render so a
+  // change to the deadline date updates the preview immediately.
+  const autoReleaseMs = computeAutoReleaseMs(Date.now(), deadlineMs);
+  const autoReleaseDate = new Date(autoReleaseMs);
+  const autoReleaseLabel = autoReleaseDate.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  });
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -106,6 +154,12 @@ export function VanoPayModal({
           agreed_price_cents: agreedCents,
           amount_cents: agreedCents,
           description: description.trim() || undefined,
+          // Optional. When set, the server stamps it on the row and
+          // the webhook computes auto_release_at = deadline + 72h
+          // grace (clamped 48h floor / 30d ceiling). When omitted,
+          // the legacy 14-day flat hold applies. ISO 8601, end of
+          // local day for the picked date.
+          deadline_at: deadlineIso || undefined,
         },
       });
       if (error) throw error;
@@ -218,6 +272,38 @@ export function VanoPayModal({
             />
           </div>
 
+          {/* Optional deadline — controls when the auto-release timer
+              fires if the hirer never taps Release manually. Without
+              a deadline it's a flat 14-day hold; with a deadline,
+              auto-release fires ~3 days after the deadline (clamped
+              to a 48h floor + 30d ceiling). The hirer can always
+              release earlier; this is just the passive-ghost timer.
+              Native <input type="date"> keeps the modal lightweight
+              and gives us mobile-friendly pickers for free. */}
+          <div className="mt-3">
+            <label
+              htmlFor="vano-pay-deadline"
+              className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+            >
+              <CalendarDays size={11} strokeWidth={2.25} />
+              Deadline (optional)
+            </label>
+            <input
+              id="vano-pay-deadline"
+              type="date"
+              value={deadline}
+              min={todayLocalIso}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            />
+            <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground/85">
+              {deadlineMs
+                ? `Auto-release ${autoReleaseLabel} — 3 days after the deadline so you have time to review.`
+                : `No deadline set — auto-release ${autoReleaseLabel} (14 days). Add a deadline to pay the freelancer sooner.`}
+            </p>
+          </div>
+
           {/* Breakdown — three rows that make the 4%/4% split obvious.
               "You pay" is the gross hirer charge (agreed + 4%);
               "{name} receives" is agreed − 4%; "Vano keeps" is the
@@ -272,7 +358,11 @@ export function VanoPayModal({
                 <Check size={12} strokeWidth={2.5} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span>
                   <span className="font-medium text-foreground">Release when the work is done.</span>{' '}
-                  <span className="text-muted-foreground">Or auto-releases in 14 days if you forget.</span>
+                  <span className="text-muted-foreground">
+                    {deadlineMs
+                      ? `Or auto-releases ${autoReleaseLabel} (3 days after your deadline).`
+                      : 'Or auto-releases in 14 days if you forget.'}
+                  </span>
                 </span>
               </li>
               <li className="flex items-start gap-2">

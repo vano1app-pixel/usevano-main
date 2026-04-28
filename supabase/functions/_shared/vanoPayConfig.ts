@@ -66,3 +66,43 @@ export function computeVanoPaySplit(agreedCents: number): {
     freelancerCents,
   };
 }
+
+// Auto-release timing — how long Vano holds funds before sweeping
+// them to the freelancer if the hirer never taps Release.
+//
+// Two modes:
+//   1. No deadline supplied → flat 14 days from payment time. This is
+//      the legacy behaviour and the safe default for hirers who don't
+//      want to commit to a date.
+//   2. Deadline supplied → release ~72 hours after the deadline so
+//      the hirer has a review window AFTER the work is due, then
+//      release. Clamped to:
+//        FLOOR  = paidAt + 48h  (so a same-day deadline still gives
+//                                 the hirer two days to review)
+//        CEILING = paidAt + 30 days (escrow shouldn't sit forever)
+//
+// The hirer can always release earlier manually; this is only the
+// "passive ghost" auto-fire timer.
+
+export const VANO_PAY_AUTO_RELEASE_DEFAULT_MS = 14 * 24 * 60 * 60 * 1000;
+export const VANO_PAY_AUTO_RELEASE_FLOOR_MS = 48 * 60 * 60 * 1000;
+export const VANO_PAY_AUTO_RELEASE_CEILING_MS = 30 * 24 * 60 * 60 * 1000;
+export const VANO_PAY_AUTO_RELEASE_GRACE_MS = 72 * 60 * 60 * 1000;
+
+export function computeAutoReleaseMs(
+  paidAtMs: number,
+  deadlineAtMs: number | null,
+): number {
+  // No deadline → legacy 14-day flat hold.
+  if (deadlineAtMs == null || !Number.isFinite(deadlineAtMs)) {
+    return paidAtMs + VANO_PAY_AUTO_RELEASE_DEFAULT_MS;
+  }
+  // Deadline-aligned with grace, clamped to floor/ceiling so even
+  // weird inputs (deadline in the past, deadline 6 months out) land
+  // in a sensible window.
+  const floor = paidAtMs + VANO_PAY_AUTO_RELEASE_FLOOR_MS;
+  const ceiling = paidAtMs + VANO_PAY_AUTO_RELEASE_CEILING_MS;
+  const target = deadlineAtMs + VANO_PAY_AUTO_RELEASE_GRACE_MS;
+  return Math.min(ceiling, Math.max(floor, target));
+}
+

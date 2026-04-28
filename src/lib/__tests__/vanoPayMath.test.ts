@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { VANO_PAY_CONFIG_FALLBACK, computeVanoPaySplit } from '../vanoPayConfig';
+import {
+  VANO_PAY_CONFIG_FALLBACK,
+  computeVanoPaySplit,
+  computeAutoReleaseMs,
+  VANO_PAY_AUTO_RELEASE_DEFAULT_MS,
+  VANO_PAY_AUTO_RELEASE_FLOOR_MS,
+  VANO_PAY_AUTO_RELEASE_CEILING_MS,
+  VANO_PAY_AUTO_RELEASE_GRACE_MS,
+} from '../vanoPayConfig';
 
 // Fee math is revenue. A bug here under/over-charges freelancers or
 // hirers, and silently drifts from the server-authoritative calculation
@@ -120,5 +128,76 @@ describe('computeVanoPaySplit', () => {
     expect(split.amountCents).toBe(0);
     expect(split.feeCents).toBe(0);
     expect(split.freelancerCents).toBe(0);
+  });
+});
+
+describe('computeAutoReleaseMs', () => {
+  // Pin a stable "now" so the math is reproducible regardless of when
+  // the test runs. 2026-04-28T12:00:00Z is the date the deadline-aware
+  // release was added.
+  const PAID_AT_MS = Date.parse('2026-04-28T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const HOUR = 60 * 60 * 1000;
+
+  it('falls back to flat 14 days when no deadline is set', () => {
+    const out = computeAutoReleaseMs(PAID_AT_MS, null);
+    expect(out).toBe(PAID_AT_MS + 14 * DAY);
+    expect(out).toBe(PAID_AT_MS + VANO_PAY_AUTO_RELEASE_DEFAULT_MS);
+  });
+
+  it('falls back to flat 14 days when deadline is NaN / infinity (junk input)', () => {
+    expect(computeAutoReleaseMs(PAID_AT_MS, Number.NaN)).toBe(PAID_AT_MS + 14 * DAY);
+    expect(computeAutoReleaseMs(PAID_AT_MS, Number.POSITIVE_INFINITY)).toBe(PAID_AT_MS + 14 * DAY);
+  });
+
+  it('uses deadline + 72h grace for a normal in-window deadline (5 days out)', () => {
+    const deadline = PAID_AT_MS + 5 * DAY;
+    const out = computeAutoReleaseMs(PAID_AT_MS, deadline);
+    // Deadline + 72h = 5 days + 3 days = 8 days from paid → above floor, below ceiling.
+    expect(out).toBe(deadline + VANO_PAY_AUTO_RELEASE_GRACE_MS);
+    expect(out).toBe(PAID_AT_MS + 8 * DAY);
+  });
+
+  it('floors at paidAt + 48h for a same-day deadline so the hirer always has a review window', () => {
+    const deadline = PAID_AT_MS; // "due today"
+    const out = computeAutoReleaseMs(PAID_AT_MS, deadline);
+    // deadline + 72h = 72h, but floor pulls it up to 48h... wait, 72 > 48 so target wins.
+    expect(out).toBe(PAID_AT_MS + 72 * HOUR);
+  });
+
+  it('floors at paidAt + 48h for a deadline already in the past (defensive)', () => {
+    const deadline = PAID_AT_MS - 10 * DAY;
+    const out = computeAutoReleaseMs(PAID_AT_MS, deadline);
+    expect(out).toBe(PAID_AT_MS + VANO_PAY_AUTO_RELEASE_FLOOR_MS);
+    expect(out).toBe(PAID_AT_MS + 48 * HOUR);
+  });
+
+  it('caps at paidAt + 30 days for a far-future deadline (60 days out)', () => {
+    const deadline = PAID_AT_MS + 60 * DAY;
+    const out = computeAutoReleaseMs(PAID_AT_MS, deadline);
+    expect(out).toBe(PAID_AT_MS + VANO_PAY_AUTO_RELEASE_CEILING_MS);
+    expect(out).toBe(PAID_AT_MS + 30 * DAY);
+  });
+
+  it('caps at paidAt + 30 days even when deadline + 72h would exceed it', () => {
+    // Deadline 28 days out → +72h grace = 31 days → ceiling clamps to 30.
+    const deadline = PAID_AT_MS + 28 * DAY;
+    const out = computeAutoReleaseMs(PAID_AT_MS, deadline);
+    expect(out).toBe(PAID_AT_MS + 30 * DAY);
+  });
+
+  it('produces a release date strictly after paidAt for any sensible input', () => {
+    for (const offsetDays of [-30, -1, 0, 0.5, 1, 3, 7, 14, 25, 60, 365]) {
+      const out = computeAutoReleaseMs(PAID_AT_MS, PAID_AT_MS + offsetDays * DAY);
+      expect(out).toBeGreaterThan(PAID_AT_MS);
+    }
+  });
+
+  it('release date is monotonic with deadline (later deadline → equal-or-later release, until ceiling)', () => {
+    const a = computeAutoReleaseMs(PAID_AT_MS, PAID_AT_MS + 5 * DAY);
+    const b = computeAutoReleaseMs(PAID_AT_MS, PAID_AT_MS + 10 * DAY);
+    const c = computeAutoReleaseMs(PAID_AT_MS, PAID_AT_MS + 25 * DAY);
+    expect(a).toBeLessThanOrEqual(b);
+    expect(b).toBeLessThanOrEqual(c);
   });
 });

@@ -110,3 +110,30 @@ export function computeVanoPaySplit(
     freelancerCents,
   };
 }
+
+// Auto-release timing — keep in lockstep with computeAutoReleaseMs in
+// supabase/functions/_shared/vanoPayConfig.ts. Used by the modal so
+// the "auto-releases [date]" preview matches what the webhook will
+// actually stamp on auto_release_at when payment is confirmed.
+//
+// No deadline           → flat 14 days from payment.
+// Deadline supplied     → deadline + 72h grace, clamped to a 48h
+//                         floor / 30-day ceiling from payment.
+
+export const VANO_PAY_AUTO_RELEASE_DEFAULT_MS = 14 * 24 * 60 * 60 * 1000;
+export const VANO_PAY_AUTO_RELEASE_FLOOR_MS = 48 * 60 * 60 * 1000;
+export const VANO_PAY_AUTO_RELEASE_CEILING_MS = 30 * 24 * 60 * 60 * 1000;
+export const VANO_PAY_AUTO_RELEASE_GRACE_MS = 72 * 60 * 60 * 1000;
+
+export function computeAutoReleaseMs(
+  paidAtMs: number,
+  deadlineAtMs: number | null,
+): number {
+  if (deadlineAtMs == null || !Number.isFinite(deadlineAtMs)) {
+    return paidAtMs + VANO_PAY_AUTO_RELEASE_DEFAULT_MS;
+  }
+  const floor = paidAtMs + VANO_PAY_AUTO_RELEASE_FLOOR_MS;
+  const ceiling = paidAtMs + VANO_PAY_AUTO_RELEASE_CEILING_MS;
+  const target = deadlineAtMs + VANO_PAY_AUTO_RELEASE_GRACE_MS;
+  return Math.min(ceiling, Math.max(floor, target));
+}

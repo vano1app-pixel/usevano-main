@@ -97,6 +97,38 @@ serve(async (req) => {
         : null;
     const description = typeof body?.description === 'string' ? body.description.trim() : '';
     const hireAgreementId = typeof body?.hire_agreement_id === 'string' ? body.hire_agreement_id : null;
+    // Optional hirer-supplied delivery deadline. Drives the
+    // auto-release timer (see computeAutoReleaseMs in
+    // _shared/vanoPayConfig.ts and the stripe-webhook handler that
+    // stamps auto_release_at when the row enters 'paid' state). Null
+    // → keep the legacy 14-day flat hold. We accept ISO 8601 strings
+    // and validate the parsed value sits within a sensible window so
+    // a typo or junk payload can't end up as Stripe metadata.
+    const rawDeadlineAt = typeof body?.deadline_at === 'string' ? body.deadline_at : null;
+    let deadlineAtIso: string | null = null;
+    if (rawDeadlineAt) {
+      const ms = Date.parse(rawDeadlineAt);
+      if (!Number.isFinite(ms)) {
+        return bad(400, 'deadline_at is not a valid date');
+      }
+      const nowMs = Date.now();
+      // Reject deadlines in the past — there's no useful release
+      // semantics ("auto-release fires three days after a date that's
+      // already gone" is just "auto-release ASAP", which the hirer
+      // gets for free by tapping Release manually).
+      if (ms < nowMs - 60_000) {
+        return bad(400, 'deadline_at must be in the future');
+      }
+      // Reject deadlines more than 90 days out so a stray date input
+      // can't park escrow funds for half a year. The 30-day ceiling
+      // inside computeAutoReleaseMs already caps the actual release
+      // window; this stops the deadline from being even more
+      // misleading on the receipt card.
+      if (ms > nowMs + 90 * 24 * 60 * 60 * 1000) {
+        return bad(400, 'deadline_at cannot be more than 90 days in the future');
+      }
+      deadlineAtIso = new Date(ms).toISOString();
+    }
     // Optional — attached when the checkout is for a digital-sales
     // bonus payout. Stamped onto vano_payments so the DB trigger that
     // syncs sales_deals.bonus_status can find the originating deal
@@ -198,6 +230,13 @@ serve(async (req) => {
       stripe_destination_account_id: freelancerProfile.stripe_account_id,
       status: 'awaiting_payment',
     };
+    if (deadlineAtIso) {
+      // Same conditional-spread pattern as sales_deal_id below: only
+      // include the field when the caller actually supplied a value
+      // so a production DB that hasn't yet applied the deadline
+      // migration still accepts inserts from no-deadline flows.
+      paymentRow.deadline_at = deadlineAtIso;
+    }
     if (salesDealId) {
       // Present only for digital-sales bonus payouts. A DB trigger
       // on vano_payments watches UPDATE events and flips the

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { computeAutoReleaseMs } from "../_shared/vanoPayConfig.ts";
 
 // Stripe webhook endpoint. verify_jwt is disabled for this function
 // (Stripe can't send JWTs); authenticity is proven by verifying the
@@ -31,11 +32,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // NTP jitter actually drops legitimate webhooks again we'll see them
 // retry within Stripe's 3-day window and can re-tune then.
 const TOLERANCE_SECONDS = 300;
-// How long we hold funds before the cron auto-releases them. 14 days
-// gives the hirer time to receive and review the work; long enough to
-// matter as protection, short enough that freelancers aren't left
-// waiting forever when the hirer ghosts.
-const AUTO_RELEASE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+// Auto-release timing now lives in computeAutoReleaseMs (see
+// _shared/vanoPayConfig.ts). It picks between the legacy 14-day flat
+// hold and a deadline-aligned hold (deadline + 72h grace, clamped to
+// a 48h floor / 30-day ceiling) based on whether the hirer set a
+// deadline at checkout.
 
 function hex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf))
@@ -237,9 +238,15 @@ async function refundStuckAiFindRequest(
 
 // --- Handler: Vano Pay checkout completed ---------------------------------
 // Under escrow, this flips the row to 'paid' (HELD on the platform)
-// and stamps auto_release_at = now + 14 days. release-vano-payment
-// (or the auto-release cron) handles the actual transfer to the
-// freelancer when the hirer releases or the window expires.
+// and stamps auto_release_at. The release window depends on whether
+// the hirer set a deadline at checkout:
+//   - No deadline → flat 14 days from now (legacy behaviour)
+//   - Deadline set → deadline + 72h grace, clamped to a 48h floor /
+//                    30-day ceiling from now (so even a same-day
+//                    deadline gives the hirer a review window).
+// Either way, release-vano-payment (manual hirer release) and the
+// auto-release cron (passive sweep) handle the actual transfer to
+// the freelancer when the timer expires or the hirer acts first.
 async function handleVanoPayCheckoutCompleted(
   supabase: SupabaseClient,
   session: StripeCheckoutSession,
@@ -247,7 +254,29 @@ async function handleVanoPayCheckoutCompleted(
 ): Promise<Response> {
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
-  const autoReleaseIso = new Date(nowMs + AUTO_RELEASE_WINDOW_MS).toISOString();
+
+  // Read the row first to pick up the optional deadline_at the
+  // checkout function stamped on insert. Two-round-trip is fine
+  // here — both queries are by primary key, sub-millisecond. If
+  // deadline_at column doesn't exist yet (production DB hasn't
+  // applied the migration), the SELECT silently returns null for
+  // it and we fall back to the legacy flat hold.
+  const { data: existing, error: readError } = await supabase
+    .from('vano_payments')
+    .select('id, deadline_at')
+    .eq('id', paymentId)
+    .maybeSingle();
+
+  if (readError) {
+    console.error('[stripe-webhook] vano_payments read failed', readError);
+    return new Response('DB error', { status: 500 });
+  }
+
+  const deadlineRaw = (existing as { deadline_at?: string | null } | null)?.deadline_at ?? null;
+  const deadlineMs = deadlineRaw ? Date.parse(deadlineRaw) : null;
+  const autoReleaseIso = new Date(
+    computeAutoReleaseMs(nowMs, Number.isFinite(deadlineMs) ? deadlineMs as number : null),
+  ).toISOString();
 
   // Tick the conversation's updated_at so the payment "bumps" the
   // thread in the hirer + freelancer inboxes — same UX cue they'd
