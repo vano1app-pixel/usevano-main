@@ -313,7 +313,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            Find, chat and pay — all on one platform.
+            €1 to find your freelancer in 20 seconds. Or free in 24h.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -360,7 +360,7 @@ const Landing = () => {
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  €1 to get matched in 20 seconds. Or free in 24h.
+                  Pay €1. Matched in 20 seconds. Or free in 24h.
                 </p>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
@@ -397,7 +397,7 @@ const Landing = () => {
                     Get found. Get paid.
                   </p>
                   <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">
-                    List yourself in 30 seconds. Businesses find you, message you, and hire you.
+                    List in 30 seconds. Free forever. Get paid safely through Vano.
                   </p>
                   <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
                     Join as a freelancer
@@ -778,7 +778,7 @@ const Landing = () => {
               Your perfect match, hand-picked.
             </h2>
             <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              Tell us what you need. Matched in 20 seconds for <span className="tabular-nums">€1</span>, or free in 24h.
+              Tell us what you need. We'll find your freelancer in 20 seconds — or free in 24h. <span className="tabular-nums">€1</span>.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton

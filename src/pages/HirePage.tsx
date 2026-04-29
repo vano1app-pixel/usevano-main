@@ -1126,7 +1126,7 @@ const HirePage = () => {
           Match me with a freelancer
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          €1 now for an AI match in 20 seconds, or free hand-picked by Vano in 24h. Refunded if we don't find one.
+          €1 finds your match in 20 seconds. Free in 24h if you'd rather wait.
         </p>
         {/* Social proof at the moment of decision — self-gates if recent
              match count < 3, so quiet weeks render nothing rather than a
@@ -1233,20 +1233,17 @@ const HirePage = () => {
             <div className="grain pointer-events-none absolute inset-0" />
 
             <div className="relative px-6 pt-6 pb-5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">
                   <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
                   €1 · AI in 20 seconds
                 </div>
-                <span className="inline-flex items-center rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/85">
-                  Refunded if no match
-                </span>
               </div>
               <h2 className="mt-4 text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[28px] text-balance">
                 Your freelancer, matched by AI in 20 seconds.
               </h2>
               <p className="mt-2.5 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
-                Pay <span className="tabular-nums">€1</span> → our AI scans the pool and picks your match in 20 seconds. Refunded if we can't find one.
+                <span className="tabular-nums">€1</span> → our AI scans hundreds of freelancers and picks yours in 20 seconds.
               </p>
             </div>
 
