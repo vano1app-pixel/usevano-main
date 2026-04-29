@@ -31,3 +31,13 @@ dist-ssr
 
 .vercel
 .env*.local
+
+# Capacitor native projects (created locally via `npx cap add ios|android`).
+# Kept out of git for now so the repo stays light; check them in once you're
+# ready to maintain native code. App icons/splash live in `resources/`.
+ios/
+android/
+.gradle/
+DerivedData/
+*.xcuserstate
+xcuserdata/
