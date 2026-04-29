@@ -295,7 +295,7 @@ const Landing = () => {
           <div data-hero-eyebrow className="mb-5 flex justify-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              AI-matched in 20 seconds · or free hand-picked in 24h
+              Matched in 20 seconds · or free in 24h
             </span>
           </div>
 
@@ -313,7 +313,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            No scrolling 40 gigs. No shortlists. Share your brief, pay <span className="tabular-nums">€1</span>, AI-matched in 20 seconds — or free hand-picked by Vano in 24h. Refunded if we can't find one.
+            €1 to find your freelancer in 20 seconds. Or free in 24h.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -360,7 +360,7 @@ const Landing = () => {
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  €1 for an AI match in 20 seconds, or free hand-picked in 24h. Refunded if we can't find a fit.
+                  Pay €1. Matched in 20 seconds. Or free in 24h.
                 </p>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
@@ -397,7 +397,7 @@ const Landing = () => {
                     Get found. Get paid.
                   </p>
                   <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">
-                    List yourself in 30 seconds. Businesses find you, message you, and hire you.
+                    List in 30 seconds. Free forever. Get paid safely through Vano.
                   </p>
                   <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary">
                     Join as a freelancer
@@ -408,20 +408,13 @@ const Landing = () => {
             ) : null}
           </div>
             {studentsLoaded && featuredStudents.length > 0 && (
-              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-6">
-                <span className="inline-flex items-center gap-2">
-                  {/* Slow-pulsing live-dot: movement + emerald = "real time, fresh inventory" */}
-                  <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  </span>
-                  <p className="text-xs font-medium text-muted-foreground">
+              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-6">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <p className="text-[11px] text-muted-foreground">
                     {featuredStudents.length} freelancers online now
                   </p>
                 </span>
-                {/* Social-proof counter. Self-gating: renders null until the
-                    RPC returns ≥3 so the platform doesn't advertise itself
-                    as dead when the table's empty. */}
                 <LiveMatchesCounter />
               </div>
             )}
@@ -534,7 +527,7 @@ const Landing = () => {
             {studentsLoaded && featured && (
               <button
                 type="button"
-                onClick={() => navigate(`/students/${featured.user_id}`)}
+                onClick={() => navigate(session ? '/students' : '/auth')}
                 data-featured-card
                 className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
               >
@@ -781,14 +774,11 @@ const Landing = () => {
                   'radial-gradient(70% 50% at 78% 18%, hsl(45 100% 80% / 0.18), transparent 60%)',
               }}
             />
-            {/* Subtle grain — breaks the flat blue plane so the CTA
-                doesn't read as a generic SaaS billboard. */}
-            <div className="grain pointer-events-none absolute inset-0" />
             <h2 className="relative display-lg text-primary-foreground mb-4">
               Your perfect match, hand-picked.
             </h2>
             <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              <span className="tabular-nums">€1</span> for an AI match in 20 seconds, or free hand-picked by Vano in 24h. You chat, agree a rate, and hire them directly — refunded if we can't find a fit.
+              Tell us what you need. We'll find your freelancer in 20 seconds — or free in 24h. <span className="tabular-nums">€1</span>.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -827,7 +817,7 @@ const Landing = () => {
                 <span className="text-xl font-bold text-foreground">VANO</span>
               </div>
               <p className="text-base text-muted-foreground max-w-xs lg:max-w-sm leading-relaxed">
-                Connecting businesses with trusted freelancers, anywhere. Fast and simple.
+                Find freelancers. Hire them. Anywhere.
               </p>
             </div>
 

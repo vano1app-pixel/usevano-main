@@ -74,7 +74,7 @@ import { normalizeIrishPhone } from '@/lib/phoneNormalize';
 
 const STEP_LABELS = [
   'Your work',
-  'Your story',
+  'About you',
   'Your price',
   'Review',
 ];
@@ -82,7 +82,7 @@ const STEP_LABELS = [
 const STEP_HEADINGS: Record<number, string> = {
   0: 'Tweak your listing',
   1: 'Show what you do',
-  2: 'Tell them about you',
+  2: 'About you',
   3: 'Set your price',
   4: 'Looks good?',
 };
@@ -1547,7 +1547,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               <div>
                 <Label className="text-sm font-medium">Cover photo</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Shown at the top of your public profile — the first thing a business sees.
+                  First thing businesses see on your profile.
                 </p>
                 <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerFile} />
                 {bannerUrl ? (
@@ -1628,17 +1628,12 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
             </div>
           )}
 
-          {/* ── Step 2: Your story — pitch + contact details in one place ──
-               Subsection headers ("Your pitch" / "How clients reach you")
-               make the two distinct intents scannable. Previously this
-               step read as one long column of six unrelated fields, and
-               returning users had to re-orient every time they scrolled.
-               Disclosures (social links, more about you) are unchanged. */}
+          {/* ── Step 2: About you — pitch + contact details in one place.
+               A horizontal divider separates the pitch fields from the
+               contact fields; explicit subsection headers were removed
+               because the field clusters scan clearly on their own. */}
           {step === 2 && (
             <div className="space-y-5">
-              <p className="text-xs font-semibold text-foreground/70">
-                Your pitch
-              </p>
               <div>
                 <Label htmlFor="lc-title">Your one-liner</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -1754,9 +1749,6 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
               </div>
               <div className="h-px bg-border" />
 
-              <p className="text-xs font-semibold text-foreground/70">
-                How clients reach you
-              </p>
               <div>
                 <Label>Phone number</Label>
                 <Input
@@ -1839,7 +1831,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       onClick={() => setShowSocialFields(true)}
                       className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                     >
-                      + Add social links <span className="text-xs font-normal">(optional — TikTok, Instagram, LinkedIn, website)</span>
+                      + Add social links <span className="text-xs font-normal">(optional)</span>
                     </button>
                   );
                 }
@@ -1906,7 +1898,7 @@ export const ListOnCommunityWizard: React.FC<ListOnCommunityWizardProps> = ({
                       onClick={() => setShowOptionalDetails(true)}
                       className="w-full rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
                     >
-                      + Add more about you <span className="text-xs font-normal">(optional — bio, university)</span>
+                      + Add bio & university <span className="text-xs font-normal">(optional)</span>
                     </button>
                   );
                 }

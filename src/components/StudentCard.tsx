@@ -128,6 +128,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   const isAdmin = useIsAdmin(student.user_id);
   const resolvedAvatar = profileAvatarUrl || student.avatar_url;
   const budgetLabel = formatTypicalBudget(student.typical_budget_min, student.typical_budget_max);
+  // Web design is overwhelmingly priced per-project, not per-hour. On the
+  // talent board (which passes "Website Design" as the label), lead the
+  // banner price with the project range. The wizard preview passes a
+  // different label ("Websites") and is intentionally left alone here so
+  // the freelancer's editing view stays untouched.
+  const projectFirst = category === 'Website Design' && !!budgetLabel;
   // Prefer structured county/remote_ok; fall back to legacy service_area
   // for rows that haven't been migrated yet. Returns null when neither
   // is set, which hides the location chip entirely rather than showing
@@ -500,15 +506,15 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {(student.hourly_rate > 0 || budgetLabel) && (
           <div className="absolute bottom-2.5 right-3">
             <span className="inline-flex items-baseline gap-1 rounded-lg bg-white/95 px-2.5 py-1 shadow-md backdrop-blur-sm">
-              {student.hourly_rate > 0 ? (
-                <>
-                  <span className="text-[13px] sm:text-sm font-bold text-emerald-600">€{student.hourly_rate}</span>
-                  <span className="text-[10px] font-semibold text-muted-foreground/80">/hr</span>
-                </>
-              ) : (
+              {projectFirst || !(student.hourly_rate > 0) ? (
                 <>
                   <span className="text-[13px] sm:text-sm font-bold text-emerald-600">{budgetLabel}</span>
                   <span className="text-[10px] font-semibold text-muted-foreground/80">/project</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[13px] sm:text-sm font-bold text-emerald-600">€{student.hourly_rate}</span>
+                  <span className="text-[10px] font-semibold text-muted-foreground/80">/hr</span>
                 </>
               )}
             </span>
@@ -592,9 +598,11 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {budgetLabel && student.hourly_rate > 0 && (
           <div className="mt-1.5 flex items-baseline gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Typical project
+              {projectFirst ? 'Hourly' : 'Typical project'}
             </span>
-            <span className="text-sm font-semibold text-foreground/80">{budgetLabel}</span>
+            <span className="text-sm font-semibold text-foreground/80">
+              {projectFirst ? `€${student.hourly_rate}/hr` : budgetLabel}
+            </span>
           </div>
         )}
 
