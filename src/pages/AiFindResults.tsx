@@ -220,9 +220,7 @@ const AiFindResults = () => {
         const pick = await pickVanoMatchClientSide(r.category, r.brief, r.rejected_vano_user_ids ?? []);
         if (cancelled) return;
         if (!pick) {
-          // Genuinely empty pool. Surface the no-match state; the
-          // hirer's €1 will be auto-refunded by the cron / on next
-          // webhook cycle.
+          // Genuinely empty pool. Surface the no-match state.
           setRow((prev) => prev && ({ ...prev, status: 'failed', error_message: 'no_matches_found' }));
           return;
         }
@@ -416,7 +414,7 @@ const AiFindResults = () => {
             <StatusCard
               tone="neutral"
               title="Still working on it"
-              body="The match is taking longer than usual. Your €1 is safe — refresh in a minute. If we can't find a fit, you'll be refunded automatically."
+              body="The match is taking longer than usual. Refresh in a minute — if it's still stuck, message us on WhatsApp."
               action={{
                 label: 'Check again',
                 onClick: () => {
@@ -435,8 +433,8 @@ const AiFindResults = () => {
               title="We couldn't find a match"
               body={
                 row.error_message === 'no_matches_found'
-                  ? "Sorry — we didn't find a great fit this time. We'll refund your €1 within 24 hours, no action needed."
-                  : 'Something went wrong on our side. We\'ll refund your €1 within 24 hours, no action needed.'
+                  ? "Sorry — we didn't find a great fit this time. Message us on WhatsApp and we'll help you find someone."
+                  : "Something went wrong on our side. Message us on WhatsApp and we'll get you sorted."
               }
               action={{ label: 'Back to /hire', onClick: () => navigate('/hire') }}
             />
@@ -444,7 +442,7 @@ const AiFindResults = () => {
             <StatusCard
               tone="neutral"
               title="Refunded"
-              body="Your €1 has been refunded."
+              body="This request was refunded."
               action={{ label: 'Back to /hire', onClick: () => navigate('/hire') }}
             />
           ) : !vanoFetchDone ? (
@@ -787,14 +785,14 @@ function AiFindProgressStages({ elapsedSec }: { elapsedSec: number }) {
       </ul>
 
       <p className="mt-5 border-t border-border/60 pt-3 text-center text-[11px] text-muted-foreground">
-        Hand-picked from our freelancer pool. €1 refunded if we can't find one.
+        Hand-picked from our freelancer pool.
       </p>
 
       {/* Past 60s the row is almost certainly stalled (webhook + RLS
            self-heal both quiet). Surface a manual escape so the user
            never feels stranded with a spinning page — a one-tap
-           WhatsApp message to the team gets a human picking immediately
-           while the auto-refund clock keeps running. */}
+           WhatsApp message to the team gets a human picking
+           immediately. */}
       {elapsedSec >= 60 && (
         <div className="mt-3 flex flex-col items-center gap-1.5 border-t border-border/60 pt-3">
           <p className="text-[11px] text-muted-foreground">Taking longer than usual?</p>

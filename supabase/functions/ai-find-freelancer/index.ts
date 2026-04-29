@@ -26,13 +26,10 @@ const BRIEF_MAX_CHARS = 2000;
 // Per-call budgets for external APIs. Without these, a stuck Gemini or
 // Serper request would block the edge function indefinitely — long past
 // the 120s the results page polls for — and strand the user on "Just a
-// moment more…" with no refund path. On abort the fetch rejects, which
-// propagates up to the per-side .catch in the Promise.all below and
-// becomes a null pick; if both sides end up null, markFailed fires the
-// auto-refund. Stripe gets a shorter budget because it's only reached on
-// the failure path and we don't want to pile timeout on top of timeout.
+// moment more…". On abort the fetch rejects, which propagates up to the
+// per-side .catch in the Promise.all below and becomes a null pick; if
+// both sides end up null, the row is marked failed.
 const EXTERNAL_CALL_TIMEOUT_MS = 30_000;
-const STRIPE_CALL_TIMEOUT_MS = 15_000;
 
 async function fetchWithTimeout(
   url: string,
@@ -107,65 +104,16 @@ type WebCandidate = {
   match_score: number;
 };
 
-// Auto-refund a payment via the Stripe API. Returns true on success.
-// We use the payment_intent form so Stripe picks up the underlying
-// charge automatically — safer than tracking charge_id separately.
-async function refundViaStripe(
-  paymentIntentId: string,
-  stripeKey: string,
-): Promise<boolean> {
-  try {
-    const resp = await fetchWithTimeout(
-      'https://api.stripe.com/v1/refunds',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${stripeKey}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `payment_intent=${encodeURIComponent(paymentIntentId)}`,
-      },
-      STRIPE_CALL_TIMEOUT_MS,
-      'stripe refund',
-    );
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      console.error('[ai-find-freelancer] stripe refund failed', resp.status, text.slice(0, 300));
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('[ai-find-freelancer] refund threw', err);
-    return false;
-  }
-}
-
-// Marks the request failed AND tries to auto-refund via Stripe. If the
-// refund goes through, status flips to 'refunded' and the UI shows
-// "Your €1 has been refunded". If the refund call fails (Stripe
-// outage, missing payment intent id), status stays 'failed' with a
-// note appended to error_message so ops can refund manually.
 async function markFailed(
   supabase: ReturnType<typeof createClient>,
   requestId: string,
-  paymentIntentId: string | null,
-  stripeKey: string | null,
   message: string,
 ): Promise<void> {
-  let refunded = false;
-  if (paymentIntentId && stripeKey) {
-    refunded = await refundViaStripe(paymentIntentId, stripeKey);
-  }
-
-  const errorMessage = refunded
-    ? message.slice(0, 500)
-    : `${message.slice(0, 450)} (manual refund required)`;
-
   await supabase
     .from('ai_find_requests')
     .update({
-      status: refunded ? 'refunded' : 'failed',
-      error_message: errorMessage,
+      status: 'failed',
+      error_message: message.slice(0, 500),
       completed_at: new Date().toISOString(),
     })
     .eq('id', requestId);
@@ -380,10 +328,10 @@ Keep "reason" under 240 chars, concrete and grounded in the candidate's fields (
   // failed outright, (b) scored every candidate below the confidence
   // cutoff, or (c) hallucinated a user_id that isn't in our pool.
   // Without this, a brief where Gemini can't find a "great" fit would
-  // return null and the hirer's €1 would refund even though we have a
-  // perfectly-serviceable freelancer sitting in the matching category.
-  // The user would rather see a decent-but-not-perfect pick than get
-  // their money back and a dead end.
+  // return null and the hirer would land on the failure card even
+  // though we have a perfectly-serviceable freelancer sitting in the
+  // matching category. The user would rather see a decent-but-not-
+  // perfect pick than a dead end.
   //
   // Ranking mirrors the weighting Gemini uses for interpretability —
   // review signal first, then vano_pay_ready, then verified, then a
@@ -428,7 +376,7 @@ Keep "reason" under 240 chars, concrete and grounded in the candidate's fields (
   const reason = typeof parsed.reason === 'string' ? parsed.reason.trim().slice(0, 280) : null;
 
   // Low confidence → fall back to deterministic pick so the hirer
-  // always sees someone, not a refund.
+  // always sees someone, not a dead end.
   if (!userId || score < 40) {
     console.info('[ai-find-freelancer] gemini low-confidence (score=%d) — using deterministic fallback', score);
     return fallbackPick();
@@ -608,12 +556,10 @@ serve(async (req) => {
     });
   }
 
-  // Parsed upfront so the outer catch below can mark the row failed +
-  // auto-refund even if an env check or query crashes mid-run. Before
-  // this, a missing API key or DB blip would return 500 and leave the
-  // row stuck at 'paid' — the hirer's results page polled forever and
-  // the €1 was never refunded.
-  const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY') ?? null;
+  // Parsed upfront so the outer catch below can mark the row failed
+  // even if an env check or query crashes mid-run. Without this, a
+  // missing API key or DB blip would return 500 and leave the row
+  // stuck at 'paid' with the hirer's results page polling forever.
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   let requestId: string | null = null;
@@ -706,11 +652,9 @@ serve(async (req) => {
     }
 
     // Complete even if only one side found something. Only mark failed
-    // when BOTH sides turned up empty — the client paid €1, we owe
-    // them at least one real lead or a refund path. markFailed will
-    // attempt the Stripe refund automatically.
+    // when BOTH sides turned up empty.
     if (!vanoUserId && !webScoutId) {
-      await markFailed(supabase, requestId, row.stripe_payment_intent_id, STRIPE_SECRET_KEY, 'no_matches_found');
+      await markFailed(supabase, requestId, 'no_matches_found');
       return new Response(JSON.stringify({ ok: false, reason: 'no_matches' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -736,17 +680,14 @@ serve(async (req) => {
   } catch (err) {
     console.error('[ai-find-freelancer] unhandled', err);
     // Safety net: if we know which row we were processing, flip it to
-    // failed and auto-refund the €1. Without this, any throw above
-    // (missing env key, Supabase outage, DNS hiccup) would leave the
-    // hirer polling a row stuck at 'paid' forever with no refund.
-    // markFailed is itself idempotent on the underlying Stripe call
-    // (via the refund API's implicit de-dup on payment_intent) so a
-    // retry delivery from Stripe won't double-refund.
+    // failed so the results page stops polling. Without this, any
+    // throw above (missing env key, Supabase outage, DNS hiccup) would
+    // leave the hirer polling a row stuck at 'paid' forever.
     if (requestId && supabase) {
       try {
         const { data: existing } = await supabase
           .from('ai_find_requests')
-          .select('status, stripe_payment_intent_id')
+          .select('status')
           .eq('id', requestId)
           .maybeSingle();
         // Only flip non-terminal states. A partial success that
@@ -760,8 +701,6 @@ serve(async (req) => {
           await markFailed(
             supabase,
             requestId,
-            (existing?.stripe_payment_intent_id as string | null) ?? null,
-            STRIPE_SECRET_KEY,
             (err as { message?: string })?.message || 'unhandled_error',
           );
         }

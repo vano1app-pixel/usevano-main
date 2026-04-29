@@ -212,7 +212,7 @@ async function sendEmail(opts: {
       ``,
       `New freelancers have joined VANO since you were last here.`,
       ``,
-      `Your next hire is one brief away — €1 gets you a hand-picked match in under a minute, refunded if we can't find a fit.`,
+      `Your next hire is one brief away — €1 gets you a hand-picked match in under a minute.`,
       ``,
       `Post a brief: ${siteUrl}/hire`,
       ``,

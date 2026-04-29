@@ -128,10 +128,8 @@ async function handleAiFindCheckoutCompleted(
   // Fire ai-find-freelancer in the background. If that fetch can't
   // even reach the function (DNS fail, connection refused, function
   // not deployed) the row would otherwise stay stuck at 'paid' with
-  // no recovery path. We catch those cases and flip the row to
-  // failed + auto-refund inline — same safety net the function
-  // itself runs on its own crashes, just one level up so a function
-  // that never ran still honours the "€1 refunded if no match" promise.
+  // no recovery path. Flip it to failed inline so the results page
+  // stops polling.
   const triggerUrl = `${supabaseUrl}/functions/v1/ai-find-freelancer`;
   const triggerPromise = (async () => {
     try {
@@ -145,19 +143,17 @@ async function handleAiFindCheckoutCompleted(
       });
       if (!resp.ok) {
         console.error('[stripe-webhook] ai-find trigger non-2xx', resp.status);
-        await refundStuckAiFindRequest(
+        await markStuckAiFindRequestFailed(
           supabase,
           requestId,
-          session.payment_intent ?? null,
           `ai_find_trigger_http_${resp.status}`,
         );
       }
     } catch (err) {
       console.error('[stripe-webhook] ai-find trigger threw', err);
-      await refundStuckAiFindRequest(
+      await markStuckAiFindRequestFailed(
         supabase,
         requestId,
-        session.payment_intent ?? null,
         'ai_find_trigger_unreachable',
       );
     }
@@ -174,15 +170,13 @@ async function handleAiFindCheckoutCompleted(
 }
 
 // Recovery path for the rare case where ai-find-freelancer can't be
-// reached at all. Flips the row to refunded (if Stripe refund lands)
-// or failed (with 'manual refund required' note) so the hirer never
-// sees a stranded "paid but nothing happening" state. Idempotent on
-// the row status so a Stripe webhook retry that lands after we've
-// already handled the row is a no-op.
-async function refundStuckAiFindRequest(
+// reached at all. Flips the row to failed so the hirer never sees a
+// stranded "paid but nothing happening" state. Idempotent on row
+// status so a Stripe webhook retry that lands after we've already
+// handled the row is a no-op.
+async function markStuckAiFindRequestFailed(
   supabase: SupabaseClient,
   requestId: string,
-  paymentIntentId: string | null,
   reason: string,
 ): Promise<void> {
   try {
@@ -192,47 +186,20 @@ async function refundStuckAiFindRequest(
       .eq('id', requestId)
       .maybeSingle();
     const status = (existing?.status as string | undefined) ?? null;
-    // Already resolved (complete/refunded/failed) — leave alone.
     if (!status || status === 'complete' || status === 'refunded' || status === 'failed') {
       return;
-    }
-
-    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? null;
-    let refunded = false;
-    if (paymentIntentId && stripeKey) {
-      try {
-        const resp = await fetch('https://api.stripe.com/v1/refunds', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${stripeKey}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-            // Idempotent on the payment intent so a retry doesn't
-            // double-refund. Stripe returns the existing refund id.
-            'Idempotency-Key': `ai_find_auto_refund_${requestId}`,
-          },
-          body: `payment_intent=${encodeURIComponent(paymentIntentId)}`,
-        });
-        refunded = resp.ok;
-        if (!resp.ok) {
-          console.error('[stripe-webhook] ai-find auto-refund failed', resp.status);
-        }
-      } catch (err) {
-        console.error('[stripe-webhook] ai-find auto-refund threw', err);
-      }
     }
 
     await supabase
       .from('ai_find_requests')
       .update({
-        status: refunded ? 'refunded' : 'failed',
-        error_message: refunded
-          ? reason.slice(0, 500)
-          : `${reason.slice(0, 450)} (manual refund required)`,
+        status: 'failed',
+        error_message: reason.slice(0, 500),
         completed_at: new Date().toISOString(),
       })
       .eq('id', requestId);
   } catch (err) {
-    console.error('[stripe-webhook] refundStuckAiFindRequest errored', err);
+    console.error('[stripe-webhook] markStuckAiFindRequestFailed errored', err);
   }
 }
 
