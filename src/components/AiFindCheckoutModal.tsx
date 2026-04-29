@@ -65,9 +65,9 @@ export function AiFindCheckoutModal({ open, onClose, clientSecret, fallbackUrl }
         </button>
 
         {/* Brand header — tiny so Stripe's checkout owns the frame.
-             States exactly what €1 buys + the refund promise so the
-             user can decide without scrolling inside the iframe.
-             Aligned with the AI-vs-human positioning on /hire. */}
+             States exactly what €1 buys so the user can decide
+             without scrolling inside the iframe. Aligned with the
+             AI-vs-human positioning on /hire. */}
         <div className="border-b border-border/60 bg-gradient-to-br from-primary/6 via-card to-card px-5 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
@@ -78,7 +78,7 @@ export function AiFindCheckoutModal({ open, onClose, clientSecret, fallbackUrl }
                 AI Match · €1
               </p>
               <p className="text-[11px] leading-tight text-muted-foreground">
-                Our AI picks your freelancer in 20 seconds. Refunded if we can&apos;t find one.
+                Our AI picks your freelancer in 20 seconds.
               </p>
             </div>
             <div className="hidden shrink-0 items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 sm:inline-flex">
@@ -94,7 +94,6 @@ export function AiFindCheckoutModal({ open, onClose, clientSecret, fallbackUrl }
           <ul className="mt-2.5 ml-9 space-y-0.5 text-[10.5px] leading-snug text-muted-foreground/90">
             <li>· €1 covers the AI match + a verified contact</li>
             <li>· Agree a rate directly — pay outside Vano or use Vano Pay (4% each side, held in escrow)</li>
-            <li>· Auto-refund if we don&apos;t find a fit</li>
           </ul>
         </div>
 

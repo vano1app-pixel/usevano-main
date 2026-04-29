@@ -486,9 +486,8 @@ export default function AiFindReturn() {
   if (noMatchesFound && revealReady) {
     // Pull the Stripe checkout session id off the URL and surface the
     // last 8 chars as a human-quotable reference. Signed-out hirers
-    // have no account, no order history, and no way to follow up if
-    // the auto-refund silently fails — giving them a ref code + a
-    // WhatsApp escape hatch closes that black-hole loop.
+    // have no account and no order history — giving them a ref code
+    // + a WhatsApp escape hatch lets them follow up.
     const sessionId = params.get('session_id');
     const refSnippet = sessionId ? sessionId.slice(-8) : null;
     const waText = `Hi, I tried Vano AI Find but no match was found${refSnippet ? ` (ref ${refSnippet})` : ''}. Can you help?`;
@@ -497,7 +496,7 @@ export default function AiFindReturn() {
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
           <h1 className="text-lg font-semibold text-foreground">We couldn't find a freelancer right now</h1>
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Our pool is running low for what you asked for. Your €1 is being refunded automatically — you'll see it back on your card within 24 hours, no action needed.
+            Our pool is running low for what you asked for. Message us on WhatsApp and we'll help you find someone.
           </p>
           {refSnippet && (
             <p className="mt-3 text-[11px] text-muted-foreground/80">
@@ -629,7 +628,7 @@ function AiFindProgressStages({ elapsedSec }: { elapsedSec: number }) {
           </ul>
 
           <p className="mt-5 border-t border-border/60 pt-3 text-center text-[11px] text-muted-foreground">
-            Hand-picked from our freelancer pool. €1 refunded if we can't find one.
+            Hand-picked from our freelancer pool.
           </p>
         </div>
       </div>

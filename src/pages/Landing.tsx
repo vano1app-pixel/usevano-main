@@ -334,10 +334,9 @@ const Landing = () => {
                  mirrors the HirePage match card. €1 chip is visible
                  because opacity-ambiguity about the price was the one
                  place the old Landing was dishonest — €1 finds the
-                 match, refunded if no fit. The old two-pill preview
-                 (Vano pick + Web scout) was removed so the card reads
-                 as one clear offer instead of two subtly-different
-                 ones. */}
+                 match. The old two-pill preview (Vano pick + Web
+                 scout) was removed so the card reads as one clear
+                 offer instead of two subtly-different ones. */}
             <InteractiveButton
               burstType="sparkle"
               particleCount={25}
@@ -742,7 +741,7 @@ const Landing = () => {
                   What does it cost?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Browsing the talent board is free. Vano Match is €1 per AI pick (refunded if no fit). Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
+                  Browsing the talent board is free. Vano Match is €1 per AI pick. Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2 border-b-0">

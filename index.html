@@ -103,6 +103,101 @@
         <p>This app needs JavaScript to run. Visit <a href="https://vanojobs.com/">vanojobs.com</a> in a modern browser.</p>
       </noscript>
     </div>
+    <!-- In-app browser escape hatch. Instagram + Facebook WebViews
+         sometimes fail to boot the React bundle (storage
+         partitioning, SW quirks). Android: auto-bounce to the system
+         default browser via an intent:// URL, which leaves the
+         WebView entirely. iOS: no reliable programmatic escape
+         (Apple removed x-safari-https around iOS 14), so show a
+         prominent banner with a tap-to-copy link instead. Runs inline
+         before the module script so even if main.tsx throws, the
+         user still has a path out. -->
+    <script>
+      (function () {
+        var ua = navigator.userAgent || '';
+        if (!/Instagram|FBAN|FBAV|FB_IAB/i.test(ua)) return;
+
+        var isAndroid = /Android/i.test(ua);
+
+        // Android: force-open the default browser via an intent URL.
+        // No package= on the intent so we use whatever the user has
+        // set as default (Chrome, Samsung Browser, Firefox, etc).
+        // Guard with sessionStorage so a failed intent doesn't loop.
+        if (isAndroid) {
+          var bouncedKey = 'vano_inapp_bounced';
+          var alreadyBounced = false;
+          try { alreadyBounced = sessionStorage.getItem(bouncedKey) === '1'; } catch (e) {}
+          if (!alreadyBounced) {
+            try { sessionStorage.setItem(bouncedKey, '1'); } catch (e) {}
+            try {
+              var path = location.pathname + location.search + location.hash;
+              window.location.href = 'intent://' + location.host + path + '#Intent;scheme=https;end';
+              return;
+            } catch (e) { /* fall through to banner */ }
+          }
+        }
+
+        function show() {
+          if (document.getElementById('vano-inapp-banner')) return;
+          var b = document.createElement('div');
+          b.id = 'vano-inapp-banner';
+          b.setAttribute('role', 'alert');
+          b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#1a2340;color:#f5f0eb;padding:12px 14px 14px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;line-height:1.45;box-shadow:0 2px 12px rgba(0,0,0,0.22);';
+
+          var msg = document.createElement('div');
+          msg.style.cssText = 'padding-right:32px;';
+          msg.innerHTML = '<strong style="display:block;margin-bottom:2px;font-size:14px;">Open vanojobs in your browser</strong>Tap <strong>⋯</strong> at the corner → <strong>Open in Browser</strong>, or copy the link.';
+          b.appendChild(msg);
+
+          var row = document.createElement('div');
+          row.style.cssText = 'display:flex;gap:6px;margin-top:8px;align-items:center;';
+          var urlBox = document.createElement('span');
+          urlBox.textContent = location.host + (location.pathname === '/' ? '' : location.pathname);
+          urlBox.style.cssText = 'flex:1;background:rgba(255,255,255,0.08);padding:6px 10px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#f5f0eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+          row.appendChild(urlBox);
+
+          var copy = document.createElement('button');
+          copy.type = 'button';
+          copy.textContent = 'Copy';
+          copy.style.cssText = 'background:#f5f0eb;color:#1a2340;border:0;padding:6px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;flex-shrink:0;';
+          copy.onclick = function () {
+            var full = location.protocol + '//' + location.host + location.pathname + location.search + location.hash;
+            var done = function () { copy.textContent = 'Copied'; setTimeout(function(){ copy.textContent = 'Copy'; }, 1800); };
+            var fallback = function () {
+              try {
+                var ta = document.createElement('textarea');
+                ta.value = full;
+                ta.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0;';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                done();
+              } catch (e) {}
+            };
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(full).then(done, fallback);
+              } else { fallback(); }
+            } catch (e) { fallback(); }
+          };
+          row.appendChild(copy);
+          b.appendChild(row);
+
+          var x = document.createElement('button');
+          x.type = 'button';
+          x.setAttribute('aria-label', 'Dismiss');
+          x.textContent = '×';
+          x.style.cssText = 'position:absolute;top:6px;right:6px;background:transparent;border:0;color:#f5f0eb;font-size:22px;line-height:1;padding:4px 10px;cursor:pointer;opacity:0.85;';
+          x.onclick = function () { b.parentNode && b.parentNode.removeChild(b); };
+          b.appendChild(x);
+
+          document.body.appendChild(b);
+        }
+        if (document.body) show();
+        else document.addEventListener('DOMContentLoaded', show);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
