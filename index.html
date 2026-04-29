@@ -103,6 +103,35 @@
         <p>This app needs JavaScript to run. Visit <a href="https://vanojobs.com/">vanojobs.com</a> in a modern browser.</p>
       </noscript>
     </div>
+    <!-- In-app browser escape hatch. Instagram + Facebook WebViews on
+         iOS sometimes fail to boot the React bundle (storage
+         partitioning, SW quirks). This runs inline before the module
+         script so even if main.tsx throws, the user still sees a path
+         out to a real browser. Covers Meta apps; TikTok / others can
+         be added if reports come in. -->
+    <script>
+      (function () {
+        var ua = navigator.userAgent || '';
+        if (!/Instagram|FBAN|FBAV|FB_IAB/i.test(ua)) return;
+        function show() {
+          if (document.getElementById('vano-inapp-banner')) return;
+          var b = document.createElement('div');
+          b.id = 'vano-inapp-banner';
+          b.setAttribute('role', 'alert');
+          b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#1a2340;color:#f5f0eb;padding:11px 44px 11px 14px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,0.18);text-align:center;';
+          b.innerHTML = 'For the best experience, tap <strong>⋯</strong> → <strong>Open in Browser</strong>';
+          var x = document.createElement('button');
+          x.setAttribute('aria-label', 'Dismiss');
+          x.textContent = '×';
+          x.style.cssText = 'position:absolute;top:50%;right:6px;transform:translateY(-50%);background:transparent;border:0;color:#f5f0eb;font-size:22px;line-height:1;padding:4px 10px;cursor:pointer;opacity:0.85;';
+          x.onclick = function () { b.parentNode && b.parentNode.removeChild(b); };
+          b.appendChild(x);
+          document.body.appendChild(b);
+        }
+        if (document.body) show();
+        else document.addEventListener('DOMContentLoaded', show);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
