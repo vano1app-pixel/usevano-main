@@ -388,8 +388,8 @@ export function VanoPayModal({
               <li className="flex items-start gap-2">
                 <RotateCcw size={12} strokeWidth={2.25} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span>
-                  <span className="font-medium text-foreground">Something off?</span>{' '}
-                  <span className="text-muted-foreground">Flag it and get a full refund.</span>
+                  <span className="font-medium text-foreground">Not delivered? Get a full refund.</span>{' '}
+                  <span className="text-muted-foreground">Tap "Request a refund" any time before you release.</span>
                 </span>
               </li>
             </ul>
@@ -417,11 +417,16 @@ export function VanoPayModal({
           {/* Footer hint — flags Apple Pay / Google Pay so users on
               modern devices know they don't have to type card details.
               Stripe Checkout auto-enables both for EUR; we just have
-              to surface that they exist. The PCI assurance ("card
-              never touches Vano") stays on a second line so the trust
-              signal isn't lost. */}
+              to surface that they exist. The "Powered by Stripe" line
+              is a trust anchor — older / first-time hirers recognise
+              the brand and relax about handing over card details to a
+              site they've never used before. */}
           <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
             Apple Pay, Google Pay, or card · card never touches Vano
+          </p>
+          <p className="mt-1 flex items-center justify-center gap-1 text-center text-[10.5px] font-medium tracking-wide text-muted-foreground/80">
+            <Lock size={9} strokeWidth={2.5} />
+            Secure checkout powered by Stripe
           </p>
         </div>
       </div>

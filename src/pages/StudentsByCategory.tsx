@@ -4,7 +4,7 @@ import { StudentCard } from '@/components/StudentCard';
 import { supabase } from '@/integrations/supabase/client';
 import { SEOHead } from '@/components/SEOHead';
 import { breadcrumbSchema } from '@/lib/structuredData';
-import { ArrowLeft, Monitor, Video, Megaphone, TrendingUp, Users, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Monitor, Video, Megaphone, TrendingUp, Users, ArrowRight, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type CommunityCategoryId } from '@/lib/communityCategories';
 import { isAdminOwnerEmail } from '@/lib/adminOwner';
@@ -65,6 +65,14 @@ const StudentsByCategory = ({ categoryId }: Props) => {
   // without a county set stay visible in 'all' so we don't hide
   // willing-to-work-anywhere listings.
   const [locFilter, setLocFilter] = useState<'all' | 'galway' | 'remote'>('all');
+  // Free-text search across name, bio and skills. Lowercased + trimmed
+  // before matching so a hirer who types "Shopify" finds anyone with
+  // "shopify" anywhere in their listing. Empty string = no filter.
+  // Plain client-side substring match on the already-fetched pool — no
+  // server roundtrip — because the per-category pool is small enough
+  // that a refetch would feel slower than a render. If the pool ever
+  // grows past a few hundred we'd move this to a server search.
+  const [search, setSearch] = useState('');
   // Sort order on the visible list. Default is "newest" (updated_at desc)
   // so freshly-listed or recently-edited freelancers surface to the top —
   // the page used to render in raw insertion order, which gave anyone
@@ -178,8 +186,14 @@ const StudentsByCategory = ({ categoryId }: Props) => {
 
   // Apply the budget-chip filter in memory. Negotiable / unset rates stay
   // visible in every bucket so we don't hide willing-to-chat freelancers.
+  const searchTerm = search.trim().toLowerCase();
   const visibleStudents = students
     .filter((s) => {
+      // Free-text match — name, bio, skills. Skipped when empty.
+      if (searchTerm) {
+        const haystack = `${getDisplayName(s.user_id)} ${s.bio || ''} ${(s.skills || []).join(' ')}`.toLowerCase();
+        if (!haystack.includes(searchTerm)) return false;
+      }
       // Location: 'galway' shows only freelancers based in Galway county;
       // 'remote' shows only those who flagged remote_ok. 'all' shows
       // everyone. Freelancers with no county set stay visible in 'all'
@@ -263,10 +277,39 @@ const StudentsByCategory = ({ categoryId }: Props) => {
           </div>
           {!loading && (
             <StatusChip tone="success" className="ml-auto">
-              {visibleStudents.length} {rateFilter === 'all' && locFilter === 'all' ? 'available' : `of ${students.length}`}
+              {visibleStudents.length} {rateFilter === 'all' && locFilter === 'all' && !searchTerm ? 'available' : `of ${students.length}`}
             </StatusChip>
           )}
         </div>
+
+        {/* Free-text search — added because filter chips alone forced
+            hirers who knew exactly what they wanted ("Shopify",
+            "wedding film") to scan every card. Sits right under the
+            header so it's the first thing a focused hirer reaches.
+            Clear-button only renders once they've typed something so
+            the empty state stays calm. */}
+        {!loading && students.length > 0 && (
+          <div className="relative mb-3">
+            <Search size={15} strokeWidth={2.25} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search ${meta.label.toLowerCase()} freelancers — try a skill or name`}
+              className="w-full rounded-2xl border border-border bg-card pl-9 pr-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 transition-colors focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Live online counter. Replaced the old "On VANO now" label
             (pulsing dot + no data) so visitors can see pool density
@@ -444,16 +487,29 @@ const StudentsByCategory = ({ categoryId }: Props) => {
             </div>
           </div>
         ) : visibleStudents.length === 0 ? (
-          <EmptyState
-            size="compact"
-            title={`No ${meta.label.toLowerCase()} freelancers in this rate band.`}
-            description="Widen the filter to see everyone available in this category."
-            action={{
-              label: 'Show all rates',
-              variant: 'outline',
-              onClick: () => setRateFilter('all'),
-            }}
-          />
+          searchTerm ? (
+            <EmptyState
+              size="compact"
+              title={`No matches for "${search.trim()}".`}
+              description="Try a shorter or different word — or clear the search to see everyone."
+              action={{
+                label: 'Clear search',
+                variant: 'outline',
+                onClick: () => setSearch(''),
+              }}
+            />
+          ) : (
+            <EmptyState
+              size="compact"
+              title={`No ${meta.label.toLowerCase()} freelancers in this rate band.`}
+              description="Widen the filter to see everyone available in this category."
+              action={{
+                label: 'Show all rates',
+                variant: 'outline',
+                onClick: () => setRateFilter('all'),
+              }}
+            />
+          )
         ) : (
           <div className="flex flex-col gap-4">
             {visibleStudents.map((student, idx) => {

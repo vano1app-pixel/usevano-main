@@ -1454,6 +1454,17 @@ const Messages = () => {
                                       disabled={releasingId === p.id || refundingId === p.id}
                                       onClick={async () => {
                                         if (releasingId || refundingId) return;
+                                        // Confirm before release — this is irreversible
+                                        // (funds transfer to the freelancer's bank). A
+                                        // 60-year-old hirer who fat-fingers Release on
+                                        // mobile would otherwise have no way back. The
+                                        // freelancer's name is included so the prompt
+                                        // is unambiguous about who gets paid.
+                                        const freelancerName = selectedConversation?.otherName || 'the freelancer';
+                                        const ok = window.confirm(
+                                          `Send ${amountEuro} to ${freelancerName}?\n\nThis releases the held money to their bank. You can't undo it once you tap OK.`,
+                                        );
+                                        if (!ok) return;
                                         setReleasingId(p.id);
                                         try {
                                           const { data, error } = await supabase.functions.invoke('release-vano-payment', {
@@ -1492,7 +1503,7 @@ const Messages = () => {
                                       }}
                                       className="inline-flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-destructive hover:underline disabled:opacity-60"
                                     >
-                                      <AlertTriangle size={11} /> Flag a problem
+                                      <AlertTriangle size={11} /> Request a refund
                                     </button>
                                   </div>
                                 )}
@@ -1872,7 +1883,7 @@ const Messages = () => {
         );
       })()}
 
-      {/* Dispute / refund dialog — hirer clicks "Flag a problem" on a
+      {/* Dispute / refund dialog — hirer clicks "Request a refund" on a
            held payment row, confirms with an optional free-text reason,
            and we refund the card via refund-vano-payment. v1 is
            full-refund only; partial refunds require admin handling. */}
@@ -1882,9 +1893,9 @@ const Messages = () => {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Flag a problem with this payment</DialogTitle>
+            <DialogTitle>Request a refund</DialogTitle>
             <DialogDescription>
-              Refunds the full amount to your card. The freelancer will see the payment was refunded.
+              We'll refund the full amount to your card in 3–5 days. The freelancer will see the payment was refunded.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">
