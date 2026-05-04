@@ -20,6 +20,7 @@ import {
   Video,
   TrendingUp,
   Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -406,8 +407,12 @@ const Landing = () => {
               </InteractiveButton>
             ) : null}
           </div>
+            <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+              Money held safely until you approve the work
+            </p>
             {studentsLoaded && featuredStudents.length > 0 && (
-              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-6">
+              <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-3">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   <p className="text-[11px] text-muted-foreground">
@@ -493,6 +498,31 @@ const Landing = () => {
           </div>
         </div>
       </section>
+      {/* How it works */}
+      <section data-section-how className="py-16 md:py-24 px-4 md:px-8 lg:px-12 bg-muted/30">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <span className="eyebrow mb-5">How it works</span>
+          <h2 className="mt-2 text-lg font-semibold tracking-tight text-foreground mb-8">Hire a freelancer in 3 steps</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+            {([
+              { step: '1', title: 'Post your brief', desc: 'Tell us what you need — category, timeline, and budget. Takes 60 seconds.' },
+              { step: '2', title: 'Get matched', desc: 'AI picks your freelancer in 20 seconds for €1, or get a free hand-pick from the Vano team in 24h.' },
+              { step: '3', title: 'Pay safely', desc: "Chat, agree a rate, and pay through Vano. Money is held until you approve the work — refunded if it isn't delivered." },
+            ] as const).map(({ step, title, desc }) => (
+              <div key={step} className="flex gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[13px] font-bold text-primary">
+                  {step}
+                </div>
+                <div>
+                  <p className="text-[14px] font-semibold text-foreground">{title}</p>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
         <section data-section-freelancers className="py-10 md:py-14 overflow-hidden">
           <div
@@ -556,9 +586,8 @@ const Landing = () => {
                     )}
                   </div>
                   {featured.bio && (
-                    <p className="mt-1.5 text-[11px] text-muted-foreground truncate">
-                      {featured.bio.trim().split(' ').slice(0, 5).join(' ')}
-                      <span className="pointer-events-none select-none blur-[3px]"> {featured.bio.trim().split(' ').slice(5, 9).join(' ')}</span>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground line-clamp-2">
+                      {featured.bio.trim()}
                     </p>
                   )}
                 </div>
@@ -825,7 +854,7 @@ const Landing = () => {
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Platform</h4>
                 <div className="flex flex-col gap-2.5 text-sm">
                   <button onClick={() => navigate('/students')} className="text-left text-foreground/70 hover:text-primary transition-colors">Find talent</button>
-                  <button onClick={() => navigate('/hire')} className="text-left text-foreground/70 hover:text-primary transition-colors">Browse hiring</button>
+                  <button onClick={() => navigate('/hire')} className="text-left text-foreground/70 hover:text-primary transition-colors">Post a brief</button>
                 </div>
               </div>
               <div>
