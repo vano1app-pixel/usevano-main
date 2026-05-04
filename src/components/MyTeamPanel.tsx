@@ -225,7 +225,7 @@ export const MyTeamPanel: React.FC<MyTeamPanelProps> = ({ currentUserId, jobs, a
               <div key={m.studentId} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
-                  onClick={() => navigate(`/students/${m.studentId}`)}
+                  onClick={() => navigate(`/talent/${m.studentId}`)}
                   className="group flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
                   <Avatar className="h-10 w-10 shrink-0 border border-border/60">

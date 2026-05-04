@@ -42,7 +42,7 @@ const NotFound = () => {
         <span className="text-muted-foreground">or</span>
         <button
           type="button"
-          onClick={() => navigate('/students')}
+          onClick={() => navigate('/talent')}
           className="rounded-lg px-3 py-1.5 font-medium text-primary hover:bg-primary/5"
         >
           Browse freelancers

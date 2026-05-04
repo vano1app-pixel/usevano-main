@@ -79,7 +79,7 @@ const BrowseStudents = () => {
         keywords="browse freelancers, find freelancer, sales reps, videographers, web designers, content creation, ugc, ireland, galway"
         jsonLd={breadcrumbSchema([
           { name: 'Home', path: '/' },
-          { name: 'Freelancers', path: '/students' },
+          { name: 'Freelancers', path: '/talent' },
         ])}
       />
       <Navbar />
@@ -123,7 +123,7 @@ const BrowseStudents = () => {
                 key={item.cat}
                 type="button"
                 data-mascot={idx === 0 ? "browse-cta" : undefined}
-                onClick={() => navigate(`/students/${item.cat}`)}
+                onClick={() => navigate(`/talent/${item.cat}`)}
                 className="group relative overflow-hidden flex flex-col items-start gap-4 rounded-2xl border border-foreground/10 bg-card p-5 text-left shadow-sm min-h-[160px] transition-all duration-250 hover:border-primary/20 hover:shadow-lg hover:-translate-y-[2px] active:scale-[0.97] animate-fade-in opacity-0"
                 style={{ animationDelay: `${idx * 70}ms` }}
               >
@@ -192,7 +192,7 @@ const BrowseStudents = () => {
                   return (
                     <div
                       key={s.user_id}
-                      onClick={() => navigate(`/students/${primaryCategoryForStudent(s, name)}`)}
+                      onClick={() => navigate(`/talent/${primaryCategoryForStudent(s, name)}`)}
                       className="group flex cursor-pointer items-center gap-3 rounded-2xl border border-foreground/10 bg-card p-3 shadow-sm transition-all hover:border-primary/30 hover:shadow-md animate-fade-in opacity-0"
                       style={{ animationDelay: `${idx * 100}ms` }}
                     >

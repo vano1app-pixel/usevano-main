@@ -42,7 +42,7 @@ export function safeReturnAfterAuth(path: unknown): string | null {
   if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return null;
   try {
     const u = new URL(path, 'https://vanojobs.invalid');
-    if (u.pathname !== '/students') return null;
+    if (u.pathname !== '/talent') return null;
     const cat = u.searchParams.get('cat');
     if (u.search && !cat) return null;
     if (cat && !isCommunityCategoryId(cat)) return null;

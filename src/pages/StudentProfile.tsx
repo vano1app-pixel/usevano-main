@@ -300,7 +300,7 @@ const StudentProfile = () => {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/students')}
+            onClick={() => navigate('/talent')}
             className="inline-flex items-center justify-center rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
           >
             Browse freelancers
@@ -1063,6 +1063,10 @@ const StudentProfile = () => {
                       <p className="mt-1 text-xs text-muted-foreground">Reviews appear here after completed gigs.</p>
                     </div>
                   )}
+                  <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground border-t border-border/50 pt-4">
+                    <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+                    Reviews are verified through Vano Pay
+                  </p>
                 </div>
               )}
             </div>

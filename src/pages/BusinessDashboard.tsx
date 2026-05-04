@@ -498,7 +498,7 @@ export default function BusinessDashboard() {
                 <Button
                   variant="outline"
                   className="rounded-xl transition-all duration-200 active:scale-[0.97]"
-                  onClick={() => navigate('/students')}
+                  onClick={() => navigate('/talent')}
                 >
                   <Search className="mr-2 h-4 w-4" />
                   Browse Talent
@@ -544,7 +544,7 @@ export default function BusinessDashboard() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate('/students')}
+                        onClick={() => navigate('/talent')}
                         className="inline-flex items-center gap-1.5 rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
                       >
                         Browse freelancers
@@ -866,7 +866,7 @@ export default function BusinessDashboard() {
                       {recentApps.map((app) => (
                         <Link
                           key={app.id}
-                          to={`/students/${app.student_id}`}
+                          to={`/talent/${app.student_id}`}
                           className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.99]"
                         >
                           <Avatar className="h-10 w-10 border border-border/60">
@@ -976,7 +976,7 @@ export default function BusinessDashboard() {
                       variant="ghost"
                       size="sm"
                       className="text-[12px] text-muted-foreground"
-                      onClick={() => navigate('/students')}
+                      onClick={() => navigate('/talent')}
                     >
                       Browse all
                       <ArrowRight className="ml-1 h-3 w-3" />
@@ -996,7 +996,7 @@ export default function BusinessDashboard() {
                         {favourites.map((f) => (
                           <Link
                             key={f.user_id}
-                            to={`/students/${f.user_id}`}
+                            to={`/talent/${f.user_id}`}
                             className="group flex items-center gap-4 rounded-xl border border-foreground/[0.04] bg-background p-3.5 transition-all duration-300 hover:border-foreground/[0.1] hover:shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] active:scale-[0.98]"
                           >
                             <Avatar className="h-10 w-10 border border-border/60">

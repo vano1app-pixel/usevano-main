@@ -32,7 +32,7 @@ import {
 // lands a cached module instead of a network round-trip.
 const PATH_TO_PREFETCH_KEY: Record<string, Parameters<typeof prefetchHandlers>[0]> = {
   '/hire': 'hire',
-  '/students': 'students',
+  '/talent': 'students',
   '/profile': 'profile',
   '/messages': 'messages',
   '/business-dashboard': 'business-dashboard',
@@ -146,7 +146,7 @@ export const MobileBottomNav: React.FC = () => {
   const navItems = useMemo(() => [
     // "Hire" only for business users or visitors (not students).
     ...(userType !== 'student' ? [{ label: 'Hire', icon: Sparkles, href: '/hire' }] : []),
-    { label: 'Talent', icon: Users, href: '/students' },
+    { label: 'Talent', icon: Users, href: '/talent' },
     { label: 'Messages', icon: MessageCircle, href: '/messages' },
   ], [userType]);
 
@@ -195,8 +195,8 @@ export const MobileBottomNav: React.FC = () => {
     }
     // Talent tab: always open hub (strip ?cat=) so signed-in matches
     // signed-out "three boxes" first screen.
-    if (href === '/students') {
-      navigate({ pathname: '/students', search: '' });
+    if (href === '/talent') {
+      navigate({ pathname: '/talent', search: '' });
       return;
     }
     navigate(href);

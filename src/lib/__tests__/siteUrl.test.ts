@@ -102,8 +102,8 @@ describe('getCanonicalUrl', () => {
   });
 
   it('combines the canonical origin with the current path + query', () => {
-    setLocation('vanojobs.com', '/students/abc', '?ref=home');
-    expect(getCanonicalUrl()).toBe('https://vanojobs.com/students/abc?ref=home');
+    setLocation('vanojobs.com', '/talent/abc', '?ref=home');
+    expect(getCanonicalUrl()).toBe('https://vanojobs.com/talent/abc?ref=home');
   });
 
   it('normalises www.vanojobs.com to the apex', () => {

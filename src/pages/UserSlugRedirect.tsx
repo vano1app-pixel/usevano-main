@@ -16,7 +16,7 @@ const UserSlugRedirect = () => {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (!slug) { navigate('/students', { replace: true }); return; }
+    if (!slug) { navigate('/talent', { replace: true }); return; }
 
     (async () => {
       const { data } = await supabase
@@ -29,7 +29,7 @@ const UserSlugRedirect = () => {
       );
 
       if (match) {
-        navigate(`/students/${match.user_id}`, { replace: true });
+        navigate(`/talent/${match.user_id}`, { replace: true });
       } else {
         setNotFound(true);
       }
@@ -57,7 +57,7 @@ const UserSlugRedirect = () => {
             secondaryAction={{
               label: 'Browse all',
               variant: 'outline',
-              onClick: () => navigate('/students'),
+              onClick: () => navigate('/talent'),
             }}
           />
           <p className="mt-6 flex items-center justify-center gap-1.5 text-[11.5px] text-muted-foreground">

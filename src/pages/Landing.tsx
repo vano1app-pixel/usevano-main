@@ -307,9 +307,9 @@ const Landing = () => {
               landing that frames everything below. */}
           <div data-hero-title>
             <h1 className="display-xl mb-5 text-foreground sm:mb-6">
-              <span className="inline-block">Any brief. Any budget.</span><br />
+              <span className="inline-block">Hire Galway freelancers.</span><br />
               <span className="inline-block italic text-primary">
-                Your perfect match.
+                Matched in 20 seconds.
               </span>
             </h1>
           </div>
@@ -535,7 +535,7 @@ const Landing = () => {
               </div>
               <button
                 type="button"
-                onClick={() => navigate('/students')}
+                onClick={() => navigate('/talent')}
                 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0 pb-0.5"
               >
                 See all <ArrowRight size={14} />
@@ -556,7 +556,7 @@ const Landing = () => {
             {studentsLoaded && featured && (
               <button
                 type="button"
-                onClick={() => navigate(session ? '/students' : '/auth')}
+                onClick={() => navigate(session ? '/talent' : '/auth')}
                 data-featured-card
                 className="mb-4 w-full flex items-center gap-4 rounded-2xl border border-foreground/10 bg-card p-4 shadow-sm text-left transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.99]"
               >
@@ -632,7 +632,7 @@ const Landing = () => {
                         <button
                           key={s.user_id}
                           type="button"
-                          onClick={() => navigate(`/students/${s.user_id}`)}
+                          onClick={() => navigate(`/talent/${s.user_id}`)}
                           className="group flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
                         >
                           <div className="flex items-start gap-2.5">
@@ -698,7 +698,7 @@ const Landing = () => {
                 {studentsLoaded && featuredStudents.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => navigate('/students')}
+                    onClick={() => navigate('/talent')}
                     className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
                   >
                     <ArrowRight size={22} className="text-muted-foreground" />
@@ -853,7 +853,7 @@ const Landing = () => {
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Platform</h4>
                 <div className="flex flex-col gap-2.5 text-sm">
-                  <button onClick={() => navigate('/students')} className="text-left text-foreground/70 hover:text-primary transition-colors">Find talent</button>
+                  <button onClick={() => navigate('/talent')} className="text-left text-foreground/70 hover:text-primary transition-colors">Find talent</button>
                   <button onClick={() => navigate('/hire')} className="text-left text-foreground/70 hover:text-primary transition-colors">Post a brief</button>
                 </div>
               </div>

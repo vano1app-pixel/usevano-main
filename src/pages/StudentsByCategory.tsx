@@ -231,8 +231,8 @@ const StudentsByCategory = ({ categoryId }: Props) => {
         keywords={`${meta.label.toLowerCase()}, hire ${meta.label.toLowerCase()}, freelance ${meta.label.toLowerCase()}, ${meta.label.toLowerCase()} ireland, ${meta.label.toLowerCase()} galway`}
         jsonLd={breadcrumbSchema([
           { name: 'Home', path: '/' },
-          { name: 'Freelancers', path: '/students' },
-          { name: meta.label, path: `/students/${categoryId}` },
+          { name: 'Freelancers', path: '/talent' },
+          { name: meta.label, path: `/talent/${categoryId}` },
         ])}
       />
       <Navbar />
@@ -245,7 +245,7 @@ const StudentsByCategory = ({ categoryId }: Props) => {
         {/* Back */}
         <button
           type="button"
-          onClick={() => navigate('/students')}
+          onClick={() => navigate('/talent')}
           className="group mb-5 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 -ml-2 text-sm font-medium text-muted-foreground transition-all duration-150 hover:text-foreground hover:bg-foreground/5"
         >
           <ArrowLeft size={16} strokeWidth={2} className="transition-transform group-hover:-translate-x-1" />

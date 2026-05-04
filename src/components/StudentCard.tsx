@@ -276,7 +276,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
       wasLongPressRef.current = false;
       return;
     }
-    navigate(`/students/${student.user_id}`);
+    navigate(`/talent/${student.user_id}`);
   };
 
   const handleRemoveListing = async () => {
@@ -824,7 +824,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             type="button"
             onClick={() => {
               setPreviewOpen(false);
-              navigate(`/students/${student.user_id}`);
+              navigate(`/talent/${student.user_id}`);
             }}
             className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
           >

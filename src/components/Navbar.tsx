@@ -29,7 +29,7 @@ import {
 // keys in lockstep with src/lib/prefetchRoute.ts#routeImports.
 const PATH_TO_PREFETCH_KEY: Record<string, Parameters<typeof prefetchHandlers>[0]> = {
   '/hire': 'hire',
-  '/students': 'students',
+  '/talent': 'students',
   '/profile': 'profile',
   '/messages': 'messages',
   '/business-dashboard': 'business-dashboard',
@@ -120,7 +120,7 @@ export const Navbar: React.FC = () => {
     // logo doubles as a Home link (industry-standard) so we don't
     // ship an explicit Home item — it would be redundant chrome.
     ...(userType !== 'student' ? [{ label: 'Hire', href: '/hire', requiresAuth: false, isNew: true }] : []),
-    { label: 'Talent', href: '/students', requiresAuth: false, isNew: true },
+    { label: 'Talent', href: '/talent', requiresAuth: false, isNew: true },
   ];
 
   // Avatar-dropdown destinations (low-frequency "your account" surfaces
@@ -176,14 +176,14 @@ export const Navbar: React.FC = () => {
     location.pathname === '/' ||
     location.pathname === '/landing' ||
     location.pathname === '/hire' ||
-    location.pathname === '/students' ||
-    location.pathname.startsWith('/students/');
+    location.pathname === '/talent' ||
+    location.pathname.startsWith('/talent/');
 
   if (isMobile && !showNavbarOnMobile) return null;
 
   const talentRouteMobile =
     isMobile &&
-    (location.pathname === "/students" || location.pathname.startsWith("/students/"));
+    (location.pathname === "/talent" || location.pathname.startsWith("/talent/"));
   const navSurfaceClass = talentRouteMobile
     ? "bg-background/95 border-border/50 shadow-tinted"
     : scrolled

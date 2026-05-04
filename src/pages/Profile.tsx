@@ -669,7 +669,7 @@ const Profile = () => {
           </div>
           <button
             type="button"
-            onClick={() => navigate(`/students/${user.id}`)}
+            onClick={() => navigate(`/talent/${user.id}`)}
             className="shrink-0 rounded-xl border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground/70 transition-all duration-200 hover:border-foreground/20 hover:text-foreground hover:shadow-sm"
           >
             Preview
@@ -786,7 +786,7 @@ const Profile = () => {
           </p>
           {profile?.user_type === 'student' && user && (
             <a
-              href={`/students/${user.id}`}
+              href={`/talent/${user.id}`}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
             >
               <ExternalLink size={14} /> View public profile
@@ -1723,7 +1723,7 @@ const Profile = () => {
                         <a href="/hire">Post a gig</a>
                       </Button>
                       <Button size="sm" variant="outline" className="rounded-xl text-xs font-semibold" asChild>
-                        <a href="/students">Browse talent</a>
+                        <a href="/talent">Browse talent</a>
                       </Button>
                     </div>
                   </div>

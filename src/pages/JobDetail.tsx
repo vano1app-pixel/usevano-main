@@ -189,7 +189,7 @@ const JobDetail = () => {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/students')}
+            onClick={() => navigate('/talent')}
             className="inline-flex items-center justify-center rounded-2xl border border-border/70 px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50"
           >
             Browse freelancers

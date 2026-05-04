@@ -79,6 +79,13 @@ const PwaUpdateToast = lazy(() =>
   import("@/components/PwaUpdateToast").then((m) => ({ default: m.PwaUpdateToast })),
 );
 
+import { useParams } from "react-router-dom";
+
+function StudentProfileRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/talent/${id}`} replace />;
+}
+
 import type { TransitionVariant } from "./components/PageTransition";
 // Eagerly import the in-app browser banner — it's ~2KB and the whole point
 // is to warn users BEFORE they try to sign in with Google, so a lazy-load
@@ -89,7 +96,7 @@ function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'liquid';
   if (path === '/hire') return 'dissolve';
   if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages', '/vano-pay'].includes(path)) return 'rise';
-  if (path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
+  if (path.startsWith('/talent') || path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
   return 'default';
 }
 
@@ -155,13 +162,21 @@ const App = () => {
                 individual job detail view below. */}
             <Route path="/jobs" element={<Navigate to="/hire" replace />} />
             <Route path="/jobs/:id" element={<P><JobDetail /></P>} />
-            <Route path="/students" element={<P><BrowseStudents /></P>} />
-            <Route path="/students/videography"   element={<P><StudentsByCategory categoryId="videography" /></P>} />
-            <Route path="/students/digital_sales" element={<P><StudentsByCategory categoryId="digital_sales" /></P>} />
-            <Route path="/students/photography"   element={<Navigate to="/students/digital_sales" replace />} />
-            <Route path="/students/websites"      element={<P><StudentsByCategory categoryId="websites" /></P>} />
-            <Route path="/students/social_media"  element={<P><StudentsByCategory categoryId="social_media" /></P>} />
-            <Route path="/students/:id" element={<P><StudentProfilePage /></P>} />
+            <Route path="/talent" element={<P><BrowseStudents /></P>} />
+            <Route path="/talent/videography"   element={<P><StudentsByCategory categoryId="videography" /></P>} />
+            <Route path="/talent/digital_sales" element={<P><StudentsByCategory categoryId="digital_sales" /></P>} />
+            <Route path="/talent/photography"   element={<Navigate to="/talent/digital_sales" replace />} />
+            <Route path="/talent/websites"      element={<P><StudentsByCategory categoryId="websites" /></P>} />
+            <Route path="/talent/social_media"  element={<P><StudentsByCategory categoryId="social_media" /></P>} />
+            <Route path="/talent/:id" element={<P><StudentProfilePage /></P>} />
+            {/* Backward-compat redirects so old /students links still work */}
+            <Route path="/students" element={<Navigate to="/talent" replace />} />
+            <Route path="/students/videography"   element={<Navigate to="/talent/videography" replace />} />
+            <Route path="/students/digital_sales" element={<Navigate to="/talent/digital_sales" replace />} />
+            <Route path="/students/photography"   element={<Navigate to="/talent/digital_sales" replace />} />
+            <Route path="/students/websites"      element={<Navigate to="/talent/websites" replace />} />
+            <Route path="/students/social_media"  element={<Navigate to="/talent/social_media" replace />} />
+            <Route path="/students/:id" element={<P><StudentProfileRedirect /></P>} />
             <Route
               path="/profile"
               element={
