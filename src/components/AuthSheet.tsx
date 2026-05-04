@@ -106,13 +106,13 @@ export const AuthSheet: React.FC<AuthSheetProps> = ({ isOpen, onClose }) => {
             <div>
               <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-foreground">
                 {isSignUp
-                  ? (userType === 'business' ? 'A perfect freelancer, hand-picked.' : 'Get hired, get paid safely.')
+                  ? (userType === 'business' ? 'Find your perfect freelancer.' : 'Get hired, get paid safely.')
                   : 'Welcome back'}
               </h2>
               <p className="text-[13.5px] text-muted-foreground mt-1.5 leading-relaxed">
                 {isSignUp
                   ? (userType === 'business'
-                      ? 'Tell us what you need. We hand-pick a freelancer and message you.'
+                      ? 'Tell us what you need. Our team will recommend the right freelancer and message you.'
                       : 'List yourself in 30 seconds. Businesses can find you and reach out directly.')
                   : 'Sign in to pick up where you left off.'}
               </p>

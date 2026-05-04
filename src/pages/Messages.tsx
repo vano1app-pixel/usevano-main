@@ -1020,7 +1020,7 @@ const Messages = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground">Start a Vano Match</p>
-                    <p className="truncate text-xs text-muted-foreground">AI match in 20s, or free hand-picked in 24h</p>
+                    <p className="truncate text-xs text-muted-foreground">AI match in 20s for €1, or talk to our team</p>
                   </div>
                   <ArrowRight size={14} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </button>
@@ -1071,7 +1071,7 @@ const Messages = () => {
                       // being matched by AI Find. Old copy said "apply to
                       // a gig" which is the wrong mental model.
                       ? "Once a client finds your listing we'll open the chat here. You'll also get a text when it happens."
-                      : "Start a Vano Match — we hand-pick someone for your brief, or message a freelancer directly from the talent board."}
+                      : "Start a Vano Match — AI finds your freelancer in 20 seconds, or talk to our team for a free recommendation. Or message a freelancer directly from the talent board."}
                     action={viewerUserType !== 'student' ? {
                       label: 'Start a Vano Match',
                       onClick: () => navigate('/hire'),

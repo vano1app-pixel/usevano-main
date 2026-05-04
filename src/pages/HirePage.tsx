@@ -1097,7 +1097,7 @@ const HirePage = () => {
       {/* Reassurance — brand-aligned: the promise is "any budget, your
            perfect match" not "cheap student labour". */}
       <p className="text-center text-[11px] sm:text-xs text-muted-foreground mb-4">
-        Whatever your budget, we hand-pick who fits.
+        Whatever your budget, we'll find who fits.
       </p>
 
       <button type="button" onClick={() => goTo(3)} disabled={!canProceedStep2} className={cn(
@@ -1126,7 +1126,7 @@ const HirePage = () => {
           Match me with a freelancer
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          €1 finds your match in 20 seconds. Free in 24h if you'd rather wait.
+          €1 finds your match in 20 seconds. Or talk to our team for a free recommendation.
         </p>
         {/* Social proof at the moment of decision — self-gates if recent
              match count < 3, so quiet weeks render nothing rather than a
@@ -1301,9 +1301,9 @@ const HirePage = () => {
             <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
             <h2 className="text-lg font-bold text-foreground">Request sent — we're on it</h2>
             <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-              Your brief is with the Vano team. We'll match a freelancer and open a thread in your{' '}
-              <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
-              within 24h. You'll also get an email.
+              Your brief is with the Vano team. We'll review it, recommend the right freelancer, and open a thread in your{' '}
+              <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>.{' '}
+              You'll also get an email.
             </p>
             <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
               <MessageCircle size={15} /> Chat with us on WhatsApp
@@ -1327,7 +1327,7 @@ const HirePage = () => {
           >
             {submitting
               ? <><Loader2 size={12} className="animate-spin" /> Sending…</>
-              : <>Prefer a human pick? Free, hand-picked by Vano in 24h →</>}
+              : <>Not sure who's right? Talk to the Vano team — free →</>}
           </button>
         </div>
       )}

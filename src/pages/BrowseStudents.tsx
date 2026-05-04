@@ -104,7 +104,7 @@ const BrowseStudents = () => {
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">Skip the browsing</p>
             <p className="mt-0.5 text-[15px] font-semibold leading-snug tracking-tight sm:text-base">
-              Let us hand-pick your perfect match
+              Talk to our team — we'll find your perfect match
             </p>
           </div>
           <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-semibold text-white">
@@ -233,7 +233,7 @@ const BrowseStudents = () => {
                   The talent board is quiet right now.
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Tell us what you need — €1 for an AI match in 20 seconds, or free hand-picked in 24h.
+                  Tell us what you need — €1 for an AI match in 20 seconds, or talk to our team for a free recommendation.
                 </p>
               </div>
               <button

@@ -296,7 +296,7 @@ const Landing = () => {
           <div data-hero-eyebrow className="mb-5 flex justify-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              Matched in 20 seconds · or free in 24h
+              Matched in 20 seconds · or talk to our team
             </span>
           </div>
 
@@ -314,7 +314,7 @@ const Landing = () => {
             </h1>
           </div>
           <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            €1 to find your freelancer in 20 seconds. Or free in 24h.
+            €1 to find your freelancer in 20 seconds. Or talk to our team.
           </p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -360,7 +360,7 @@ const Landing = () => {
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  Pay €1. Matched in 20 seconds. Or free in 24h.
+                  Pay €1. Matched in 20 seconds. Or talk to our team.
                 </p>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
@@ -506,7 +506,7 @@ const Landing = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
             {([
               { step: '1', title: 'Post your brief', desc: 'Tell us what you need — category, timeline, and budget. Takes 60 seconds.' },
-              { step: '2', title: 'Get matched', desc: 'AI picks your freelancer in 20 seconds for €1, or get a free hand-pick from the Vano team in 24h.' },
+              { step: '2', title: 'Get matched', desc: 'AI picks your freelancer in 20 seconds for €1, or talk to the Vano team and get a free recommendation.' },
               { step: '3', title: 'Pay safely', desc: "Chat, agree a rate, and pay through Vano. Money is held until you approve the work — refunded if it isn't delivered." },
             ] as const).map(({ step, title, desc }) => (
               <div key={step} className="flex gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
@@ -738,7 +738,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1 for an AI match in 20 seconds — or wait 24h for a free hand-pick by the Vano team. Refunded if we can't find a fit. You chat, agree a rate, and hire them directly.
+                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1 for an AI match in 20 seconds — or talk to the Vano team and get a free recommendation. Refunded if we can't find a fit. You chat, agree a rate, and hire them directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -746,7 +746,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or wait 24h for a free hand-pick by the Vano team. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
+                  Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or talk to the Vano team for a free recommendation. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="why-vano" className="border-border/80 px-2">
@@ -754,7 +754,7 @@ const Landing = () => {
                   Why use Vano instead of just messaging someone directly?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — we hand-pick a fit in 20 seconds (or 24h for a free pick). Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
+                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — AI finds you a fit in 20 seconds, or talk to our team for a free recommendation. Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="vano-pay" className="border-border/80 px-2">
@@ -806,7 +806,7 @@ const Landing = () => {
               Your perfect match, hand-picked.
             </h2>
             <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              Tell us what you need. We'll find your freelancer in 20 seconds — or free in 24h. <span className="tabular-nums">€1</span>.
+              Tell us what you need. We'll find your freelancer in 20 seconds — or talk to our team for a free recommendation.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
