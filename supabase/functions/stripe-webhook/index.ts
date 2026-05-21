@@ -340,6 +340,44 @@ type StripeCharge = {
   metadata?: Record<string, string | undefined>;
 };
 
+// --- Handler: household checkout.session.completed -----------------------
+// Fires when a customer pays for a household booking. Flips the booking
+// from awaiting_payment → pending so it appears in the student job feed.
+// Also stamps the real Stripe PaymentIntent id (needed for capture).
+async function handleHouseholdCheckoutCompleted(
+  supabase: SupabaseClient,
+  session: StripeCheckoutSession,
+  bookingId: string,
+): Promise<Response> {
+  const nowIso = new Date().toISOString();
+
+  const { data: flipped, error } = await supabase
+    .from('household_bookings')
+    .update({
+      status: 'pending',
+      stripe_payment_intent_id: session.payment_intent ?? null,
+    })
+    .eq('id', bookingId)
+    .eq('status', 'awaiting_payment')
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[stripe-webhook] household booking flip failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!flipped) {
+    return new Response(JSON.stringify({ received: true, replay: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(
+    JSON.stringify({ received: true, triggered: 'household_booking', state: 'pending' }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
 // --- Handler: charge.refunded --------------------------------------------
 // Fires when a refund lands — either from our refund-vano-payment
 // function (already flipped the row before the webhook lands) or from
@@ -436,12 +474,16 @@ serve(async (req) => {
 
     const aiFindId = session.metadata?.ai_find_request_id;
     const vanoPayId = session.metadata?.vano_payment_id;
+    const householdBookingId = session.metadata?.household_booking_id;
 
     if (aiFindId) {
       return handleAiFindCheckoutCompleted(supabase, supabaseUrl, serviceKey, session, aiFindId);
     }
     if (vanoPayId) {
       return handleVanoPayCheckoutCompleted(supabase, session, vanoPayId);
+    }
+    if (householdBookingId) {
+      return handleHouseholdCheckoutCompleted(supabase, session, householdBookingId);
     }
 
     // Fallback: look at client_reference_id as an AI Find request id

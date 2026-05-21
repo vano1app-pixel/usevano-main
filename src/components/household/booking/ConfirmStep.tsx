@@ -3,15 +3,19 @@ import type { StepProps, BookingData } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Loader2, Lock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { getUserFriendlyError } from '@/lib/errorMessages';
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping:  '🛒 Shopping run',
-  'dog-walk': '🐕 Dog walk',
-  garden:    '🌿 Garden work',
-  moving:    '📦 Moving help',
-  cleaning:  '🧹 Cleaning',
-  other:     '✨ General help',
+  shopping:  'Shopping run',
+  'dog-walk': 'Dog walk',
+  garden:    'Garden work',
+  moving:    'Moving help',
+  cleaning:  'Cleaning',
+  other:     'General help',
 };
 
 function formatDate(date: string): string {
@@ -28,14 +32,13 @@ function formatDate(date: string): string {
 
 function formatSlot(slot: string): string {
   const map: Record<string, string> = {
-    morning: 'Morning (8am–12pm)',
-    afternoon: 'Afternoon (12pm–5pm)',
-    evening: 'Evening (5pm–8pm)',
+    morning: '8am–12pm',
+    afternoon: '12pm–5pm',
+    evening: '5pm–8pm',
   };
   return map[slot] ?? slot;
 }
 
-/* Computes a human-readable price estimate from the collected booking data. */
 function getPriceEstimate(data: BookingData): string {
   switch (data.category) {
     case 'shopping':
@@ -65,61 +68,91 @@ function getPriceEstimate(data: BookingData): string {
   }
 }
 
-export const ConfirmStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
+export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
+  const { toast } = useToast();
   const [touched, setTouched] = useState({ name: false, address: false, phone: false });
-  const [booking, setBooking] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const errors = {
     name:    !data.customerName?.trim(),
     address: !data.customerAddress?.trim(),
     phone:   !data.customerPhone?.trim(),
   };
-
   const hasErrors = errors.name || errors.address || errors.phone;
 
-  const handleBook = () => {
+  const handleBook = async () => {
     setTouched({ name: true, address: true, phone: true });
     if (hasErrors) return;
-    setBooking(true);
-    // Phase 4 will wire Stripe capture here; for now proceed immediately
-    setTimeout(onNext, 400);
+
+    setLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast({ title: 'Please sign in first', variant: 'destructive' });
+        return;
+      }
+
+      const { data: result, error } = await supabase.functions.invoke('create-household-booking', {
+        body: {
+          category: data.category,
+          scheduled_date: data.scheduledDate,
+          time_slot: data.timeSlot,
+          is_express: data.isExpress ?? false,
+          booking_data: {
+            store: data.store,
+            shoppingList: data.shoppingList,
+            dogCount: data.dogCount,
+            walkDuration: data.walkDuration,
+            gardenTasks: data.gardenTasks,
+            gardenDuration: data.gardenDuration,
+            helperCount: data.helperCount,
+            movingDuration: data.movingDuration,
+            cleaningTasks: data.cleaningTasks,
+            cleaningDuration: data.cleaningDuration,
+            pricingType: data.pricingType,
+            description: data.description,
+          },
+          customer_name: data.customerName,
+          customer_address: data.customerAddress,
+          customer_phone: data.customerPhone,
+        },
+      });
+
+      if (error || !result?.checkout_url) {
+        throw error ?? new Error('No checkout URL returned');
+      }
+
+      // Redirect to Stripe Checkout — Stripe returns to /track/:id after payment
+      window.location.href = result.checkout_url as string;
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not start booking',
+        description: getUserFriendlyError(err),
+        variant: 'destructive',
+      });
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="px-4 pt-8 pb-28 max-w-lg mx-auto md:max-w-xl">
-      <h2 className="text-xl font-semibold text-foreground mb-1">Confirm your booking</h2>
-      <p className="text-muted-foreground text-sm mb-6">Just a few details and you're done.</p>
+    <div className="px-4 pt-8 pb-28 max-w-sm mx-auto">
+      <h2 className="text-3xl font-bold tracking-tight text-foreground mb-1">Confirm booking</h2>
+      <p className="text-muted-foreground text-sm mb-6">Pay now, only charged when the job is done.</p>
 
-      {/* Booking summary card */}
-      <div className="bg-secondary/40 rounded-2xl p-4 mb-6 space-y-2">
-        <p className="font-semibold text-foreground text-sm">
+      {/* Booking summary */}
+      <div className="bg-secondary/40 border border-border/40 rounded-2xl p-4 mb-6">
+        <p className="font-semibold text-foreground text-sm mb-2">
           {CATEGORY_LABELS[data.category] ?? data.category}
         </p>
         {data.scheduledDate && (
           <p className="text-sm text-muted-foreground">
-            📅 {formatDate(data.scheduledDate)}
+            {formatDate(data.scheduledDate)}
             {data.timeSlot ? ` · ${formatSlot(data.timeSlot)}` : ''}
           </p>
         )}
-        {data.store && (
-          <p className="text-sm text-muted-foreground">🏪 {data.store}</p>
-        )}
-        {data.dogCount && (
-          <p className="text-sm text-muted-foreground">
-            🐕 {data.dogCount} dog{data.dogCount > 1 ? 's' : ''} · {data.walkDuration}
-          </p>
-        )}
-        {data.gardenTasks && data.gardenTasks.length > 0 && (
-          <p className="text-sm text-muted-foreground">🌿 {data.gardenTasks.join(', ')}</p>
-        )}
-        {data.helperCount && (
-          <p className="text-sm text-muted-foreground">
-            👥 {data.helperCount} helper{data.helperCount > 1 ? 's' : ''}
-          </p>
-        )}
-        <div className="pt-2 border-t border-border/40 flex justify-between items-center">
+        <div className="pt-3 mt-2 border-t border-border/40 flex justify-between items-center">
           <span className="text-sm text-muted-foreground">Estimated cost</span>
-          <span className="font-semibold text-foreground text-sm">{getPriceEstimate(data)}</span>
+          <span className="font-bold text-foreground">{getPriceEstimate(data)}</span>
         </div>
       </div>
 
@@ -137,7 +170,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange, onNext }) => 
             onChange={(e) => onChange({ customerName: e.target.value })}
             onBlur={() => setTouched((t) => ({ ...t, name: true }))}
             className={cn(
-              'rounded-xl',
+              'rounded-xl h-11',
               touched.name && errors.name ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
@@ -157,7 +190,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange, onNext }) => 
             onChange={(e) => onChange({ customerAddress: e.target.value })}
             onBlur={() => setTouched((t) => ({ ...t, address: true }))}
             className={cn(
-              'rounded-xl',
+              'rounded-xl h-11',
               touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
@@ -178,7 +211,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange, onNext }) => 
             onChange={(e) => onChange({ customerPhone: e.target.value })}
             onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
             className={cn(
-              'rounded-xl',
+              'rounded-xl h-11',
               touched.phone && errors.phone ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
@@ -188,35 +221,36 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange, onNext }) => 
         </div>
       </div>
 
-      {/* Stripe card shell — actual integration in Phase 4 */}
-      <p className="text-sm font-semibold text-foreground mb-3">Payment</p>
-      <div className="border border-border rounded-2xl p-4 mb-3 space-y-3 bg-background">
-        <p className="text-xs text-muted-foreground font-medium">💳 Card details</p>
-        <div className="border border-border/60 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/40 bg-secondary/30 select-none">
-          Card number · · · ·  · · · ·  · · · ·  · · · ·
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1 border border-border/60 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/40 bg-secondary/30 select-none">
-            MM / YY
-          </div>
-          <div className="w-20 border border-border/60 rounded-xl px-3 py-2.5 text-sm text-muted-foreground/40 bg-secondary/30 select-none">
-            CVC
-          </div>
-        </div>
+      {/* Payment note */}
+      <div className="flex items-center gap-2 bg-sage-light border border-sage/20 rounded-xl px-4 py-3 mb-6">
+        <Lock size={14} className="text-sage flex-shrink-0" />
+        <p className="text-xs text-foreground/70 leading-relaxed">
+          Card is <strong>authorised now</strong> and only charged when your helper completes the job.
+          You can cancel before they accept for a full refund.
+        </p>
       </div>
 
-      <p className="text-xs text-muted-foreground text-center mb-8">
-        🔒 Only charged when the job is done. Cancel anytime.
-      </p>
-
       <Button
-        onClick={handleBook}
-        disabled={booking}
-        className="w-full rounded-full shadow-primary-glow"
+        onClick={() => void handleBook()}
+        disabled={loading}
+        className="w-full rounded-full h-14 text-base font-semibold shadow-primary-glow"
         size="lg"
       >
-        {booking ? 'Booking…' : 'Book now'}
+        {loading ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Opening secure checkout…
+          </>
+        ) : (
+          <>
+            Pay and book
+            <ChevronRight size={18} className="ml-1" />
+          </>
+        )}
       </Button>
+      <p className="text-center text-xs text-muted-foreground mt-3">
+        Powered by Stripe · 256-bit encryption
+      </p>
     </div>
   );
 };

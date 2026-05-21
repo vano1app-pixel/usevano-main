@@ -54,6 +54,9 @@ const AiFindReturn = lazyWithRetry(() => import("./pages/AiFindReturn"));
 const VanoPay = lazyWithRetry(() => import("./pages/VanoPay"));
 const HouseholdHome = lazyWithRetry(() => import("./pages/HouseholdHome"));
 const BookingFlow = lazyWithRetry(() => import("./pages/BookingFlow"));
+const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
+const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
+const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -90,7 +93,7 @@ import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'liquid';
   if (path === '/hire') return 'dissolve';
-  if (path === '/home' || path.startsWith('/book/')) return 'rise';
+  if (path === '/home' || path.startsWith('/book/') || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/')) return 'rise';
   if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages', '/vano-pay'].includes(path)) return 'rise';
   if (path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
   return 'default';
@@ -155,6 +158,9 @@ const App = () => {
                 that leave the marketplace at / completely unaffected. */}
             <Route path="/home" element={<P><HouseholdHome /></P>} />
             <Route path="/book/:category" element={<P><BookingFlow /></P>} />
+            <Route path="/track/:bookingId" element={<P><TrackBooking /></P>} />
+            <Route path="/student-dashboard" element={<P><StudentDashboard /></P>} />
+            <Route path="/student-job/:bookingId" element={<P><StudentJobDetail /></P>} />
             <Route path="/hire" element={<P><HirePage /></P>} />
             {/* /jobs (no ID) used to 404 — redirect to /hire so people
                 who type or land on it from old links hit the right page
