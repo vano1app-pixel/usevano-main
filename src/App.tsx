@@ -91,7 +91,7 @@ import type { TransitionVariant } from "./components/PageTransition";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 
 function getVariant(path: string): TransitionVariant {
-  if (path === '/') return 'liquid';
+  if (path === '/') return 'rise';
   if (path === '/hire') return 'dissolve';
   if (path === '/home' || path.startsWith('/book/') || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/')) return 'rise';
   if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages', '/vano-pay'].includes(path)) return 'rise';
@@ -153,7 +153,8 @@ const App = () => {
         <RouteErrorBoundary routeKey={location.pathname}>
         <Suspense fallback={<RouteSuspenseFallback />}>
           <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<P><Landing /></P>} />
+            <Route path="/" element={<P><HouseholdHome /></P>} />
+            <Route path="/marketplace" element={<P><Landing /></P>} />
             {/* Household platform — /home and /book/:category are safe routes
                 that leave the marketplace at / completely unaffected. */}
             <Route path="/home" element={<P><HouseholdHome /></P>} />

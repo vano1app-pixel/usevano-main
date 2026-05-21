@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 
@@ -38,25 +37,17 @@ export const HouseholdNav: React.FC = () => {
           <img src={logo} alt="VANO" className="h-7 w-auto" />
         </Link>
 
-        <div className="flex items-center gap-2">
-          {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
-          <a
-            href="https://wa.me/REPLACENUMBER?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Chat on WhatsApp"
-            className="flex items-center justify-center w-9 h-9 rounded-full transition-transform duration-150 hover:scale-105 active:scale-95"
-          >
-            <MessageCircle className="w-5 h-5" style={{ color: '#25D366' }} />
-          </a>
-          <Button
-            asChild
-            size="sm"
-            className="rounded-full px-4 font-medium"
-          >
-            <Link to="/auth">Sign in</Link>
-          </Button>
-        </div>
+        {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
+        <a
+          href="https://wa.me/REPLACENUMBER?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Chat on WhatsApp"
+          className="flex items-center gap-1.5 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors duration-150 active:scale-95"
+        >
+          <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
+          <span className="hidden sm:inline">WhatsApp us</span>
+        </a>
       </div>
     </header>
   );
