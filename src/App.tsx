@@ -53,6 +53,7 @@ const AiFindResults = lazyWithRetry(() => import("./pages/AiFindResults"));
 const AiFindReturn = lazyWithRetry(() => import("./pages/AiFindReturn"));
 const VanoPay = lazyWithRetry(() => import("./pages/VanoPay"));
 const HouseholdHome = lazyWithRetry(() => import("./pages/HouseholdHome"));
+const BookingFlow = lazyWithRetry(() => import("./pages/BookingFlow"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -89,7 +90,7 @@ import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'liquid';
   if (path === '/hire') return 'dissolve';
-  if (path === '/home') return 'rise';
+  if (path === '/home' || path.startsWith('/book/')) return 'rise';
   if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages', '/vano-pay'].includes(path)) return 'rise';
   if (path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
   return 'default';
@@ -150,9 +151,10 @@ const App = () => {
         <Suspense fallback={<RouteSuspenseFallback />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<P><Landing /></P>} />
-            {/* Household help platform — lives at /home so the live marketplace
-                at / is completely unaffected during the pivot. Phase 1 + 2 only. */}
+            {/* Household platform — /home and /book/:category are safe routes
+                that leave the marketplace at / completely unaffected. */}
             <Route path="/home" element={<P><HouseholdHome /></P>} />
+            <Route path="/book/:category" element={<P><BookingFlow /></P>} />
             <Route path="/hire" element={<P><HirePage /></P>} />
             {/* /jobs (no ID) used to 404 — redirect to /hire so people
                 who type or land on it from old links hit the right page
