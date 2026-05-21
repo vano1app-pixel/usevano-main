@@ -3,9 +3,7 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
 
 const NAV_LINKS = [
-  { label: 'About',       href: '/about'          },
-  { label: 'Safety',      href: '/safety'         },
-  { label: 'For Students', href: '/students'      },
+  { label: 'For Students', href: 'https://wa.me/353899817111?text=Hi%20VANO%2C%20I%27m%20a%20student%20interested%20in%20doing%20jobs', external: true },
   { label: 'Instagram',   href: 'https://instagram.com/vanojobs', external: true },
   { label: 'WhatsApp',    href: 'https://wa.me/353899817111',    external: true },
 ];
@@ -27,25 +25,16 @@ export const HouseholdFooter: React.FC = () => {
 
           <nav aria-label="Footer navigation">
             <ul className="flex flex-wrap gap-x-6 gap-y-3">
-              {NAV_LINKS.map(({ label, href, external }) => (
+              {NAV_LINKS.map(({ label, href }) => (
                 <li key={label}>
-                  {external ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-white/60 hover:text-white text-sm transition-colors duration-150"
-                    >
-                      {label}
-                    </a>
-                  ) : (
-                    <Link
-                      to={href}
-                      className="text-white/60 hover:text-white text-sm transition-colors duration-150"
-                    >
-                      {label}
-                    </Link>
-                  )}
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/60 hover:text-white text-sm transition-colors duration-150"
+                  >
+                    {label}
+                  </a>
                 </li>
               ))}
             </ul>

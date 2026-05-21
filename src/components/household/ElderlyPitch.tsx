@@ -1,6 +1,5 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 
 /* This section targets adult children in Dublin/abroad who want to organise
    regular help for elderly parents still living in Galway. Full-width sage
@@ -24,7 +23,11 @@ export const ElderlyPitch: React.FC = () => {
           size="lg"
           className="rounded-full border-white/70 text-white bg-transparent hover:bg-white hover:text-primary font-medium px-8 transition-colors duration-200"
         >
-          <Link to="/auth">Set up help for a parent</Link>
+          <a
+            href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%27d%20like%20to%20set%20up%20regular%20help%20for%20a%20parent%20in%20Galway."
+            target="_blank"
+            rel="noopener noreferrer"
+          >Set up help for a parent</a>
         </Button>
       </div>
     </section>
