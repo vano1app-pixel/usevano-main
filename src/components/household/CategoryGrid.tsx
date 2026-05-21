@@ -1,65 +1,100 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { cn } from '@/lib/utils';
 
+// ─── Replace with your real WhatsApp number (digits only, no + or spaces) ───
+const WHATSAPP_NUMBER = '353XXXXXXXXX';
+
 interface Category {
-  emoji: string;
-  label: string;
-  slug: string;
+  label:   string;
+  slug:    string;
+  price:   string;
+  message: string;
 }
 
 const CATEGORIES: Category[] = [
-  { emoji: '🛒', label: 'Shopping',  slug: 'shopping'  },
-  { emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk'  },
-  { emoji: '🌿', label: 'Garden',    slug: 'garden'    },
-  { emoji: '📦', label: 'Moving',    slug: 'moving'    },
-  { emoji: '🧹', label: 'Cleaning',  slug: 'cleaning'  },
-  { emoji: '✨', label: 'Other',     slug: 'other'     },
+  {
+    label:   'Shopping',
+    slug:    'shopping',
+    price:   'from €12',
+    message: 'Hi VANO! I need a shopping run in Galway.',
+  },
+  {
+    label:   'Dog walk',
+    slug:    'dog-walk',
+    price:   'from €10',
+    message: 'Hi VANO! I need help walking my dog in Galway.',
+  },
+  {
+    label:   'Garden',
+    slug:    'garden',
+    price:   'from €18/hr',
+    message: 'Hi VANO! I need garden help in Galway.',
+  },
+  {
+    label:   'Moving',
+    slug:    'moving',
+    price:   'from €18/hr',
+    message: 'Hi VANO! I need moving help in Galway.',
+  },
+  {
+    label:   'Cleaning',
+    slug:    'cleaning',
+    price:   'from €16/hr',
+    message: 'Hi VANO! I need cleaning help in Galway.',
+  },
+  {
+    label:   'Other',
+    slug:    'other',
+    price:   'from €12',
+    message: 'Hi VANO! I need help with something in Galway — ',
+  },
 ];
 
-/* Primary CTA — large Uber-style tiles. One tap, immediate navigation.
-   Emoji is the visual anchor; label below for clarity.
-   active:scale-[0.97] gives the tactile press feedback the design guide requires. */
+function openWhatsApp(message: string): void {
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 export const CategoryGrid: React.FC = () => {
-  const navigate = useNavigate();
-  const [pressed, setPressed] = useState<string | null>(null);
-
-  const handleSelect = (slug: string) => {
-    setPressed(slug);
-    setTimeout(() => navigate(`/book/${slug}`), 150);
-  };
-
   return (
     <section id="category-grid" aria-label="What do you need help with?">
-      <p className="text-sm font-semibold text-muted-foreground mb-4 tracking-wide uppercase" style={{ letterSpacing: '0.06em' }}>
+      <p
+        className="text-sm font-semibold text-muted-foreground mb-4 tracking-wide uppercase"
+        style={{ letterSpacing: '0.06em' }}
+      >
         What do you need?
       </p>
 
       <div className="grid grid-cols-3 gap-2.5">
-        {CATEGORIES.map(({ emoji, label, slug }) => (
+        {CATEGORIES.map(({ label, slug, price, message }) => (
           <button
             key={slug}
-            onClick={() => handleSelect(slug)}
+            onClick={() => openWhatsApp(message)}
             className={cn(
-              // Base — tall enough for a thumb, generous padding
-              'relative flex flex-col items-center justify-center gap-1.5',
-              'min-h-[88px] rounded-2xl',
-              'transition-[background-color,transform,box-shadow] duration-150 ease-out-expo',
+              'relative flex flex-col items-center justify-center gap-1',
+              'min-h-[88px] rounded-2xl px-2',
+              'bg-secondary/70 text-foreground hover:bg-secondary border border-border/40',
+              'transition-[background-color,transform] duration-150 ease-out-expo',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-              'active:scale-[0.95]',
-              pressed === slug
-                ? 'bg-primary text-primary-foreground shadow-primary-glow scale-[0.97]'
-                : 'bg-secondary/70 text-foreground hover:bg-secondary border border-border/40',
+              'active:scale-[0.95] active:bg-primary active:text-primary-foreground active:border-primary',
             )}
-            aria-label={label}
+            aria-label={`Book ${label}`}
           >
-            <span className="text-2xl leading-none select-none" aria-hidden="true">
-              {emoji}
-            </span>
-            <span className="text-[13px] font-medium leading-tight">{label}</span>
+            <span className="text-sm font-semibold leading-tight">{label}</span>
+            <span className="text-[11px] text-muted-foreground leading-tight">{price}</span>
           </button>
         ))}
       </div>
+
+      <p className="text-center text-xs text-muted-foreground mt-4">
+        Something else?{' '}
+        <button
+          onClick={() => openWhatsApp('Hi VANO! I need help with something in Galway — ')}
+          className="underline underline-offset-2 text-foreground/60 hover:text-foreground transition-colors"
+        >
+          Tell us what you need
+        </button>
+      </p>
     </section>
   );
 };
