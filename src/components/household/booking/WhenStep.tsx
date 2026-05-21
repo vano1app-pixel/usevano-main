@@ -5,68 +5,68 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const TIME_SLOTS = [
-  { id: 'morning',   label: 'Morning',   detail: '8am – 12pm' },
-  { id: 'afternoon', label: 'Afternoon', detail: '12pm – 5pm' },
-  { id: 'evening',   label: 'Evening',   detail: '5pm – 8pm'  },
+  { id: 'morning',   label: 'Morning',   detail: '8am–12pm' },
+  { id: 'afternoon', label: 'Afternoon', detail: '12–5pm'   },
+  { id: 'evening',   label: 'Evening',   detail: '5–8pm'    },
 ] as const;
 
-const twoDaysFromNow = new Date(Date.now() + 86_400_000 * 2).toISOString().split('T')[0];
+const minCustomDate = new Date(Date.now() + 86_400_000 * 2).toISOString().split('T')[0];
 
 export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
   const [showPicker, setShowPicker] = useState(false);
+  const isCustom = !!data.scheduledDate && !['today', 'tomorrow'].includes(data.scheduledDate);
+  const canProceed = !!data.scheduledDate && !!data.timeSlot;
 
   const setDate = (date: string, isExpress = false) => {
     onChange({ scheduledDate: date, isExpress });
     setShowPicker(false);
   };
 
-  const isCustomDate =
-    !!data.scheduledDate && !['today', 'tomorrow'].includes(data.scheduledDate);
-
-  const canProceed = !!data.scheduledDate && !!data.timeSlot;
-
   return (
-    <div className="px-4 pt-8 pb-28 max-w-lg mx-auto md:max-w-xl">
-      <h2 className="text-xl font-semibold text-foreground mb-1">When do you need help?</h2>
-      <p className="text-muted-foreground text-sm mb-6">Pick a day and time that suits you.</p>
+    <div className="px-4 pt-10 pb-28 max-w-sm mx-auto">
+      <h2 className="text-3xl font-bold tracking-tight text-foreground mb-8">
+        When do you need help?
+      </h2>
 
-      {/* Date options */}
-      <div className="space-y-2.5 mb-7">
+      {/* Date rows */}
+      <div className="flex flex-col gap-2.5 mb-7">
         <button
           onClick={() => setDate('today', true)}
           className={cn(
-            'w-full flex items-center justify-between px-4 py-4 rounded-2xl transition-all duration-150 ease-out-expo active:scale-[0.98] text-left',
+            'w-full flex items-center justify-between px-5 min-h-[68px] rounded-2xl text-left',
+            'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
             data.scheduledDate === 'today'
               ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary hover:bg-secondary/80',
+              : 'bg-secondary text-foreground border border-border/40',
           )}
         >
           <div>
-            <p className="font-medium text-sm">Today</p>
+            <p className="font-semibold text-base">Today</p>
             <p className={cn('text-xs mt-0.5', data.scheduledDate === 'today' ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-              Dispatch within 1–2 hours
+              Within 1–2 hours
             </p>
           </div>
           <Badge
             variant="outline"
             className={cn(
-              'text-[10px] shrink-0',
+              'text-[10px] font-semibold shrink-0 ml-3',
               data.scheduledDate === 'today'
-                ? 'border-white/30 text-primary-foreground/90 bg-white/10'
-                : 'border-express-orange/30 text-express-orange bg-transparent',
+                ? 'border-white/30 text-white bg-white/10'
+                : 'border-express-orange/30 text-express-orange',
             )}
           >
-            Express · €25/hr
+            Express
           </Badge>
         </button>
 
         <button
-          onClick={() => setDate('tomorrow', false)}
+          onClick={() => setDate('tomorrow')}
           className={cn(
-            'w-full flex items-center px-4 py-4 rounded-2xl transition-all duration-150 ease-out-expo active:scale-[0.98] text-left font-medium text-sm',
+            'w-full min-h-[60px] px-5 rounded-2xl font-semibold text-base text-left',
+            'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
             data.scheduledDate === 'tomorrow'
               ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary hover:bg-secondary/80',
+              : 'bg-secondary text-foreground border border-border/40',
           )}
         >
           Tomorrow
@@ -75,44 +75,44 @@ export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
         <button
           onClick={() => setShowPicker(!showPicker)}
           className={cn(
-            'w-full flex items-center px-4 py-4 rounded-2xl transition-all duration-150 ease-out-expo active:scale-[0.98] text-left font-medium text-sm',
-            isCustomDate
+            'w-full min-h-[60px] px-5 rounded-2xl font-semibold text-base text-left',
+            'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
+            isCustom
               ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary hover:bg-secondary/80',
+              : 'bg-secondary text-foreground border border-border/40',
           )}
         >
-          {isCustomDate
-            ? new Date(data.scheduledDate!).toLocaleDateString('en-IE', {
-                weekday: 'long', month: 'long', day: 'numeric',
-              })
-            : 'Choose a date…'}
+          {isCustom
+            ? new Date(data.scheduledDate!).toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' })
+            : 'Choose a date'}
         </button>
 
         {showPicker && (
           <input
             type="date"
-            min={twoDaysFromNow}
-            className="w-full border border-border rounded-2xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            onChange={(e) => { if (e.target.value) setDate(e.target.value, false); }}
+            min={minCustomDate}
+            className="w-full h-12 border border-border rounded-2xl px-4 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => { if (e.target.value) setDate(e.target.value); }}
           />
         )}
       </div>
 
-      {/* Time slot */}
+      {/* Time slots */}
       <p className="text-sm font-semibold text-foreground mb-3">What time?</p>
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-3 gap-2.5 mb-8">
         {TIME_SLOTS.map((slot) => (
           <button
             key={slot.id}
             onClick={() => onChange({ timeSlot: slot.id })}
             className={cn(
-              'flex flex-col items-center py-3.5 px-2 rounded-2xl text-center transition-all duration-150 ease-out-expo active:scale-[0.97]',
+              'flex flex-col items-center py-4 rounded-2xl text-center',
+              'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
               data.timeSlot === slot.id
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary hover:bg-secondary/80',
+                : 'bg-secondary text-foreground border border-border/40',
             )}
           >
-            <span className="font-medium text-sm">{slot.label}</span>
+            <span className="font-semibold text-sm">{slot.label}</span>
             <span className={cn('text-[11px] mt-0.5', data.timeSlot === slot.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
               {slot.detail}
             </span>

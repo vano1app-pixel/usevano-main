@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 interface BookingProgressProps {
   current: number;
@@ -7,30 +7,30 @@ interface BookingProgressProps {
   onBack: () => void;
 }
 
+/* Thin progress bar + minimal back button. The bar does the progress
+   communication; no need for "Step X of Y" text alongside it. */
 export const BookingProgress: React.FC<BookingProgressProps> = ({ current, total, onBack }) => {
   const pct = Math.round((current / total) * 100);
 
   return (
-    <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border/50">
-      {/* Thin sage progress bar */}
-      <div className="h-0.5 bg-secondary">
+    <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
+      {/* Progress bar — sage green filling left to right */}
+      <div className="h-[2px] bg-border">
         <div
-          className="h-full bg-primary transition-all duration-500 ease-out-expo"
+          className="h-full bg-primary transition-[width] duration-400 ease-out-expo"
           style={{ width: `${pct}%` }}
         />
       </div>
 
-      <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto md:max-w-xl">
+      <div className="flex items-center justify-between px-4 h-12 max-w-lg mx-auto md:max-w-xl">
         <button
           onClick={onBack}
-          className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors min-h-[44px] -ml-1 px-1"
+          className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full text-foreground/60 hover:text-foreground hover:bg-secondary transition-colors duration-150"
           aria-label="Go back"
         >
-          <ChevronLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back</span>
+          <ArrowLeft className="w-4 h-4" />
         </button>
-
-        <p className="text-xs text-muted-foreground tabular-nums">
+        <p className="text-xs text-muted-foreground tabular-nums font-medium">
           {current} / {total}
         </p>
       </div>

@@ -5,56 +5,62 @@ import { Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const CLEANING_TASKS = [
-  'Kitchen', 'Bathrooms', 'Hoovering', 'Mopping floors',
+  'Kitchen', 'Bathrooms', 'Hoovering', 'Mopping',
   'Windows', 'Oven', 'Fridge', 'General tidying',
 ];
 
 export const CleaningTasksStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
   const [selected, setSelected] = useState<string[]>(data.cleaningTasks ?? []);
 
-  const toggle = (task: string) => {
+  const toggle = (task: string) =>
     setSelected((prev) =>
       prev.includes(task) ? prev.filter((t) => t !== task) : [...prev, task],
     );
-  };
-
-  const handleNext = () => {
-    onChange({ cleaningTasks: selected });
-    onNext();
-  };
 
   return (
-    <div className="px-4 pt-8 pb-28 max-w-lg mx-auto md:max-w-xl">
-      <h2 className="text-xl font-semibold text-foreground mb-1">What needs cleaning?</h2>
-      <p className="text-muted-foreground text-sm mb-4">Select all that apply.</p>
+    <div className="px-4 pt-10 pb-28 max-w-sm mx-auto">
+      <h2 className="text-3xl font-bold tracking-tight text-foreground mb-2">
+        What needs cleaning?
+      </h2>
+      <p className="text-muted-foreground text-sm mb-5">Pick everything that applies.</p>
 
-      {/* Duo safety notice — indoor tasks always use two students */}
-      <div className="flex items-start gap-3 bg-sage-light rounded-2xl px-4 py-3 mb-5">
-        <Shield className="w-4 h-4 text-sage mt-0.5 flex-shrink-0" aria-hidden="true" />
+      {/* Duo safety note — inline, not a modal */}
+      <div className="flex items-start gap-3 bg-sage-light rounded-xl px-4 py-3 mb-5">
+        <Shield className="w-4 h-4 text-sage mt-0.5 flex-shrink-0" />
         <p className="text-xs text-foreground/70 leading-relaxed">
-          <span className="font-medium text-foreground">Duo system:</span> We always send two students for indoor cleaning — for your safety and theirs.
+          <span className="font-semibold text-foreground">Duo system:</span> We always send two students for indoor jobs.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-8">
+      <div className="flex flex-col gap-2 mb-8">
         {CLEANING_TASKS.map((task) => (
           <button
             key={task}
             onClick={() => toggle(task)}
             className={cn(
-              'min-h-[52px] px-4 py-3 rounded-2xl font-medium text-sm text-left transition-all duration-150 ease-out-expo active:scale-[0.97] flex items-center gap-2',
+              'w-full min-h-[52px] px-5 rounded-2xl font-medium text-base text-left flex items-center gap-3',
+              'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
               selected.includes(task)
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+                : 'bg-secondary text-foreground border border-border/40',
             )}
           >
-            {selected.includes(task) && <span className="text-base leading-none">✓</span>}
+            {selected.includes(task) && (
+              <span className="w-4 h-4 rounded-full bg-primary-foreground/20 flex items-center justify-center flex-shrink-0 text-[10px] font-bold">
+                ✓
+              </span>
+            )}
             {task}
           </button>
         ))}
       </div>
 
-      <Button onClick={handleNext} disabled={selected.length === 0} className="w-full rounded-full" size="lg">
+      <Button
+        onClick={() => { onChange({ cleaningTasks: selected }); onNext(); }}
+        disabled={selected.length === 0}
+        className="w-full rounded-full"
+        size="lg"
+      >
         Continue
       </Button>
     </div>
@@ -63,35 +69,38 @@ export const CleaningTasksStep: React.FC<StepProps> = ({ data, onChange, onNext 
 
 export const CleaningDurationStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
   const options = [
-    { id: '1hr' as const, label: '1 hour',  price: '€16', detail: 'Quick freshen-up' },
-    { id: '2hr' as const, label: '2 hours', price: '€32', detail: 'Full clean of main rooms' },
-    { id: '3hr' as const, label: '3 hours', price: '€48', detail: 'Deep clean throughout' },
+    { id: '1hr' as const, label: '1 hour',  price: '€16', sub: 'Quick freshen-up'       },
+    { id: '2hr' as const, label: '2 hours', price: '€32', sub: 'Full clean of main rooms' },
+    { id: '3hr' as const, label: '3 hours', price: '€48', sub: 'Deep clean throughout'   },
   ];
 
   return (
-    <div className="px-4 pt-8 pb-28 max-w-lg mx-auto md:max-w-xl">
-      <h2 className="text-xl font-semibold text-foreground mb-1">How long do you need?</h2>
-      <p className="text-muted-foreground text-sm mb-6">Remember — two students means twice the speed.</p>
+    <div className="px-4 pt-10 pb-28 max-w-sm mx-auto">
+      <h2 className="text-3xl font-bold tracking-tight text-foreground mb-2">
+        How long?
+      </h2>
+      <p className="text-muted-foreground text-sm mb-8">Two students means twice the speed.</p>
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         {options.map((opt) => (
           <button
             key={opt.id}
             onClick={() => { onChange({ cleaningDuration: opt.id }); onNext(); }}
             className={cn(
-              'w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-150 ease-out-expo active:scale-[0.98] text-left',
+              'w-full flex items-center justify-between px-5 min-h-[72px] rounded-2xl text-left',
+              'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
               data.cleaningDuration === opt.id
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary hover:bg-secondary/80',
+                : 'bg-secondary text-foreground border border-border/40 hover:bg-secondary/70',
             )}
           >
             <div>
-              <p className="font-semibold text-sm">{opt.label}</p>
+              <p className="font-semibold text-base">{opt.label}</p>
               <p className={cn('text-xs mt-0.5', data.cleaningDuration === opt.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                {opt.detail}
+                {opt.sub}
               </p>
             </div>
-            <span className="font-bold text-lg tabular-nums">{opt.price}</span>
+            <span className="font-bold text-xl tabular-nums ml-4">{opt.price}</span>
           </button>
         ))}
       </div>

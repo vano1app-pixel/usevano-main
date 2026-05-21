@@ -1,26 +1,22 @@
 import React from 'react';
 import { CategoryGrid } from './CategoryGrid';
 
-/* Hero sits at the top of /home. The sage-light gradient fades into pure
-   white so sections below feel continuous rather than boxed-in. The .grain
-   overlay adds just enough texture to stop the flat white from reading as
-   unfinished. Both headline and category grid must be visible without
-   scrolling at 375px — padding is tuned to clear the 56px fixed nav. */
+/* Hero — grain texture from index.css utility breaks digital flatness.
+   Gradient is feather-light so it reads as tinted-white, not coloured.
+   All content must sit above the fold at 375px; pt-24 clears the fixed nav. */
 export const HeroSection: React.FC = () => {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-sage-light via-background to-background pt-24 pb-10 px-4">
-      {/* Film-grain texture — defined in index.css @layer utilities */}
+    <section className="relative overflow-hidden bg-gradient-to-b from-sage-light/60 to-background pt-24 pb-10 px-4">
       <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
 
-      <div className="relative max-w-lg mx-auto md:max-w-xl lg:max-w-2xl">
-        <h1 className="display-xl text-foreground mb-3">
-          Need something done?{' '}
-          <span className="text-primary">We'll send someone.</span>
-        </h1>
+      <div className="relative max-w-lg mx-auto md:max-w-2xl">
+        {/* Eyebrow */}
+        <p className="eyebrow mb-5">Galway · ATU students · From €12</p>
 
-        <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-          Vetted ATU students&nbsp;·&nbsp;From €12&nbsp;·&nbsp;Galway
-        </p>
+        {/* Headline — display-xl already clamps 2.5rem → 5.75rem with tight leading */}
+        <h1 className="display-xl text-foreground mb-8">
+          Need a hand around the house?
+        </h1>
 
         <CategoryGrid />
       </div>

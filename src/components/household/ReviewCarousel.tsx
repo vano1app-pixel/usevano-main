@@ -9,50 +9,46 @@ interface Review {
 
 const REVIEWS: Review[] = [
   {
-    text: "Cian picked up my shopping from Dunnes in the rain and had everything sorted in an hour. Brilliant service, will definitely use again.",
-    name: "Sarah",
-    area: "Salthill",
+    text: "Cian picked up my shopping from Dunnes in the rain and had everything sorted in an hour. Brilliant.",
+    name: 'Sarah M.',
+    area: 'Salthill',
   },
   {
-    text: "The two lads who came to help us move were brilliant — fast, careful with the furniture, and great craic. Saved us a fortune on a van hire.",
-    name: "Michael",
-    area: "Knocknacarra",
+    text: "The lads who helped us move were fast, careful with the furniture, and great craic. Saved us a fortune.",
+    name: 'Michael O.',
+    area: 'Knocknacarra',
   },
   {
-    text: "Emma walks my dog Biscuit every Tuesday now. He goes mad when he sees her coming. Absolutely delighted with the service.",
-    name: "Áine",
-    area: "Renmore",
+    text: "Emma walks my dog Biscuit every Tuesday. He goes mad when he sees her coming. Absolutely delighted.",
+    name: 'Áine K.',
+    area: 'Renmore',
   },
   {
-    text: "I set this up for my mother and she says it's the best thing since sliced bread. Someone comes every week to help with the garden. She loves it.",
-    name: "Margaret",
-    area: "Salthill",
+    text: "I set this up for my mother and she says it's the best thing since sliced bread. Someone every week for the garden.",
+    name: 'Margaret F.',
+    area: 'Salthill',
   },
 ];
 
 export const ReviewCarousel: React.FC = () => {
   return (
-    <section className="py-10">
-      <div className="px-4 max-w-5xl mx-auto mb-6">
-        <p className="eyebrow mb-2">Word on the street</p>
-        <h2 className="text-2xl font-semibold text-foreground">What people are saying</h2>
+    <section className="py-12">
+      <div className="px-4 max-w-5xl mx-auto mb-5">
+        <p className="eyebrow mb-3">Reviews</p>
+        <h2 className="display-lg text-foreground">What people say</h2>
       </div>
 
       <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4">
-        <div className="flex gap-4 px-4" style={{ width: 'max-content' }}>
+        <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
           {REVIEWS.map((r) => (
             <article
               key={r.name}
-              className="snap-start min-w-[280px] max-w-[320px] bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-3"
+              className="snap-start w-[300px] bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-4 border border-border/40"
             >
-              {/* Five gold stars */}
-              <div className="flex gap-0.5" aria-label="5 stars">
+              {/* Five gold stars — Lucide icons, not emoji */}
+              <div className="flex gap-0.5" aria-label="5 out of 5 stars">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className="w-4 h-4 fill-gold text-gold"
-                    aria-hidden="true"
-                  />
+                  <Star key={i} className="w-4 h-4 fill-gold text-gold" aria-hidden="true" />
                 ))}
               </div>
 
