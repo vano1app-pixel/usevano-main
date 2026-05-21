@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 // ─── Replace with your real WhatsApp number (digits only, no + or spaces) ───
-const WHATSAPP_NUMBER = '353XXXXXXXXX';
+const WHATSAPP_NUMBER = '353899817111';
 
 interface Category {
   label:   string;

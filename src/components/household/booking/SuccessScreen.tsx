@@ -96,7 +96,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ data }) => {
           className="w-full rounded-full gap-2 mb-3"
         >
           <a
-            href={`https://wa.me/REPLACENUMBER?text=Hi%2C%20I%20just%20booked%20a%20${data.category}%20job!`}
+            href={`https://wa.me/353899817111?text=Hi%2C%20I%20just%20booked%20a%20${data.category}%20job!`}
             target="_blank"
             rel="noopener noreferrer"
           >

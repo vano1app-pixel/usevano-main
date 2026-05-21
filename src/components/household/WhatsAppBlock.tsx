@@ -20,7 +20,7 @@ export const WhatsAppBlock: React.FC = () => {
           style={{ backgroundColor: '#25D366', color: '#fff' }}
         >
           <a
-            href="https://wa.me/REPLACENUMBER?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
+            href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
             target="_blank"
             rel="noopener noreferrer"
           >

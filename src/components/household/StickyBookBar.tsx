@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
-const WHATSAPP_NUMBER = '353XXXXXXXXX';
+const WHATSAPP_NUMBER = '353899817111';
 
 function openWhatsApp(): void {
   const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hi VANO! I need help in Galway.')}`;

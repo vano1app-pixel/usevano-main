@@ -39,7 +39,7 @@ export const HouseholdNav: React.FC = () => {
 
         {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
         <a
-          href="https://wa.me/REPLACENUMBER?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
+          href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Chat on WhatsApp"

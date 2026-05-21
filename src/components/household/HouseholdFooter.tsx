@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { label: 'Safety',      href: '/safety'         },
   { label: 'For Students', href: '/students'      },
   { label: 'Instagram',   href: 'https://instagram.com/vanojobs', external: true },
-  { label: 'WhatsApp',    href: 'https://wa.me/REPLACENUMBER',    external: true },
+  { label: 'WhatsApp',    href: 'https://wa.me/353899817111',    external: true },
 ];
 
 export const HouseholdFooter: React.FC = () => {
