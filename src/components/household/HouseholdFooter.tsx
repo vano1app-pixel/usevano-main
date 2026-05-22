@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
 
 const NAV_LINKS = [
-  { label: 'For Students', href: 'https://wa.me/353899817111?text=Hi%20VANO%2C%20I%27m%20a%20student%20interested%20in%20doing%20jobs', external: true },
-  { label: 'Instagram',   href: 'https://instagram.com/vanojobs', external: true },
-  { label: 'WhatsApp',    href: 'https://wa.me/353899817111',    external: true },
+  { label: 'Join as helper', href: '/join',                                                                                        external: false },
+  { label: 'Instagram',      href: 'https://instagram.com/vanojobs',                                                              external: true  },
+  { label: 'WhatsApp',       href: 'https://wa.me/353899817111',                                                                  external: true  },
+  { label: 'Terms',          href: '/terms',                                                                                      external: false },
+  { label: 'Privacy',        href: '/privacy',                                                                                    external: false },
 ];
 
 export const HouseholdFooter: React.FC = () => {
@@ -25,16 +27,25 @@ export const HouseholdFooter: React.FC = () => {
 
           <nav aria-label="Footer navigation">
             <ul className="flex flex-wrap gap-x-6 gap-y-3">
-              {NAV_LINKS.map(({ label, href }) => (
+              {NAV_LINKS.map(({ label, href, external }) => (
                 <li key={label}>
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/60 hover:text-white text-sm transition-colors duration-150"
-                  >
-                    {label}
-                  </a>
+                  {external ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white/60 hover:text-white text-sm transition-colors duration-150"
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    <Link
+                      to={href}
+                      className="text-white/60 hover:text-white text-sm transition-colors duration-150"
+                    >
+                      {label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

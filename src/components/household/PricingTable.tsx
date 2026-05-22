@@ -51,7 +51,7 @@ export const PricingTable: React.FC = () => {
       </ul>
 
       <p className="text-muted-foreground text-xs text-center mb-8">
-        Only charged when the job is done. Cancel anytime.
+        Pay by Revolut or cash when your helper leaves. Price agreed upfront — no surprises.
       </p>
 
       {/* Weekly subscription card — card-bezel gives the double-inset premium look */}

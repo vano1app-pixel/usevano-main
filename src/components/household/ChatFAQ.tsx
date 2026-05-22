@@ -14,11 +14,11 @@ const FAQ: QAPair[] = [
   },
   {
     q: 'What if I\'m not happy?',
-    a: 'You have 24 hours to review before we release payment. Not happy? Full refund, no questions.',
+    a: 'Let us know within 24 hours if anything wasn\'t right. We\'ll make it right or you don\'t pay.',
   },
   {
-    q: 'When do I actually get charged?',
-    a: 'Only when the job is marked complete. Nothing upfront.',
+    q: 'How does payment work?',
+    a: 'We agree the price upfront on WhatsApp. You pay by Revolut or cash when the job is done — nothing beforehand.',
   },
   {
     q: 'Do you cover all of Galway?',
