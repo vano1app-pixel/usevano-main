@@ -7,6 +7,10 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
 
+// Household tables not yet in generated types — remove once migration is applied and types are regenerated
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const hdb = supabase as any;
+
 type BookingStatus = 'pending' | 'accepted' | 'on_way' | 'in_progress' | 'completed' | 'cancelled';
 type UpdateStatus = 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
 
@@ -103,9 +107,9 @@ const TrackBooking = () => {
       if (!cancelled) setUserId(session.user.id);
 
       const [bookingRes, updatesRes, messagesRes] = await Promise.all([
-        supabase.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
-        supabase.from('household_job_updates').select('*').eq('booking_id', bookingId).order('created_at'),
-        supabase.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
+        hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
+        hdb.from('household_job_updates').select('*').eq('booking_id', bookingId).order('created_at'),
+        hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
       ]);
 
       if (cancelled) return;
@@ -145,7 +149,7 @@ const TrackBooking = () => {
     setSending(true);
     const body = draft.trim();
     setDraft('');
-    await supabase.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
+    await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
     setSending(false);
   };
 
@@ -179,7 +183,7 @@ const TrackBooking = () => {
 
   return (
     <div className="min-h-dvh bg-background">
-      <SEOHead title="Track your booking" noindex />
+      <SEOHead title="Track your booking" description="Track your VANO booking status in real time." noindex />
 
       {/* Nav */}
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">

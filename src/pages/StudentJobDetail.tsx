@@ -9,7 +9,11 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
 
-type JobStatus = 'pending' | 'accepted' | 'on_way' | 'in_progress' | 'completed' | 'cancelled';
+// Household tables not yet in generated types — remove once migration is applied and types are regenerated
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const hdb = supabase as any;
+
+type JobStatus = 'pending' | 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
 type UpdateStatus = 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
 
 interface Booking {
@@ -89,8 +93,8 @@ const StudentJobDetail = () => {
       if (!cancelled) setUserId(session.user.id);
 
       const [bookingRes, msgRes] = await Promise.all([
-        supabase.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
-        supabase.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
+        hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
+        hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
       ]);
 
       if (cancelled) return;
@@ -145,8 +149,8 @@ const StudentJobDetail = () => {
 
     setAdvancing(true);
     const [updateRes] = await Promise.all([
-      supabase.from('household_bookings').update({ status: next.status }).eq('id', bookingId),
-      supabase.from('household_job_updates').insert({ booking_id: bookingId, status: next.status }),
+      hdb.from('household_bookings').update({ status: next.status }).eq('id', bookingId),
+      hdb.from('household_job_updates').insert({ booking_id: bookingId, status: next.status }),
     ]);
     if (updateRes.error) {
       toast({ title: 'Update failed', description: getUserFriendlyError(updateRes.error), variant: 'destructive' });
@@ -161,7 +165,7 @@ const StudentJobDetail = () => {
     setSending(true);
     const body = draft.trim();
     setDraft('');
-    await supabase.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
+    await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
     setSending(false);
   };
 
@@ -190,7 +194,7 @@ const StudentJobDetail = () => {
 
   return (
     <div className="min-h-dvh bg-background">
-      <SEOHead title="Active job — VANO" noindex />
+      <SEOHead title="Active job — VANO" description="Manage your active VANO job." noindex />
 
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button

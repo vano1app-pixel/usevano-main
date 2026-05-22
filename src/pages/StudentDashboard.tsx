@@ -7,6 +7,10 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
 
+// Household tables not yet in generated types — remove once migration is applied and types are regenerated
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const hdb = supabase as any;
+
 interface Booking {
   id: string;
   category: string;
@@ -66,22 +70,19 @@ const StudentDashboard = () => {
 
   const loadData = useCallback(async (uid: string) => {
     const [available, mine, earnedPayouts] = await Promise.all([
-      supabase
-        .from('household_bookings')
+      hdb.from('household_bookings')
         .select('*')
         .eq('status', 'pending')
         .is('student_id', null)
         .order('created_at', { ascending: false })
         .limit(30),
-      supabase
-        .from('household_bookings')
+      hdb.from('household_bookings')
         .select('*')
         .eq('student_id', uid)
         .not('status', 'in', '(pending,cancelled)')
         .order('created_at', { ascending: false })
         .limit(20),
-      supabase
-        .from('household_payouts')
+      hdb.from('household_payouts')
         .select('*')
         .eq('student_id', uid)
         .order('created_at', { ascending: false })
@@ -110,7 +111,7 @@ const StudentDashboard = () => {
   const acceptJob = async (jobId: string) => {
     if (!userId) return;
     setAccepting(jobId);
-    const { error } = await supabase
+    const { error } = await hdb
       .from('household_bookings')
       .update({ student_id: userId, status: 'accepted' })
       .eq('id', jobId)
@@ -140,7 +141,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="min-h-dvh bg-background">
-      <SEOHead title="Student dashboard — VANO" noindex />
+      <SEOHead title="Student dashboard — VANO" description="Pick up household jobs in Galway." noindex />
 
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">

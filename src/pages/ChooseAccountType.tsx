@@ -13,7 +13,7 @@ type AccountType = 'student' | 'business' | 'customer';
 
 interface AccountOption {
   id: AccountType;
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number | string; strokeWidth?: number | string; className?: string }>;
   label: string;
   sub: string;
   selectedClass: string;
