@@ -52,6 +52,12 @@ const ClaimProfile = lazyWithRetry(() => import("./pages/ClaimProfile"));
 const AiFindResults = lazyWithRetry(() => import("./pages/AiFindResults"));
 const AiFindReturn = lazyWithRetry(() => import("./pages/AiFindReturn"));
 const VanoPay = lazyWithRetry(() => import("./pages/VanoPay"));
+const HouseholdHome = lazyWithRetry(() => import("./pages/HouseholdHome"));
+const BookingFlow = lazyWithRetry(() => import("./pages/BookingFlow"));
+const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
+const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
+const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"));
+const JoinAsHelper = lazyWithRetry(() => import("./pages/JoinAsHelper"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -86,8 +92,9 @@ import type { TransitionVariant } from "./components/PageTransition";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 
 function getVariant(path: string): TransitionVariant {
-  if (path === '/') return 'liquid';
+  if (path === '/') return 'rise';
   if (path === '/hire') return 'dissolve';
+  if (path === '/home' || path === '/join' || path.startsWith('/book/') || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/')) return 'rise';
   if (['/auth', '/choose-account-type', '/complete-profile', '/profile', '/business-dashboard', '/messages', '/vano-pay'].includes(path)) return 'rise';
   if (path.startsWith('/students') || path.startsWith('/jobs/')) return 'morph';
   return 'default';
@@ -147,7 +154,16 @@ const App = () => {
         <RouteErrorBoundary routeKey={location.pathname}>
         <Suspense fallback={<RouteSuspenseFallback />}>
           <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<P><Landing /></P>} />
+            <Route path="/" element={<P><HouseholdHome /></P>} />
+            <Route path="/marketplace" element={<P><Landing /></P>} />
+            {/* Household platform — /home and /book/:category are safe routes
+                that leave the marketplace at / completely unaffected. */}
+            <Route path="/home" element={<P><HouseholdHome /></P>} />
+            <Route path="/book/:category" element={<P><BookingFlow /></P>} />
+            <Route path="/track/:bookingId" element={<P><TrackBooking /></P>} />
+            <Route path="/student-dashboard" element={<P><StudentDashboard /></P>} />
+            <Route path="/student-job/:bookingId" element={<P><StudentJobDetail /></P>} />
+            <Route path="/join" element={<P><JoinAsHelper /></P>} />
             <Route path="/hire" element={<P><HirePage /></P>} />
             {/* /jobs (no ID) used to 404 — redirect to /hire so people
                 who type or land on it from old links hit the right page

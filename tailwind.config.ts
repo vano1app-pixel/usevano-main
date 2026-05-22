@@ -7,8 +7,14 @@ import type { Config } from "tailwindcss";
  * not what looks nice in isolation. Users subconsciously learn these roles
  * within 1–2 sessions and move faster because of them.
  *
- *   primary (blue)   → Main platform action. Hire / Send / Go live / Continue.
+ *   primary (sage)   → Main platform action. Book / Send / Continue.
  *                      Exactly ONE primary button per card / form.
+ *                      On /home this is sage green; replaces the old blue.
+ *   sage (green)     → Household CTA, trust, safety, verification badges.
+ *                      Use for: Book Now, verified-student badge, safety items.
+ *   navy             → Footer, hero headings, high-contrast anchors.
+ *   gold             → Star ratings, premium quality signal, VANO Weekly.
+ *   express-orange   → Express / urgent booking tier (≤1 hr dispatch).
  *   emerald          → Trust, money, verified, available, success.
  *                      Use for: €0 fee anchors, Verified by Vano badge,
  *                      online dots, success toasts, completed checklist items.
@@ -83,6 +89,14 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        sage: {
+          DEFAULT: "hsl(var(--sage))",
+          light: "hsl(var(--sage-light))",
+          dark: "hsl(var(--sage-dark))",
+        },
+        navy: "hsl(var(--navy))",
+        gold: "hsl(var(--gold))",
+        "express-orange": "hsl(var(--express-orange))",
       },
       transitionTimingFunction: {
         'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',

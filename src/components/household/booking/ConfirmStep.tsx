@@ -1,0 +1,256 @@
+import React, { useState } from 'react';
+import type { StepProps, BookingData } from './types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, Lock, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { getUserFriendlyError } from '@/lib/errorMessages';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  shopping:  'Shopping run',
+  'dog-walk': 'Dog walk',
+  garden:    'Garden work',
+  moving:    'Moving help',
+  cleaning:  'Cleaning',
+  other:     'General help',
+};
+
+function formatDate(date: string): string {
+  if (date === 'today') return 'Today';
+  if (date === 'tomorrow') return 'Tomorrow';
+  try {
+    return new Date(date).toLocaleDateString('en-IE', {
+      weekday: 'long', month: 'long', day: 'numeric',
+    });
+  } catch {
+    return date;
+  }
+}
+
+function formatSlot(slot: string): string {
+  const map: Record<string, string> = {
+    morning: '8am–12pm',
+    afternoon: '12pm–5pm',
+    evening: '5pm–8pm',
+  };
+  return map[slot] ?? slot;
+}
+
+function getPriceEstimate(data: BookingData): string {
+  switch (data.category) {
+    case 'shopping':
+      return data.isExpress ? '€25 (express)' : '€12 flat';
+    case 'dog-walk': {
+      const base = data.walkDuration === '30min' ? 10 : 15;
+      const count = data.dogCount ?? 1;
+      return `€${base * count}`;
+    }
+    case 'garden': {
+      const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€65' };
+      return data.gardenDuration ? prices[data.gardenDuration] : '€18+';
+    }
+    case 'moving': {
+      const helpers = data.helperCount ?? 1;
+      return `€18/hr × ${helpers} helper${helpers > 1 ? 's' : ''}`;
+    }
+    case 'cleaning': {
+      const hrs: Record<string, number> = { '1hr': 1, '2hr': 2, '3hr': 3 };
+      const h = data.cleaningDuration ? (hrs[data.cleaningDuration] ?? 1) : 1;
+      return `€${h * 16}`;
+    }
+    case 'other':
+      return data.pricingType === 'flat' ? '€15 flat' : 'from €15/hr';
+    default:
+      return 'To be confirmed';
+  }
+}
+
+export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
+  const { toast } = useToast();
+  const [touched, setTouched] = useState({ name: false, address: false, phone: false });
+  const [loading, setLoading] = useState(false);
+
+  const errors = {
+    name:    !data.customerName?.trim(),
+    address: !data.customerAddress?.trim(),
+    phone:   !data.customerPhone?.trim(),
+  };
+  const hasErrors = errors.name || errors.address || errors.phone;
+
+  const handleBook = async () => {
+    setTouched({ name: true, address: true, phone: true });
+    if (hasErrors) return;
+
+    setLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast({ title: 'Please sign in first', variant: 'destructive' });
+        return;
+      }
+
+      const { data: result, error } = await supabase.functions.invoke('create-household-booking', {
+        body: {
+          category: data.category,
+          scheduled_date: data.scheduledDate,
+          time_slot: data.timeSlot,
+          is_express: data.isExpress ?? false,
+          booking_data: {
+            store: data.store,
+            shoppingList: data.shoppingList,
+            dogCount: data.dogCount,
+            walkDuration: data.walkDuration,
+            gardenTasks: data.gardenTasks,
+            gardenDuration: data.gardenDuration,
+            helperCount: data.helperCount,
+            movingDuration: data.movingDuration,
+            cleaningTasks: data.cleaningTasks,
+            cleaningDuration: data.cleaningDuration,
+            pricingType: data.pricingType,
+            description: data.description,
+          },
+          customer_name: data.customerName,
+          customer_address: data.customerAddress,
+          customer_phone: data.customerPhone,
+        },
+      });
+
+      if (error || !result?.checkout_url) {
+        throw error ?? new Error('No checkout URL returned');
+      }
+
+      // Redirect to Stripe Checkout — Stripe returns to /track/:id after payment
+      window.location.href = result.checkout_url as string;
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not start booking',
+        description: getUserFriendlyError(err),
+        variant: 'destructive',
+      });
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="px-4 pt-8 pb-28 max-w-sm mx-auto">
+      <h2 className="text-3xl font-bold tracking-tight text-foreground mb-1">Confirm booking</h2>
+      <p className="text-muted-foreground text-sm mb-6">Pay now, only charged when the job is done.</p>
+
+      {/* Booking summary */}
+      <div className="bg-secondary/40 border border-border/40 rounded-2xl p-4 mb-6">
+        <p className="font-semibold text-foreground text-sm mb-2">
+          {CATEGORY_LABELS[data.category] ?? data.category}
+        </p>
+        {data.scheduledDate && (
+          <p className="text-sm text-muted-foreground">
+            {formatDate(data.scheduledDate)}
+            {data.timeSlot ? ` · ${formatSlot(data.timeSlot)}` : ''}
+          </p>
+        )}
+        <div className="pt-3 mt-2 border-t border-border/40 flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">Estimated cost</span>
+          <span className="font-bold text-foreground">{getPriceEstimate(data)}</span>
+        </div>
+      </div>
+
+      {/* Customer details */}
+      <p className="text-sm font-semibold text-foreground mb-3">Your details</p>
+      <div className="space-y-3 mb-6">
+        <div>
+          <Label htmlFor="cust-name" className="text-xs text-muted-foreground mb-1.5 block">
+            Full name
+          </Label>
+          <Input
+            id="cust-name"
+            placeholder="Your name"
+            value={data.customerName ?? ''}
+            onChange={(e) => onChange({ customerName: e.target.value })}
+            onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+            className={cn(
+              'rounded-xl h-11',
+              touched.name && errors.name ? 'border-destructive focus-visible:ring-destructive' : '',
+            )}
+          />
+          {touched.name && errors.name && (
+            <p className="text-destructive text-xs mt-1">Required</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="cust-addr" className="text-xs text-muted-foreground mb-1.5 block">
+            Address in Galway
+          </Label>
+          <Input
+            id="cust-addr"
+            placeholder="Your full address"
+            value={data.customerAddress ?? ''}
+            onChange={(e) => onChange({ customerAddress: e.target.value })}
+            onBlur={() => setTouched((t) => ({ ...t, address: true }))}
+            className={cn(
+              'rounded-xl h-11',
+              touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
+            )}
+          />
+          {touched.address && errors.address && (
+            <p className="text-destructive text-xs mt-1">Required</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="cust-phone" className="text-xs text-muted-foreground mb-1.5 block">
+            Phone number
+          </Label>
+          <Input
+            id="cust-phone"
+            type="tel"
+            placeholder="+353 87 ..."
+            value={data.customerPhone ?? ''}
+            onChange={(e) => onChange({ customerPhone: e.target.value })}
+            onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+            className={cn(
+              'rounded-xl h-11',
+              touched.phone && errors.phone ? 'border-destructive focus-visible:ring-destructive' : '',
+            )}
+          />
+          {touched.phone && errors.phone && (
+            <p className="text-destructive text-xs mt-1">Required</p>
+          )}
+        </div>
+      </div>
+
+      {/* Payment note */}
+      <div className="flex items-center gap-2 bg-sage-light border border-sage/20 rounded-xl px-4 py-3 mb-6">
+        <Lock size={14} className="text-sage flex-shrink-0" />
+        <p className="text-xs text-foreground/70 leading-relaxed">
+          Card is <strong>authorised now</strong> and only charged when your helper completes the job.
+          You can cancel before they accept for a full refund.
+        </p>
+      </div>
+
+      <Button
+        onClick={() => void handleBook()}
+        disabled={loading}
+        className="w-full rounded-full h-14 text-base font-semibold shadow-primary-glow"
+        size="lg"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Opening secure checkout…
+          </>
+        ) : (
+          <>
+            Pay and book
+            <ChevronRight size={18} className="ml-1" />
+          </>
+        )}
+      </Button>
+      <p className="text-center text-xs text-muted-foreground mt-3">
+        Powered by Stripe · 256-bit encryption
+      </p>
+    </div>
+  );
+};

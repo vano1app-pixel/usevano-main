@@ -177,13 +177,16 @@ async function studentHasListing(userId: string): Promise<boolean> {
  */
 export async function getPostAuthPath(
   userId: string,
-): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard' | '/list-on-community'> {
+): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard' | '/list-on-community' | '/home'> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
     .eq('user_id', userId)
     .maybeSingle();
   if (!profile?.user_type?.trim()) return '/choose-account-type';
+
+  // Household customers land on the household homepage
+  if (profile.user_type === 'customer') return '/home';
 
   if (profile.user_type === 'student') {
     return (await studentHasListing(userId)) ? '/profile' : '/list-on-community';
@@ -199,7 +202,7 @@ export async function getPostAuthPath(
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community'> {
+): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community' | '/home'> {
   return getPostAuthPath(userId);
 }
 
