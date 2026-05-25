@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, MapPin, Clock, CheckCircle2, Circle, Loader2, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ import logo from '@/assets/logo.png';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
 
-type BookingStatus = 'pending' | 'accepted' | 'on_way' | 'in_progress' | 'completed' | 'cancelled';
+type BookingStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'on_way' | 'in_progress' | 'completed' | 'cancelled';
 type UpdateStatus = 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
 
 interface Booking {
@@ -85,6 +85,8 @@ function formatDate(d: string): string {
 const TrackBooking = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const justPaid = searchParams.get('paid') === 'true';
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [updates, setUpdates] = useState<JobUpdate[]>([]);
@@ -103,8 +105,7 @@ const TrackBooking = () => {
 
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/auth', { replace: true }); return; }
-      if (!cancelled) setUserId(session.user.id);
+      if (!cancelled) setUserId(session?.user?.id ?? null);
 
       const [bookingRes, updatesRes, messagesRes] = await Promise.all([
         hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
@@ -177,7 +178,7 @@ const TrackBooking = () => {
     );
   }
 
-  const isPending = booking.status === 'pending';
+  const isPending = booking.status === 'pending' || booking.status === 'awaiting_payment';
   const isCompleted = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
 
@@ -199,6 +200,32 @@ const TrackBooking = () => {
       </header>
 
       <main className="pt-14 pb-40 max-w-sm mx-auto px-4">
+
+        {/* Payment success banner */}
+        <AnimatePresence>
+          {justPaid && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+              className="mt-6 bg-sage-light border border-sage/30 rounded-2xl px-5 py-4 flex items-start gap-3"
+            >
+              <CheckCircle2 className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <div>
+                <p className="font-semibold text-foreground text-sm">Booking confirmed!</p>
+                <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
+                  We'll find a helper and be in touch soon. Keep this page bookmarked to track your job.
+                </p>
+                {bookingId && (
+                  <p className="text-muted-foreground text-xs mt-2 font-mono tracking-wide">
+                    Ref: {bookingId.slice(-8).toUpperCase()}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Booking summary card */}
         <div className="mt-6 rounded-2xl border border-border/60 bg-secondary/30 p-5">
