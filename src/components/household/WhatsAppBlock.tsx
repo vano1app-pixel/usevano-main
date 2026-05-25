@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
    send a text than fill in a form. Kept deliberately low-friction. */
 export const WhatsAppBlock: React.FC = () => {
   return (
-    <section className="px-4 py-6 max-w-lg mx-auto md:max-w-xl lg:max-w-2xl">
+    <section className="px-4 py-6 max-w-lg mx-auto md:max-w-xl lg:hidden">
       <div className="bg-sage-light rounded-2xl p-6">
         <p className="font-semibold text-foreground text-base mb-1">
           Prefer to just text us?

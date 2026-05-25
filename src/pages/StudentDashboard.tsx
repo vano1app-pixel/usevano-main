@@ -48,13 +48,13 @@ const SLOT_LABELS: Record<string, string> = {
 };
 
 function formatDate(d: string): string {
-  if (d === 'today') return 'Today';
-  if (d === 'tomorrow') return 'Tomorrow';
-  try {
-    return new Date(d).toLocaleDateString('en-IE', { weekday: 'short', month: 'short', day: 'numeric' });
-  } catch {
-    return d;
-  }
+  const lower = d.toLowerCase();
+  if (lower === 'today') return 'Today';
+  if (lower === 'tomorrow') return 'Tomorrow';
+  if (lower === 'flexible' || lower === 'this weekend' || lower === 'next week') return d;
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return d;
+  return parsed.toLocaleDateString('en-IE', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 const StudentDashboard = () => {
@@ -223,7 +223,7 @@ const StudentDashboard = () => {
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {formatDate(job.scheduled_date)} · {SLOT_LABELS[job.time_slot]}
+                              {formatDate(job.scheduled_date)}{job.time_slot ? ` · ${SLOT_LABELS[job.time_slot]}` : ''}
                             </p>
                           </div>
                           {job.price_estimate_cents && (
@@ -276,7 +276,7 @@ const StudentDashboard = () => {
                                 {CATEGORY_LABELS[job.category] ?? job.category}
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                {formatDate(job.scheduled_date)} · {SLOT_LABELS[job.time_slot]}
+                                {formatDate(job.scheduled_date)}{job.time_slot ? ` · ${SLOT_LABELS[job.time_slot]}` : ''}
                               </p>
                             </div>
                             <StatusPill status={job.status} />

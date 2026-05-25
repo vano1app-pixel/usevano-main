@@ -212,7 +212,17 @@ export const MobileBottomNav: React.FC = () => {
   const accountActive = accountItems.some((item) => item.href && isActive(item.href));
 
   const HIDDEN_PATHS = ['/auth', '/choose-account-type', '/complete-profile'];
-  if (HIDDEN_PATHS.includes(location.pathname)) return null;
+  // Household platform has its own nav — hide the marketplace bottom bar on all
+  // household routes so the two products don't bleed into each other.
+  const isHouseholdRoute =
+    location.pathname === '/' ||
+    location.pathname === '/home' ||
+    location.pathname === '/join' ||
+    location.pathname === '/student-dashboard' ||
+    location.pathname.startsWith('/book/') ||
+    location.pathname.startsWith('/track/') ||
+    location.pathname.startsWith('/student-job/');
+  if (HIDDEN_PATHS.includes(location.pathname) || isHouseholdRoute) return null;
 
   return (
     <>

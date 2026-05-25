@@ -3,9 +3,9 @@ import { motion, useInView } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 
 const ITEMS = [
-  'Every student verified through ATU student ID',
-  'Live tracking on every job',
-  'Duo system for indoor tasks — two students together',
+  'Every student Garda vetted',
+  'Duo rule — two helpers for all indoor jobs',
+  'Not happy? You don\'t pay.',
 ];
 
 export const SafetyBanner: React.FC = () => {
@@ -14,13 +14,13 @@ export const SafetyBanner: React.FC = () => {
 
   return (
     <section className="bg-sage-light py-12 px-4">
-      <div ref={ref} className="max-w-lg mx-auto md:max-w-xl lg:max-w-2xl">
+      <div ref={ref} className="max-w-5xl mx-auto">
         <p className="eyebrow mb-3">Your peace of mind</p>
         <h2 className="text-2xl font-semibold text-foreground mb-6">
           Safe, local, verified
         </h2>
 
-        <ul className="space-y-4">
+        <ul className="space-y-4 lg:flex lg:gap-12 lg:space-y-0 lg:items-start">
           {ITEMS.map((item, i) => (
             <motion.li
               key={item}

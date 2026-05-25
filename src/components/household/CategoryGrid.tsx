@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const WHATSAPP_NUMBER = '353899817111';
 
@@ -22,7 +23,7 @@ const CATEGORIES: Category[] = [
     sizes: ['Quick run', 'Big weekly shop', 'Pharmacy + bits'],
   },
   {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: 'from €10',
+    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€20 flat',
     sizeLabel: 'How long?',
     sizes: ['30 min', '1 hour', '2 hours'],
   },
@@ -50,6 +51,23 @@ const CATEGORIES: Category[] = [
 
 const WHEN_OPTIONS = ['Today', 'Tomorrow', 'This weekend', "I'm flexible"];
 
+function getPriceCents(slug: string, size: string): number | null {
+  if (slug === 'shopping') return 1200;
+  if (slug === 'dog-walk') return 2000;
+  if (slug === 'other') return null;
+  const key = `${slug}|${size}`;
+  const map: Record<string, number> = {
+    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
+    'moving|2 hours': 3600,  'moving|Half day': 5400,   'moving|Full day': 10800,
+    'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800,
+  };
+  return map[key] ?? null;
+}
+
+function formatPrice(cents: number): string {
+  return `€${cents / 100}`;
+}
+
 function buildMessage(cat: Category, when: string, size: string, note: string): string {
   const lines: string[] = [`Hi VANO! I need ${cat.label.toLowerCase()} help in Galway.`];
   if (when) lines.push(`When: ${when}`);
@@ -67,11 +85,25 @@ function openWhatsApp(message: string): void {
 const chipBase =
   'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color] duration-150 active:scale-[0.96]';
 
+const fadeSlide = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  exit:    { opacity: 0, y: -6 },
+  transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const },
+};
+
 export const CategoryGrid: React.FC = () => {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [when, setWhen] = useState('');
   const [size, setSize] = useState('');
   const [note, setNote] = useState('');
+
+  // Pay-by-card form state
+  const [showPayForm, setShowPayForm] = useState(false);
+  const [payName, setPayName] = useState('');
+  const [payPhone, setPayPhone] = useState('');
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   const selected = CATEGORIES.find(c => c.slug === selectedSlug) ?? null;
 
@@ -83,6 +115,10 @@ export const CategoryGrid: React.FC = () => {
       setWhen('');
       setSize('');
       setNote('');
+      setShowPayForm(false);
+      setPayName('');
+      setPayPhone('');
+      setPayError(null);
     }
   }
 
@@ -90,6 +126,48 @@ export const CategoryGrid: React.FC = () => {
     if (!selected) return;
     openWhatsApp(buildMessage(selected, when, size, note));
   }
+
+  async function handleCardPay(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    if (!payName.trim()) { setPayError('Please enter your name.'); return; }
+    if (!payPhone.trim()) { setPayError('Please enter your phone number.'); return; }
+
+    setPayLoading(true);
+    setPayError(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'create-household-payment-checkout',
+        {
+          body: {
+            category: selected.slug,
+            when_label: when,
+            size_label: size,
+            note: note.trim(),
+            customer_name: payName.trim(),
+            customer_phone: payPhone.trim(),
+          },
+        },
+      );
+
+      if (error || !data?.checkout_url) {
+        throw new Error(
+          (data as { error?: string } | null)?.error ||
+          error?.message ||
+          'Something went wrong. Please try again.',
+        );
+      }
+
+      window.location.href = data.checkout_url as string;
+    } catch (err: unknown) {
+      setPayLoading(false);
+      setPayError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    }
+  }
+
+  const priceCents = selected ? getPriceCents(selected.slug, size) : null;
+  const canPayByCard = priceCents !== null && when !== '';
 
   return (
     <section id="category-grid" aria-label="What do you need help with?">
@@ -137,98 +215,176 @@ export const CategoryGrid: React.FC = () => {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-4 rounded-2xl border border-border/50 bg-secondary/40 p-4 space-y-4"
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 rounded-2xl border border-border/50 bg-secondary/40 p-4"
           >
-            {/* When? */}
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                When?
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {WHEN_OPTIONS.map((opt) => (
+            <AnimatePresence mode="wait">
+              {showPayForm ? (
+                <motion.div key="pay-form" {...fadeSlide} className="space-y-4">
+                  {/* Back */}
                   <button
-                    key={opt}
-                    onClick={() => setWhen(when === opt ? '' : opt)}
-                    className={cn(
-                      chipBase,
-                      when === opt
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-foreground border-border hover:border-primary/40',
-                    )}
+                    onClick={() => { setShowPayForm(false); setPayError(null); }}
+                    className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {opt}
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back
                   </button>
-                ))}
-              </div>
-            </div>
 
-            {/* Duration / size — hidden for "Other" */}
-            {selected.sizes.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                  {selected.sizeLabel}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {selected.sizes.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setSize(size === opt ? '' : opt)}
+                  <p className="font-semibold text-foreground text-base">Your details</p>
+
+                  <form onSubmit={handleCardPay} className="space-y-3">
+                    <input
+                      type="text"
+                      value={payName}
+                      onChange={(e) => setPayName(e.target.value)}
+                      placeholder="Your name"
+                      required
                       className={cn(
-                        chipBase,
-                        size === opt
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background text-foreground border-border hover:border-primary/40',
+                        'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                        'placeholder:text-muted-foreground/50',
+                        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                        'transition-[border-color,box-shadow] duration-150',
                       )}
+                    />
+                    <input
+                      type="tel"
+                      value={payPhone}
+                      onChange={(e) => setPayPhone(e.target.value)}
+                      placeholder="Phone number"
+                      required
+                      className={cn(
+                        'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                        'placeholder:text-muted-foreground/50',
+                        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                        'transition-[border-color,box-shadow] duration-150',
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      disabled={payLoading}
+                      className="w-full rounded-full gap-2 font-semibold"
                     >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+                      <CreditCard className="w-4 h-4" />
+                      {payLoading ? 'Redirecting…' : `Pay securely · ${formatPrice(priceCents!)}`}
+                    </Button>
 
-            {/* Free text — address, special requests, or "what do you need" for Other */}
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                {selected.slug === 'other' ? 'What do you need?' : 'Anything to add?'}
-                {selected.slug !== 'other' && (
-                  <span className="ml-1 font-normal normal-case text-muted-foreground/60">(optional)</span>
-                )}
-              </p>
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={
-                  selected.slug === 'other'
-                    ? 'Tell us what you need...'
-                    : 'Your address or any special requests'
-                }
-                className={cn(
-                  'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
-                  'placeholder:text-muted-foreground/50',
-                  'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
-                  'transition-[border-color,box-shadow] duration-150',
-                )}
-              />
-            </div>
+                    {payError && (
+                      <p className="text-center text-xs text-destructive">{payError}</p>
+                    )}
 
-            {/* CTA */}
-            <Button
-              onClick={send}
-              disabled={!when && selected.slug !== 'other'}
-              className="w-full rounded-full gap-2 font-semibold"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Send to WhatsApp
-            </Button>
+                    <p className="text-center text-xs text-muted-foreground">
+                      Redirects to Stripe's secure checkout · Cancel anytime
+                    </p>
+                  </form>
+                </motion.div>
+              ) : (
+                <motion.div key="chips" {...fadeSlide} className="space-y-4">
+                  {/* When? */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                      When?
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {WHEN_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => setWhen(when === opt ? '' : opt)}
+                          className={cn(
+                            chipBase,
+                            when === opt
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-foreground border-border hover:border-primary/40',
+                          )}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-            {!when && selected.slug !== 'other' && (
-              <p className="text-center text-xs text-muted-foreground !mt-1.5">
-                Pick a time above to continue
-              </p>
-            )}
+                  {/* Duration / size — hidden for "Other" */}
+                  {selected.sizes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                        {selected.sizeLabel}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {selected.sizes.map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => setSize(size === opt ? '' : opt)}
+                            className={cn(
+                              chipBase,
+                              size === opt
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-foreground border-border hover:border-primary/40',
+                            )}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Free text */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                      {selected.slug === 'other' ? 'What do you need?' : 'Anything to add?'}
+                      {selected.slug !== 'other' && (
+                        <span className="ml-1 font-normal normal-case text-muted-foreground/60">(optional)</span>
+                      )}
+                    </p>
+                    <input
+                      type="text"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder={
+                        selected.slug === 'other'
+                          ? 'Tell us what you need...'
+                          : 'Your address or any special requests'
+                      }
+                      className={cn(
+                        'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                        'placeholder:text-muted-foreground/50',
+                        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                        'transition-[border-color,box-shadow] duration-150',
+                      )}
+                    />
+                  </div>
+
+                  {/* Pay by card — shown when price is known and when is selected */}
+                  {canPayByCard && (
+                    <Button
+                      onClick={() => setShowPayForm(true)}
+                      variant="default"
+                      className="w-full rounded-full gap-2 font-semibold"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      Pay by card · {formatPrice(priceCents!)}
+                    </Button>
+                  )}
+
+                  {/* WhatsApp CTA */}
+                  <Button
+                    onClick={send}
+                    disabled={!when && selected.slug !== 'other'}
+                    variant={canPayByCard ? 'outline' : 'default'}
+                    className="w-full rounded-full gap-2 font-semibold"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Send to WhatsApp
+                  </Button>
+
+                  {!when && selected.slug !== 'other' && (
+                    <p className="text-center text-xs text-muted-foreground !mt-1.5">
+                      Pick a time above to continue
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

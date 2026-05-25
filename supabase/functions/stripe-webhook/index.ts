@@ -340,17 +340,30 @@ type StripeCharge = {
   metadata?: Record<string, string | undefined>;
 };
 
+function normalizeE164(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-()]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+
 // --- Handler: household checkout.session.completed -----------------------
 // Fires when a customer pays for a household booking. Flips the booking
 // from awaiting_payment → pending so it appears in the student job feed.
 // Also stamps the real Stripe PaymentIntent id (needed for capture).
+// Fire-and-forget SMS sent to the customer with their tracking link.
 async function handleHouseholdCheckoutCompleted(
   supabase: SupabaseClient,
   session: StripeCheckoutSession,
   bookingId: string,
 ): Promise<Response> {
-  const nowIso = new Date().toISOString();
-
   const { data: flipped, error } = await supabase
     .from('household_bookings')
     .update({
@@ -359,7 +372,7 @@ async function handleHouseholdCheckoutCompleted(
     })
     .eq('id', bookingId)
     .eq('status', 'awaiting_payment')
-    .select('id')
+    .select('id, customer_phone')
     .maybeSingle();
 
   if (error) {
@@ -371,6 +384,49 @@ async function handleHouseholdCheckoutCompleted(
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  // SMS confirmation — fire and forget, never blocks the response
+  const smsPromise = (async () => {
+    try {
+      const toPhone = normalizeE164((flipped as { customer_phone?: string }).customer_phone);
+      if (!toPhone) return;
+      const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
+      const authToken = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
+      const fromPrimary = Deno.env.get('TWILIO_FROM_NUMBER')?.trim();
+      const fromFallback = Deno.env.get('TWILIO_FALLBACK_FROM_NUMBER')?.trim();
+      const fromCandidates = [fromPrimary, fromFallback].filter((v): v is string => Boolean(v));
+      if (!accountSid || !authToken || fromCandidates.length === 0) return;
+
+      const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+      const trackUrl = `${siteUrl}/track/${bookingId}`;
+      const body = `✅ VANO booking confirmed! Track your job here: ${trackUrl}`;
+      const basicAuth = 'Basic ' + btoa(`${accountSid}:${authToken}`);
+
+      for (const from of fromCandidates) {
+        try {
+          const res = await fetch(
+            `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+            {
+              method: 'POST',
+              headers: { Authorization: basicAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({ From: from, To: toPhone, Body: body }).toString(),
+            },
+          );
+          if (res.ok) break;
+          console.warn(`[stripe-webhook] household SMS failed from=${from} status=${res.status}`);
+        } catch (e) {
+          console.warn(`[stripe-webhook] household SMS fetch error from=${from}`, e);
+        }
+      }
+    } catch (e) {
+      console.warn('[stripe-webhook] household SMS outer error', e);
+    }
+  })();
+
+  const runtime = (globalThis as unknown as {
+    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(smsPromise);
 
   return new Response(
     JSON.stringify({ received: true, triggered: 'household_booking', state: 'pending' }),

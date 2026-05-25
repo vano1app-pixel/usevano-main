@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, MapPin, Clock, CheckCircle2, Circle, Loader2, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,14 +11,14 @@ import logo from '@/assets/logo.png';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
 
-type BookingStatus = 'pending' | 'accepted' | 'on_way' | 'in_progress' | 'completed' | 'cancelled';
+type BookingStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'on_way' | 'in_progress' | 'completed' | 'cancelled';
 type UpdateStatus = 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
 
 interface Booking {
   id: string;
   category: string;
   scheduled_date: string;
-  time_slot: string;
+  time_slot: string | null;
   is_express: boolean;
   status: BookingStatus;
   customer_name: string;
@@ -63,7 +63,8 @@ function formatCategory(cat: string): string {
   return map[cat] ?? cat;
 }
 
-function formatTimeSlot(slot: string): string {
+function formatTimeSlot(slot: string | null): string | null {
+  if (!slot) return null;
   const map: Record<string, string> = {
     morning: 'Morning · 8am–12pm',
     afternoon: 'Afternoon · 12–5pm',
@@ -73,18 +74,20 @@ function formatTimeSlot(slot: string): string {
 }
 
 function formatDate(d: string): string {
-  if (d === 'today') return 'Today';
-  if (d === 'tomorrow') return 'Tomorrow';
-  try {
-    return new Date(d).toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
-  } catch {
-    return d;
-  }
+  const lower = d.toLowerCase();
+  if (lower === 'today') return 'Today';
+  if (lower === 'tomorrow') return 'Tomorrow';
+  if (lower === 'flexible' || lower === 'this weekend' || lower === 'next week') return d;
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return d;
+  return parsed.toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 const TrackBooking = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const justPaid = searchParams.get('paid') === 'true';
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [updates, setUpdates] = useState<JobUpdate[]>([]);
@@ -103,8 +106,7 @@ const TrackBooking = () => {
 
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/auth', { replace: true }); return; }
-      if (!cancelled) setUserId(session.user.id);
+      if (!cancelled) setUserId(session?.user?.id ?? null);
 
       const [bookingRes, updatesRes, messagesRes] = await Promise.all([
         hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
@@ -177,7 +179,7 @@ const TrackBooking = () => {
     );
   }
 
-  const isPending = booking.status === 'pending';
+  const isPending = booking.status === 'pending' || booking.status === 'awaiting_payment';
   const isCompleted = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
 
@@ -200,6 +202,32 @@ const TrackBooking = () => {
 
       <main className="pt-14 pb-40 max-w-sm mx-auto px-4">
 
+        {/* Payment success banner */}
+        <AnimatePresence>
+          {justPaid && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+              className="mt-6 bg-sage-light border border-sage/30 rounded-2xl px-5 py-4 flex items-start gap-3"
+            >
+              <CheckCircle2 className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <div>
+                <p className="font-semibold text-foreground text-sm">Booking confirmed!</p>
+                <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
+                  We'll find a helper and be in touch soon. Keep this page bookmarked to track your job.
+                </p>
+                {bookingId && (
+                  <p className="text-muted-foreground text-xs mt-2 font-mono tracking-wide">
+                    Ref: {bookingId.slice(-8).toUpperCase()}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Booking summary card */}
         <div className="mt-6 rounded-2xl border border-border/60 bg-secondary/30 p-5">
           <div className="flex items-start justify-between gap-3">
@@ -210,7 +238,9 @@ const TrackBooking = () => {
               <p className="text-base font-semibold text-foreground leading-snug">
                 {formatDate(booking.scheduled_date)}
               </p>
-              <p className="text-sm text-muted-foreground mt-0.5">{formatTimeSlot(booking.time_slot)}</p>
+              {formatTimeSlot(booking.time_slot) && (
+                <p className="text-sm text-muted-foreground mt-0.5">{formatTimeSlot(booking.time_slot)}</p>
+              )}
             </div>
             {booking.price_estimate_cents && (
               <span className="text-lg font-bold text-foreground tabular-nums flex-shrink-0">
@@ -218,10 +248,12 @@ const TrackBooking = () => {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
-            <MapPin size={12} className="flex-shrink-0" />
-            <span className="truncate">{booking.customer_address}</span>
-          </div>
+          {booking.customer_address && booking.customer_address !== 'Not provided' && (
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
+              <MapPin size={12} className="flex-shrink-0" />
+              <span className="truncate">{booking.customer_address}</span>
+            </div>
+          )}
         </div>
 
         {/* Status area */}
@@ -237,7 +269,7 @@ const TrackBooking = () => {
                 <p className="text-sm font-semibold text-foreground">Finding your helper</p>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                We're matching you with an available ATU student. You'll get a message when they accept.
+                Usually within the hour — we'll text you when someone accepts.
               </p>
             </motion.div>
           )}
@@ -302,10 +334,10 @@ const TrackBooking = () => {
             <div className="flex flex-col gap-2 mb-3 min-h-[80px] max-h-[320px] overflow-y-auto">
               <AnimatePresence initial={false}>
                 {messages.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-6">No messages yet. Say hi!</p>
+                  <p className="text-xs text-muted-foreground text-center py-6">No messages yet.</p>
                 )}
                 {messages.map((msg) => {
-                  const isMe = msg.sender_id === userId;
+                  const isMe = userId ? msg.sender_id === userId : false;
                   return (
                     <motion.div
                       key={msg.id}
@@ -328,6 +360,11 @@ const TrackBooking = () => {
               </AnimatePresence>
               <div ref={chatBottomRef} />
             </div>
+            {!userId && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                <a href="/auth" className="underline underline-offset-2">Sign in</a> to message your helper.
+              </p>
+            )}
           </div>
         )}
 
@@ -345,8 +382,8 @@ const TrackBooking = () => {
         )}
       </main>
 
-      {/* Chat input — fixed bottom when student assigned */}
-      {booking.student_id && !isCompleted && !isCancelled && (
+      {/* Chat input — fixed bottom when student assigned and user is logged in */}
+      {booking.student_id && !isCompleted && !isCancelled && userId && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
           <div className="max-w-sm mx-auto flex items-center gap-2">
             <input
