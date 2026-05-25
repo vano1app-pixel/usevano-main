@@ -3,9 +3,9 @@ import { motion, useInView } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 
 const ITEMS = [
-  'Every student verified through ATU student ID',
-  'Live tracking on every job',
-  'Duo system for indoor tasks — two students together',
+  'Every student Garda vetted',
+  'Duo rule — two helpers for all indoor jobs',
+  'Not happy? You don\'t pay.',
 ];
 
 export const SafetyBanner: React.FC = () => {

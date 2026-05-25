@@ -10,13 +10,13 @@ export const HeroSection: React.FC = () => {
       <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <div className="relative max-w-lg mx-auto md:max-w-2xl">
-        {/* Eyebrow */}
-        <p className="eyebrow mb-5">Galway · ATU students · From €12</p>
-
         {/* Headline — display-xl already clamps 2.5rem → 5.75rem with tight leading */}
-        <h1 className="display-xl text-foreground mb-8">
-          Need a hand around the house?
+        <h1 className="display-xl text-foreground mb-3">
+          Someone to help — today.
         </h1>
+        <p className="text-muted-foreground text-base mb-8">
+          Vetted ATU students · Galway · From €12 · Pay by card or cash
+        </p>
 
         <CategoryGrid />
       </div>

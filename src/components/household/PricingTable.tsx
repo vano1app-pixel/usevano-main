@@ -80,7 +80,7 @@ export const PricingTable: React.FC = () => {
       </ul>
 
       <p className="text-muted-foreground text-xs text-center mb-2">
-        Pay by Revolut or cash when your helper leaves. Price agreed upfront — no surprises.
+        Pay by card, Revolut or cash when your helper leaves. Price agreed upfront — no surprises.
       </p>
     </section>
   );
