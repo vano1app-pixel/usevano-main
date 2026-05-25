@@ -35,7 +35,7 @@ export const ChatFAQ: React.FC = () => {
   ]);
 
   return (
-    <section className="px-4 py-16 max-w-lg mx-auto md:max-w-xl lg:max-w-5xl">
+    <section className="px-4 py-12 max-w-lg mx-auto md:max-w-xl lg:max-w-5xl">
       <p className="eyebrow mb-4">Got questions?</p>
       <h2 className="display-lg text-foreground mb-10">We've got answers</h2>
 

@@ -10,7 +10,7 @@ const TRUST = [
 
 export const HeroSection: React.FC = () => {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-sage-light/60 to-background pt-24 pb-10 px-4 lg:pb-20">
+    <section className="relative overflow-hidden bg-gradient-to-b from-sage-light/60 to-background pt-24 pb-10 px-4 lg:pb-14">
       <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <div className="relative max-w-5xl mx-auto">

@@ -25,7 +25,7 @@ export const HowItWorks: React.FC = () => {
   const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section className="px-4 py-16 max-w-5xl mx-auto">
+    <section className="px-4 py-10 lg:py-16 max-w-5xl mx-auto">
       <p className="eyebrow mb-4">How it works</p>
       <h2 className="display-lg text-foreground mb-10">Simple as that.</h2>
 
