@@ -15,7 +15,7 @@ const STEPS = [
   {
     n: '3',
     title: 'Job done, you rate',
-    body: 'Pay only when it\'s complete. Rate in one tap.',
+    body: 'Pay by Revolut or cash when the job\'s done — directly to your helper. Nothing upfront.',
   },
 ];
 

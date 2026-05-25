@@ -22,7 +22,7 @@ const CATEGORIES: Category[] = [
     sizes: ['Quick run', 'Big weekly shop', 'Pharmacy + bits'],
   },
   {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: 'from €10',
+    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€20 flat',
     sizeLabel: 'How long?',
     sizes: ['30 min', '1 hour', '2 hours'],
   },
