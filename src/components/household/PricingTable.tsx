@@ -21,7 +21,7 @@ const WEEKLY_FEATURES = [
 
 export const PricingTable: React.FC = () => {
   return (
-    <section className="px-4 py-12 max-w-lg mx-auto md:max-w-xl lg:max-w-2xl">
+    <section className="px-4 py-12 max-w-lg mx-auto md:max-w-xl lg:max-w-3xl">
       <p className="eyebrow mb-3">Transparent pricing</p>
       <h2 className="text-2xl font-semibold text-foreground mb-6">
         Simple pricing. No surprises.
