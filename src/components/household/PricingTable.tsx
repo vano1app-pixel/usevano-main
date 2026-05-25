@@ -1,6 +1,7 @@
 import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const PRICES = [
@@ -45,7 +46,7 @@ export const PricingTable: React.FC = () => {
             <span className="text-2xl mt-1" aria-hidden="true">🗓️</span>
           </div>
 
-          <ul className="space-y-2">
+          <ul className="space-y-2 mb-4">
             {WEEKLY_FEATURES.map((f) => (
               <li key={f} className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-sage flex-shrink-0" aria-hidden="true" />
@@ -53,6 +54,21 @@ export const PricingTable: React.FC = () => {
               </li>
             ))}
           </ul>
+          <Button
+            asChild
+            size="sm"
+            className="rounded-full gap-1.5 font-medium"
+            style={{ backgroundColor: '#25D366', color: '#fff' }}
+          >
+            <a
+              href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%27d%20like%20to%20set%20up%20a%20monthly%20plan."
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Set up monthly plan
+            </a>
+          </Button>
         </div>
       </div>
 

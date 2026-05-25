@@ -269,7 +269,7 @@ const TrackBooking = () => {
                 <p className="text-sm font-semibold text-foreground">Finding your helper</p>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                We're matching you with an available ATU student. You'll get a message when they accept.
+                Usually within the hour — we'll text you when someone accepts.
               </p>
             </motion.div>
           )}
@@ -334,10 +334,10 @@ const TrackBooking = () => {
             <div className="flex flex-col gap-2 mb-3 min-h-[80px] max-h-[320px] overflow-y-auto">
               <AnimatePresence initial={false}>
                 {messages.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-6">No messages yet. Say hi!</p>
+                  <p className="text-xs text-muted-foreground text-center py-6">No messages yet.</p>
                 )}
                 {messages.map((msg) => {
-                  const isMe = msg.sender_id === userId;
+                  const isMe = userId ? msg.sender_id === userId : false;
                   return (
                     <motion.div
                       key={msg.id}
@@ -360,6 +360,11 @@ const TrackBooking = () => {
               </AnimatePresence>
               <div ref={chatBottomRef} />
             </div>
+            {!userId && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                <a href="/auth" className="underline underline-offset-2">Sign in</a> to message your helper.
+              </p>
+            )}
           </div>
         )}
 
@@ -377,8 +382,8 @@ const TrackBooking = () => {
         )}
       </main>
 
-      {/* Chat input — fixed bottom when student assigned */}
-      {booking.student_id && !isCompleted && !isCancelled && (
+      {/* Chat input — fixed bottom when student assigned and user is logged in */}
+      {booking.student_id && !isCompleted && !isCancelled && userId && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
           <div className="max-w-sm mx-auto flex items-center gap-2">
             <input
