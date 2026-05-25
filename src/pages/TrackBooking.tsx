@@ -18,7 +18,7 @@ interface Booking {
   id: string;
   category: string;
   scheduled_date: string;
-  time_slot: string;
+  time_slot: string | null;
   is_express: boolean;
   status: BookingStatus;
   customer_name: string;
@@ -63,7 +63,8 @@ function formatCategory(cat: string): string {
   return map[cat] ?? cat;
 }
 
-function formatTimeSlot(slot: string): string {
+function formatTimeSlot(slot: string | null): string | null {
+  if (!slot) return null;
   const map: Record<string, string> = {
     morning: 'Morning · 8am–12pm',
     afternoon: 'Afternoon · 12–5pm',
@@ -73,13 +74,13 @@ function formatTimeSlot(slot: string): string {
 }
 
 function formatDate(d: string): string {
-  if (d === 'today') return 'Today';
-  if (d === 'tomorrow') return 'Tomorrow';
-  try {
-    return new Date(d).toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
-  } catch {
-    return d;
-  }
+  const lower = d.toLowerCase();
+  if (lower === 'today') return 'Today';
+  if (lower === 'tomorrow') return 'Tomorrow';
+  if (lower === 'flexible' || lower === 'this weekend' || lower === 'next week') return d;
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return d;
+  return parsed.toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 const TrackBooking = () => {
@@ -237,7 +238,9 @@ const TrackBooking = () => {
               <p className="text-base font-semibold text-foreground leading-snug">
                 {formatDate(booking.scheduled_date)}
               </p>
-              <p className="text-sm text-muted-foreground mt-0.5">{formatTimeSlot(booking.time_slot)}</p>
+              {formatTimeSlot(booking.time_slot) && (
+                <p className="text-sm text-muted-foreground mt-0.5">{formatTimeSlot(booking.time_slot)}</p>
+              )}
             </div>
             {booking.price_estimate_cents && (
               <span className="text-lg font-bold text-foreground tabular-nums flex-shrink-0">
@@ -245,10 +248,12 @@ const TrackBooking = () => {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
-            <MapPin size={12} className="flex-shrink-0" />
-            <span className="truncate">{booking.customer_address}</span>
-          </div>
+          {booking.customer_address && booking.customer_address !== 'Not provided' && (
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
+              <MapPin size={12} className="flex-shrink-0" />
+              <span className="truncate">{booking.customer_address}</span>
+            </div>
+          )}
         </div>
 
         {/* Status area */}
