@@ -20,6 +20,10 @@ import {
   Video,
   TrendingUp,
   Sparkles,
+  ShieldCheck,
+  Star,
+  MessageSquare,
+  Zap,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -417,9 +421,83 @@ const Landing = () => {
                 <LiveMatchesCounter />
               </div>
             )}
+            {/* Trust micro-row — always visible below path cards */}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              {[
+                { icon: ShieldCheck, label: 'Stripe-secured payments' },
+                { icon: ShieldCheck, label: 'Escrow — pay only when done' },
+                { icon: ShieldCheck, label: 'Ireland-based team' },
+              ].map(({ icon: Icon, label }) => (
+                <span key={label} className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70">
+                  <Icon size={11} className="text-emerald-600 shrink-0" />
+                  {label}
+                </span>
+              ))}
+            </div>
         </div>
       </section>
 
+
+      {/* How Vano Match works */}
+      <section data-section-how className="py-14 md:py-20 px-4 md:px-8 lg:px-12 border-t border-foreground/[0.04]">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <span className="eyebrow mb-4">How it works</span>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              Your freelancer in 3 steps
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+            {[
+              {
+                step: '01',
+                title: 'Tell us what you need',
+                body: 'Pick a category, choose a sub-type, set your budget and timeline. Takes 30 seconds.',
+                icon: MessageSquare,
+              },
+              {
+                step: '02',
+                title: 'We find your match',
+                body: 'Pay €1 and our AI picks the best-fit freelancer in 20 seconds. Or wait 24h for a free hand-pick by the Vano team.',
+                icon: Zap,
+              },
+              {
+                step: '03',
+                title: 'Chat, agree, and pay safely',
+                body: 'Message them, agree a rate, and pay through Vano escrow — your money is held safely until the work is done.',
+                icon: ShieldCheck,
+              },
+            ].map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.step}
+                  className="relative flex flex-col gap-4 rounded-2xl border border-foreground/[0.07] bg-card p-5 shadow-tinted"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-bold tabular-nums text-muted-foreground/50 tracking-widest">
+                      {item.step}
+                    </span>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/8">
+                      <Icon size={17} className="text-primary" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-semibold text-foreground leading-snug">{item.title}</p>
+                    <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{item.body}</p>
+                  </div>
+                  {i < 2 && (
+                    <ArrowRight
+                      size={14}
+                      className="absolute -right-3.5 top-1/2 -translate-y-1/2 hidden sm:block text-muted-foreground/30 z-10"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* What do you need? */}
       <section data-section-categories className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
@@ -687,6 +765,72 @@ const Landing = () => {
           </div>
         </section>
       )}
+
+      {/* What hirers say */}
+      <section data-section-testimonials className="py-14 md:py-20 px-4 md:px-8 lg:px-12">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <div className="mb-8">
+            <span className="eyebrow mb-4">What hirers say</span>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              Real results from real briefs
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
+            {[
+              {
+                quote: "Submitted my brief on Monday afternoon — had a videographer in my inbox by Tuesday morning. Saved us days of scrolling through Instagram portfolios.",
+                name: 'Ciara M.',
+                role: 'Marketing Manager',
+                rating: 5,
+              },
+              {
+                quote: "We needed a sales rep for outbound. Vano sent us one candidate, he was perfect. Two weeks in and he's already booked 6 demos.",
+                name: 'Darragh O.',
+                role: 'SaaS Founder',
+                rating: 5,
+              },
+              {
+                quote: "The escrow feature is what sold it for me. Paid through Vano, got exactly what was agreed, released the payment. Zero stress.",
+                name: 'Síofra K.',
+                role: 'Brand Owner',
+                rating: 5,
+              },
+            ].map((t) => (
+              <article
+                key={t.name}
+                className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-card p-5 shadow-tinted"
+              >
+                <div className="flex gap-0.5" aria-label="5 out of 5 stars">
+                  {Array.from({ length: t.rating }).map((_, i) => (
+                    <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  ))}
+                </div>
+                <p className="flex-1 text-[13px] leading-relaxed text-foreground/80">"{t.quote}"</p>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">{t.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{t.role}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          {/* Trust bar */}
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] px-6 py-5">
+            {[
+              { icon: ShieldCheck, label: 'Payments secured by Stripe' },
+              { icon: ShieldCheck, label: 'Escrow — released only when you\'re happy' },
+              { icon: ShieldCheck, label: 'Refunded if no match is found' },
+              { icon: ShieldCheck, label: 'Ireland-based team' },
+            ].map(({ icon: Icon, label }) => (
+              <span key={label} className="inline-flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+                <Icon size={13} className="text-emerald-600 shrink-0" />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* FAQ */}
       <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
