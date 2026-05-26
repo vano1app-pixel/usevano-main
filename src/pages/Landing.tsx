@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
@@ -291,34 +292,50 @@ const Landing = () => {
       {/* Hero */}
       <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
         {/* Breathing gradient orb */}
-        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+        <div data-hero-orb className="animate-float pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
-          {/* Vano Match eyebrow — "hand-picked for you" sells the
-              bespoke promise without naming the price. */}
-          <div data-hero-eyebrow className="mb-5 flex justify-center">
+          {/* Vano Match eyebrow */}
+          <motion.div
+            data-hero-eyebrow
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-5 flex justify-center"
+          >
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
               Matched in 20 seconds · or free in 24h
             </span>
-          </div>
+          </motion.div>
 
           {/* Display type — drops the inline scale ladder for the
               `display-xl` token in index.css. Same intent (semibold,
               negative tracking, balanced wrap) but consistent across
               every page. The italic second line is the emotional
               landing that frames everything below. */}
-          <div data-hero-title>
+          <motion.div
+            data-hero-title
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          >
             <h1 className="display-xl mb-5 text-foreground sm:mb-6">
               <span className="inline-block">Any brief. Any budget.</span><br />
               <span className="inline-block italic text-primary">
                 Your perfect match.
               </span>
             </h1>
-          </div>
-          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
+          </motion.div>
+          <motion.p
+            data-hero-sub
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]"
+          >
             €1 to find your freelancer in 20 seconds. Or free in 24h.
-          </p>
+          </motion.p>
 
           {/* Two path cards — the streamlined core of the hero. One
               door for hirers (Vano Match), one for freelancers (list
@@ -413,7 +430,10 @@ const Landing = () => {
             {studentsLoaded && featuredStudents.length > 0 && (
               <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-6">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="relative inline-flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
                   <p className="text-[11px] text-muted-foreground">
                     {featuredStudents.length} freelancers online now
                   </p>
@@ -470,8 +490,12 @@ const Landing = () => {
             ].map((item, i) => {
               const Icon = item.icon;
               return (
-                <div
+                <motion.div
                   key={item.step}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ delay: i * 0.1, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                   className="relative flex flex-col gap-4 rounded-2xl border border-foreground/[0.07] bg-card p-5 shadow-tinted"
                 >
                   <div className="flex items-center gap-3">
@@ -492,7 +516,7 @@ const Landing = () => {
                       className="absolute -right-3.5 top-1/2 -translate-y-1/2 hidden sm:block text-muted-foreground/30 z-10"
                     />
                   )}
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -510,15 +534,19 @@ const Landing = () => {
               { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-digital_sales.png' as string | null },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' as string | null },
               { label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
-            ].map((item) => {
-              // Image paths derived from the naming convention used in /public.
-              // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.
+            ].map((item, catIdx) => {
               const slug = item.cat;
               return (
-                <button
+                <motion.button
                   data-cat-card
                   key={slug}
                   type="button"
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ delay: catIdx * 0.07, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => { navigate(`/hire?category=${slug}`); }}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-tinted transition-all duration-300 ease-out-expo active:scale-[0.98] hover:border-foreground/20 hover:shadow-tinted-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
@@ -564,7 +592,7 @@ const Landing = () => {
                       <p className="text-[11px] md:text-[13px] text-white/80 mt-0.5 leading-snug">{item.sub}</p>
                     </div>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -796,9 +824,13 @@ const Landing = () => {
                 role: 'Brand Owner',
                 rating: 5,
               },
-            ].map((t) => (
-              <article
+            ].map((t, tIdx) => (
+              <motion.article
                 key={t.name}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-30px' }}
+                transition={{ delay: tIdx * 0.09, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-card p-5 shadow-tinted"
               >
                 <div className="flex gap-0.5" aria-label="5 out of 5 stars">
@@ -811,7 +843,7 @@ const Landing = () => {
                   <p className="text-[13px] font-semibold text-foreground">{t.name}</p>
                   <p className="text-[11px] text-muted-foreground">{t.role}</p>
                 </div>
-              </article>
+              </motion.article>
             ))}
           </div>
 

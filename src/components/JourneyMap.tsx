@@ -249,7 +249,7 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({
                 {/* Checkpoint marker */}
                 <div className={cn(
                   'relative flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 transition-all duration-500 text-sm sm:text-base z-10',
-                  isActive && 'bg-primary border-primary text-primary-foreground scale-110 shadow-lg shadow-primary/40 ring-4 ring-primary/20',
+                  isActive && 'bg-primary border-primary text-primary-foreground scale-110 shadow-lg shadow-primary/40 ring-4 ring-primary/20 animate-bounce-in',
                   isComplete && 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30',
                   !isActive && !isComplete && 'bg-card/90 border-border text-muted-foreground shadow-sm backdrop-blur-sm',
                 )}>

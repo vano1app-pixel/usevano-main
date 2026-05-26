@@ -796,15 +796,17 @@ const HirePage = () => {
           const active = category === cat.id;
           const slug = cat.id;
           return (
-            <button
+            <motion.button
               key={cat.id}
               type="button"
               onClick={() => handleCategoryPick(cat.id)}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 22 }}
               className={cn(
-                'group relative overflow-hidden flex flex-col justify-end rounded-2xl border text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] h-[100px] sm:h-[116px]',
+                'group relative overflow-hidden flex flex-col justify-end rounded-2xl border text-left cursor-pointer select-none h-[100px] sm:h-[116px] transition-[border-color,box-shadow] duration-200',
                 active
                   ? 'border-primary ring-2 ring-primary shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.45)]'
-                  : 'border-foreground/10 hover:border-foreground/20 hover:shadow-tinted-lg hover:-translate-y-[2px]',
+                  : 'border-foreground/10 hover:border-foreground/20 hover:shadow-tinted-lg',
               )}
             >
               {/* Background image */}
@@ -837,13 +839,18 @@ const HirePage = () => {
                 </div>
                 <p className="text-[13px] sm:text-[14px] font-semibold text-white leading-tight drop-shadow-sm">{cat.label}</p>
               </div>
-              {/* Active check */}
+              {/* Active check — bounces in when card is selected */}
               {active && (
-                <div className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white shadow-sm">
+                <motion.div
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                  className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white shadow-sm"
+                >
                   <Check size={11} strokeWidth={3} />
-                </div>
+                </motion.div>
               )}
-            </button>
+            </motion.button>
           );
         })}
         {/* Other — smaller pill at the end */}
@@ -853,18 +860,20 @@ const HirePage = () => {
           const Icon = other.icon;
           const active = category === other.id;
           return (
-            <button
+            <motion.button
               key="other"
               type="button"
               onClick={() => handleCategoryPick('other')}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 22 }}
               className={cn(
-                'col-span-2 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all cursor-pointer select-none active:scale-[0.98]',
+                'col-span-2 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                 active ? 'border-primary bg-primary/8 text-primary' : 'border-foreground/10 bg-card text-foreground hover:border-foreground/20 hover:bg-foreground/[0.025]',
               )}
             >
               <Icon size={16} className={active ? 'text-primary' : 'text-muted-foreground'} />
               Something else
-            </button>
+            </motion.button>
           );
         })()}
       </div>
@@ -917,12 +926,19 @@ const HirePage = () => {
               {cat.subtypes.map(st => {
                 const active = subtype === st;
                 return (
-                  <button key={st} type="button" onClick={() => setSubtype(st)} className={cn(
-                    'rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
-                    active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
-                  )}>
+                  <motion.button
+                    key={st}
+                    type="button"
+                    onClick={() => setSubtype(st)}
+                    whileTap={{ scale: 0.93 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                    className={cn(
+                      'rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold cursor-pointer select-none transition-[border-color,background-color,color,box-shadow] duration-150',
+                      active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
+                    )}
+                  >
                     {st}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -949,19 +965,21 @@ const HirePage = () => {
             {STYLE_TAGS[category].map((tag) => {
               const active = styleTag === tag;
               return (
-                <button
+                <motion.button
                   key={tag}
                   type="button"
                   onClick={() => setStyleTag(active ? null : tag)}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                   className={cn(
-                    'rounded-full border px-4 py-2 text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
+                    'rounded-full border px-4 py-2 text-sm font-medium cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                     active
                       ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
                       : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5',
                   )}
                 >
                   {tag}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -1031,14 +1049,25 @@ const HirePage = () => {
         ))}
       </div>
 
-      <button type="button" onClick={() => goTo(2)} disabled={!canProceedStep1} className={cn(
-        'mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold transition-all duration-150 cursor-pointer select-none active:translate-y-0 active:scale-[0.99]',
-        canProceedStep1
-          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
-          : 'bg-muted text-muted-foreground cursor-not-allowed'
-      )}>
+      <motion.button
+        type="button"
+        onClick={() => goTo(2)}
+        disabled={!canProceedStep1}
+        animate={canProceedStep1
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0.55, y: 4, scale: 0.98 }}
+        whileHover={canProceedStep1 ? { y: -2, transition: { duration: 0.15 } } : {}}
+        whileTap={canProceedStep1 ? { scale: 0.97 } : {}}
+        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        className={cn(
+          'mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none',
+          canProceedStep1
+            ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] animate-glow-pulse'
+            : 'bg-muted text-muted-foreground cursor-not-allowed'
+        )}
+      >
         Looks good — next step <ArrowRight size={15} />
-      </button>
+      </motion.button>
     </div>
   );
 
@@ -1074,12 +1103,14 @@ const HirePage = () => {
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {TIMELINES.map(t => (
-            <button
+            <motion.button
               key={t.id}
               type="button"
               onClick={() => setTimeline(t.id)}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 20 }}
               className={cn(
-                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
+                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                 timeline === t.id
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
@@ -1088,7 +1119,7 @@ const HirePage = () => {
               <span className="text-base" aria-hidden="true">{t.emoji}</span>
               <span className="text-sm sm:text-base font-semibold">{t.label}</span>
               <span className={cn('text-[10px] sm:text-[11px]', timeline === t.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{t.sub}</span>
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -1100,12 +1131,14 @@ const HirePage = () => {
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           {BUDGETS.map(b => (
-            <button
+            <motion.button
               key={b.id}
               type="button"
               onClick={() => setBudget(b.id)}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 20 }}
               className={cn(
-                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
+                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                 budget === b.id
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
@@ -1114,7 +1147,7 @@ const HirePage = () => {
               <span className="text-base" aria-hidden="true">{b.emoji}</span>
               <span className="text-sm sm:text-base font-semibold">{b.label}</span>
               <span className={cn('text-[10px] sm:text-[11px]', budget === b.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{b.sub}</span>
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -1136,19 +1169,21 @@ const HirePage = () => {
           {['Me', 'My business', 'My brand', 'A client', 'An event'].map((label) => {
             const active = audience === label;
             return (
-              <button
+              <motion.button
                 key={label}
                 type="button"
                 onClick={() => setAudience(active ? null : label)}
+                whileTap={{ scale: 0.92 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                 className={cn(
-                  'rounded-full border px-4 py-2 text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
+                  'rounded-full border px-4 py-2 text-sm font-medium cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                   active
                     ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
                     : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5',
                 )}
               >
                 {label}
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -1160,14 +1195,25 @@ const HirePage = () => {
         Whatever your budget, we hand-pick who fits.
       </p>
 
-      <button type="button" onClick={() => goTo(3)} disabled={!canProceedStep2} className={cn(
-        'flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none transition-all duration-150 active:translate-y-0 active:scale-[0.99]',
-        canProceedStep2
-          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
-          : 'bg-muted text-muted-foreground cursor-not-allowed'
-      )}>
+      <motion.button
+        type="button"
+        onClick={() => goTo(3)}
+        disabled={!canProceedStep2}
+        animate={canProceedStep2
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0.55, y: 4, scale: 0.98 }}
+        whileHover={canProceedStep2 ? { y: -2, transition: { duration: 0.15 } } : {}}
+        whileTap={canProceedStep2 ? { scale: 0.97 } : {}}
+        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        className={cn(
+          'flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none',
+          canProceedStep2
+            ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] animate-glow-pulse'
+            : 'bg-muted text-muted-foreground cursor-not-allowed'
+        )}
+      >
         Find my match <ArrowRight size={15} />
-      </button>
+      </motion.button>
     </div>
   );
 
@@ -1295,7 +1341,10 @@ const HirePage = () => {
             <div className="relative px-6 pt-6 pb-5">
               <div className="flex items-center">
                 <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">
-                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
+                  <span className="relative inline-flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
+                  </span>
                   €1 · AI in 20 seconds
                 </div>
               </div>
@@ -1364,7 +1413,7 @@ const HirePage = () => {
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
             <div className="relative">
               {/* Big checkmark */}
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/12 ring-8 ring-emerald-500/8">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/12 ring-8 ring-emerald-500/8 animate-bounce-in">
                 <CheckCircle2 size={34} className="text-emerald-600" strokeWidth={1.75} />
               </div>
               <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">

@@ -285,7 +285,13 @@
   .animate-pulse-ring,
   .animate-scroll-left,
   .animate-scroll-left-fast,
-  .animate-page-enter {
+  .animate-page-enter,
+  .animate-bounce-in,
+  .animate-pop,
+  .animate-wiggle,
+  .animate-rise,
+  .animate-glow-pulse,
+  .animate-unlock {
     animation: none !important;
   }
 }
