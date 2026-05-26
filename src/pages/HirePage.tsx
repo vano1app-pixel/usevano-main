@@ -63,18 +63,18 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 const TIMELINES = [
-  { id: 'this_week', label: 'This week', sub: 'Rush job' },
-  { id: '2_weeks', label: '2 weeks', sub: 'Standard' },
-  { id: '1_month', label: '1 month', sub: 'No rush' },
-  { id: 'flexible', label: 'Flexible', sub: 'Whenever' },
+  { id: 'this_week', label: 'This week', sub: 'Rush job', emoji: '⚡' },
+  { id: '2_weeks', label: '2 weeks', sub: 'Standard', emoji: '📅' },
+  { id: '1_month', label: '1 month', sub: 'No rush', emoji: '🌿' },
+  { id: 'flexible', label: 'Flexible', sub: 'Whenever', emoji: '😌' },
 ] as const;
 
 const BUDGETS = [
-  { id: 'under_100', label: 'Under €100', sub: 'Small task' },
-  { id: '100_250', label: '€100–250', sub: 'Most popular' },
-  { id: '250_500', label: '€250–500', sub: 'Bigger project' },
-  { id: '500_plus', label: '€500+', sub: 'Full project' },
-  { id: 'unsure', label: 'I want a quote', sub: "We'll advise" },
+  { id: 'under_100', label: 'Under €100', sub: 'Small task', emoji: '💡' },
+  { id: '100_250', label: '€100–250', sub: 'Most popular', emoji: '⭐' },
+  { id: '250_500', label: '€250–500', sub: 'Bigger project', emoji: '🚀' },
+  { id: '500_plus', label: '€500+', sub: 'Full project', emoji: '🏆' },
+  { id: 'unsure', label: 'I want a quote', sub: "We'll advise", emoji: '💬' },
 ] as const;
 
 const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
@@ -782,29 +782,91 @@ const HirePage = () => {
     <div>
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
-          What do you need done?
+          What are you working on?
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Pick a category, pick what you need — we'll take it from there.
+          Pick a category — we'll take it from there.
         </p>
       </header>
 
-      {/* Category chips — intentionally the largest controls on this step.
-          These are the decision. Everything below (optional detail, value
-          props) should read as supporting material. */}
-      <div className="flex flex-wrap gap-2.5 mb-5">
-        {CATEGORIES.map(cat => {
+      {/* Category image cards — visual, tappable, same image assets as the landing page */}
+      <div className="grid grid-cols-2 gap-2.5 mb-5 sm:gap-3">
+        {CATEGORIES.filter(c => c.id !== 'other').map(cat => {
           const Icon = cat.icon;
           const active = category === cat.id;
+          const slug = cat.id;
           return (
-            <button key={cat.id} type="button" onClick={() => handleCategoryPick(cat.id)} className={cn(
-              'flex items-center gap-2 rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
-              active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
-            )}>
-              <Icon size={18} /> {cat.label}
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => handleCategoryPick(cat.id)}
+              className={cn(
+                'group relative overflow-hidden flex flex-col justify-end rounded-2xl border text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] h-[100px] sm:h-[116px]',
+                active
+                  ? 'border-primary ring-2 ring-primary shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.45)]'
+                  : 'border-foreground/10 hover:border-foreground/20 hover:shadow-tinted-lg hover:-translate-y-[2px]',
+              )}
+            >
+              {/* Background image */}
+              <picture className="absolute inset-0 h-full w-full pointer-events-none">
+                <source
+                  type="image/webp"
+                  srcSet={`/cat-${slug}-400.webp 400w, /cat-${slug}-800.webp 800w`}
+                  sizes="(max-width: 640px) 50vw, 25vw"
+                />
+                <img
+                  src={`/cat-${slug}.png`}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </picture>
+              {/* Dark wash */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[hsl(25_30%_8%/0.72)] via-[hsl(25_30%_8%/0.28)] to-transparent" />
+              {/* Active tint */}
+              {active && <div className="absolute inset-0 bg-primary/20" />}
+              {/* Content */}
+              <div className="relative z-10 p-3 sm:p-4">
+                <div className={cn(
+                  'mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
+                  active ? 'bg-primary/90' : 'bg-white/20 group-hover:bg-white/30',
+                )}>
+                  <Icon size={14} className="text-white" strokeWidth={2} />
+                </div>
+                <p className="text-[13px] sm:text-[14px] font-semibold text-white leading-tight drop-shadow-sm">{cat.label}</p>
+              </div>
+              {/* Active check */}
+              {active && (
+                <div className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white shadow-sm">
+                  <Check size={11} strokeWidth={3} />
+                </div>
+              )}
             </button>
           );
         })}
+        {/* Other — smaller pill at the end */}
+        {(() => {
+          const other = CATEGORIES.find(c => c.id === 'other');
+          if (!other) return null;
+          const Icon = other.icon;
+          const active = category === other.id;
+          return (
+            <button
+              key="other"
+              type="button"
+              onClick={() => handleCategoryPick('other')}
+              className={cn(
+                'col-span-2 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all cursor-pointer select-none active:scale-[0.98]',
+                active ? 'border-primary bg-primary/8 text-primary' : 'border-foreground/10 bg-card text-foreground hover:border-foreground/20 hover:bg-foreground/[0.025]',
+              )}
+            >
+              <Icon size={16} className={active ? 'text-primary' : 'text-muted-foreground'} />
+              Something else
+            </button>
+          );
+        })()}
       </div>
 
       {/* County picker — only rendered for local categories (videography).
@@ -955,12 +1017,8 @@ const HirePage = () => {
            you release". */}
       <div className="mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
         {[
-          { icon: Sparkles, label: 'Hand-picked', sub: 'One perfect match' },
-          { icon: Zap, label: '60-second match', sub: 'Not 60 applications' },
-          // Tightened from "Held until released" — that was jargon to a
-          // first-time hirer. The new sub-line says what the protection
-          // actually does in 4 words. Full mechanics still live in the
-          // VanoPayModal trust strip + the Landing FAQ.
+          { icon: Sparkles, label: 'Hand-picked', sub: 'Just one — the right one' },
+          { icon: Zap, label: '20-second match', sub: 'Not 60 applications' },
           { icon: ShieldCheck, label: 'Pay safely', sub: 'Refund if not done' },
         ].map(v => (
           <div key={v.label} className="flex flex-col items-center text-center gap-2 rounded-2xl border border-foreground/4 bg-foreground/[0.015] px-2.5 py-4 sm:py-5">
@@ -979,7 +1037,7 @@ const HirePage = () => {
           ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
           : 'bg-muted text-muted-foreground cursor-not-allowed'
       )}>
-        Continue <ArrowRight size={15} />
+        Looks good — next step <ArrowRight size={15} />
       </button>
     </div>
   );
@@ -995,9 +1053,9 @@ const HirePage = () => {
       </button>
 
       <header className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">When & how much?</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">Now let's sort the details.</h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Pick a timeline and budget — we'll find freelancers who fit.
+          When do you need it, and what's your budget? We'll find someone who fits.
         </p>
       </header>
 
@@ -1021,12 +1079,13 @@ const HirePage = () => {
               type="button"
               onClick={() => setTimeline(t.id)}
               className={cn(
-                'relative z-10 flex flex-col items-center gap-0.5 rounded-xl border px-3 py-3 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
+                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
                 timeline === t.id
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
               )}
             >
+              <span className="text-base" aria-hidden="true">{t.emoji}</span>
               <span className="text-sm sm:text-base font-semibold">{t.label}</span>
               <span className={cn('text-[10px] sm:text-[11px]', timeline === t.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{t.sub}</span>
             </button>
@@ -1046,12 +1105,13 @@ const HirePage = () => {
               type="button"
               onClick={() => setBudget(b.id)}
               className={cn(
-                'relative z-10 flex flex-col items-center gap-0.5 rounded-xl border px-3 py-3 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
+                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
                 budget === b.id
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
               )}
             >
+              <span className="text-base" aria-hidden="true">{b.emoji}</span>
               <span className="text-sm sm:text-base font-semibold">{b.label}</span>
               <span className={cn('text-[10px] sm:text-[11px]', budget === b.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{b.sub}</span>
             </button>
@@ -1106,7 +1166,7 @@ const HirePage = () => {
           ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
           : 'bg-muted text-muted-foreground cursor-not-allowed'
       )}>
-        Match me with a freelancer <ArrowRight size={15} />
+        Find my match <ArrowRight size={15} />
       </button>
     </div>
   );
@@ -1123,10 +1183,10 @@ const HirePage = () => {
 
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
-          Match me with a freelancer
+          Nearly there — let's find your person.
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          €1 finds your match in 20 seconds. Free in 24h if you'd rather wait.
+          €1 gets you a match in 20 seconds. Rather wait? It's free — we'll hand-pick in 24h.
         </p>
         {/* Social proof at the moment of decision — self-gates if recent
              match count < 3, so quiet weeks render nothing rather than a
@@ -1240,10 +1300,10 @@ const HirePage = () => {
                 </div>
               </div>
               <h2 className="mt-4 text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[28px] text-balance">
-                Your freelancer, matched by AI in 20 seconds.
+                We're already thinking of the right person for you.
               </h2>
               <p className="mt-2.5 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
-                <span className="tabular-nums">€1</span> → our AI scans hundreds of freelancers and picks yours in 20 seconds.
+                Pay <span className="tabular-nums">€1</span> and we scan every freelancer on Vano to find your best fit — done in 20 seconds.
               </p>
             </div>
 
@@ -1297,17 +1357,50 @@ const HirePage = () => {
             </div>
           </div>
         ) : (
-          <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
-            <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
-            <h2 className="text-lg font-bold text-foreground">Request sent — we're on it</h2>
-            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-              Your brief is with the Vano team. We'll match a freelancer and open a thread in your{' '}
-              <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
-              within 24h. You'll also get an email.
-            </p>
-            <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
-              <MessageCircle size={15} /> Chat with us on WhatsApp
-            </a>
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-b from-emerald-50/80 to-background dark:from-emerald-900/20 dark:to-background px-6 py-8 text-center">
+            {/* Subtle grain texture */}
+            <div className="grain pointer-events-none absolute inset-0" />
+            {/* Glow */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
+            <div className="relative">
+              {/* Big checkmark */}
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/12 ring-8 ring-emerald-500/8">
+                <CheckCircle2 size={34} className="text-emerald-600" strokeWidth={1.75} />
+              </div>
+              <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                You're all sorted. 🎉
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                Your brief is with the Vano team. We'll hand-pick the right person and send them to your{' '}
+                <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
+                within 24 hours. You'll get an email too — check your inbox.
+              </p>
+
+              {/* What happens next */}
+              <div className="mx-auto mt-6 max-w-xs space-y-2.5 text-left">
+                {[
+                  { step: '1', text: 'We review your brief and find the best fit' },
+                  { step: '2', text: 'We open a thread — you message, agree a rate' },
+                  { step: '3', text: 'Pay safely through Vano — released when you\'re happy' },
+                ].map(item => (
+                  <div key={item.step} className="flex items-start gap-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                      {item.step}
+                    </span>
+                    <p className="text-[12.5px] text-muted-foreground leading-snug">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+
+              <a
+                href={teamWhatsAppHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-5 py-2.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 transition hover:bg-emerald-500/15 active:scale-[0.98]"
+              >
+                <MessageCircle size={15} /> Message us on WhatsApp
+              </a>
+            </div>
           </div>
         )}
       </div>
@@ -1327,7 +1420,7 @@ const HirePage = () => {
           >
             {submitting
               ? <><Loader2 size={12} className="animate-spin" /> Sending…</>
-              : <>Prefer a human pick? Free, hand-picked by Vano in 24h →</>}
+              : <>Rather have us hand-pick for you? It's free — takes 24h →</>}
           </button>
         </div>
       )}

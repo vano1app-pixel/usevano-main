@@ -300,9 +300,9 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({
 /* ─── Preset journey configs ─── */
 
 export const HIRE_JOURNEY_STEPS: JourneyStep[] = [
-  { label: 'Describe quest', sublabel: 'What do you need?', icon: '📝', narrative: 'Every great adventure starts with a vision...' },
-  { label: 'Plan journey', sublabel: 'Timeline & budget', icon: '🗺️', narrative: 'Charting the path to find your perfect match...' },
-  { label: 'Find champion', sublabel: 'Get matched', icon: '🏆', narrative: 'Your champion awaits at journey\'s end!' },
+  { label: 'Your brief', sublabel: 'What do you need?', icon: '✏️', narrative: 'Tell us what you\'re working on — big or small, we\'ve got you.' },
+  { label: 'Timing & budget', sublabel: 'Timeline & budget', icon: '📅', narrative: 'Grand — now let\'s make sure we find someone who fits your timeline and budget.' },
+  { label: 'Your match', sublabel: 'Get matched', icon: '🤝', narrative: 'Nearly there. Your perfect match is just one tap away.' },
 ];
 
 export const ONBOARDING_JOURNEY_STEPS: JourneyStep[] = [
