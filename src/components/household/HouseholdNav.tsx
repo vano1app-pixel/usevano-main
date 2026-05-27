@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 
@@ -37,17 +37,27 @@ export const HouseholdNav: React.FC = () => {
           <img src={logo} alt="VANO" className="h-7 w-auto" />
         </Link>
 
-        {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
-        <a
-          href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Chat on WhatsApp"
-          className="flex items-center gap-1.5 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors duration-150 active:scale-95"
-        >
-          <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
-          <span className="hidden sm:inline">WhatsApp us</span>
-        </a>
+        <div className="flex items-center gap-3">
+          {/* Cross-link to the freelancer marketplace */}
+          <Link
+            to="/marketplace"
+            className="hidden sm:inline-flex items-center gap-1 text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-150"
+          >
+            Hire a freelancer <ArrowRight size={12} />
+          </Link>
+          <div className="hidden sm:block w-px h-4 bg-border/60" />
+          {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
+          <a
+            href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Chat on WhatsApp"
+            className="flex items-center gap-1.5 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors duration-150 active:scale-95"
+          >
+            <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
+            <span className="hidden sm:inline">WhatsApp us</span>
+          </a>
+        </div>
       </div>
     </header>
   );

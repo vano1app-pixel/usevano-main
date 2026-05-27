@@ -249,7 +249,7 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({
                 {/* Checkpoint marker */}
                 <div className={cn(
                   'relative flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 transition-all duration-500 text-sm sm:text-base z-10',
-                  isActive && 'bg-primary border-primary text-primary-foreground scale-110 shadow-lg shadow-primary/40 ring-4 ring-primary/20',
+                  isActive && 'bg-primary border-primary text-primary-foreground scale-110 shadow-lg shadow-primary/40 ring-4 ring-primary/20 animate-bounce-in',
                   isComplete && 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30',
                   !isActive && !isComplete && 'bg-card/90 border-border text-muted-foreground shadow-sm backdrop-blur-sm',
                 )}>
@@ -300,9 +300,9 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({
 /* ─── Preset journey configs ─── */
 
 export const HIRE_JOURNEY_STEPS: JourneyStep[] = [
-  { label: 'Describe quest', sublabel: 'What do you need?', icon: '📝', narrative: 'Every great adventure starts with a vision...' },
-  { label: 'Plan journey', sublabel: 'Timeline & budget', icon: '🗺️', narrative: 'Charting the path to find your perfect match...' },
-  { label: 'Find champion', sublabel: 'Get matched', icon: '🏆', narrative: 'Your champion awaits at journey\'s end!' },
+  { label: 'Your brief', sublabel: 'What do you need?', icon: '✏️', narrative: 'Tell us what you\'re working on — big or small, we\'ve got you.' },
+  { label: 'Timing & budget', sublabel: 'Timeline & budget', icon: '📅', narrative: 'Grand — now let\'s make sure we find someone who fits your timeline and budget.' },
+  { label: 'Your match', sublabel: 'Get matched', icon: '🤝', narrative: 'Nearly there. Your perfect match is just one tap away.' },
 ];
 
 export const ONBOARDING_JOURNEY_STEPS: JourneyStep[] = [

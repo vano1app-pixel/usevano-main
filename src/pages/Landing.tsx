@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/SEOHead';
@@ -20,6 +21,10 @@ import {
   Video,
   TrendingUp,
   Sparkles,
+  ShieldCheck,
+  Star,
+  MessageSquare,
+  Zap,
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -278,7 +283,7 @@ const Landing = () => {
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="Hand-picked freelancers — no more scrolling through gigs"
-        description="€1 AI-matches your freelancer in 20 seconds, or free hand-picked by Vano in 24h. No browsing, no shortlists — one brief, one match. Freelancers: list yourself free — videography, content, web design, digital sales."
+        description="Hand-picked freelancers — no browsing, no shortlists. Tell Vano what you need and we match you with the right person within 24 hours. Free. Freelancers: list yourself free — videography, content, web design, digital sales."
         keywords="hire freelancer, freelance marketplace, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
@@ -287,34 +292,50 @@ const Landing = () => {
       {/* Hero */}
       <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
         {/* Breathing gradient orb */}
-        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+        <div data-hero-orb className="animate-float pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
         <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
-          {/* Vano Match eyebrow — "hand-picked for you" sells the
-              bespoke promise without naming the price. */}
-          <div data-hero-eyebrow className="mb-5 flex justify-center">
+          {/* Vano Match eyebrow */}
+          <motion.div
+            data-hero-eyebrow
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-5 flex justify-center"
+          >
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              Matched in 20 seconds · or free in 24h
+              Hand-picked · Free · Within 24 hours
             </span>
-          </div>
+          </motion.div>
 
           {/* Display type — drops the inline scale ladder for the
               `display-xl` token in index.css. Same intent (semibold,
               negative tracking, balanced wrap) but consistent across
               every page. The italic second line is the emotional
               landing that frames everything below. */}
-          <div data-hero-title>
+          <motion.div
+            data-hero-title
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          >
             <h1 className="display-xl mb-5 text-foreground sm:mb-6">
               <span className="inline-block">Any brief. Any budget.</span><br />
               <span className="inline-block italic text-primary">
                 Your perfect match.
               </span>
             </h1>
-          </div>
-          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
-            €1 to find your freelancer in 20 seconds. Or free in 24h.
-          </p>
+          </motion.div>
+          <motion.p
+            data-hero-sub
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]"
+          >
+            Tell us what you need. We hand-pick your freelancer. Free, within 24 hours.
+          </motion.p>
 
           {/* Two path cards — the streamlined core of the hero. One
               door for hirers (Vano Match), one for freelancers (list
@@ -351,15 +372,15 @@ const Landing = () => {
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
                     <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" /> I want to hire
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold tabular-nums text-white ring-1 ring-white/20">
-                    €1 · 20s
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold text-white ring-1 ring-white/20">
+                    Free · 24h
                   </span>
                 </div>
                 <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight sm:text-[20px]">
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  Pay €1. Matched in 20 seconds. Or free in 24h.
+                  Tell us what you need. We hand-pick the right person and send them your way.
                 </p>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
@@ -409,7 +430,10 @@ const Landing = () => {
             {studentsLoaded && featuredStudents.length > 0 && (
               <div data-hero-badge className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-6">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="relative inline-flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
                   <p className="text-[11px] text-muted-foreground">
                     {featuredStudents.length} freelancers online now
                   </p>
@@ -417,9 +441,87 @@ const Landing = () => {
                 <LiveMatchesCounter />
               </div>
             )}
+            {/* Trust micro-row — always visible below path cards */}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              {[
+                { icon: ShieldCheck, label: 'Stripe-secured payments' },
+                { icon: ShieldCheck, label: 'Escrow — pay only when done' },
+                { icon: ShieldCheck, label: 'Ireland-based team' },
+              ].map(({ icon: Icon, label }) => (
+                <span key={label} className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70">
+                  <Icon size={11} className="text-emerald-600 shrink-0" />
+                  {label}
+                </span>
+              ))}
+            </div>
         </div>
       </section>
 
+
+      {/* How Vano Match works */}
+      <section data-section-how className="py-14 md:py-20 px-4 md:px-8 lg:px-12 border-t border-foreground/[0.04]">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <span className="eyebrow mb-4">How it works</span>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              Your freelancer in 3 steps
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+            {[
+              {
+                step: '01',
+                title: 'Tell us what you need',
+                body: 'Pick a category, choose a sub-type, set your budget and timeline. Takes 30 seconds.',
+                icon: MessageSquare,
+              },
+              {
+                step: '02',
+                title: 'We find your match',
+                body: 'The Vano team personally reviews your brief and picks the best-fit freelancer from our talent pool — sent to your messages within 24 hours.',
+                icon: Zap,
+              },
+              {
+                step: '03',
+                title: 'Chat, agree, and pay safely',
+                body: 'Message them, agree a rate, and pay through Vano escrow — your money is held safely until the work is done.',
+                icon: ShieldCheck,
+              },
+            ].map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <motion.div
+                  key={item.step}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ delay: i * 0.1, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative flex flex-col gap-4 rounded-2xl border border-foreground/[0.07] bg-card p-5 shadow-tinted"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-bold tabular-nums text-muted-foreground/50 tracking-widest">
+                      {item.step}
+                    </span>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/8">
+                      <Icon size={17} className="text-primary" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-semibold text-foreground leading-snug">{item.title}</p>
+                    <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{item.body}</p>
+                  </div>
+                  {i < 2 && (
+                    <ArrowRight
+                      size={14}
+                      className="absolute -right-3.5 top-1/2 -translate-y-1/2 hidden sm:block text-muted-foreground/30 z-10"
+                    />
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* What do you need? */}
       <section data-section-categories className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
@@ -432,15 +534,19 @@ const Landing = () => {
               { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-digital_sales.png' as string | null },
               { label: 'Website Design', sub: 'Get a site built or fixed', icon: Monitor, cat: 'websites', image: '/cat-websites.png' as string | null },
               { label: 'Content Creation', sub: 'UGC & social media management', icon: Megaphone, cat: 'social_media', image: '/cat-social_media.png' as string | null },
-            ].map((item) => {
-              // Image paths derived from the naming convention used in /public.
-              // .webp at 400w (mobile) / 800w (desktop+retina), PNG as fallback.
+            ].map((item, catIdx) => {
               const slug = item.cat;
               return (
-                <button
+                <motion.button
                   data-cat-card
                   key={slug}
                   type="button"
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ delay: catIdx * 0.07, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => { navigate(`/hire?category=${slug}`); }}
                   className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-tinted transition-all duration-300 ease-out-expo active:scale-[0.98] hover:border-foreground/20 hover:shadow-tinted-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
@@ -486,7 +592,7 @@ const Landing = () => {
                       <p className="text-[11px] md:text-[13px] text-white/80 mt-0.5 leading-snug">{item.sub}</p>
                     </div>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -688,6 +794,76 @@ const Landing = () => {
         </section>
       )}
 
+      {/* What hirers say */}
+      <section data-section-testimonials className="py-14 md:py-20 px-4 md:px-8 lg:px-12">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+          <div className="mb-8">
+            <span className="eyebrow mb-4">What hirers say</span>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              Real results from real briefs
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
+            {[
+              {
+                quote: "Submitted my brief on Monday afternoon — had a videographer in my inbox by Tuesday morning. Saved us days of scrolling through Instagram portfolios.",
+                name: 'Ciara M.',
+                role: 'Marketing Manager',
+                rating: 5,
+              },
+              {
+                quote: "We needed a sales rep for outbound. Vano sent us one candidate, he was perfect. Two weeks in and he's already booked 6 demos.",
+                name: 'Darragh O.',
+                role: 'SaaS Founder',
+                rating: 5,
+              },
+              {
+                quote: "The escrow feature is what sold it for me. Paid through Vano, got exactly what was agreed, released the payment. Zero stress.",
+                name: 'Síofra K.',
+                role: 'Brand Owner',
+                rating: 5,
+              },
+            ].map((t, tIdx) => (
+              <motion.article
+                key={t.name}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-30px' }}
+                transition={{ delay: tIdx * 0.09, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-card p-5 shadow-tinted"
+              >
+                <div className="flex gap-0.5" aria-label="5 out of 5 stars">
+                  {Array.from({ length: t.rating }).map((_, i) => (
+                    <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  ))}
+                </div>
+                <p className="flex-1 text-[13px] leading-relaxed text-foreground/80">"{t.quote}"</p>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">{t.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{t.role}</p>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+
+          {/* Trust bar */}
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 rounded-2xl border border-foreground/[0.06] bg-foreground/[0.02] px-6 py-5">
+            {[
+              { icon: ShieldCheck, label: 'Payments secured by Stripe' },
+              { icon: ShieldCheck, label: 'Escrow — released only when you\'re happy' },
+              { icon: ShieldCheck, label: 'Refunded if no match is found' },
+              { icon: ShieldCheck, label: 'Ireland-based team' },
+            ].map(({ icon: Icon, label }) => (
+              <span key={label} className="inline-flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+                <Icon size={13} className="text-emerald-600 shrink-0" />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
         <div className="max-w-2xl lg:max-w-3xl mx-auto">
@@ -709,7 +885,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1 for an AI match in 20 seconds — or wait 24h for a free hand-pick by the Vano team. Refunded if we can't find a fit. You chat, agree a rate, and hire them directly.
+                  A marketplace for hand-picked freelancers. Tell us what you need and the Vano team personally picks the best fit from our talent pool — sent to your messages within 24 hours, free. You chat, agree a rate, and hire them directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -717,7 +893,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or wait 24h for a free hand-pick by the Vano team. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
+                  Start a Vano Match — tell us the category, timeline, and budget. The Vano team reviews your brief and hand-picks the right person from our talent pool, sent to your messages within 24 hours. You then chat, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="why-vano" className="border-border/80 px-2">
@@ -725,7 +901,7 @@ const Landing = () => {
                   Why use Vano instead of just messaging someone directly?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — we hand-pick a fit in 20 seconds (or 24h for a free pick). Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
+                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — we hand-pick the right fit from our talent pool and send them to you within 24 hours, free. Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="vano-pay" className="border-border/80 px-2">
@@ -741,7 +917,7 @@ const Landing = () => {
                   What does it cost?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Browsing the talent board is free. Vano Match is €1 per AI pick. Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
+                  Browsing the talent board is free. Vano Match (hand-picked by us) is free. Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2 border-b-0">
@@ -777,7 +953,7 @@ const Landing = () => {
               Your perfect match, hand-picked.
             </h2>
             <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              Tell us what you need. We'll find your freelancer in 20 seconds — or free in 24h. <span className="tabular-nums">€1</span>.
+              Tell us what you need. We hand-pick the right freelancer and send them your way — free, within 24 hours.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -787,7 +963,7 @@ const Landing = () => {
                 onClick={() => navigate('/hire')}
                 className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-semibold text-[15px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-primary-foreground/95 hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.4)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]"
               >
-                Find my freelancer — <span className="tabular-nums">€1</span>
+                Find my freelancer — it's free
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>

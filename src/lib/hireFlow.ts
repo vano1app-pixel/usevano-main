@@ -27,7 +27,7 @@ export type HireBrief = {
   budget: string | null;
 };
 
-export type HireAutoPayIntent = 'ai' | 'vano';
+export type HireAutoPayIntent = 'vano';
 
 type StoredBrief = HireBrief & { savedAt: number };
 
@@ -103,7 +103,7 @@ export function consumeHireBriefAutoPay(): HireAutoPayIntent | null {
   try {
     const v = localStorage.getItem(HIRE_BRIEF_AUTOPAY_KEY);
     localStorage.removeItem(HIRE_BRIEF_AUTOPAY_KEY);
-    return v === 'ai' || v === 'vano' ? v : null;
+    return v === 'vano' ? v : null;
   } catch {
     return null;
   }

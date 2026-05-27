@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { SEOHead } from '@/components/SEOHead';
-import { PreviousMatchesPanel } from '@/components/PreviousMatchesPanel';
 import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -14,16 +13,13 @@ import { clearHireBrief, consumeHireBriefAutoPay, loadHireBrief, saveHireBrief }
 import { setGoogleOAuthIntent } from '@/lib/googleOAuth';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { markUserActed } from '@/lib/userActivity';
-import { diagnoseAuthFailure } from '@/lib/authDiagnose';
 import {
   ArrowRight, ArrowLeft, Sparkles, MessageCircle,
   Video, TrendingUp, Monitor, Megaphone, HelpCircle,
   Clock, Loader2, CheckCircle2, Euro,
-  Shield, ShieldCheck, Zap, Check, ChevronDown, MailWarning,
+  ShieldCheck, Zap, Check, MailWarning,
 } from 'lucide-react';
 import { JourneyMap, HIRE_JOURNEY_STEPS } from '@/components/JourneyMap';
-import { AiFindCheckoutModal } from '@/components/AiFindCheckoutModal';
-import { hasStripePublishableKey } from '@/lib/stripeClient';
 import { track } from '@/lib/track';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { COMMUNITY_CATEGORIES, isCommunityCategoryId } from '@/lib/communityCategories';
@@ -63,18 +59,18 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 const TIMELINES = [
-  { id: 'this_week', label: 'This week', sub: 'Rush job' },
-  { id: '2_weeks', label: '2 weeks', sub: 'Standard' },
-  { id: '1_month', label: '1 month', sub: 'No rush' },
-  { id: 'flexible', label: 'Flexible', sub: 'Whenever' },
+  { id: 'this_week', label: 'This week', sub: 'Rush job', emoji: '⚡' },
+  { id: '2_weeks', label: '2 weeks', sub: 'Standard', emoji: '📅' },
+  { id: '1_month', label: '1 month', sub: 'No rush', emoji: '🌿' },
+  { id: 'flexible', label: 'Flexible', sub: 'Whenever', emoji: '😌' },
 ] as const;
 
 const BUDGETS = [
-  { id: 'under_100', label: 'Under €100', sub: 'Small task' },
-  { id: '100_250', label: '€100–250', sub: 'Most popular' },
-  { id: '250_500', label: '€250–500', sub: 'Bigger project' },
-  { id: '500_plus', label: '€500+', sub: 'Full project' },
-  { id: 'unsure', label: 'I want a quote', sub: "We'll advise" },
+  { id: 'under_100', label: 'Under €100', sub: 'Small task', emoji: '💡' },
+  { id: '100_250', label: '€100–250', sub: 'Most popular', emoji: '⭐' },
+  { id: '250_500', label: '€250–500', sub: 'Bigger project', emoji: '🚀' },
+  { id: '500_plus', label: '€500+', sub: 'Full project', emoji: '🏆' },
+  { id: 'unsure', label: 'I want a quote', sub: "We'll advise", emoji: '💬' },
 ] as const;
 
 const BUDGET_TO_RANGE: Record<string, { min: number; max: number }> = {
@@ -174,17 +170,6 @@ const HirePage = () => {
   // Results
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  // Separate loading flag so the €1 AI Find button can spin without
-  // freezing the primary "Send request to Vano" CTA.
-  const [aiFindLoading, setAiFindLoading] = useState(false);
-  // Embedded-checkout state. client_secret comes back from the edge
-  // function when ui_mode='embedded'; we mount the modal with it so
-  // Stripe can render the checkout UI inline instead of redirecting
-  // the whole page. fallback_url is the hosted-mode URL kept around
-  // for "Open in new tab" on iframe-blocked browsers.
-  const [aiFindCheckoutOpen, setAiFindCheckoutOpen] = useState(false);
-  const [aiFindClientSecret, setAiFindClientSecret] = useState<string | null>(null);
-  const [aiFindFallbackUrl, setAiFindFallbackUrl] = useState<string | null>(null);
   // Step 1 "Add any extra detail" textarea is optional and chips already
   // build a usable description from category + subtype. We collapse it
   // behind a disclosure for known categories so happy-path hirers see a
@@ -234,20 +219,16 @@ const HirePage = () => {
       // Single-use read of the intent flag — clears immediately so a refresh
       // or remount can never re-fire the handler.
       const intent = consumeHireBriefAutoPay();
-      if (intent) {
-        setAutoPayIntent(intent);
+      if (intent === 'vano') {
+        setAutoPayIntent('vano');
         toast({
           title: 'Welcome back',
-          description: intent === 'ai'
-            ? 'Resuming your match — opening checkout…'
-            : 'Resuming your match — sending your brief now.',
+          description: 'Resuming your match — sending your brief now.',
         });
       } else {
-        // No auto-pay intent (user typed in the wizard but didn't submit
-        // before signing in). Show the original "review and tap" copy.
         toast({
           title: 'Welcome back',
-          description: 'Your brief is ready — review it, then tap Match me to continue.',
+          description: 'Your brief is ready — review it, then tap Find my match to continue.',
         });
       }
       return;
@@ -289,18 +270,8 @@ const HirePage = () => {
   // if `user` flips (e.g. token refresh emits a new session reference).
   useEffect(() => {
     if (!autoPayIntent || !user) return;
-    const intent = autoPayIntent;
     setAutoPayIntent(null);
-    if (intent === 'ai') {
-      void handleAiFind();
-    } else if (intent === 'vano') {
-      void handleVanoSubmit();
-    }
-    // handleAiFind / handleVanoSubmit are defined below in the same component;
-    // they're stable references for our purposes (no useCallback wrapping)
-    // but ESLint can't see that, so we deliberately omit them from deps to
-    // avoid an infinite loop on every render. The effect's only true deps
-    // are the two values we gate on.
+    void handleVanoSubmit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPayIntent, user]);
 
@@ -416,266 +387,6 @@ const HirePage = () => {
     setSubmitting(false);
   };
 
-  // €1 AI Find — secondary CTA on Step 3. Creates an ai_find_requests
-  // row via the create-ai-find-checkout edge function, then bounces the
-  // user to Stripe Checkout. Payment confirmation happens server-side
-  // in stripe-webhook; the success_url drops them on /ai-find/:id which
-  // polls until the AI picks are ready.
-  const handleAiFind = async () => {
-    if (!user) {
-      // Save brief + auto-pay intent so the post-OAuth return can re-fire
-      // this handler automatically — Stripe still requires a final "Pay"
-      // click in its own iframe, so we're not charging without consent;
-      // we're just skipping the redundant tap of our €1 button after
-      // Google bounces the user back. The 'ai' intent flag is single-use.
-      saveHireBrief({ description, category, subtype, timeline, budget }, 'ai');
-      if (isInAppBrowser()) {
-        track('in_app_browser_blocked', { source: 'hire_ai_find_signedout' });
-        toast({
-          title: "Can't sign in here",
-          description: "Open this page in Safari or Chrome — your brief is saved.",
-          variant: 'destructive',
-        });
-        return;
-      }
-      setGoogleOAuthIntent('business');
-      // Flip aiFindLoading so the €1 button shows "Taking you to Google…"
-      // instead of standing idle while the redirect kicks in. Without
-      // this the page just freezes for a beat and the user wonders if
-      // their tap registered.
-      setAiFindLoading(true);
-      toast({
-        title: 'Saving your brief…',
-        description: "We'll bring you right back to finish.",
-      });
-      try {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: getAuthRedirectUrl(),
-            queryParams: { access_type: 'offline', prompt: 'select_account' },
-          },
-        });
-        if (error) throw error;
-      } catch {
-        clearHireBrief();
-        setAiFindLoading(false);
-        toast({ title: 'Sign-in failed', description: 'Please try again.', variant: 'destructive' });
-      }
-      return;
-    }
-    if (!isEmailVerified({ user } as any)) {
-      void resendVerifyEmail(user.email ?? null, toast);
-      return;
-    }
-    if (aiFindLoading) return;
-
-    setAiFindLoading(true);
-    try {
-      const finalDescription = buildDescription();
-      // Persist the brief before the redirect / modal opens so a
-      // Stripe abandon (3DS, network drop, payment declined) lands
-      // the user back on /hire with their work intact instead of a
-      // blank wizard.
-      saveHireBrief({ description, category, subtype, timeline, budget });
-
-      // Session check is still useful so we don't insert as anon and
-      // hit a redirect-to-Stripe with no row tied to the user. Fresh
-      // refresh covers the "tab backgrounded, token stale in
-      // localStorage" case on mobile.
-      await supabase.auth.refreshSession().catch(() => { /* fall through */ });
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user?.id;
-      if (!userId) {
-        toast({
-          title: 'Your sign-in expired',
-          description: 'Please sign in again — your brief is saved.',
-          variant: 'destructive',
-        });
-        setAiFindLoading(false);
-        navigate('/auth');
-        return;
-      }
-
-      // Payment Link flow. We bypass the create-ai-find-checkout edge
-      // function entirely because the Supabase functions gateway has
-      // been rejecting JWTs (UNAUTHORIZED_INVALID_JWT_FORMAT) — see
-      // 20260422120000_ai_find_client_insert.sql. Instead:
-      //   1. Insert the ai_find_requests row directly via RLS.
-      //   2. Redirect to a pre-configured Stripe Payment Link with
-      //      client_reference_id=<row id>. stripe-webhook picks that up
-      //      and flips the row to 'paid' + fires ai-find-freelancer,
-      //      same as before.
-      //   3. Stash the row id in localStorage so /ai-find-return can
-      //      bounce the user to /ai-find/:id on success (Payment Links
-      //      can't templatize arbitrary path segments into the return
-      //      URL, only {CHECKOUT_SESSION_ID}).
-      const paymentLinkBase =
-        (import.meta.env.VITE_STRIPE_AI_FIND_PAYMENT_LINK as string | undefined)?.trim();
-      if (!paymentLinkBase) {
-        toast({
-          title: "Payments aren't configured yet",
-          description:
-            "Message us on WhatsApp and we'll find your match manually — your brief is saved.",
-          variant: 'destructive',
-        });
-        setAiFindLoading(false);
-        return;
-      }
-
-      // Resume in-flight rows instead of creating a duplicate. If the
-      // user came back from Stripe via an unlucky path (webhook lag,
-      // localStorage cleared, in-app browser hand-off) /ai-find-return
-      // would previously dump them on /hire — and re-clicking AI Find
-      // would create a NEW row and NEW Stripe session, charging them
-      // twice. Now: if they have a non-terminal row from the last 30
-      // minutes, route them to its results page instead.
-      const RESUME_WINDOW_MS = 30 * 60 * 1000;
-      const resumeAfter = new Date(Date.now() - RESUME_WINDOW_MS).toISOString();
-      const { data: existing } = await supabase
-        .from('ai_find_requests')
-        .select('id, status')
-        .eq('requester_id', userId)
-        .in('status', ['awaiting_payment', 'paid', 'scouting', 'complete'])
-        .gte('created_at', resumeAfter)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existing?.id) {
-        const existingStatus = existing.status as string;
-        if (existingStatus === 'awaiting_payment') {
-          // They opened a request but never finished paying. Resume
-          // the SAME row through Stripe instead of inserting a new
-          // one — same client_reference_id so the webhook ties the
-          // payment back to it, no double-charge. AiFindResults will
-          // self-heal once they come back through /ai-find-return
-          // (which drops the trust token).
-          const paymentLinkBase =
-            (import.meta.env.VITE_STRIPE_AI_FIND_PAYMENT_LINK as string | undefined)?.trim();
-          if (paymentLinkBase) {
-            try { localStorage.setItem('vano_ai_find_pending_id', existing.id as string); } catch { /* ignore */ }
-            const linkUrl = new URL(paymentLinkBase);
-            linkUrl.searchParams.set('client_reference_id', existing.id as string);
-            const userEmail = sessionData.session?.user?.email;
-            if (userEmail) linkUrl.searchParams.set('prefilled_email', userEmail);
-            window.location.href = linkUrl.toString();
-            return;
-          }
-        }
-        // paid / scouting / complete — payment is server-confirmed,
-        // just show the results page.
-        try { localStorage.setItem('vano_ai_find_pending_id', existing.id as string); } catch { /* ignore */ }
-        navigate(`/ai-find/${existing.id}`);
-        return;
-      }
-
-      const { data: inserted, error: insertErr } = await supabase
-        .from('ai_find_requests')
-        .insert({
-          requester_id: userId,
-          brief: finalDescription,
-          category,
-          budget_range: budget,
-          timeline,
-          amount_eur: 1,
-          status: 'awaiting_payment',
-        })
-        .select('id')
-        .single();
-
-      if (insertErr || !inserted?.id) {
-        console.error('[ai-find] insert failed', insertErr);
-        throw new Error(insertErr?.message || 'Could not start your request.');
-      }
-
-      const requestId = inserted.id as string;
-
-      // Persist for /ai-find-return fallback. The success URL on the
-      // Payment Link is a single static path; we need this to route
-      // back to the correct results page after Stripe bounces the user.
-      try {
-        localStorage.setItem('vano_ai_find_pending_id', requestId);
-      } catch { /* private-mode Safari etc. — non-fatal */ }
-
-      track('ai_find_checkout_started', {
-        category, timeline, budget,
-        ui_mode: 'payment_link',
-      });
-
-      // Compose the Payment Link URL. client_reference_id is the
-      // contract with stripe-webhook; Stripe forwards it verbatim on
-      // the checkout.session.completed event.
-      const linkUrl = new URL(paymentLinkBase);
-      linkUrl.searchParams.set('client_reference_id', requestId);
-      const userEmail = sessionData.session?.user?.email;
-      if (userEmail) linkUrl.searchParams.set('prefilled_email', userEmail);
-
-      window.location.href = linkUrl.toString();
-      return;
-    } catch (err) {
-      console.error('[ai-find] checkout failed', err);
-      // Pull the server-side message via several fallbacks. Supabase
-      // functions.invoke wraps the edge-function JSON error under
-      // `context.error`; other throw paths surface via `.message`.
-      // Also pull the HTTP status where we can so "500 Unexpected
-      // error" and "400 Brief is too short" are distinguishable on
-      // screen.
-      const ctxErr = (err as { context?: { error?: string } })?.context?.error;
-      const status = (err as { status?: number; context?: { status?: number } })?.status
-        ?? (err as { context?: { status?: number } })?.context?.status;
-      const rawMsg = ctxErr || (err as { message?: string })?.message || '';
-      const statusLine = status ? `[${status}] ` : '';
-      // A bare 401/403 almost always means the edge-function gateway
-      // rejected the JWT — map it to a sign-in prompt instead of the
-      // raw "non-2xx" gibberish the user otherwise sees.
-      const isAuthFailure = status === 401 || status === 403
-        || rawMsg.toLowerCase().includes('unauthorized');
-      const friendly =
-        isAuthFailure
-          ? 'Your sign-in expired — please sign in again and try once more.'
-        : rawMsg.includes('STRIPE_SECRET_KEY')
-          ? "Payments aren't configured yet — message us on WhatsApp and we'll find your match manually."
-        : rawMsg.toLowerCase().includes('brief')
-          ? rawMsg
-        : rawMsg.toLowerCase().includes('forbidden origin')
-          ? 'Origin not allowed — if this is a preview URL, add it to the Supabase ALLOWED_ORIGINS env var.'
-        : rawMsg
-          // Show the raw edge-fn error when we don't have a better
-          // match; otherwise the user sees "try again" forever with
-          // no actionable signal. Truncate so a stack trace doesn't
-          // dominate the toast.
-          ? `${statusLine}${rawMsg.slice(0, 200)}`
-        : 'Please try again in a moment, or use the free Vano Match button above.';
-      // If the gateway rejected with 401/403, try to diagnose why —
-      // an env mismatch (VITE_SUPABASE_URL project ≠ session project)
-      // produces the same status as a stale token but with completely
-      // different remediation, so surfacing the actual cause beats a
-      // generic "sign in again" nudge.
-      const diag = isAuthFailure ? await diagnoseAuthFailure() : null;
-      toast({
-        title: "Couldn't start AI Find",
-        description: diag ?? friendly,
-        variant: 'destructive',
-      });
-      setAiFindLoading(false);
-      // Don't auto sign-out on 401/403 here — production hit a case
-      // where the Vercel env had mismatched VITE_SUPABASE_URL /
-      // VITE_SUPABASE_PUBLISHABLE_KEY (pointing at different Supabase
-      // projects), which produces the same gateway 401 but a fresh
-      // sign-in can't recover it. Auto-kicking just traps the user in
-      // a sign-in loop. The toast tells them what to do; let them drive.
-    }
-  };
-
-  /* Previously this auto-fired handleVanoSubmit(false) once the post-OAuth
-   * brief was restored and the session was live — the intent was "pick up
-   * exactly where you left off." But that pipeline went Google → site root →
-   * Step 3 → Stripe checkout in ~3 seconds, so a first-time hirer was charged
-   * €1 without any chance to review their brief. Removed. The user now lands
-   * on Step 3 with everything filled in + a "Welcome back" toast, and they
-   * tap the same €1 button they would have tapped before OAuth. One extra
-   * click in exchange for not mugging people mid-redirect is a great trade. */
 
   // (Removed: Step-3 fetchMatches effect. See the comment block above
   // `const [user, setUser] = ...` for context — Step 3 used to fetch
@@ -782,29 +493,100 @@ const HirePage = () => {
     <div>
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
-          What do you need done?
+          What are you working on?
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Pick a category, pick what you need — we'll take it from there.
+          Pick a category — we'll take it from there.
         </p>
       </header>
 
-      {/* Category chips — intentionally the largest controls on this step.
-          These are the decision. Everything below (optional detail, value
-          props) should read as supporting material. */}
-      <div className="flex flex-wrap gap-2.5 mb-5">
-        {CATEGORIES.map(cat => {
+      {/* Category image cards — visual, tappable, same image assets as the landing page */}
+      <div className="grid grid-cols-2 gap-2.5 mb-5 sm:gap-3">
+        {CATEGORIES.filter(c => c.id !== 'other').map(cat => {
           const Icon = cat.icon;
           const active = category === cat.id;
+          const slug = cat.id;
           return (
-            <button key={cat.id} type="button" onClick={() => handleCategoryPick(cat.id)} className={cn(
-              'flex items-center gap-2 rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
-              active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
-            )}>
-              <Icon size={18} /> {cat.label}
-            </button>
+            <motion.button
+              key={cat.id}
+              type="button"
+              onClick={() => handleCategoryPick(cat.id)}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+              className={cn(
+                'group relative overflow-hidden flex flex-col justify-end rounded-2xl border text-left cursor-pointer select-none h-[100px] sm:h-[116px] transition-[border-color,box-shadow] duration-200',
+                active
+                  ? 'border-primary ring-2 ring-primary shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.45)]'
+                  : 'border-foreground/10 hover:border-foreground/20 hover:shadow-tinted-lg',
+              )}
+            >
+              {/* Background image */}
+              <picture className="absolute inset-0 h-full w-full pointer-events-none">
+                <source
+                  type="image/webp"
+                  srcSet={`/cat-${slug}-400.webp 400w, /cat-${slug}-800.webp 800w`}
+                  sizes="(max-width: 640px) 50vw, 25vw"
+                />
+                <img
+                  src={`/cat-${slug}.png`}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </picture>
+              {/* Dark wash */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[hsl(25_30%_8%/0.72)] via-[hsl(25_30%_8%/0.28)] to-transparent" />
+              {/* Active tint */}
+              {active && <div className="absolute inset-0 bg-primary/20" />}
+              {/* Content */}
+              <div className="relative z-10 p-3 sm:p-4">
+                <div className={cn(
+                  'mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
+                  active ? 'bg-primary/90' : 'bg-white/20 group-hover:bg-white/30',
+                )}>
+                  <Icon size={14} className="text-white" strokeWidth={2} />
+                </div>
+                <p className="text-[13px] sm:text-[14px] font-semibold text-white leading-tight drop-shadow-sm">{cat.label}</p>
+              </div>
+              {/* Active check — bounces in when card is selected */}
+              {active && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                  className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white shadow-sm"
+                >
+                  <Check size={11} strokeWidth={3} />
+                </motion.div>
+              )}
+            </motion.button>
           );
         })}
+        {/* Other — smaller pill at the end */}
+        {(() => {
+          const other = CATEGORIES.find(c => c.id === 'other');
+          if (!other) return null;
+          const Icon = other.icon;
+          const active = category === other.id;
+          return (
+            <motion.button
+              key="other"
+              type="button"
+              onClick={() => handleCategoryPick('other')}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+              className={cn(
+                'col-span-2 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
+                active ? 'border-primary bg-primary/8 text-primary' : 'border-foreground/10 bg-card text-foreground hover:border-foreground/20 hover:bg-foreground/[0.025]',
+              )}
+            >
+              <Icon size={16} className={active ? 'text-primary' : 'text-muted-foreground'} />
+              Something else
+            </motion.button>
+          );
+        })()}
       </div>
 
       {/* County picker — only rendered for local categories (videography).
@@ -855,12 +637,19 @@ const HirePage = () => {
               {cat.subtypes.map(st => {
                 const active = subtype === st;
                 return (
-                  <button key={st} type="button" onClick={() => setSubtype(st)} className={cn(
-                    'rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold transition-all cursor-pointer select-none active:scale-[0.97]',
-                    active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
-                  )}>
+                  <motion.button
+                    key={st}
+                    type="button"
+                    onClick={() => setSubtype(st)}
+                    whileTap={{ scale: 0.93 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                    className={cn(
+                      'rounded-full border px-5 py-3 sm:px-6 sm:py-3.5 text-sm sm:text-base font-semibold cursor-pointer select-none transition-[border-color,background-color,color,box-shadow] duration-150',
+                      active ? 'border-primary bg-primary text-primary-foreground shadow-md' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
+                    )}
+                  >
                     {st}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -887,19 +676,21 @@ const HirePage = () => {
             {STYLE_TAGS[category].map((tag) => {
               const active = styleTag === tag;
               return (
-                <button
+                <motion.button
                   key={tag}
                   type="button"
                   onClick={() => setStyleTag(active ? null : tag)}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                   className={cn(
-                    'rounded-full border px-4 py-2 text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
+                    'rounded-full border px-4 py-2 text-sm font-medium cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                     active
                       ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
                       : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5',
                   )}
                 >
                   {tag}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -955,12 +746,8 @@ const HirePage = () => {
            you release". */}
       <div className="mt-6 grid grid-cols-3 gap-2.5 sm:gap-3">
         {[
-          { icon: Sparkles, label: 'Hand-picked', sub: 'One perfect match' },
-          { icon: Zap, label: '60-second match', sub: 'Not 60 applications' },
-          // Tightened from "Held until released" — that was jargon to a
-          // first-time hirer. The new sub-line says what the protection
-          // actually does in 4 words. Full mechanics still live in the
-          // VanoPayModal trust strip + the Landing FAQ.
+          { icon: Sparkles, label: 'Hand-picked', sub: 'Just one — the right one' },
+          { icon: Zap, label: '20-second match', sub: 'Not 60 applications' },
           { icon: ShieldCheck, label: 'Pay safely', sub: 'Refund if not done' },
         ].map(v => (
           <div key={v.label} className="flex flex-col items-center text-center gap-2 rounded-2xl border border-foreground/4 bg-foreground/[0.015] px-2.5 py-4 sm:py-5">
@@ -973,14 +760,25 @@ const HirePage = () => {
         ))}
       </div>
 
-      <button type="button" onClick={() => goTo(2)} disabled={!canProceedStep1} className={cn(
-        'mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold transition-all duration-150 cursor-pointer select-none active:translate-y-0 active:scale-[0.99]',
-        canProceedStep1
-          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
-          : 'bg-muted text-muted-foreground cursor-not-allowed'
-      )}>
-        Continue <ArrowRight size={15} />
-      </button>
+      <motion.button
+        type="button"
+        onClick={() => goTo(2)}
+        disabled={!canProceedStep1}
+        animate={canProceedStep1
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0.55, y: 4, scale: 0.98 }}
+        whileHover={canProceedStep1 ? { y: -2, transition: { duration: 0.15 } } : {}}
+        whileTap={canProceedStep1 ? { scale: 0.97 } : {}}
+        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        className={cn(
+          'mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none',
+          canProceedStep1
+            ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] animate-glow-pulse'
+            : 'bg-muted text-muted-foreground cursor-not-allowed'
+        )}
+      >
+        Looks good — next step <ArrowRight size={15} />
+      </motion.button>
     </div>
   );
 
@@ -995,9 +793,9 @@ const HirePage = () => {
       </button>
 
       <header className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">When & how much?</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">Now let's sort the details.</h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          Pick a timeline and budget — we'll find freelancers who fit.
+          When do you need it, and what's your budget? We'll find someone who fits.
         </p>
       </header>
 
@@ -1016,20 +814,23 @@ const HirePage = () => {
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {TIMELINES.map(t => (
-            <button
+            <motion.button
               key={t.id}
               type="button"
               onClick={() => setTimeline(t.id)}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 20 }}
               className={cn(
-                'relative z-10 flex flex-col items-center gap-0.5 rounded-xl border px-3 py-3 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
+                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                 timeline === t.id
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
               )}
             >
+              <span className="text-base" aria-hidden="true">{t.emoji}</span>
               <span className="text-sm sm:text-base font-semibold">{t.label}</span>
               <span className={cn('text-[10px] sm:text-[11px]', timeline === t.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{t.sub}</span>
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -1041,20 +842,23 @@ const HirePage = () => {
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           {BUDGETS.map(b => (
-            <button
+            <motion.button
               key={b.id}
               type="button"
               onClick={() => setBudget(b.id)}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 20 }}
               className={cn(
-                'relative z-10 flex flex-col items-center gap-0.5 rounded-xl border px-3 py-3 sm:py-4 cursor-pointer select-none transition-all active:scale-[0.97]',
+                'relative z-10 flex flex-col items-center gap-1 rounded-xl border px-3 py-3.5 sm:py-4 cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                 budget === b.id
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'
               )}
             >
+              <span className="text-base" aria-hidden="true">{b.emoji}</span>
               <span className="text-sm sm:text-base font-semibold">{b.label}</span>
               <span className={cn('text-[10px] sm:text-[11px]', budget === b.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{b.sub}</span>
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -1076,19 +880,21 @@ const HirePage = () => {
           {['Me', 'My business', 'My brand', 'A client', 'An event'].map((label) => {
             const active = audience === label;
             return (
-              <button
+              <motion.button
                 key={label}
                 type="button"
                 onClick={() => setAudience(active ? null : label)}
+                whileTap={{ scale: 0.92 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                 className={cn(
-                  'rounded-full border px-4 py-2 text-sm font-medium transition-all cursor-pointer select-none active:scale-[0.97]',
+                  'rounded-full border px-4 py-2 text-sm font-medium cursor-pointer select-none transition-[border-color,background-color,color] duration-150',
                   active
                     ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
                     : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5',
                 )}
               >
                 {label}
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -1100,14 +906,25 @@ const HirePage = () => {
         Whatever your budget, we hand-pick who fits.
       </p>
 
-      <button type="button" onClick={() => goTo(3)} disabled={!canProceedStep2} className={cn(
-        'flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none transition-all duration-150 active:translate-y-0 active:scale-[0.99]',
-        canProceedStep2
-          ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] hover:-translate-y-[1px] hover:brightness-[1.05]'
-          : 'bg-muted text-muted-foreground cursor-not-allowed'
-      )}>
-        Match me with a freelancer <ArrowRight size={15} />
-      </button>
+      <motion.button
+        type="button"
+        onClick={() => goTo(3)}
+        disabled={!canProceedStep2}
+        animate={canProceedStep2
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0.55, y: 4, scale: 0.98 }}
+        whileHover={canProceedStep2 ? { y: -2, transition: { duration: 0.15 } } : {}}
+        whileTap={canProceedStep2 ? { scale: 0.97 } : {}}
+        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        className={cn(
+          'flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 sm:py-4 text-sm sm:text-base font-semibold cursor-pointer select-none',
+          canProceedStep2
+            ? 'bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] animate-glow-pulse'
+            : 'bg-muted text-muted-foreground cursor-not-allowed'
+        )}
+      >
+        Find my match <ArrowRight size={15} />
+      </motion.button>
     </div>
   );
 
@@ -1123,23 +940,16 @@ const HirePage = () => {
 
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
-          Match me with a freelancer
+          Nearly there — we'll find your person.
         </h1>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed sm:text-base">
-          €1 finds your match in 20 seconds. Free in 24h if you'd rather wait.
+          The Vano team hand-picks the best-fit freelancer from our talent pool and sends them to your messages within 24 hours. Free.
         </p>
-        {/* Social proof at the moment of decision — self-gates if recent
-             match count < 3, so quiet weeks render nothing rather than a
-             dead-platform signal. */}
         <div className="mt-3">
           <LiveMatchesCounter />
         </div>
       </header>
 
-      {/* Persistent resume chip. The "Welcome back" toast disappears in a
-           few seconds, so after a restored-brief return (Stripe abandon,
-           OAuth round-trip) the user loses the only signal that their work
-           was saved. This chip stays until they click it or dismiss. */}
       {briefJustRestored && (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3">
           <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -1148,7 +958,7 @@ const HirePage = () => {
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-semibold text-foreground">Picking up where you left off</p>
             <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
-              Your brief is restored. Review it below, then tap <span className="font-medium text-foreground">Match me</span> to continue.
+              Your brief is restored. Review it below, then tap <span className="font-medium text-foreground">Find my match</span> to continue.
             </p>
           </div>
           <button
@@ -1162,11 +972,6 @@ const HirePage = () => {
         </div>
       )}
 
-      {/* Pre-flight email-verification banner. Surfaces BEFORE the user
-           taps €1 so they don't fill the wizard, get a destructive toast,
-           and have to leave the page to find an old verification email.
-           Inline resend keeps them on /hire — they verify in another tab,
-           come back, and tap. */}
       {userEmailUnverified && (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.06] px-4 py-3">
           <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15">
@@ -1187,17 +992,10 @@ const HirePage = () => {
                 try {
                   const { error } = await supabase.auth.resend({ type: 'signup', email: user.email });
                   if (error) throw error;
-                  toast({
-                    title: 'Verification email sent',
-                    description: `Check ${user.email} — then come back and tap Match me.`,
-                  });
+                  toast({ title: 'Verification email sent', description: `Check ${user.email} — then come back and tap Find my match.` });
                 } catch (err) {
                   console.warn('[HirePage] inline resend failed', err);
-                  toast({
-                    title: 'Could not resend',
-                    description: 'Please try again in a moment.',
-                    variant: 'destructive',
-                  });
+                  toast({ title: 'Could not resend', description: 'Please try again in a moment.', variant: 'destructive' });
                 } finally {
                   setResendingVerify(false);
                 }
@@ -1210,128 +1008,110 @@ const HirePage = () => {
         </div>
       )}
 
-      {/* ── PRIMARY HERO — €1 AI Find ──
-           This is the offer the whole site narrates toward. Big, confident,
-           amber-gold premium ring. Spells out the full pipeline
-           (pay → match → chat → pay via Vano) inside the card so hirers
-           know where €1 sits in the story before they commit. */}
-      <div>
-        {!submitted ? (
-          <div className="relative overflow-hidden rounded-[24px] border border-primary/30 bg-gradient-to-b from-primary to-primary/95 text-white shadow-primary-glow">
-            {/* Single radial mesh light source — replaces the side blob
-                 with an off-axis sun. Suggests one direction of light
-                 instead of "blob in corner", which is the AI tic. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(60% 45% at 80% 12%, hsl(45 100% 80% / 0.22), transparent 65%)',
-              }}
-            />
-            {/* Premium grain — kills the flat-blue plane. */}
-            <div className="grain pointer-events-none absolute inset-0" />
-
-            <div className="relative px-6 pt-6 pb-5">
-              <div className="flex items-center">
-                <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/75">
-                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
-                  €1 · AI in 20 seconds
-                </div>
-              </div>
-              <h2 className="mt-4 text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[28px] text-balance">
-                Your freelancer, matched by AI in 20 seconds.
-              </h2>
-              <p className="mt-2.5 text-[13px] leading-relaxed text-white/75 max-w-[40ch]">
-                <span className="tabular-nums">€1</span> → our AI scans hundreds of freelancers and picks yours in 20 seconds.
-              </p>
+      {!submitted ? (
+        <div className="overflow-hidden rounded-[24px] border border-primary/20 bg-card shadow-tinted-lg">
+          {/* Header */}
+          <div className="border-b border-foreground/[0.06] px-6 pt-6 pb-5">
+            <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <span className="relative inline-flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+              </span>
+              Vano hand-pick · Free · 24h
             </div>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
+              We'll find the right person for you.
+            </h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              The Vano team personally reviews your brief and picks the best-fit freelancer from our pool — no algorithm, no queue.
+            </p>
+          </div>
 
-            <div className="relative space-y-4 px-6 pb-6">
-              {/* Brief recap — one tight line of tags above the CTA. The
-                   old heavy card + "Your request" eyebrow lived here;
-                   since Step 3 now has one goal, the recap stays to
-                   confirm what we heard without stealing focus from the
-                   button. Style/audience tags ride along via buildDescription. */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-white/80">
-                <span className="font-semibold uppercase tracking-[0.14em] text-white/50">
-                  You asked for
+          {/* Brief recap */}
+          <div className="border-b border-foreground/[0.06] px-6 py-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+                You asked for
+              </span>
+              {[
+                category && CATEGORIES.find(c => c.id === category)?.label,
+                subtype,
+                styleTag,
+                audience,
+                timeline && TIMELINES.find(t => t.id === timeline)?.label,
+                budget && BUDGETS.find(b => b.id === budget)?.label,
+              ].filter(Boolean).map(tag => (
+                <span key={tag as string} className="inline-block rounded-full bg-primary/[0.08] px-2.5 py-0.5 text-[10.5px] font-medium text-primary">
+                  {tag}
                 </span>
-                {[
-                  category && CATEGORIES.find(c => c.id === category)?.label,
-                  subtype,
-                  styleTag,
-                  audience,
-                  timeline && TIMELINES.find(t => t.id === timeline)?.label,
-                  budget && BUDGETS.find(b => b.id === budget)?.label,
-                ].filter(Boolean).map(tag => (
-                  <span key={tag as string} className="inline-block rounded-full bg-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/85">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              {/* Primary CTA — white-on-primary. The trailing arrow
-                   reads as forward motion without leaning on a Sparkles
-                   icon (the most-overused AI-product tell). The €1 stays
-                   tabular-nums so it lines up with the rest of the page. */}
-              <button
-                data-mascot="hire-submit"
-                type="button"
-                onClick={handleAiFind}
-                disabled={aiFindLoading}
-                className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-[15px] font-semibold text-primary shadow-[0_10px_30px_-10px_rgba(0,0,0,0.3)] transition-all duration-200 ease-out-expo hover:-translate-y-[1px] hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.35)] active:translate-y-0 active:scale-[0.99] disabled:translate-y-0 disabled:cursor-wait disabled:opacity-90"
-              >
-                {aiFindLoading ? (
-                  <><Loader2 size={16} className="animate-spin text-primary" /> Matching you now…</>
-                ) : (
-                  <>
-                    Match me with AI — <span className="tabular-nums">€1</span>
-                    <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </>
-                )}
-              </button>
-              <p className="text-center text-[11px] text-white/60">
-                Secure checkout via Stripe · no commitment
-              </p>
+              ))}
             </div>
           </div>
-        ) : (
-          <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
-            <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
-            <h2 className="text-lg font-bold text-foreground">Request sent — we're on it</h2>
-            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-              Your brief is with the Vano team. We'll match a freelancer and open a thread in your{' '}
-              <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
-              within 24h. You'll also get an email.
+
+          {/* CTA */}
+          <div className="px-6 py-5">
+            <motion.button
+              data-mascot="hire-submit"
+              type="button"
+              onClick={() => { void handleVanoSubmit(); }}
+              disabled={submitting}
+              whileHover={!submitting ? { y: -2, transition: { duration: 0.15 } } : {}}
+              whileTap={!submitting ? { scale: 0.97 } : {}}
+              transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.5)] cursor-pointer select-none disabled:cursor-wait disabled:opacity-80"
+            >
+              {submitting ? (
+                <><Loader2 size={16} className="animate-spin" /> Sending your brief…</>
+              ) : (
+                <>Find my match — it's free <ArrowRight size={15} /></>
+              )}
+            </motion.button>
+            <p className="mt-3 text-center text-[11px] text-muted-foreground">
+              No payment · no commitment · chat first, then decide
             </p>
-            <a href={teamWhatsAppHref} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-500/15">
-              <MessageCircle size={15} /> Chat with us on WhatsApp
+          </div>
+        </div>
+      ) : (
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-b from-emerald-50/80 to-background dark:from-emerald-900/20 dark:to-background px-6 py-8 text-center">
+          <div className="grain pointer-events-none absolute inset-0" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
+          <div className="relative">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/12 ring-8 ring-emerald-500/8 animate-bounce-in">
+              <CheckCircle2 size={34} className="text-emerald-600" strokeWidth={1.75} />
+            </div>
+            <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              You're all sorted. 🎉
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+              Your brief is with the Vano team. We'll hand-pick the right person and send them to your{' '}
+              <button type="button" onClick={() => navigate('/messages')} className="font-semibold text-primary underline underline-offset-2 hover:no-underline">Messages</button>{' '}
+              within 24 hours. You'll get an email too — check your inbox.
+            </p>
+            <div className="mx-auto mt-6 max-w-xs space-y-2.5 text-left">
+              {[
+                { step: '1', text: 'We review your brief and find the best fit' },
+                { step: '2', text: 'We open a thread — you message, agree a rate' },
+                { step: '3', text: 'Pay safely through Vano — released when you\'re happy' },
+              ].map(item => (
+                <div key={item.step} className="flex items-start gap-3">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                    {item.step}
+                  </span>
+                  <p className="text-[12.5px] text-muted-foreground leading-snug">{item.text}</p>
+                </div>
+              ))}
+            </div>
+            <a
+              href={teamWhatsAppHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-5 py-2.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 transition hover:bg-emerald-500/15 active:scale-[0.98]"
+            >
+              <MessageCircle size={15} /> Message us on WhatsApp
             </a>
           </div>
-        )}
-      </div>
-
-      {/* ── SECONDARY — single-line WhatsApp 24h fallback. The primary
-           €1 AI Match is the focus of Step 3; this is just the escape
-           hatch for hirers who'd rather wait for a human pick.
-           Demoted from a bordered card to a muted button-link so it
-           doesn't compete with the hero. Hidden after submit. */}
-      {!submitted && (
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => { void handleVanoSubmit(); }}
-            disabled={submitting}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground underline-offset-2 transition hover:text-foreground hover:underline disabled:opacity-60"
-          >
-            {submitting
-              ? <><Loader2 size={12} className="animate-spin" /> Sending…</>
-              : <>Prefer a human pick? Free, hand-picked by Vano in 24h →</>}
-          </button>
         </div>
       )}
-
     </div>
   );
 
@@ -1374,52 +1154,10 @@ const HirePage = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* The old "Or pick a package" row with 3 fixed-price packages
-             used to live here. Removed on 2026-04-23 to focus the end
-             of the hire flow on a single decision: AI Match (€1) or
-             the WhatsApp 24h fallback. Having three more pricing CTAs
-             after the hero diluted the conversion. */}
-
-        {/* Previous matches — surfaces any Vano-picked freelancer the
-             user paid €1 for in the past, so a business that did the
-             match flow then navigated away can find their freelancer
-             again instead of re-paying. Renders null when signed out
-             or with no prior matches, and on any query failure, so it
-             never adds an error surface to the bottom of the page. */}
-        {user?.id && <PreviousMatchesPanel userId={user.id} />}
       </div>
 
-      {/* Embedded Stripe checkout — opens inline when
-           VITE_STRIPE_PUBLISHABLE_KEY is set so hirers never leave
-           /hire for the €1 match. Stripe handles payment + 3DS +
-           auto-redirect to the return_url on success. Hosted-flow
-           fallback still fires when the key is missing or the
-           edge function returns no client_secret. */}
-      <AiFindCheckoutModal
-        open={aiFindCheckoutOpen}
-        onClose={() => {
-          setAiFindCheckoutOpen(false);
-          setAiFindClientSecret(null);
-          setAiFindFallbackUrl(null);
-        }}
-        clientSecret={aiFindClientSecret}
-        fallbackUrl={aiFindFallbackUrl}
-      />
-
-      {/* Mobile-only sticky CTA for Step 3. The primary €1 button lives
-           inside the gradient card (which is great on desktop, where the
-           card stays in view) but on mobile a thumb-scroller can blow
-           straight past it toward the pricing packages and lose the
-           main action. This duplicates the button at the viewport
-           bottom so the conversion path stays one tap away no matter
-           where they've scrolled. `md:hidden` keeps desktop clean;
-           hidden on submitted/loading states so nothing competes for
-           attention after they've acted. Safe-area padding means the
-           iOS home indicator doesn't eat it.
-
-           The page's `pb-24 md:pb-12` reserves 96px of bottom padding
-           on mobile already, so the sticky bar doesn't occlude the
-           last real content. */}
+      {/* Mobile sticky CTA — keeps the primary action one tap away
+           on long-scrolling mobile screens. Hidden after submit. */}
       {step === 3 && !submitted && (
         <div
           className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/92 backdrop-blur-md md:hidden"
@@ -1428,14 +1166,14 @@ const HirePage = () => {
           <div className="mx-auto max-w-2xl px-4 py-3">
             <button
               type="button"
-              onClick={handleAiFind}
-              disabled={aiFindLoading}
+              onClick={() => { void handleVanoSubmit(); }}
+              disabled={submitting}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-[0_6px_20px_-6px_hsl(var(--primary)/0.5)] transition hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
             >
-              {aiFindLoading ? (
-                <><Loader2 size={15} className="animate-spin" /> Matching you now…</>
+              {submitting ? (
+                <><Loader2 size={15} className="animate-spin" /> Sending…</>
               ) : (
-                <><Sparkles size={15} className="text-amber-200" /> Match me now — €1</>
+                <><Sparkles size={15} /> Find my match — it's free</>
               )}
             </button>
           </div>
