@@ -283,7 +283,7 @@ const Landing = () => {
     <div ref={mainRef} className="min-h-screen bg-background pb-16 md:pb-0">
       <SEOHead
         title="Hand-picked freelancers — no more scrolling through gigs"
-        description="€1 AI-matches your freelancer in 20 seconds, or free hand-picked by Vano in 24h. No browsing, no shortlists — one brief, one match. Freelancers: list yourself free — videography, content, web design, digital sales."
+        description="Hand-picked freelancers — no browsing, no shortlists. Tell Vano what you need and we match you with the right person within 24 hours. Free. Freelancers: list yourself free — videography, content, web design, digital sales."
         keywords="hire freelancer, freelance marketplace, videographer, digital sales, web design, content creation, ugc, gig work, ireland, galway"
         jsonLd={breadcrumbSchema([{ name: 'Home', path: '/' }])}
       />
@@ -305,7 +305,7 @@ const Landing = () => {
           >
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
               <Sparkles className="h-3 w-3" />
-              Matched in 20 seconds · or free in 24h
+              Hand-picked · Free · Within 24 hours
             </span>
           </motion.div>
 
@@ -334,7 +334,7 @@ const Landing = () => {
             transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]"
           >
-            €1 to find your freelancer in 20 seconds. Or free in 24h.
+            Tell us what you need. We hand-pick your freelancer. Free, within 24 hours.
           </motion.p>
 
           {/* Two path cards — the streamlined core of the hero. One
@@ -372,15 +372,15 @@ const Landing = () => {
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
                     <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" /> I want to hire
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold tabular-nums text-white ring-1 ring-white/20">
-                    €1 · 20s
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[10.5px] font-bold text-white ring-1 ring-white/20">
+                    Free · 24h
                   </span>
                 </div>
                 <p className="mt-3 text-[19px] font-semibold leading-[1.15] tracking-tight sm:text-[20px]">
                   Find my freelancer
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-snug text-white/80">
-                  Pay €1. Matched in 20 seconds. Or free in 24h.
+                  Tell us what you need. We hand-pick the right person and send them your way.
                 </p>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   Start a Vano Match
@@ -478,7 +478,7 @@ const Landing = () => {
               {
                 step: '02',
                 title: 'We find your match',
-                body: 'Pay €1 and our AI picks the best-fit freelancer in 20 seconds. Or wait 24h for a free hand-pick by the Vano team.',
+                body: 'The Vano team personally reviews your brief and picks the best-fit freelancer from our talent pool — sent to your messages within 24 hours.',
                 icon: Zap,
               },
               {
@@ -885,7 +885,7 @@ const Landing = () => {
                   What is VANO?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  A marketplace for hand-picked freelancers. Tell us what you need, pay €1 for an AI match in 20 seconds — or wait 24h for a free hand-pick by the Vano team. Refunded if we can't find a fit. You chat, agree a rate, and hire them directly.
+                  A marketplace for hand-picked freelancers. Tell us what you need and the Vano team personally picks the best fit from our talent pool — sent to your messages within 24 hours, free. You chat, agree a rate, and hire them directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="hire" className="border-border/80 px-2">
@@ -893,7 +893,7 @@ const Landing = () => {
                   How do I hire someone?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Start a Vano Match — tell us the category, timeline, and budget. For €1 our AI picks your match in 20 seconds, or wait 24h for a free hand-pick by the Vano team. You then message them, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly — no match fee.
+                  Start a Vano Match — tell us the category, timeline, and budget. The Vano team reviews your brief and hand-picks the right person from our talent pool, sent to your messages within 24 hours. You then chat, agree a rate, and hire them directly. Prefer to browse? Pick a category on the talent board and message anyone directly.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="why-vano" className="border-border/80 px-2">
@@ -901,7 +901,7 @@ const Landing = () => {
                   Why use Vano instead of just messaging someone directly?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — we hand-pick a fit in 20 seconds (or 24h for a free pick). Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
+                  Two reasons. First, Vano Match saves the hours you'd spend scrolling Instagram or Fiverr — we hand-pick the right fit from our talent pool and send them to you within 24 hours, free. Second, Vano Pay holds the money in escrow and only releases it when you say the work's done — so you don't pay up front to someone who might ghost. You can still pay outside Vano if you prefer; Vano Pay is opt-in.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="vano-pay" className="border-border/80 px-2">
@@ -917,7 +917,7 @@ const Landing = () => {
                   What does it cost?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 max-w-[65ch]">
-                  Browsing the talent board is free. Vano Match is €1 per AI pick. Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
+                  Browsing the talent board is free. Vano Match (hand-picked by us) is free. Direct hire (chat → agree a rate → pay outside Vano) has no fee. Vano Pay charges 4% on top of the agreed price for the hirer and deducts 4% from the freelancer's payout — €100 agreed means €104 charged, €96 received, Vano keeps €8 across both sides. No monthly fees.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="galway" className="border-border/80 px-2 border-b-0">
@@ -953,7 +953,7 @@ const Landing = () => {
               Your perfect match, hand-picked.
             </h2>
             <p className="relative text-primary-foreground/75 mb-10 text-base lg:text-[17px] max-w-[44ch] mx-auto leading-relaxed text-balance">
-              Tell us what you need. We'll find your freelancer in 20 seconds — or free in 24h. <span className="tabular-nums">€1</span>.
+              Tell us what you need. We hand-pick the right freelancer and send them your way — free, within 24 hours.
             </p>
             <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
               <InteractiveButton
@@ -963,7 +963,7 @@ const Landing = () => {
                 onClick={() => navigate('/hire')}
                 className="group w-full sm:w-auto inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary-foreground text-primary rounded-full font-semibold text-[15px] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-primary-foreground/95 hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.4)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]"
               >
-                Find my freelancer — <span className="tabular-nums">€1</span>
+                Find my freelancer — it's free
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:translate-x-0.5">
                   <ArrowRight size={14} />
                 </span>
