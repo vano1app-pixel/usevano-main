@@ -1,10 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-
-const WHATSAPP_NUMBER = '353899817111';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 function openWhatsApp(): void {
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hi VANO! I need help in Galway.')}`;
+  const url = `${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help in Galway.')}`;
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 

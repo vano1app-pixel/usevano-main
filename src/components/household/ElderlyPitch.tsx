@@ -1,8 +1,7 @@
 import React from 'react';
 import { MessageCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const WHATSAPP = '353899817111';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 const PLANS = [
   {
@@ -129,7 +128,7 @@ export const ElderlyPitch: React.FC = () => {
 
               {/* CTA */}
               <a
-                href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(plan.waText)}`}
+                href={`${teamWhatsAppHref}?text=${encodeURIComponent(plan.waText)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(

@@ -4,8 +4,7 @@ import { ArrowLeft, MessageCircle, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-
-const WHATSAPP_NUMBER = '353899817111';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 interface Category {
   emoji:       string;
@@ -78,7 +77,7 @@ function buildMessage(cat: Category, when: string, size: string, note: string): 
 }
 
 function openWhatsApp(message: string): void {
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  const url = `${teamWhatsAppHref}?text=${encodeURIComponent(message)}`;
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 

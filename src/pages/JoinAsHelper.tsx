@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { SEOHead } from '@/components/SEOHead';
-
-const WHATSAPP_NUMBER = '353899817111';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 const STATS = [
   { value: '€12–€25', label: 'per job' },
@@ -31,7 +30,7 @@ const JOBS = [
 ];
 
 export const JoinAsHelper: React.FC = () => {
-  const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi VANO, I'm an ATU student and I'd like to start doing household jobs.")}`;
+  const waUrl = `${teamWhatsAppHref}?text=${encodeURIComponent("Hi VANO, I'm an ATU student and I'd like to start doing household jobs.")}`;
 
   return (
     <>
