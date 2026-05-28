@@ -17,7 +17,7 @@ const FAQ: QAPair[] = [
   },
   {
     q: 'How does payment work?',
-    a: 'Pay by card at booking, Revolut or cash when the job is done — whichever suits. Price agreed upfront.',
+    a: 'Pay by card, Revolut, or cash when the job is done — price agreed upfront, no surprises.',
   },
   {
     q: 'Do you cover all of Galway?',

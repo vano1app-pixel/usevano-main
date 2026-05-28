@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, MessageCircle } from 'lucide-react';
+import { CheckCircle2, Camera, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { SEOHead } from '@/components/SEOHead';
+import { supabase } from '@/integrations/supabase/client';
+import { teamWhatsAppHref } from '@/lib/contact';
 
-const WHATSAPP_NUMBER = '353899817111';
+const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 const STATS = [
   { value: '€12–€25', label: 'per job' },
@@ -31,7 +34,55 @@ const JOBS = [
 ];
 
 export const JoinAsHelper: React.FC = () => {
-  const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi VANO, I'm an ATU student and I'd like to start doing household jobs.")}`;
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhoto(file);
+    setPreview(URL.createObjectURL(file));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim() || !photo) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const ext = photo.name.split('.').pop() ?? 'jpg';
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('helper-photos')
+        .upload(path, photo, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('helper-photos')
+        .getPublicUrl(path);
+
+      const { error: insertError } = await db
+        .from('helper_applications')
+        .insert({ name: name.trim(), phone: phone.trim(), photo_url: publicUrl });
+
+      if (insertError) throw insertError;
+
+      setSubmitted(true);
+    } catch {
+      setError("Something went wrong — please try again or text us on WhatsApp.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <>
@@ -48,7 +99,7 @@ export const JoinAsHelper: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
             >
               <p className="eyebrow mb-4">For ATU students in Galway</p>
               <h1 className="display-xl text-foreground mb-4">
@@ -59,7 +110,7 @@ export const JoinAsHelper: React.FC = () => {
               </p>
 
               {/* Stat chips */}
-              <div className="flex justify-center gap-3 flex-wrap mb-8">
+              <div className="flex justify-center gap-3 flex-wrap mb-2">
                 {STATS.map(({ value, label }) => (
                   <div key={label} className="bg-background border border-border/60 rounded-2xl px-4 py-3 text-center shadow-tinted-sm">
                     <p className="font-bold text-foreground text-lg leading-tight">{value}</p>
@@ -67,20 +118,152 @@ export const JoinAsHelper: React.FC = () => {
                   </div>
                 ))}
               </div>
-
-              <Button
-                asChild
-                size="lg"
-                className="rounded-full gap-2 px-8 font-semibold text-base"
-                style={{ backgroundColor: '#25D366', color: '#fff' }}
-              >
-                <a href={waUrl} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="w-5 h-5" />
-                  Apply on WhatsApp
-                </a>
-              </Button>
             </motion.div>
           </div>
+        </section>
+
+        {/* Application form */}
+        <section className="px-4 pb-16 max-w-sm mx-auto">
+          {submitted ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+              className="bg-sage-light rounded-2xl p-8 text-center"
+            >
+              <CheckCircle className="w-12 h-12 text-sage mx-auto mb-4" />
+              <h2 className="font-bold text-foreground text-xl mb-2">You're in the pool!</h2>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                We'll WhatsApp you within 24 hours with your first job options.
+              </p>
+            </motion.div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="mb-2">
+                <h2 className="text-xl font-semibold text-foreground mb-1">Apply in 30 seconds</h2>
+                <p className="text-muted-foreground text-sm">Three questions. That's it.</p>
+              </div>
+
+              {/* Photo */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                  Your face photo
+                </p>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className={cn(
+                      'relative w-20 h-20 rounded-full border-2 border-dashed flex-shrink-0',
+                      'flex items-center justify-center overflow-hidden transition-colors duration-150',
+                      preview
+                        ? 'border-transparent'
+                        : 'border-border hover:border-primary/50 bg-secondary/50',
+                    )}
+                    aria-label="Upload face photo"
+                  >
+                    {preview ? (
+                      <img src={preview} alt="Your photo" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-muted-foreground" />
+                    )}
+                  </button>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      {preview ? 'Change photo' : 'Add a clear face photo'}
+                    </button>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Helps customers feel at ease
+                    </p>
+                  </div>
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  onChange={handlePhoto}
+                  className="sr-only"
+                  aria-label="Face photo upload"
+                />
+              </div>
+
+              {/* Name */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  Your name
+                </p>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="First and last name"
+                  required
+                  className={cn(
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'placeholder:text-muted-foreground/50',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                    'transition-[border-color,box-shadow] duration-150',
+                  )}
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  Your phone number
+                </p>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="08x xxx xxxx"
+                  required
+                  className={cn(
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'placeholder:text-muted-foreground/50',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                    'transition-[border-color,box-shadow] duration-150',
+                  )}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={submitting || !name.trim() || !phone.trim() || !photo}
+                className="w-full rounded-full font-semibold gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending…
+                  </>
+                ) : (
+                  'Apply now'
+                )}
+              </Button>
+
+              {error && (
+                <p className="text-center text-xs text-destructive">{error}</p>
+              )}
+
+              <p className="text-center text-xs text-muted-foreground">
+                We'll WhatsApp you within 24 hours.{' '}
+                <a
+                  href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi VANO, I'm an ATU student and I'd like to start doing household jobs.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-foreground transition-colors"
+                >
+                  Prefer to text us?
+                </a>
+              </p>
+            </form>
+          )}
         </section>
 
         {/* Job types */}
@@ -122,8 +305,8 @@ export const JoinAsHelper: React.FC = () => {
           <h2 className="text-2xl font-semibold text-foreground mb-6">Three steps to your first job</h2>
           <ol className="space-y-5">
             {[
-              { n: '1', title: 'Text us on WhatsApp', body: 'Send us a quick message. We\'ll ask a few questions and add you to our student pool.' },
-              { n: '2', title: 'Get matched to jobs', body: 'When a job near you comes in, we\'ll text you first. Accept or pass — totally your call.' },
+              { n: '1', title: 'Apply above', body: 'Fill in your name, number, and a face photo. Takes 30 seconds.' },
+              { n: '2', title: 'Get matched to jobs', body: "When a job near you comes in, we'll text you first. Accept or pass — totally your call." },
               { n: '3', title: 'Do the job, get paid', body: 'Show up, do great work, get paid by Revolut the same day. Easy.' },
             ].map(({ n, title, body }) => (
               <li key={n} className="flex gap-4">
@@ -137,27 +320,6 @@ export const JoinAsHelper: React.FC = () => {
               </li>
             ))}
           </ol>
-        </section>
-
-        {/* Bottom CTA */}
-        <section className="bg-primary px-4 py-16 text-center">
-          <div className="max-w-sm mx-auto">
-            <h2 className="display-lg text-primary-foreground mb-4">Ready to start?</h2>
-            <p className="text-primary-foreground/80 mb-8 leading-relaxed">
-              Takes 2 minutes. We'll have you set up and ready for your first job this week.
-            </p>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="rounded-full gap-2 px-8 font-semibold border-white/70 text-white bg-transparent hover:bg-white hover:text-primary transition-colors duration-200"
-            >
-              <a href={waUrl} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="w-5 h-5" />
-                Apply on WhatsApp
-              </a>
-            </Button>
-          </div>
         </section>
       </main>
 

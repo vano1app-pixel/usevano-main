@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 /* Soft alternative CTA for people (especially elderly users) who'd rather
    send a text than fill in a form. Kept deliberately low-friction. */
@@ -20,9 +21,10 @@ export const WhatsAppBlock: React.FC = () => {
           style={{ backgroundColor: '#25D366', color: '#fff' }}
         >
           <a
-            href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%20need%20some%20help%20around%20the%20house!"
+            href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO, I need some help around the house!')}`}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Send us a WhatsApp message for help"
           >
             <MessageCircle className="w-4 h-4" />
             Text us on WhatsApp
