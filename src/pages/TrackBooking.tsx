@@ -125,6 +125,38 @@ const TrackBooking = () => {
     return () => { cancelled = true; };
   }, [bookingId, navigate]);
 
+  // Realtime booking status subscription — keeps status badge / progress live
+  useEffect(() => {
+    if (!bookingId) return;
+    const channel = supabase
+      .channel(`hh-booking-${bookingId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'household_bookings', filter: `id=eq.${bookingId}` },
+        (payload) => {
+          setBooking(payload.new as Booking);
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [bookingId]);
+
+  // Realtime job updates subscription — drives the progress timeline
+  useEffect(() => {
+    if (!bookingId) return;
+    const channel = supabase
+      .channel(`hh-updates-${bookingId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'household_job_updates', filter: `booking_id=eq.${bookingId}` },
+        (payload) => {
+          setUpdates((prev) => [...prev, payload.new as JobUpdate]);
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [bookingId]);
+
   // Realtime chat subscription
   useEffect(() => {
     if (!bookingId) return;
