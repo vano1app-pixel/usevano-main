@@ -3,34 +3,19 @@ import { motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const GROUPS = [
-  {
-    heading: 'Around the house',
-    tasks: [
-      { emoji: '🧹', label: 'Outdoor cleaning',    slug: 'cleaning' },
-      { emoji: '📦', label: 'Moving help',          slug: 'moving'   },
-      { emoji: '🔧', label: 'Furniture assembly',   slug: 'other'    },
-      { emoji: '📱', label: 'Tech help for elderly', slug: 'other'   },
-    ],
-  },
-  {
-    heading: 'Garden & outdoors',
-    tasks: [
-      { emoji: '🌿', label: 'Lawn mowing',       slug: 'garden' },
-      { emoji: '🌱', label: 'Weeding & pruning', slug: 'garden' },
-      { emoji: '🍂', label: 'Leaf clearing',     slug: 'garden' },
-      { emoji: '🪣', label: 'Pressure washing',  slug: 'garden' },
-    ],
-  },
-  {
-    heading: 'Errands',
-    tasks: [
-      { emoji: '🛒', label: 'Grocery shopping', slug: 'shopping' },
-      { emoji: '💊', label: 'Pharmacy runs',    slug: 'shopping' },
-      { emoji: '📬', label: 'Post office runs', slug: 'other'    },
-      { emoji: '🐕', label: 'Dog walking',      slug: 'dog-walk' },
-    ],
-  },
+const TASKS = [
+  { emoji: '🛒', label: 'Grocery shopping',    slug: 'shopping'  },
+  { emoji: '🐕', label: 'Dog walking',          slug: 'dog-walk'  },
+  { emoji: '🌿', label: 'Lawn mowing',          slug: 'garden'    },
+  { emoji: '📦', label: 'Moving help',          slug: 'moving'    },
+  { emoji: '🧹', label: 'Outdoor cleaning',     slug: 'cleaning'  },
+  { emoji: '💊', label: 'Pharmacy runs',        slug: 'shopping'  },
+  { emoji: '📬', label: 'Post office runs',     slug: 'other'     },
+  { emoji: '🔧', label: 'Furniture assembly',   slug: 'other'     },
+  { emoji: '📱', label: 'Tech help for elderly', slug: 'other'    },
+  { emoji: '📚', label: 'Tutoring & grinds',    slug: 'other'     },
+  { emoji: '🚪', label: 'Wait for deliveries',  slug: 'other'     },
+  { emoji: '✨', label: 'Anything else',        slug: 'other'     },
 ];
 
 function selectCategory(slug: string) {
@@ -43,7 +28,7 @@ function selectCategory(slug: string) {
 
 const container = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
+  show: { transition: { staggerChildren: 0.06 } },
 };
 
 const card = {
@@ -62,58 +47,49 @@ export const TaskShowcase: React.FC = () => {
         What can your helper do?
       </h2>
 
-      <div className="space-y-8">
-        {GROUPS.map(({ heading, tasks }) => (
-          <div key={heading}>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-              {heading}
-            </p>
-            <motion.div
-              className="grid grid-cols-2 sm:grid-cols-4 gap-2.5"
-              variants={container}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: '-48px' }}
+      <motion.div
+        className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
+        variants={container}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: '-48px' }}
+      >
+        {TASKS.map(({ emoji, label, slug }) => (
+          <motion.button
+            key={label}
+            variants={card}
+            onClick={() => selectCategory(slug)}
+            className={cn(
+              'group flex items-center gap-2.5 rounded-xl p-3 text-left',
+              'border border-border/40 bg-secondary/50',
+              'transition-[background-color,border-color,box-shadow,transform]',
+              'duration-200 ease-out-expo',
+              'hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
+              'active:scale-[0.97]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+            )}
+          >
+            <span
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none"
+              aria-hidden="true"
             >
-              {tasks.map(({ emoji, label, slug }) => (
-                <motion.button
-                  key={label}
-                  variants={card}
-                  onClick={() => selectCategory(slug)}
-                  className={cn(
-                    'group flex items-center gap-2.5 rounded-xl p-3 text-left',
-                    'border border-border/40 bg-secondary/50',
-                    'transition-[background-color,border-color,box-shadow,transform]',
-                    'duration-200 ease-out-expo',
-                    'hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
-                    'active:scale-[0.97]',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                  )}
-                >
-                  <span
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none"
-                    aria-hidden="true"
-                  >
-                    {emoji}
-                  </span>
-                  <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">
-                    {label}
-                  </span>
-                  <ChevronRight
-                    className={cn(
-                      'flex-shrink-0 w-3.5 h-3.5 text-primary/50',
-                      'opacity-0 -translate-x-1',
-                      'group-hover:opacity-100 group-hover:translate-x-0',
-                      'transition-[opacity,transform] duration-200 ease-out-expo',
-                    )}
-                    strokeWidth={1.75}
-                  />
-                </motion.button>
-              ))}
-            </motion.div>
-          </div>
+              {emoji}
+            </span>
+            <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">
+              {label}
+            </span>
+            <ChevronRight
+              className={cn(
+                'flex-shrink-0 w-3.5 h-3.5 text-primary/50',
+                'opacity-0 -translate-x-1',
+                'group-hover:opacity-100 group-hover:translate-x-0',
+                'transition-[opacity,transform] duration-200 ease-out-expo',
+              )}
+              strokeWidth={1.75}
+            />
+          </motion.button>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 };
