@@ -49,7 +49,7 @@ function getPriceEstimate(data: BookingData): string {
       return `€${base * count}`;
     }
     case 'garden': {
-      const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€65' };
+      const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€54' };
       return data.gardenDuration ? prices[data.gardenDuration] : '€18+';
     }
     case 'moving': {

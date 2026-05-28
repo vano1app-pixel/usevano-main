@@ -183,8 +183,14 @@ const TrackBooking = () => {
     setSending(true);
     const body = draft.trim();
     setDraft('');
-    await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
-    setSending(false);
+    try {
+      const { error } = await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
+      if (error) throw error;
+    } catch {
+      setDraft(body);
+    } finally {
+      setSending(false);
+    }
   };
 
   const latestUpdateStatus = updates.at(-1)?.status ?? null;
