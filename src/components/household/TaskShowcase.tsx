@@ -1,34 +1,43 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 const GROUPS = [
   {
     heading: 'Around the house',
     tasks: [
-      { emoji: '🧹', label: 'Outdoor cleaning' },
-      { emoji: '📦', label: 'Moving help' },
-      { emoji: '🔧', label: 'Furniture assembly' },
-      { emoji: '📱', label: 'Tech help for elderly' },
+      { emoji: '🧹', label: 'Outdoor cleaning', slug: 'cleaning' },
+      { emoji: '📦', label: 'Moving help',       slug: 'moving'   },
+      { emoji: '🔧', label: 'Furniture assembly', slug: 'other'   },
+      { emoji: '📱', label: 'Tech help for elderly', slug: 'other' },
     ],
   },
   {
     heading: 'Garden & outdoors',
     tasks: [
-      { emoji: '🌿', label: 'Lawn mowing' },
-      { emoji: '🌱', label: 'Weeding & pruning' },
-      { emoji: '🍂', label: 'Leaf clearing' },
-      { emoji: '🪣', label: 'Pressure washing' },
+      { emoji: '🌿', label: 'Lawn mowing',       slug: 'garden' },
+      { emoji: '🌱', label: 'Weeding & pruning', slug: 'garden' },
+      { emoji: '🍂', label: 'Leaf clearing',     slug: 'garden' },
+      { emoji: '🪣', label: 'Pressure washing',  slug: 'garden' },
     ],
   },
   {
     heading: 'Errands',
     tasks: [
-      { emoji: '🛒', label: 'Grocery shopping' },
-      { emoji: '💊', label: 'Pharmacy runs' },
-      { emoji: '📬', label: 'Post office runs' },
-      { emoji: '🐕', label: 'Dog walking' },
+      { emoji: '🛒', label: 'Grocery shopping', slug: 'shopping'  },
+      { emoji: '💊', label: 'Pharmacy runs',    slug: 'shopping'  },
+      { emoji: '📬', label: 'Post office runs', slug: 'other'     },
+      { emoji: '🐕', label: 'Dog walking',      slug: 'dog-walk'  },
     ],
   },
 ];
+
+function selectCategory(slug: string) {
+  const grid = document.getElementById('category-grid');
+  if (grid) {
+    grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug } }));
+}
 
 export const TaskShowcase: React.FC = () => {
   return (
@@ -45,10 +54,16 @@ export const TaskShowcase: React.FC = () => {
               {heading}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {tasks.map(({ emoji, label }) => (
-                <div
+              {tasks.map(({ emoji, label, slug }) => (
+                <button
                   key={label}
-                  className="bg-secondary/50 rounded-xl p-3 flex items-center gap-2.5 hover-lift transition-transform duration-150"
+                  onClick={() => selectCategory(slug)}
+                  className={cn(
+                    'bg-secondary/50 rounded-xl p-3 flex items-center gap-2.5 text-left',
+                    'transition-[background-color,transform] duration-150',
+                    'hover:bg-secondary active:scale-[0.97]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                  )}
                 >
                   <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">
                     {emoji}
@@ -56,7 +71,7 @@ export const TaskShowcase: React.FC = () => {
                   <span className="text-sm font-medium text-foreground/80 leading-tight">
                     {label}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>

@@ -98,6 +98,22 @@ export const CategoryGrid: React.FC = () => {
   const [size, setSize] = useState('');
   const [note, setNote] = useState('');
 
+  React.useEffect(() => {
+    function handleSelect(e: Event) {
+      const slug = (e as CustomEvent<{ slug: string }>).detail.slug;
+      setSelectedSlug(slug);
+      setWhen('');
+      setSize('');
+      setNote('');
+      setShowPayForm(false);
+      setPayName('');
+      setPayPhone('');
+      setPayError(null);
+    }
+    window.addEventListener('vano:select-category', handleSelect);
+    return () => window.removeEventListener('vano:select-category', handleSelect);
+  }, []);
+
   // Pay-by-card form state
   const [showPayForm, setShowPayForm] = useState(false);
   const [payName, setPayName] = useState('');
