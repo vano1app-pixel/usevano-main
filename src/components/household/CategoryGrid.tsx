@@ -284,7 +284,7 @@ export const CategoryGrid: React.FC = () => {
                       {payLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Redirecting to Stripe…
+                          Opening secure checkout…
                         </>
                       ) : (
                         <>

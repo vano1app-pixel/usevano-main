@@ -43,7 +43,7 @@ function selectCategory(slug: string) {
 
 const container = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.055 } },
+  show: { transition: { staggerChildren: 0.08 } },
 };
 
 const card = {
