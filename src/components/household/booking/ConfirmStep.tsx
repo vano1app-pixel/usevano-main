@@ -89,6 +89,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
         toast({ title: 'Please sign in first', variant: 'destructive' });
+        setLoading(false);
         return;
       }
 
