@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, CreditCard } from 'lucide-react';
+import { ArrowLeft, MessageCircle, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -97,6 +97,22 @@ export const CategoryGrid: React.FC = () => {
   const [when, setWhen] = useState('');
   const [size, setSize] = useState('');
   const [note, setNote] = useState('');
+
+  React.useEffect(() => {
+    function handleSelect(e: Event) {
+      const slug = (e as CustomEvent<{ slug: string }>).detail.slug;
+      setSelectedSlug(slug);
+      setWhen('');
+      setSize('');
+      setNote('');
+      setShowPayForm(false);
+      setPayName('');
+      setPayPhone('');
+      setPayError(null);
+    }
+    window.addEventListener('vano:select-category', handleSelect);
+    return () => window.removeEventListener('vano:select-category', handleSelect);
+  }, []);
 
   // Pay-by-card form state
   const [showPayForm, setShowPayForm] = useState(false);
@@ -265,8 +281,17 @@ export const CategoryGrid: React.FC = () => {
                       disabled={payLoading}
                       className="w-full rounded-full gap-2 font-semibold"
                     >
-                      <CreditCard className="w-4 h-4" />
-                      {payLoading ? 'Redirecting…' : `Pay securely · ${formatPrice(priceCents!)}`}
+                      {payLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Opening secure checkout…
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-4 h-4" />
+                          {`Pay securely · ${formatPrice(priceCents!)}`}
+                        </>
+                      )}
                     </Button>
 
                     {payError && (

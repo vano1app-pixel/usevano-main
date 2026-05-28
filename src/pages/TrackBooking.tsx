@@ -125,6 +125,38 @@ const TrackBooking = () => {
     return () => { cancelled = true; };
   }, [bookingId, navigate]);
 
+  // Realtime booking status subscription — keeps status badge / progress live
+  useEffect(() => {
+    if (!bookingId) return;
+    const channel = supabase
+      .channel(`hh-booking-${bookingId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'household_bookings', filter: `id=eq.${bookingId}` },
+        (payload) => {
+          setBooking(payload.new as Booking);
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [bookingId]);
+
+  // Realtime job updates subscription — drives the progress timeline
+  useEffect(() => {
+    if (!bookingId) return;
+    const channel = supabase
+      .channel(`hh-updates-${bookingId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'household_job_updates', filter: `booking_id=eq.${bookingId}` },
+        (payload) => {
+          setUpdates((prev) => [...prev, payload.new as JobUpdate]);
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [bookingId]);
+
   // Realtime chat subscription
   useEffect(() => {
     if (!bookingId) return;
@@ -151,8 +183,14 @@ const TrackBooking = () => {
     setSending(true);
     const body = draft.trim();
     setDraft('');
-    await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
-    setSending(false);
+    try {
+      const { error } = await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
+      if (error) throw error;
+    } catch {
+      setDraft(body);
+    } finally {
+      setSending(false);
+    }
   };
 
   const latestUpdateStatus = updates.at(-1)?.status ?? null;

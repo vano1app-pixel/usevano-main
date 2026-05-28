@@ -49,7 +49,7 @@ function computePriceCents(data: BookingData, isExpress: boolean): number {
       return base * dogs;
     }
     case 'garden': {
-      const prices: Record<string, number> = { '1hr': 1800, '2hr': 3600, 'half-day': 6500 };
+      const prices: Record<string, number> = { '1hr': 1800, '2hr': 3600, 'half-day': 5400 };
       return prices[data.gardenDuration ?? '1hr'] ?? 1800;
     }
     case 'moving': {
