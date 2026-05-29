@@ -384,21 +384,23 @@ const Admin = () => {
   }, [page]);
 
   const fetchHouseholdBookings = useCallback(async () => {
-    const { data } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
       .from('household_bookings')
       .select('id, category, customer_name, customer_phone, city, status, scheduled_date, price_estimate_cents, stripe_payment_intent_id, created_at')
       .order('created_at', { ascending: false })
       .limit(100);
-    setHouseholdBookings((data as HouseholdBookingRow[]) || []);
+    setHouseholdBookings(((data ?? []) as unknown) as HouseholdBookingRow[]);
   }, []);
 
   const fetchHouseholdHelpers = useCallback(async () => {
-    const { data } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
       .from('household_helpers')
       .select('id, name, phone, city, status, is_available, accepted_count, photo_url, created_at')
       .order('created_at', { ascending: false })
       .limit(100);
-    setHouseholdHelpers((data as HouseholdHelperRow[]) || []);
+    setHouseholdHelpers(((data ?? []) as unknown) as HouseholdHelperRow[]);
   }, []);
 
   useEffect(() => {
@@ -540,7 +542,8 @@ const Admin = () => {
     const verb = newStatus === 'approved' ? 'Approve' : 'Suspend';
     if (!window.confirm(`${verb} this helper?`)) return;
     setUpdatingHelper(helperId);
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
       .from('household_helpers')
       .update({ status: newStatus })
       .eq('id', helperId);
