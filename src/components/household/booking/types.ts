@@ -40,6 +40,7 @@ export interface BookingData {
   customerName?: string;
   customerAddress?: string;
   customerPhone?: string;
+  customerCity?: string;
 }
 
 export interface StepProps {

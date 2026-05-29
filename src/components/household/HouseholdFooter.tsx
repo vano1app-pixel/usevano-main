@@ -57,7 +57,7 @@ export const HouseholdFooter: React.FC = () => {
             hello@vanojobs.com
           </p>
           <p className="text-white/40 text-xs">
-            © 2026 VANO · Galway, Ireland
+            © 2026 VANO · Ireland
           </p>
         </div>
       </div>

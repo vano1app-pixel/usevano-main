@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, MessageCircle, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 
@@ -68,7 +69,7 @@ function formatPrice(cents: number): string {
 }
 
 function buildMessage(cat: Category, when: string, size: string, note: string): string {
-  const lines: string[] = [`Hi VANO! I need ${cat.label.toLowerCase()} help in Galway.`];
+  const lines: string[] = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
   if (when) lines.push(`When: ${when}`);
   if (size) lines.push(`${cat.sizeLabel || 'Details'}: ${size}`);
   if (note.trim()) lines.push(note.trim());
@@ -107,6 +108,7 @@ export const CategoryGrid: React.FC = () => {
       setShowPayForm(false);
       setPayName('');
       setPayPhone('');
+      setPayCity('');
       setPayError(null);
     }
     window.addEventListener('vano:select-category', handleSelect);
@@ -117,6 +119,7 @@ export const CategoryGrid: React.FC = () => {
   const [showPayForm, setShowPayForm] = useState(false);
   const [payName, setPayName] = useState('');
   const [payPhone, setPayPhone] = useState('');
+  const [payCity, setPayCity] = useState('');
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
 
@@ -133,6 +136,7 @@ export const CategoryGrid: React.FC = () => {
       setShowPayForm(false);
       setPayName('');
       setPayPhone('');
+      setPayCity('');
       setPayError(null);
     }
   }
@@ -147,6 +151,7 @@ export const CategoryGrid: React.FC = () => {
     if (!selected) return;
     if (!payName.trim()) { setPayError('Please enter your name.'); return; }
     if (!payPhone.trim()) { setPayError('Please enter your phone number.'); return; }
+    if (!payCity.trim()) { setPayError('Please select your city.'); return; }
 
     setPayLoading(true);
     setPayError(null);
@@ -162,6 +167,7 @@ export const CategoryGrid: React.FC = () => {
             note: note.trim(),
             customer_name: payName.trim(),
             customer_phone: payPhone.trim(),
+            city: payCity,
           },
         },
       );
@@ -274,6 +280,22 @@ export const CategoryGrid: React.FC = () => {
                         'transition-[border-color,box-shadow] duration-150',
                       )}
                     />
+                    <select
+                      value={payCity}
+                      onChange={(e) => setPayCity(e.target.value)}
+                      required
+                      className={cn(
+                        'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                        'transition-[border-color,box-shadow] duration-150',
+                        !payCity ? 'text-muted-foreground/50' : 'text-foreground',
+                      )}
+                    >
+                      <option value="" disabled>Your city</option>
+                      {SUPPORTED_CITIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
 
                     <Button
                       type="submit"
@@ -417,7 +439,7 @@ export const CategoryGrid: React.FC = () => {
         <p className="text-center text-xs text-muted-foreground mt-4">
           Something else?{' '}
           <button
-            onClick={() => openWhatsApp('Hi VANO! I need help with something in Galway — ')}
+            onClick={() => openWhatsApp('Hi VANO! I need help with something — ')}
             className="underline underline-offset-2 text-foreground/60 hover:text-foreground transition-colors"
           >
             Tell us what you need

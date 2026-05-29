@@ -141,7 +141,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="min-h-dvh bg-background">
-      <SEOHead title="Student dashboard — VANO" description="Pick up household jobs in Galway." noindex />
+      <SEOHead title="Student dashboard — VANO" description="Pick up household jobs near you." noindex />
 
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
@@ -160,7 +160,7 @@ const StudentDashboard = () => {
         {/* Page title */}
         <div className="pt-6 pb-4">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Pick up jobs in Galway</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Pick up jobs near you</p>
         </div>
 
         {/* Tabs */}

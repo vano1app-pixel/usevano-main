@@ -62,7 +62,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, note, customer_name, customer_phone } = body;
+    const { category, when_label, size_label, note, customer_name, customer_phone, city } = body;
 
     // Validate
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
@@ -120,8 +120,8 @@ serve(async (req) => {
       'line_items[0][price_data][unit_amount]': String(priceCents),
       'line_items[0][price_data][product_data][name]': `VANO — ${CATEGORY_LABELS[cat]}`,
       'line_items[0][price_data][product_data][description]': when_label
-        ? `${when_label}${sl ? ' · ' + sl : ''} · Galway`
-        : 'Galway',
+        ? `${when_label}${sl ? ' · ' + sl : ''}${city ? ' · ' + city : ''}`
+        : (city ?? 'Ireland'),
       'line_items[0][quantity]': '1',
       // Authorise only — capture fires when the student marks the job complete
       'payment_intent_data[capture_method]': 'manual',

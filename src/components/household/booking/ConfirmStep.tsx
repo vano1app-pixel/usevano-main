@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { SUPPORTED_CITIES } from '@/lib/cities';
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping:  'Shopping run',
@@ -70,18 +71,19 @@ function getPriceEstimate(data: BookingData): string {
 
 export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
   const { toast } = useToast();
-  const [touched, setTouched] = useState({ name: false, address: false, phone: false });
+  const [touched, setTouched] = useState({ name: false, address: false, phone: false, city: false });
   const [loading, setLoading] = useState(false);
 
   const errors = {
     name:    !data.customerName?.trim(),
     address: !data.customerAddress?.trim(),
     phone:   !data.customerPhone?.trim(),
+    city:    !data.customerCity?.trim(),
   };
-  const hasErrors = errors.name || errors.address || errors.phone;
+  const hasErrors = errors.name || errors.address || errors.phone || errors.city;
 
   const handleBook = async () => {
-    setTouched({ name: true, address: true, phone: true });
+    setTouched({ name: true, address: true, phone: true, city: true });
     if (hasErrors) return;
 
     setLoading(true);
@@ -99,6 +101,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
           scheduled_date: data.scheduledDate,
           time_slot: data.timeSlot,
           is_express: data.isExpress ?? false,
+          city: data.customerCity,
           booking_data: {
             store: data.store,
             shoppingList: data.shoppingList,
@@ -181,26 +184,6 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
         </div>
 
         <div>
-          <Label htmlFor="cust-addr" className="text-xs text-muted-foreground mb-1.5 block">
-            Address in Galway
-          </Label>
-          <Input
-            id="cust-addr"
-            placeholder="Your full address"
-            value={data.customerAddress ?? ''}
-            onChange={(e) => onChange({ customerAddress: e.target.value })}
-            onBlur={() => setTouched((t) => ({ ...t, address: true }))}
-            className={cn(
-              'rounded-xl h-11',
-              touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
-            )}
-          />
-          {touched.address && errors.address && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
-        </div>
-
-        <div>
           <Label htmlFor="cust-phone" className="text-xs text-muted-foreground mb-1.5 block">
             Phone number
           </Label>
@@ -217,6 +200,53 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
             )}
           />
           {touched.phone && errors.phone && (
+            <p className="text-destructive text-xs mt-1">Required</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="cust-city" className="text-xs text-muted-foreground mb-1.5 block">
+            City
+          </Label>
+          <select
+            id="cust-city"
+            value={data.customerCity ?? ''}
+            onChange={(e) => onChange({ customerCity: e.target.value })}
+            onBlur={() => setTouched((t) => ({ ...t, city: true }))}
+            className={cn(
+              'w-full rounded-xl h-11 border border-input bg-background px-3 text-sm',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+              'transition-[border-color,box-shadow] duration-150',
+              touched.city && errors.city ? 'border-destructive' : '',
+              !data.customerCity ? 'text-muted-foreground' : 'text-foreground',
+            )}
+          >
+            <option value="" disabled>Select your city</option>
+            {SUPPORTED_CITIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          {touched.city && errors.city && (
+            <p className="text-destructive text-xs mt-1">Required</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="cust-addr" className="text-xs text-muted-foreground mb-1.5 block">
+            Address
+          </Label>
+          <Input
+            id="cust-addr"
+            placeholder="Your full address"
+            value={data.customerAddress ?? ''}
+            onChange={(e) => onChange({ customerAddress: e.target.value })}
+            onBlur={() => setTouched((t) => ({ ...t, address: true }))}
+            className={cn(
+              'rounded-xl h-11',
+              touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
+            )}
+          />
+          {touched.address && errors.address && (
             <p className="text-destructive text-xs mt-1">Required</p>
           )}
         </div>

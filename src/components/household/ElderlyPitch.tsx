@@ -17,7 +17,7 @@ const PLANS = [
     popular: false,
     cta: 'Get started',
     waText:
-      "Hi VANO! 👋 I'd like to set up the Family plan (€80/month) for regular help for my parent in Galway. Can you tell me more about how it works?",
+      "Hi VANO! 👋 I'd like to set up the Family plan (€80/month) for regular help for my parent. Can you tell me more about how it works?",
   },
   {
     name: 'Family Plus',
@@ -33,7 +33,7 @@ const PLANS = [
     popular: true,
     cta: 'Get started',
     waText:
-      "Hi VANO! 👋 I'm interested in the Family Plus plan (€149/month) for my parent in Galway. Can you walk me through what's included?",
+      "Hi VANO! 👋 I'm interested in the Family Plus plan (€149/month) for my parent. Can you walk me through what's included?",
   },
   {
     name: 'Business',
@@ -49,7 +49,7 @@ const PLANS = [
     popular: false,
     cta: 'Talk to us',
     waText:
-      "Hi VANO! 👋 I'm interested in the Business plan (€499/month) for my company in Galway. Can we have a chat about what's available and how it works?",
+      "Hi VANO! 👋 I'm interested in the Business plan (€499/month) for my company. Can we have a chat about what's available and how it works?",
   },
 ];
 
@@ -64,7 +64,7 @@ export const ElderlyPitch: React.FC = () => {
         <div className="text-center mb-7">
           <p className="eyebrow mb-2.5 text-primary-foreground/60">For families &amp; businesses</p>
           <h2 className="display-lg text-primary-foreground mb-2.5">
-            Worried about a parent in Galway?
+            Worried about a parent near you?
           </h2>
           <p className="text-primary-foreground/70 text-sm max-w-xs mx-auto leading-relaxed">
             One simple monthly plan. Vetted students handle the weekly tasks — so you stop worrying.
