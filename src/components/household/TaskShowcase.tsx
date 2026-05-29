@@ -19,11 +19,12 @@ const TASKS = [
 ];
 
 function selectCategory(slug: string) {
+  // Fire event first so React renders the selection before the scroll settles
+  window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug } }));
   const grid = document.getElementById('category-grid');
   if (grid) {
     grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-  window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug } }));
 }
 
 const container = {

@@ -98,6 +98,7 @@ export const CategoryGrid: React.FC = () => {
   const [when, setWhen] = useState('');
   const [size, setSize] = useState('');
   const [note, setNote] = useState('');
+  const panelRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     function handleSelect(e: Event) {
@@ -111,6 +112,10 @@ export const CategoryGrid: React.FC = () => {
       setPayPhone('');
       setPayCity('');
       setPayError(null);
+      // After the spring animation begins, scroll the panel into view
+      setTimeout(() => {
+        panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 320);
     }
     window.addEventListener('vano:select-category', handleSelect);
     return () => window.removeEventListener('vano:select-category', handleSelect);
@@ -192,7 +197,7 @@ export const CategoryGrid: React.FC = () => {
   const canPayByCard = priceCents !== null && when !== '';
 
   return (
-    <section id="category-grid" aria-label="What do you need help with?">
+    <section id="category-grid" aria-label="What do you need help with?" className="scroll-mt-16">
       <p
         className="text-sm font-semibold text-muted-foreground mb-4 tracking-wide uppercase"
         style={{ letterSpacing: '0.06em' }}
@@ -233,6 +238,7 @@ export const CategoryGrid: React.FC = () => {
       <AnimatePresence>
         {selected && (
           <motion.div
+            ref={panelRef}
             key={selected.slug}
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
