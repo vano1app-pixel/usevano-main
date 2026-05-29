@@ -23,6 +23,11 @@ CREATE POLICY "Admins can update household helpers"
   ON public.household_helpers FOR UPDATE
   USING (public.has_role(auth.uid(), 'admin'));
 
+-- household_helpers: admin delete (remove applicants)
+CREATE POLICY "Admins can delete household helpers"
+  ON public.household_helpers FOR DELETE
+  USING (public.has_role(auth.uid(), 'admin'));
+
 -- household_job_offers: admin read (see dispatch state for each booking)
 ALTER TABLE public.household_job_offers ENABLE ROW LEVEL SECURITY;
 

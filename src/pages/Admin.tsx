@@ -556,6 +556,23 @@ const Admin = () => {
     }
   };
 
+  const deleteHelper = async (helperId: string, helperName: string) => {
+    if (!window.confirm(`Permanently delete ${helperName}? This cannot be undone.`)) return;
+    setUpdatingHelper(helperId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('household_helpers')
+      .delete()
+      .eq('id', helperId);
+    setUpdatingHelper(null);
+    if (error) {
+      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
+      toast({ title: 'Helper removed' });
+      fetchHouseholdHelpers();
+    }
+  };
+
   // ── Filter ──
   const q = search.toLowerCase();
   const filteredUsers = users.filter((u) => {
@@ -1199,6 +1216,14 @@ const Admin = () => {
                               <XCircle size={12} /> Suspend
                             </button>
                           )}
+                          <button
+                            onClick={() => deleteHelper(h.id, h.name)}
+                            disabled={isBusy}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-60 transition-colors"
+                            title="Delete helper"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
                     </div>
