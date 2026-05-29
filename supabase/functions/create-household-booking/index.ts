@@ -44,7 +44,7 @@ function computePriceCents(data: BookingData, isExpress: boolean): number {
     case 'shopping':
       return isExpress ? 2500 : 1200;
     case 'dog-walk': {
-      const base = data.walkDuration === '30min' ? 1000 : 1500;
+      const base = data.walkDuration === '30min' ? 1500 : 2000;
       const dogs = Math.max(1, Number(data.dogCount) || 1);
       return base * dogs;
     }

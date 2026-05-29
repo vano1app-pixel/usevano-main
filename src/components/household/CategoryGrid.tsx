@@ -44,7 +44,7 @@ const CATEGORIES: Category[] = [
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '✨', label: 'Other',     slug: 'other',     price: 'from €12',
+    emoji: '✨', label: 'Other',     slug: 'other',     price: 'chat to quote',
     sizeLabel: '',
     sizes: [],
   },

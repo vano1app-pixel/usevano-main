@@ -54,7 +54,7 @@ function getPriceEstimate(data: BookingData): string {
     case 'shopping':
       return data.isExpress ? '€25 (express)' : '€12 flat';
     case 'dog-walk': {
-      const base = data.walkDuration === '30min' ? 10 : 15;
+      const base = data.walkDuration === '30min' ? 15 : 20;
       const count = data.dogCount ?? 1;
       return `€${base * count}`;
     }
