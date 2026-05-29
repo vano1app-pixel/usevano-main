@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Clock, CheckCircle2, MapPin, Loader2, Star } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
@@ -194,7 +194,14 @@ const StudentDashboard = () => {
             <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }}
+            >
             {/* Available jobs tab */}
             {tab === 'available' && (
               <div className="pb-10">
@@ -207,7 +214,7 @@ const StudentDashboard = () => {
                         key={job.id}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="rounded-2xl border border-border/60 bg-background p-4"
                       >
                         <div className="flex items-start justify-between gap-3 mb-3">
@@ -264,7 +271,7 @@ const StudentDashboard = () => {
                         key={job.id}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                       >
                         <button
                           onClick={() => navigate(`/student-job/${job.id}`)}
@@ -361,7 +368,8 @@ const StudentDashboard = () => {
                 </div>
               </div>
             )}
-          </>
+            </motion.div>
+          </AnimatePresence>
         )}
       </main>
     </div>

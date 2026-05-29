@@ -136,10 +136,10 @@ export const ElderlyPitch: React.FC = () => {
                 rel="noopener noreferrer"
                 className={cn(
                   'group flex items-center justify-center gap-1 rounded-xl py-2 text-[10px] font-bold tracking-wide',
-                  'transition-all duration-150 active:scale-[0.96]',
+                  'transition-all duration-150 active:scale-[0.96] hover:-translate-y-px',
                   plan.popular
-                    ? 'bg-primary text-white shadow-md hover:opacity-90'
-                    : 'bg-white text-foreground hover:bg-white/90',
+                    ? 'bg-primary text-white shadow-md hover:shadow-[0_6px_20px_hsl(var(--primary)/0.4)] hover:opacity-90'
+                    : 'bg-white text-foreground hover:bg-white/90 hover:shadow-md',
                 )}
               >
                 <MessageCircle className="w-3 h-3 flex-shrink-0" strokeWidth={2} />

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, MessageCircle, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
@@ -229,14 +230,14 @@ export const CategoryGrid: React.FC = () => {
         })}
       </div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {selected && (
           <motion.div
             key={selected.slug}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.99 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="mt-4 rounded-2xl border border-border/50 bg-secondary/40 p-4"
           >
             <AnimatePresence mode="wait">
@@ -280,22 +281,16 @@ export const CategoryGrid: React.FC = () => {
                         'transition-[border-color,box-shadow] duration-150',
                       )}
                     />
-                    <select
-                      value={payCity}
-                      onChange={(e) => setPayCity(e.target.value)}
-                      required
-                      className={cn(
-                        'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
-                        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
-                        'transition-[border-color,box-shadow] duration-150',
-                        !payCity ? 'text-muted-foreground/50' : 'text-foreground',
-                      )}
-                    >
-                      <option value="" disabled>Your city</option>
-                      {SUPPORTED_CITIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                    <Select value={payCity} onValueChange={setPayCity}>
+                      <SelectTrigger className="rounded-xl h-10">
+                        <SelectValue placeholder="Your city" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SUPPORTED_CITIES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
                     <Button
                       type="submit"

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { StepProps } from './types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TIME_SLOTS = [
@@ -10,17 +14,41 @@ const TIME_SLOTS = [
   { id: 'evening',   label: 'Evening',   detail: '5–8pm'    },
 ] as const;
 
-const minCustomDate = new Date(Date.now() + 86_400_000 * 2).toISOString().split('T')[0];
+function toISODate(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+function formatCustomDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
 
 export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
-  const [showPicker, setShowPicker] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
   const isCustom = !!data.scheduledDate && !['today', 'tomorrow'].includes(data.scheduledDate);
   const canProceed = !!data.scheduledDate && !!data.timeSlot;
 
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 2);
+  minDate.setHours(0, 0, 0, 0);
+
   const setDate = (date: string, isExpress = false) => {
     onChange({ scheduledDate: date, isExpress });
-    setShowPicker(false);
+    setCalendarOpen(false);
   };
+
+  const handleCalendarSelect = (d: Date | undefined) => {
+    if (d) {
+      setDate(toISODate(d));
+      setCalendarOpen(false);
+    }
+  };
+
+  const selectedCalendarDate = isCustom ? new Date(data.scheduledDate!) : undefined;
 
   return (
     <div className="px-4 pt-10 pb-28 max-w-sm mx-auto">
@@ -30,6 +58,7 @@ export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
 
       {/* Date rows */}
       <div className="flex flex-col gap-2.5 mb-7">
+        {/* Today — express */}
         <button
           onClick={() => setDate('today', true)}
           className={cn(
@@ -37,7 +66,7 @@ export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
             'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
             data.scheduledDate === 'today'
               ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-foreground border border-border/40',
+              : 'bg-secondary text-foreground border border-border/40 hover:border-primary/30',
           )}
         >
           <div>
@@ -59,6 +88,7 @@ export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
           </Badge>
         </button>
 
+        {/* Tomorrow */}
         <button
           onClick={() => setDate('tomorrow')}
           className={cn(
@@ -66,35 +96,54 @@ export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
             'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
             data.scheduledDate === 'tomorrow'
               ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-foreground border border-border/40',
+              : 'bg-secondary text-foreground border border-border/40 hover:border-primary/30',
           )}
         >
           Tomorrow
         </button>
 
-        <button
-          onClick={() => setShowPicker(!showPicker)}
-          className={cn(
-            'w-full min-h-[60px] px-5 rounded-2xl font-semibold text-base text-left',
-            'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
-            isCustom
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-foreground border border-border/40',
-          )}
-        >
-          {isCustom
-            ? new Date(data.scheduledDate!).toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' })
-            : 'Choose a date'}
-        </button>
-
-        {showPicker && (
-          <input
-            type="date"
-            min={minCustomDate}
-            className="w-full h-12 border border-border rounded-2xl px-4 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            onChange={(e) => { if (e.target.value) setDate(e.target.value); }}
-          />
-        )}
+        {/* Custom date — Calendar popover */}
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className={cn(
+                'w-full min-h-[60px] px-5 rounded-2xl font-semibold text-base text-left',
+                'flex items-center justify-between gap-3',
+                'transition-[background-color,transform,border-color] duration-150 ease-out-expo active:scale-[0.97]',
+                isCustom
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-foreground border border-border/40 hover:border-primary/30',
+              )}
+            >
+              <span>
+                {isCustom ? formatCustomDate(data.scheduledDate!) : 'Choose a date'}
+              </span>
+              <CalendarIcon
+                className={cn('w-4 h-4 flex-shrink-0', isCustom ? 'text-primary-foreground/70' : 'text-muted-foreground')}
+              />
+            </button>
+          </PopoverTrigger>
+          <AnimatePresence>
+            {calendarOpen && (
+              <PopoverContent className="w-auto p-0 shadow-lg" align="start" forceMount>
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                >
+                  <Calendar
+                    mode="single"
+                    selected={selectedCalendarDate}
+                    onSelect={handleCalendarSelect}
+                    disabled={(d) => d < minDate}
+                    initialFocus
+                  />
+                </motion.div>
+              </PopoverContent>
+            )}
+          </AnimatePresence>
+        </Popover>
       </div>
 
       {/* Time slots */}
@@ -109,7 +158,7 @@ export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
               'transition-[background-color,transform] duration-150 ease-out-expo active:scale-[0.97]',
               data.timeSlot === slot.id
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-foreground border border-border/40',
+                : 'bg-secondary text-foreground border border-border/40 hover:border-primary/30',
             )}
           >
             <span className="font-semibold text-sm">{slot.label}</span>
@@ -120,7 +169,12 @@ export const WhenStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
         ))}
       </div>
 
-      <Button onClick={onNext} disabled={!canProceed} className="w-full rounded-full" size="lg">
+      <Button
+        onClick={onNext}
+        disabled={!canProceed}
+        className="w-full rounded-full hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150 active:scale-[0.97]"
+        size="lg"
+      >
         Continue
       </Button>
     </div>

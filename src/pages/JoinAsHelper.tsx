@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Camera, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
@@ -239,28 +240,22 @@ export const JoinAsHelper: React.FC = () => {
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
                   Your city
                 </p>
-                <select
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  required
-                  className={cn(
-                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
-                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
-                    'transition-[border-color,box-shadow] duration-150',
-                    !city ? 'text-muted-foreground/50' : 'text-foreground',
-                  )}
-                >
-                  <option value="" disabled>Select your city</option>
-                  {SUPPORTED_CITIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <Select value={city} onValueChange={setCity}>
+                  <SelectTrigger className="rounded-xl h-11">
+                    <SelectValue placeholder="Select your city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_CITIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <Button
                 type="submit"
                 disabled={submitting || !name.trim() || !phone.trim() || !city || !photo}
-                className="w-full rounded-full font-semibold gap-2"
+                className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (
                   <>

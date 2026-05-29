@@ -22,7 +22,7 @@ export const StickyBookBar: React.FC = () => (
       </div>
       <Button
         onClick={openWhatsApp}
-        className="rounded-full px-7 font-semibold flex-shrink-0"
+        className="rounded-full px-7 font-semibold flex-shrink-0 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
         size="default"
       >
         Text us now

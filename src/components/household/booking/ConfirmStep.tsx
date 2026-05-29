@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { StepProps, BookingData } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Loader2, Lock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { SUPPORTED_CITIES } from '@/lib/cities';
+
+const errorAnim = {
+  initial: { opacity: 0, y: -4, height: 0 },
+  animate: { opacity: 1, y: 0, height: 'auto' },
+  exit:    { opacity: 0, height: 0 },
+  transition: { duration: 0.15 },
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping:  'Shopping run',
@@ -178,9 +187,11 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
               touched.name && errors.name ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
-          {touched.name && errors.name && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
+          <AnimatePresence>
+            {touched.name && errors.name && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
+            )}
+          </AnimatePresence>
         </div>
 
         <div>
@@ -199,36 +210,39 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
               touched.phone && errors.phone ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
-          {touched.phone && errors.phone && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
+          <AnimatePresence>
+            {touched.phone && errors.phone && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
+            )}
+          </AnimatePresence>
         </div>
 
         <div>
-          <Label htmlFor="cust-city" className="text-xs text-muted-foreground mb-1.5 block">
-            City
-          </Label>
-          <select
-            id="cust-city"
+          <Label className="text-xs text-muted-foreground mb-1.5 block">City</Label>
+          <Select
             value={data.customerCity ?? ''}
-            onChange={(e) => onChange({ customerCity: e.target.value })}
-            onBlur={() => setTouched((t) => ({ ...t, city: true }))}
-            className={cn(
-              'w-full rounded-xl h-11 border border-input bg-background px-3 text-sm',
-              'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
-              'transition-[border-color,box-shadow] duration-150',
-              touched.city && errors.city ? 'border-destructive' : '',
-              !data.customerCity ? 'text-muted-foreground' : 'text-foreground',
-            )}
+            onValueChange={(v) => onChange({ customerCity: v })}
+            onOpenChange={(open) => { if (!open) setTouched((t) => ({ ...t, city: true })); }}
           >
-            <option value="" disabled>Select your city</option>
-            {SUPPORTED_CITIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          {touched.city && errors.city && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
+            <SelectTrigger
+              className={cn(
+                'rounded-xl h-11',
+                touched.city && errors.city ? 'border-destructive focus:ring-destructive' : '',
+              )}
+            >
+              <SelectValue placeholder="Select your city" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_CITIES.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <AnimatePresence>
+            {touched.city && errors.city && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
+            )}
+          </AnimatePresence>
         </div>
 
         <div>
@@ -246,9 +260,11 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
               touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
-          {touched.address && errors.address && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
+          <AnimatePresence>
+            {touched.address && errors.address && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -264,7 +280,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
       <Button
         onClick={() => void handleBook()}
         disabled={loading}
-        className="w-full rounded-full h-14 text-base font-semibold shadow-primary-glow"
+        className="w-full rounded-full h-14 text-base font-semibold shadow-primary-glow hover:-translate-y-px hover:shadow-[0_8px_24px_hsl(var(--primary)/0.35)] transition-[transform,box-shadow] duration-150"
         size="lg"
       >
         {loading ? (
