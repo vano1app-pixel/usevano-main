@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import {
   Shield, ShieldCheck, ShieldOff, Users, Briefcase, Calendar, Trash2, Search,
   ChevronLeft, ChevronRight, Eye, Ban, RefreshCw, MessageSquare, ClipboardList,
-  AlertTriangle, ExternalLink,
+  AlertTriangle, ExternalLink, Home, CheckCircle2, XCircle, UserCheck,
 } from 'lucide-react';
 import { ModBadge } from '@/components/ModBadge';
 import { StatusChip } from '@/components/ui/StatusChip';
@@ -70,7 +70,33 @@ interface FeedbackRow {
   sender_avatar?: string;
 }
 
-type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings' | 'disputes';
+type Tab = 'users' | 'gigs' | 'events' | 'feedback' | 'listings' | 'disputes' | 'household';
+type HouseholdSubTab = 'bookings' | 'helpers';
+
+interface HouseholdBookingRow {
+  id: string;
+  category: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  city: string | null;
+  status: string;
+  scheduled_date: string | null;
+  price_estimate_cents: number | null;
+  stripe_payment_intent_id: string | null;
+  created_at: string;
+}
+
+interface HouseholdHelperRow {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  status: string;
+  is_available: boolean;
+  accepted_count: number;
+  photo_url: string | null;
+  created_at: string;
+}
 
 // Row shape for a disputed Vano Pay payment (held, flagged by hirer).
 // Joined via profiles on the fly for display names; service-role
@@ -116,6 +142,13 @@ const Admin = () => {
   // a spinner + other dispute rows stay interactive. Resolving one row
   // shouldn't lock the whole tab.
   const [resolvingDispute, setResolvingDispute] = useState<{ id: string; action: 'release' | 'refund' } | null>(null);
+
+  // Household
+  const [householdSubTab, setHouseholdSubTab] = useState<HouseholdSubTab>('bookings');
+  const [householdBookings, setHouseholdBookings] = useState<HouseholdBookingRow[]>([]);
+  const [householdHelpers, setHouseholdHelpers] = useState<HouseholdHelperRow[]>([]);
+  const [completingBooking, setCompletingBooking] = useState<string | null>(null);
+  const [updatingHelper, setUpdatingHelper] = useState<string | null>(null);
 
   const adminPagePassword = import.meta.env.VITE_ADMIN_PAGE_PASSWORD as string | undefined;
   const needsAdminPassword = Boolean(adminPagePassword && adminPagePassword.length > 0);
@@ -350,6 +383,26 @@ const Admin = () => {
     }
   }, [page]);
 
+  const fetchHouseholdBookings = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
+      .from('household_bookings')
+      .select('id, category, customer_name, customer_phone, city, status, scheduled_date, price_estimate_cents, stripe_payment_intent_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    setHouseholdBookings(((data ?? []) as unknown) as HouseholdBookingRow[]);
+  }, []);
+
+  const fetchHouseholdHelpers = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
+      .from('household_helpers')
+      .select('id, name, phone, city, status, is_available, accepted_count, photo_url, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    setHouseholdHelpers(((data ?? []) as unknown) as HouseholdHelperRow[]);
+  }, []);
+
   useEffect(() => {
     if (!authed) return;
     setPage(0);
@@ -363,7 +416,8 @@ const Admin = () => {
     if (tab === 'feedback') fetchFeedback();
     if (tab === 'listings') fetchListingRequests();
     if (tab === 'disputes') fetchDisputes();
-  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests, fetchDisputes]);
+    if (tab === 'household') { fetchHouseholdBookings(); fetchHouseholdHelpers(); }
+  }, [authed, tab, page, fetchUsers, fetchGigs, fetchEvents, fetchAdminIds, fetchFeedback, fetchListingRequests, fetchDisputes, fetchHouseholdBookings, fetchHouseholdHelpers]);
 
   // ── Actions ──
   const toggleAdmin = async (userId: string) => {
@@ -467,6 +521,58 @@ const Admin = () => {
     }
   };
 
+  const adminCompleteBooking = async (booking: HouseholdBookingRow) => {
+    const price = booking.price_estimate_cents ? `€${(booking.price_estimate_cents / 100).toFixed(0)}` : 'unknown price';
+    if (!window.confirm(`Mark booking ${booking.id.slice(0, 8)}… as complete and capture ${price}? This charges the customer and cannot be undone.`)) return;
+    setCompletingBooking(booking.id);
+    const { data, error } = await supabase.functions.invoke('admin-complete-household-job', {
+      body: { booking_id: booking.id },
+    });
+    setCompletingBooking(null);
+    if (error || (data as { error?: string } | null)?.error) {
+      const msg = (data as { error?: string } | null)?.error || error?.message || 'Action failed';
+      toast({ title: 'Could not complete booking', description: msg, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Job completed', description: `Payment captured for booking ${booking.id.slice(0, 8)}…` });
+    fetchHouseholdBookings();
+  };
+
+  const updateHelperStatus = async (helperId: string, newStatus: 'approved' | 'suspended') => {
+    const verb = newStatus === 'approved' ? 'Approve' : 'Suspend';
+    if (!window.confirm(`${verb} this helper?`)) return;
+    setUpdatingHelper(helperId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('household_helpers')
+      .update({ status: newStatus })
+      .eq('id', helperId);
+    setUpdatingHelper(null);
+    if (error) {
+      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
+      toast({ title: `Helper ${newStatus}` });
+      fetchHouseholdHelpers();
+    }
+  };
+
+  const deleteHelper = async (helperId: string, helperName: string) => {
+    if (!window.confirm(`Permanently delete ${helperName}? This cannot be undone.`)) return;
+    setUpdatingHelper(helperId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('household_helpers')
+      .delete()
+      .eq('id', helperId);
+    setUpdatingHelper(null);
+    if (error) {
+      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
+      toast({ title: 'Helper removed' });
+      fetchHouseholdHelpers();
+    }
+  };
+
   // ── Filter ──
   const q = search.toLowerCase();
   const filteredUsers = users.filter((u) => {
@@ -567,6 +673,9 @@ const Admin = () => {
   // input with computed font-size under 16px.
   const inputClass = "w-full border border-input rounded-xl px-4 py-2.5 text-base bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
+  const householdPending = householdHelpers.filter((h) => h.status === 'pending').length +
+    householdBookings.filter((b) => ['pending', 'accepted', 'in_progress'].includes(b.status)).length;
+
   const tabs: { key: Tab; label: string; icon: ReactNode; count: number }[] = [
     { key: 'users', label: 'Users', icon: <Users size={16} />, count: filteredUsers.length },
     { key: 'gigs', label: 'Gigs', icon: <Briefcase size={16} />, count: filteredGigs.length },
@@ -574,6 +683,7 @@ const Admin = () => {
     { key: 'listings', label: 'Community', icon: <ClipboardList size={16} />, count: filteredListings.length },
     { key: 'disputes', label: 'Disputes', icon: <AlertTriangle size={16} />, count: disputes.length },
     { key: 'feedback', label: 'Feedback', icon: <MessageSquare size={16} />, count: filteredFeedbacks.length },
+    { key: 'household', label: 'Household', icon: <Home size={16} />, count: householdPending },
   ];
 
   return (
@@ -969,7 +1079,163 @@ const Admin = () => {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* ── Household tab ── */}
+        {tab === 'household' && (
+          <div className="space-y-4">
+            {/* Sub-tabs */}
+            <div className="flex gap-2">
+              {(['bookings', 'helpers'] as HouseholdSubTab[]).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setHouseholdSubTab(st)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium capitalize transition-colors ${
+                    householdSubTab === st
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  {st} ({st === 'bookings' ? householdBookings.length : householdHelpers.length})
+                </button>
+              ))}
+              <button
+                onClick={() => { fetchHouseholdBookings(); fetchHouseholdHelpers(); }}
+                className="ml-auto p-2 rounded-xl bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw size={15} />
+              </button>
+            </div>
+
+            {/* Bookings sub-tab */}
+            {householdSubTab === 'bookings' && (
+              <div className="space-y-2">
+                {householdBookings.length === 0 && (
+                  <EmptyState icon={Home} title="No bookings yet" description="Bookings from /home and /book/:category will appear here once a payment is made." />
+                )}
+                {householdBookings.map((b) => {
+                  const price = b.price_estimate_cents ? `€${(b.price_estimate_cents / 100).toFixed(0)}` : '—';
+                  const canComplete = ['pending', 'accepted', 'on_way', 'arrived', 'in_progress'].includes(b.status);
+                  const isCompleting = completingBooking === b.id;
+                  const statusColor: Record<string, string> = {
+                    awaiting_payment: 'text-amber-600',
+                    pending: 'text-blue-600',
+                    accepted: 'text-indigo-600',
+                    in_progress: 'text-purple-600',
+                    completed: 'text-emerald-600',
+                    cancelled: 'text-muted-foreground',
+                  };
+                  return (
+                    <div key={b.id} className="bg-card border border-border rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-sm capitalize">{b.category?.replace('-', ' ')} · {b.city ?? '—'}</p>
+                            <span className={`text-xs font-medium ${statusColor[b.status] ?? 'text-muted-foreground'}`}>
+                              {b.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{b.customer_name ?? 'Anonymous'}{b.customer_phone ? ` · ${b.customer_phone}` : ''}</p>
+                          <p className="text-xs text-muted-foreground">{b.scheduled_date ?? 'Flexible'} · {price} · {format(new Date(b.created_at), 'MMM d, h:mm a')}</p>
+                          <p className="text-xs text-muted-foreground/60 font-mono mt-0.5">{b.id.slice(0, 8)}…</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          {b.status === 'completed' && (
+                            <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                              <CheckCircle2 size={13} /> Paid
+                            </span>
+                          )}
+                          {canComplete && (
+                            <button
+                              onClick={() => adminCompleteBooking(b)}
+                              disabled={isCompleting}
+                              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11.5px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {isCompleting ? 'Processing…' : `Complete & Capture ${price}`}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Helpers sub-tab */}
+            {householdSubTab === 'helpers' && (
+              <div className="space-y-2">
+                {householdHelpers.length === 0 && (
+                  <EmptyState icon={UserCheck} title="No helpers yet" description="Students who apply at /join appear here. Approve them to include them in the dispatch queue." />
+                )}
+                {householdHelpers.map((h) => {
+                  const isBusy = updatingHelper === h.id;
+                  const statusColor: Record<string, string> = {
+                    pending: 'text-amber-600',
+                    approved: 'text-emerald-600',
+                    suspended: 'text-destructive',
+                  };
+                  return (
+                    <div key={h.id} className="bg-card border border-border rounded-xl p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary flex-shrink-0">
+                          {h.photo_url ? (
+                            <img src={h.photo_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-sm font-bold text-muted-foreground">
+                              {(h.name || '?')[0].toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{h.name}</p>
+                            <span className={`text-xs font-medium ${statusColor[h.status] ?? 'text-muted-foreground'}`}>
+                              {h.status}
+                            </span>
+                            {h.is_available && <span className="text-xs text-emerald-600">● Available</span>}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{h.phone} · {h.city} · {h.accepted_count} jobs done</p>
+                          <p className="text-xs text-muted-foreground/60">Applied {format(new Date(h.created_at), 'MMM d, yyyy')}</p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          {h.status !== 'approved' && (
+                            <button
+                              onClick={() => updateHelperStatus(h.id, 'approved')}
+                              disabled={isBusy}
+                              className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                            >
+                              <CheckCircle2 size={12} /> Approve
+                            </button>
+                          )}
+                          {h.status !== 'suspended' && (
+                            <button
+                              onClick={() => updateHelperStatus(h.id, 'suspended')}
+                              disabled={isBusy}
+                              className="flex items-center gap-1 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] font-semibold text-destructive hover:bg-destructive/15 disabled:opacity-60 transition-colors"
+                            >
+                              <XCircle size={12} /> Suspend
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteHelper(h.id, h.name)}
+                            disabled={isBusy}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-60 transition-colors"
+                            title="Delete helper"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pagination — not shown for household tab (fetches up to 100) */}
+        {tab !== 'household' && (
         <div className="flex items-center justify-center gap-4 mt-6">
           <button
             disabled={page === 0}
@@ -994,6 +1260,7 @@ const Admin = () => {
             <ChevronRight size={16} />
           </button>
         </div>
+        )}
       </div>
     </div>
   );

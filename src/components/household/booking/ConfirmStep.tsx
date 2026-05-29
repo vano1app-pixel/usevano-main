@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { StepProps, BookingData } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Loader2, Lock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { SUPPORTED_CITIES } from '@/lib/cities';
+
+const errorAnim = {
+  initial: { opacity: 0, y: -4, height: 0 },
+  animate: { opacity: 1, y: 0, height: 'auto' },
+  exit:    { opacity: 0, height: 0 },
+  transition: { duration: 0.15 },
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping:  'Shopping run',
@@ -44,7 +54,7 @@ function getPriceEstimate(data: BookingData): string {
     case 'shopping':
       return data.isExpress ? '€25 (express)' : '€12 flat';
     case 'dog-walk': {
-      const base = data.walkDuration === '30min' ? 10 : 15;
+      const base = data.walkDuration === '30min' ? 15 : 20;
       const count = data.dogCount ?? 1;
       return `€${base * count}`;
     }
@@ -70,18 +80,19 @@ function getPriceEstimate(data: BookingData): string {
 
 export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
   const { toast } = useToast();
-  const [touched, setTouched] = useState({ name: false, address: false, phone: false });
+  const [touched, setTouched] = useState({ name: false, address: false, phone: false, city: false });
   const [loading, setLoading] = useState(false);
 
   const errors = {
     name:    !data.customerName?.trim(),
     address: !data.customerAddress?.trim(),
     phone:   !data.customerPhone?.trim(),
+    city:    !data.customerCity?.trim(),
   };
-  const hasErrors = errors.name || errors.address || errors.phone;
+  const hasErrors = errors.name || errors.address || errors.phone || errors.city;
 
   const handleBook = async () => {
-    setTouched({ name: true, address: true, phone: true });
+    setTouched({ name: true, address: true, phone: true, city: true });
     if (hasErrors) return;
 
     setLoading(true);
@@ -99,6 +110,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
           scheduled_date: data.scheduledDate,
           time_slot: data.timeSlot,
           is_express: data.isExpress ?? false,
+          city: data.customerCity,
           booking_data: {
             store: data.store,
             shoppingList: data.shoppingList,
@@ -175,29 +187,11 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
               touched.name && errors.name ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
-          {touched.name && errors.name && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="cust-addr" className="text-xs text-muted-foreground mb-1.5 block">
-            Address in Galway
-          </Label>
-          <Input
-            id="cust-addr"
-            placeholder="Your full address"
-            value={data.customerAddress ?? ''}
-            onChange={(e) => onChange({ customerAddress: e.target.value })}
-            onBlur={() => setTouched((t) => ({ ...t, address: true }))}
-            className={cn(
-              'rounded-xl h-11',
-              touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
+          <AnimatePresence>
+            {touched.name && errors.name && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
             )}
-          />
-          {touched.address && errors.address && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
+          </AnimatePresence>
         </div>
 
         <div>
@@ -216,9 +210,61 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
               touched.phone && errors.phone ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
-          {touched.phone && errors.phone && (
-            <p className="text-destructive text-xs mt-1">Required</p>
-          )}
+          <AnimatePresence>
+            {touched.phone && errors.phone && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">City</Label>
+          <Select
+            value={data.customerCity ?? ''}
+            onValueChange={(v) => onChange({ customerCity: v })}
+            onOpenChange={(open) => { if (!open) setTouched((t) => ({ ...t, city: true })); }}
+          >
+            <SelectTrigger
+              className={cn(
+                'rounded-xl h-11',
+                touched.city && errors.city ? 'border-destructive focus:ring-destructive' : '',
+              )}
+            >
+              <SelectValue placeholder="Select your city" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_CITIES.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <AnimatePresence>
+            {touched.city && errors.city && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div>
+          <Label htmlFor="cust-addr" className="text-xs text-muted-foreground mb-1.5 block">
+            Address
+          </Label>
+          <Input
+            id="cust-addr"
+            placeholder="Your full address"
+            value={data.customerAddress ?? ''}
+            onChange={(e) => onChange({ customerAddress: e.target.value })}
+            onBlur={() => setTouched((t) => ({ ...t, address: true }))}
+            className={cn(
+              'rounded-xl h-11',
+              touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
+            )}
+          />
+          <AnimatePresence>
+            {touched.address && errors.address && (
+              <motion.p {...errorAnim} className="text-destructive text-xs mt-1">Required</motion.p>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -234,7 +280,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
       <Button
         onClick={() => void handleBook()}
         disabled={loading}
-        className="w-full rounded-full h-14 text-base font-semibold shadow-primary-glow"
+        className="w-full rounded-full h-14 text-base font-semibold shadow-primary-glow hover:-translate-y-px hover:shadow-[0_8px_24px_hsl(var(--primary)/0.35)] transition-[transform,box-shadow] duration-150"
         size="lg"
       >
         {loading ? (

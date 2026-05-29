@@ -44,7 +44,7 @@ function computePriceCents(data: BookingData, isExpress: boolean): number {
     case 'shopping':
       return isExpress ? 2500 : 1200;
     case 'dog-walk': {
-      const base = data.walkDuration === '30min' ? 1000 : 1500;
+      const base = data.walkDuration === '30min' ? 1500 : 2000;
       const dogs = Math.max(1, Number(data.dogCount) || 1);
       return base * dogs;
     }
@@ -112,8 +112,10 @@ serve(async (req) => {
     if (claimsError || !claimsData?.claims) return bad(401, 'Unauthorized');
     const customerId = claimsData.claims.sub as string;
 
+    const SUPPORTED_CITIES = ['Galway', 'Dublin', 'Cork', 'Limerick'];
+
     const body = await req.json().catch(() => ({}));
-    const { category, scheduled_date, time_slot, is_express, booking_data,
+    const { category, scheduled_date, time_slot, is_express, city, booking_data,
             customer_name, customer_address, customer_phone } = body;
 
     // Validate required fields
@@ -123,6 +125,9 @@ serve(async (req) => {
     }
     if (!['morning', 'afternoon', 'evening'].includes(time_slot)) {
       return bad(400, 'Invalid time_slot');
+    }
+    if (!city || !SUPPORTED_CITIES.includes(city)) {
+      return bad(400, 'Invalid or missing city');
     }
 
     const bookingData: BookingData = { category, ...(booking_data ?? {}) };
@@ -139,6 +144,7 @@ serve(async (req) => {
         scheduled_date,
         time_slot,
         is_express: !!is_express,
+        city,
         price_estimate_cents: priceCents,
         status: 'awaiting_payment',
         customer_name: customer_name.trim(),

@@ -20,8 +20,8 @@ const FAQ: QAPair[] = [
     a: 'Pay by card, Revolut, or cash when the job is done — price agreed upfront, no surprises.',
   },
   {
-    q: 'Do you cover all of Galway?',
-    a: 'City and suburbs — Salthill, Knocknacarra, Renmore, Newcastle, and more. Expanding soon.',
+    q: 'Which cities do you cover?',
+    a: 'Currently Galway, Dublin, Cork, and Limerick — city centres and surrounding suburbs. More cities coming soon.',
   },
 ];
 

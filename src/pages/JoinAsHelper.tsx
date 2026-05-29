@@ -2,12 +2,14 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Camera, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { SUPPORTED_CITIES } from '@/lib/cities';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -18,8 +20,8 @@ const STATS = [
 ];
 
 const REQUIREMENTS = [
-  'ATU student (any course)',
-  'Based in Galway',
+  'Third-level student (any course)',
+  'Based in a supported city',
   'Clean Garda vetting',
   'Friendly and reliable',
 ];
@@ -36,6 +38,7 @@ const JOBS = [
 export const JoinAsHelper: React.FC = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -52,7 +55,7 @@ export const JoinAsHelper: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !phone.trim() || !photo) return;
+    if (!name.trim() || !phone.trim() || !city || !photo) return;
     setSubmitting(true);
     setError(null);
 
@@ -71,8 +74,8 @@ export const JoinAsHelper: React.FC = () => {
         .getPublicUrl(path);
 
       const { error: insertError } = await db
-        .from('helper_applications')
-        .insert({ name: name.trim(), phone: phone.trim(), photo_url: publicUrl });
+        .from('household_helpers')
+        .insert({ name: name.trim(), phone: phone.trim(), city, photo_url: publicUrl });
 
       if (insertError) throw insertError;
 
@@ -88,7 +91,7 @@ export const JoinAsHelper: React.FC = () => {
     <>
       <SEOHead
         title="Earn money as a student helper — VANO"
-        description="ATU students in Galway earn €12–€25 per job helping households. Flexible hours, paid same day by Revolut."
+        description="Students across Ireland earn €12–€25 per job helping households. Flexible hours, paid same day by Revolut."
       />
       <HouseholdNav />
 
@@ -101,12 +104,12 @@ export const JoinAsHelper: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
             >
-              <p className="eyebrow mb-4">For ATU students in Galway</p>
+              <p className="eyebrow mb-4">For students across Ireland</p>
               <h1 className="display-xl text-foreground mb-4">
                 Earn money between lectures
               </h1>
               <p className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-sm mx-auto">
-                Pick up flexible household jobs around Galway. Shopping runs, dog walks, cleaning, garden work — you choose what you take on.
+                Pick up flexible household jobs in your city. Shopping runs, dog walks, cleaning, garden work — you choose what you take on.
               </p>
 
               {/* Stat chips */}
@@ -232,10 +235,27 @@ export const JoinAsHelper: React.FC = () => {
                 />
               </div>
 
+              {/* City */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  Your city
+                </p>
+                <Select value={city} onValueChange={setCity}>
+                  <SelectTrigger className="rounded-xl h-11">
+                    <SelectValue placeholder="Select your city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_CITIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Button
                 type="submit"
-                disabled={submitting || !name.trim() || !phone.trim() || !photo}
-                className="w-full rounded-full font-semibold gap-2"
+                disabled={submitting || !name.trim() || !phone.trim() || !city || !photo}
+                className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (
                   <>

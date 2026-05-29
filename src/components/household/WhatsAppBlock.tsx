@@ -17,8 +17,7 @@ export const WhatsAppBlock: React.FC = () => {
         </p>
         <Button
           asChild
-          className="rounded-full gap-2 font-medium"
-          style={{ backgroundColor: '#25D366', color: '#fff' }}
+          className="bg-whatsapp text-white hover:bg-whatsapp/90 rounded-full gap-2 font-medium hover:-translate-y-px transition-[transform,box-shadow] duration-150 hover:shadow-md active:scale-[0.97]"
         >
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO, I need some help around the house!')}`}

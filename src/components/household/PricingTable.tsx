@@ -57,8 +57,7 @@ export const PricingTable: React.FC = () => {
           <Button
             asChild
             size="sm"
-            className="rounded-full gap-1.5 font-medium"
-            style={{ backgroundColor: '#25D366', color: '#fff' }}
+            className="bg-whatsapp text-white hover:bg-whatsapp/90 rounded-full gap-1.5 font-medium hover:-translate-y-px transition-[transform,box-shadow] duration-150 hover:shadow-md active:scale-[0.97]"
           >
             <a
               href="https://wa.me/353899817111?text=Hi%20VANO%2C%20I%27d%20like%20to%20set%20up%20a%20monthly%20plan."

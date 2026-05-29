@@ -23,7 +23,7 @@ export const HeroSection: React.FC = () => {
               Someone to help — today.
             </h1>
             <p className="text-muted-foreground text-base lg:text-lg mb-6 max-w-md">
-              Vetted ATU students · Galway · From €12 · Pay by card
+              Vetted students · Ireland · From €12 · Pay by card
             </p>
 
             {/* Trust checklist — desktop only; mobile sees the SafetyBanner below */}

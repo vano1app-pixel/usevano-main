@@ -97,6 +97,7 @@ export default {
         navy: "hsl(var(--navy))",
         gold: "hsl(var(--gold))",
         "express-orange": "hsl(var(--express-orange))",
+        whatsapp: "hsl(var(--whatsapp))",
       },
       transitionTimingFunction: {
         'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
