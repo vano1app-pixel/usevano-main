@@ -72,12 +72,12 @@ export const ElderlyPitch: React.FC = () => {
         </div>
 
         {/* Plan cards — always 3 columns */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PLANS.map((plan) => (
             <div
               key={plan.name}
               className={cn(
-                'relative rounded-2xl p-3 flex flex-col',
+                'relative rounded-2xl p-4 flex flex-col',
                 plan.popular
                   ? 'bg-white shadow-xl ring-2 ring-white/30'
                   : 'bg-white/10 border border-white/15',
