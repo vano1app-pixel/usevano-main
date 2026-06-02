@@ -13,6 +13,7 @@ interface Category {
   label:       string;
   slug:        string;
   price:       string;
+  hint:        string;
   sizeLabel:   string;
   sizes:       string[];
   jobs:        number;
@@ -21,31 +22,37 @@ interface Category {
 const CATEGORIES: Category[] = [
   {
     emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €10', jobs: 22,
+    hint: 'Groceries, pharmacy, errands',
     sizeLabel: 'What kind?',
     sizes: ['Quick run', 'Big weekly shop', 'Pharmacy + bits'],
   },
   {
     emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15 flat', jobs: 14,
+    hint: '30 min, 1 hr or 2 hr walks',
     sizeLabel: 'How long?',
     sizes: ['30 min', '1 hour', '2 hours'],
   },
   {
     emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €15/hr', jobs: 16,
+    hint: 'Mowing, weeding, tidying',
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', 'Half day'],
   },
   {
     emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €15/hr', jobs: 9,
+    hint: 'Loading, unloading, hauling',
     sizeLabel: 'How much help?',
     sizes: ['2 hours', 'Half day', 'Full day'],
   },
   {
     emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €12/hr', jobs: 13,
+    hint: 'Hoovering, mopping, tidying',
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
     emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €12/hr', jobs: 6,
+    hint: 'Any subject, any level',
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
@@ -223,8 +230,8 @@ export const CategoryGrid: React.FC = () => {
               whileTap={{ scale: 0.93 }}
               transition={{ type: 'spring', stiffness: 500, damping: 28 }}
               className={cn(
-                'relative flex flex-col items-center justify-center gap-2',
-                'min-h-[90px] lg:min-h-[116px] rounded-2xl px-2 py-3 lg:py-5 border',
+                'group relative flex flex-col items-center justify-center gap-2',
+                'min-h-[90px] lg:min-h-[136px] rounded-2xl px-2 py-3 lg:py-5 border',
                 'transition-[background-color,color,border-color,box-shadow] duration-150',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 active
@@ -238,13 +245,24 @@ export const CategoryGrid: React.FC = () => {
               )}>
                 {cat.jobs} jobs
               </span>
-              <span className="text-2xl lg:text-[2rem] leading-none select-none">{cat.emoji}</span>
+              <span className="text-2xl lg:text-[2.2rem] leading-none select-none">{cat.emoji}</span>
               <span className="text-[13px] lg:text-[15px] font-semibold leading-tight text-center">{cat.label}</span>
+              {/* Price — hidden on desktop hover, replaced by hint */}
               <span className={cn(
-                'text-[11px] lg:text-[12px] leading-tight',
+                'text-[11px] lg:text-[12px] leading-tight lg:transition-opacity lg:duration-150',
+                'lg:group-hover:opacity-0',
                 active ? 'text-primary-foreground/75' : 'text-muted-foreground',
               )}>
                 {cat.price}
+              </span>
+              {/* Hint — desktop only, fades in on hover */}
+              <span className={cn(
+                'hidden lg:block absolute bottom-3 left-1 right-1',
+                'text-[11px] text-center leading-tight px-1',
+                'opacity-0 group-hover:opacity-100 transition-opacity duration-150',
+                active ? 'text-primary-foreground/80' : 'text-muted-foreground',
+              )}>
+                {cat.hint}
               </span>
             </motion.button>
           );
