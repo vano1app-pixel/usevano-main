@@ -72,11 +72,8 @@ serve(async (req) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // Twilio config — optional; skip notifications if not set
-  const twilioSid    = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const twilioToken  = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const twilioFrom   = Deno.env.get('TWILIO_WHATSAPP_NUMBER'); // e.g. +14155238886
-  const notifyEnabled = Boolean(twilioSid && twilioToken && twilioFrom);
+  const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+  const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
 
   const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://vanojobs.com').replace(/\/$/, '');
 
@@ -109,7 +106,7 @@ serve(async (req) => {
     // Also fetch name + phone for WhatsApp notifications.
     const { data: helpers, error: helpersError } = await supabase
       .from('household_helpers')
-      .select('id, name, phone')
+      .select('id, name, phone, email')
       .eq('city', city)
       .eq('status', 'approved')
       .eq('is_available', true)
@@ -146,36 +143,50 @@ serve(async (req) => {
 
     console.log(`[dispatch] offered booking ${bookingId} to ${offers.length} helper(s) in ${city}`);
 
-    // Send WhatsApp notifications to each helper
-    if (notifyEnabled) {
+    // Email each helper about the new job — fire and forget
+    if (resendKey) {
       const catLabel = CATEGORY_LABELS[category] ?? 'Household help';
       const when = scheduled_date ?? 'flexible';
       const dashboardUrl = `${siteUrl}/student-dashboard`;
 
-      const notifyResults = await Promise.allSettled(
-        (helpers as Array<{ id: string; name: string; phone: string }>).map((h) => {
-          const firstName = h.name.split(' ')[0];
-          const message =
-            `Hi ${firstName}! New VANO job near you 🏠\n` +
-            `Category: ${catLabel}\n` +
-            `When: ${when}\n` +
-            `City: ${city}\n\n` +
-            `Tap to view & accept:\n${dashboardUrl}\n\n` +
-            `(Offer expires in ${OFFER_TTL_MINUTES} min)`;
-
-          const normalizedPhone = normalizePhone(h.phone);
-          return sendWhatsApp(twilioSid!, twilioToken!, twilioFrom!, normalizedPhone, message);
-        }),
+      await Promise.allSettled(
+        (helpers as Array<{ id: string; name: string; phone: string; email?: string }>)
+          .filter((h) => h.email)
+          .map((h) => {
+            const firstName = h.name.split(' ')[0];
+            const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">New job near you 🏠</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 8px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
+    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city}</p>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · Offer expires in ${OFFER_TTL_MINUTES} min</p>
+    <a href="${dashboardUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">View &amp; Accept →</a>
+  </div>
+</div>
+</body></html>`;
+            return fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from: resendFrom,
+                to: [h.email!],
+                subject: `New VANO job in ${city} — ${catLabel}`,
+                html,
+                text: `Hi ${firstName}! New VANO job in ${city}: ${catLabel}, when: ${when}. Accept here: ${dashboardUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
+              }),
+            });
+          }),
       );
-
-      const failed = notifyResults.filter((r) => r.status === 'rejected').length;
-      if (failed > 0) console.warn(`[dispatch] ${failed}/${helpers.length} WhatsApp notification(s) failed`);
+      console.log(`[dispatch] emailed ${helpers.filter((h: { email?: string }) => h.email).length} helper(s)`);
     } else {
-      console.info('[dispatch] Twilio env vars not set — skipping WhatsApp notifications');
+      console.info('[dispatch] RESEND_API_KEY not set — skipping helper notifications');
     }
 
     return new Response(
-      JSON.stringify({ dispatched: offers.length, city, bookingId, notified: notifyEnabled }),
+      JSON.stringify({ dispatched: offers.length, city, bookingId, notified: Boolean(resendKey) }),
       { headers: { 'Content-Type': 'application/json' } },
     );
   } catch (err) {
