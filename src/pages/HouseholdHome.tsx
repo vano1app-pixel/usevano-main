@@ -26,6 +26,7 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <WhatsAppBlock />
+        <div className="pt-8 lg:pt-14" />
         <HowItWorks />
         <HelperCards />
         <SafetyBanner />

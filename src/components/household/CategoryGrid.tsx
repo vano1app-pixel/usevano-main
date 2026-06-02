@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, CreditCard, Loader2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, CreditCard, Loader2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -44,9 +44,9 @@ const CATEGORIES: Category[] = [
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '✨', label: 'Other',     slug: 'other',     price: 'chat to quote',
-    sizeLabel: '',
-    sizes: [],
+    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €15/hr',
+    sizeLabel: 'How long?',
+    sizes: ['1 hour', '2 hours', '3 hours'],
   },
 ];
 
@@ -78,7 +78,7 @@ function getTimeSlots(): string[] {
 function getPriceCents(slug: string, size: string): number | null {
   if (slug === 'shopping') return 1200;
   if (slug === 'dog-walk') return 2000;
-  if (slug === 'other') return null;
+  if (slug === 'other' || slug === 'tutoring') return null;
   const key = `${slug}|${size}`;
   const map: Record<string, number> = {
     'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
@@ -216,14 +216,7 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <section id="category-grid" aria-label="What do you need help with?">
-      <p
-        className="text-sm font-semibold text-muted-foreground mb-4 tracking-wide uppercase"
-        style={{ letterSpacing: '0.06em' }}
-      >
-        What do you need?
-      </p>
-
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="flex flex-col rounded-2xl border border-border/40 overflow-hidden bg-background divide-y divide-border/30">
         {CATEGORIES.map((cat) => {
           const active = selectedSlug === cat.slug;
           return (
@@ -233,21 +226,29 @@ export const CategoryGrid: React.FC = () => {
               aria-pressed={active}
               aria-label={`${cat.label} — ${cat.price}`}
               className={cn(
-                'relative flex flex-col items-center justify-center gap-1',
-                'min-h-[88px] rounded-2xl px-2 border',
-                'transition-[background-color,color,border-color,transform] duration-150 ease-out-expo',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                'active:scale-[0.95]',
+                'flex items-center gap-3.5 w-full px-4 py-3.5 text-left',
+                'transition-[background-color] duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+                'active:bg-secondary/80',
                 active
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-secondary/70 text-foreground hover:bg-secondary border-border/40',
+                  ? 'bg-primary/[0.07]'
+                  : 'bg-background hover:bg-secondary/50',
               )}
             >
-              <span className="text-xl leading-none">{cat.emoji}</span>
-              <span className="text-sm font-semibold leading-tight">{cat.label}</span>
-              <span className={cn('text-[11px] leading-tight', active ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                {cat.price}
-              </span>
+              <span className="text-2xl w-8 text-center flex-shrink-0 leading-none">{cat.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className={cn('text-sm font-semibold leading-snug', active ? 'text-primary' : 'text-foreground')}>
+                  {cat.label}
+                </p>
+                <p className="text-xs text-muted-foreground leading-snug mt-0.5">{cat.price}</p>
+              </div>
+              <ChevronRight
+                className={cn(
+                  'w-4 h-4 flex-shrink-0 transition-transform duration-150',
+                  active ? 'text-primary rotate-90' : 'text-muted-foreground/50',
+                )}
+                aria-hidden="true"
+              />
             </button>
           );
         })}
@@ -368,7 +369,7 @@ export const CategoryGrid: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Duration / size — hidden for "Other" */}
+                  {/* Duration / size */}
                   {selected.sizes.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
@@ -396,20 +397,14 @@ export const CategoryGrid: React.FC = () => {
                   {/* Free text */}
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                      {selected.slug === 'other' ? 'What do you need?' : 'Anything to add?'}
-                      {selected.slug !== 'other' && (
-                        <span className="ml-1 font-normal normal-case text-muted-foreground/60">(optional)</span>
-                      )}
+                      Anything to add?
+                      <span className="ml-1 font-normal normal-case text-muted-foreground/60">(optional)</span>
                     </p>
                     <input
                       type="text"
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder={
-                        selected.slug === 'other'
-                          ? 'Tell us what you need...'
-                          : 'Your address or any special requests'
-                      }
+                      placeholder="Your address or any special requests"
                       className={cn(
                         'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
                         'placeholder:text-muted-foreground/50',
@@ -434,7 +429,7 @@ export const CategoryGrid: React.FC = () => {
                   {/* WhatsApp CTA */}
                   <Button
                     onClick={send}
-                    disabled={!when && selected.slug !== 'other'}
+                    disabled={!when && selected.slug !== 'tutoring'}
                     variant={canPayByCard ? 'outline' : 'default'}
                     className="w-full rounded-full gap-2 font-semibold"
                   >
@@ -442,7 +437,7 @@ export const CategoryGrid: React.FC = () => {
                     Send to WhatsApp
                   </Button>
 
-                  {!when && selected.slug !== 'other' && (
+                  {!when && selected.slug !== 'tutoring' && (
                     <p className="text-center text-xs text-muted-foreground !mt-1.5">
                       Pick a time above to continue
                     </p>
