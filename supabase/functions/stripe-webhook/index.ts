@@ -376,7 +376,7 @@ async function handleHouseholdCheckoutCompleted(
     })
     .eq('id', bookingId)
     .eq('status', 'awaiting_payment')
-    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_cents')
+    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents')
     .maybeSingle();
 
   if (error) {
@@ -447,14 +447,14 @@ async function handleHouseholdCheckoutCompleted(
       const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
       const b = flipped as {
         customer_name?: string; customer_email?: string; customer_phone?: string;
-        category?: string; scheduled_date?: string; city?: string; price_cents?: number;
+        category?: string; scheduled_date?: string; city?: string; price_estimate_cents?: number;
       };
       const categoryLabels: Record<string, string> = {
         shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
         moving: 'Moving help', cleaning: 'Cleaning', other: 'General help',
       };
       const cat = categoryLabels[b.category ?? ''] ?? b.category ?? 'Job';
-      const priceStr = b.price_cents ? `€${(b.price_cents / 100).toFixed(2)}` : '?';
+      const priceStr = b.price_estimate_cents ? `€${(b.price_estimate_cents / 100).toFixed(2)}` : '?';
       const ref = bookingId.slice(-8).toUpperCase();
 
       await fetch('https://api.resend.com/emails', {

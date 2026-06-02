@@ -39,31 +39,30 @@ interface BookingData {
   description?: string;
 }
 
-function computePriceCents(data: BookingData, isExpress: boolean): number {
+function computePriceCents(data: BookingData, _isExpress: boolean): number {
   switch (data.category) {
     case 'shopping':
-      return isExpress ? 2000 : 1000;
+      return 1200; // €12 flat
     case 'dog-walk': {
-      const base = data.walkDuration === '30min' ? 1000 : 1500;
-      const dogs = Math.max(1, Number(data.dogCount) || 1);
-      return base * dogs;
+      // 30-min = €15, 1-hr = €20; extra dogs add a flat €5 each
+      const base = data.walkDuration === '30min' ? 1500 : 2000;
+      const extraDogs = Math.max(0, (Number(data.dogCount) || 1) - 1);
+      return base + extraDogs * 500;
     }
     case 'garden': {
-      const prices: Record<string, number> = { '1hr': 1500, '2hr': 3000, 'half-day': 4500 };
-      return prices[data.gardenDuration ?? '1hr'] ?? 1500;
+      const prices: Record<string, number> = { '1hr': 1800, '2hr': 3600, 'half-day': 5400 };
+      return prices[data.gardenDuration ?? '1hr'] ?? 1800;
     }
     case 'moving': {
-      const helpers = Math.max(1, Number(data.helperCount) || 1);
-      const hrs = Number((data.movingDuration ?? '1hr').replace('hr', '')) || 1;
-      return 1500 * helpers * hrs;
+      const prices: Record<string, number> = { '2hr': 3600, 'half-day': 5400, 'full-day': 10800 };
+      return prices[data.movingDuration ?? '2hr'] ?? 3600;
     }
     case 'cleaning': {
-      const hrs: Record<string, number> = { '1hr': 1, '2hr': 2, '3hr': 3 };
-      const h = hrs[data.cleaningDuration ?? '1hr'] ?? 1;
-      return 1200 * h;
+      const prices: Record<string, number> = { '1hr': 1600, '2hr': 3200, '3hr': 4800 };
+      return prices[data.cleaningDuration ?? '1hr'] ?? 1600;
     }
     case 'other':
-      return data.pricingType === 'flat' ? 1200 : 1200;
+      return 1500;
     default:
       return 1500;
   }

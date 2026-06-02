@@ -15,7 +15,7 @@ interface Booking {
   city: string | null;
   scheduled_date: string | null;
   status: string;
-  price_cents: number | null;
+  price_estimate_cents: number | null;
   created_at: string;
 }
 
@@ -67,7 +67,7 @@ export default function HouseholdAdmin() {
       const [{ data: b }, { data: h }] = await Promise.all([
         supabase
           .from('household_bookings')
-          .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_cents, created_at')
+          .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_estimate_cents, created_at')
           .order('created_at', { ascending: false })
           .limit(100),
         supabase
@@ -138,8 +138,8 @@ export default function HouseholdAdmin() {
                     <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full capitalize', STATUS_COLOURS[b.status] ?? 'bg-gray-100 text-gray-600')}>
                       {b.status.replace('_', ' ')}
                     </span>
-                    {b.price_cents && (
-                      <span className="text-sm font-bold text-green-600">€{(b.price_cents / 100).toFixed(2)}</span>
+                    {b.price_estimate_cents && (
+                      <span className="text-sm font-bold text-green-600">€{(b.price_estimate_cents / 100).toFixed(2)}</span>
                     )}
                   </div>
                 </div>
