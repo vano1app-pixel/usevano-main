@@ -4,7 +4,6 @@ import { CheckCircle2 } from 'lucide-react';
 
 const ITEMS = [
   'Every student Garda vetted',
-  'Duo rule — two helpers for all indoor jobs',
   'Not happy? You don\'t pay.',
 ];
 
