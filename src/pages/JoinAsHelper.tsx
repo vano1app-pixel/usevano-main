@@ -27,7 +27,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 const STATS = [
-  { value: '€10–€15', label: 'per job' },
+  { value: '€12–€25', label: 'per job' },
   { value: 'Flexible', label: 'your schedule' },
   { value: 'Same day', label: 'pay by Revolut' },
 ];

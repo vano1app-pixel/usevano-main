@@ -20,26 +20,26 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €10',
+    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €12',
     description: 'We shop any store, follow your list, and deliver to your door.',
   },
   {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15 flat',
+    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€20 flat',
     description: 'Collected from your door, walked on-lead, returned home safely.',
-    sizeLabel: 'How long?', sizes: ['30 min', '1 hour', '2 hours'],
+    sizeLabel: 'How long?', sizes: ['30 min', '1 hour'],
   },
   {
-    emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €15/hr',
+    emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €18/hr',
     description: 'Mowing, weeding, edging and tidying — all waste bagged.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', 'Half day'],
   },
   {
-    emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €15/hr',
+    emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €18/hr',
     description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
     sizeLabel: 'How much?', sizes: ['2 hours', 'Half day', 'Full day'],
   },
   {
-    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €12/hr',
+    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €16/hr',
     description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
@@ -70,14 +70,14 @@ function getTimeSlots(): string[] {
 }
 
 function getPriceCents(slug: string, size: string): number | null {
-  if (slug === 'shopping') return 1000;
-  if (slug === 'dog-walk') return 1500;
+  if (slug === 'shopping') return 1200;
+  if (slug === 'dog-walk') return 2000;
   if (slug === 'tutoring') return null;
   const key = `${slug}|${size}`;
   const map: Record<string, number> = {
-    'garden|1 hour': 1500,   'garden|2 hours': 3000,   'garden|Half day': 4500,
-    'moving|2 hours': 3000,  'moving|Half day': 4500,   'moving|Full day': 9000,
-    'cleaning|1 hour': 1200, 'cleaning|2 hours': 2400,  'cleaning|3 hours': 3600,
+    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
+    'moving|2 hours': 3600,  'moving|Half day': 5400,   'moving|Full day': 10800,
+    'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800,
   };
   return map[key] ?? null;
 }
