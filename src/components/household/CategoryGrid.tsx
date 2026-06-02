@@ -213,20 +213,22 @@ export const CategoryGrid: React.FC = () => {
         {CATEGORIES.map((cat) => {
           const active = selectedSlug === cat.slug;
           return (
-            <button
+            <motion.button
               key={cat.slug}
               onClick={() => pickCategory(cat.slug)}
               aria-pressed={active}
               aria-label={`${cat.label} — ${cat.price}`}
+              whileHover={{ y: -3, scale: 1.04 }}
+              whileTap={{ scale: 0.93 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 28 }}
               className={cn(
                 'flex flex-col items-center justify-center gap-1.5',
                 'min-h-[90px] rounded-2xl px-2 py-3 border',
-                'transition-[background-color,color,border-color,transform] duration-150',
+                'transition-[background-color,color,border-color,box-shadow] duration-150',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                'active:scale-[0.95]',
                 active
-                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                  : 'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-border',
+                  ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-border hover:shadow-sm',
               )}
             >
               <span className="text-2xl leading-none select-none">{cat.emoji}</span>
@@ -237,7 +239,7 @@ export const CategoryGrid: React.FC = () => {
               )}>
                 {cat.price}
               </span>
-            </button>
+            </motion.button>
           );
         })}
       </div>
@@ -358,9 +360,11 @@ export const CategoryGrid: React.FC = () => {
                       </p>
                       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {timeSlots.map((opt) => (
-                          <button
+                          <motion.button
                             key={opt}
                             onClick={() => setWhen(when === opt ? '' : opt)}
+                            whileTap={{ scale: 0.91 }}
+                            transition={{ type: 'spring', stiffness: 600, damping: 22 }}
                             className={cn(
                               chipBase,
                               'flex-shrink-0',
@@ -374,7 +378,7 @@ export const CategoryGrid: React.FC = () => {
                             )}
                           >
                             {opt}
-                          </button>
+                          </motion.button>
                         ))}
                       </div>
                     </div>
@@ -387,9 +391,11 @@ export const CategoryGrid: React.FC = () => {
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {selected.sizes.map((opt) => (
-                            <button
+                            <motion.button
                               key={opt}
                               onClick={() => setSize(size === opt ? '' : opt)}
+                              whileTap={{ scale: 0.91 }}
+                              transition={{ type: 'spring', stiffness: 600, damping: 22 }}
                               className={cn(
                                 chipBase,
                                 size === opt
@@ -398,7 +404,7 @@ export const CategoryGrid: React.FC = () => {
                               )}
                             >
                               {opt}
-                            </button>
+                            </motion.button>
                           ))}
                         </div>
                       </div>
@@ -426,31 +432,35 @@ export const CategoryGrid: React.FC = () => {
 
                     {/* Primary CTA: card payment when price is known */}
                     {canPayByCard && (
-                      <Button
-                        onClick={() => setShowPayForm(true)}
-                        variant="default"
-                        className="w-full rounded-full gap-2 font-semibold"
-                      >
-                        <CreditCard className="w-4 h-4" />
-                        Book for {formatPrice(priceCents!)} — pay by card
-                      </Button>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                        <Button
+                          onClick={() => setShowPayForm(true)}
+                          variant="default"
+                          className="w-full rounded-full gap-2 font-semibold"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          Book for {formatPrice(priceCents!)} — pay by card
+                        </Button>
+                      </motion.div>
                     )}
 
                     {/* WhatsApp CTA */}
-                    <Button
-                      onClick={send}
-                      disabled={!when && selected.slug !== 'tutoring'}
-                      variant={canPayByCard ? 'outline' : 'default'}
-                      className={cn(
-                        'w-full rounded-full gap-2 font-semibold',
-                        !canPayByCard && when
-                          ? 'bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent hover:border-transparent'
-                          : '',
-                      )}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      {canPayByCard ? 'Or book via WhatsApp' : 'Book via WhatsApp'}
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                      <Button
+                        onClick={send}
+                        disabled={!when && selected.slug !== 'tutoring'}
+                        variant={canPayByCard ? 'outline' : 'default'}
+                        className={cn(
+                          'w-full rounded-full gap-2 font-semibold',
+                          !canPayByCard && when
+                            ? 'bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent hover:border-transparent'
+                            : '',
+                        )}
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        {canPayByCard ? 'Or book via WhatsApp' : 'Book via WhatsApp'}
+                      </Button>
+                    </motion.div>
 
                     {!when && selected.slug !== 'tutoring' && (
                       <p className="text-center text-xs text-muted-foreground !mt-1.5">
