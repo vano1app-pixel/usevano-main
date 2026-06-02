@@ -25,6 +25,8 @@ interface Booking {
   customer_address: string;
   price_estimate_cents: number | null;
   student_id: string | null;
+  worker_lat: number | null;
+  worker_lng: number | null;
 }
 
 interface JobUpdate {
@@ -364,6 +366,31 @@ const TrackBooking = () => {
             </div>
           )}
         </div>
+
+        {/* Worker location map — shown once when they tap "I'm on my way" */}
+        {booking.status === 'on_way' && booking.worker_lat && booking.worker_lng && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-6"
+          >
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Worker location
+            </p>
+            <div className="rounded-2xl overflow-hidden border border-border/60 h-44 bg-secondary">
+              <iframe
+                title="Worker location"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${booking.worker_lng - 0.008},${booking.worker_lat - 0.006},${booking.worker_lng + 0.008},${booking.worker_lat + 0.006}&layer=mapnik&marker=${booking.worker_lat},${booking.worker_lng}`}
+                className="w-full h-full border-0"
+                loading="lazy"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5 text-center">
+              Pinned when your helper set off
+            </p>
+          </motion.div>
+        )}
 
         {/* Chat — only show when a student is assigned */}
         {booking.student_id && (

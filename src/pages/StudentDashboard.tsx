@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Clock, CheckCircle2, MapPin, Loader2, Star } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, MapPin, Loader2, Star, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -68,6 +68,11 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
 
+  // Availability toggle — only shown when the user has a linked household_helpers row
+  const [helperId, setHelperId] = useState<string | null>(null);
+  const [helperAvailable, setHelperAvailable] = useState<boolean | null>(null);
+  const [togglingAvailable, setTogglingAvailable] = useState(false);
+
   const loadData = useCallback(async (uid: string) => {
     const [available, mine, earnedPayouts] = await Promise.all([
       hdb.from('household_bookings')
@@ -101,12 +106,36 @@ const StudentDashboard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) { navigate('/auth', { replace: true }); return; }
       if (cancelled) return;
-      setUserId(session.user.id);
-      await loadData(session.user.id);
+      const uid = session.user.id;
+      setUserId(uid);
+      await loadData(uid);
+
+      // Load helper availability (only present if user_id is linked in household_helpers)
+      const { data: helperRow } = await hdb
+        .from('household_helpers')
+        .select('id, is_available')
+        .eq('user_id', uid)
+        .maybeSingle();
+      if (!cancelled && helperRow) {
+        setHelperId(helperRow.id as string);
+        setHelperAvailable(helperRow.is_available as boolean);
+      }
     };
     void run();
     return () => { cancelled = true; };
   }, [navigate, loadData]);
+
+  const toggleAvailable = async () => {
+    if (!helperId || helperAvailable === null || togglingAvailable) return;
+    setTogglingAvailable(true);
+    const next = !helperAvailable;
+    const { error } = await hdb
+      .from('household_helpers')
+      .update({ is_available: next })
+      .eq('id', helperId);
+    if (!error) setHelperAvailable(next);
+    setTogglingAvailable(false);
+  };
 
   const acceptJob = async (jobId: string) => {
     if (!userId) return;
@@ -159,8 +188,40 @@ const StudentDashboard = () => {
       <main className="pt-14 max-w-sm mx-auto px-4">
         {/* Page title */}
         <div className="pt-6 pb-4">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Pick up jobs near you</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">Pick up jobs near you</p>
+            </div>
+            {helperAvailable !== null && (
+              <button
+                onClick={() => void toggleAvailable()}
+                disabled={togglingAvailable}
+                className={cn(
+                  'mt-1 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all duration-200 flex-shrink-0',
+                  helperAvailable
+                    ? 'bg-sage/10 text-sage border-sage/30'
+                    : 'bg-secondary text-muted-foreground border-border',
+                )}
+              >
+                {togglingAvailable ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <span className={cn(
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    helperAvailable ? 'bg-sage animate-pulse' : 'bg-muted-foreground/40',
+                  )} />
+                )}
+                {helperAvailable ? 'Available' : 'Off duty'}
+              </button>
+            )}
+          </div>
+          {helperAvailable === false && (
+            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+              <Zap size={11} className="text-amber-500 flex-shrink-0" />
+              Go available so new jobs reach you faster
+            </p>
+          )}
         </div>
 
         {/* Tabs */}
