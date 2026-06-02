@@ -247,7 +247,6 @@ export const JoinAsHelper: React.FC = () => {
                   ref={fileRef}
                   type="file"
                   accept="image/*"
-                  capture="user"
                   onChange={handlePhoto}
                   className="sr-only"
                   aria-label="Face photo upload"
