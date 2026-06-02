@@ -18,17 +18,24 @@ function formEncode(obj: Record<string, string>): string {
     .join('&');
 }
 
-const VALID_CATEGORIES = ['shopping', 'dog-walk', 'garden', 'moving', 'cleaning'] as const;
+const VALID_CATEGORIES = [
+  'shopping', 'dog-walk', 'garden', 'moving', 'cleaning',
+  'post-office', 'furniture-assembly', 'tech-help', 'wait-delivery',
+] as const;
 type Category = typeof VALID_CATEGORIES[number];
 
 function computePriceCents(category: Category, sizeLabel: string): number | null {
   if (category === 'shopping') return 1000;
   if (category === 'dog-walk') return 1500;
+  if (category === 'post-office') return 1000;
+  if (category === 'wait-delivery') return 1000;
   const key = `${category}|${sizeLabel}`;
   const map: Record<string, number> = {
-    'garden|1 hour': 1500,   'garden|2 hours': 3000,   'garden|Half day': 4500,
-    'moving|2 hours': 3000,  'moving|Half day': 4500,   'moving|Full day': 9000,
-    'cleaning|1 hour': 1200, 'cleaning|2 hours': 2400,  'cleaning|3 hours': 3600,
+    'garden|1 hour': 1500,              'garden|2 hours': 3000,             'garden|Half day': 4500,
+    'moving|2 hours': 3000,             'moving|Half day': 4500,            'moving|Full day': 9000,
+    'cleaning|1 hour': 1200,            'cleaning|2 hours': 2400,           'cleaning|3 hours': 3600,
+    'furniture-assembly|1 hour': 1500,  'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
+    'tech-help|1 hour': 1500,           'tech-help|2 hours': 3000,
   };
   return map[key] ?? null;
 }
@@ -39,6 +46,10 @@ const CATEGORY_LABELS: Record<Category, string> = {
   garden: 'Garden help',
   moving: 'Moving help',
   cleaning: 'Cleaning',
+  'post-office': 'Post office run',
+  'furniture-assembly': 'Furniture assembly',
+  'tech-help': 'Tech help',
+  'wait-delivery': 'Wait for delivery',
 };
 
 serve(async (req) => {
