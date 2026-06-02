@@ -236,7 +236,7 @@ export const CategoryGrid: React.FC = () => {
                 'absolute top-1.5 left-2.5 text-[10px] lg:text-[11px] font-medium tabular-nums',
                 active ? 'text-primary-foreground/60' : 'text-muted-foreground/50',
               )}>
-                {cat.jobs}
+                {cat.jobs} jobs
               </span>
               <span className="text-2xl lg:text-[2rem] leading-none select-none">{cat.emoji}</span>
               <span className="text-[13px] lg:text-[15px] font-semibold leading-tight text-center">{cat.label}</span>
