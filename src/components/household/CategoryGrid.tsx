@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, CreditCard, Loader2, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, MessageCircle, CreditCard, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -130,7 +130,6 @@ export const CategoryGrid: React.FC = () => {
     return () => window.removeEventListener('vano:select-category', handleSelect);
   }, []);
 
-  // Pay-by-card form state
   const [showPayForm, setShowPayForm] = useState(false);
   const [payName, setPayName] = useState('');
   const [payPhone, setPayPhone] = useState('');
@@ -208,8 +207,9 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <section id="category-grid" aria-label="What do you need help with?">
-      {/* Category list */}
-      <div className="flex flex-col rounded-2xl border border-border/50 overflow-hidden bg-background shadow-sm divide-y divide-border/30">
+
+      {/* 3-column card grid */}
+      <div className="grid grid-cols-3 gap-2.5">
         {CATEGORIES.map((cat) => {
           const active = selectedSlug === cat.slug;
           return (
@@ -219,46 +219,24 @@ export const CategoryGrid: React.FC = () => {
               aria-pressed={active}
               aria-label={`${cat.label} — ${cat.price}`}
               className={cn(
-                'relative flex items-center gap-3.5 w-full px-4 py-4 text-left',
-                'transition-[background-color] duration-150',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-                'active:bg-secondary/80',
+                'flex flex-col items-center justify-center gap-1.5',
+                'min-h-[90px] rounded-2xl px-2 py-3 border',
+                'transition-[background-color,color,border-color,transform] duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                'active:scale-[0.95]',
                 active
-                  ? 'bg-primary/[0.06]'
-                  : 'bg-background hover:bg-secondary/40',
+                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                  : 'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-border',
               )}
             >
-              {/* Active left accent */}
-              {active && (
-                <span
-                  className="absolute inset-y-0 left-0 w-[3px] bg-primary rounded-r-full"
-                  aria-hidden="true"
-                />
-              )}
-
-              <span className="text-2xl w-8 text-center flex-shrink-0 leading-none select-none">
-                {cat.emoji}
+              <span className="text-2xl leading-none select-none">{cat.emoji}</span>
+              <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
+              <span className={cn(
+                'text-[11px] leading-tight',
+                active ? 'text-primary-foreground/75' : 'text-muted-foreground',
+              )}>
+                {cat.price}
               </span>
-
-              <div className="flex-1 min-w-0">
-                <p className={cn(
-                  'text-sm font-semibold leading-snug',
-                  active ? 'text-primary' : 'text-foreground',
-                )}>
-                  {cat.label}
-                </p>
-                <p className="text-xs text-muted-foreground leading-snug mt-0.5">
-                  {cat.price}
-                </p>
-              </div>
-
-              <ChevronRight
-                className={cn(
-                  'w-4 h-4 flex-shrink-0 transition-transform duration-200',
-                  active ? 'text-primary rotate-90' : 'text-muted-foreground/40',
-                )}
-                aria-hidden="true"
-              />
             </button>
           );
         })}
@@ -269,10 +247,10 @@ export const CategoryGrid: React.FC = () => {
         {selected && (
           <motion.div
             key={selected.slug}
-            initial={{ opacity: 0, y: -6, scale: 0.99 }}
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.995 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+            exit={{ opacity: 0, y: -4, scale: 0.99 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="mt-3 rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden"
           >
             {/* Panel header */}
@@ -280,7 +258,7 @@ export const CategoryGrid: React.FC = () => {
               <span className="text-xl leading-none select-none">{selected.emoji}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground leading-snug">{selected.label}</p>
-                <p className="text-xs text-muted-foreground leading-snug">{selected.price}</p>
+                <p className="text-xs text-muted-foreground">{selected.price}</p>
               </div>
               <button
                 onClick={() => resetForm(null)}
@@ -391,7 +369,7 @@ export const CategoryGrid: React.FC = () => {
                                   ? 'bg-emerald-500 text-white border-emerald-500'
                                   : 'bg-primary text-primary-foreground border-primary'
                                 : opt === 'Now'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 font-semibold'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800'
                                   : 'bg-background text-foreground border-border hover:border-primary/40',
                             )}
                           >
@@ -488,7 +466,7 @@ export const CategoryGrid: React.FC = () => {
       </AnimatePresence>
 
       {!selectedSlug && (
-        <p className="text-center text-xs text-muted-foreground mt-3.5">
+        <p className="text-center text-xs text-muted-foreground mt-4">
           Something else?{' '}
           <button
             onClick={() => openWhatsApp('Hi VANO! I need help with something — ')}
