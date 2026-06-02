@@ -158,6 +158,8 @@ const StudentDashboard = () => {
 
     if (!error) {
       setAvailableJobs((prev) => prev.filter((j) => j.id !== jobId));
+      // Fire-and-forget: email the customer that their helper accepted
+      void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: jobId } });
       if (userId) await loadData(userId, helperCity);
     }
     setAccepting(null);

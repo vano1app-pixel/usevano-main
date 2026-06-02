@@ -324,6 +324,7 @@ type StripeCheckoutSession = {
   payment_intent?: string;
   client_reference_id?: string;
   metadata?: Record<string, string | undefined>;
+  customer_details?: { email?: string | null; name?: string | null };
 };
 
 type StripeAccount = {
@@ -358,21 +359,24 @@ function normalizeE164(raw: string | null | undefined): string | null {
 // Fires when a customer pays for a household booking. Flips the booking
 // from awaiting_payment → pending so it appears in the student job feed.
 // Also stamps the real Stripe PaymentIntent id (needed for capture).
-// Fire-and-forget SMS sent to the customer with their tracking link.
+// Fire-and-forget confirmation email sent to the customer via Resend.
 async function handleHouseholdCheckoutCompleted(
   supabase: SupabaseClient,
   session: StripeCheckoutSession,
   bookingId: string,
 ): Promise<Response> {
+  const customerEmail = session.customer_details?.email ?? null;
+
   const { data: flipped, error } = await supabase
     .from('household_bookings')
     .update({
       status: 'pending',
       stripe_payment_intent_id: session.payment_intent ?? null,
+      ...(customerEmail ? { customer_email: customerEmail } : {}),
     })
     .eq('id', bookingId)
     .eq('status', 'awaiting_payment')
-    .select('id, customer_phone')
+    .select('id, customer_name, customer_email, category, scheduled_date')
     .maybeSingle();
 
   if (error) {
@@ -385,48 +389,60 @@ async function handleHouseholdCheckoutCompleted(
     });
   }
 
-  // SMS confirmation — fire and forget, never blocks the response
-  const smsPromise = (async () => {
+  // Send confirmation email via Resend — fire and forget
+  const emailPromise = (async () => {
     try {
-      const toPhone = normalizeE164((flipped as { customer_phone?: string }).customer_phone);
-      if (!toPhone) return;
-      const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
-      const authToken = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
-      const fromPrimary = Deno.env.get('TWILIO_FROM_NUMBER')?.trim();
-      const fromFallback = Deno.env.get('TWILIO_FALLBACK_FROM_NUMBER')?.trim();
-      const fromCandidates = [fromPrimary, fromFallback].filter((v): v is string => Boolean(v));
-      if (!accountSid || !authToken || fromCandidates.length === 0) return;
+      const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+      const toEmail = (flipped as { customer_email?: string }).customer_email;
+      if (!resendKey || !toEmail) return;
 
+      const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
       const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
       const trackUrl = `${siteUrl}/track/${bookingId}`;
-      const body = `✅ VANO booking confirmed! Track your job here: ${trackUrl}`;
-      const basicAuth = 'Basic ' + btoa(`${accountSid}:${authToken}`);
+      const name = (flipped as { customer_name?: string }).customer_name || 'there';
+      const category = (flipped as { category?: string }).category || 'your job';
+      const when = (flipped as { scheduled_date?: string }).scheduled_date || '';
 
-      for (const from of fromCandidates) {
-        try {
-          const res = await fetch(
-            `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-            {
-              method: 'POST',
-              headers: { Authorization: basicAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: new URLSearchParams({ From: from, To: toPhone, Body: body }).toString(),
-            },
-          );
-          if (res.ok) break;
-          console.warn(`[stripe-webhook] household SMS failed from=${from} status=${res.status}`);
-        } catch (e) {
-          console.warn(`[stripe-webhook] household SMS fetch error from=${from}`, e);
-        }
-      }
+      const categoryLabels: Record<string, string> = {
+        shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+        moving: 'Moving help', cleaning: 'Cleaning', other: 'General help',
+      };
+      const categoryLabel = categoryLabels[category] ?? category;
+
+      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">Booking confirmed ✓</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${name},</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${categoryLabel}</strong>${when ? ' for ' + when : ''} is confirmed. We're finding you a helper now — usually within the hour.</p>
+    <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Track your booking →</a>
+    <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Ref: ${bookingId.slice(-8).toUpperCase()}</p>
+  </div>
+</div>
+</body></html>`;
+
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: [toEmail],
+          subject: `Your VANO ${categoryLabel} is confirmed!`,
+          html,
+          text: `Hi ${name}, your ${categoryLabel}${when ? ' for ' + when : ''} is confirmed. Track here: ${trackUrl}`,
+        }),
+      });
     } catch (e) {
-      console.warn('[stripe-webhook] household SMS outer error', e);
+      console.warn('[stripe-webhook] household confirmation email error', e);
     }
   })();
 
   const runtime = (globalThis as unknown as {
     EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
   }).EdgeRuntime;
-  if (runtime?.waitUntil) runtime.waitUntil(smsPromise);
+  if (runtime?.waitUntil) runtime.waitUntil(emailPromise);
 
   return new Response(
     JSON.stringify({ received: true, triggered: 'household_booking', state: 'pending' }),
