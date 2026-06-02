@@ -40,9 +40,15 @@ export const DogDurationStep: React.FC<StepProps> = ({ data, onChange, onNext })
 
   return (
     <div className="px-4 pt-10 pb-28 max-w-sm mx-auto">
-      <h2 className="text-3xl font-bold tracking-tight text-foreground mb-8">
+      <h2 className="text-3xl font-bold tracking-tight text-foreground mb-2">
         How long?
       </h2>
+      {(data.dogCount ?? 1) > 1 && (
+        <p className="text-muted-foreground text-sm mb-6">
+          Price shown is per dog × {data.dogCount} dogs.
+        </p>
+      )}
+      {(data.dogCount ?? 1) === 1 && <div className="mb-8" />}
 
       <div className="flex flex-col gap-3">
         {options.map((opt) => (

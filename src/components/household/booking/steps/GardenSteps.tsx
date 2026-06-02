@@ -60,17 +60,17 @@ export const GardenPhotoStep: React.FC<StepProps> = ({ onNext }) => (
     <h2 className="text-3xl font-bold tracking-tight text-foreground mb-2">
       Got a photo?
     </h2>
-    <p className="text-muted-foreground text-sm mb-8">Helps your helper prepare. Completely optional.</p>
+    <p className="text-muted-foreground text-sm mb-8">
+      Helps your helper prepare. You can send one over WhatsApp once matched — completely optional.
+    </p>
 
-    <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl py-16 cursor-pointer hover:border-primary/40 transition-colors mb-8 group">
-      <span className="text-4xl mb-3 group-hover:scale-105 transition-transform duration-150" aria-hidden="true">📷</span>
-      <span className="text-sm font-medium text-foreground">Add a photo</span>
-      <span className="text-xs text-muted-foreground mt-1">JPG or PNG</span>
-      <input type="file" accept="image/*" className="sr-only" />
-    </label>
+    <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl py-16 mb-8">
+      <span className="text-4xl mb-3" aria-hidden="true">📷</span>
+      <span className="text-sm text-muted-foreground">Send via WhatsApp once your helper is confirmed</span>
+    </div>
 
-    <Button onClick={onNext} variant="outline" className="w-full rounded-full" size="lg">
-      Skip
+    <Button onClick={onNext} className="w-full rounded-full" size="lg">
+      Continue
     </Button>
   </div>
 );
@@ -79,7 +79,7 @@ export const GardenDurationStep: React.FC<StepProps> = ({ data, onChange, onNext
   const options = [
     { id: '1hr'      as const, label: '1 hour',    price: '€18',  sub: 'Light tidying'         },
     { id: '2hr'      as const, label: '2 hours',   price: '€36',  sub: 'Thorough session'      },
-    { id: 'half-day' as const, label: 'Half day',  price: '€65',  sub: 'Full garden overhaul'  },
+    { id: 'half-day' as const, label: 'Half day',  price: '€54',  sub: 'Full garden overhaul'  },
   ];
 
   return (

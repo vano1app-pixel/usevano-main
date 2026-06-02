@@ -92,11 +92,10 @@ export const MovingDescriptionStep: React.FC<StepProps> = ({ data, onChange, onN
       className="rounded-2xl resize-none mb-4 text-base"
     />
 
-    <label className="flex items-center gap-3 border border-dashed border-border rounded-2xl px-4 py-3 cursor-pointer hover:border-primary/40 transition-colors mb-8">
+    <div className="flex items-center gap-3 border border-dashed border-border rounded-2xl px-4 py-3 mb-8">
       <span className="text-xl" aria-hidden="true">📷</span>
-      <span className="text-sm text-muted-foreground">Add a photo (optional)</span>
-      <input type="file" accept="image/*" className="sr-only" />
-    </label>
+      <span className="text-sm text-muted-foreground">You can send photos via WhatsApp once matched</span>
+    </div>
 
     <Button onClick={onNext} className="w-full rounded-full" size="lg">
       {data.movingDescription?.trim() ? 'Continue' : 'Skip'}

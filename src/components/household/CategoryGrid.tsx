@@ -139,8 +139,8 @@ export const CategoryGrid: React.FC = () => {
     setDir(d);
     setView(v);
     if (cat) { setSelected(cat); setWhen(''); setSize(''); setNote(''); }
-    if (v === 'grid') { setSelected(null); setWhen(''); setSize(''); setNote(''); }
-    if (v !== 'contact') { setName(''); setPhone(''); setCity(''); setError(null); }
+    if (v === 'grid') { setSelected(null); setWhen(''); setSize(''); setNote(''); setName(''); setPhone(''); setCity(''); setError(null); }
+    if (v !== 'grid' && v !== 'contact') { setError(null); }
   }
 
   const priceCents    = selected ? getPriceCents(selected.slug, size) : null;
