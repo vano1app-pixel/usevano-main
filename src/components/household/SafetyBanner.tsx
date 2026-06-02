@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
-import { IrelandMap } from './IrelandMap';
 
 const ITEMS = [
   'Every student personally vetted',
@@ -13,51 +12,48 @@ export const SafetyBanner: React.FC = () => {
   const inView = useInView(ref, { once: true, margin: '-60px' });
 
   return (
-    <section className="bg-sage-light py-12 px-4">
-      <div ref={ref} className="max-w-5xl mx-auto">
-        <div className="lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center">
+    <section className="relative overflow-hidden bg-sage-light py-12 px-4">
 
-          {/* Left: trust copy */}
-          <div>
-            <p className="eyebrow mb-3">Your peace of mind</p>
-            <h2 className="text-2xl font-semibold text-foreground mb-6">
-              Safe, local, verified
-            </h2>
+      {/* Google Maps — Galway, faded background */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <iframe
+          title="Galway map"
+          src="https://maps.google.com/maps?q=Galway+City,Ireland&t=&z=13&ie=UTF8&iwloc=&output=embed"
+          className="w-full h-full border-0"
+          style={{ opacity: 0.13, filter: 'grayscale(40%)' }}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+      </div>
 
-            <ul className="space-y-4">
-              {ITEMS.map((item, i) => (
-                <motion.li
-                  key={item}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={inView ? { opacity: 1, x: 0 } : {}}
-                  transition={{
-                    delay: i * 0.12,
-                    duration: 0.45,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  className="flex items-start gap-3"
-                >
-                  <CheckCircle2
-                    className="w-5 h-5 text-sage mt-0.5 flex-shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className="text-foreground/80 text-sm leading-relaxed">{item}</span>
-                </motion.li>
-              ))}
-            </ul>
-          </div>
+      {/* Content */}
+      <div ref={ref} className="relative max-w-5xl mx-auto">
+        <p className="eyebrow mb-3">Your peace of mind</p>
+        <h2 className="text-2xl font-semibold text-foreground mb-6">
+          Safe, local, verified
+        </h2>
 
-          {/* Right: Ireland map zoomed on Galway */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={inView ? { opacity: 1, scale: 1 } : {}}
-            transition={{ delay: 0.2, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-10 lg:mt-0"
-          >
-            <IrelandMap />
-          </motion.div>
-
-        </div>
+        <ul className="space-y-4 lg:flex lg:gap-12 lg:space-y-0 lg:items-start">
+          {ITEMS.map((item, i) => (
+            <motion.li
+              key={item}
+              initial={{ opacity: 0, x: -12 }}
+              animate={inView ? { opacity: 1, x: 0 } : {}}
+              transition={{
+                delay: i * 0.12,
+                duration: 0.45,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              className="flex items-start gap-3"
+            >
+              <CheckCircle2
+                className="w-5 h-5 text-sage mt-0.5 flex-shrink-0"
+                aria-hidden="true"
+              />
+              <span className="text-foreground/80 text-sm leading-relaxed">{item}</span>
+            </motion.li>
+          ))}
+        </ul>
       </div>
     </section>
   );
