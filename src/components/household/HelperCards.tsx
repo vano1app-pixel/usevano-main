@@ -1,6 +1,5 @@
 import React from 'react';
 import { Star } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface Student {
   name: string;
@@ -8,41 +7,32 @@ interface Student {
   tagline: string;
   rating: string;
   jobs: number;
+  photo: string;
 }
 
 const STUDENTS: Student[] = [
-  { name: 'Emma',  course: 'Nursing · ATU',       tagline: 'Great with dogs and older clients',  rating: '4.9', jobs: 23 },
-  { name: 'Cian',  course: 'Business · ATU',       tagline: 'Fast, reliable, Knocknacarra local',  rating: '4.8', jobs: 41 },
-  { name: 'Aoife', course: 'Engineering · ATU',    tagline: 'Flat-pack, garden, errands — sorted', rating: '5.0', jobs: 17 },
-  { name: 'Seán',  course: 'Sports Science · ATU', tagline: 'Garden and moving specialist',        rating: '4.9', jobs: 35 },
-  { name: 'Niamh', course: 'Education · ATU',      tagline: 'Patient, thorough, great craic',      rating: '5.0', jobs: 12 },
-  { name: 'Liam',  course: 'IT · ATU',             tagline: 'Tech help and general errands',       rating: '4.7', jobs: 28 },
-];
-
-const AVATAR_BG = [
-  'bg-sage text-white',
-  'bg-rose-400 text-white',
-  'bg-amber-400 text-white',
-  'bg-sky-500 text-white',
-  'bg-purple-400 text-white',
-  'bg-emerald-500 text-white',
+  { name: 'Emma',  course: 'Nursing · ATU',       tagline: 'Great with dogs and older clients',  rating: '4.9', jobs: 23, photo: 'https://randomuser.me/api/portraits/women/26.jpg' },
+  { name: 'Cian',  course: 'Business · ATU',       tagline: 'Fast, reliable, Knocknacarra local',  rating: '4.8', jobs: 41, photo: 'https://randomuser.me/api/portraits/men/41.jpg'   },
+  { name: 'Aoife', course: 'Engineering · ATU',    tagline: 'Flat-pack, garden, errands — sorted', rating: '5.0', jobs: 17, photo: 'https://randomuser.me/api/portraits/women/44.jpg' },
+  { name: 'Seán',  course: 'Sports Science · ATU', tagline: 'Garden and moving specialist',        rating: '4.9', jobs: 35, photo: 'https://randomuser.me/api/portraits/men/22.jpg'   },
+  { name: 'Niamh', course: 'Education · ATU',      tagline: 'Patient, thorough, great craic',      rating: '5.0', jobs: 12, photo: 'https://randomuser.me/api/portraits/women/68.jpg' },
+  { name: 'Liam',  course: 'IT · ATU',             tagline: 'Tech help and general errands',       rating: '4.7', jobs: 28, photo: 'https://randomuser.me/api/portraits/men/55.jpg'   },
 ];
 
 export const HelperCards: React.FC = () => {
-  const cards = STUDENTS.map((s, i) => (
+  const cards = STUDENTS.map((s) => (
     <article
       key={s.name}
       className="snap-start w-[190px] lg:w-auto bg-white rounded-2xl shadow-tinted p-4 flex flex-col gap-3 border border-border/40"
     >
-      <div
-        className={cn(
-          'w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0',
-          AVATAR_BG[i % AVATAR_BG.length],
-        )}
-        aria-hidden="true"
-      >
-        {s.name[0]}
-      </div>
+      <img
+        src={s.photo}
+        alt={s.name}
+        width={48}
+        height={48}
+        className="w-12 h-12 rounded-full object-cover flex-shrink-0 ring-2 ring-border/30"
+        loading="lazy"
+      />
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-foreground text-sm">{s.name}</p>
         <p className="text-muted-foreground text-xs leading-snug mt-0.5">{s.course}</p>
