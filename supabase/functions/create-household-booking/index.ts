@@ -42,30 +42,30 @@ interface BookingData {
 function computePriceCents(data: BookingData, isExpress: boolean): number {
   switch (data.category) {
     case 'shopping':
-      return isExpress ? 2500 : 1200;
+      return isExpress ? 2000 : 1000;
     case 'dog-walk': {
-      const base = data.walkDuration === '30min' ? 1500 : 2000;
+      const base = data.walkDuration === '30min' ? 1000 : 1500;
       const dogs = Math.max(1, Number(data.dogCount) || 1);
       return base * dogs;
     }
     case 'garden': {
-      const prices: Record<string, number> = { '1hr': 1800, '2hr': 3600, 'half-day': 5400 };
-      return prices[data.gardenDuration ?? '1hr'] ?? 1800;
+      const prices: Record<string, number> = { '1hr': 1500, '2hr': 3000, 'half-day': 4500 };
+      return prices[data.gardenDuration ?? '1hr'] ?? 1500;
     }
     case 'moving': {
       const helpers = Math.max(1, Number(data.helperCount) || 1);
       const hrs = Number((data.movingDuration ?? '1hr').replace('hr', '')) || 1;
-      return 1800 * helpers * hrs;
+      return 1500 * helpers * hrs;
     }
     case 'cleaning': {
       const hrs: Record<string, number> = { '1hr': 1, '2hr': 2, '3hr': 3 };
       const h = hrs[data.cleaningDuration ?? '1hr'] ?? 1;
-      return 1600 * h;
+      return 1200 * h;
     }
     case 'other':
-      return data.pricingType === 'flat' ? 1500 : 1500;
+      return data.pricingType === 'flat' ? 1200 : 1200;
     default:
-      return 1800;
+      return 1500;
   }
 }
 

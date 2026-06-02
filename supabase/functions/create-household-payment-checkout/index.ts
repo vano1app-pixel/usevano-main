@@ -22,13 +22,13 @@ const VALID_CATEGORIES = ['shopping', 'dog-walk', 'garden', 'moving', 'cleaning'
 type Category = typeof VALID_CATEGORIES[number];
 
 function computePriceCents(category: Category, sizeLabel: string): number | null {
-  if (category === 'shopping') return 1200;
-  if (category === 'dog-walk') return 2000;
+  if (category === 'shopping') return 1000;
+  if (category === 'dog-walk') return 1500;
   const key = `${category}|${sizeLabel}`;
   const map: Record<string, number> = {
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
-    'moving|2 hours': 3600,  'moving|Half day': 5400,   'moving|Full day': 10800,
-    'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800,
+    'garden|1 hour': 1500,   'garden|2 hours': 3000,   'garden|Half day': 4500,
+    'moving|2 hours': 3000,  'moving|Half day': 4500,   'moving|Full day': 9000,
+    'cleaning|1 hour': 1200, 'cleaning|2 hours': 2400,  'cleaning|3 hours': 3600,
   };
   return map[key] ?? null;
 }
