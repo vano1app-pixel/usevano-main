@@ -42,6 +42,7 @@ const CompleteProfile = lazyWithRetry(() => import("./pages/CompleteProfile"));
 const ChooseAccountType = lazyWithRetry(() => import("./pages/ChooseAccountType"));
 const ListOnCommunity = lazyWithRetry(() => import("./pages/ListOnCommunity"));
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const HouseholdAdmin = lazyWithRetry(() => import("./pages/HouseholdAdmin"));
 const BusinessDashboard = lazyWithRetry(() => import("./pages/BusinessDashboard"));
 const BlogPost = lazyWithRetry(() => import("./pages/BlogPost"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
@@ -247,6 +248,7 @@ const App = () => {
                 </RequireVerifiedSession>
               }
             />
+            <Route path="/household-admin" element={<P><HouseholdAdmin /></P>} />
             <Route
               path="/admin"
               element={
