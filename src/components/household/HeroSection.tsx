@@ -14,7 +14,7 @@ export const HeroSection: React.FC = () => {
       <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <div className="relative max-w-5xl mx-auto">
-        <div className="lg:grid lg:grid-cols-[1fr,440px] lg:gap-14 lg:items-start">
+        <div className="lg:grid lg:grid-cols-[1fr,500px] lg:gap-14 lg:items-start">
 
           {/* Left */}
           <div className="mb-7 lg:mb-0 lg:pt-6">
@@ -37,7 +37,7 @@ export const HeroSection: React.FC = () => {
           </div>
 
           {/* Right — booking widget */}
-          <div className="lg:bg-card lg:rounded-2xl lg:shadow-lg lg:border lg:border-border/40 lg:p-5">
+          <div className="lg:bg-card lg:rounded-2xl lg:shadow-lg lg:border lg:border-border/40 lg:p-7">
             <CategoryGrid />
           </div>
         </div>

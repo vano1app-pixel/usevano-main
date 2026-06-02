@@ -107,7 +107,7 @@ function openWhatsApp(message: string): void {
 }
 
 const chipBase =
-  'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color,transform] duration-150 active:scale-[0.96]';
+  'px-3.5 py-1.5 lg:px-4 lg:py-2 rounded-full text-sm lg:text-base font-medium border transition-[background-color,color,border-color,transform] duration-150 active:scale-[0.96]';
 
 const fadeSlide = {
   initial:    { opacity: 0, y: 6 },
@@ -210,7 +210,7 @@ export const CategoryGrid: React.FC = () => {
     <section id="category-grid" aria-label="What do you need help with?">
 
       {/* 3-column card grid */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-2.5 lg:gap-3">
         {CATEGORIES.map((cat) => {
           const active = selectedSlug === cat.slug;
           return (
@@ -223,8 +223,8 @@ export const CategoryGrid: React.FC = () => {
               whileTap={{ scale: 0.93 }}
               transition={{ type: 'spring', stiffness: 500, damping: 28 }}
               className={cn(
-                'relative flex flex-col items-center justify-center gap-1.5',
-                'min-h-[90px] rounded-2xl px-2 py-3 border',
+                'relative flex flex-col items-center justify-center gap-2',
+                'min-h-[90px] lg:min-h-[116px] rounded-2xl px-2 py-3 lg:py-5 border',
                 'transition-[background-color,color,border-color,box-shadow] duration-150',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 active
@@ -233,15 +233,15 @@ export const CategoryGrid: React.FC = () => {
               )}
             >
               <span className={cn(
-                'absolute top-1.5 left-2 text-[10px] font-medium tabular-nums',
+                'absolute top-1.5 left-2.5 text-[10px] lg:text-[11px] font-medium tabular-nums',
                 active ? 'text-primary-foreground/60' : 'text-muted-foreground/50',
               )}>
                 {cat.jobs}
               </span>
-              <span className="text-2xl leading-none select-none">{cat.emoji}</span>
-              <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
+              <span className="text-2xl lg:text-[2rem] leading-none select-none">{cat.emoji}</span>
+              <span className="text-[13px] lg:text-[15px] font-semibold leading-tight text-center">{cat.label}</span>
               <span className={cn(
-                'text-[11px] leading-tight',
+                'text-[11px] lg:text-[12px] leading-tight',
                 active ? 'text-primary-foreground/75' : 'text-muted-foreground',
               )}>
                 {cat.price}
@@ -271,8 +271,8 @@ export const CategoryGrid: React.FC = () => {
             <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 bg-secondary/30">
               <span className="text-xl leading-none select-none">{selected.emoji}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground leading-snug">{selected.label}</p>
-                <p className="text-xs text-muted-foreground">{selected.price}</p>
+                <p className="text-sm lg:text-base font-semibold text-foreground leading-snug">{selected.label}</p>
+                <p className="text-xs lg:text-sm text-muted-foreground">{selected.price}</p>
               </div>
               <button
                 onClick={() => resetForm(null)}
@@ -367,7 +367,7 @@ export const CategoryGrid: React.FC = () => {
 
                     {/* When? */}
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                      <p className="text-xs lg:text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
                         When?
                       </p>
                       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
@@ -398,7 +398,7 @@ export const CategoryGrid: React.FC = () => {
                     {/* Duration / size */}
                     {selected.sizes.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                        <p className="text-xs lg:text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
                           {selected.sizeLabel}
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -424,7 +424,7 @@ export const CategoryGrid: React.FC = () => {
 
                     {/* Optional note */}
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                      <p className="text-xs lg:text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
                         Anything to add?{' '}
                         <span className="font-normal normal-case text-muted-foreground/60">(optional)</span>
                       </p>
