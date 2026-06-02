@@ -14,6 +14,7 @@ interface Category {
   slug:        string;
   price:       string;
   hint:        string;
+  description: string;
   sizeLabel:   string;
   sizes:       string[];
   jobs:        number;
@@ -23,36 +24,42 @@ const CATEGORIES: Category[] = [
   {
     emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €10', jobs: 22,
     hint: 'Groceries, pharmacy, errands',
+    description: 'We follow your shopping list, visit any store you choose, and deliver straight to your door. Great for weekly groceries, pharmacy runs, or one-off errands.',
     sizeLabel: 'What kind?',
     sizes: ['Quick run', 'Big weekly shop', 'Pharmacy + bits'],
   },
   {
     emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15 flat', jobs: 14,
     hint: '30 min, 1 hr or 2 hr walks',
+    description: 'Your dog is collected from your door, walked on-lead for the time you pick, and brought back home. The helper stays with your dog the entire time.',
     sizeLabel: 'How long?',
     sizes: ['30 min', '1 hour', '2 hours'],
   },
   {
     emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €15/hr', jobs: 16,
     hint: 'Mowing, weeding, tidying',
+    description: 'General garden upkeep — mowing the lawn, pulling weeds, edging, and tidying up. All waste is bagged and left ready for collection.',
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', 'Half day'],
   },
   {
     emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €15/hr', jobs: 9,
     hint: 'Loading, unloading, hauling',
+    description: 'Extra hands for your move — lifting, carrying boxes, loading and unloading the van. You arrange the transport; the helper does the heavy work.',
     sizeLabel: 'How much help?',
     sizes: ['2 hours', 'Half day', 'Full day'],
   },
   {
     emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €12/hr', jobs: 13,
     hint: 'Hoovering, mopping, tidying',
+    description: 'A proper clean of your home — hoovering, mopping floors, wiping surfaces, kitchen and bathroom. Use your own products or whatever is in the house.',
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
     emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €12/hr', jobs: 6,
     hint: 'Any subject, any level',
+    description: 'One-to-one tutoring at your home or a nearby café. Any subject — maths, science, languages, essay help. Junior Cert, Leaving Cert, and college level.',
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
@@ -299,6 +306,11 @@ export const CategoryGrid: React.FC = () => {
               >
                 <X className="w-3.5 h-3.5" />
               </button>
+            </div>
+
+            {/* What's included */}
+            <div className="px-4 py-3 border-b border-border/30 bg-background/60">
+              <p className="text-xs text-muted-foreground leading-relaxed">{selected.description}</p>
             </div>
 
             <div className="p-4">
