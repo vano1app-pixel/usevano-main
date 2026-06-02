@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 const PRICES = [
   { emoji: '🛒', label: 'Shopping run',     price: '€12 flat'   },
-  { emoji: '🐕', label: 'Dog walk',          price: '€20 flat'   },
+  { emoji: '🐕', label: 'Dog walk',          price: '€15–€20'    },
   { emoji: '🌿', label: 'Garden work',       price: '€18/hr'     },
   { emoji: '📦', label: 'Moving help',       price: '€18/hr per helper' },
   { emoji: '🧹', label: 'Cleaning',          price: '€16/hr'     },

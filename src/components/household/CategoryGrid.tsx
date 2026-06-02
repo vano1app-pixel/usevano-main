@@ -24,7 +24,7 @@ const CATEGORIES: Category[] = [
     description: 'We shop any store, follow your list, and deliver to your door.',
   },
   {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€20 flat',
+    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15–€20',
     description: 'Collected from your door, walked on-lead, returned home safely.',
     sizeLabel: 'How long?', sizes: ['30 min', '1 hour'],
   },
@@ -71,7 +71,7 @@ function getTimeSlots(): string[] {
 
 function getPriceCents(slug: string, size: string): number | null {
   if (slug === 'shopping') return 1200;
-  if (slug === 'dog-walk') return 2000;
+  if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
   if (slug === 'tutoring') return null;
   const key = `${slug}|${size}`;
   const map: Record<string, number> = {
