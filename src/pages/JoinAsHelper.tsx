@@ -14,7 +14,7 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 const STATS = [
-  { value: '€12–€25', label: 'per job' },
+  { value: '€10–€15', label: 'per job' },
   { value: 'Flexible', label: 'your schedule' },
   { value: 'Same day', label: 'pay by Revolut' },
 ];
@@ -73,6 +73,10 @@ export const JoinAsHelper: React.FC = () => {
         options: { data: { display_name: name.trim() } },
       });
       if (authError) throw authError;
+      // identities === [] means the email is already registered (Supabase silent repeated-signup)
+      if ((authData.user?.identities?.length ?? 1) === 0) {
+        throw new Error('User already registered');
+      }
       const userId = authData.user?.id;
       if (!userId) throw new Error('Account creation failed — please try again.');
 
