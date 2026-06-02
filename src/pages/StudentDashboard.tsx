@@ -71,16 +71,21 @@ const StudentDashboard = () => {
   // Availability toggle — only shown when the user has a linked household_helpers row
   const [helperId, setHelperId] = useState<string | null>(null);
   const [helperAvailable, setHelperAvailable] = useState<boolean | null>(null);
+  const [helperCity, setHelperCity] = useState<string | null>(null);
   const [togglingAvailable, setTogglingAvailable] = useState(false);
 
-  const loadData = useCallback(async (uid: string) => {
+  const loadData = useCallback(async (uid: string, city?: string | null) => {
+    let availableQuery = hdb
+      .from('household_bookings')
+      .select('*')
+      .eq('status', 'pending')
+      .is('student_id', null)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (city) availableQuery = availableQuery.eq('city', city);
+
     const [available, mine, earnedPayouts] = await Promise.all([
-      hdb.from('household_bookings')
-        .select('*')
-        .eq('status', 'pending')
-        .is('student_id', null)
-        .order('created_at', { ascending: false })
-        .limit(30),
+      availableQuery,
       hdb.from('household_bookings')
         .select('*')
         .eq('student_id', uid)
@@ -108,18 +113,22 @@ const StudentDashboard = () => {
       if (cancelled) return;
       const uid = session.user.id;
       setUserId(uid);
-      await loadData(uid);
 
-      // Load helper availability (only present if user_id is linked in household_helpers)
+      // Load helper profile first so we can filter jobs by city
       const { data: helperRow } = await hdb
         .from('household_helpers')
-        .select('id, is_available')
+        .select('id, is_available, city')
         .eq('user_id', uid)
         .maybeSingle();
+
+      const city = (helperRow?.city as string | null) ?? null;
       if (!cancelled && helperRow) {
         setHelperId(helperRow.id as string);
         setHelperAvailable(helperRow.is_available as boolean);
+        setHelperCity(city);
       }
+
+      await loadData(uid, city);
     };
     void run();
     return () => { cancelled = true; };
@@ -149,7 +158,7 @@ const StudentDashboard = () => {
 
     if (!error) {
       setAvailableJobs((prev) => prev.filter((j) => j.id !== jobId));
-      if (userId) await loadData(userId);
+      if (userId) await loadData(userId, helperCity);
     }
     setAccepting(null);
   };
