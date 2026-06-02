@@ -14,17 +14,6 @@ export const SafetyBanner: React.FC = () => {
   return (
     <section className="relative overflow-hidden bg-sage-light py-12 px-4">
 
-      {/* Google Maps — Galway, faded background */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <iframe
-          title="Galway map"
-          src="https://www.openstreetmap.org/export/embed.html?bbox=-9.1500%2C53.2500%2C-8.9000%2C53.3500&layer=mapnik"
-          className="w-full h-full border-0"
-          style={{ opacity: 0.12, filter: 'grayscale(60%)' }}
-          loading="lazy"
-        />
-      </div>
-
       {/* Content */}
       <div ref={ref} className="relative max-w-5xl mx-auto">
         <p className="eyebrow mb-3">Your peace of mind</p>
