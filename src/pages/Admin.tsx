@@ -89,10 +89,12 @@ interface HouseholdBookingRow {
 interface HouseholdHelperRow {
   id: string;
   name: string;
+  email: string | null;
   phone: string;
   city: string;
   status: string;
   is_available: boolean;
+  user_id: string | null;
   accepted_count: number;
   photo_url: string | null;
   created_at: string;
@@ -397,7 +399,7 @@ const Admin = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
       .from('household_helpers')
-      .select('id, name, phone, city, status, is_available, accepted_count, photo_url, created_at')
+      .select('id, name, email, phone, city, status, is_available, user_id, accepted_count, photo_url, created_at')
       .order('created_at', { ascending: false })
       .limit(100);
     setHouseholdHelpers(((data ?? []) as unknown) as HouseholdHelperRow[]);
@@ -552,6 +554,21 @@ const Admin = () => {
       toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
     } else {
       toast({ title: `Helper ${newStatus}` });
+      fetchHouseholdHelpers();
+    }
+  };
+
+  const toggleHelperAvailability = async (helper: HouseholdHelperRow) => {
+    setUpdatingHelper(helper.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('household_helpers')
+      .update({ is_available: !helper.is_available })
+      .eq('id', helper.id);
+    setUpdatingHelper(null);
+    if (error) {
+      toast({ title: 'Error', description: getUserFriendlyError(error), variant: 'destructive' });
+    } else {
       fetchHouseholdHelpers();
     }
   };
@@ -1187,17 +1204,37 @@ const Admin = () => {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-medium text-sm">{h.name}</p>
                             <span className={`text-xs font-medium ${statusColor[h.status] ?? 'text-muted-foreground'}`}>
                               {h.status}
                             </span>
-                            {h.is_available && <span className="text-xs text-emerald-600">● Available</span>}
+                            <span className={`text-xs font-medium ${h.is_available ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                              {h.is_available ? '● Online' : '○ Offline'}
+                            </span>
+                            {!h.user_id && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                                No account
+                              </span>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground">{h.phone} · {h.city} · {h.accepted_count} jobs done</p>
+                          <p className="text-xs text-muted-foreground">{h.phone} · {h.city} · {h.accepted_count} jobs</p>
+                          {h.email && <p className="text-xs text-muted-foreground">{h.email}</p>}
                           <p className="text-xs text-muted-foreground/60">Applied {format(new Date(h.created_at), 'MMM d, yyyy')}</p>
                         </div>
-                        <div className="flex gap-1.5 shrink-0">
+                        <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                          <button
+                            onClick={() => toggleHelperAvailability(h)}
+                            disabled={isBusy}
+                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold disabled:opacity-60 transition-colors ${
+                              h.is_available
+                                ? 'bg-secondary text-muted-foreground hover:text-foreground'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                            title={h.is_available ? 'Set offline' : 'Set online'}
+                          >
+                            {h.is_available ? 'Set offline' : 'Set online'}
+                          </button>
                           {h.status !== 'approved' && (
                             <button
                               onClick={() => updateHelperStatus(h.id, 'approved')}

@@ -148,8 +148,23 @@ const StudentJobDetail = () => {
     }
 
     setAdvancing(true);
+
+    // Capture worker's location when setting off — stored as a static pin for the customer
+    const bookingUpdate: Record<string, unknown> = { status: next.status };
+    if (next.status === 'on_way' && 'geolocation' in navigator) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000, maximumAge: 30000 }),
+        );
+        bookingUpdate.worker_lat = pos.coords.latitude;
+        bookingUpdate.worker_lng = pos.coords.longitude;
+      } catch {
+        // Location denied or unavailable — proceed without it
+      }
+    }
+
     const [updateRes] = await Promise.all([
-      hdb.from('household_bookings').update({ status: next.status }).eq('id', bookingId),
+      hdb.from('household_bookings').update(bookingUpdate).eq('id', bookingId),
       hdb.from('household_job_updates').insert({ booking_id: bookingId, status: next.status }),
     ]);
     if (updateRes.error) {

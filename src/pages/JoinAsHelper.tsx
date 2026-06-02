@@ -37,8 +37,10 @@ const JOBS = [
 
 export const JoinAsHelper: React.FC = () => {
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
+  const [password, setPassword] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -55,33 +57,58 @@ export const JoinAsHelper: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !phone.trim() || !city || !photo) return;
+    if (!name.trim() || !email.trim() || !phone.trim() || !city || !photo || !password) return;
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
     try {
-      const ext = photo.name.split('.').pop() ?? 'jpg';
-      const path = `${crypto.randomUUID()}.${ext}`;
+      // 1. Create auth account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: { data: { display_name: name.trim() } },
+      });
+      if (authError) throw authError;
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('Account creation failed — please try again.');
 
+      // 2. Upload photo
+      const ext = photo.name.split('.').pop() ?? 'jpg';
+      const path = `${userId}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from('helper-photos')
-        .upload(path, photo, { upsert: false });
-
+        .upload(path, photo, { upsert: true });
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
         .from('helper-photos')
         .getPublicUrl(path);
 
+      // 3. Insert helper row linked to the new auth account
       const { error: insertError } = await db
         .from('household_helpers')
-        .insert({ name: name.trim(), phone: phone.trim(), city, photo_url: publicUrl });
-
+        .insert({
+          user_id: userId,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+          city,
+          photo_url: publicUrl,
+        });
       if (insertError) throw insertError;
 
       setSubmitted(true);
-    } catch {
-      setError("Something went wrong — please try again or text us on WhatsApp.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('already registered') || msg.includes('User already registered')) {
+        setError('That email is already registered. Try logging in, or use a different email.');
+      } else {
+        setError("Something went wrong — please try again or text us on WhatsApp.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -135,16 +162,18 @@ export const JoinAsHelper: React.FC = () => {
               className="bg-sage-light rounded-2xl p-8 text-center"
             >
               <CheckCircle className="w-12 h-12 text-sage mx-auto mb-4" />
-              <h2 className="font-bold text-foreground text-xl mb-2">You're in the pool!</h2>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                We'll WhatsApp you within 24 hours with your first job options.
+              <h2 className="font-bold text-foreground text-xl mb-2">Application received!</h2>
+              <p className="text-muted-foreground text-sm leading-relaxed mb-3">
+                We'll review your application and WhatsApp you within 24 hours. Once approved, log in at{' '}
+                <a href="/auth" className="underline underline-offset-2 text-foreground font-medium">vanojobs.com/auth</a>
+                {' '}with your email and password to start accepting jobs.
               </p>
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="mb-2">
-                <h2 className="text-xl font-semibold text-foreground mb-1">Apply in 30 seconds</h2>
-                <p className="text-muted-foreground text-sm">Three questions. That's it.</p>
+                <h2 className="text-xl font-semibold text-foreground mb-1">Apply in 60 seconds</h2>
+                <p className="text-muted-foreground text-sm">Creates your worker account — you'll log in here to accept jobs.</p>
               </div>
 
               {/* Photo */}
@@ -215,10 +244,30 @@ export const JoinAsHelper: React.FC = () => {
                 />
               </div>
 
+              {/* Email */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  Email
+                </p>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                  className={cn(
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'placeholder:text-muted-foreground/50',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                    'transition-[border-color,box-shadow] duration-150',
+                  )}
+                />
+              </div>
+
               {/* Phone */}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                  Your phone number
+                  Phone number
                 </p>
                 <input
                   type="tel"
@@ -233,6 +282,29 @@ export const JoinAsHelper: React.FC = () => {
                     'transition-[border-color,box-shadow] duration-150',
                   )}
                 />
+              </div>
+
+              {/* Password */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  Create a password
+                </p>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                  className={cn(
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'placeholder:text-muted-foreground/50',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                    'transition-[border-color,box-shadow] duration-150',
+                  )}
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">You'll use this to log in to your worker dashboard.</p>
               </div>
 
               {/* City */}
@@ -254,7 +326,7 @@ export const JoinAsHelper: React.FC = () => {
 
               <Button
                 type="submit"
-                disabled={submitting || !name.trim() || !phone.trim() || !city || !photo}
+                disabled={submitting || !name.trim() || !email.trim() || !phone.trim() || !city || !photo || !password}
                 className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (

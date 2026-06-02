@@ -50,7 +50,30 @@ const CATEGORIES: Category[] = [
   },
 ];
 
-const WHEN_OPTIONS = ['Today', 'Tomorrow', 'This weekend', "I'm flexible"];
+function getTimeSlots(): string[] {
+  const now = new Date();
+  const slots: string[] = ['Now'];
+
+  // Round up to next 30-min boundary
+  const next = new Date(now);
+  next.setSeconds(0, 0);
+  next.setMinutes(now.getMinutes() < 30 ? 30 : 60);
+
+  const fmt = (d: Date) => {
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const period = h >= 12 ? 'pm' : 'am';
+    const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${period}`;
+  };
+
+  while (next.getHours() < 21) {
+    slots.push(fmt(next));
+    next.setMinutes(next.getMinutes() + 30);
+  }
+
+  return slots;
+}
 
 function getPriceCents(slug: string, size: string): number | null {
   if (slug === 'shopping') return 1200;
@@ -71,7 +94,7 @@ function formatPrice(cents: number): string {
 
 function buildMessage(cat: Category, when: string, size: string, note: string): string {
   const lines: string[] = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
-  if (when) lines.push(`When: ${when}`);
+  if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
   if (size) lines.push(`${cat.sizeLabel || 'Details'}: ${size}`);
   if (note.trim()) lines.push(note.trim());
   lines.push('Can you let me know who is available?');
@@ -326,13 +349,14 @@ export const CategoryGrid: React.FC = () => {
                     <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
                       When?
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {WHEN_OPTIONS.map((opt) => (
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                      {getTimeSlots().map((opt) => (
                         <button
                           key={opt}
                           onClick={() => setWhen(when === opt ? '' : opt)}
                           className={cn(
                             chipBase,
+                            'flex-shrink-0',
                             when === opt
                               ? 'bg-primary text-primary-foreground border-primary'
                               : 'bg-background text-foreground border-border hover:border-primary/40',
