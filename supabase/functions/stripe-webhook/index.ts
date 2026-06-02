@@ -439,35 +439,49 @@ async function handleHouseholdCheckoutCompleted(
     }
   })();
 
-  // Notify admin via WhatsApp — fire and forget
+  // Notify admin via email — fire and forget
   const adminNotifyPromise = (async () => {
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+      if (!resendKey) return;
+      const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
       const b = flipped as {
         customer_name?: string; customer_email?: string; customer_phone?: string;
         category?: string; scheduled_date?: string; city?: string; price_cents?: number;
       };
-      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+      const categoryLabels: Record<string, string> = {
+        shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+        moving: 'Moving help', cleaning: 'Cleaning', other: 'General help',
+      };
+      const cat = categoryLabels[b.category ?? ''] ?? b.category ?? 'Job';
+      const priceStr = b.price_cents ? `€${(b.price_cents / 100).toFixed(2)}` : '?';
+      const ref = bookingId.slice(-8).toUpperCase();
+
+      await fetch('https://api.resend.com/emails', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'new_booking',
-          customer_name: b.customer_name,
-          customer_phone: b.customer_phone,
-          customer_email: b.customer_email,
-          category: b.category,
-          scheduled_date: b.scheduled_date,
-          city: b.city,
-          price_euros: b.price_cents ? (b.price_cents / 100).toFixed(2) : '?',
-          booking_id: bookingId,
+          from: resendFrom,
+          to: ['vano1app@gmail.com'],
+          subject: `💰 New booking — ${cat} in ${b.city ?? '?'} (${priceStr})`,
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+<h2 style="margin:0 0 16px">New paid booking 💰</h2>
+<table style="width:100%;border-collapse:collapse;font-size:15px">
+<tr><td style="padding:6px 0;color:#6b7280">Job</td><td style="padding:6px 0;font-weight:600">${cat}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280">Customer</td><td style="padding:6px 0">${b.customer_name ?? '—'}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280">Phone</td><td style="padding:6px 0">${b.customer_phone ?? '—'}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280">Email</td><td style="padding:6px 0">${b.customer_email ?? '—'}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280">City</td><td style="padding:6px 0">${b.city ?? '—'}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280">When</td><td style="padding:6px 0">${b.scheduled_date ?? 'Flexible'}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280">Paid</td><td style="padding:6px 0;font-weight:600;color:#16a34a">${priceStr}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280">Ref</td><td style="padding:6px 0;font-family:monospace">${ref}</td></tr>
+</table>
+</div>`,
+          text: `New booking!\nJob: ${cat}\nCustomer: ${b.customer_name}\nPhone: ${b.customer_phone ?? '—'}\nEmail: ${b.customer_email ?? '—'}\nCity: ${b.city}\nWhen: ${b.scheduled_date ?? 'Flexible'}\nPaid: ${priceStr}\nRef: ${ref}`,
         }),
       });
     } catch (e) {
-      console.warn('[stripe-webhook] admin WhatsApp notify error', e);
+      console.warn('[stripe-webhook] admin email notify error', e);
     }
   })();
 
