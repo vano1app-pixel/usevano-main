@@ -13,6 +13,19 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
+const CATEGORY_OPTIONS = [
+  { emoji: '🛒', label: 'Shopping & errands',    slug: 'shopping'           },
+  { emoji: '🐕', label: 'Dog walking',            slug: 'dog-walk'           },
+  { emoji: '🌿', label: 'Garden work',            slug: 'garden'             },
+  { emoji: '📦', label: 'Moving help',            slug: 'moving'             },
+  { emoji: '🧹', label: 'Cleaning',               slug: 'cleaning'           },
+  { emoji: '📚', label: 'Tutoring',               slug: 'tutoring'           },
+  { emoji: '📬', label: 'Post office runs',       slug: 'post-office'        },
+  { emoji: '🔧', label: 'Furniture assembly',     slug: 'furniture-assembly' },
+  { emoji: '📱', label: 'Tech help',              slug: 'tech-help'          },
+  { emoji: '🚪', label: 'Wait for deliveries',    slug: 'wait-delivery'      },
+];
+
 const STATS = [
   { value: '€10–€15', label: 'per job' },
   { value: 'Flexible', label: 'your schedule' },
@@ -43,10 +56,18 @@ export const JoinAsHelper: React.FC = () => {
   const [password, setPassword] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [tutorNote, setTutorNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  function toggleCategory(slug: string) {
+    setCategories(prev =>
+      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
+    );
+  }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -60,6 +81,10 @@ export const JoinAsHelper: React.FC = () => {
     if (!name.trim() || !email.trim() || !phone.trim() || !city || !photo || !password) return;
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (categories.length === 0) {
+      setError('Please select at least one job type.');
       return;
     }
     setSubmitting(true);
@@ -102,6 +127,7 @@ export const JoinAsHelper: React.FC = () => {
           phone: phone.trim(),
           city,
           photo_url: publicUrl,
+          categories,
         });
       if (insertError) throw insertError;
 
@@ -328,9 +354,57 @@ export const JoinAsHelper: React.FC = () => {
                 </Select>
               </div>
 
+              {/* Job categories */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                  What jobs do you want to do?
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">Pick everything you're happy to take on.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {CATEGORY_OPTIONS.map(({ emoji, label, slug }) => {
+                    const active = categories.includes(slug);
+                    return (
+                      <button
+                        key={slug}
+                        type="button"
+                        onClick={() => toggleCategory(slug)}
+                        aria-pressed={active}
+                        className={cn(
+                          'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium',
+                          'transition-[background-color,border-color,color] duration-150',
+                          active
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-secondary/60 border-border/50 text-foreground hover:bg-secondary hover:border-border',
+                        )}
+                      >
+                        <span className="text-base leading-none select-none">{emoji}</span>
+                        <span className="leading-tight">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Tutoring sub-field */}
+                {categories.includes('tutoring') && (
+                  <div className="mt-3">
+                    <input
+                      type="text"
+                      value={tutorNote}
+                      onChange={e => setTutorNote(e.target.value)}
+                      placeholder="What levels? e.g. Junior Cert Maths, Leaving Cert Biology"
+                      className={cn(
+                        'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                        'placeholder:text-muted-foreground/50',
+                        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+
               <Button
                 type="submit"
-                disabled={submitting || !name.trim() || !email.trim() || !phone.trim() || !city || !photo || !password}
+                disabled={submitting || !name.trim() || !email.trim() || !phone.trim() || !city || !photo || !password || categories.length === 0}
                 className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (
