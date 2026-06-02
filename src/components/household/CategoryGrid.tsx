@@ -15,36 +15,37 @@ interface Category {
   price:       string;
   sizeLabel:   string;
   sizes:       string[];
+  jobs:        number;
 }
 
 const CATEGORIES: Category[] = [
   {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €10',
+    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €10', jobs: 22,
     sizeLabel: 'What kind?',
     sizes: ['Quick run', 'Big weekly shop', 'Pharmacy + bits'],
   },
   {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15 flat',
+    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15 flat', jobs: 14,
     sizeLabel: 'How long?',
     sizes: ['30 min', '1 hour', '2 hours'],
   },
   {
-    emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €15/hr',
+    emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €15/hr', jobs: 16,
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', 'Half day'],
   },
   {
-    emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €15/hr',
+    emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €15/hr', jobs: 9,
     sizeLabel: 'How much help?',
     sizes: ['2 hours', 'Half day', 'Full day'],
   },
   {
-    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €12/hr',
+    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €12/hr', jobs: 13,
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €12/hr',
+    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €12/hr', jobs: 6,
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', '3 hours'],
   },
@@ -208,19 +209,6 @@ export const CategoryGrid: React.FC = () => {
   return (
     <section id="category-grid" aria-label="What do you need help with?">
 
-      {/* Social proof */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex" aria-label="5 stars">
-          {[0,1,2,3,4].map(i => (
-            <svg key={i} className="w-3.5 h-3.5 text-amber-400 fill-current" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-            </svg>
-          ))}
-        </div>
-        <span className="text-sm font-semibold text-foreground">4.9</span>
-        <span className="text-sm text-muted-foreground">· 80+ jobs done across Ireland</span>
-      </div>
-
       {/* 3-column card grid */}
       <div className="grid grid-cols-3 gap-2.5">
         {CATEGORIES.map((cat) => {
@@ -235,7 +223,7 @@ export const CategoryGrid: React.FC = () => {
               whileTap={{ scale: 0.93 }}
               transition={{ type: 'spring', stiffness: 500, damping: 28 }}
               className={cn(
-                'flex flex-col items-center justify-center gap-1.5',
+                'relative flex flex-col items-center justify-center gap-1.5',
                 'min-h-[90px] rounded-2xl px-2 py-3 border',
                 'transition-[background-color,color,border-color,box-shadow] duration-150',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
@@ -244,6 +232,12 @@ export const CategoryGrid: React.FC = () => {
                   : 'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-border hover:shadow-sm',
               )}
             >
+              <span className={cn(
+                'absolute top-1.5 left-2 text-[10px] font-medium tabular-nums',
+                active ? 'text-primary-foreground/60' : 'text-muted-foreground/50',
+              )}>
+                {cat.jobs}
+              </span>
               <span className="text-2xl leading-none select-none">{cat.emoji}</span>
               <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
               <span className={cn(
@@ -256,6 +250,11 @@ export const CategoryGrid: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Subtle social proof */}
+      <p className="text-center text-[11px] text-muted-foreground/70 mt-2.5">
+        80+ jobs across Ireland · avg 4.6/5 ★
+      </p>
 
       {/* Expanded booking panel */}
       <AnimatePresence>
