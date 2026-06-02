@@ -35,7 +35,7 @@ const STATS = [
 const REQUIREMENTS = [
   'Third-level student (any course)',
   'Based in a supported city',
-  'Clean Garda vetting',
+  'Friendly and trustworthy',
   'Friendly and reliable',
 ];
 

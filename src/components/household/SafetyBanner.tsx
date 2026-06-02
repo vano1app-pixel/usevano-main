@@ -4,7 +4,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { IrelandMap } from './IrelandMap';
 
 const ITEMS = [
-  'Every student Garda vetted',
+  'Every student personally vetted',
   'Not happy? You don\'t pay.',
 ];
 

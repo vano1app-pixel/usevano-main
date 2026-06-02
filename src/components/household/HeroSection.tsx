@@ -3,7 +3,7 @@ import { ShieldCheck, CreditCard, GraduationCap } from 'lucide-react';
 import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
-  { icon: ShieldCheck, text: 'Garda vetted students' },
+  { icon: ShieldCheck, text: 'Verified students' },
   { icon: CreditCard,  text: 'Card held — charged when done' },
   { icon: GraduationCap, text: 'Every booking pays a student' },
 ];
