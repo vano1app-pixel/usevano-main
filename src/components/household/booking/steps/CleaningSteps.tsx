@@ -24,11 +24,10 @@ export const CleaningTasksStep: React.FC<StepProps> = ({ data, onChange, onNext 
       </h2>
       <p className="text-muted-foreground text-sm mb-5">Pick everything that applies.</p>
 
-      {/* Duo safety note — inline, not a modal */}
       <div className="flex items-start gap-3 bg-sage-light rounded-xl px-4 py-3 mb-5">
         <Shield className="w-4 h-4 text-sage mt-0.5 flex-shrink-0" />
         <p className="text-xs text-foreground/70 leading-relaxed">
-          <span className="font-semibold text-foreground">Duo system:</span> We always send two students for indoor jobs.
+          <span className="font-semibold text-foreground">Verified students:</span> You'll see your helper's photo and name before they arrive.
         </p>
       </div>
 

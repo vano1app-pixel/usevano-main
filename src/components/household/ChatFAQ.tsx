@@ -9,7 +9,7 @@ interface QAPair {
 const FAQ: QAPair[] = [
   {
     q: 'Is it safe to have a student in my home?',
-    a: 'Every student is verified through ATU. For indoor jobs we always send two together — our duo rule.',
+    a: 'Every student is personally verified before their first job. You can see their photo and name before they arrive.',
   },
   {
     q: "What if I'm not happy?",
