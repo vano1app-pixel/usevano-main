@@ -1,11 +1,11 @@
 import React from 'react';
-import { ShieldCheck, CreditCard, Clock } from 'lucide-react';
+import { ShieldCheck, CreditCard, GraduationCap } from 'lucide-react';
 import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
   { icon: ShieldCheck, text: 'Garda vetted students' },
   { icon: CreditCard,  text: 'Card held — charged when done' },
-  { icon: Clock,       text: 'Available today' },
+  { icon: GraduationCap, text: 'Every booking pays a student' },
 ];
 
 export const HeroSection: React.FC = () => {
