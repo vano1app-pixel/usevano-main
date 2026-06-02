@@ -257,7 +257,7 @@ const TrackBooking = () => {
               <div className="flex-1">
                 <p className="font-semibold text-foreground text-sm">Payment confirmed!</p>
                 <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
-                  Tap below to message us on WhatsApp — we'll confirm your helper straight away.
+                  Tap below and send us a quick WhatsApp — we'll confirm who's coming and when within minutes.
                 </p>
                 {bookingId && (
                   <p className="text-muted-foreground text-xs mt-1 font-mono tracking-wide">
@@ -266,7 +266,7 @@ const TrackBooking = () => {
                 )}
                 <a
                   href={`https://wa.me/353899817111?text=${encodeURIComponent(
-                    `Hi VANO! 👋 I just paid for a booking.\n\nRef: ${bookingId ? bookingId.slice(-8).toUpperCase() : '?'}\nJob: ${booking ? formatCategory(booking.category) : '?'}\nWhen: ${booking ? formatDate(booking.scheduled_date) : '?'}\nCity: ${booking?.city ?? '?'}\n\nPlease confirm my helper!`
+                    `Hi! I just booked a ${booking ? formatCategory(booking.category).toLowerCase() : 'job'} through VANO 👋\n\nRef: ${bookingId ? bookingId.slice(-8).toUpperCase() : '?'}\nWhen: ${booking ? formatDate(booking.scheduled_date) : '?'}\nCity: ${booking?.city ?? '?'}\n\nJust checking you got it — when can I expect someone?`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

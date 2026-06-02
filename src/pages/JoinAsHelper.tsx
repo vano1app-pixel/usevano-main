@@ -221,13 +221,13 @@ export const JoinAsHelper: React.FC = () => {
               className="bg-sage-light rounded-2xl p-8 text-center"
             >
               <CheckCircle className="w-12 h-12 text-sage mx-auto mb-4" />
-              <h2 className="font-bold text-foreground text-xl mb-2">Almost done!</h2>
+              <h2 className="font-bold text-foreground text-xl mb-2">One last step! 🎉</h2>
               <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-                One last step — tap the button below to send us your details on WhatsApp so we can add you to the team group.
+                Send us a quick WhatsApp below so we can add you to the team group and get you your first job.
               </p>
               <a
                 href={`https://wa.me/353899817111?text=${encodeURIComponent(
-                  `Hi VANO! 👋 I just signed up as a helper.\n\nName: ${name}\nPhone: ${phone}\nCity: ${city}\nJobs: ${categories.join(', ')}${tutorSubjects.length ? `\nSubjects: ${tutorSubjects.join(', ')}` : ''}${tutorLevels.length ? `\nLevels: ${tutorLevels.join(', ')}` : ''}`
+                  `Hi! I just signed up to be a VANO helper 👋\n\nName: ${name}\nPhone: ${phone}\nCity: ${city}\nAvailable for: ${categories.join(', ')}${tutorSubjects.length ? `\nTutor subjects: ${tutorSubjects.join(', ')}` : ''}${tutorLevels.length ? `\nLevels: ${tutorLevels.join(', ')}` : ''}\n\nLooking forward to getting started!`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
