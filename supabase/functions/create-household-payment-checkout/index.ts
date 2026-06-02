@@ -25,17 +25,25 @@ const VALID_CATEGORIES = [
 type Category = typeof VALID_CATEGORIES[number];
 
 function computePriceCents(category: Category, sizeLabel: string): number | null {
-  if (category === 'shopping') return 1000;
-  if (category === 'dog-walk') return 1500;
-  if (category === 'post-office') return 1000;
-  if (category === 'wait-delivery') return 1000;
+  if (category === 'shopping')      return 1200; // €12 flat
+  if (category === 'post-office')   return 1000; // €10 flat
+  if (category === 'wait-delivery') return 1000; // €10 flat
+  if (category === 'dog-walk') {
+    // 30-min walk = €15, 1-hour walk = €20 (default)
+    return sizeLabel === '30 min' ? 1500 : 2000;
+  }
   const key = `${category}|${sizeLabel}`;
   const map: Record<string, number> = {
-    'garden|1 hour': 1500,              'garden|2 hours': 3000,             'garden|Half day': 4500,
-    'moving|2 hours': 3000,             'moving|Half day': 4500,            'moving|Full day': 9000,
-    'cleaning|1 hour': 1200,            'cleaning|2 hours': 2400,           'cleaning|3 hours': 3600,
-    'furniture-assembly|1 hour': 1500,  'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
-    'tech-help|1 hour': 1500,           'tech-help|2 hours': 3000,
+    // Garden — €18/hr
+    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
+    // Moving — €18/hr per helper (duration only; helper count handled client-side)
+    'moving|2 hours': 3600,  'moving|Half day': 5400,  'moving|Full day': 10800,
+    // Cleaning — €16/hr
+    'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200, 'cleaning|3 hours': 4800,
+    // Furniture assembly — €15/hr
+    'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
+    // Tech help — €15/hr
+    'tech-help|1 hour': 1500, 'tech-help|2 hours': 3000,
   };
   return map[key] ?? null;
 }

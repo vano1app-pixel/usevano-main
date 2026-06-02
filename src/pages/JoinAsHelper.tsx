@@ -27,7 +27,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 const STATS = [
-  { value: '€10–€15', label: 'per job' },
+  { value: '€12–€25', label: 'per job' },
   { value: 'Flexible', label: 'your schedule' },
   { value: 'Same day', label: 'pay by Revolut' },
 ];
@@ -35,9 +35,15 @@ const STATS = [
 const REQUIREMENTS = [
   'Third-level student (any course)',
   'Based in a supported city',
-  'Clean Garda vetting',
-  'Friendly and reliable',
+  'Friendly and trustworthy',
 ];
+
+const TUTOR_SUBJECTS = [
+  'Maths', 'English', 'Irish', 'Science', 'Biology', 'Chemistry', 'Physics',
+  'History', 'Geography', 'French', 'Spanish', 'Engineering', 'Business', 'Accounting',
+];
+
+const TUTOR_LEVELS = ['Primary', 'Junior Cert', 'Leaving Cert', 'Third Level'];
 
 const JOBS = [
   { emoji: '🛒', label: 'Shopping runs' },
@@ -57,7 +63,8 @@ export const JoinAsHelper: React.FC = () => {
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
-  const [tutorNote, setTutorNote] = useState('');
+  const [tutorSubjects, setTutorSubjects] = useState<string[]>([]);
+  const [tutorLevels, setTutorLevels] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +79,10 @@ export const JoinAsHelper: React.FC = () => {
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setError('Photo must be under 8 MB.');
+      return;
+    }
     setPhoto(file);
     setPreview(URL.createObjectURL(file));
   }
@@ -128,6 +139,9 @@ export const JoinAsHelper: React.FC = () => {
           city,
           photo_url: publicUrl,
           categories,
+          ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
+            ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
+            : {}),
         });
       if (insertError) throw insertError;
 
@@ -383,20 +397,65 @@ export const JoinAsHelper: React.FC = () => {
                   })}
                 </div>
 
-                {/* Tutoring sub-field */}
+                {/* Tutoring sub-fields */}
                 {categories.includes('tutoring') && (
-                  <div className="mt-3">
-                    <input
-                      type="text"
-                      value={tutorNote}
-                      onChange={e => setTutorNote(e.target.value)}
-                      placeholder="What levels? e.g. Junior Cert Maths, Leaving Cert Biology"
-                      className={cn(
-                        'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
-                        'placeholder:text-muted-foreground/50',
-                        'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
-                      )}
-                    />
+                  <div className="mt-4 space-y-4 bg-background/60 rounded-xl border border-border/50 p-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                        Subjects
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {TUTOR_SUBJECTS.map(subject => {
+                          const active = tutorSubjects.includes(subject);
+                          return (
+                            <button
+                              key={subject}
+                              type="button"
+                              onClick={() => setTutorSubjects(prev =>
+                                prev.includes(subject) ? prev.filter(s => s !== subject) : [...prev, subject]
+                              )}
+                              aria-pressed={active}
+                              className={cn(
+                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150',
+                                active
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background border-border/60 text-foreground hover:border-primary/40',
+                              )}
+                            >
+                              {subject}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                        Levels
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {TUTOR_LEVELS.map(level => {
+                          const active = tutorLevels.includes(level);
+                          return (
+                            <button
+                              key={level}
+                              type="button"
+                              onClick={() => setTutorLevels(prev =>
+                                prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]
+                              )}
+                              aria-pressed={active}
+                              className={cn(
+                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150',
+                                active
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background border-border/60 text-foreground hover:border-primary/40',
+                              )}
+                            >
+                              {level}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
