@@ -18,11 +18,10 @@ export const SafetyBanner: React.FC = () => {
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         <iframe
           title="Galway map"
-          src="https://maps.google.com/maps?q=Galway+City,Ireland&t=&z=13&ie=UTF8&iwloc=&output=embed"
+          src="https://www.openstreetmap.org/export/embed.html?bbox=-9.1500%2C53.2500%2C-8.9000%2C53.3500&layer=mapnik"
           className="w-full h-full border-0"
-          style={{ opacity: 0.13, filter: 'grayscale(40%)' }}
+          style={{ opacity: 0.12, filter: 'grayscale(60%)' }}
           loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
         />
       </div>
 
