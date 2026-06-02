@@ -376,7 +376,7 @@ async function handleHouseholdCheckoutCompleted(
     })
     .eq('id', bookingId)
     .eq('status', 'awaiting_payment')
-    .select('id, customer_name, customer_email, category, scheduled_date')
+    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_cents')
     .maybeSingle();
 
   if (error) {
@@ -439,10 +439,45 @@ async function handleHouseholdCheckoutCompleted(
     }
   })();
 
+  // Notify admin via WhatsApp — fire and forget
+  const adminNotifyPromise = (async () => {
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const b = flipped as {
+        customer_name?: string; customer_email?: string; customer_phone?: string;
+        category?: string; scheduled_date?: string; city?: string; price_cents?: number;
+      };
+      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'new_booking',
+          customer_name: b.customer_name,
+          customer_phone: b.customer_phone,
+          customer_email: b.customer_email,
+          category: b.category,
+          scheduled_date: b.scheduled_date,
+          city: b.city,
+          price_euros: b.price_cents ? (b.price_cents / 100).toFixed(2) : '?',
+          booking_id: bookingId,
+        }),
+      });
+    } catch (e) {
+      console.warn('[stripe-webhook] admin WhatsApp notify error', e);
+    }
+  })();
+
   const runtime = (globalThis as unknown as {
     EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
   }).EdgeRuntime;
-  if (runtime?.waitUntil) runtime.waitUntil(emailPromise);
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(emailPromise);
+    runtime.waitUntil(adminNotifyPromise);
+  }
 
   return new Response(
     JSON.stringify({ received: true, triggered: 'household_booking', state: 'pending' }),

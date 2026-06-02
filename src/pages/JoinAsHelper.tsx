@@ -145,6 +145,21 @@ export const JoinAsHelper: React.FC = () => {
         });
       if (insertError) throw insertError;
 
+      // Notify admin via WhatsApp — fire and forget
+      supabase.functions.invoke('notify-admin-whatsapp', {
+        body: {
+          type: 'new_student',
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim().toLowerCase(),
+          city,
+          categories,
+          tutor_subjects: tutorSubjects,
+          tutor_levels: tutorLevels,
+          photo_url: publicUrl,
+        },
+      }).catch(() => {/* non-critical */});
+
       setSubmitted(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
