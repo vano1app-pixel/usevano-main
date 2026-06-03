@@ -1,13 +1,11 @@
 import React from 'react';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
-import { WhatsAppBlock } from '@/components/household/WhatsAppBlock';
+import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HowItWorks } from '@/components/household/HowItWorks';
 import { HelperCards } from '@/components/household/HelperCards';
-import { SafetyBanner } from '@/components/household/SafetyBanner';
 import { TaskShowcase } from '@/components/household/TaskShowcase';
 import { PricingTable } from '@/components/household/PricingTable';
-import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { ChatFAQ } from '@/components/household/ChatFAQ';
 import { ElderlyPitch } from '@/components/household/ElderlyPitch';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
@@ -25,14 +23,11 @@ const HouseholdHome: React.FC = () => {
 
       <main>
         <HeroSection />
-        <WhatsAppBlock />
-        <div className="pt-24 lg:pt-32" />
+        <ReviewCarousel />
         <HowItWorks />
         <HelperCards />
-        <SafetyBanner />
         <TaskShowcase />
         <PricingTable />
-        <ReviewCarousel />
         <ChatFAQ />
         <ElderlyPitch />
         <HouseholdFooter />

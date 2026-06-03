@@ -1,11 +1,11 @@
 import React from 'react';
-import { ShieldCheck, CreditCard, GraduationCap } from 'lucide-react';
+import { ShieldCheck, Zap, ThumbsUp } from 'lucide-react';
 import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
-  { icon: ShieldCheck, text: 'Verified students' },
-  { icon: CreditCard,  text: 'Card held — charged when done' },
-  { icon: GraduationCap, text: 'Every booking pays a student' },
+  { icon: ShieldCheck, text: 'Every student personally verified' },
+  { icon: Zap,         text: 'Available same-day across Galway' },
+  { icon: ThumbsUp,    text: "Not happy? You don't pay." },
 ];
 
 export const HeroSection: React.FC = () => {
@@ -18,14 +18,20 @@ export const HeroSection: React.FC = () => {
 
           {/* Left */}
           <div className="mb-7 lg:mb-0 lg:pt-6">
+            {/* Availability pill */}
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 mb-5 lg:mb-6">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
+              <span className="text-xs font-semibold text-emerald-700 tracking-wide">Helpers available in Galway now</span>
+            </div>
+
             <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-3 sm:text-[2.8rem] lg:text-6xl lg:mb-5">
-              Hire a student<br />helper, today.
+              Local help,<br />from €12.
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base lg:text-lg mb-5 lg:mb-8 max-w-xs lg:max-w-sm">
-              Vetted students across Galway
+              Shopping, garden, cleaning and more — vetted students, sorted today.
             </p>
 
-            {/* Trust badges — wrap horizontally on mobile to save vertical space */}
+            {/* Trust badges */}
             <ul className="flex flex-wrap gap-x-4 gap-y-2 lg:flex-col lg:gap-2.5">
               {TRUST.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-center gap-2 text-xs sm:text-sm text-foreground/70">

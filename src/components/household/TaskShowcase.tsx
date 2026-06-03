@@ -378,7 +378,7 @@ export const TaskShowcase: React.FC = () => {
                     </Button>
                     {!when && <p className="text-center text-xs text-muted-foreground !mt-1.5">Pick a time above to continue</p>}
                     {error && <p className="text-center text-xs text-destructive">{error}</p>}
-                    {canBook && <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · Card held, only charged when done</p>}
+                    {canBook && <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · paid upfront, confirmed instantly</p>}
                   </motion.form>
                 )}
               </AnimatePresence>
