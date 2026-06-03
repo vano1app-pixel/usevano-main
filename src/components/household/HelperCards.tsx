@@ -15,9 +15,9 @@ const PLACEHOLDERS = [
   { name: 'Emma',  city: 'Galway', tagline: 'Great with dogs and older clients',  rating: 4.9, jobs: 23, photo: 'https://randomuser.me/api/portraits/women/26.jpg' },
   { name: 'Cian',  city: 'Galway', tagline: 'Fast, reliable, Knocknacarra local',  rating: 4.8, jobs: 41, photo: 'https://randomuser.me/api/portraits/men/41.jpg'   },
   { name: 'Aoife', city: 'Galway', tagline: 'Flat-pack, garden, errands — sorted', rating: 5.0, jobs: 17, photo: 'https://randomuser.me/api/portraits/women/44.jpg' },
-  { name: 'Seán',  city: 'Dublin', tagline: 'Garden and moving specialist',        rating: 4.9, jobs: 35, photo: 'https://randomuser.me/api/portraits/men/22.jpg'   },
-  { name: 'Niamh', city: 'Cork',   tagline: 'Patient, thorough, great craic',      rating: 5.0, jobs: 12, photo: 'https://randomuser.me/api/portraits/women/68.jpg' },
-  { name: 'Liam',  city: 'Dublin', tagline: 'Tech help and general errands',       rating: 4.7, jobs: 28, photo: 'https://randomuser.me/api/portraits/men/55.jpg'   },
+  { name: 'Seán',  city: 'Galway', tagline: 'Garden and moving specialist',        rating: 4.9, jobs: 35, photo: 'https://randomuser.me/api/portraits/men/22.jpg'   },
+  { name: 'Niamh', city: 'Galway', tagline: 'Patient, thorough, great craic',      rating: 5.0, jobs: 12, photo: 'https://randomuser.me/api/portraits/women/68.jpg' },
+  { name: 'Liam',  city: 'Galway', tagline: 'Tech help and general errands',       rating: 4.7, jobs: 28, photo: 'https://randomuser.me/api/portraits/men/55.jpg'   },
 ];
 
 function Card({ name, photo, city, rating, jobs }: {

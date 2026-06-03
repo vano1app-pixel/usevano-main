@@ -18,7 +18,7 @@ export const StickyBookBar: React.FC = () => (
     <div className="border-t border-border/60 bg-background/96 backdrop-blur-xl px-4 py-3 flex items-center justify-between gap-4">
       <div className="leading-tight">
         <p className="font-semibold text-foreground text-sm">From €12</p>
-        <p className="text-muted-foreground text-xs">Ireland · vetted students</p>
+        <p className="text-muted-foreground text-xs">Galway · vetted students</p>
       </div>
       <Button
         onClick={openWhatsApp}
