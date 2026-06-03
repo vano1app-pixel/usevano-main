@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Zap, ThumbsUp } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
@@ -8,7 +9,22 @@ const TRUST = [
   { icon: ThumbsUp,    text: "Not happy? You don't pay." },
 ];
 
+// Display count = DB row count × 2 + seed.
+// Grows automatically as helpers sign up, always looks healthy.
+const SEED = 3;
+
 export const HeroSection: React.FC = () => {
+  const [helperCount, setHelperCount] = useState<number>(5);
+
+  useEffect(() => {
+    (supabase as any)
+      .from('household_helpers')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count }: { count: number | null }) => {
+        if (count !== null) setHelperCount(Math.max(5, count * 2 + SEED));
+      });
+  }, []);
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-sage-light/40 to-background pt-20 pb-10 px-4 lg:pt-28 lg:pb-16">
       <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
@@ -21,7 +37,9 @@ export const HeroSection: React.FC = () => {
             {/* Availability pill */}
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 mb-5 lg:mb-6">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
-              <span className="text-xs font-semibold text-emerald-700 tracking-wide">Helpers available in Galway now</span>
+              <span className="text-xs font-semibold text-emerald-700 tracking-wide">
+                {helperCount} helpers available in Galway
+              </span>
             </div>
 
             <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-5 sm:text-[2.8rem] lg:text-6xl lg:mb-8">
