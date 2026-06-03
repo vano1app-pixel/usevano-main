@@ -20,7 +20,7 @@ export const StickyBookBar: React.FC = () => (
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
           <p className="text-xs text-emerald-700 font-semibold">Helpers available now</p>
         </div>
-        <p className="font-semibold text-foreground text-sm">From €12 · Galway</p>
+        <p className="font-semibold text-foreground text-sm">From €15 · Galway</p>
       </div>
       <Button
         onClick={scrollToGrid}

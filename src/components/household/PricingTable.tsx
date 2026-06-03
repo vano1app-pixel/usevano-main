@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const PRICES = [
-  { emoji: '🛒', label: 'Shopping run',     price: '€12 flat'   },
+  { emoji: '🛒', label: 'Shopping run',     price: '€15 flat'   },
   { emoji: '🐕', label: 'Dog walk',          price: '€15–€20'    },
-  { emoji: '🌿', label: 'Garden work',       price: '€18/hr'     },
+  { emoji: '🌿', label: 'Garden work',       price: '€18–€72'    },
   { emoji: '📦', label: 'Moving help',       price: '€18/hr per helper' },
   { emoji: '🧹', label: 'Cleaning',          price: '€16/hr'     },
-  { emoji: '✨', label: 'General errands',   price: '€15 flat'   },
-  { emoji: '⚡', label: 'Express (≤1 hr)',   price: '€25/hr',  express: true },
+  { emoji: '✨', label: 'General errands',   price: 'from €15'   },
+  { emoji: '⚡', label: 'Express (≤1 hr)',   price: '€25',     express: true },
 ];
 
 const WEEKLY_FEATURES = [
@@ -107,7 +107,7 @@ export const PricingTable: React.FC = () => {
           className="rounded-full px-8 font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
         >
           <ArrowDown className="w-4 h-4" aria-hidden="true" />
-          Book from €12
+          Book from €15
         </Button>
       </div>
     </section>

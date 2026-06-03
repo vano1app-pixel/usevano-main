@@ -52,19 +52,21 @@ function formatSlot(slot: string): string {
 function getPriceEstimate(data: BookingData): string {
   switch (data.category) {
     case 'shopping':
-      return data.isExpress ? '€25 (express)' : '€12 flat';
+      return data.isExpress ? '€25 (express)' : '€15 flat';
     case 'dog-walk': {
       const base = data.walkDuration === '30min' ? 15 : 20;
       const count = data.dogCount ?? 1;
-      return `€${base * count}`;
+      return `€${base * count}${count > 1 ? ` (${count} dogs)` : ''}`;
     }
     case 'garden': {
-      const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€54' };
+      const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€72' };
       return data.gardenDuration ? prices[data.gardenDuration] : '€18+';
     }
     case 'moving': {
+      const durationPrices: Record<string, number> = { '1hr': 18, '2hr': 36, '3hr': 54, '4hr': 72 };
+      const perHelper = data.movingDuration ? (durationPrices[data.movingDuration] ?? 36) : 36;
       const helpers = data.helperCount ?? 1;
-      return `€18/hr × ${helpers} helper${helpers > 1 ? 's' : ''}`;
+      return `€${perHelper * helpers}${helpers > 1 ? ` (${helpers} helpers)` : ''}`;
     }
     case 'cleaning': {
       const hrs: Record<string, number> = { '1hr': 1, '2hr': 2, '3hr': 3 };
@@ -72,7 +74,7 @@ function getPriceEstimate(data: BookingData): string {
       return `€${h * 16}`;
     }
     case 'other':
-      return data.pricingType === 'flat' ? '€15 flat' : 'from €15/hr';
+      return data.pricingType === 'hourly' ? '€25' : '€15 flat';
     default:
       return 'To be confirmed';
   }
@@ -113,6 +115,9 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
             gardenDuration: data.gardenDuration,
             helperCount: data.helperCount,
             movingDuration: data.movingDuration,
+            fromAddress: data.fromAddress,
+            toAddress: data.toAddress,
+            movingDescription: data.movingDescription,
             cleaningTasks: data.cleaningTasks,
             cleaningDuration: data.cleaningDuration,
             pricingType: data.pricingType,
@@ -143,7 +148,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
   return (
     <div className="px-4 pt-8 pb-28 max-w-sm mx-auto">
       <h2 className="text-3xl font-bold tracking-tight text-foreground mb-1">Confirm booking</h2>
-      <p className="text-muted-foreground text-sm mb-6">Card authorised now, only charged when the job is done.</p>
+      <p className="text-muted-foreground text-sm mb-6">Secure card payment. Price confirmed upfront — no surprises.</p>
 
       {/* Booking summary */}
       <div className="bg-secondary/40 border border-border/40 rounded-2xl p-4 mb-6">
@@ -265,8 +270,8 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
       <div className="flex items-center gap-2 bg-sage-light border border-sage/20 rounded-xl px-4 py-3 mb-6">
         <Lock size={14} className="text-sage flex-shrink-0" />
         <p className="text-xs text-foreground/70 leading-relaxed">
-          Card is <strong>authorised now</strong> and only charged when your helper completes the job.
-          Cancel any time before they accept for a full refund.
+          Payment is taken <strong>securely at checkout</strong>. Price is agreed upfront.
+          Cancel before a helper accepts for a full refund.
         </p>
       </div>
 

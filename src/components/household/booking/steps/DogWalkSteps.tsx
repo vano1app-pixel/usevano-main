@@ -45,7 +45,7 @@ export const DogDurationStep: React.FC<StepProps> = ({ data, onChange, onNext })
       </h2>
       {(data.dogCount ?? 1) > 1 && (
         <p className="text-muted-foreground text-sm mb-6">
-          Price shown is per dog × {data.dogCount} dogs.
+          Price is per dog — you have {data.dogCount}, so multiply by {data.dogCount}.
         </p>
       )}
       {(data.dogCount ?? 1) === 1 && <div className="mb-8" />}

@@ -20,7 +20,7 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €12',
+    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €15',
     description: 'We shop any store, follow your list, and deliver to your door.',
   },
   {
@@ -35,8 +35,8 @@ const CATEGORIES: Category[] = [
   },
   {
     emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €18/hr',
-    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
-    sizeLabel: 'How much?', sizes: ['2 hours', 'Half day', 'Full day'],
+    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting. Price for 1 helper; need more? Book via WhatsApp.',
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
   },
   {
     emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €16/hr',
@@ -44,7 +44,7 @@ const CATEGORIES: Category[] = [
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €12/hr',
+    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €15/hr',
     description: 'One-to-one at your home. Any subject — Maths, science, languages.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
@@ -70,14 +70,14 @@ function getTimeSlots(): string[] {
 }
 
 function getPriceCents(slug: string, size: string): number | null {
-  if (slug === 'shopping') return 1200;
+  if (slug === 'shopping') return 1500;
   if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
   const key = `${slug}|${size}`;
   const map: Record<string, number> = {
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
-    'moving|2 hours': 3600,  'moving|Half day': 5400,   'moving|Full day': 10800,
+    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 7200,
+    'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4+ hours': 7200,
     'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800,
-    'tutoring|1 hour': 1200, 'tutoring|2 hours': 2400,  'tutoring|3 hours': 3600,
+    'tutoring|1 hour': 1500, 'tutoring|2 hours': 3000,  'tutoring|3 hours': 4500,
   };
   return map[key] ?? null;
 }
@@ -119,6 +119,7 @@ export const CategoryGrid: React.FC = () => {
   const [note, setNote]           = useState('');
   const [name, setName]           = useState('');
   const [phone, setPhone]         = useState('');
+  const [email, setEmail]         = useState('');
   const [city, setCity]           = useState('');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
@@ -139,7 +140,7 @@ export const CategoryGrid: React.FC = () => {
     setDir(d);
     setView(v);
     if (cat) { setSelected(cat); setWhen(''); setSize(''); setNote(''); }
-    if (v === 'grid') { setSelected(null); setWhen(''); setSize(''); setNote(''); setName(''); setPhone(''); setCity(''); setError(null); }
+    if (v === 'grid') { setSelected(null); setWhen(''); setSize(''); setNote(''); setName(''); setPhone(''); setEmail(''); setCity(''); setError(null); }
     if (v !== 'grid' && v !== 'contact') { setError(null); }
   }
 
@@ -163,7 +164,7 @@ export const CategoryGrid: React.FC = () => {
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
-        { body: { category: selected.slug, when_label: when, size_label: size, note: note.trim(), customer_name: name.trim(), customer_phone: phone.trim(), city } },
+        { body: { category: selected.slug, when_label: when, size_label: size, note: note.trim(), customer_name: name.trim(), customer_phone: phone.trim(), customer_email: email.trim() || null, city } },
       );
       if (fnErr || !data?.checkout_url) throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       window.location.href = data.checkout_url as string;
@@ -212,14 +213,16 @@ export const CategoryGrid: React.FC = () => {
               {!selected && (
                 <button
                   onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
-                  className="mt-3 w-full rounded-2xl bg-sage-light/70 border border-sage/20 px-4 py-3 flex items-center gap-3 hover:bg-sage-light transition-colors duration-150 group"
+                  className="mt-4 w-full rounded-2xl bg-[#25D366]/10 border border-[#25D366]/30 px-4 py-4 flex items-center gap-4 hover:bg-[#25D366]/15 active:scale-[0.98] transition-[background-color,transform] duration-150"
                 >
-                  <MessageCircle className="w-4 h-4 text-sage flex-shrink-0" aria-hidden="true" />
-                  <span className="flex-1 text-left">
-                    <span className="block text-xs font-semibold text-foreground">Something else?</span>
-                    <span className="block text-xs text-muted-foreground">Chat to us on WhatsApp</span>
+                  <span className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
+                    <MessageCircle className="w-4 h-4 text-white" aria-hidden="true" />
                   </span>
-                  <span className="text-xs text-sage font-medium opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+                  <span className="flex-1 text-left">
+                    <span className="block text-sm font-semibold text-foreground">Need something else?</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">Chat to us on WhatsApp — we'll sort it</span>
+                  </span>
+                  <span className="text-[#25D366] text-lg font-bold leading-none">→</span>
                 </button>
               )}
             </motion.div>
@@ -323,6 +326,8 @@ export const CategoryGrid: React.FC = () => {
                 <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Your phone number" required
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email (for your receipt)"
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
                 <Select value={city} onValueChange={setCity}>
                   <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Your city" /></SelectTrigger>

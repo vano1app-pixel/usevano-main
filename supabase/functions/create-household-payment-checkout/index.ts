@@ -5,8 +5,7 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 // Public (no-auth) entry point for the CategoryGrid quick-booking flow.
 // Validates inputs, prices the booking server-side (prevents client tampering),
 // inserts an anonymous household_bookings row, then opens a Stripe Checkout
-// session with manual capture so the card is only charged when the student
-// marks the job complete (via capture-household-payment).
+// session with automatic capture — charged immediately at checkout.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -21,22 +20,22 @@ const VALID_CATEGORIES = [
 type Category = typeof VALID_CATEGORIES[number];
 
 function computePriceCents(category: Category, sizeLabel: string): number | null {
-  if (category === 'shopping')      return 1200; // €12 flat
+  if (category === 'shopping')      return 1500; // €15 flat
   if (category === 'post-office')   return 1000; // €10 flat
   if (category === 'wait-delivery') return 1000; // €10 flat
   if (category === 'dog-walk') {
-    return sizeLabel === '30 min' ? 1500 : 2000;
+    return sizeLabel === '30 min' ? 1500 : 2000; // €15 or €20 (1 dog; quick flow)
   }
   const key = `${category}|${sizeLabel}`;
   const map: Record<string, number> = {
-    // Garden — €18/hr
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
-    // Moving — €18/hr per helper
-    'moving|2 hours': 3600,  'moving|Half day': 5400,  'moving|Full day': 10800,
+    // Garden — €18/hr; half-day = 4hrs = €72
+    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 7200,
+    // Moving — €18/hr (1 helper assumed; multi-helper via WhatsApp)
+    'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4+ hours': 7200,
     // Cleaning — €16/hr
     'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200, 'cleaning|3 hours': 4800,
-    // Tutoring — €12/hr
-    'tutoring|1 hour': 1200, 'tutoring|2 hours': 2400, 'tutoring|3 hours': 3600,
+    // Tutoring — €15/hr
+    'tutoring|1 hour': 1500, 'tutoring|2 hours': 3000, 'tutoring|3 hours': 4500,
     // Furniture assembly — €15/hr
     'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
     // Tech help — €15/hr
@@ -78,7 +77,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, note, customer_name, customer_phone, city } = body;
+    const { category, when_label, size_label, note, customer_name, customer_phone, customer_email, city } = body;
 
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
       return bad(400, 'Invalid category');
@@ -108,6 +107,7 @@ serve(async (req) => {
         customer_name: customer_name.trim(),
         customer_address: typeof note === 'string' && note.trim() ? note.trim() : 'Not provided',
         customer_phone: customer_phone.trim(),
+        ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
         booking_data: {
           when_label: when_label || null,
           size_label: sl || null,
@@ -141,6 +141,7 @@ serve(async (req) => {
       'payment_intent_data[capture_method]': 'automatic',
       'payment_intent_data[metadata][household_booking_id]': bookingId,
       'phone_number_collection[enabled]': 'true',
+      ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
       success_url: `${origin}/track/${bookingId}?paid=true`,
       cancel_url: `${origin}/`,
       'metadata[household_booking_id]': bookingId,

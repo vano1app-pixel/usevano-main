@@ -79,7 +79,7 @@ export const GardenDurationStep: React.FC<StepProps> = ({ data, onChange, onNext
   const options = [
     { id: '1hr'      as const, label: '1 hour',    price: '€18',  sub: 'Light tidying'         },
     { id: '2hr'      as const, label: '2 hours',   price: '€36',  sub: 'Thorough session'      },
-    { id: 'half-day' as const, label: 'Half day',  price: '€54',  sub: 'Full garden overhaul'  },
+    { id: 'half-day' as const, label: 'Half day',  price: '€72',  sub: 'Full garden overhaul'  },
   ];
 
   return (

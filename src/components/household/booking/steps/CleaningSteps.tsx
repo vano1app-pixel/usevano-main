@@ -78,7 +78,7 @@ export const CleaningDurationStep: React.FC<StepProps> = ({ data, onChange, onNe
       <h2 className="text-3xl font-bold tracking-tight text-foreground mb-2">
         How long?
       </h2>
-      <p className="text-muted-foreground text-sm mb-8">Two students means twice the speed.</p>
+      <p className="text-muted-foreground text-sm mb-8">Pick what suits your home size.</p>
 
       <div className="flex flex-col gap-3">
         {options.map((opt) => (

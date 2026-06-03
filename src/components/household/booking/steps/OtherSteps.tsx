@@ -54,7 +54,7 @@ export const OtherDescriptionStep: React.FC<StepProps> = ({ data, onChange, onNe
 export const OtherPricingStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
   const options = [
     { id: 'flat'   as const, label: '€15 flat',   sub: 'Short, fixed tasks under ~45 min' },
-    { id: 'hourly' as const, label: 'from €15/hr', sub: 'Longer or open-ended tasks'       },
+    { id: 'hourly' as const, label: '€25 (open task)', sub: 'Longer or open-ended tasks'  },
   ];
 
   return (
