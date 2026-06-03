@@ -181,7 +181,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
             onChange={(e) => onChange({ customerName: e.target.value })}
             onBlur={() => setTouched((t) => ({ ...t, name: true }))}
             className={cn(
-              'rounded-xl h-11',
+              'rounded-xl h-12 text-base',
               touched.name && errors.name ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
@@ -204,7 +204,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
             onChange={(e) => onChange({ customerPhone: e.target.value })}
             onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
             className={cn(
-              'rounded-xl h-11',
+              'rounded-xl h-12 text-base',
               touched.phone && errors.phone ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
@@ -224,7 +224,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
           >
             <SelectTrigger
               className={cn(
-                'rounded-xl h-11',
+                'rounded-xl h-12 text-base',
                 touched.city && errors.city ? 'border-destructive focus:ring-destructive' : '',
               )}
             >
@@ -254,7 +254,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
             onChange={(e) => onChange({ customerAddress: e.target.value })}
             onBlur={() => setTouched((t) => ({ ...t, address: true }))}
             className={cn(
-              'rounded-xl h-11',
+              'rounded-xl h-12 text-base',
               touched.address && errors.address ? 'border-destructive focus-visible:ring-destructive' : '',
             )}
           />
