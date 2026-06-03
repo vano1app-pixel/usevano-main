@@ -36,10 +36,10 @@ interface BookingData {
   description?: string;
 }
 
-function computePriceCents(data: BookingData, _isExpress: boolean): number {
+function computePriceCents(data: BookingData, isExpress: boolean): number {
   switch (data.category) {
     case 'shopping':
-      return 1200; // €12 flat
+      return isExpress ? 2500 : 1200; // €25 express, €12 standard
     case 'dog-walk': {
       // 30-min = €15, 1-hr = €20; extra dogs add a flat €5 each
       const base = data.walkDuration === '30min' ? 1500 : 2000;
@@ -51,8 +51,11 @@ function computePriceCents(data: BookingData, _isExpress: boolean): number {
       return prices[data.gardenDuration ?? '1hr'] ?? 1800;
     }
     case 'moving': {
-      const prices: Record<string, number> = { '2hr': 3600, 'half-day': 5400, 'full-day': 10800 };
-      return prices[data.movingDuration ?? '2hr'] ?? 3600;
+      // €18/hr per helper: 2hr=€36, half-day=€54, full-day=€108; multiply by helper count
+      const base: Record<string, number> = { '2hr': 3600, 'half-day': 5400, 'full-day': 10800 };
+      const perHelper = base[data.movingDuration ?? '2hr'] ?? 3600;
+      const helpers = Math.max(1, Number(data.helperCount) || 1);
+      return perHelper * helpers;
     }
     case 'cleaning': {
       const prices: Record<string, number> = { '1hr': 1600, '2hr': 3200, '3hr': 4800 };

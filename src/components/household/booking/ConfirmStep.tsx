@@ -143,7 +143,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
   return (
     <div className="px-4 pt-8 pb-28 max-w-sm mx-auto">
       <h2 className="text-3xl font-bold tracking-tight text-foreground mb-1">Confirm booking</h2>
-      <p className="text-muted-foreground text-sm mb-6">Card authorised now, only charged when the job is done.</p>
+      <p className="text-muted-foreground text-sm mb-6">Secure card payment. Price confirmed upfront — no surprises.</p>
 
       {/* Booking summary */}
       <div className="bg-secondary/40 border border-border/40 rounded-2xl p-4 mb-6">
@@ -265,8 +265,8 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
       <div className="flex items-center gap-2 bg-sage-light border border-sage/20 rounded-xl px-4 py-3 mb-6">
         <Lock size={14} className="text-sage flex-shrink-0" />
         <p className="text-xs text-foreground/70 leading-relaxed">
-          Card is <strong>authorised now</strong> and only charged when your helper completes the job.
-          Cancel any time before they accept for a full refund.
+          Payment is taken <strong>securely at checkout</strong>. Price is agreed upfront.
+          Cancel before a helper accepts for a full refund.
         </p>
       </div>
 
