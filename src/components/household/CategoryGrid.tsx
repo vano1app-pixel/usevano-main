@@ -35,7 +35,7 @@ const CATEGORIES: Category[] = [
   },
   {
     emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €18/hr',
-    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
+    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting. Price for 1 helper; need more? Book via WhatsApp.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
   },
   {
@@ -44,7 +44,7 @@ const CATEGORIES: Category[] = [
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €12/hr',
+    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €15/hr',
     description: 'One-to-one at your home. Any subject — Maths, science, languages.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
@@ -70,14 +70,14 @@ function getTimeSlots(): string[] {
 }
 
 function getPriceCents(slug: string, size: string): number | null {
-  if (slug === 'shopping') return 1200;
+  if (slug === 'shopping') return 1500;
   if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
   const key = `${slug}|${size}`;
   const map: Record<string, number> = {
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
-    'moving|2 hours': 3600,  'moving|Half day': 5400,   'moving|Full day': 10800,
+    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 7200,
+    'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4+ hours': 7200,
     'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800,
-    'tutoring|1 hour': 1200, 'tutoring|2 hours': 2400,  'tutoring|3 hours': 3600,
+    'tutoring|1 hour': 1500, 'tutoring|2 hours': 3000,  'tutoring|3 hours': 4500,
   };
   return map[key] ?? null;
 }

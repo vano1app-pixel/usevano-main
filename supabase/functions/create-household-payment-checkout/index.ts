@@ -5,8 +5,7 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 // Public (no-auth) entry point for the CategoryGrid quick-booking flow.
 // Validates inputs, prices the booking server-side (prevents client tampering),
 // inserts an anonymous household_bookings row, then opens a Stripe Checkout
-// session with manual capture so the card is only charged when the student
-// marks the job complete (via capture-household-payment).
+// session with automatic capture — charged immediately at checkout.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -21,22 +20,22 @@ const VALID_CATEGORIES = [
 type Category = typeof VALID_CATEGORIES[number];
 
 function computePriceCents(category: Category, sizeLabel: string): number | null {
-  if (category === 'shopping')      return 1200; // €12 flat
+  if (category === 'shopping')      return 1500; // €15 flat
   if (category === 'post-office')   return 1000; // €10 flat
   if (category === 'wait-delivery') return 1000; // €10 flat
   if (category === 'dog-walk') {
-    return sizeLabel === '30 min' ? 1500 : 2000;
+    return sizeLabel === '30 min' ? 1500 : 2000; // €15 or €20 (1 dog; quick flow)
   }
   const key = `${category}|${sizeLabel}`;
   const map: Record<string, number> = {
-    // Garden — €18/hr
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
-    // Moving — €18/hr per helper
-    'moving|2 hours': 3600,  'moving|Half day': 5400,  'moving|Full day': 10800,
+    // Garden — €18/hr; half-day = 4hrs = €72
+    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 7200,
+    // Moving — €18/hr (1 helper assumed; multi-helper via WhatsApp)
+    'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4+ hours': 7200,
     // Cleaning — €16/hr
     'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200, 'cleaning|3 hours': 4800,
-    // Tutoring — €12/hr
-    'tutoring|1 hour': 1200, 'tutoring|2 hours': 2400, 'tutoring|3 hours': 3600,
+    // Tutoring — €15/hr
+    'tutoring|1 hour': 1500, 'tutoring|2 hours': 3000, 'tutoring|3 hours': 4500,
     // Furniture assembly — €15/hr
     'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
     // Tech help — €15/hr
