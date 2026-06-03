@@ -64,21 +64,23 @@ export default function HouseholdAdmin() {
         return;
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = supabase as any;
       const [{ data: b }, { data: h }] = await Promise.all([
-        supabase
+        db
           .from('household_bookings')
           .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_estimate_cents, created_at')
           .order('created_at', { ascending: false })
           .limit(100),
-        supabase
+        db
           .from('household_helpers')
           .select('id, name, phone, email, city, categories, tutor_subjects, tutor_levels, photo_url, status, created_at')
           .order('created_at', { ascending: false })
           .limit(200),
       ]);
 
-      setBookings((b as Booking[]) ?? []);
-      setHelpers((h as Helper[]) ?? []);
+      setBookings((b as unknown as Booking[]) ?? []);
+      setHelpers((h as unknown as Helper[]) ?? []);
       setLoading(false);
     })();
   }, [navigate]);

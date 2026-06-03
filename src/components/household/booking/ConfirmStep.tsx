@@ -97,13 +97,6 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
 
     setLoading(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        toast({ title: 'Please sign in first', variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-
       const { data: result, error } = await supabase.functions.invoke('create-household-booking', {
         body: {
           category: data.category,
@@ -150,7 +143,7 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
   return (
     <div className="px-4 pt-8 pb-28 max-w-sm mx-auto">
       <h2 className="text-3xl font-bold tracking-tight text-foreground mb-1">Confirm booking</h2>
-      <p className="text-muted-foreground text-sm mb-6">Pay now, only charged when the job is done.</p>
+      <p className="text-muted-foreground text-sm mb-6">Card authorised now, only charged when the job is done.</p>
 
       {/* Booking summary */}
       <div className="bg-secondary/40 border border-border/40 rounded-2xl p-4 mb-6">
@@ -268,12 +261,12 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
         </div>
       </div>
 
-      {/* Payment note */}
+      {/* Payment trust note */}
       <div className="flex items-center gap-2 bg-sage-light border border-sage/20 rounded-xl px-4 py-3 mb-6">
         <Lock size={14} className="text-sage flex-shrink-0" />
         <p className="text-xs text-foreground/70 leading-relaxed">
           Card is <strong>authorised now</strong> and only charged when your helper completes the job.
-          You can cancel before they accept for a full refund.
+          Cancel any time before they accept for a full refund.
         </p>
       </div>
 

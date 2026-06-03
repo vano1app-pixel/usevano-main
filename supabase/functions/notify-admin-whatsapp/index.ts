@@ -19,7 +19,7 @@ const CORS = {
 async function sendWhatsApp(to: string, body: string): Promise<void> {
   const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
   const authToken  = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const from       = Deno.env.get('TWILIO_WA_FROM');
+  const from       = Deno.env.get('TWILIO_FROM_NUMBER') || Deno.env.get('TWILIO_WA_FROM');
 
   if (!accountSid || !authToken || !from) {
     console.warn('[notify-admin-whatsapp] Twilio creds not set — skipping');

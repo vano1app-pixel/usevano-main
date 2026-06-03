@@ -7,10 +7,6 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 // inserts an anonymous household_bookings row, then opens a Stripe Checkout
 // session with manual capture so the card is only charged when the student
 // marks the job complete (via capture-household-payment).
-//
-// Requires the 20260522000000_household_anonymous_bookings migration to be
-// applied first (makes customer_id and time_slot nullable, adds
-// 'awaiting_payment' to the status enum).
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -20,7 +16,7 @@ function formEncode(obj: Record<string, string>): string {
 
 const VALID_CATEGORIES = [
   'shopping', 'dog-walk', 'garden', 'moving', 'cleaning',
-  'post-office', 'furniture-assembly', 'tech-help', 'wait-delivery',
+  'tutoring', 'post-office', 'furniture-assembly', 'tech-help', 'wait-delivery',
 ] as const;
 type Category = typeof VALID_CATEGORIES[number];
 
@@ -29,17 +25,18 @@ function computePriceCents(category: Category, sizeLabel: string): number | null
   if (category === 'post-office')   return 1000; // €10 flat
   if (category === 'wait-delivery') return 1000; // €10 flat
   if (category === 'dog-walk') {
-    // 30-min walk = €15, 1-hour walk = €20 (default)
     return sizeLabel === '30 min' ? 1500 : 2000;
   }
   const key = `${category}|${sizeLabel}`;
   const map: Record<string, number> = {
     // Garden — €18/hr
     'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
-    // Moving — €18/hr per helper (duration only; helper count handled client-side)
+    // Moving — €18/hr per helper
     'moving|2 hours': 3600,  'moving|Half day': 5400,  'moving|Full day': 10800,
     // Cleaning — €16/hr
     'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200, 'cleaning|3 hours': 4800,
+    // Tutoring — €12/hr
+    'tutoring|1 hour': 1200, 'tutoring|2 hours': 2400, 'tutoring|3 hours': 3600,
     // Furniture assembly — €15/hr
     'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
     // Tech help — €15/hr
@@ -54,6 +51,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   garden: 'Garden help',
   moving: 'Moving help',
   cleaning: 'Cleaning',
+  tutoring: 'Tutoring',
   'post-office': 'Post office run',
   'furniture-assembly': 'Furniture assembly',
   'tech-help': 'Tech help',
@@ -70,7 +68,6 @@ serve(async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
-
   if (req.method !== 'POST') return bad(405, 'Method not allowed');
 
   try {
@@ -83,7 +80,6 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { category, when_label, size_label, note, customer_name, customer_phone, city } = body;
 
-    // Validate
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
       return bad(400, 'Invalid category');
     }
@@ -142,7 +138,6 @@ serve(async (req) => {
         ? `${when_label}${sl ? ' · ' + sl : ''}${city ? ' · ' + city : ''}`
         : (city ?? 'Ireland'),
       'line_items[0][quantity]': '1',
-      // Authorise only — capture fires when the student marks the job complete
       'payment_intent_data[capture_method]': 'automatic',
       'payment_intent_data[metadata][household_booking_id]': bookingId,
       'phone_number_collection[enabled]': 'true',

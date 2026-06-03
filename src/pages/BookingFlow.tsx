@@ -6,7 +6,6 @@ import type { BookingData, StepProps } from '@/components/household/booking/type
 import { BookingProgress } from '@/components/household/booking/BookingProgress';
 import { WhenStep } from '@/components/household/booking/WhenStep';
 import { ConfirmStep } from '@/components/household/booking/ConfirmStep';
-import { SuccessScreen } from '@/components/household/booking/SuccessScreen';
 
 import {
   ShoppingStoreStep,
@@ -123,7 +122,6 @@ const BookingFlow: React.FC = () => {
 
   const [step, setStep] = useState(0);
   const [data, setData] = useState<BookingData>({ category });
-  const [showSuccess, setShowSuccess] = useState(false);
   const direction = useRef(1);
 
   const handleChange = (updates: Partial<BookingData>) => {
@@ -131,10 +129,7 @@ const BookingFlow: React.FC = () => {
   };
 
   const handleNext = () => {
-    if (step >= allSteps.length - 1) {
-      setShowSuccess(true);
-      return;
-    }
+    if (step >= allSteps.length - 1) return;
     direction.current = 1;
     setStep((s) => s + 1);
   };
@@ -147,10 +142,6 @@ const BookingFlow: React.FC = () => {
     direction.current = -1;
     setStep((s) => s - 1);
   };
-
-  if (showSuccess) {
-    return <SuccessScreen data={data} />;
-  }
 
   const CurrentStep = allSteps[step].component;
 

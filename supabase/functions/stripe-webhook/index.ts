@@ -405,7 +405,7 @@ async function handleHouseholdCheckoutCompleted(
 
       const categoryLabels: Record<string, string> = {
         shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
-        moving: 'Moving help', cleaning: 'Cleaning', other: 'General help',
+        moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
       };
       const categoryLabel = categoryLabels[category] ?? category;
 
@@ -416,7 +416,7 @@ async function handleHouseholdCheckoutCompleted(
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${name},</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${categoryLabel}</strong>${when ? ' for ' + when : ''} is confirmed. We're finding you a helper now — usually within the hour.</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${categoryLabel}</strong>${when ? ' for ' + when : ''} is confirmed. We're finding you a helper now and you'll get a text with their name and photo within minutes.</p>
     <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Track your booking →</a>
     <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Ref: ${bookingId.slice(-8).toUpperCase()}</p>
   </div>
@@ -439,23 +439,51 @@ async function handleHouseholdCheckoutCompleted(
     }
   })();
 
-  // Notify admin via email — fire and forget
+  // Notify admin via WhatsApp + email — fire and forget
   const adminNotifyPromise = (async () => {
+    const b = flipped as {
+      customer_name?: string; customer_email?: string; customer_phone?: string;
+      category?: string; scheduled_date?: string; city?: string; price_estimate_cents?: number;
+    };
+    const categoryLabels: Record<string, string> = {
+      shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+      moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
+    };
+    const cat = categoryLabels[b.category ?? ''] ?? b.category ?? 'Job';
+    const priceStr = b.price_estimate_cents ? `€${(b.price_estimate_cents / 100).toFixed(2)}` : '?';
+    const ref = bookingId.slice(-8).toUpperCase();
+
+    // WhatsApp ping via notify-admin-whatsapp edge function
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'new_booking',
+          customer_name: b.customer_name,
+          customer_phone: b.customer_phone,
+          customer_email: b.customer_email,
+          category: b.category,
+          scheduled_date: b.scheduled_date,
+          city: b.city,
+          price_euros: b.price_estimate_cents ? (b.price_estimate_cents / 100).toFixed(2) : '?',
+          booking_id: bookingId,
+        }),
+      });
+    } catch (e) {
+      console.warn('[stripe-webhook] admin whatsapp notify error', e);
+    }
+
+    // Email fallback
     try {
       const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
       if (!resendKey) return;
       const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
-      const b = flipped as {
-        customer_name?: string; customer_email?: string; customer_phone?: string;
-        category?: string; scheduled_date?: string; city?: string; price_estimate_cents?: number;
-      };
-      const categoryLabels: Record<string, string> = {
-        shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
-        moving: 'Moving help', cleaning: 'Cleaning', other: 'General help',
-      };
-      const cat = categoryLabels[b.category ?? ''] ?? b.category ?? 'Job';
-      const priceStr = b.price_estimate_cents ? `€${(b.price_estimate_cents / 100).toFixed(2)}` : '?';
-      const ref = bookingId.slice(-8).toUpperCase();
 
       await fetch('https://api.resend.com/emails', {
         method: 'POST',

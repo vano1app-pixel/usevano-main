@@ -10,7 +10,7 @@ const STEPS = [
   {
     n: '2',
     title: 'We find your helper',
-    body: 'We match you with a vetted ATU student nearby. You\'ll hear back within the hour.',
+    body: 'We match you with a vetted student nearby and text you their name and photo within minutes.',
   },
   {
     n: '3',

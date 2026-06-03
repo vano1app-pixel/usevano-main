@@ -80,7 +80,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ data }) => {
           You're booked!
         </motion.h1>
         <motion.p {...fadeUp(0.38)} className="text-muted-foreground text-sm mb-7 leading-relaxed">
-          We'll text you within 30 minutes with your helper's name and photo.
+          We're finding your helper now — you'll get a text with their name and photo within minutes.
         </motion.p>
 
         {/* Booking summary */}
