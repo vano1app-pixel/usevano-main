@@ -268,7 +268,7 @@ export const JoinAsHelper: React.FC = () => {
                   placeholder="First and last name"
                   required
                   className={cn(
-                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base',
                     'placeholder:text-muted-foreground/50',
                     'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
                     'transition-[border-color,box-shadow] duration-150',
@@ -288,7 +288,7 @@ export const JoinAsHelper: React.FC = () => {
                   placeholder="your@email.com"
                   required
                   className={cn(
-                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base',
                     'placeholder:text-muted-foreground/50',
                     'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
                     'transition-[border-color,box-shadow] duration-150',
@@ -308,7 +308,7 @@ export const JoinAsHelper: React.FC = () => {
                   placeholder="08x xxx xxxx"
                   required
                   className={cn(
-                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base',
                     'placeholder:text-muted-foreground/50',
                     'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
                     'transition-[border-color,box-shadow] duration-150',
@@ -382,7 +382,7 @@ export const JoinAsHelper: React.FC = () => {
                               )}
                               aria-pressed={active}
                               className={cn(
-                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150',
+                                'px-4 py-2.5 rounded-full text-sm font-medium border transition-[background-color,border-color,color] duration-150 min-h-[44px] flex items-center',
                                 active
                                   ? 'bg-primary text-primary-foreground border-primary'
                                   : 'bg-background border-border/60 text-foreground hover:border-primary/40',
@@ -410,7 +410,7 @@ export const JoinAsHelper: React.FC = () => {
                               )}
                               aria-pressed={active}
                               className={cn(
-                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150',
+                                'px-4 py-2.5 rounded-full text-sm font-medium border transition-[background-color,border-color,color] duration-150 min-h-[44px] flex items-center',
                                 active
                                   ? 'bg-primary text-primary-foreground border-primary'
                                   : 'bg-background border-border/60 text-foreground hover:border-primary/40',
@@ -429,7 +429,7 @@ export const JoinAsHelper: React.FC = () => {
               <Button
                 type="submit"
                 disabled={submitting || !name.trim() || !email.trim() || !phone.trim() || !city || !photo || categories.length === 0}
-                className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
+                className="w-full rounded-full font-semibold gap-2 h-14 text-base hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (
                   <>

@@ -92,7 +92,7 @@ function buildWhatsAppMsg(cat: Category, when: string, size: string, note: strin
 }
 
 const chip = (active: boolean, now?: boolean) => cn(
-  'px-3.5 py-1.5 rounded-full text-sm font-medium border flex-shrink-0',
+  'px-3.5 py-2.5 rounded-full text-sm font-medium border flex-shrink-0 min-h-[44px] flex items-center',
   'transition-[background-color,color,border-color] duration-150',
   active
     ? now ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-primary text-primary-foreground border-primary'
@@ -283,7 +283,7 @@ export const CategoryGrid: React.FC = () => {
               {/* Note */}
               <input type="text" value={note} onChange={e => setNote(e.target.value)}
                 placeholder="Anything to add? (optional)"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
+                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
 
               {/* CTAs */}
               <div className="space-y-2.5">
@@ -324,13 +324,13 @@ export const CategoryGrid: React.FC = () => {
 
               <form onSubmit={handlePay} className="space-y-3">
                 <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Your phone number" required
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email (for your receipt)"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
                 <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Your city" /></SelectTrigger>
+                  <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Your city" /></SelectTrigger>
                   <SelectContent>{SUPPORTED_CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
 
