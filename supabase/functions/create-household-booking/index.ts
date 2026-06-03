@@ -176,7 +176,7 @@ serve(async (req) => {
         `${scheduled_date === 'today' ? 'Today' : scheduled_date === 'tomorrow' ? 'Tomorrow' : scheduled_date} · ${time_slot}`,
       'line_items[0][quantity]': '1',
       // Manual capture — authorise only, capture on completion
-      'payment_intent_data[capture_method]': 'automatic',
+      'payment_intent_data[capture_method]': 'manual',
       'payment_intent_data[metadata][household_booking_id]': bookingId,
       success_url: `${origin}/track/${bookingId}?paid=true`,
       cancel_url: `${origin}/book/${category}`,
