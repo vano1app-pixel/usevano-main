@@ -43,3 +43,6 @@ project_id = "puomfwjtpvqedwxjxogh"
   # the phone number and card details collected in the wizard.
   [functions.create-household-booking]
     verify_jwt = false
+  # CategoryGrid quick-booking flow — same anonymous pattern.
+  [functions.create-household-payment-checkout]
+    verify_jwt = false

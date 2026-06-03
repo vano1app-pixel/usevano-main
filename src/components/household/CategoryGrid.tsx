@@ -72,12 +72,12 @@ function getTimeSlots(): string[] {
 function getPriceCents(slug: string, size: string): number | null {
   if (slug === 'shopping') return 1200;
   if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
-  if (slug === 'tutoring') return null;
   const key = `${slug}|${size}`;
   const map: Record<string, number> = {
     'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 5400,
     'moving|2 hours': 3600,  'moving|Half day': 5400,   'moving|Full day': 10800,
     'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800,
+    'tutoring|1 hour': 1200, 'tutoring|2 hours': 2400,  'tutoring|3 hours': 3600,
   };
   return map[key] ?? null;
 }
@@ -145,7 +145,7 @@ export const CategoryGrid: React.FC = () => {
 
   const priceCents    = selected ? getPriceCents(selected.slug, size) : null;
   const canPayByCard  = priceCents !== null && !!when;
-  const canWhatsApp   = !!when || selected?.slug === 'tutoring';
+  const canWhatsApp   = !!when;
 
   function sendWhatsApp() {
     if (!selected) return;
@@ -182,7 +182,7 @@ export const CategoryGrid: React.FC = () => {
           {view === 'grid' && (
             <motion.div key="grid" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={slideTransition}>
               <div className="grid grid-cols-3 gap-2.5 lg:gap-3">
-                {CATEGORIES.map((cat) => (
+                {CATEGORIES.map((cat, idx) => (
                   <motion.button
                     key={cat.slug}
                     onClick={() => goTo('options', 1, cat)}
@@ -190,13 +190,18 @@ export const CategoryGrid: React.FC = () => {
                     whileTap={{ scale: 0.93 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 28 }}
                     className={cn(
-                      'flex flex-col items-center justify-center gap-2',
+                      'relative flex flex-col items-center justify-center gap-2',
                       'min-h-[90px] lg:min-h-[120px] rounded-2xl px-2 py-3 lg:py-4 border',
-                      'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-border hover:shadow-sm',
+                      'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-primary/40 hover:shadow-sm',
                       'transition-[background-color,border-color,box-shadow] duration-150',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                     )}
                   >
+                    {/* Subtle pulse ring — draws the eye to tap */}
+                    <span
+                      className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-primary/20 animate-pulse"
+                      style={{ animationDelay: `${idx * 180}ms`, animationDuration: '2.8s' }}
+                    />
                     <span className="text-2xl lg:text-[2rem] leading-none select-none">{cat.emoji}</span>
                     <span className="text-[13px] lg:text-[14px] font-semibold leading-tight text-center">{cat.label}</span>
                     <span className="text-[11px] lg:text-[12px] text-muted-foreground leading-tight">{cat.price}</span>
