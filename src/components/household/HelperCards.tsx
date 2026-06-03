@@ -40,12 +40,15 @@ export const HelperCards: React.FC = () => {
     (supabase as any)
       .from('household_helpers')
       .select('name, photo_url, city, rating_avg, accepted_count')
-      .eq('status', 'approved')
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
-      .limit(6)
+      .limit(20)
       .then(({ data }: { data: HelperRow[] | null }) => {
-        if (data) setHelpers(data);
+        if (data && data.length > 0) {
+          // Shuffle and take up to 6 random helpers
+          const shuffled = [...data].sort(() => Math.random() - 0.5);
+          setHelpers(shuffled.slice(0, 6));
+        }
       });
   }, []);
 
