@@ -1,7 +1,6 @@
 import React from 'react';
-import { CheckCircle2, MessageCircle, ArrowDown } from 'lucide-react';
+import { CheckCircle2, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const PRICES = [
@@ -98,18 +97,6 @@ export const PricingTable: React.FC = () => {
         Pay by card or Revolut when you book. Price agreed upfront — no surprises.
       </p>
 
-      <div className="flex justify-center">
-        <Button
-          onClick={() => {
-            const el = document.getElementById('category-grid');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }}
-          className="rounded-full px-8 font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
-        >
-          <ArrowDown className="w-4 h-4" aria-hidden="true" />
-          Book from €15
-        </Button>
-      </div>
     </section>
   );
 };
