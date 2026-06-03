@@ -46,3 +46,6 @@ project_id = "puomfwjtpvqedwxjxogh"
   # CategoryGrid quick-booking flow — same anonymous pattern.
   [functions.create-household-payment-checkout]
     verify_jwt = false
+  # Helper signup — no auth account needed, service-role handles photo upload + DB insert.
+  [functions.create-helper-application]
+    verify_jwt = false
