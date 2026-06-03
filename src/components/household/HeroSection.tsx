@@ -22,7 +22,7 @@ export const HeroSection: React.FC = () => {
               Hire a student<br />helper, today.
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base lg:text-lg mb-5 lg:mb-8 max-w-xs lg:max-w-sm">
-              Vetted students across Ireland
+              Vetted students across Galway
             </p>
 
             {/* Trust badges — wrap horizontally on mobile to save vertical space */}

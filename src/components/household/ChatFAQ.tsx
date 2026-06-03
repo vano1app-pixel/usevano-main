@@ -21,7 +21,7 @@ const FAQ: QAPair[] = [
   },
   {
     q: 'Which cities do you cover?',
-    a: 'Currently Galway, Dublin, Cork, and Limerick — city centres and surrounding suburbs. More cities coming soon.',
+    a: 'Currently Galway — city centre and surrounding areas. More cities coming soon.',
   },
 ];
 
