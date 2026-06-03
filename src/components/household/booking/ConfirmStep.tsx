@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import type { StepProps, BookingData } from './types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Loader2, Lock, ChevronRight, LogIn } from 'lucide-react';
+import { Loader2, Lock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -81,16 +80,8 @@ function getPriceEstimate(data: BookingData): string {
 
 export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [touched, setTouched] = useState({ name: false, address: false, phone: false, city: false });
   const [loading, setLoading] = useState(false);
-  const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsSignedIn(!!session);
-    });
-  }, []);
 
   const errors = {
     name:    !data.customerName?.trim(),
@@ -149,49 +140,10 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
     }
   };
 
-  if (isSignedIn === null) {
-    return (
-      <div className="px-4 pt-8 pb-28 max-w-sm mx-auto flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!isSignedIn) {
-    return (
-      <div className="px-4 pt-8 pb-28 max-w-sm mx-auto">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground mb-1">One last step</h2>
-        <p className="text-muted-foreground text-sm mb-6">Sign in or create a free account to complete your booking.</p>
-        <div className="bg-secondary/40 border border-border/40 rounded-2xl p-4 mb-6">
-          <p className="font-semibold text-foreground text-sm mb-1">
-            {CATEGORY_LABELS[data.category] ?? data.category}
-          </p>
-          {data.scheduledDate && (
-            <p className="text-sm text-muted-foreground">
-              {data.scheduledDate === 'today' ? 'Today' : data.scheduledDate === 'tomorrow' ? 'Tomorrow' : data.scheduledDate}
-              {data.timeSlot ? ` · ${data.timeSlot}` : ''}
-            </p>
-          )}
-        </div>
-        <Button
-          onClick={() => navigate('/auth?mode=signup', { state: { from: `/book/${data.category}` } })}
-          className="w-full rounded-full h-14 text-base font-semibold gap-2 shadow-primary-glow"
-          size="lg"
-        >
-          <LogIn size={18} />
-          Sign in to complete booking
-        </Button>
-        <p className="text-center text-xs text-muted-foreground mt-3">
-          Your booking details are saved — you'll return here after signing in.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="px-4 pt-8 pb-28 max-w-sm mx-auto">
       <h2 className="text-3xl font-bold tracking-tight text-foreground mb-1">Confirm booking</h2>
-      <p className="text-muted-foreground text-sm mb-6">Pay now, only charged when the job is done.</p>
+      <p className="text-muted-foreground text-sm mb-6">Card authorised now, only charged when the job is done.</p>
 
       {/* Booking summary */}
       <div className="bg-secondary/40 border border-border/40 rounded-2xl p-4 mb-6">
@@ -309,12 +261,12 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
         </div>
       </div>
 
-      {/* Payment note */}
+      {/* Payment trust note */}
       <div className="flex items-center gap-2 bg-sage-light border border-sage/20 rounded-xl px-4 py-3 mb-6">
         <Lock size={14} className="text-sage flex-shrink-0" />
         <p className="text-xs text-foreground/70 leading-relaxed">
           Card is <strong>authorised now</strong> and only charged when your helper completes the job.
-          You can cancel before they accept for a full refund.
+          Cancel any time before they accept for a full refund.
         </p>
       </div>
 

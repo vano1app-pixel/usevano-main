@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"; // service-role only
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // Creates a household_bookings row (status=awaiting_payment) and a
@@ -92,24 +92,11 @@ serve(async (req) => {
   if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
-
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
     if (!STRIPE_SECRET_KEY) return bad(500, 'STRIPE_SECRET_KEY not configured');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-    // Validate the caller
-    const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) return bad(401, 'Unauthorized');
-    const customerId = claimsData.claims.sub as string;
 
     const SUPPORTED_CITIES = ['Galway', 'Dublin', 'Cork', 'Limerick'];
 
@@ -134,11 +121,11 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Create the booking row in awaiting_payment state
+    // Create the booking row in awaiting_payment state (customer_id NULL = anonymous)
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
       .insert({
-        customer_id: customerId,
+        customer_id: null,
         category,
         scheduled_date,
         time_slot,

@@ -39,3 +39,7 @@ project_id = "puomfwjtpvqedwxjxogh"
   # No secrets — safe to call pre-auth.
   [functions.get-vano-pay-config]
     verify_jwt = false
+  # Anonymous customer booking — no account needed, identity comes from
+  # the phone number and card details collected in the wizard.
+  [functions.create-household-booking]
+    verify_jwt = false
