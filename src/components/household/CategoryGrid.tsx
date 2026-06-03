@@ -106,7 +106,7 @@ const slideVariants = {
   center: { x: 0, opacity: 1 },
   exit:   (d: number) => ({ x: d * -32, opacity: 0 }),
 };
-const slideTransition = { duration: 0.22, ease: [0.32, 0.72, 0, 1] };
+const slideTransition = { duration: 0.22, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] };
 
 type View = 'grid' | 'options' | 'contact';
 
