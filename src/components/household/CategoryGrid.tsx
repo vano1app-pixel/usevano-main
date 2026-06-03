@@ -213,14 +213,16 @@ export const CategoryGrid: React.FC = () => {
               {!selected && (
                 <button
                   onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
-                  className="mt-3 w-full rounded-2xl bg-sage-light/70 border border-sage/20 px-4 py-3 flex items-center gap-3 hover:bg-sage-light transition-colors duration-150 group"
+                  className="mt-4 w-full rounded-2xl bg-[#25D366]/10 border border-[#25D366]/30 px-4 py-4 flex items-center gap-4 hover:bg-[#25D366]/15 active:scale-[0.98] transition-[background-color,transform] duration-150"
                 >
-                  <MessageCircle className="w-4 h-4 text-sage flex-shrink-0" aria-hidden="true" />
-                  <span className="flex-1 text-left">
-                    <span className="block text-xs font-semibold text-foreground">Something else?</span>
-                    <span className="block text-xs text-muted-foreground">Chat to us on WhatsApp</span>
+                  <span className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
+                    <MessageCircle className="w-4 h-4 text-white" aria-hidden="true" />
                   </span>
-                  <span className="text-xs text-sage font-medium opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+                  <span className="flex-1 text-left">
+                    <span className="block text-sm font-semibold text-foreground">Need something else?</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">Chat to us on WhatsApp — we'll sort it</span>
+                  </span>
+                  <span className="text-[#25D366] text-lg font-bold leading-none">→</span>
                 </button>
               )}
             </motion.div>
