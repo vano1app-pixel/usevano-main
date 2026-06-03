@@ -4,7 +4,7 @@ import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
   { icon: ShieldCheck, text: 'Every student personally verified' },
-  { icon: Zap,         text: 'Available same-day across Galway' },
+  { icon: Zap,         text: 'See their photo and name before they arrive' },
   { icon: ThumbsUp,    text: "Not happy? You don't pay." },
 ];
 
@@ -24,12 +24,9 @@ export const HeroSection: React.FC = () => {
               <span className="text-xs font-semibold text-emerald-700 tracking-wide">Helpers available in Galway now</span>
             </div>
 
-            <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-3 sm:text-[2.8rem] lg:text-6xl lg:mb-5">
-              Local help,<br />from €12.
+            <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-5 sm:text-[2.8rem] lg:text-6xl lg:mb-8">
+              A Galway student,<br />here to help.
             </h1>
-            <p className="text-muted-foreground text-sm sm:text-base lg:text-lg mb-5 lg:mb-8 max-w-xs lg:max-w-sm">
-              Shopping, garden, cleaning and more — vetted students, sorted today.
-            </p>
 
             {/* Trust badges */}
             <ul className="flex flex-wrap gap-x-4 gap-y-2 lg:flex-col lg:gap-2.5">
