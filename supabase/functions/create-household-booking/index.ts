@@ -3,17 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"; // servic
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // Creates a household_bookings row (status=awaiting_payment) and a
-// Stripe Checkout Session with manual capture (authorize-only).
+// Stripe Checkout Session with automatic capture.
 //
 // Flow:
 //   1. Customer fills out booking wizard and submits.
 //   2. This function validates + writes the booking row, then opens
-//      a Stripe Checkout session with payment_intent_data[capture_method]=manual.
+//      a Stripe Checkout session (automatic capture — charged immediately).
 //   3. Customer pays → Stripe fires checkout.session.completed webhook.
-//   4. stripe-webhook flips status awaiting_payment → pending, so the
-//      job appears in the student feed.
-//   5. When the student marks the job complete, capture-household-payment
-//      captures the authorized charge.
+//   4. stripe-webhook flips status awaiting_payment → pending and pings admin.
 //
 // Prices are computed server-side from booking_data to prevent
 // client-side tampering.
