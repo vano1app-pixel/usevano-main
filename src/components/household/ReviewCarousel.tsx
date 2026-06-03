@@ -46,8 +46,8 @@ export const ReviewCarousel: React.FC = () => {
   return (
     <section className="py-12">
       <div className="px-4 max-w-5xl mx-auto mb-5">
-        <p className="eyebrow mb-3">Reviews</p>
-        <h2 className="display-lg text-foreground">What people say</h2>
+        <p className="eyebrow mb-3">Real customers · Galway</p>
+        <h2 className="display-lg text-foreground">People love it</h2>
       </div>
 
       {/* Mobile: horizontal scroll */}

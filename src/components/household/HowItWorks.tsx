@@ -4,18 +4,18 @@ import { motion, useInView } from 'framer-motion';
 const STEPS = [
   {
     n: '1',
-    title: 'Tell us what you need',
-    body: 'Pick a category, choose a time — takes 30 seconds.',
+    title: 'Pick what you need',
+    body: 'Choose a category and a time — takes 30 seconds.',
   },
   {
     n: '2',
     title: 'We find your helper',
-    body: 'We match you with a vetted student nearby and text you their name and photo within minutes.',
+    body: 'A vetted student nearby is matched and you get their name and photo before they arrive.',
   },
   {
     n: '3',
-    title: 'Job done, you rate',
-    body: 'Your card is held securely and only charged once the job\'s complete. Nothing taken until you\'re happy.',
+    title: 'Job done',
+    body: 'Pay securely by card when you book. Your helper arrives, gets it done, you rate them. Simple.',
   },
 ];
 

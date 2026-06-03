@@ -337,7 +337,7 @@ export const CategoryGrid: React.FC = () => {
                 </motion.div>
 
                 {error && <p className="text-center text-xs text-destructive">{error}</p>}
-                <p className="text-center text-xs text-muted-foreground">Stripe · Card held, only charged when done</p>
+                <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · paid upfront, confirmed instantly</p>
               </form>
             </motion.div>
           )}
