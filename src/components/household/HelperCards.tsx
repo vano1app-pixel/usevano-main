@@ -10,16 +10,6 @@ interface HelperRow {
   accepted_count: number | null;
 }
 
-// Shown until real approved helpers exist in the DB
-const PLACEHOLDERS = [
-  { name: 'Emma',  city: 'Galway', tagline: 'Great with dogs and older clients',  rating: 4.9, jobs: 23, photo: 'https://randomuser.me/api/portraits/women/26.jpg' },
-  { name: 'Cian',  city: 'Galway', tagline: 'Fast, reliable, Knocknacarra local',  rating: 4.8, jobs: 41, photo: 'https://randomuser.me/api/portraits/men/41.jpg'   },
-  { name: 'Aoife', city: 'Galway', tagline: 'Flat-pack, garden, errands — sorted', rating: 5.0, jobs: 17, photo: 'https://randomuser.me/api/portraits/women/44.jpg' },
-  { name: 'Seán',  city: 'Galway', tagline: 'Garden and moving specialist',        rating: 4.9, jobs: 35, photo: 'https://randomuser.me/api/portraits/men/22.jpg'   },
-  { name: 'Niamh', city: 'Galway', tagline: 'Patient, thorough, great craic',      rating: 5.0, jobs: 12, photo: 'https://randomuser.me/api/portraits/women/68.jpg' },
-  { name: 'Liam',  city: 'Galway', tagline: 'Tech help and general errands',       rating: 4.7, jobs: 28, photo: 'https://randomuser.me/api/portraits/men/55.jpg'   },
-];
-
 function Card({ name, photo, city, rating, jobs }: {
   name: string; photo: string; city: string; rating: number; jobs: number;
 }) {
@@ -44,57 +34,47 @@ function Card({ name, photo, city, rating, jobs }: {
 }
 
 export const HelperCards: React.FC = () => {
-  const [realHelpers, setRealHelpers] = useState<HelperRow[]>([]);
+  const [helpers, setHelpers] = useState<HelperRow[]>([]);
 
   useEffect(() => {
-    supabase
-      .from('household_helpers' as never)
+    (supabase as any)
+      .from('household_helpers')
       .select('name, photo_url, city, rating_avg, accepted_count')
       .eq('status', 'approved')
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
       .limit(6)
-      .then(({ data }) => {
-        if (data && data.length > 0) setRealHelpers(data as HelperRow[]);
+      .then(({ data }: { data: HelperRow[] | null }) => {
+        if (data) setHelpers(data);
       });
   }, []);
 
-  const useReal = realHelpers.length > 0;
-
-  const cards = useReal
-    ? realHelpers.map((h) => (
-        <Card
-          key={h.name}
-          name={h.name}
-          photo={h.photo_url}
-          city={h.city}
-          rating={h.rating_avg ?? 5.0}
-          jobs={h.accepted_count ?? 0}
-        />
-      ))
-    : PLACEHOLDERS.map((p) => (
-        <Card key={p.name} name={p.name} photo={p.photo} city={p.city} rating={p.rating} jobs={p.jobs} />
-      ));
+  // Nothing to show yet — hide the section entirely
+  if (helpers.length === 0) return null;
 
   return (
     <section className="py-12">
       <div className="px-4 max-w-5xl mx-auto mb-5">
         <p className="eyebrow mb-3">Our helpers</p>
-        <h2 className="display-lg text-foreground">
-          {useReal ? 'Your local helpers' : 'Meet the team'}
-        </h2>
+        <h2 className="display-lg text-foreground">Your local helpers</h2>
       </div>
 
       {/* Mobile: horizontal scroll */}
       <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 lg:hidden">
         <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
-          {cards}
+          {helpers.map((h) => (
+            <Card key={h.name} name={h.name} photo={h.photo_url} city={h.city}
+              rating={h.rating_avg ?? 5.0} jobs={h.accepted_count ?? 0} />
+          ))}
         </div>
       </div>
 
       {/* Desktop: 6-column grid */}
       <div className="hidden lg:grid lg:grid-cols-6 gap-3 px-4 max-w-5xl mx-auto">
-        {cards}
+        {helpers.map((h) => (
+          <Card key={h.name} name={h.name} photo={h.photo_url} city={h.city}
+            rating={h.rating_avg ?? 5.0} jobs={h.accepted_count ?? 0} />
+        ))}
       </div>
     </section>
   );
