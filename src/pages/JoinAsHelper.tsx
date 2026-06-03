@@ -11,7 +11,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 
-const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 const CATEGORY_OPTIONS = [
   { emoji: '🛒', label: 'Shopping & errands',    slug: 'shopping'           },
@@ -59,7 +58,6 @@ export const JoinAsHelper: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  const [password, setPassword] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
@@ -89,11 +87,7 @@ export const JoinAsHelper: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !phone.trim() || !city || !photo || !password) return;
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+    if (!name.trim() || !email.trim() || !phone.trim() || !city || !photo) return;
     if (categories.length === 0) {
       setError('Please select at least one job type.');
       return;
@@ -102,71 +96,39 @@ export const JoinAsHelper: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Create auth account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: { data: { display_name: name.trim() } },
-      });
-      if (authError) throw authError;
-      // identities === [] means the email is already registered (Supabase silent repeated-signup)
-      if ((authData.user?.identities?.length ?? 1) === 0) {
-        throw new Error('User already registered');
-      }
-      const userId = authData.user?.id;
-      if (!userId) throw new Error('Account creation failed — please try again.');
+      const fd = new FormData();
+      fd.append('name', name.trim());
+      fd.append('email', email.trim().toLowerCase());
+      fd.append('phone', phone.trim());
+      fd.append('city', city);
+      fd.append('categories', JSON.stringify(categories));
+      fd.append('tutor_subjects', JSON.stringify(tutorSubjects));
+      fd.append('tutor_levels', JSON.stringify(tutorLevels));
+      fd.append('photo', photo);
 
-      // 2. Upload photo
-      const ext = photo.name.split('.').pop() ?? 'jpg';
-      const path = `${userId}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('helper-photos')
-        .upload(path, photo, { upsert: true });
-      if (uploadError) throw uploadError;
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('helper-photos')
-        .getPublicUrl(path);
-
-      // 3. Insert helper row linked to the new auth account
-      const { error: insertError } = await db
-        .from('household_helpers')
-        .insert({
-          user_id: userId,
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          phone: phone.trim(),
-          city,
-          photo_url: publicUrl,
-          categories,
-          ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
-            ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
-            : {}),
-        });
-      if (insertError) throw insertError;
-
-      // Notify admin via WhatsApp — fire and forget
-      supabase.functions.invoke('notify-admin-whatsapp', {
-        body: {
-          type: 'new_student',
-          name: name.trim(),
-          phone: phone.trim(),
-          email: email.trim().toLowerCase(),
-          city,
-          categories,
-          tutor_subjects: tutorSubjects,
-          tutor_levels: tutorLevels,
-          photo_url: publicUrl,
+      const res = await fetch(`${supabaseUrl}/functions/v1/create-helper-application`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? anonKey}`,
+          apikey: anonKey,
         },
-      }).catch(() => {/* non-critical */});
+        body: fd,
+      });
+
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Unknown error');
 
       setSubmitted(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('already registered') || msg.includes('User already registered')) {
-        setError('That email is already registered. Try logging in, or use a different email.');
+      if (msg.toLowerCase().includes('already')) {
+        setError('That email is already registered. Use a different email.');
       } else {
-        setError("Something went wrong — please try again or text us on WhatsApp.");
+        setError('Something went wrong — please try again or text us on WhatsApp.');
       }
     } finally {
       setSubmitting(false);
@@ -354,29 +316,6 @@ export const JoinAsHelper: React.FC = () => {
                 />
               </div>
 
-              {/* Password */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                  Create a password
-                </p>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 6 characters"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  className={cn(
-                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
-                    'placeholder:text-muted-foreground/50',
-                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
-                    'transition-[border-color,box-shadow] duration-150',
-                  )}
-                />
-                <p className="text-xs text-muted-foreground mt-1.5">You'll use this to log in to your worker dashboard.</p>
-              </div>
-
               {/* City */}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
@@ -489,7 +428,7 @@ export const JoinAsHelper: React.FC = () => {
 
               <Button
                 type="submit"
-                disabled={submitting || !name.trim() || !email.trim() || !phone.trim() || !city || !photo || !password || categories.length === 0}
+                disabled={submitting || !name.trim() || !email.trim() || !phone.trim() || !city || !photo || categories.length === 0}
                 className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (
