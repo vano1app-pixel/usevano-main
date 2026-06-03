@@ -56,7 +56,7 @@ function getPriceEstimate(data: BookingData): string {
     case 'dog-walk': {
       const base = data.walkDuration === '30min' ? 15 : 20;
       const count = data.dogCount ?? 1;
-      return `€${base * count}`;
+      return `€${base * count}${count > 1 ? ` (${count} dogs)` : ''}`;
     }
     case 'garden': {
       const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€72' };
@@ -115,6 +115,9 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
             gardenDuration: data.gardenDuration,
             helperCount: data.helperCount,
             movingDuration: data.movingDuration,
+            fromAddress: data.fromAddress,
+            toAddress: data.toAddress,
+            movingDescription: data.movingDescription,
             cleaningTasks: data.cleaningTasks,
             cleaningDuration: data.cleaningDuration,
             pricingType: data.pricingType,

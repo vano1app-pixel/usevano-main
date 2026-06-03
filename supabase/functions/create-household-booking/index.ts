@@ -31,7 +31,11 @@ interface BookingData {
   gardenDuration?: string;
   helperCount?: number;
   movingDuration?: string;
+  fromAddress?: string;
+  toAddress?: string;
+  movingDescription?: string;
   cleaningDuration?: string;
+  cleaningTasks?: string[];
   pricingType?: string;
   description?: string;
 }
@@ -41,10 +45,10 @@ function computePriceCents(data: BookingData, isExpress: boolean): number {
     case 'shopping':
       return isExpress ? 2500 : 1500; // €25 express, €15 standard
     case 'dog-walk': {
-      // 30-min = €15, 1-hr = €20; extra dogs add a flat €5 each
+      // €15/dog for 30min, €20/dog for 1hr
       const base = data.walkDuration === '30min' ? 1500 : 2000;
-      const extraDogs = Math.max(0, (Number(data.dogCount) || 1) - 1);
-      return base + extraDogs * 500;
+      const dogs = Math.max(1, Number(data.dogCount) || 1);
+      return base * dogs;
     }
     case 'garden': {
       // €18/hr; half-day is 4hrs = €72 (was €54 which undervalued student time)
