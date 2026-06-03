@@ -138,8 +138,7 @@ serve(async (req) => {
         ? `${when_label}${sl ? ' · ' + sl : ''}${city ? ' · ' + city : ''}`
         : (city ?? 'Ireland'),
       'line_items[0][quantity]': '1',
-      // Manual capture — card authorised now, charged when job is marked complete
-      'payment_intent_data[capture_method]': 'manual',
+      'payment_intent_data[capture_method]': 'automatic',
       'payment_intent_data[metadata][household_booking_id]': bookingId,
       'phone_number_collection[enabled]': 'true',
       success_url: `${origin}/track/${bookingId}?paid=true`,
