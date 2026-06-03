@@ -44,9 +44,8 @@ const CATEGORIES: Category[] = [
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €15/hr',
-    description: 'One-to-one at your home. Any subject — Maths, science, languages.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
+    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'via WhatsApp',
+    description: 'One-to-one at your home. Any subject — Maths, science, languages. We\'ll match you with the right tutor.',
   },
 ];
 
