@@ -61,6 +61,7 @@ function formatCategory(cat: string): string {
     garden: 'Garden help',
     moving: 'Moving help',
     cleaning: 'Cleaning',
+    tutoring: 'Tutoring',
     other: 'Other task',
   };
   return map[cat] ?? cat;

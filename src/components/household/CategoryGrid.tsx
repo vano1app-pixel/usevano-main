@@ -44,9 +44,8 @@ const CATEGORIES: Category[] = [
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €15/hr',
-    description: 'One-to-one at your home. Any subject — Maths, science, languages.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
+    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'via WhatsApp',
+    description: 'One-to-one at your home. Any subject — Maths, science, languages. We\'ll match you with the right tutor.',
   },
 ];
 
@@ -119,6 +118,7 @@ export const CategoryGrid: React.FC = () => {
   const [note, setNote]           = useState('');
   const [name, setName]           = useState('');
   const [phone, setPhone]         = useState('');
+  const [email, setEmail]         = useState('');
   const [city, setCity]           = useState('');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
@@ -139,7 +139,7 @@ export const CategoryGrid: React.FC = () => {
     setDir(d);
     setView(v);
     if (cat) { setSelected(cat); setWhen(''); setSize(''); setNote(''); }
-    if (v === 'grid') { setSelected(null); setWhen(''); setSize(''); setNote(''); setName(''); setPhone(''); setCity(''); setError(null); }
+    if (v === 'grid') { setSelected(null); setWhen(''); setSize(''); setNote(''); setName(''); setPhone(''); setEmail(''); setCity(''); setError(null); }
     if (v !== 'grid' && v !== 'contact') { setError(null); }
   }
 
@@ -163,7 +163,7 @@ export const CategoryGrid: React.FC = () => {
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
-        { body: { category: selected.slug, when_label: when, size_label: size, note: note.trim(), customer_name: name.trim(), customer_phone: phone.trim(), city } },
+        { body: { category: selected.slug, when_label: when, size_label: size, note: note.trim(), customer_name: name.trim(), customer_phone: phone.trim(), customer_email: email.trim() || null, city } },
       );
       if (fnErr || !data?.checkout_url) throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       window.location.href = data.checkout_url as string;
@@ -323,6 +323,8 @@ export const CategoryGrid: React.FC = () => {
                 <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Your phone number" required
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email (for your receipt)"
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
                 <Select value={city} onValueChange={setCity}>
                   <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Your city" /></SelectTrigger>

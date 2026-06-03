@@ -82,7 +82,7 @@ serve(async (req) => {
 
       const categoryLabels: Record<string, string> = {
         shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
-        moving: 'Moving help', cleaning: 'Cleaning', other: 'General help',
+        moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
       };
       const cat = categoryLabels[category] ?? category;
 

@@ -15,6 +15,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   garden:     '🌿 Garden work',
   moving:     '📦 Moving help',
   cleaning:   '🧹 Cleaning',
+  tutoring:   '📚 Tutoring',
   other:      '✨ General help',
 };
 
