@@ -52,19 +52,21 @@ function formatSlot(slot: string): string {
 function getPriceEstimate(data: BookingData): string {
   switch (data.category) {
     case 'shopping':
-      return data.isExpress ? '€25 (express)' : '€12 flat';
+      return data.isExpress ? '€25 (express)' : '€15 flat';
     case 'dog-walk': {
       const base = data.walkDuration === '30min' ? 15 : 20;
       const count = data.dogCount ?? 1;
       return `€${base * count}`;
     }
     case 'garden': {
-      const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€54' };
+      const prices: Record<string, string> = { '1hr': '€18', '2hr': '€36', 'half-day': '€72' };
       return data.gardenDuration ? prices[data.gardenDuration] : '€18+';
     }
     case 'moving': {
+      const durationPrices: Record<string, number> = { '1hr': 18, '2hr': 36, '3hr': 54, '4hr': 72 };
+      const perHelper = data.movingDuration ? (durationPrices[data.movingDuration] ?? 36) : 36;
       const helpers = data.helperCount ?? 1;
-      return `€18/hr × ${helpers} helper${helpers > 1 ? 's' : ''}`;
+      return `€${perHelper * helpers}${helpers > 1 ? ` (${helpers} helpers)` : ''}`;
     }
     case 'cleaning': {
       const hrs: Record<string, number> = { '1hr': 1, '2hr': 2, '3hr': 3 };
@@ -72,7 +74,7 @@ function getPriceEstimate(data: BookingData): string {
       return `€${h * 16}`;
     }
     case 'other':
-      return data.pricingType === 'flat' ? '€15 flat' : 'from €15/hr';
+      return data.pricingType === 'hourly' ? '€25' : '€15 flat';
     default:
       return 'To be confirmed';
   }

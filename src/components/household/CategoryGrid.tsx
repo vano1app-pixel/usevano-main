@@ -20,7 +20,7 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €12',
+    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €15',
     description: 'We shop any store, follow your list, and deliver to your door.',
   },
   {
@@ -36,7 +36,7 @@ const CATEGORIES: Category[] = [
   {
     emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €18/hr',
     description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
-    sizeLabel: 'How much?', sizes: ['2 hours', 'Half day', 'Full day'],
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
   },
   {
     emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €16/hr',
