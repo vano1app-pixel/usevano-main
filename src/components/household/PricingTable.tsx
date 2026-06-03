@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const PRICES = [
