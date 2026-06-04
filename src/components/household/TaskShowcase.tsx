@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronRight, X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
+import { X, CreditCard, MessageCircle, Loader2, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -8,65 +8,206 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 
-// Tasks that map to the main booking grid at the top of the page
-const GRID_TASKS = [
-  { emoji: '🛒', label: 'Grocery shopping',  gridSlug: 'shopping'  },
-  { emoji: '🐕', label: 'Dog walking',        gridSlug: 'dog-walk'  },
-  { emoji: '🌿', label: 'Lawn mowing',        gridSlug: 'garden'    },
-  { emoji: '📦', label: 'Moving help',        gridSlug: 'moving'    },
-  { emoji: '🧹', label: 'Outdoor cleaning',   gridSlug: 'cleaning'  },
-  { emoji: '💊', label: 'Pharmacy runs',      gridSlug: 'shopping'  },
-  { emoji: '📚', label: 'Tutoring & grinds',  gridSlug: 'tutoring'  },
-];
+interface TaskQuestion {
+  label:   string;
+  options: string[];
+}
 
-interface MiscTask {
+interface Task {
   emoji:        string;
   label:        string;
-  miscSlug:     string;
+  slug:         string;
   price:        string;
   description:  string;
-  sizes?:       string[];
+  q1?:          TaskQuestion;
+  q2?:          TaskQuestion;
+  noSchedule?:  boolean; // errands that are always same-day
   whatsappOnly?: boolean;
 }
 
-const MISC_TASKS: MiscTask[] = [
+const ALL_TASKS: Task[] = [
   {
-    emoji: '📬', label: 'Post office run',    miscSlug: 'post-office',        price: '€10 flat',
+    emoji: '🛒', label: 'Grocery shopping', slug: 'grocery-shopping', price: 'from €12',
+    description: 'We shop any store, follow your list, and deliver straight to your door.',
+    q1: { label: 'How big is the shop?', options: ['Quick errand', 'Weekly shop', 'Big monthly shop'] },
+    noSchedule: true,
+  },
+  {
+    emoji: '🐕', label: 'Dog walking', slug: 'dog-walking', price: 'from €12',
+    description: 'Collected from your door, walked on-lead, returned home safely.',
+    q1: { label: 'Walk & dogs', options: ['30 min · 1 dog', '1 hr · 1 dog', '1 hr · 2 dogs', '2 hrs · 1 dog', '2 hrs · 2+ dogs'] },
+  },
+  {
+    emoji: '🌿', label: 'Lawn mowing', slug: 'lawn-mowing', price: 'from €22',
+    description: 'Grass cut, edges trimmed and clippings cleared — all in one visit.',
+    q1: { label: 'Garden size', options: ['Small (terrace / apartment)', 'Medium (semi-detached)', 'Large (detached)', 'Extra large'] },
+  },
+  {
+    emoji: '📦', label: 'Moving help', slug: 'moving-help', price: 'from €25',
+    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
+    q1: { label: 'How much to move?', options: ['A few boxes / items', 'One room', '2–3 rooms', 'Full home'] },
+  },
+  {
+    emoji: '🧹', label: 'Outdoor cleaning', slug: 'outdoor-cleaning', price: 'from €22',
+    description: 'Patio, driveway, bins, windows or gutters — pick what needs doing.',
+    q1: { label: 'Area to clean', options: ['Small area', 'Medium area', 'Large area'] },
+  },
+  {
+    emoji: '📚', label: 'Tutoring & grinds', slug: 'tutoring-grinds', price: 'from €22/hr',
+    description: 'One-to-one at your home. Any subject — Maths, science, languages.',
+    q1: { label: 'What level?',  options: ['Primary school', 'Junior Cert', 'Leaving Cert', 'College / Uni'] },
+    q2: { label: 'How long?',    options: ['1 hour', '2 hours', '3 hours'] },
+  },
+  {
+    emoji: '💊', label: 'Pharmacy run', slug: 'pharmacy-run', price: '€12 flat',
+    description: 'We collect your prescription or over-the-counter items from your local pharmacy.',
+    noSchedule: true,
+  },
+  {
+    emoji: '📬', label: 'Post office run', slug: 'post-office', price: '€10 flat',
     description: 'We drop off or collect parcels, letters and forms at your local post office.',
+    noSchedule: true,
   },
   {
-    emoji: '🔧', label: 'Furniture assembly', miscSlug: 'furniture-assembly', price: 'from €15/hr',
+    emoji: '🔧', label: 'Furniture assembly', slug: 'furniture-assembly', price: 'from €22',
     description: 'IKEA or any flat-pack furniture assembled at your home — no tools needed on your end.',
-    sizes: ['1 hour', '2 hours', '3 hours'],
+    q1: { label: 'How many items?', options: ['1 item', '2–3 items', '4–6 items', '7+ items'] },
   },
   {
-    emoji: '📱', label: 'Tech help',          miscSlug: 'tech-help',          price: 'from €15/hr',
-    description: 'Phone, tablet, laptop or TV setup and troubleshooting. Great for elderly family members.',
-    sizes: ['1 hour', '2 hours'],
+    emoji: '📱', label: 'Tech help', slug: 'tech-help', price: 'from €20',
+    description: 'Device setup and troubleshooting at your home. Great for elderly family members.',
+    q1: { label: 'What needs help?', options: ['Phone / tablet', 'Laptop / PC', 'TV / streaming', 'Wi-Fi / router', 'Smart home setup'] },
   },
   {
-    emoji: '🚪', label: 'Wait for deliveries', miscSlug: 'wait-delivery',     price: '€10 flat',
-    description: 'We wait at your home for a delivery or tradesperson while you\'re out.',
+    emoji: '🚪', label: 'Wait for deliveries', slug: 'wait-delivery', price: '€10 flat',
+    description: "We wait at your home for a delivery or tradesperson while you're out.",
+    noSchedule: true,
   },
   {
-    emoji: '✨', label: 'Anything else',       miscSlug: 'anything-else',      price: 'Custom',
-    description: 'Not listed? Send us a WhatsApp and we\'ll sort it out.',
+    emoji: '🌙', label: 'Midnight Lift', slug: 'midnight-lift', price: 'from €10',
+    description: 'Safe, reliable late-night lift home. No surge pricing, no apps — just a student with a car.',
+    q1: { label: 'How far?', options: ['Nearby (under 3 km)', 'Mid-range (3–10 km)', 'Far (10 km+)'] },
+    noSchedule: true,
+  },
+  {
+    emoji: '✨', label: 'Anything else', slug: 'anything-else', price: 'Custom',
+    description: "Not listed? Send us a WhatsApp and we'll sort it out.",
     whatsappOnly: true,
   },
 ];
 
-function getMiscPriceCents(miscSlug: string, size: string): number | null {
-  if (miscSlug === 'post-office' || miscSlug === 'wait-delivery') return 1000;
-  const key = `${miscSlug}|${size}`;
-  const map: Record<string, number> = {
-    'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
-    'tech-help|1 hour': 1500,          'tech-help|2 hours': 3000,
+const SCHEDULE_DISCOUNT = 0.10; // 10% off for booking ahead
+const LOYALTY_DISCOUNT  = 0.50; // 50% off every 3rd booking
+
+function getPriceCents(slug: string, q1: string, q2: string): number | null {
+  const flat: Record<string, number> = {
+    'pharmacy-run':  1200, // €12 — covers travel + time
+    'post-office':   1000,
+    'wait-delivery': 1000,
   };
-  return map[key] ?? null;
+  if (slug in flat) return flat[slug];
+
+  if (slug === 'grocery-shopping') {
+    return ({ 'Quick errand': 1200, 'Weekly shop': 1800, 'Big monthly shop': 2800 })[q1] ?? null;
+  }
+
+  if (slug === 'dog-walking' || slug === 'dog-walk') {
+    return ({
+      '30 min · 1 dog': 1200, '1 hr · 1 dog': 1600, '1 hr · 2 dogs': 2000,
+      '2 hrs · 1 dog': 2200,  '2 hrs · 2+ dogs': 2800,
+      // legacy fallback
+      '30 min': 1200, '1 hour': 1600, '2 hours': 2200,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'lawn-mowing' || slug === 'garden') {
+    return ({
+      'Small (terrace / apartment)': 2200, 'Medium (semi-detached)': 3800,
+      'Large (detached)': 6000,            'Extra large': 9000,
+      // legacy
+      '1 hour': 2000, '2 hours': 4000, 'Half day': 7200,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'moving-help' || slug === 'moving') {
+    return ({
+      'A few boxes / items': 2500, 'One room': 4000,
+      '2–3 rooms': 7000,           'Full home': 10000,
+      // legacy
+      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000, '4+ hours': 8000,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'outdoor-cleaning' || slug === 'cleaning') {
+    return ({
+      'Small area': 2200, 'Medium area': 3800, 'Large area': 5500,
+      // legacy
+      '1 hour': 1800, '2 hours': 3600, '3 hours': 5400,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'furniture-assembly') {
+    return ({
+      '1 item': 2200, '2–3 items': 3800, '4–6 items': 5800, '7+ items': 8000,
+      // legacy
+      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'tech-help') {
+    return ({
+      'Phone / tablet': 2000, 'Laptop / PC': 2800, 'TV / streaming': 2200,
+      'Wi-Fi / router': 3000, 'Smart home setup': 4000,
+      // legacy
+      '1 hour': 2500, '2 hours': 5000,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'midnight-lift') {
+    return ({
+      'Nearby (under 3 km)':  1000,
+      'Mid-range (3–10 km)':  1500,
+      'Far (10 km+)':         2800,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'tutoring-grinds' || slug === 'tutoring') {
+    const rate: Record<string, number> = {
+      'Primary school': 2200, 'Junior Cert': 2800,
+      'Leaving Cert': 3200,   'College / Uni': 3800,
+    };
+    const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
+    const r = rate[q1];
+    const h = hrs[q2];
+    if (!r || !h) return null;
+    return r * h;
+  }
+
+  return null;
+}
+
+function applyScheduleDiscount(cents: number): number {
+  return Math.round(cents * (1 - SCHEDULE_DISCOUNT));
+}
+function applyLoyaltyDiscount(cents: number): number {
+  return Math.round(cents * (1 - LOYALTY_DISCOUNT));
+}
+
+// Generate next 6 day labels (Tomorrow, Wednesday, ...)
+function getScheduleDays(): string[] {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const result: string[] = [];
+  const now = new Date();
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    result.push(i === 1 ? 'Tomorrow' : days[d.getDay()]);
+  }
+  return result;
 }
 
 function getTimeSlots(): string[] {
-  const now = new Date();
+  const now  = new Date();
   const slots: string[] = ['Now'];
   const next = new Date(now);
   next.setSeconds(0, 0);
@@ -74,7 +215,7 @@ function getTimeSlots(): string[] {
   const fmt = (d: Date) => {
     const h = d.getHours(), m = d.getMinutes();
     const period = h >= 12 ? 'pm' : 'am';
-    const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    const hour   = h > 12 ? h - 12 : h === 0 ? 12 : h;
     return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${period}`;
   };
   while (next.getHours() < 21) {
@@ -84,68 +225,83 @@ function getTimeSlots(): string[] {
   return slots;
 }
 
-function scrollToGridAndSelect(gridSlug: string) {
-  const grid = document.getElementById('category-grid');
-  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug: gridSlug } }));
+const chipBase = 'px-3 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color] duration-150';
+
+function chip(active: boolean, isNow = false) {
+  if (active) return cn(chipBase, isNow ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-primary text-primary-foreground border-primary');
+  if (isNow)  return cn(chipBase, 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800');
+  return cn(chipBase, 'bg-background text-foreground border-border hover:border-primary/40');
 }
 
-const chipBase =
-  'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color] duration-150';
-
 const fadeSlide = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  exit:    { opacity: 0, y: -4 },
+  initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 },
   transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const },
 };
-
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.05 } },
-};
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const card = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
+  hidden: { opacity: 0, y: 14, scale: 0.94 },
+  show:   { opacity: 1, y: 0,  scale: 1, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export const TaskShowcase: React.FC = () => {
-  const [selectedMisc, setSelectedMisc] = useState<MiscTask | null>(null);
-  const [when, setWhen] = useState('');
-  const [size, setSize] = useState('');
-  const [note, setNote] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [selected,    setSelected]    = useState<Task | null>(null);
+  const [q1Val,       setQ1Val]       = useState('');
+  const [q2Val,       setQ2Val]       = useState('');
+  const [schedMode,   setSchedMode]   = useState<'today' | 'ahead'>('today');
+  const [when,        setWhen]        = useState('');
+  const [note,        setNote]        = useState('');
+  const [name,        setName]        = useState('');
+  const [phone,       setPhone]       = useState('');
+  const [city,        setCity]        = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [isLoyalty,   setIsLoyalty]   = useState(false);
+  const [loyaltyChecking, setLoyaltyChecking] = useState(false);
 
-  const timeSlots = useMemo(() => getTimeSlots(), []);
+  const timeSlots   = useMemo(() => getTimeSlots(),   []);
+  const scheduleDays = useMemo(() => getScheduleDays(), []);
 
-  function openMisc(task: MiscTask) {
-    setSelectedMisc(task);
-    setWhen(''); setSize(''); setNote('');
+  async function checkLoyalty(phoneVal: string) {
+    if (phoneVal.replace(/\D/g, '').length < 8) return;
+    setLoyaltyChecking(true);
+    try {
+      const { data } = await supabase.functions.invoke('check-loyalty', {
+        body: { customer_phone: phoneVal.trim() },
+      });
+      setIsLoyalty((data as { is_loyalty?: boolean } | null)?.is_loyalty ?? false);
+    } catch {
+      // silently fail — loyalty check is non-blocking
+    } finally {
+      setLoyaltyChecking(false);
+    }
+  }
+
+  function open(task: Task) {
+    setSelected(task);
+    setQ1Val(''); setQ2Val(''); setSchedMode('today'); setWhen(''); setNote('');
     setName(''); setPhone(''); setCity('');
+    setIsLoyalty(false);
     setError(null);
     setTimeout(() => {
-      document.getElementById('misc-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('task-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 80);
   }
+  function close() { setSelected(null); setError(null); }
 
-  function closeMisc() {
-    setSelectedMisc(null);
-    setError(null);
-  }
-
-  const priceCents = selectedMisc ? getMiscPriceCents(selectedMisc.miscSlug, size) : null;
-  const canBook = !!when && (priceCents !== null);
-  const canWhatsApp = !!when || !!selectedMisc?.whatsappOnly;
+  const baseCents      = selected ? getPriceCents(selected.slug, q1Val, q2Val) : null;
+  const isScheduled    = schedMode === 'ahead' && !selected?.noSchedule;
+  const afterSchedule  = baseCents !== null ? (isScheduled ? applyScheduleDiscount(baseCents) : baseCents) : null;
+  const priceCents     = afterSchedule !== null ? (isLoyalty ? applyLoyaltyDiscount(afterSchedule) : afterSchedule) : null;
+  const canShowTiming  = priceCents !== null || (!selected?.q1 && !selected?.whatsappOnly);
+  const canBook        = priceCents !== null && !!when;
+  const canWhatsApp    = selected?.whatsappOnly ?? false;
 
   function sendWhatsApp() {
-    if (!selectedMisc) return;
-    const lines = [`Hi VANO! I need help with: ${selectedMisc.label}.`];
-    if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
-    if (size) lines.push(`Duration: ${size}`);
+    if (!selected) return;
+    const lines = [`Hi VANO! I need help with: ${selected.label}.`];
+    if (q1Val) lines.push(`${selected.q1?.label ?? 'Option'}: ${q1Val}`);
+    if (q2Val) lines.push(`${selected.q2?.label ?? 'Duration'}: ${q2Val}`);
+    if (when)  lines.push(`When: ${schedMode === 'ahead' ? when : when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
     if (note.trim()) lines.push(note.trim());
     lines.push('Can you let me know who is available?');
     window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank', 'noopener,noreferrer');
@@ -153,22 +309,26 @@ export const TaskShowcase: React.FC = () => {
 
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedMisc || !priceCents || !when) return;
-    if (!name.trim()) { setError('Please enter your name.'); return; }
+    if (!selected || !priceCents || !when) return;
+    if (!name.trim())  { setError('Please enter your name.');         return; }
     if (!phone.trim()) { setError('Please enter your phone number.'); return; }
-    if (!city) { setError('Please select your city.'); return; }
+    if (!city)         { setError('Please select your city.');        return; }
     setLoading(true); setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
         { body: {
-          category: selectedMisc.miscSlug,
-          when_label: when,
-          size_label: size,
-          note: note.trim(),
-          customer_name: name.trim(),
+          category:       selected.slug,
+          when_label:     when,
+          size_label:     q1Val,
+          extra_label:    q2Val,
+          scheduled:      isScheduled,
+          note:           note.trim(),
+          customer_name:  name.trim(),
           customer_phone: phone.trim(),
           city,
+          // loyalty is re-verified server-side; this is just a hint
+          loyalty_hint:   isLoyalty,
         }},
       );
       if (fnErr || !data?.checkout_url) {
@@ -190,45 +350,19 @@ export const TaskShowcase: React.FC = () => {
 
       <motion.div
         className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
-        variants={container}
-        initial="hidden"
-        whileInView="show"
+        variants={container} initial="hidden" whileInView="show"
         viewport={{ once: true, margin: '-48px' }}
       >
-        {/* Grid tasks — scroll to top and pre-select */}
-        {GRID_TASKS.map(({ emoji, label, gridSlug }) => (
+        {ALL_TASKS.map((task) => (
           <motion.button
-            key={label}
-            variants={card}
-            onClick={() => scrollToGridAndSelect(gridSlug)}
-            className={cn(
-              'group flex items-center gap-2.5 rounded-xl p-3 text-left',
-              'border border-border/40 bg-secondary/50',
-              'transition-[background-color,border-color,box-shadow] duration-200',
-              'hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
-              'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-            )}
-          >
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none" aria-hidden="true">
-              {emoji}
-            </span>
-            <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">{label}</span>
-            <ChevronRight className="flex-shrink-0 w-3.5 h-3.5 text-primary/50 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-[opacity,transform] duration-200" strokeWidth={1.75} />
-          </motion.button>
-        ))}
-
-        {/* Misc tasks — open inline wizard */}
-        {MISC_TASKS.map((task) => (
-          <motion.button
-            key={task.label}
-            variants={card}
-            onClick={() => selectedMisc?.miscSlug === task.miscSlug ? closeMisc() : openMisc(task)}
-            aria-pressed={selectedMisc?.miscSlug === task.miscSlug}
+            key={task.slug} variants={card}
+            onClick={() => selected?.slug === task.slug ? close() : open(task)}
+            aria-pressed={selected?.slug === task.slug}
             className={cn(
               'group flex items-center gap-2.5 rounded-xl p-3 text-left',
               'border transition-[background-color,border-color,box-shadow] duration-200',
               'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-              selectedMisc?.miscSlug === task.miscSlug
+              selected?.slug === task.slug
                 ? 'bg-primary/[0.06] border-primary/30 shadow-tinted-sm'
                 : 'bg-secondary/50 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
             )}
@@ -242,12 +376,11 @@ export const TaskShowcase: React.FC = () => {
         ))}
       </motion.div>
 
-      {/* Inline booking panel for misc tasks */}
+      {/* Booking panel */}
       <AnimatePresence>
-        {selectedMisc && (
+        {selected && (
           <motion.div
-            id="misc-panel"
-            key={selectedMisc.miscSlug}
+            id="task-panel" key={selected.slug}
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.99 }}
@@ -256,103 +389,215 @@ export const TaskShowcase: React.FC = () => {
           >
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 bg-secondary/30">
-              <span className="text-xl leading-none select-none">{selectedMisc.emoji}</span>
+              <span className="text-xl leading-none select-none">{selected.emoji}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{selectedMisc.label}</p>
-                <p className="text-xs text-muted-foreground">{selectedMisc.price}</p>
+                <p className="text-sm font-semibold text-foreground">{selected.label}</p>
+                <AnimatePresence mode="wait">
+                  {priceCents !== null ? (
+                    <motion.div key="price" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold text-primary">€{(priceCents / 100).toFixed(0)}</span>
+                      {(isScheduled || isLoyalty) && baseCents !== null && (
+                        <span className="text-[10px] text-muted-foreground line-through">€{(baseCents / 100).toFixed(0)}</span>
+                      )}
+                      {isLoyalty && (
+                        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">🎉 50% off</span>
+                      )}
+                      {isScheduled && !isLoyalty && (
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">10% off</span>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.p key="from" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground">
+                      {selected.price}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
-              <button onClick={closeMisc} aria-label="Close" className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+              <button onClick={close} aria-label="Close" className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Description */}
             <div className="px-4 py-3 border-b border-border/30 bg-background/60">
-              <p className="text-xs text-muted-foreground leading-relaxed">{selectedMisc.description}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{selected.description}</p>
             </div>
 
             <div className="p-4">
               <AnimatePresence mode="wait">
-                {selectedMisc.whatsappOnly ? (
-                  <motion.div key="whatsapp-only" {...fadeSlide} className="space-y-3">
+                {/* WhatsApp-only services */}
+                {selected.whatsappOnly ? (
+                  <motion.div key="wa-only" {...fadeSlide} className="space-y-3">
+                    <p className="text-xs text-muted-foreground">Describe what you need and we'll sort it out — most things are possible.</p>
                     <textarea
-                      value={note}
-                      onChange={e => setNote(e.target.value)}
-                      placeholder="Tell us what you need..."
+                      value={note} onChange={e => setNote(e.target.value)}
+                      placeholder="e.g. I need someone to hang 3 pictures and assemble a wardrobe..."
                       rows={3}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
                     />
                     <Button onClick={sendWhatsApp} className="w-full rounded-full gap-2 font-semibold bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent">
-                      <MessageCircle className="w-4 h-4" />
-                      Chat to us on WhatsApp
+                      <MessageCircle className="w-4 h-4" />Send us a WhatsApp →
                     </Button>
+                    <p className="text-center text-xs text-muted-foreground/60">We reply fast — usually within the hour</p>
                   </motion.div>
                 ) : (
-                  <motion.form key="book-form" {...fadeSlide} onSubmit={handlePay} className="space-y-4">
-                    {/* When? */}
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">When?</p>
-                      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                        {timeSlots.map(opt => (
-                          <motion.button
-                            key={opt} type="button"
-                            onClick={() => setWhen(when === opt ? '' : opt)}
-                            whileTap={{ scale: 0.91 }}
-                            transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                            className={cn(
-                              chipBase, 'flex-shrink-0',
-                              when === opt
-                                ? opt === 'Now' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-primary text-primary-foreground border-primary'
-                                : opt === 'Now' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800' : 'bg-background text-foreground border-border hover:border-primary/40',
-                            )}
-                          >{opt}</motion.button>
-                        ))}
-                      </div>
-                    </div>
+                  <motion.form key="book-form" {...fadeSlide} onSubmit={handlePay} className="space-y-5">
 
-                    {/* Size / duration */}
-                    {selectedMisc.sizes && selectedMisc.sizes.length > 0 && (
+                    {/* Q1 */}
+                    {selected.q1 && (
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">How long?</p>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                          {selected.q1.label}
+                        </p>
                         <div className="flex flex-wrap gap-2">
-                          {selectedMisc.sizes.map(opt => (
+                          {selected.q1.options.map(opt => (
                             <motion.button
                               key={opt} type="button"
-                              onClick={() => setSize(size === opt ? '' : opt)}
+                              onClick={() => { setQ1Val(q1Val === opt ? '' : opt); setQ2Val(''); }}
                               whileTap={{ scale: 0.91 }}
                               transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                              className={cn(chipBase, size === opt ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-foreground border-border hover:border-primary/40')}
+                              className={chip(q1Val === opt)}
                             >{opt}</motion.button>
                           ))}
                         </div>
                       </div>
                     )}
 
+                    {/* Q2 — tutoring only, revealed after Q1 */}
+                    {selected.q2 && q1Val && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                        transition={{ duration: 0.18 }} className="overflow-hidden"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                          {selected.q2.label}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selected.q2.options.map(opt => (
+                            <motion.button
+                              key={opt} type="button"
+                              onClick={() => setQ2Val(q2Val === opt ? '' : opt)}
+                              whileTap={{ scale: 0.91 }}
+                              transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                              className={chip(q2Val === opt)}
+                            >{opt}</motion.button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* When — revealed once price is known */}
+                    <AnimatePresence>
+                      {canShowTiming && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+                          className="overflow-hidden space-y-3"
+                        >
+                          {/* Today vs Schedule toggle — only for non-errand services */}
+                          {!selected.noSchedule && (
+                            <div className="flex rounded-xl border border-border overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => { setSchedMode('today'); setWhen(''); }}
+                                className={cn(
+                                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors',
+                                  schedMode === 'today'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                <Clock className="w-3 h-3" />Today
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setSchedMode('ahead'); setWhen(''); }}
+                                className={cn(
+                                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors border-l border-border',
+                                  schedMode === 'ahead'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                <Calendar className="w-3 h-3" />Schedule ahead
+                                {baseCents !== null && (
+                                  <span className={cn(
+                                    'text-[10px] font-bold rounded-full px-1',
+                                    schedMode === 'ahead' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400',
+                                  )}>save {Math.round(baseCents * 0.10 / 100)}€</span>
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Time or day picker */}
+                          {schedMode === 'today' || selected.noSchedule ? (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">When today?</p>
+                              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                                {timeSlots.map(opt => (
+                                  <motion.button
+                                    key={opt} type="button"
+                                    onClick={() => setWhen(when === opt ? '' : opt)}
+                                    whileTap={{ scale: 0.91 }}
+                                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                                    className={cn(chip(when === opt, opt === 'Now'), 'flex-shrink-0')}
+                                  >{opt}</motion.button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Which day?</p>
+                              <div className="flex flex-wrap gap-2">
+                                {scheduleDays.map(day => (
+                                  <motion.button
+                                    key={day} type="button"
+                                    onClick={() => setWhen(when === day ? '' : day)}
+                                    whileTap={{ scale: 0.91 }}
+                                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                                    className={chip(when === day)}
+                                  >{day}</motion.button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     {/* Note */}
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                        Anything to add? <span className="font-normal normal-case text-muted-foreground/60">(optional)</span>
-                      </p>
+                    {canShowTiming && (
                       <input
                         type="text" value={note} onChange={e => setNote(e.target.value)}
-                        placeholder="Address or special requests"
+                        placeholder="Address or anything to add (optional)"
                         className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
-                    </div>
+                    )}
 
-                    {/* Contact details — only shown when a time is picked */}
+                    {/* Contact — revealed once time is picked */}
                     <AnimatePresence>
                       {when && (
                         <motion.div
-                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
                           className="space-y-3 overflow-hidden"
                         >
                           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your details</p>
                           <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
                             className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent" />
-                          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Your phone number" required
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent" />
+                          <div className="relative">
+                            <input
+                              type="tel" value={phone}
+                              onChange={e => { setPhone(e.target.value); setIsLoyalty(false); }}
+                              onBlur={e => checkLoyalty(e.target.value)}
+                              placeholder="Your phone number" required
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                            />
+                            {loyaltyChecking && (
+                              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground/50" />
+                            )}
+                          </div>
                           <Select value={city} onValueChange={setCity}>
                             <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Your city" /></SelectTrigger>
                             <SelectContent>{SUPPORTED_CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -361,24 +606,68 @@ export const TaskShowcase: React.FC = () => {
                       )}
                     </AnimatePresence>
 
-                    {/* CTAs */}
+                    {/* Schedule savings banner */}
+                    <AnimatePresence>
+                      {isScheduled && baseCents !== null && afterSchedule !== null && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+                          transition={{ duration: 0.2 }}
+                          className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-3.5 py-3"
+                        >
+                          <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                            📅 You're saving €{((baseCents - afterSchedule) / 100).toFixed(0)} by scheduling ahead
+                          </p>
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                            10% off when you book in advance — your helper plans around you.
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Loyalty reward banner */}
+                    <AnimatePresence>
+                      {isLoyalty && priceCents !== null && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+                          transition={{ duration: 0.2 }}
+                          className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-3.5 py-3"
+                        >
+                          <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">🎉 This is your loyalty booking!</p>
+                          <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                            Every 3rd booking is 50% off — your price is automatically €{(priceCents / 100).toFixed(0)}.
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Pay CTA — primary action */}
                     {canBook && (
-                      <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
-                        {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</> : <><CreditCard className="w-4 h-4" />Book for €{(priceCents! / 100).toFixed(0)} — pay by card</>}
-                      </Button>
+                      <>
+                        <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
+                          {loading
+                            ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
+                            : <><CreditCard className="w-4 h-4" />Book your helper — €{(priceCents! / 100).toFixed(0)}</>}
+                        </Button>
+                        <p className="text-center text-xs text-muted-foreground leading-relaxed">
+                          🛡️ All students are screened · money back if the job isn't done right
+                        </p>
+                        <p className="text-center text-[11px] text-muted-foreground/60">
+                          ⚡ Usually matched within 30 mins · Stripe secure checkout
+                        </p>
+                      </>
                     )}
-                    <Button
-                      type="button" onClick={sendWhatsApp}
-                      disabled={!canWhatsApp}
-                      variant={canBook ? 'outline' : 'default'}
-                      className={cn('w-full rounded-full gap-2 font-semibold', !canBook && when ? 'bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent' : '')}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      {canBook ? 'Or book via WhatsApp' : 'Book via WhatsApp'}
-                    </Button>
-                    {!when && <p className="text-center text-xs text-muted-foreground !mt-1.5">Pick a time above to continue</p>}
+
                     {error && <p className="text-center text-xs text-destructive">{error}</p>}
-                    {canBook && <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · paid upfront, confirmed instantly</p>}
+
+                    {/* WhatsApp — secondary, only shown once a time is picked */}
+                    {canBook && (
+                      <p className="text-center text-xs text-muted-foreground/60">
+                        Need to ask something first?{' '}
+                        <button type="button" onClick={sendWhatsApp} className="underline underline-offset-2 hover:text-muted-foreground transition-colors">
+                          WhatsApp us
+                        </button>
+                      </p>
+                    )}
                   </motion.form>
                 )}
               </AnimatePresence>

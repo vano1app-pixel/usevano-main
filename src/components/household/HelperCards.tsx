@@ -1,33 +1,79 @@
 import React, { useEffect, useState } from 'react';
-import { Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+const CATEGORY_LABELS: Record<string, string> = {
+  'shopping':           '🛒 Shopping',
+  'grocery-shopping':   '🛒 Groceries',
+  'dog-walk':           '🐕 Dog walks',
+  'dog-walking':        '🐕 Dog walks',
+  'garden':             '🌿 Garden',
+  'lawn-mowing':        '🌿 Lawn mowing',
+  'moving':             '📦 Moving',
+  'moving-help':        '📦 Moving',
+  'cleaning':           '🧹 Cleaning',
+  'outdoor-cleaning':   '🧹 Cleaning',
+  'tutoring':           '📚 Tutoring',
+  'tutoring-grinds':    '📚 Tutoring',
+  'post-office':        '📬 Post office',
+  'pharmacy-run':       '💊 Pharmacy',
+  'furniture-assembly': '🔧 Furniture',
+  'tech-help':          '📱 Tech help',
+  'wait-delivery':      '🚪 Deliveries',
+  'midnight-lift':      '🌙 Midnight Lift',
+};
+
 interface HelperRow {
-  name: string;
-  photo_url: string;
-  city: string;
-  rating_avg: number | null;
-  accepted_count: number | null;
+  name:          string;
+  photo_url:     string;
+  city:          string;
+  age:           number | null;
+  bio:           string | null;
+  categories:    string[] | null;
 }
 
-function Card({ name, photo, city, rating, jobs }: {
-  name: string; photo: string; city: string; rating: number; jobs: number;
-}) {
+function Card({ h }: { h: HelperRow }) {
+  const cats = (h.categories ?? []).slice(0, 3);
+  const firstName = h.name.split(' ')[0];
+
   return (
-    <article className="snap-start w-[190px] lg:w-auto bg-white rounded-2xl shadow-tinted p-4 flex flex-col gap-3 border border-border/40">
-      <img
-        src={photo} alt={name} width={48} height={48}
-        className="w-12 h-12 rounded-full object-cover flex-shrink-0 ring-2 ring-border/30"
-        loading="lazy"
-      />
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-foreground text-sm">{name}</p>
-        <p className="text-muted-foreground text-xs leading-snug mt-0.5">Verified helper · {city}</p>
+    <article className="snap-start w-[220px] lg:w-auto bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col">
+      {/* Photo — square crop, full width */}
+      <div className="w-full aspect-[4/3] overflow-hidden bg-secondary/40 flex-shrink-0">
+        <img
+          src={h.photo_url}
+          alt={h.name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
       </div>
-      <div className="flex items-center gap-1">
-        <Star className="w-3 h-3 fill-gold text-gold flex-shrink-0" aria-hidden="true" />
-        <span className="text-xs font-semibold text-foreground tabular-nums">{rating.toFixed(1)}</span>
-        <span className="text-xs text-muted-foreground">· {jobs} jobs</span>
+
+      <div className="p-3 flex flex-col gap-2 flex-1">
+        {/* Name + age */}
+        <div>
+          <p className="font-semibold text-foreground text-sm leading-tight">
+            Hey, I'm {firstName}
+            {h.age ? <span className="font-normal text-muted-foreground"> · {h.age}</span> : null}
+          </p>
+          {h.bio ? (
+            <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{h.bio}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-0.5">Based in {h.city}</p>
+          )}
+        </div>
+
+        {/* Category chips */}
+        {cats.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-auto">
+            {cats.map(slug => (
+              <span
+                key={slug}
+                className="text-[10px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5"
+              >
+                {CATEGORY_LABELS[slug] ?? slug}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </article>
   );
@@ -39,46 +85,59 @@ export const HelperCards: React.FC = () => {
   useEffect(() => {
     (supabase as any)
       .from('household_helpers')
-      .select('name, photo_url, city, rating_avg, accepted_count')
+      .select('name, photo_url, city, age, bio, categories')
+      .neq('status', 'suspended')
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
       .limit(20)
       .then(({ data }: { data: HelperRow[] | null }) => {
         if (data && data.length > 0) {
-          // Shuffle and take up to 6 random helpers
           const shuffled = [...data].sort(() => Math.random() - 0.5);
           setHelpers(shuffled.slice(0, 6));
         }
       });
   }, []);
 
-  // Nothing to show yet — hide the section entirely
-  if (helpers.length === 0) return null;
-
   return (
     <section className="py-12">
-      <div className="px-4 max-w-5xl mx-auto mb-5">
-        <p className="eyebrow mb-3">Our helpers</p>
-        <h2 className="display-lg text-foreground">Your local helpers</h2>
+      <div className="px-4 max-w-5xl mx-auto mb-6">
+        <p className="eyebrow mb-3">Meet the helpers</p>
+        <h2 className="text-2xl font-semibold text-foreground" style={{ letterSpacing: '-0.02em' }}>
+          Real students, ready to help
+        </h2>
       </div>
 
-      {/* Mobile: horizontal scroll */}
-      <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 lg:hidden">
-        <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
-          {helpers.map((h) => (
-            <Card key={h.name} name={h.name} photo={h.photo_url} city={h.city}
-              rating={h.rating_avg ?? 5.0} jobs={h.accepted_count ?? 0} />
-          ))}
+      {helpers.length === 0 ? (
+        <div className="px-4 max-w-5xl mx-auto">
+          <div className="rounded-2xl border border-dashed border-border/60 bg-secondary/30 py-12 flex flex-col items-center justify-center text-center gap-3">
+            <span className="text-3xl">🎓</span>
+            <p className="font-semibold text-foreground text-sm">Be the first helper on VANO</p>
+            <p className="text-xs text-muted-foreground max-w-xs">
+              Students who sign up will be featured right here. Join today and be first.
+            </p>
+            <a
+              href="/join"
+              className="mt-2 inline-flex items-center rounded-full bg-primary text-primary-foreground px-5 py-2 text-sm font-semibold hover:-translate-y-px transition-transform duration-150"
+            >
+              Join as a helper →
+            </a>
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Mobile: horizontal scroll */}
+          <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 lg:hidden">
+            <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
+              {helpers.map((h) => <Card key={h.name} h={h} />)}
+            </div>
+          </div>
 
-      {/* Desktop: 6-column grid */}
-      <div className="hidden lg:grid lg:grid-cols-6 gap-3 px-4 max-w-5xl mx-auto">
-        {helpers.map((h) => (
-          <Card key={h.name} name={h.name} photo={h.photo_url} city={h.city}
-            rating={h.rating_avg ?? 5.0} jobs={h.accepted_count ?? 0} />
-        ))}
-      </div>
+          {/* Desktop: grid */}
+          <div className="hidden lg:grid lg:grid-cols-6 gap-3 px-4 max-w-5xl mx-auto">
+            {helpers.map((h) => <Card key={h.name} h={h} />)}
+          </div>
+        </>
+      )}
     </section>
   );
 };
