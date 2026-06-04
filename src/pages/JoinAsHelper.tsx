@@ -55,6 +55,8 @@ const JOBS = [
 
 export const JoinAsHelper: React.FC = () => {
   const [name, setName] = useState('');
+  const [age, setAge] = useState('');
+  const [bio, setBio] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
@@ -87,7 +89,7 @@ export const JoinAsHelper: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !phone.trim() || !city || !photo) return;
+    if (!name.trim() || !email.trim() || !phone.trim() || !city || !photo || !age.trim()) return;
     if (categories.length === 0) {
       setError('Please select at least one job type.');
       return;
@@ -98,6 +100,8 @@ export const JoinAsHelper: React.FC = () => {
     try {
       const fd = new FormData();
       fd.append('name', name.trim());
+      fd.append('age', age.trim());
+      if (bio.trim()) fd.append('bio', bio.trim());
       fd.append('email', email.trim().toLowerCase());
       fd.append('phone', phone.trim());
       fd.append('city', city);
@@ -276,6 +280,48 @@ export const JoinAsHelper: React.FC = () => {
                 />
               </div>
 
+              {/* Age */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  Your age
+                </p>
+                <input
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="e.g. 20"
+                  min={16} max={35}
+                  required
+                  className={cn(
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'placeholder:text-muted-foreground/50',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                    'transition-[border-color,box-shadow] duration-150',
+                  )}
+                />
+              </div>
+
+              {/* Bio */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  What are you studying / doing? <span className="normal-case font-normal">(optional)</span>
+                </p>
+                <input
+                  type="text"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="e.g. 2nd year Engineering at UCD"
+                  maxLength={80}
+                  className={cn(
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'placeholder:text-muted-foreground/50',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                    'transition-[border-color,box-shadow] duration-150',
+                  )}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">Shows on your public helper card</p>
+              </div>
+
               {/* Email */}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
@@ -428,7 +474,7 @@ export const JoinAsHelper: React.FC = () => {
 
               <Button
                 type="submit"
-                disabled={submitting || !name.trim() || !email.trim() || !phone.trim() || !city || !photo || categories.length === 0}
+                disabled={submitting || !name.trim() || !age.trim() || !email.trim() || !phone.trim() || !city || !photo || categories.length === 0}
                 className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (
