@@ -36,6 +36,7 @@ const TIERS: AirbnbTier[] = [
     price:   12900,
     label:   '€129',
     tagline: 'Great for occasional lets',
+    highlight: true,
     features: [
       '2 changeover cleans per month',
       'Fresh linen & towels restocked',
@@ -49,7 +50,6 @@ const TIERS: AirbnbTier[] = [
     price:   19900,
     label:   '€199',
     tagline: 'Best value for active hosts',
-    highlight: true,
     features: [
       '4 changeover cleans per month',
       'Fresh linen & towels restocked',
