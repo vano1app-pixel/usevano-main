@@ -20,6 +20,8 @@ const VALID_CATEGORIES = [
   'grocery-shopping', 'dog-walking', 'lawn-mowing', 'moving-help', 'outdoor-cleaning', 'tutoring-grinds',
   // Misc / errand slugs
   'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
+  // Midnight lift
+  'midnight-lift',
 ] as const;
 type Category = typeof VALID_CATEGORIES[number];
 
@@ -127,6 +129,16 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
+  // Midnight lift — distance tier
+  if (category === 'midnight-lift') {
+    const map: Record<string, number> = {
+      'Nearby (under 3 km)': 1000,
+      'Mid-range (3–10 km)': 1500,
+      'Far (10 km+)':        2800,
+    };
+    return map[sizeLabel] ?? null;
+  }
+
   // Tutoring — level (sizeLabel) × duration (extraLabel)
   if (category === 'tutoring' || category === 'tutoring-grinds') {
     const rate: Record<string, number> = {
@@ -167,6 +179,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   'furniture-assembly': 'Furniture assembly',
   'tech-help':          'Tech help',
   'wait-delivery':      'Wait for delivery',
+  'midnight-lift':      'Midnight Lift',
 };
 
 serve(async (req) => {

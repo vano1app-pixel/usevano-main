@@ -84,6 +84,12 @@ const ALL_TASKS: Task[] = [
     noSchedule: true,
   },
   {
+    emoji: '🌙', label: 'Midnight Lift', slug: 'midnight-lift', price: 'from €10',
+    description: 'Safe, reliable late-night lift home. No surge pricing, no apps — just a student with a car.',
+    q1: { label: 'How far?', options: ['Nearby (under 3 km)', 'Mid-range (3–10 km)', 'Far (10 km+)'] },
+    noSchedule: true,
+  },
+  {
     emoji: '✨', label: 'Anything else', slug: 'anything-else', price: 'Custom',
     description: "Not listed? Send us a WhatsApp and we'll sort it out.",
     whatsappOnly: true,
@@ -154,6 +160,14 @@ function getPriceCents(slug: string, q1: string, q2: string): number | null {
       'Wi-Fi / router': 3000, 'Smart home setup': 4000,
       // legacy
       '1 hour': 2500, '2 hours': 5000,
+    })[q1] ?? null;
+  }
+
+  if (slug === 'midnight-lift') {
+    return ({
+      'Nearby (under 3 km)':  1000,
+      'Mid-range (3–10 km)':  1500,
+      'Far (10 km+)':         2800,
     })[q1] ?? null;
   }
 
