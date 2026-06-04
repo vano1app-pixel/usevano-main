@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -238,57 +238,25 @@ const card = {
   show:   { opacity: 1, y: 0,  scale: 1, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-const LS_NAME  = 'vano_customer_name';
-const LS_PHONE = 'vano_customer_phone';
-const LS_CITY  = 'vano_customer_city';
-
-// Reverse-geocode coords to a VANO supported city, or null.
-async function detectCity(lat: number, lng: number): Promise<string | null> {
-  try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-      headers: { 'Accept-Language': 'en' },
-    });
-    const j = await r.json() as { address?: { city?: string; town?: string; county?: string } };
-    const raw = (j.address?.city ?? j.address?.town ?? j.address?.county ?? '').toLowerCase();
-    return SUPPORTED_CITIES.find(c => raw.includes(c.toLowerCase())) ?? null;
-  } catch {
-    return null;
-  }
-}
+const LS_NAME    = 'vano_customer_name';
+const LS_PHONE   = 'vano_customer_phone';
+const LS_CITY    = 'vano_customer_city';
+const LS_ADDRESS = 'vano_customer_address';
 
 export const TaskShowcase: React.FC = () => {
   const [selected,    setSelected]    = useState<Task | null>(null);
   const [q1Val,       setQ1Val]       = useState('');
   const [q2Val,       setQ2Val]       = useState('');
   const [when,        setWhen]        = useState('');
-  const [note,        setNote]        = useState('');
-  const [name,        setName]        = useState(() => { try { return localStorage.getItem(LS_NAME)  ?? ''; } catch { return ''; } });
-  const [phone,       setPhone]       = useState(() => { try { return localStorage.getItem(LS_PHONE) ?? ''; } catch { return ''; } });
-  const [city,        setCity]        = useState(() => { try { return localStorage.getItem(LS_CITY) ?? ''; } catch { return ''; } });
+  const [note,        setNote]        = useState(() => { try { return localStorage.getItem(LS_ADDRESS) ?? ''; } catch { return ''; } });
+  const [name,        setName]        = useState(() => { try { return localStorage.getItem(LS_NAME)    ?? ''; } catch { return ''; } });
+  const [phone,       setPhone]       = useState(() => { try { return localStorage.getItem(LS_PHONE)   ?? ''; } catch { return ''; } });
+  const [city,        setCity]        = useState(() => { try { return localStorage.getItem(LS_CITY)    ?? 'Galway'; } catch { return 'Galway'; } });
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [isLoyalty,   setIsLoyalty]   = useState(false);
   const [loyaltyChecking, setLoyaltyChecking] = useState(false);
-  const geoAttempted = useRef(false);
-
   const timeOptions  = useMemo(() => getTimeOptions(), []);
-
-  function tryDetectCity() {
-    try { if (localStorage.getItem(LS_CITY)) return; } catch { /* blocked */ }
-    if (geoAttempted.current || !navigator.geolocation) return;
-    geoAttempted.current = true;
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        const detected = await detectCity(coords.latitude, coords.longitude);
-        if (detected) {
-          setCity(detected);
-          try { localStorage.setItem(LS_CITY, detected); } catch { /* blocked */ }
-        }
-      },
-      () => {},
-      { timeout: 5000 },
-    );
-  }
 
   async function checkLoyalty(phoneVal: string) {
     if (phoneVal.replace(/\D/g, '').length < 8) return;
@@ -311,7 +279,6 @@ export const TaskShowcase: React.FC = () => {
     setIsLoyalty(false);
     setError(null);
     setTapped(null);
-    tryDetectCity();
     setTimeout(() => {
       document.getElementById('task-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 80);
@@ -375,7 +342,12 @@ export const TaskShowcase: React.FC = () => {
       if (fnErr || !data?.checkout_url) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
-      try { localStorage.setItem(LS_NAME, name.trim()); localStorage.setItem(LS_PHONE, phone.trim()); localStorage.setItem(LS_CITY, city); } catch { /* storage blocked */ }
+      try {
+        localStorage.setItem(LS_NAME,    name.trim());
+        localStorage.setItem(LS_PHONE,   phone.trim());
+        localStorage.setItem(LS_CITY,    city);
+        if (note.trim()) localStorage.setItem(LS_ADDRESS, note.trim());
+      } catch { /* storage blocked */ }
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
