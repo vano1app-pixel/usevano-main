@@ -33,32 +33,101 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
   };
   if (category in flat) return flat[category]!;
 
-  // Grocery shopping — tiered by list size
+  // Grocery shopping — list size
   if (category === 'grocery-shopping') {
     const map: Record<string, number> = {
-      'Quick errand (a few items)': 1000,
-      'Regular shop':               1500,
-      'Big weekly shop':            2200,
+      'Quick errand':      1200,
+      'Weekly shop':       1800,
+      'Big monthly shop':  2800,
     };
     return map[sizeLabel] ?? null;
   }
 
-  // Dog walking — duration base + per extra dog
+  // Dog walking — pre-combined duration + dog count option
   if (category === 'dog-walk' || category === 'dog-walking') {
-    const base: Record<string, number> = {
-      '30 min':  1200,
-      '1 hour':  1600,
-      '2 hours': 2200,
+    const combined: Record<string, number> = {
+      '30 min · 1 dog':  1200,
+      '1 hr · 1 dog':    1600,
+      '1 hr · 2 dogs':   2000,
+      '2 hrs · 1 dog':   2200,
+      '2 hrs · 2+ dogs': 2800,
     };
-    // Legacy CategoryGrid flow had no extra_label — default to 1 dog
-    const dogBonus: Record<string, number> = { '1 dog': 0, '2 dogs': 400, '3+ dogs': 800 };
-    const b = base[sizeLabel] ?? (sizeLabel === '30 min' ? 1200 : 1600);
-    const d = dogBonus[extraLabel] ?? 0;
-    if (b === undefined) return null;
-    return b + d;
+    // Legacy CategoryGrid fallback
+    if (!combined[sizeLabel]) return sizeLabel === '30 min' ? 1200 : 1600;
+    return combined[sizeLabel];
   }
 
-  // Tutoring — duration × level rate
+  // Lawn mowing — garden size
+  if (category === 'garden' || category === 'lawn-mowing') {
+    const map: Record<string, number> = {
+      // legacy time-based (CategoryGrid)
+      '1 hour': 2000, '2 hours': 4000, 'Half day': 7200,
+      // new size-based
+      'Small (terrace / apartment)': 2200,
+      'Medium (semi-detached)':      3800,
+      'Large (detached)':            6000,
+      'Extra large':                 9000,
+    };
+    return map[sizeLabel] ?? null;
+  }
+
+  // Moving — job size
+  if (category === 'moving' || category === 'moving-help') {
+    const map: Record<string, number> = {
+      // legacy time-based
+      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000, '4+ hours': 8000,
+      // new job-size
+      'A few boxes / items': 2500,
+      'One room':            4000,
+      '2–3 rooms':           7000,
+      // 'Full home' → client should use WhatsApp; no price returned
+    };
+    return map[sizeLabel] ?? null;
+  }
+
+  // Outdoor cleaning — area size
+  if (category === 'cleaning' || category === 'outdoor-cleaning') {
+    const map: Record<string, number> = {
+      // legacy time-based
+      '1 hour': 1800, '2 hours': 3600, '3 hours': 5400,
+      // new area-based
+      'Small area':  2200,
+      'Medium area': 3800,
+      'Large area':  5500,
+    };
+    return map[sizeLabel] ?? null;
+  }
+
+  // Furniture assembly — item count
+  if (category === 'furniture-assembly') {
+    const map: Record<string, number> = {
+      // legacy time-based
+      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000,
+      // new item count
+      '1 item':    2200,
+      '2–3 items': 3800,
+      '4–6 items': 5800,
+      '7+ items':  8000,
+    };
+    return map[sizeLabel] ?? null;
+  }
+
+  // Tech help — device type
+  if (category === 'tech-help') {
+    const map: Record<string, number> = {
+      // legacy time-based
+      '1 hour': 2500, '2 hours': 5000,
+      // new device-based
+      'Phone / tablet':    2000,
+      'Laptop / PC':       2800,
+      'TV / streaming':    2200,
+      'Wi-Fi / router':    3000,
+      'Smart home setup':  4000,
+    };
+    return map[sizeLabel] ?? null;
+  }
+
+  // Tutoring — level (sizeLabel) × duration (extraLabel)
   if (category === 'tutoring' || category === 'tutoring-grinds') {
     const rate: Record<string, number> = {
       'Primary school': 2200,
@@ -67,30 +136,17 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       'College / Uni':  3800,
     };
     const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
-    const r = rate[extraLabel] ?? 2200; // default Primary if no level given (legacy)
-    const h = hrs[sizeLabel];
+    // Legacy flat rate fallback
+    if (!rate[sizeLabel]) {
+      const legacyMap: Record<string, number> = { '1 hour': 2200, '2 hours': 4400, '3 hours': 6600 };
+      return legacyMap[sizeLabel] ?? null;
+    }
+    const h = hrs[extraLabel];
     if (h === undefined) return null;
-    return r * h;
+    return rate[sizeLabel] * h;
   }
 
-  // Hourly services
-  const key = `${category}|${sizeLabel}`;
-  const map: Record<string, number> = {
-    // Garden / lawn mowing — €20/hr
-    'garden|1 hour': 2000,        'garden|2 hours': 4000,       'garden|Half day': 7200,
-    'lawn-mowing|1 hour': 2000,   'lawn-mowing|2 hours': 4000,  'lawn-mowing|Half day': 7200,
-    // Moving — €20/hr
-    'moving|1 hour': 2000,        'moving|2 hours': 4000,       'moving|3 hours': 6000,       'moving|4+ hours': 8000,
-    'moving-help|1 hour': 2000,   'moving-help|2 hours': 4000,  'moving-help|3 hours': 6000,  'moving-help|4+ hours': 8000,
-    // Cleaning / outdoor cleaning — €18/hr
-    'cleaning|1 hour': 1800,         'cleaning|2 hours': 3600,         'cleaning|3 hours': 5400,
-    'outdoor-cleaning|1 hour': 1800, 'outdoor-cleaning|2 hours': 3600, 'outdoor-cleaning|3 hours': 5400,
-    // Furniture assembly — €20/hr
-    'furniture-assembly|1 hour': 2000, 'furniture-assembly|2 hours': 4000, 'furniture-assembly|3 hours': 6000,
-    // Tech help — €25/hr
-    'tech-help|1 hour': 2500, 'tech-help|2 hours': 5000,
-  };
-  return map[key] ?? null;
+  return null;
 }
 
 const CATEGORY_LABELS: Record<Category, string> = {

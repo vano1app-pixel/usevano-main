@@ -19,43 +19,42 @@ interface Task {
   slug:         string;
   price:        string;
   description:  string;
-  q1?:          TaskQuestion; // primary selector (duration, shop size, etc.)
-  q2?:          TaskQuestion; // secondary selector (dog count, tutor level, etc.)
+  q1?:          TaskQuestion;
+  q2?:          TaskQuestion;
   whatsappOnly?: boolean;
 }
 
 const ALL_TASKS: Task[] = [
   {
-    emoji: '🛒', label: 'Grocery shopping', slug: 'grocery-shopping', price: 'from €10',
-    description: 'We shop any store, follow your list, and deliver to your door.',
-    q1: { label: 'How big is the shop?', options: ['Quick errand (a few items)', 'Regular shop', 'Big weekly shop'] },
+    emoji: '🛒', label: 'Grocery shopping', slug: 'grocery-shopping', price: 'from €12',
+    description: 'We shop any store, follow your list, and deliver straight to your door.',
+    q1: { label: 'How big is the shop?', options: ['Quick errand', 'Weekly shop', 'Big monthly shop'] },
   },
   {
     emoji: '🐕', label: 'Dog walking', slug: 'dog-walking', price: 'from €12',
     description: 'Collected from your door, walked on-lead, returned home safely.',
-    q1: { label: 'How long?',       options: ['30 min', '1 hour', '2 hours'] },
-    q2: { label: 'How many dogs?',  options: ['1 dog', '2 dogs', '3+ dogs'] },
+    q1: { label: 'Walk & dogs', options: ['30 min · 1 dog', '1 hr · 1 dog', '1 hr · 2 dogs', '2 hrs · 1 dog', '2 hrs · 2+ dogs'] },
   },
   {
-    emoji: '🌿', label: 'Lawn mowing', slug: 'lawn-mowing', price: 'from €20/hr',
-    description: 'Grass cut, edges trimmed and clippings cleared — all done in one visit.',
-    q1: { label: 'How long?', options: ['1 hour', '2 hours', 'Half day'] },
+    emoji: '🌿', label: 'Lawn mowing', slug: 'lawn-mowing', price: 'from €22',
+    description: 'Grass cut, edges trimmed and clippings cleared — all in one visit.',
+    q1: { label: 'Garden size', options: ['Small (terrace / apartment)', 'Medium (semi-detached)', 'Large (detached)', 'Extra large'] },
   },
   {
-    emoji: '📦', label: 'Moving help', slug: 'moving-help', price: 'from €20/hr',
+    emoji: '📦', label: 'Moving help', slug: 'moving-help', price: 'from €25',
     description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
-    q1: { label: 'How long?', options: ['1 hour', '2 hours', '3 hours', '4+ hours'] },
+    q1: { label: 'How much to move?', options: ['A few boxes / items', 'One room', '2–3 rooms', 'Full home'] },
   },
   {
-    emoji: '🧹', label: 'Outdoor cleaning', slug: 'outdoor-cleaning', price: 'from €18/hr',
-    description: 'Patios, driveways, bins, windows and gutters — outside sorted.',
-    q1: { label: 'How long?', options: ['1 hour', '2 hours', '3 hours'] },
+    emoji: '🧹', label: 'Outdoor cleaning', slug: 'outdoor-cleaning', price: 'from €22',
+    description: 'Patio, driveway, bins, windows or gutters — pick what needs doing.',
+    q1: { label: 'Area to clean', options: ['Small area', 'Medium area', 'Large area'] },
   },
   {
     emoji: '📚', label: 'Tutoring & grinds', slug: 'tutoring-grinds', price: 'from €22/hr',
     description: 'One-to-one at your home. Any subject — Maths, science, languages.',
-    q1: { label: 'How long?',    options: ['1 hour', '2 hours', '3 hours'] },
-    q2: { label: 'What level?',  options: ['Primary school', 'Junior Cert', 'Leaving Cert', 'College / Uni'] },
+    q1: { label: 'What level?',  options: ['Primary school', 'Junior Cert', 'Leaving Cert', 'College / Uni'] },
+    q2: { label: 'How long?',    options: ['1 hour', '2 hours', '3 hours'] },
   },
   {
     emoji: '💊', label: 'Pharmacy run', slug: 'pharmacy-run', price: '€10 flat',
@@ -66,14 +65,14 @@ const ALL_TASKS: Task[] = [
     description: 'We drop off or collect parcels, letters and forms at your local post office.',
   },
   {
-    emoji: '🔧', label: 'Furniture assembly', slug: 'furniture-assembly', price: 'from €20/hr',
+    emoji: '🔧', label: 'Furniture assembly', slug: 'furniture-assembly', price: 'from €22',
     description: 'IKEA or any flat-pack furniture assembled at your home — no tools needed on your end.',
-    q1: { label: 'How long?', options: ['1 hour', '2 hours', '3 hours'] },
+    q1: { label: 'How many items?', options: ['1 item', '2–3 items', '4–6 items', '7+ items'] },
   },
   {
-    emoji: '📱', label: 'Tech help', slug: 'tech-help', price: 'from €25/hr',
-    description: 'Phone, tablet, laptop or TV setup and troubleshooting. Great for elderly family members.',
-    q1: { label: 'How long?', options: ['1 hour', '2 hours'] },
+    emoji: '📱', label: 'Tech help', slug: 'tech-help', price: 'from €20',
+    description: 'Device setup and troubleshooting at your home. Great for elderly family members.',
+    q1: { label: 'What needs help?', options: ['Phone / tablet', 'Laptop / PC', 'TV / streaming', 'Wi-Fi / router', 'Smart home setup'] },
   },
   {
     emoji: '🚪', label: 'Wait for deliveries', slug: 'wait-delivery', price: '€10 flat',
@@ -86,8 +85,17 @@ const ALL_TASKS: Task[] = [
   },
 ];
 
-function getPriceCents(slug: string, size: string, extra: string): number | null {
-  // Flat-rate services — price known immediately
+// Full home moving is WhatsApp-only — no card price
+const WHATSAPP_OPTIONS: Record<string, string[]> = {
+  'moving-help': ['Full home'],
+};
+
+function isWhatsAppOption(slug: string, option: string): boolean {
+  return WHATSAPP_OPTIONS[slug]?.includes(option) ?? false;
+}
+
+function getPriceCents(slug: string, q1: string, q2: string): number | null {
+  // Flat-rate services
   const flat: Record<string, number> = {
     'pharmacy-run': 1000,
     'post-office':  1000,
@@ -95,36 +103,83 @@ function getPriceCents(slug: string, size: string, extra: string): number | null
   };
   if (slug in flat) return flat[slug];
 
-  // Shopping — tiered by list size
+  // Shopping — list size
   if (slug === 'grocery-shopping') {
     const map: Record<string, number> = {
-      'Quick errand (a few items)': 1000,
-      'Regular shop':               1500,
-      'Big weekly shop':            2200,
+      'Quick errand':      1200,
+      'Weekly shop':       1800,
+      'Big monthly shop':  2800,
     };
-    return map[size] ?? null;
+    return map[q1] ?? null;
   }
 
-  // Dog walking — duration × dog count
+  // Dog walking — combined duration + dog count
   if (slug === 'dog-walking') {
-    const base: Record<string, number> = {
-      '30 min':  1200,
-      '1 hour':  1600,
-      '2 hours': 2200,
+    const map: Record<string, number> = {
+      '30 min · 1 dog':   1200,
+      '1 hr · 1 dog':     1600,
+      '1 hr · 2 dogs':    2000,
+      '2 hrs · 1 dog':    2200,
+      '2 hrs · 2+ dogs':  2800,
     };
-    const dogBonus: Record<string, number> = {
-      '1 dog':  0,
-      '2 dogs': 400,
-      '3+ dogs': 800,
-    };
-    if (!size || !extra) return null;
-    const b = base[size];
-    const d = dogBonus[extra];
-    if (b === undefined || d === undefined) return null;
-    return b + d;
+    return map[q1] ?? null;
   }
 
-  // Tutoring — duration × level
+  // Lawn mowing — garden size
+  if (slug === 'lawn-mowing') {
+    const map: Record<string, number> = {
+      'Small (terrace / apartment)': 2200,
+      'Medium (semi-detached)':      3800,
+      'Large (detached)':            6000,
+      'Extra large':                 9000,
+    };
+    return map[q1] ?? null;
+  }
+
+  // Moving — job size
+  if (slug === 'moving-help') {
+    const map: Record<string, number> = {
+      'A few boxes / items': 2500,
+      'One room':            4000,
+      '2–3 rooms':           7000,
+    };
+    return map[q1] ?? null; // 'Full home' → WhatsApp, returns null
+  }
+
+  // Outdoor cleaning — area size
+  if (slug === 'outdoor-cleaning') {
+    const map: Record<string, number> = {
+      'Small area':  2200,
+      'Medium area': 3800,
+      'Large area':  5500,
+    };
+    return map[q1] ?? null;
+  }
+
+  // Furniture assembly — item count
+  if (slug === 'furniture-assembly') {
+    const map: Record<string, number> = {
+      '1 item':    2200,
+      '2–3 items': 3800,
+      '4–6 items': 5800,
+      '7+ items':  8000,
+    };
+    return map[q1] ?? null;
+  }
+
+  // Tech help — device type
+  if (slug === 'tech-help') {
+    const map: Record<string, number> = {
+      'Phone / tablet':    2000,
+      'Laptop / PC':       2800,
+      'TV / streaming':    2200,
+      'Wi-Fi / router':    3000,
+      'Smart home setup':  4000,
+    };
+    return map[q1] ?? null;
+  }
+
+  // Tutoring — level (q1) × duration (q2)
   if (slug === 'tutoring-grinds') {
     const rate: Record<string, number> = {
       'Primary school': 2200,
@@ -133,33 +188,13 @@ function getPriceCents(slug: string, size: string, extra: string): number | null
       'College / Uni':  3800,
     };
     const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
-    if (!size || !extra) return null;
-    const r = rate[extra];
-    const h = hrs[size];
+    const r = rate[q1];
+    const h = hrs[q2];
     if (r === undefined || h === undefined) return null;
     return r * h;
   }
 
-  // Hourly services
-  const key = `${slug}|${size}`;
-  const map: Record<string, number> = {
-    'lawn-mowing|1 hour':          2000,
-    'lawn-mowing|2 hours':         4000,
-    'lawn-mowing|Half day':        7200,
-    'moving-help|1 hour':          2000,
-    'moving-help|2 hours':         4000,
-    'moving-help|3 hours':         6000,
-    'moving-help|4+ hours':        8000,
-    'outdoor-cleaning|1 hour':     1800,
-    'outdoor-cleaning|2 hours':    3600,
-    'outdoor-cleaning|3 hours':    5400,
-    'furniture-assembly|1 hour':   2000,
-    'furniture-assembly|2 hours':  4000,
-    'furniture-assembly|3 hours':  6000,
-    'tech-help|1 hour':            2500,
-    'tech-help|2 hours':           5000,
-  };
-  return map[key] ?? null;
+  return null;
 }
 
 function getTimeSlots(): string[] {
@@ -181,8 +216,7 @@ function getTimeSlots(): string[] {
   return slots;
 }
 
-const chipBase =
-  'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color] duration-150 flex-shrink-0';
+const chipBase = 'px-3 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color] duration-150';
 
 function chip(active: boolean, isNow = false) {
   if (active) return cn(chipBase, isNow ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-primary text-primary-foreground border-primary');
@@ -205,13 +239,13 @@ const card = {
 
 export const TaskShowcase: React.FC = () => {
   const [selected, setSelected] = useState<Task | null>(null);
-  const [when,  setWhen]  = useState('');
-  const [size,  setSize]  = useState('');
-  const [extra, setExtra] = useState('');
-  const [note,  setNote]  = useState('');
-  const [name,  setName]  = useState('');
-  const [phone, setPhone] = useState('');
-  const [city,  setCity]  = useState('');
+  const [q1Val,  setQ1Val]  = useState('');
+  const [q2Val,  setQ2Val]  = useState('');
+  const [when,   setWhen]   = useState('');
+  const [note,   setNote]   = useState('');
+  const [name,   setName]   = useState('');
+  const [phone,  setPhone]  = useState('');
+  const [city,   setCity]   = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -219,7 +253,7 @@ export const TaskShowcase: React.FC = () => {
 
   function open(task: Task) {
     setSelected(task);
-    setWhen(''); setSize(''); setExtra(''); setNote('');
+    setQ1Val(''); setQ2Val(''); setWhen(''); setNote('');
     setName(''); setPhone(''); setCity('');
     setError(null);
     setTimeout(() => {
@@ -229,16 +263,18 @@ export const TaskShowcase: React.FC = () => {
 
   function close() { setSelected(null); setError(null); }
 
-  const priceCents  = selected ? getPriceCents(selected.slug, size, extra) : null;
-  const canBook     = !!when && priceCents !== null;
-  const canWhatsApp = !!when || !!selected?.whatsappOnly;
+  const isWAOption  = selected ? isWhatsAppOption(selected.slug, q1Val) : false;
+  const priceCents  = selected && !isWAOption ? getPriceCents(selected.slug, q1Val, q2Val) : null;
+  // Can book by card: price known + time picked + not a WhatsApp-only option
+  const canBook     = priceCents !== null && !!when;
+  const canWhatsApp = (!!q1Val && !!when) || !!selected?.whatsappOnly || isWAOption;
 
   function sendWhatsApp() {
     if (!selected) return;
     const lines = [`Hi VANO! I need help with: ${selected.label}.`];
+    if (q1Val) lines.push(`${selected.q1?.label ?? 'Option'}: ${q1Val}`);
+    if (q2Val) lines.push(`${selected.q2?.label ?? 'Duration'}: ${q2Val}`);
     if (when)  lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
-    if (size)  lines.push(`${selected.q1?.label ?? 'Duration'}: ${size}`);
-    if (extra) lines.push(`${selected.q2?.label ?? 'Extra'}: ${extra}`);
     if (note.trim()) lines.push(note.trim());
     lines.push('Can you let me know who is available?');
     window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank', 'noopener,noreferrer');
@@ -257,8 +293,8 @@ export const TaskShowcase: React.FC = () => {
         { body: {
           category:       selected.slug,
           when_label:     when,
-          size_label:     size,
-          extra_label:    extra,
+          size_label:     q1Val,
+          extra_label:    q2Val,
           note:           note.trim(),
           customer_name:  name.trim(),
           customer_phone: phone.trim(),
@@ -274,17 +310,6 @@ export const TaskShowcase: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     }
   }
-
-  // Progress indicator — how many selections still needed before card CTA appears
-  function stepsNeeded(): string[] {
-    if (!selected || selected.whatsappOnly) return [];
-    const steps: string[] = [];
-    if (!when)                                 steps.push('pick a time');
-    if (selected.q1 && !size)                  steps.push(selected.q1.label.toLowerCase());
-    if (selected.q2 && !extra)                 steps.push(selected.q2.label.toLowerCase());
-    return steps;
-  }
-  const steps = stepsNeeded();
 
   return (
     <section className="px-4 py-12 max-w-5xl mx-auto">
@@ -324,7 +349,7 @@ export const TaskShowcase: React.FC = () => {
         ))}
       </motion.div>
 
-      {/* Inline booking panel */}
+      {/* Booking panel */}
       <AnimatePresence>
         {selected && (
           <motion.div
@@ -341,11 +366,17 @@ export const TaskShowcase: React.FC = () => {
               <span className="text-xl leading-none select-none">{selected.emoji}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">{selected.label}</p>
-                <p className="text-xs text-muted-foreground">
-                  {priceCents !== null
-                    ? `€${(priceCents / 100).toFixed(0)} total`
-                    : selected.price}
-                </p>
+                <AnimatePresence mode="wait">
+                  {priceCents !== null ? (
+                    <motion.p key="price" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-semibold text-primary">
+                      €{(priceCents / 100).toFixed(0)} total
+                    </motion.p>
+                  ) : (
+                    <motion.p key="from" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground">
+                      {selected.price}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
               <button onClick={close} aria-label="Close" className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                 <X className="w-3.5 h-3.5" />
@@ -360,7 +391,7 @@ export const TaskShowcase: React.FC = () => {
             <div className="p-4">
               <AnimatePresence mode="wait">
                 {selected.whatsappOnly ? (
-                  <motion.div key="wa" {...fadeSlide} className="space-y-3">
+                  <motion.div key="wa-only" {...fadeSlide} className="space-y-3">
                     <textarea
                       value={note} onChange={e => setNote(e.target.value)}
                       placeholder="Tell us what you need..."
@@ -368,30 +399,13 @@ export const TaskShowcase: React.FC = () => {
                       className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
                     />
                     <Button onClick={sendWhatsApp} className="w-full rounded-full gap-2 font-semibold bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent">
-                      <MessageCircle className="w-4 h-4" />
-                      Chat to us on WhatsApp
+                      <MessageCircle className="w-4 h-4" />Chat to us on WhatsApp
                     </Button>
                   </motion.div>
                 ) : (
-                  <motion.form key="form" {...fadeSlide} onSubmit={handlePay} className="space-y-5">
+                  <motion.form key="book-form" {...fadeSlide} onSubmit={handlePay} className="space-y-5">
 
-                    {/* When? */}
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">When?</p>
-                      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                        {timeSlots.map(opt => (
-                          <motion.button
-                            key={opt} type="button"
-                            onClick={() => setWhen(when === opt ? '' : opt)}
-                            whileTap={{ scale: 0.91 }}
-                            transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                            className={chip(when === opt, opt === 'Now')}
-                          >{opt}</motion.button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Q1 — duration / shop size */}
+                    {/* Q1 */}
                     {selected.q1 && (
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
@@ -401,22 +415,35 @@ export const TaskShowcase: React.FC = () => {
                           {selected.q1.options.map(opt => (
                             <motion.button
                               key={opt} type="button"
-                              onClick={() => { setSize(size === opt ? '' : opt); setExtra(''); }}
+                              onClick={() => { setQ1Val(q1Val === opt ? '' : opt); setQ2Val(''); }}
                               whileTap={{ scale: 0.91 }}
                               transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                              className={chip(size === opt)}
+                              className={chip(q1Val === opt)}
                             >{opt}</motion.button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Q2 — dog count / tutor level (revealed after Q1) */}
-                    {selected.q2 && size && (
+                    {/* WhatsApp nudge for Full home moving */}
+                    <AnimatePresence>
+                      {isWAOption && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3.5 py-3 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                            Full home moves vary a lot — chat to us on WhatsApp and we'll give you an accurate quote.
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Q2 — only for tutoring, revealed after Q1 */}
+                    {selected.q2 && q1Val && !isWAOption && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                        transition={{ duration: 0.18 }}
-                        className="overflow-hidden"
+                        transition={{ duration: 0.18 }} className="overflow-hidden"
                       >
                         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
                           {selected.q2.label}
@@ -425,49 +452,52 @@ export const TaskShowcase: React.FC = () => {
                           {selected.q2.options.map(opt => (
                             <motion.button
                               key={opt} type="button"
-                              onClick={() => setExtra(extra === opt ? '' : opt)}
+                              onClick={() => setQ2Val(q2Val === opt ? '' : opt)}
                               whileTap={{ scale: 0.91 }}
                               transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                              className={chip(extra === opt)}
+                              className={chip(q2Val === opt)}
                             >{opt}</motion.button>
                           ))}
                         </div>
                       </motion.div>
                     )}
 
-                    {/* Live price preview */}
-                    <AnimatePresence>
-                      {priceCents !== null && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ duration: 0.15 }}
-                          className="rounded-xl bg-primary/[0.05] border border-primary/15 px-3.5 py-2.5 flex items-center justify-between"
-                        >
-                          <span className="text-xs text-muted-foreground">Total price</span>
-                          <span className="text-sm font-bold text-primary">€{(priceCents / 100).toFixed(0)}</span>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {/* When — shown once a price is determinable or for flat services */}
+                    {(priceCents !== null || (!selected.q1 && !isWAOption)) && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                        transition={{ duration: 0.18 }} className="overflow-hidden"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">When?</p>
+                        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                          {timeSlots.map(opt => (
+                            <motion.button
+                              key={opt} type="button"
+                              onClick={() => setWhen(when === opt ? '' : opt)}
+                              whileTap={{ scale: 0.91 }}
+                              transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                              className={cn(chip(when === opt, opt === 'Now'), 'flex-shrink-0')}
+                            >{opt}</motion.button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
 
                     {/* Note */}
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                        Anything to add? <span className="font-normal normal-case text-muted-foreground/60">(optional)</span>
-                      </p>
+                    {(priceCents !== null || !selected.q1) && (
                       <input
                         type="text" value={note} onChange={e => setNote(e.target.value)}
-                        placeholder="Address or special requests"
+                        placeholder="Address or anything to add (optional)"
                         className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                       />
-                    </div>
+                    )}
 
                     {/* Contact — revealed once time is picked */}
                     <AnimatePresence>
-                      {when && (
+                      {when && !isWAOption && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="space-y-3 overflow-hidden"
+                          transition={{ duration: 0.2 }} className="space-y-3 overflow-hidden"
                         >
                           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your details</p>
                           <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
@@ -483,33 +513,31 @@ export const TaskShowcase: React.FC = () => {
                     </AnimatePresence>
 
                     {/* CTAs */}
-                    {canBook && (
-                      <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
-                        {loading
-                          ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
-                          : <><CreditCard className="w-4 h-4" />Pay €{(priceCents! / 100).toFixed(0)} securely</>}
-                      </Button>
+                    {(canBook || isWAOption) && (
+                      <div className="space-y-2.5">
+                        {canBook && (
+                          <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
+                            {loading
+                              ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
+                              : <><CreditCard className="w-4 h-4" />Pay €{(priceCents! / 100).toFixed(0)} securely</>}
+                          </Button>
+                        )}
+                        {(canBook || isWAOption) && (
+                          <Button
+                            type="button" onClick={sendWhatsApp}
+                            variant={canBook ? 'outline' : 'default'}
+                            className={cn('w-full rounded-full gap-2 font-semibold',
+                              !canBook ? 'bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent' : '')}
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            {canBook ? 'Or book via WhatsApp' : 'Chat to us on WhatsApp'}
+                          </Button>
+                        )}
+                        {canBook && <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · paid upfront, confirmed instantly</p>}
+                      </div>
                     )}
-                    <Button
-                      type="button" onClick={sendWhatsApp}
-                      disabled={!canWhatsApp}
-                      variant={canBook ? 'outline' : 'default'}
-                      className={cn('w-full rounded-full gap-2 font-semibold',
-                        !canBook && when ? 'bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent' : '')}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      {canBook ? 'Or book via WhatsApp' : 'Book via WhatsApp'}
-                    </Button>
 
-                    {steps.length > 0 && (
-                      <p className="text-center text-xs text-muted-foreground !mt-1.5">
-                        {steps.length === 1
-                          ? `Please ${steps[0]} to continue`
-                          : `Please ${steps.slice(0, -1).join(', ')} and ${steps[steps.length - 1]} to continue`}
-                      </p>
-                    )}
                     {error && <p className="text-center text-xs text-destructive">{error}</p>}
-                    {canBook && <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · paid upfront, confirmed instantly</p>}
                   </motion.form>
                 )}
               </AnimatePresence>
