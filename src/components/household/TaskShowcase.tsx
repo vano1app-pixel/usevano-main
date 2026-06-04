@@ -261,8 +261,8 @@ export const TaskShowcase: React.FC = () => {
   const [q2Val,       setQ2Val]       = useState('');
   const [when,        setWhen]        = useState('');
   const [note,        setNote]        = useState('');
-  const [name,        setName]        = useState(() => localStorage.getItem(LS_NAME)  ?? '');
-  const [phone,       setPhone]       = useState(() => localStorage.getItem(LS_PHONE) ?? '');
+  const [name,        setName]        = useState(() => { try { return localStorage.getItem(LS_NAME)  ?? ''; } catch { return ''; } });
+  const [phone,       setPhone]       = useState(() => { try { return localStorage.getItem(LS_PHONE) ?? ''; } catch { return ''; } });
   const [city,        setCity]        = useState('');
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
@@ -370,9 +370,7 @@ export const TaskShowcase: React.FC = () => {
       if (fnErr || !data?.checkout_url) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
-      // Remember details for next visit
-      localStorage.setItem(LS_NAME,  name.trim());
-      localStorage.setItem(LS_PHONE, phone.trim());
+      try { localStorage.setItem(LS_NAME, name.trim()); localStorage.setItem(LS_PHONE, phone.trim()); } catch { /* storage blocked */ }
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);

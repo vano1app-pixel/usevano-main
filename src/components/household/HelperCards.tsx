@@ -23,6 +23,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 interface HelperRow {
+  id:            string;
   name:          string;
   photo_url:     string;
   city:          string;
@@ -85,7 +86,7 @@ export const HelperCards: React.FC = () => {
   useEffect(() => {
     (supabase as any)
       .from('household_helpers')
-      .select('name, photo_url, city, age, bio, categories')
+      .select('id, name, photo_url, city, age, bio, categories')
       .neq('status', 'suspended')
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
@@ -128,13 +129,13 @@ export const HelperCards: React.FC = () => {
           {/* Mobile: horizontal scroll */}
           <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 lg:hidden">
             <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
-              {helpers.map((h) => <Card key={h.name} h={h} />)}
+              {helpers.map((h) => <Card key={h.id} h={h} />)}
             </div>
           </div>
 
           {/* Desktop: grid */}
           <div className="hidden lg:grid lg:grid-cols-6 gap-3 px-4 max-w-5xl mx-auto">
-            {helpers.map((h) => <Card key={h.name} h={h} />)}
+            {helpers.map((h) => <Card key={h.id} h={h} />)}
           </div>
         </>
       )}
