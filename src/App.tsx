@@ -59,6 +59,7 @@ const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
 const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
 const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"));
 const JoinAsHelper = lazyWithRetry(() => import("./pages/JoinAsHelper"));
+const HelperProfile = lazyWithRetry(() => import("./pages/HelperProfile"));
 
 // Floating/ambient UI — none are needed for first paint, so defer them via
 // Suspense. Failure to load any of these should degrade silently (fallback={null}).
@@ -165,6 +166,7 @@ const App = () => {
             <Route path="/student-dashboard" element={<P><StudentDashboard /></P>} />
             <Route path="/student-job/:bookingId" element={<P><StudentJobDetail /></P>} />
             <Route path="/join" element={<P><JoinAsHelper /></P>} />
+            <Route path="/helper/profile" element={<P><HelperProfile /></P>} />
             <Route path="/hire" element={<P><HirePage /></P>} />
             {/* /jobs (no ID) used to 404 — redirect to /hire so people
                 who type or land on it from old links hit the right page
