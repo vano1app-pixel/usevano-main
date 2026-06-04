@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, UserCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
 import logo from '@/assets/logo.png';
@@ -51,15 +51,6 @@ export const HouseholdNav: React.FC = () => {
             Become a helper
           </Link>
 
-          {/* Helper profile */}
-          <Link
-            to="/helper/profile"
-            aria-label="Helper profile"
-            className="flex items-center text-foreground/70 hover:text-foreground transition-colors duration-150 active:scale-95"
-          >
-            <UserCircle className="w-5 h-5" />
-          </Link>
-
           {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO, I need some help around the house!')}`}
@@ -71,6 +62,15 @@ export const HouseholdNav: React.FC = () => {
             <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
             <span className="hidden sm:inline">WhatsApp us</span>
           </a>
+
+          {/* Helper profile — circular VANO logo */}
+          <Link
+            to="/helper/profile"
+            aria-label="Helper profile"
+            className="active:scale-95 transition-transform duration-150"
+          >
+            <img src={logo} alt="VANO" className="w-8 h-8 rounded-full object-cover" />
+          </Link>
         </div>
       </div>
     </header>
