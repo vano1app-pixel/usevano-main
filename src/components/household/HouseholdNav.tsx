@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
-import logo from '@/assets/logo.png';
 
 /* Glass-on-scroll pattern mirrored from Navbar.tsx:
    mobile threshold=4px (instant) so touch users don't see
@@ -51,13 +50,13 @@ export const HouseholdNav: React.FC = () => {
             Become a helper
           </Link>
 
-          {/* Helper profile — circular VANO logo */}
+          {/* Helper profile */}
           <Link
             to="/helper/profile"
             aria-label="Helper profile"
-            className="flex items-center active:scale-95 transition-transform duration-150"
+            className="flex items-center text-foreground/70 hover:text-foreground transition-colors duration-150 active:scale-95"
           >
-            <img src={logo} alt="VANO" className="w-8 h-8 rounded-full object-cover border border-border/40" />
+            <UserCircle className="w-5 h-5" />
           </Link>
 
           {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
