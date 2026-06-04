@@ -98,8 +98,6 @@ export const HelperCards: React.FC = () => {
       });
   }, []);
 
-  if (helpers.length === 0) return null;
-
   return (
     <section className="py-12">
       <div className="px-4 max-w-5xl mx-auto mb-6">
@@ -109,17 +107,37 @@ export const HelperCards: React.FC = () => {
         </h2>
       </div>
 
-      {/* Mobile: horizontal scroll */}
-      <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 lg:hidden">
-        <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
-          {helpers.map((h) => <Card key={h.name} h={h} />)}
+      {helpers.length === 0 ? (
+        <div className="px-4 max-w-5xl mx-auto">
+          <div className="rounded-2xl border border-dashed border-border/60 bg-secondary/30 py-12 flex flex-col items-center justify-center text-center gap-3">
+            <span className="text-3xl">🎓</span>
+            <p className="font-semibold text-foreground text-sm">Be the first helper on VANO</p>
+            <p className="text-xs text-muted-foreground max-w-xs">
+              Students who sign up will be featured right here. Join today and be first.
+            </p>
+            <a
+              href="/join"
+              className="mt-2 inline-flex items-center rounded-full bg-primary text-primary-foreground px-5 py-2 text-sm font-semibold hover:-translate-y-px transition-transform duration-150"
+            >
+              Join as a helper →
+            </a>
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Mobile: horizontal scroll */}
+          <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 lg:hidden">
+            <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
+              {helpers.map((h) => <Card key={h.name} h={h} />)}
+            </div>
+          </div>
 
-      {/* Desktop: grid */}
-      <div className="hidden lg:grid lg:grid-cols-6 gap-3 px-4 max-w-5xl mx-auto">
-        {helpers.map((h) => <Card key={h.name} h={h} />)}
-      </div>
+          {/* Desktop: grid */}
+          <div className="hidden lg:grid lg:grid-cols-6 gap-3 px-4 max-w-5xl mx-auto">
+            {helpers.map((h) => <Card key={h.name} h={h} />)}
+          </div>
+        </>
+      )}
     </section>
   );
 };
