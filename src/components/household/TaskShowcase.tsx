@@ -237,10 +237,10 @@ const fadeSlide = {
   initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 },
   transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const },
 };
-const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const card = {
-  hidden: { opacity: 0, y: 10 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
+  hidden: { opacity: 0, y: 14, scale: 0.94 },
+  show:   { opacity: 1, y: 0,  scale: 1, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export const TaskShowcase: React.FC = () => {
