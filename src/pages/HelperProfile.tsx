@@ -77,43 +77,31 @@ export const HelperProfile: React.FC = () => {
     setSaving(true); setError(null); setSaved(false);
 
     try {
-      let photo_url = helper.photo_url;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if (newPhoto) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-        const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-        const { data: { session } } = await supabase.auth.getSession();
-        const ext  = newPhoto.name.split('.').pop() ?? 'jpg';
-        const path = `${crypto.randomUUID()}.${ext}`;
+      const fd = new FormData();
+      fd.append('phone', phone.trim());
+      fd.append('bio', bio.trim());
+      fd.append('availability', JSON.stringify(avail));
+      if (newPhoto) fd.append('photo', newPhoto);
 
-        const fd = new FormData();
-        fd.append('file', newPhoto, `${path}`);
+      const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? anonKey}`,
+          apikey: anonKey,
+        },
+        body: fd,
+      });
 
-        // Upload via storage API directly
-        const uploadRes = await fetch(
-          `${supabaseUrl}/storage/v1/object/helper-photos/${path}`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${session?.access_token ?? anonKey}`,
-              apikey: anonKey,
-              'x-upsert': 'false',
-            },
-            body: newPhoto,
-          }
-        );
-        if (!uploadRes.ok) throw new Error('Photo upload failed');
-        photo_url = `${supabaseUrl}/storage/v1/object/public/helper-photos/${path}`;
-      }
+      const json = await res.json() as { success?: boolean; error?: string; photo_url?: string };
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Update failed');
 
-      const { error: updateErr } = await (supabase as any)
-        .from('household_helpers')
-        .update({ photo_url, bio: bio.trim() || null, availability: avail })
-        .eq('id', helper.id)
-        .eq('phone', phone.trim());
-
-      if (updateErr) throw new Error(updateErr.message);
-      setHelper(h => h ? { ...h, photo_url, bio: bio.trim() || null, availability: avail } : h);
+      const newPhotoUrl = json.photo_url ?? helper.photo_url;
+      setHelper(h => h ? { ...h, photo_url: newPhotoUrl, bio: bio.trim() || null, availability: avail } : h);
+      setPreview(newPhotoUrl);
       setNewPhoto(null);
       setSaved(true);
     } catch (err: unknown) {
