@@ -86,7 +86,7 @@ export const HelperCards: React.FC = () => {
     (supabase as any)
       .from('household_helpers')
       .select('name, photo_url, city, age, bio, categories')
-      .eq('status', 'approved')
+      .neq('status', 'suspended')
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
       .limit(20)
