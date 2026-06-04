@@ -27,7 +27,7 @@ interface HelperRow {
 }
 
 export const HelperProfile: React.FC = () => {
-  const [phone,     setPhone]     = useState('');
+  const [phone,     setPhone]     = useState('+353 ');
   const [helper,    setHelper]    = useState<HelperRow | null>(null);
   const [looking,   setLooking]   = useState(false);
   const [notFound,  setNotFound]  = useState(false);
@@ -128,7 +128,7 @@ export const HelperProfile: React.FC = () => {
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="08x xxx xxxx"
+                placeholder="+353 8x xxx xxxx"
                 required
                 className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
               />
