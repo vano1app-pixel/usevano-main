@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { CheckCircle2, ArrowDown, CreditCard, Loader2, Star, Check, X } from 'lucide-react';
+import { CheckCircle2, ArrowDown, CreditCard, Loader2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,19 +70,6 @@ const TIERS: AirbnbTier[] = [
   },
 ];
 
-// ─── Comparison table rows ─────────────────────────────────────────────────
-// true = included, false = not included, string = custom label
-type Cell = boolean | string;
-const COMPARE_ROWS: { label: string; cells: [Cell, Cell, Cell] }[] = [
-  { label: 'Changeover cleans',       cells: ['2 /mo',       '4 /mo',     'Unlimited'] },
-  { label: 'Linen & towels',          cells: [true,           true,         true]        },
-  { label: 'Welcome pack',            cells: [true,           true,         true]        },
-  { label: 'Grocery pack',            cells: [false,          true,         true]        },
-  { label: 'Garden upkeep',           cells: [false,          true,         true]        },
-  { label: 'Minor maintenance',       cells: [false,          false,        true]        },
-  { label: 'Dedicated helper',        cells: [false,          false,        true]        },
-  { label: 'Confirmation',            cells: ['< 2 hrs',     '< 1 hr',    '24 hr WA']  },
-];
 
 // ─── Swipeable card (Airbnb) ───────────────────────────────────────────────
 function TierCard({ tier }: { tier: AirbnbTier }) {
@@ -246,53 +233,6 @@ function TierCarousel() {
   );
 }
 
-// ─── Compact comparison strip (pay-per-job) ────────────────────────────────
-function CellValue({ val }: { val: Cell }) {
-  if (val === true)  return <Check className="w-4 h-4 text-emerald-500 mx-auto" />;
-  if (val === false) return <X className="w-3.5 h-3.5 text-muted-foreground/30 mx-auto" />;
-  return <span className="text-[11px] font-medium text-foreground/80">{val}</span>;
-}
-
-function ComparisonStrip() {
-  const cols = ['Essential\n€129', 'Popular\n€199', 'Full Mgmt\n€299'];
-  return (
-    <div className="rounded-2xl border border-border/50 overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-4 bg-secondary/60">
-        <div className="p-3" />
-        {cols.map((c, i) => (
-          <div key={i} className={cn(
-            'p-3 text-center border-l border-border/40',
-            i === 0 && 'bg-[#FF385C]/[0.06]',
-          )}>
-            {c.split('\n').map((line, j) => (
-              <p key={j} className={cn(
-                j === 0 ? 'text-[10px] font-semibold uppercase tracking-wider text-muted-foreground' : 'text-sm font-bold text-foreground',
-                i === 0 && j === 1 && 'text-[#FF385C]',
-              )}>{line}</p>
-            ))}
-          </div>
-        ))}
-      </div>
-      {/* Rows */}
-      {COMPARE_ROWS.map(({ label, cells }) => (
-        <div key={label} className="grid grid-cols-4 border-t border-border/40">
-          <div className="p-3 flex items-center">
-            <span className="text-[11px] text-muted-foreground leading-tight">{label}</span>
-          </div>
-          {cells.map((val, i) => (
-            <div key={i} className={cn(
-              'p-3 flex items-center justify-center border-l border-border/40',
-              i === 0 && 'bg-[#FF385C]/[0.03]',
-            )}>
-              <CellValue val={val} />
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── Main export ───────────────────────────────────────────────────────────
 export const PricingTable: React.FC = () => {
@@ -312,28 +252,25 @@ export const PricingTable: React.FC = () => {
         </p>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-10">
         <TierCarousel />
       </div>
 
-      {/* Comparison strip */}
-      <div className="mb-10">
-        <ComparisonStrip />
-      </div>
+      {/* Pay-per-job compact grid */}
+      <p className="eyebrow mb-3">Or book one job at a time</p>
+      <h3 className="text-lg font-semibold text-foreground mb-4">One-off pricing</h3>
 
-      {/* Pay-per-job */}
-      <p className="eyebrow mb-4">Or book one job at a time</p>
-      <ul className="mb-2">
+      <div className="grid grid-cols-2 gap-2 mb-6">
         {PRICES.map(({ emoji, label, price }) => (
-          <li key={label} className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
-            <span className="flex items-center gap-2.5 text-sm text-foreground/80">
-              <span className="text-lg leading-none" aria-hidden="true">{emoji}</span>
-              {label}
+          <div key={label} className="flex items-center justify-between rounded-xl border border-border/50 bg-secondary/30 px-3 py-2.5 gap-2">
+            <span className="flex items-center gap-2 text-xs text-foreground/80 min-w-0">
+              <span className="text-base leading-none flex-shrink-0" aria-hidden="true">{emoji}</span>
+              <span className="truncate">{label}</span>
             </span>
-            <span className="font-semibold text-sm text-foreground">{price}</span>
-          </li>
+            <span className="font-semibold text-xs text-foreground whitespace-nowrap">{price}</span>
+          </div>
         ))}
-      </ul>
+      </div>
 
       <p className="text-muted-foreground text-xs text-center mb-6">
         Pay by card at checkout. Price locked upfront — no surprises.
