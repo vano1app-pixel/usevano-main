@@ -59,7 +59,7 @@ const ALL_TASKS: Task[] = [
     q2: { label: 'How long?',    options: ['1 hour', '2 hours', '3 hours'] },
   },
   {
-    emoji: '💊', label: 'Pharmacy run', slug: 'pharmacy-run', price: '€10 flat',
+    emoji: '💊', label: 'Pharmacy run', slug: 'pharmacy-run', price: '€12 flat',
     description: 'We collect your prescription or over-the-counter items from your local pharmacy.',
     noSchedule: true,
   },
@@ -91,11 +91,12 @@ const ALL_TASKS: Task[] = [
 ];
 
 const SCHEDULE_DISCOUNT = 0.10; // 10% off for booking ahead
+const LOYALTY_DISCOUNT  = 0.50; // 50% off every 3rd booking
 
 function getPriceCents(slug: string, q1: string, q2: string): number | null {
   const flat: Record<string, number> = {
-    'pharmacy-run': 1000,
-    'post-office':  1000,
+    'pharmacy-run':  1200, // €12 — covers travel + time
+    'post-office':   1000,
     'wait-delivery': 1000,
   };
   if (slug in flat) return flat[slug];
@@ -171,8 +172,11 @@ function getPriceCents(slug: string, q1: string, q2: string): number | null {
   return null;
 }
 
-function applyDiscount(cents: number): number {
+function applyScheduleDiscount(cents: number): number {
   return Math.round(cents * (1 - SCHEDULE_DISCOUNT));
+}
+function applyLoyaltyDiscount(cents: number): number {
+  return Math.round(cents * (1 - LOYALTY_DISCOUNT));
 }
 
 // Generate next 6 day labels (Tomorrow, Wednesday, ...)
@@ -237,14 +241,32 @@ export const TaskShowcase: React.FC = () => {
   const [city,        setCity]        = useState('');
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
+  const [isLoyalty,   setIsLoyalty]   = useState(false);
+  const [loyaltyChecking, setLoyaltyChecking] = useState(false);
 
   const timeSlots   = useMemo(() => getTimeSlots(),   []);
   const scheduleDays = useMemo(() => getScheduleDays(), []);
+
+  async function checkLoyalty(phoneVal: string) {
+    if (phoneVal.replace(/\D/g, '').length < 8) return;
+    setLoyaltyChecking(true);
+    try {
+      const { data } = await supabase.functions.invoke('check-loyalty', {
+        body: { customer_phone: phoneVal.trim() },
+      });
+      setIsLoyalty((data as { is_loyalty?: boolean } | null)?.is_loyalty ?? false);
+    } catch {
+      // silently fail — loyalty check is non-blocking
+    } finally {
+      setLoyaltyChecking(false);
+    }
+  }
 
   function open(task: Task) {
     setSelected(task);
     setQ1Val(''); setQ2Val(''); setSchedMode('today'); setWhen(''); setNote('');
     setName(''); setPhone(''); setCity('');
+    setIsLoyalty(false);
     setError(null);
     setTimeout(() => {
       document.getElementById('task-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -254,7 +276,8 @@ export const TaskShowcase: React.FC = () => {
 
   const baseCents      = selected ? getPriceCents(selected.slug, q1Val, q2Val) : null;
   const isScheduled    = schedMode === 'ahead' && !selected?.noSchedule;
-  const priceCents     = baseCents !== null ? (isScheduled ? applyDiscount(baseCents) : baseCents) : null;
+  const afterSchedule  = baseCents !== null ? (isScheduled ? applyScheduleDiscount(baseCents) : baseCents) : null;
+  const priceCents     = afterSchedule !== null ? (isLoyalty ? applyLoyaltyDiscount(afterSchedule) : afterSchedule) : null;
   const canShowTiming  = priceCents !== null || (!selected?.q1 && !selected?.whatsappOnly);
   const canBook        = priceCents !== null && !!when;
   const canWhatsApp    = selected?.whatsappOnly ?? false;
@@ -290,6 +313,8 @@ export const TaskShowcase: React.FC = () => {
           customer_name:  name.trim(),
           customer_phone: phone.trim(),
           city,
+          // loyalty is re-verified server-side; this is just a hint
+          loyalty_hint:   isLoyalty,
         }},
       );
       if (fnErr || !data?.checkout_url) {
@@ -355,12 +380,15 @@ export const TaskShowcase: React.FC = () => {
                 <p className="text-sm font-semibold text-foreground">{selected.label}</p>
                 <AnimatePresence mode="wait">
                   {priceCents !== null ? (
-                    <motion.div key="price" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5">
+                    <motion.div key="price" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-semibold text-primary">€{(priceCents / 100).toFixed(0)}</span>
-                      {isScheduled && baseCents !== null && (
+                      {(isScheduled || isLoyalty) && baseCents !== null && (
                         <span className="text-[10px] text-muted-foreground line-through">€{(baseCents / 100).toFixed(0)}</span>
                       )}
-                      {isScheduled && (
+                      {isLoyalty && (
+                        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">🎉 50% off</span>
+                      )}
+                      {isScheduled && !isLoyalty && (
                         <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">10% off</span>
                       )}
                     </motion.div>
@@ -542,12 +570,38 @@ export const TaskShowcase: React.FC = () => {
                           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your details</p>
                           <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
                             className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent" />
-                          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Your phone number" required
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent" />
+                          <div className="relative">
+                            <input
+                              type="tel" value={phone}
+                              onChange={e => { setPhone(e.target.value); setIsLoyalty(false); }}
+                              onBlur={e => checkLoyalty(e.target.value)}
+                              placeholder="Your phone number" required
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                            />
+                            {loyaltyChecking && (
+                              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground/50" />
+                            )}
+                          </div>
                           <Select value={city} onValueChange={setCity}>
                             <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Your city" /></SelectTrigger>
                             <SelectContent>{SUPPORTED_CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                           </Select>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Loyalty reward banner */}
+                    <AnimatePresence>
+                      {isLoyalty && priceCents !== null && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+                          transition={{ duration: 0.2 }}
+                          className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-3.5 py-3"
+                        >
+                          <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">🎉 This is your loyalty booking!</p>
+                          <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                            Every 3rd booking is 50% off — your price is automatically €{(priceCents / 100).toFixed(0)}.
+                          </p>
                         </motion.div>
                       )}
                     </AnimatePresence>

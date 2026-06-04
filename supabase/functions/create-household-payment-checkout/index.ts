@@ -28,7 +28,7 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
   const flat: Partial<Record<Category, number>> = {
     'shopping':      1500,
     'post-office':   1000,
-    'pharmacy-run':  1000,
+    'pharmacy-run':  1200, // €12 — covers student travel + time
     'wait-delivery': 1000,
   };
   if (category in flat) return flat[category]!;
@@ -209,7 +209,16 @@ serve(async (req) => {
     // Apply 10% schedule-ahead discount server-side
     if (isScheduled) priceCents = Math.round(priceCents * 0.9);
 
+    // Loyalty reward: every 3rd confirmed booking is 50% off (VANO covers the diff)
     const supabase = createClient(supabaseUrl, serviceKey);
+    const { count: loyaltyCount } = await supabase
+      .from('household_bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('customer_phone', customer_phone.trim())
+      .not('status', 'in', '(awaiting_payment,cancelled)');
+    const confirmedCount = loyaltyCount ?? 0;
+    const isLoyalty      = (confirmedCount + 1) % 3 === 0;
+    if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
 
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
@@ -226,12 +235,13 @@ serve(async (req) => {
         customer_phone: customer_phone.trim(),
         ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
         booking_data: {
-          when_label:  when_label || null,
-          size_label:  sl || null,
-          extra_label: el || null,
-          scheduled:   isScheduled,
-          note:        typeof note === 'string' ? note.trim() : null,
-          source:      'task_showcase',
+          when_label:    when_label || null,
+          size_label:    sl || null,
+          extra_label:   el || null,
+          scheduled:     isScheduled,
+          loyalty:       isLoyalty,
+          note:          typeof note === 'string' ? note.trim() : null,
+          source:        'task_showcase',
         },
       })
       .select('id')
@@ -258,6 +268,7 @@ serve(async (req) => {
         sl || null,
         el || null,
         isScheduled ? 'Scheduled (10% off)' : null,
+        isLoyalty   ? '🎉 Loyalty reward (50% off)' : null,
         city || null,
       ].filter(Boolean).join(' · ') || 'Ireland',
       'line_items[0][quantity]': '1',
