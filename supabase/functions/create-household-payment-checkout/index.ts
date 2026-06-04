@@ -80,7 +80,7 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       'A few boxes / items': 2500,
       'One room':            4000,
       '2–3 rooms':           7000,
-      // 'Full home' → client should use WhatsApp; no price returned
+      'Full home':           10000,
     };
     return map[sizeLabel] ?? null;
   }
