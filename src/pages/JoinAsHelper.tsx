@@ -29,7 +29,6 @@ const STATS = [
   { value: '€12–€25', label: 'per job' },
   { value: 'Flexible', label: 'your schedule' },
   { value: 'Same day', label: 'pay by Revolut' },
-  { value: '€2/month', label: 'membership fee' },
 ];
 
 const REQUIREMENTS = [
@@ -486,7 +485,7 @@ export const JoinAsHelper: React.FC = () => {
                 {submitting ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />Setting up…</>
                 ) : (
-                  'Apply & pay €2/month →'
+                  'Apply now →'
                 )}
               </Button>
 
