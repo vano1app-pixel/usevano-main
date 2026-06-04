@@ -113,11 +113,11 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
     <div className={cn(
       'relative flex flex-col rounded-2xl border overflow-hidden transition-shadow duration-200',
       tier.highlight
-        ? 'border-amber-400/70 shadow-lg shadow-amber-100/60 dark:shadow-amber-900/30'
+        ? 'border-[#FF385C]/40 shadow-lg shadow-[#FF385C]/10'
         : 'border-border/50 shadow-sm',
     )}>
       {tier.highlight && (
-        <div className="bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-1.5 flex items-center gap-1.5">
+        <div className="px-4 py-1.5 flex items-center gap-1.5" style={{ background: '#FF385C' }}>
           <Star className="w-3 h-3 text-white fill-white flex-shrink-0" />
           <span className="text-white text-[11px] font-bold tracking-wide uppercase">Most Popular</span>
         </div>
@@ -125,7 +125,7 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
 
       <div className={cn(
         'flex flex-col flex-1 p-5',
-        tier.highlight ? 'bg-amber-50/50 dark:bg-amber-950/10' : 'bg-card',
+        tier.highlight ? 'bg-[#FF385C]/[0.04]' : 'bg-card',
       )}>
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">{tier.name}</p>
         <div className="flex items-end gap-1 mb-0.5">
@@ -137,10 +137,10 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
         <ul className="space-y-2.5 mb-6 flex-1">
           {tier.features.map(f => (
             <li key={f} className="flex items-start gap-2">
-              <CheckCircle2 className={cn(
-                'w-3.5 h-3.5 flex-shrink-0 mt-0.5',
-                tier.highlight ? 'text-amber-500' : 'text-emerald-500',
-              )} />
+              <CheckCircle2
+                className={cn('w-3.5 h-3.5 flex-shrink-0 mt-0.5', !tier.highlight && 'text-emerald-500')}
+                style={tier.highlight ? { color: '#FF385C' } : undefined}
+              />
               <span className="text-xs text-foreground/80 leading-relaxed">{f}</span>
             </li>
           ))}
@@ -149,10 +149,8 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
         {!open ? (
           <Button
             onClick={() => setOpen(true)}
-            className={cn(
-              'w-full rounded-full gap-2 font-semibold',
-              tier.highlight ? 'bg-amber-500 hover:bg-amber-600 text-white border-transparent' : '',
-            )}
+            className={cn('w-full rounded-full gap-2 font-semibold', tier.highlight && 'text-white border-transparent')}
+            style={tier.highlight ? { backgroundColor: '#FF385C' } : undefined}
           >
             <CreditCard className="w-4 h-4" />Get started — {tier.label}/mo
           </Button>
@@ -170,10 +168,8 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
             />
             <Button
               type="submit" disabled={loading || !name.trim() || !phone.trim()}
-              className={cn(
-                'w-full rounded-full gap-2 font-semibold',
-                tier.highlight ? 'bg-amber-500 hover:bg-amber-600 text-white border-transparent' : '',
-              )}
+              className={cn('w-full rounded-full gap-2 font-semibold', tier.highlight && 'text-white border-transparent')}
+              style={tier.highlight ? { backgroundColor: '#FF385C' } : undefined}
             >
               {loading
                 ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
@@ -200,7 +196,7 @@ export const PricingTable: React.FC = () => {
       <div className="flex items-center gap-2 mb-6">
         <span className="text-lg" aria-hidden="true">🏡</span>
         <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">Airbnb Host Special</span>
+          <span className="font-semibold" style={{ color: '#FF385C' }}>Airbnb Host Special</span>
           {' '}— fully managed monthly plans. One fixed price, zero stress.
         </p>
       </div>
