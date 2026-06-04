@@ -46,7 +46,7 @@ export const HeroSection: React.FC = () => {
             </div>
 
             <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-5 sm:text-[2.8rem] lg:text-6xl lg:mb-8">
-              Get any task done today —<br />by a local student.
+              A Galway student,<br />here to help.
             </h1>
 
             {/* Trust badges */}
