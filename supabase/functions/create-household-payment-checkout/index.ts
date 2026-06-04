@@ -234,6 +234,9 @@ serve(async (req) => {
     // Schedule and loyalty discounts don't apply to monthly Airbnb plans
     if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
 
+    const SERVICE_FEE_PCT  = 0.05; // 5% — raise this as platform grows
+    const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
+
     const supabase = createClient(supabaseUrl, serviceKey);
     let isLoyalty = false;
     if (!isMonthlyPlan) {
@@ -269,6 +272,8 @@ serve(async (req) => {
           loyalty:       isLoyalty,
           note:          typeof note === 'string' ? note.trim() : null,
           source:        'task_showcase',
+          service_fee_cents: serviceFeeCents,
+          total_cents:       priceCents + serviceFeeCents,
         },
       })
       .select('id')
@@ -299,6 +304,13 @@ serve(async (req) => {
         city || null,
       ].filter(Boolean).join(' · ') || 'Ireland',
       'line_items[0][quantity]': '1',
+      ...(serviceFeeCents > 0 ? {
+        'line_items[1][price_data][currency]': 'eur',
+        'line_items[1][price_data][unit_amount]': String(serviceFeeCents),
+        'line_items[1][price_data][product_data][name]': 'VANO service fee',
+        'line_items[1][price_data][product_data][description]': 'Platform fee — keeps VANO running',
+        'line_items[1][quantity]': '1',
+      } : {}),
       'payment_intent_data[capture_method]': 'automatic',
       'payment_intent_data[metadata][household_booking_id]': bookingId,
       'phone_number_collection[enabled]': 'true',
