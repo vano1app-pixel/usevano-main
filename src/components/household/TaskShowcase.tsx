@@ -272,8 +272,7 @@ export const TaskShowcase: React.FC = () => {
 
   const timeOptions  = useMemo(() => getTimeOptions(), []);
 
-  // One-time: try to auto-detect city from browser geolocation
-  useEffect(() => {
+  function tryDetectCity() {
     if (geoAttempted.current || !navigator.geolocation) return;
     geoAttempted.current = true;
     navigator.geolocation.getCurrentPosition(
@@ -281,10 +280,10 @@ export const TaskShowcase: React.FC = () => {
         const detected = await detectCity(coords.latitude, coords.longitude);
         if (detected) setCity(detected);
       },
-      () => { /* denied or unavailable — silent */ },
+      () => {},
       { timeout: 5000 },
     );
-  }, []);
+  }
 
   async function checkLoyalty(phoneVal: string) {
     if (phoneVal.replace(/\D/g, '').length < 8) return;
@@ -307,6 +306,7 @@ export const TaskShowcase: React.FC = () => {
     setIsLoyalty(false);
     setError(null);
     setTapped(null);
+    tryDetectCity();
     setTimeout(() => {
       document.getElementById('task-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 80);
