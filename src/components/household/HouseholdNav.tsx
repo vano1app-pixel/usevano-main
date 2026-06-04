@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MessageCircle, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
+import logo from '@/assets/logo.png';
 
 /* Glass-on-scroll pattern mirrored from Navbar.tsx:
    mobile threshold=4px (instant) so touch users don't see
