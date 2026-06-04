@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
+import { X, CreditCard, MessageCircle, Loader2, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -21,6 +21,7 @@ interface Task {
   description:  string;
   q1?:          TaskQuestion;
   q2?:          TaskQuestion;
+  noSchedule?:  boolean; // errands that are always same-day
   whatsappOnly?: boolean;
 }
 
@@ -29,6 +30,7 @@ const ALL_TASKS: Task[] = [
     emoji: '🛒', label: 'Grocery shopping', slug: 'grocery-shopping', price: 'from €12',
     description: 'We shop any store, follow your list, and deliver straight to your door.',
     q1: { label: 'How big is the shop?', options: ['Quick errand', 'Weekly shop', 'Big monthly shop'] },
+    noSchedule: true,
   },
   {
     emoji: '🐕', label: 'Dog walking', slug: 'dog-walking', price: 'from €12',
@@ -59,10 +61,12 @@ const ALL_TASKS: Task[] = [
   {
     emoji: '💊', label: 'Pharmacy run', slug: 'pharmacy-run', price: '€10 flat',
     description: 'We collect your prescription or over-the-counter items from your local pharmacy.',
+    noSchedule: true,
   },
   {
     emoji: '📬', label: 'Post office run', slug: 'post-office', price: '€10 flat',
     description: 'We drop off or collect parcels, letters and forms at your local post office.',
+    noSchedule: true,
   },
   {
     emoji: '🔧', label: 'Furniture assembly', slug: 'furniture-assembly', price: 'from €22',
@@ -77,6 +81,7 @@ const ALL_TASKS: Task[] = [
   {
     emoji: '🚪', label: 'Wait for deliveries', slug: 'wait-delivery', price: '€10 flat',
     description: "We wait at your home for a delivery or tradesperson while you're out.",
+    noSchedule: true,
   },
   {
     emoji: '✨', label: 'Anything else', slug: 'anything-else', price: 'Custom',
@@ -85,17 +90,9 @@ const ALL_TASKS: Task[] = [
   },
 ];
 
-// Full home moving is WhatsApp-only — no card price
-const WHATSAPP_OPTIONS: Record<string, string[]> = {
-  'moving-help': ['Full home'],
-};
-
-function isWhatsAppOption(slug: string, option: string): boolean {
-  return WHATSAPP_OPTIONS[slug]?.includes(option) ?? false;
-}
+const SCHEDULE_DISCOUNT = 0.10; // 10% off for booking ahead
 
 function getPriceCents(slug: string, q1: string, q2: string): number | null {
-  // Flat-rate services
   const flat: Record<string, number> = {
     'pharmacy-run': 1000,
     'post-office':  1000,
@@ -103,98 +100,92 @@ function getPriceCents(slug: string, q1: string, q2: string): number | null {
   };
   if (slug in flat) return flat[slug];
 
-  // Shopping — list size
   if (slug === 'grocery-shopping') {
-    const map: Record<string, number> = {
-      'Quick errand':      1200,
-      'Weekly shop':       1800,
-      'Big monthly shop':  2800,
-    };
-    return map[q1] ?? null;
+    return ({ 'Quick errand': 1200, 'Weekly shop': 1800, 'Big monthly shop': 2800 })[q1] ?? null;
   }
 
-  // Dog walking — combined duration + dog count
-  if (slug === 'dog-walking') {
-    const map: Record<string, number> = {
-      '30 min · 1 dog':   1200,
-      '1 hr · 1 dog':     1600,
-      '1 hr · 2 dogs':    2000,
-      '2 hrs · 1 dog':    2200,
-      '2 hrs · 2+ dogs':  2800,
-    };
-    return map[q1] ?? null;
+  if (slug === 'dog-walking' || slug === 'dog-walk') {
+    return ({
+      '30 min · 1 dog': 1200, '1 hr · 1 dog': 1600, '1 hr · 2 dogs': 2000,
+      '2 hrs · 1 dog': 2200,  '2 hrs · 2+ dogs': 2800,
+      // legacy fallback
+      '30 min': 1200, '1 hour': 1600, '2 hours': 2200,
+    })[q1] ?? null;
   }
 
-  // Lawn mowing — garden size
-  if (slug === 'lawn-mowing') {
-    const map: Record<string, number> = {
-      'Small (terrace / apartment)': 2200,
-      'Medium (semi-detached)':      3800,
-      'Large (detached)':            6000,
-      'Extra large':                 9000,
-    };
-    return map[q1] ?? null;
+  if (slug === 'lawn-mowing' || slug === 'garden') {
+    return ({
+      'Small (terrace / apartment)': 2200, 'Medium (semi-detached)': 3800,
+      'Large (detached)': 6000,            'Extra large': 9000,
+      // legacy
+      '1 hour': 2000, '2 hours': 4000, 'Half day': 7200,
+    })[q1] ?? null;
   }
 
-  // Moving — job size
-  if (slug === 'moving-help') {
-    const map: Record<string, number> = {
-      'A few boxes / items': 2500,
-      'One room':            4000,
-      '2–3 rooms':           7000,
-    };
-    return map[q1] ?? null; // 'Full home' → WhatsApp, returns null
+  if (slug === 'moving-help' || slug === 'moving') {
+    return ({
+      'A few boxes / items': 2500, 'One room': 4000,
+      '2–3 rooms': 7000,           'Full home': 10000,
+      // legacy
+      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000, '4+ hours': 8000,
+    })[q1] ?? null;
   }
 
-  // Outdoor cleaning — area size
-  if (slug === 'outdoor-cleaning') {
-    const map: Record<string, number> = {
-      'Small area':  2200,
-      'Medium area': 3800,
-      'Large area':  5500,
-    };
-    return map[q1] ?? null;
+  if (slug === 'outdoor-cleaning' || slug === 'cleaning') {
+    return ({
+      'Small area': 2200, 'Medium area': 3800, 'Large area': 5500,
+      // legacy
+      '1 hour': 1800, '2 hours': 3600, '3 hours': 5400,
+    })[q1] ?? null;
   }
 
-  // Furniture assembly — item count
   if (slug === 'furniture-assembly') {
-    const map: Record<string, number> = {
-      '1 item':    2200,
-      '2–3 items': 3800,
-      '4–6 items': 5800,
-      '7+ items':  8000,
-    };
-    return map[q1] ?? null;
+    return ({
+      '1 item': 2200, '2–3 items': 3800, '4–6 items': 5800, '7+ items': 8000,
+      // legacy
+      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000,
+    })[q1] ?? null;
   }
 
-  // Tech help — device type
   if (slug === 'tech-help') {
-    const map: Record<string, number> = {
-      'Phone / tablet':    2000,
-      'Laptop / PC':       2800,
-      'TV / streaming':    2200,
-      'Wi-Fi / router':    3000,
-      'Smart home setup':  4000,
-    };
-    return map[q1] ?? null;
+    return ({
+      'Phone / tablet': 2000, 'Laptop / PC': 2800, 'TV / streaming': 2200,
+      'Wi-Fi / router': 3000, 'Smart home setup': 4000,
+      // legacy
+      '1 hour': 2500, '2 hours': 5000,
+    })[q1] ?? null;
   }
 
-  // Tutoring — level (q1) × duration (q2)
-  if (slug === 'tutoring-grinds') {
+  if (slug === 'tutoring-grinds' || slug === 'tutoring') {
     const rate: Record<string, number> = {
-      'Primary school': 2200,
-      'Junior Cert':    2800,
-      'Leaving Cert':   3200,
-      'College / Uni':  3800,
+      'Primary school': 2200, 'Junior Cert': 2800,
+      'Leaving Cert': 3200,   'College / Uni': 3800,
     };
     const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
     const r = rate[q1];
     const h = hrs[q2];
-    if (r === undefined || h === undefined) return null;
+    if (!r || !h) return null;
     return r * h;
   }
 
   return null;
+}
+
+function applyDiscount(cents: number): number {
+  return Math.round(cents * (1 - SCHEDULE_DISCOUNT));
+}
+
+// Generate next 6 day labels (Tomorrow, Wednesday, ...)
+function getScheduleDays(): string[] {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const result: string[] = [];
+  const now = new Date();
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    result.push(i === 1 ? 'Tomorrow' : days[d.getDay()]);
+  }
+  return result;
 }
 
 function getTimeSlots(): string[] {
@@ -225,12 +216,9 @@ function chip(active: boolean, isNow = false) {
 }
 
 const fadeSlide = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  exit:    { opacity: 0, y: -4 },
+  initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 },
   transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const },
 };
-
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const card = {
   hidden: { opacity: 0, y: 10 },
@@ -238,43 +226,45 @@ const card = {
 };
 
 export const TaskShowcase: React.FC = () => {
-  const [selected, setSelected] = useState<Task | null>(null);
-  const [q1Val,  setQ1Val]  = useState('');
-  const [q2Val,  setQ2Val]  = useState('');
-  const [when,   setWhen]   = useState('');
-  const [note,   setNote]   = useState('');
-  const [name,   setName]   = useState('');
-  const [phone,  setPhone]  = useState('');
-  const [city,   setCity]   = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [selected,    setSelected]    = useState<Task | null>(null);
+  const [q1Val,       setQ1Val]       = useState('');
+  const [q2Val,       setQ2Val]       = useState('');
+  const [schedMode,   setSchedMode]   = useState<'today' | 'ahead'>('today');
+  const [when,        setWhen]        = useState('');
+  const [note,        setNote]        = useState('');
+  const [name,        setName]        = useState('');
+  const [phone,       setPhone]       = useState('');
+  const [city,        setCity]        = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
 
-  const timeSlots = useMemo(() => getTimeSlots(), []);
+  const timeSlots   = useMemo(() => getTimeSlots(),   []);
+  const scheduleDays = useMemo(() => getScheduleDays(), []);
 
   function open(task: Task) {
     setSelected(task);
-    setQ1Val(''); setQ2Val(''); setWhen(''); setNote('');
+    setQ1Val(''); setQ2Val(''); setSchedMode('today'); setWhen(''); setNote('');
     setName(''); setPhone(''); setCity('');
     setError(null);
     setTimeout(() => {
       document.getElementById('task-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 80);
   }
-
   function close() { setSelected(null); setError(null); }
 
-  const isWAOption  = selected ? isWhatsAppOption(selected.slug, q1Val) : false;
-  const priceCents  = selected && !isWAOption ? getPriceCents(selected.slug, q1Val, q2Val) : null;
-  // Can book by card: price known + time picked + not a WhatsApp-only option
-  const canBook     = priceCents !== null && !!when;
-  const canWhatsApp = (!!q1Val && !!when) || !!selected?.whatsappOnly || isWAOption;
+  const baseCents      = selected ? getPriceCents(selected.slug, q1Val, q2Val) : null;
+  const isScheduled    = schedMode === 'ahead' && !selected?.noSchedule;
+  const priceCents     = baseCents !== null ? (isScheduled ? applyDiscount(baseCents) : baseCents) : null;
+  const canShowTiming  = priceCents !== null || (!selected?.q1 && !selected?.whatsappOnly);
+  const canBook        = priceCents !== null && !!when;
+  const canWhatsApp    = selected?.whatsappOnly ?? false;
 
   function sendWhatsApp() {
     if (!selected) return;
     const lines = [`Hi VANO! I need help with: ${selected.label}.`];
     if (q1Val) lines.push(`${selected.q1?.label ?? 'Option'}: ${q1Val}`);
     if (q2Val) lines.push(`${selected.q2?.label ?? 'Duration'}: ${q2Val}`);
-    if (when)  lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
+    if (when)  lines.push(`When: ${schedMode === 'ahead' ? when : when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
     if (note.trim()) lines.push(note.trim());
     lines.push('Can you let me know who is available?');
     window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank', 'noopener,noreferrer');
@@ -295,6 +285,7 @@ export const TaskShowcase: React.FC = () => {
           when_label:     when,
           size_label:     q1Val,
           extra_label:    q2Val,
+          scheduled:      isScheduled,
           note:           note.trim(),
           customer_name:  name.trim(),
           customer_phone: phone.trim(),
@@ -320,15 +311,12 @@ export const TaskShowcase: React.FC = () => {
 
       <motion.div
         className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
-        variants={container}
-        initial="hidden"
-        whileInView="show"
+        variants={container} initial="hidden" whileInView="show"
         viewport={{ once: true, margin: '-48px' }}
       >
         {ALL_TASKS.map((task) => (
           <motion.button
-            key={task.slug}
-            variants={card}
+            key={task.slug} variants={card}
             onClick={() => selected?.slug === task.slug ? close() : open(task)}
             aria-pressed={selected?.slug === task.slug}
             className={cn(
@@ -353,8 +341,7 @@ export const TaskShowcase: React.FC = () => {
       <AnimatePresence>
         {selected && (
           <motion.div
-            id="task-panel"
-            key={selected.slug}
+            id="task-panel" key={selected.slug}
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.99 }}
@@ -368,9 +355,15 @@ export const TaskShowcase: React.FC = () => {
                 <p className="text-sm font-semibold text-foreground">{selected.label}</p>
                 <AnimatePresence mode="wait">
                   {priceCents !== null ? (
-                    <motion.p key="price" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-semibold text-primary">
-                      €{(priceCents / 100).toFixed(0)} total
-                    </motion.p>
+                    <motion.div key="price" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-primary">€{(priceCents / 100).toFixed(0)}</span>
+                      {isScheduled && baseCents !== null && (
+                        <span className="text-[10px] text-muted-foreground line-through">€{(baseCents / 100).toFixed(0)}</span>
+                      )}
+                      {isScheduled && (
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">10% off</span>
+                      )}
+                    </motion.div>
                   ) : (
                     <motion.p key="from" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground">
                       {selected.price}
@@ -390,6 +383,7 @@ export const TaskShowcase: React.FC = () => {
 
             <div className="p-4">
               <AnimatePresence mode="wait">
+                {/* WhatsApp-only services */}
                 {selected.whatsappOnly ? (
                   <motion.div key="wa-only" {...fadeSlide} className="space-y-3">
                     <textarea
@@ -425,22 +419,8 @@ export const TaskShowcase: React.FC = () => {
                       </div>
                     )}
 
-                    {/* WhatsApp nudge for Full home moving */}
-                    <AnimatePresence>
-                      {isWAOption && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3.5 py-3 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                            Full home moves vary a lot — chat to us on WhatsApp and we'll give you an accurate quote.
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Q2 — only for tutoring, revealed after Q1 */}
-                    {selected.q2 && q1Val && !isWAOption && (
+                    {/* Q2 — tutoring only, revealed after Q1 */}
+                    {selected.q2 && q1Val && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                         transition={{ duration: 0.18 }} className="overflow-hidden"
@@ -462,29 +442,88 @@ export const TaskShowcase: React.FC = () => {
                       </motion.div>
                     )}
 
-                    {/* When — shown once a price is determinable or for flat services */}
-                    {(priceCents !== null || (!selected.q1 && !isWAOption)) && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                        transition={{ duration: 0.18 }} className="overflow-hidden"
-                      >
-                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">When?</p>
-                        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                          {timeSlots.map(opt => (
-                            <motion.button
-                              key={opt} type="button"
-                              onClick={() => setWhen(when === opt ? '' : opt)}
-                              whileTap={{ scale: 0.91 }}
-                              transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                              className={cn(chip(when === opt, opt === 'Now'), 'flex-shrink-0')}
-                            >{opt}</motion.button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
+                    {/* When — revealed once price is known */}
+                    <AnimatePresence>
+                      {canShowTiming && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+                          className="overflow-hidden space-y-3"
+                        >
+                          {/* Today vs Schedule toggle — only for non-errand services */}
+                          {!selected.noSchedule && (
+                            <div className="flex rounded-xl border border-border overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => { setSchedMode('today'); setWhen(''); }}
+                                className={cn(
+                                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors',
+                                  schedMode === 'today'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                <Clock className="w-3 h-3" />Today
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setSchedMode('ahead'); setWhen(''); }}
+                                className={cn(
+                                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors border-l border-border',
+                                  schedMode === 'ahead'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                <Calendar className="w-3 h-3" />Schedule
+                                {baseCents !== null && (
+                                  <span className={cn(
+                                    'text-[10px] font-bold rounded-full px-1',
+                                    schedMode === 'ahead' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400',
+                                  )}>-10%</span>
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Time or day picker */}
+                          {schedMode === 'today' || selected.noSchedule ? (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">When today?</p>
+                              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                                {timeSlots.map(opt => (
+                                  <motion.button
+                                    key={opt} type="button"
+                                    onClick={() => setWhen(when === opt ? '' : opt)}
+                                    whileTap={{ scale: 0.91 }}
+                                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                                    className={cn(chip(when === opt, opt === 'Now'), 'flex-shrink-0')}
+                                  >{opt}</motion.button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Which day?</p>
+                              <div className="flex flex-wrap gap-2">
+                                {scheduleDays.map(day => (
+                                  <motion.button
+                                    key={day} type="button"
+                                    onClick={() => setWhen(when === day ? '' : day)}
+                                    whileTap={{ scale: 0.91 }}
+                                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                                    className={chip(when === day)}
+                                  >{day}</motion.button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Note */}
-                    {(priceCents !== null || !selected.q1) && (
+                    {canShowTiming && (
                       <input
                         type="text" value={note} onChange={e => setNote(e.target.value)}
                         placeholder="Address or anything to add (optional)"
@@ -494,10 +533,11 @@ export const TaskShowcase: React.FC = () => {
 
                     {/* Contact — revealed once time is picked */}
                     <AnimatePresence>
-                      {when && !isWAOption && (
+                      {when && (
                         <motion.div
-                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }} className="space-y-3 overflow-hidden"
+                          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+                          className="space-y-3 overflow-hidden"
                         >
                           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your details</p>
                           <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
@@ -512,32 +552,27 @@ export const TaskShowcase: React.FC = () => {
                       )}
                     </AnimatePresence>
 
-                    {/* CTAs */}
-                    {(canBook || isWAOption) && (
-                      <div className="space-y-2.5">
-                        {canBook && (
-                          <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
-                            {loading
-                              ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
-                              : <><CreditCard className="w-4 h-4" />Pay €{(priceCents! / 100).toFixed(0)} securely</>}
-                          </Button>
-                        )}
-                        {(canBook || isWAOption) && (
-                          <Button
-                            type="button" onClick={sendWhatsApp}
-                            variant={canBook ? 'outline' : 'default'}
-                            className={cn('w-full rounded-full gap-2 font-semibold',
-                              !canBook ? 'bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent' : '')}
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                            {canBook ? 'Or book via WhatsApp' : 'Chat to us on WhatsApp'}
-                          </Button>
-                        )}
-                        {canBook && <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · paid upfront, confirmed instantly</p>}
-                      </div>
+                    {/* Pay CTA — primary action */}
+                    {canBook && (
+                      <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
+                        {loading
+                          ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
+                          : <><CreditCard className="w-4 h-4" />Pay €{(priceCents! / 100).toFixed(0)} securely</>}
+                      </Button>
                     )}
 
                     {error && <p className="text-center text-xs text-destructive">{error}</p>}
+                    {canBook && <p className="text-center text-xs text-muted-foreground">Stripe · paid upfront, confirmed instantly</p>}
+
+                    {/* WhatsApp — secondary, only shown once a time is picked */}
+                    {canBook && (
+                      <p className="text-center text-xs text-muted-foreground/60">
+                        Need to ask something first?{' '}
+                        <button type="button" onClick={sendWhatsApp} className="underline underline-offset-2 hover:text-muted-foreground transition-colors">
+                          WhatsApp us
+                        </button>
+                      </p>
+                    )}
                   </motion.form>
                 )}
               </AnimatePresence>

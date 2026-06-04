@@ -189,7 +189,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, note, customer_name, customer_phone, customer_email, city } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, city } = body;
 
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
       return bad(400, 'Invalid category');
@@ -200,10 +200,14 @@ serve(async (req) => {
     const cat = category as Category;
     const sl  = typeof size_label  === 'string' ? size_label  : '';
     const el  = typeof extra_label === 'string' ? extra_label : '';
-    const priceCents = computePriceCents(cat, sl, el);
+    const isScheduled = scheduled === true;
+
+    let priceCents = computePriceCents(cat, sl, el);
     if (!priceCents) {
       return bad(400, `No price available for ${category} / ${sl}${el ? ' / ' + el : ''}`);
     }
+    // Apply 10% schedule-ahead discount server-side
+    if (isScheduled) priceCents = Math.round(priceCents * 0.9);
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -225,8 +229,9 @@ serve(async (req) => {
           when_label:  when_label || null,
           size_label:  sl || null,
           extra_label: el || null,
+          scheduled:   isScheduled,
           note:        typeof note === 'string' ? note.trim() : null,
-          source:      'category_grid',
+          source:      'task_showcase',
         },
       })
       .select('id')
@@ -248,9 +253,13 @@ serve(async (req) => {
       'line_items[0][price_data][currency]': 'eur',
       'line_items[0][price_data][unit_amount]': String(priceCents),
       'line_items[0][price_data][product_data][name]': `VANO — ${CATEGORY_LABELS[cat]}`,
-      'line_items[0][price_data][product_data][description]': when_label
-        ? `${when_label}${sl ? ' · ' + sl : ''}${el ? ' · ' + el : ''}${city ? ' · ' + city : ''}`
-        : (city ?? 'Ireland'),
+      'line_items[0][price_data][product_data][description]': [
+        when_label || null,
+        sl || null,
+        el || null,
+        isScheduled ? 'Scheduled (10% off)' : null,
+        city || null,
+      ].filter(Boolean).join(' · ') || 'Ireland',
       'line_items[0][quantity]': '1',
       'payment_intent_data[capture_method]': 'automatic',
       'payment_intent_data[metadata][household_booking_id]': bookingId,
