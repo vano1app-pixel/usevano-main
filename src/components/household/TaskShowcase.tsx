@@ -240,6 +240,7 @@ const card = {
 
 const LS_NAME  = 'vano_customer_name';
 const LS_PHONE = 'vano_customer_phone';
+const LS_CITY  = 'vano_customer_city';
 
 // Reverse-geocode coords to a VANO supported city, or null.
 async function detectCity(lat: number, lng: number): Promise<string | null> {
@@ -263,7 +264,7 @@ export const TaskShowcase: React.FC = () => {
   const [note,        setNote]        = useState('');
   const [name,        setName]        = useState(() => { try { return localStorage.getItem(LS_NAME)  ?? ''; } catch { return ''; } });
   const [phone,       setPhone]       = useState(() => { try { return localStorage.getItem(LS_PHONE) ?? ''; } catch { return ''; } });
-  const [city,        setCity]        = useState('');
+  const [city,        setCity]        = useState(() => { try { return localStorage.getItem(LS_CITY) ?? ''; } catch { return ''; } });
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [isLoyalty,   setIsLoyalty]   = useState(false);
@@ -273,12 +274,16 @@ export const TaskShowcase: React.FC = () => {
   const timeOptions  = useMemo(() => getTimeOptions(), []);
 
   function tryDetectCity() {
+    try { if (localStorage.getItem(LS_CITY)) return; } catch { /* blocked */ }
     if (geoAttempted.current || !navigator.geolocation) return;
     geoAttempted.current = true;
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         const detected = await detectCity(coords.latitude, coords.longitude);
-        if (detected) setCity(detected);
+        if (detected) {
+          setCity(detected);
+          try { localStorage.setItem(LS_CITY, detected); } catch { /* blocked */ }
+        }
       },
       () => {},
       { timeout: 5000 },
@@ -370,7 +375,7 @@ export const TaskShowcase: React.FC = () => {
       if (fnErr || !data?.checkout_url) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
-      try { localStorage.setItem(LS_NAME, name.trim()); localStorage.setItem(LS_PHONE, phone.trim()); } catch { /* storage blocked */ }
+      try { localStorage.setItem(LS_NAME, name.trim()); localStorage.setItem(LS_PHONE, phone.trim()); localStorage.setItem(LS_CITY, city); } catch { /* storage blocked */ }
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
