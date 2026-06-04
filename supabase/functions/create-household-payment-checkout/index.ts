@@ -15,14 +15,15 @@ function formEncode(obj: Record<string, string>): string {
 
 const VALID_CATEGORIES = [
   'shopping', 'dog-walk', 'garden', 'moving', 'cleaning',
-  'tutoring', 'post-office', 'furniture-assembly', 'tech-help', 'wait-delivery',
+  'tutoring', 'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
 ] as const;
 type Category = typeof VALID_CATEGORIES[number];
 
 function computePriceCents(category: Category, sizeLabel: string): number | null {
-  if (category === 'shopping')      return 1500; // €15 flat
-  if (category === 'post-office')   return 1000; // €10 flat
-  if (category === 'wait-delivery') return 1000; // €10 flat
+  if (category === 'shopping')       return 1500; // €15 flat
+  if (category === 'post-office')    return 1000; // €10 flat
+  if (category === 'pharmacy-run')   return 1000; // €10 flat
+  if (category === 'wait-delivery')  return 1000; // €10 flat
   if (category === 'dog-walk') {
     return sizeLabel === '30 min' ? 1500 : 2000; // €15 or €20 (1 dog; quick flow)
   }
@@ -52,6 +53,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   cleaning: 'Cleaning',
   tutoring: 'Tutoring',
   'post-office': 'Post office run',
+  'pharmacy-run': 'Pharmacy run',
   'furniture-assembly': 'Furniture assembly',
   'tech-help': 'Tech help',
   'wait-delivery': 'Wait for delivery',

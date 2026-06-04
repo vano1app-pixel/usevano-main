@@ -15,7 +15,6 @@ const GRID_TASKS = [
   { emoji: '🌿', label: 'Lawn mowing',        gridSlug: 'garden'    },
   { emoji: '📦', label: 'Moving help',        gridSlug: 'moving'    },
   { emoji: '🧹', label: 'Outdoor cleaning',   gridSlug: 'cleaning'  },
-  { emoji: '💊', label: 'Pharmacy runs',      gridSlug: 'shopping'  },
   { emoji: '📚', label: 'Tutoring & grinds',  gridSlug: 'tutoring'  },
 ];
 
@@ -30,6 +29,10 @@ interface MiscTask {
 }
 
 const MISC_TASKS: MiscTask[] = [
+  {
+    emoji: '💊', label: 'Pharmacy run',       miscSlug: 'pharmacy-run',       price: '€10 flat',
+    description: 'We collect your prescription or over-the-counter items from your local pharmacy.',
+  },
   {
     emoji: '📬', label: 'Post office run',    miscSlug: 'post-office',        price: '€10 flat',
     description: 'We drop off or collect parcels, letters and forms at your local post office.',
@@ -56,7 +59,7 @@ const MISC_TASKS: MiscTask[] = [
 ];
 
 function getMiscPriceCents(miscSlug: string, size: string): number | null {
-  if (miscSlug === 'post-office' || miscSlug === 'wait-delivery') return 1000;
+  if (miscSlug === 'pharmacy-run' || miscSlug === 'post-office' || miscSlug === 'wait-delivery') return 1000;
   const key = `${miscSlug}|${size}`;
   const map: Record<string, number> = {
     'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
