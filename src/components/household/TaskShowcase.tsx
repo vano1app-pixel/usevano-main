@@ -428,15 +428,17 @@ export const TaskShowcase: React.FC = () => {
                 {/* WhatsApp-only services */}
                 {selected.whatsappOnly ? (
                   <motion.div key="wa-only" {...fadeSlide} className="space-y-3">
+                    <p className="text-xs text-muted-foreground">Describe what you need and we'll sort it out — most things are possible.</p>
                     <textarea
                       value={note} onChange={e => setNote(e.target.value)}
-                      placeholder="Tell us what you need..."
+                      placeholder="e.g. I need someone to hang 3 pictures and assemble a wardrobe..."
                       rows={3}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
                     />
                     <Button onClick={sendWhatsApp} className="w-full rounded-full gap-2 font-semibold bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent">
-                      <MessageCircle className="w-4 h-4" />Chat to us on WhatsApp
+                      <MessageCircle className="w-4 h-4" />Send us a WhatsApp →
                     </Button>
+                    <p className="text-center text-xs text-muted-foreground/60">We reply fast — usually within the hour</p>
                   </motion.div>
                 ) : (
                   <motion.form key="book-form" {...fadeSlide} onSubmit={handlePay} className="space-y-5">
@@ -517,12 +519,12 @@ export const TaskShowcase: React.FC = () => {
                                     : 'bg-background text-muted-foreground hover:text-foreground',
                                 )}
                               >
-                                <Calendar className="w-3 h-3" />Schedule
+                                <Calendar className="w-3 h-3" />Schedule ahead
                                 {baseCents !== null && (
                                   <span className={cn(
                                     'text-[10px] font-bold rounded-full px-1',
                                     schedMode === 'ahead' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400',
-                                  )}>-10%</span>
+                                  )}>save {Math.round(baseCents * 0.10 / 100)}€</span>
                                 )}
                               </button>
                             </div>
@@ -604,6 +606,24 @@ export const TaskShowcase: React.FC = () => {
                       )}
                     </AnimatePresence>
 
+                    {/* Schedule savings banner */}
+                    <AnimatePresence>
+                      {isScheduled && baseCents !== null && afterSchedule !== null && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+                          transition={{ duration: 0.2 }}
+                          className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-3.5 py-3"
+                        >
+                          <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                            📅 You're saving €{((baseCents - afterSchedule) / 100).toFixed(0)} by scheduling ahead
+                          </p>
+                          <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                            10% off when you book in advance — your helper plans around you.
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     {/* Loyalty reward banner */}
                     <AnimatePresence>
                       {isLoyalty && priceCents !== null && (
@@ -622,15 +642,22 @@ export const TaskShowcase: React.FC = () => {
 
                     {/* Pay CTA — primary action */}
                     {canBook && (
-                      <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
-                        {loading
-                          ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
-                          : <><CreditCard className="w-4 h-4" />Pay €{(priceCents! / 100).toFixed(0)} securely</>}
-                      </Button>
+                      <>
+                        <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
+                          {loading
+                            ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
+                            : <><CreditCard className="w-4 h-4" />Book your helper — €{(priceCents! / 100).toFixed(0)}</>}
+                        </Button>
+                        <p className="text-center text-xs text-muted-foreground leading-relaxed">
+                          🛡️ All students are screened · money back if the job isn't done right
+                        </p>
+                        <p className="text-center text-[11px] text-muted-foreground/60">
+                          ⚡ Usually matched within 30 mins · Stripe secure checkout
+                        </p>
+                      </>
                     )}
 
                     {error && <p className="text-center text-xs text-destructive">{error}</p>}
-                    {canBook && <p className="text-center text-xs text-muted-foreground">Stripe · paid upfront, confirmed instantly</p>}
 
                     {/* WhatsApp — secondary, only shown once a time is picked */}
                     {canBook && (

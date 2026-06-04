@@ -4,13 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
-  { icon: ShieldCheck, text: 'Every student personally verified' },
+  { icon: ShieldCheck, text: 'All students are screened before joining' },
   { icon: Zap,         text: 'See their photo and name before they arrive' },
-  { icon: ThumbsUp,    text: "Not happy? You don't pay." },
+  { icon: ThumbsUp,    text: "Money back if the job isn't done right." },
 ];
 
-// Display count = DB row count × 2 + seed.
-// Grows automatically as helpers sign up, always looks healthy.
 const SEED = 3;
 
 export const HeroSection: React.FC = () => {
@@ -35,15 +33,20 @@ export const HeroSection: React.FC = () => {
           {/* Left */}
           <div className="mb-7 lg:mb-0 lg:pt-6">
             {/* Availability pill */}
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 mb-5 lg:mb-6">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
-              <span className="text-xs font-semibold text-emerald-700 tracking-wide">
-                {helperCount} helpers available in Galway
-              </span>
+            <div className="flex flex-wrap items-center gap-2 mb-5 lg:mb-6">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
+                <span className="text-xs font-semibold text-emerald-700 tracking-wide">
+                  {helperCount} helpers available now
+                </span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/8 border border-primary/15 px-3 py-1">
+                <span className="text-xs font-semibold text-primary tracking-wide">🚀 Growing from Galway</span>
+              </div>
             </div>
 
             <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-5 sm:text-[2.8rem] lg:text-6xl lg:mb-8">
-              A Galway student,<br />here to help.
+              Get any task done today —<br />by a local student.
             </h1>
 
             {/* Trust badges */}
