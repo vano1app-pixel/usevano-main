@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { CheckCircle2, ArrowDown, CreditCard, Loader2, Star } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { CheckCircle2, ArrowDown, CreditCard, Loader2, Star, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
+// ─── Pay-per-job prices ────────────────────────────────────────────────────
 const PRICES = [
   { emoji: '🛒', label: 'Grocery shopping',   price: 'from €12'    },
   { emoji: '🐕', label: 'Dog walking',         price: 'from €12'    },
@@ -19,22 +20,20 @@ const PRICES = [
   { emoji: '🚪', label: 'Wait for deliveries', price: '€10 flat'    },
 ];
 
+// ─── Airbnb tiers ──────────────────────────────────────────────────────────
 interface AirbnbTier {
-  slug:        string;
-  name:        string;
-  price:       number; // cents
-  label:       string;
-  tagline:     string;
-  features:    string[];
-  highlight?:  boolean;
+  slug:       string;
+  name:       string;
+  price:      number;
+  label:      string;
+  tagline:    string;
+  features:   string[];
+  highlight?: boolean;
 }
 
 const TIERS: AirbnbTier[] = [
   {
-    slug:    'airbnb-essential',
-    name:    'Essential',
-    price:   12900,
-    label:   '€129',
+    slug: 'airbnb-essential', name: 'Essential', price: 12900, label: '€129',
     tagline: 'Great for occasional lets',
     highlight: true,
     features: [
@@ -45,10 +44,7 @@ const TIERS: AirbnbTier[] = [
     ],
   },
   {
-    slug:    'airbnb-popular',
-    name:    'Popular',
-    price:   19900,
-    label:   '€199',
+    slug: 'airbnb-popular', name: 'Popular', price: 19900, label: '€199',
     tagline: 'Best value for active hosts',
     features: [
       '4 changeover cleans per month',
@@ -60,10 +56,7 @@ const TIERS: AirbnbTier[] = [
     ],
   },
   {
-    slug:    'airbnb-premium',
-    name:    'Full Management',
-    price:   29900,
-    label:   '€299',
+    slug: 'airbnb-premium', name: 'Full Management', price: 29900, label: '€299',
     tagline: 'Hands-off property management',
     features: [
       'Unlimited changeover cleans',
@@ -77,6 +70,21 @@ const TIERS: AirbnbTier[] = [
   },
 ];
 
+// ─── Comparison table rows ─────────────────────────────────────────────────
+// true = included, false = not included, string = custom label
+type Cell = boolean | string;
+const COMPARE_ROWS: { label: string; cells: [Cell, Cell, Cell] }[] = [
+  { label: 'Changeover cleans',       cells: ['2 /mo',       '4 /mo',     'Unlimited'] },
+  { label: 'Linen & towels',          cells: [true,           true,         true]        },
+  { label: 'Welcome pack',            cells: [true,           true,         true]        },
+  { label: 'Grocery pack',            cells: [false,          true,         true]        },
+  { label: 'Garden upkeep',           cells: [false,          true,         true]        },
+  { label: 'Minor maintenance',       cells: [false,          false,        true]        },
+  { label: 'Dedicated helper',        cells: [false,          false,        true]        },
+  { label: 'Confirmation',            cells: ['< 2 hrs',     '< 1 hr',    '24 hr WA']  },
+];
+
+// ─── Swipeable card (Airbnb) ───────────────────────────────────────────────
 function TierCard({ tier }: { tier: AirbnbTier }) {
   const [open,    setOpen]    = useState(false);
   const [name,    setName]    = useState('');
@@ -113,7 +121,7 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
 
   return (
     <div className={cn(
-      'relative flex flex-col rounded-2xl border overflow-hidden transition-shadow duration-200',
+      'relative flex flex-col h-full rounded-2xl border overflow-hidden',
       tier.highlight
         ? 'border-[#FF385C]/40 shadow-lg shadow-[#FF385C]/10'
         : 'border-border/50 shadow-sm',
@@ -124,11 +132,7 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
           <span className="text-white text-[11px] font-bold tracking-wide uppercase">Most Popular</span>
         </div>
       )}
-
-      <div className={cn(
-        'flex flex-col flex-1 p-5',
-        tier.highlight ? 'bg-[#FF385C]/[0.04]' : 'bg-card',
-      )}>
+      <div className={cn('flex flex-col flex-1 p-5', tier.highlight ? 'bg-[#FF385C]/[0.04]' : 'bg-card')}>
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">{tier.name}</p>
         <div className="flex items-end gap-1 mb-0.5">
           <span className="text-3xl font-bold tracking-tight text-foreground">{tier.label}</span>
@@ -158,23 +162,16 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
           </Button>
         ) : (
           <form onSubmit={handleCheckout} className="space-y-2">
-            <input
-              type="text" value={name} onChange={e => setName(e.target.value)}
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
               placeholder="Your name" required
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-            />
-            <input
-              type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
               placeholder="Your phone number" required
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-            />
-            <input
-              type="text" value={city} onChange={e => setCity(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input type="text" value={city} onChange={e => setCity(e.target.value)}
               placeholder="Your city (e.g. Galway)"
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-            />
-            <Button
-              type="submit" disabled={loading || !name.trim() || !phone.trim()}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring" />
+            <Button type="submit" disabled={loading || !name.trim() || !phone.trim()}
               className={cn('w-full rounded-full gap-2 font-semibold', tier.highlight && 'text-white border-transparent')}
               style={tier.highlight ? { backgroundColor: '#FF385C' } : undefined}
             >
@@ -191,6 +188,113 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
   );
 }
 
+// ─── Swipeable carousel (mobile) / grid (desktop) ─────────────────────────
+function TierCarousel() {
+  const [active, setActive] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.offsetWidth);
+    setActive(idx);
+  }
+
+  function scrollTo(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
+    setActive(i);
+  }
+
+  return (
+    <div>
+      {/* Mobile: swipeable */}
+      <div className="sm:hidden">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 pb-2"
+          style={{ scrollPaddingLeft: '1rem' }}
+        >
+          {TIERS.map(tier => (
+            <div key={tier.slug} className="snap-center flex-shrink-0 w-[calc(100%-2rem)]">
+              <TierCard tier={tier} />
+            </div>
+          ))}
+        </div>
+        {/* Dot indicators */}
+        <div className="flex justify-center gap-2 mt-3">
+          {TIERS.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => scrollTo(i)}
+              className={cn(
+                'rounded-full transition-all duration-200',
+                active === i ? 'w-5 h-2 bg-[#FF385C]' : 'w-2 h-2 bg-border',
+              )}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop: grid */}
+      <div className="hidden sm:grid sm:grid-cols-3 gap-4">
+        {TIERS.map(tier => <TierCard key={tier.slug} tier={tier} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Compact comparison strip (pay-per-job) ────────────────────────────────
+function CellValue({ val }: { val: Cell }) {
+  if (val === true)  return <Check className="w-4 h-4 text-emerald-500 mx-auto" />;
+  if (val === false) return <X className="w-3.5 h-3.5 text-muted-foreground/30 mx-auto" />;
+  return <span className="text-[11px] font-medium text-foreground/80">{val}</span>;
+}
+
+function ComparisonStrip() {
+  const cols = ['Essential\n€129', 'Popular\n€199', 'Full Mgmt\n€299'];
+  return (
+    <div className="rounded-2xl border border-border/50 overflow-hidden">
+      {/* Header */}
+      <div className="grid grid-cols-4 bg-secondary/60">
+        <div className="p-3" />
+        {cols.map((c, i) => (
+          <div key={i} className={cn(
+            'p-3 text-center border-l border-border/40',
+            i === 0 && 'bg-[#FF385C]/[0.06]',
+          )}>
+            {c.split('\n').map((line, j) => (
+              <p key={j} className={cn(
+                j === 0 ? 'text-[10px] font-semibold uppercase tracking-wider text-muted-foreground' : 'text-sm font-bold text-foreground',
+                i === 0 && j === 1 && 'text-[#FF385C]',
+              )}>{line}</p>
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* Rows */}
+      {COMPARE_ROWS.map(({ label, cells }) => (
+        <div key={label} className="grid grid-cols-4 border-t border-border/40">
+          <div className="p-3 flex items-center">
+            <span className="text-[11px] text-muted-foreground leading-tight">{label}</span>
+          </div>
+          {cells.map((val, i) => (
+            <div key={i} className={cn(
+              'p-3 flex items-center justify-center border-l border-border/40',
+              i === 0 && 'bg-[#FF385C]/[0.03]',
+            )}>
+              <CellValue val={val} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main export ───────────────────────────────────────────────────────────
 export const PricingTable: React.FC = () => {
   return (
     <section className="px-4 py-12 max-w-lg mx-auto md:max-w-xl lg:max-w-5xl">
@@ -199,7 +303,7 @@ export const PricingTable: React.FC = () => {
         Simple pricing. No surprises.
       </h2>
 
-      {/* Airbnb Host Special header */}
+      {/* Airbnb Host Special */}
       <div className="flex items-center gap-2 mb-6">
         <span className="text-lg" aria-hidden="true">🏡</span>
         <p className="text-sm text-muted-foreground">
@@ -208,19 +312,20 @@ export const PricingTable: React.FC = () => {
         </p>
       </div>
 
-      {/* Three tier cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-        {TIERS.map(tier => <TierCard key={tier.slug} tier={tier} />)}
+      <div className="mb-6">
+        <TierCarousel />
       </div>
 
-      {/* Pay-per-job price rows */}
+      {/* Comparison strip */}
+      <div className="mb-10">
+        <ComparisonStrip />
+      </div>
+
+      {/* Pay-per-job */}
       <p className="eyebrow mb-4">Or book one job at a time</p>
       <ul className="mb-2">
         {PRICES.map(({ emoji, label, price }) => (
-          <li
-            key={label}
-            className="flex items-center justify-between py-3 border-b border-border/50 last:border-0"
-          >
+          <li key={label} className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
             <span className="flex items-center gap-2.5 text-sm text-foreground/80">
               <span className="text-lg leading-none" aria-hidden="true">{emoji}</span>
               {label}
