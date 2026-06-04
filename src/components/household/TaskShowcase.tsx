@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, CreditCard, MessageCircle, Loader2, Calendar, Clock } from 'lucide-react';
+import { X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -193,36 +193,31 @@ function applyLoyaltyDiscount(cents: number): number {
   return Math.round(cents * (1 - LOYALTY_DISCOUNT));
 }
 
-// Generate next 6 day labels (Tomorrow, Wednesday, ...)
-function getScheduleDays(): string[] {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const result: string[] = [];
-  const now = new Date();
-  for (let i = 1; i <= 6; i++) {
+// One unified list of time options covering today + next 5 days.
+// isToday = no schedule discount; isFuture = 10% off.
+interface TimeOption { label: string; isToday: boolean; }
+
+function getTimeOptions(): TimeOption[] {
+  const now   = new Date();
+  const h     = now.getHours();
+  const days  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const opts: TimeOption[] = [];
+
+  // Today slots (only show times still ahead)
+  if (h < 12) opts.push({ label: 'This morning',   isToday: true });
+  if (h < 17) opts.push({ label: 'This afternoon',  isToday: true });
+  if (h < 20) opts.push({ label: 'This evening',    isToday: true });
+
+  // Next 5 days × 3 slots
+  for (let i = 1; i <= 5; i++) {
     const d = new Date(now);
     d.setDate(now.getDate() + i);
-    result.push(i === 1 ? 'Tomorrow' : days[d.getDay()]);
+    const dayLabel = i === 1 ? 'Tomorrow' : days[d.getDay()];
+    opts.push({ label: `${dayLabel} morning`,   isToday: false });
+    opts.push({ label: `${dayLabel} afternoon`, isToday: false });
+    opts.push({ label: `${dayLabel} evening`,   isToday: false });
   }
-  return result;
-}
-
-function getTimeSlots(): string[] {
-  const now  = new Date();
-  const slots: string[] = ['Now'];
-  const next = new Date(now);
-  next.setSeconds(0, 0);
-  next.setMinutes(now.getMinutes() < 30 ? 30 : 60);
-  const fmt = (d: Date) => {
-    const h = d.getHours(), m = d.getMinutes();
-    const period = h >= 12 ? 'pm' : 'am';
-    const hour   = h > 12 ? h - 12 : h === 0 ? 12 : h;
-    return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${period}`;
-  };
-  while (next.getHours() < 21) {
-    slots.push(fmt(next));
-    next.setMinutes(next.getMinutes() + 30);
-  }
-  return slots;
+  return opts;
 }
 
 const chipBase = 'px-3 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color] duration-150';
@@ -247,9 +242,6 @@ export const TaskShowcase: React.FC = () => {
   const [selected,    setSelected]    = useState<Task | null>(null);
   const [q1Val,       setQ1Val]       = useState('');
   const [q2Val,       setQ2Val]       = useState('');
-  const [schedMode,   setSchedMode]   = useState<'today' | 'ahead'>('today');
-  const [schedDay,    setSchedDay]    = useState('');
-  const [schedTime,   setSchedTime]   = useState('');
   const [when,        setWhen]        = useState('');
   const [note,        setNote]        = useState('');
   const [name,        setName]        = useState('');
@@ -260,8 +252,7 @@ export const TaskShowcase: React.FC = () => {
   const [isLoyalty,   setIsLoyalty]   = useState(false);
   const [loyaltyChecking, setLoyaltyChecking] = useState(false);
 
-  const timeSlots   = useMemo(() => getTimeSlots(),   []);
-  const scheduleDays = useMemo(() => getScheduleDays(), []);
+  const timeOptions  = useMemo(() => getTimeOptions(), []);
 
   async function checkLoyalty(phoneVal: string) {
     if (phoneVal.replace(/\D/g, '').length < 8) return;
@@ -280,7 +271,7 @@ export const TaskShowcase: React.FC = () => {
 
   function open(task: Task) {
     setSelected(task);
-    setQ1Val(''); setQ2Val(''); setSchedMode('today'); setWhen(''); setSchedDay(''); setSchedTime(''); setNote('');
+    setQ1Val(''); setQ2Val(''); setWhen(''); setNote('');
     setName(''); setPhone(''); setCity('');
     setIsLoyalty(false);
     setError(null);
@@ -291,13 +282,12 @@ export const TaskShowcase: React.FC = () => {
   function close() { setSelected(null); setError(null); }
 
   const baseCents      = selected ? getPriceCents(selected.slug, q1Val, q2Val) : null;
-  const isScheduled    = schedMode === 'ahead' && !selected?.noSchedule;
-  // For schedule-ahead, when = "Saturday morning" etc; for today, when = time slot
-  const schedWhen      = isScheduled ? (schedDay && schedTime ? `${schedDay} ${schedTime}` : '') : when;
+  const selectedOption = timeOptions.find(o => o.label === when);
+  const isScheduled    = !!selectedOption && !selectedOption.isToday && !selected?.noSchedule;
   const afterSchedule  = baseCents !== null ? (isScheduled ? applyScheduleDiscount(baseCents) : baseCents) : null;
   const priceCents     = afterSchedule !== null ? (isLoyalty ? applyLoyaltyDiscount(afterSchedule) : afterSchedule) : null;
   const canShowTiming  = priceCents !== null || (!selected?.q1 && !selected?.whatsappOnly);
-  const canBook        = priceCents !== null && !!(isScheduled ? (schedDay && schedTime) : when);
+  const canBook        = priceCents !== null && !!when;
   const canWhatsApp    = selected?.whatsappOnly ?? false;
 
   function sendWhatsApp() {
@@ -305,8 +295,7 @@ export const TaskShowcase: React.FC = () => {
     const lines = [`Hi VANO! I need help with: ${selected.label}.`];
     if (q1Val) lines.push(`${selected.q1?.label ?? 'Option'}: ${q1Val}`);
     if (q2Val) lines.push(`${selected.q2?.label ?? 'Duration'}: ${q2Val}`);
-    const whenStr = isScheduled ? schedWhen : when;
-    if (whenStr) lines.push(`When: ${isScheduled ? schedWhen : when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
+    if (when) lines.push(`When: ${when}`);
     if (note.trim()) lines.push(note.trim());
     lines.push('Can you let me know who is available?');
     window.open(`${teamWhatsAppHref}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank', 'noopener,noreferrer');
@@ -314,8 +303,7 @@ export const TaskShowcase: React.FC = () => {
 
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
-    if (!selected || !priceCents) return;
-    if (isScheduled && (!schedDay || !schedTime)) return;
+    if (!selected || !priceCents || !when) return;
     if (!name.trim())  { setError('Please enter your name.');         return; }
     if (!phone.trim()) { setError('Please enter your phone number.'); return; }
     if (!city)         { setError('Please select your city.');        return; }
@@ -325,7 +313,7 @@ export const TaskShowcase: React.FC = () => {
         'create-household-payment-checkout',
         { body: {
           category:       selected.slug,
-          when_label:     isScheduled ? schedWhen : when,
+          when_label:     when,
           size_label:     q1Val,
           extra_label:    q2Val,
           scheduled:      isScheduled,
@@ -500,92 +488,29 @@ export const TaskShowcase: React.FC = () => {
                           exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
                           className="overflow-hidden space-y-3"
                         >
-                          {/* Today vs Schedule toggle — only for non-errand services */}
-                          {!selected.noSchedule && (
-                            <div className="flex rounded-xl border border-border overflow-hidden">
-                              <button
-                                type="button"
-                                onClick={() => { setSchedMode('today'); setWhen(''); }}
-                                className={cn(
-                                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors',
-                                  schedMode === 'today'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-background text-muted-foreground hover:text-foreground',
-                                )}
-                              >
-                                <Clock className="w-3 h-3" />Today
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setSchedMode('ahead'); setWhen(''); }}
-                                className={cn(
-                                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors border-l border-border',
-                                  schedMode === 'ahead'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-background text-muted-foreground hover:text-foreground',
-                                )}
-                              >
-                                <Calendar className="w-3 h-3" />Schedule ahead
-                                {baseCents !== null && (
-                                  <span className={cn(
-                                    'text-[10px] font-bold rounded-full px-1',
-                                    schedMode === 'ahead' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400',
-                                  )}>save {Math.round(baseCents * 0.10 / 100)}€</span>
-                                )}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Time or day picker */}
-                          {schedMode === 'today' || selected.noSchedule ? (
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">When today?</p>
+                          {/* Unified time picker */}
+                          <div>
+                              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">When?</p>
                               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                                {timeSlots.map(opt => (
+                                {(selected.noSchedule
+                                  ? timeOptions.filter(o => o.isToday)
+                                  : timeOptions
+                                ).map(opt => (
                                   <motion.button
-                                    key={opt} type="button"
-                                    onClick={() => setWhen(when === opt ? '' : opt)}
+                                    key={opt.label} type="button"
+                                    onClick={() => setWhen(when === opt.label ? '' : opt.label)}
                                     whileTap={{ scale: 0.91 }}
                                     transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                                    className={cn(chip(when === opt, opt === 'Now'), 'flex-shrink-0')}
-                                  >{opt}</motion.button>
+                                    className={cn(chip(when === opt.label), 'flex-shrink-0 relative')}
+                                  >
+                                    {opt.label}
+                                    {!opt.isToday && baseCents !== null && (
+                                      <span className="ml-1 text-[10px] font-semibold text-emerald-600">-10%</span>
+                                    )}
+                                  </motion.button>
                                 ))}
                               </div>
                             </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Which day?</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {scheduleDays.map(day => (
-                                    <motion.button
-                                      key={day} type="button"
-                                      onClick={() => setSchedDay(schedDay === day ? '' : day)}
-                                      whileTap={{ scale: 0.91 }}
-                                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                                      className={chip(schedDay === day)}
-                                    >{day}</motion.button>
-                                  ))}
-                                </div>
-                              </div>
-                              {schedDay && (
-                                <div>
-                                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">What time?</p>
-                                  <div className="flex gap-2">
-                                    {['Morning (8–12)', 'Afternoon (12–5)', 'Evening (5–9)'].map(slot => (
-                                      <motion.button
-                                        key={slot} type="button"
-                                        onClick={() => setSchedTime(schedTime === slot ? '' : slot)}
-                                        whileTap={{ scale: 0.91 }}
-                                        transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                                        className={cn(chip(schedTime === slot), 'flex-shrink-0 text-xs')}
-                                      >{slot}</motion.button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -601,7 +526,7 @@ export const TaskShowcase: React.FC = () => {
 
                     {/* Contact — revealed once time is picked */}
                     <AnimatePresence>
-                      {((!isScheduled && when) || (isScheduled && schedDay && schedTime)) && (
+                      {when && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
