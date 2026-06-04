@@ -22,6 +22,8 @@ const VALID_CATEGORIES = [
   'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
   // Midnight lift
   'midnight-lift',
+  // Airbnb Host monthly plans
+  'airbnb-essential', 'airbnb-popular', 'airbnb-premium',
 ] as const;
 type Category = typeof VALID_CATEGORIES[number];
 
@@ -129,6 +131,11 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
+  // Airbnb Host monthly plans — flat rate per tier
+  if (category === 'airbnb-essential') return 12900;
+  if (category === 'airbnb-popular')   return 19900;
+  if (category === 'airbnb-premium')   return 29900;
+
   // Midnight lift — distance tier
   if (category === 'midnight-lift') {
     const map: Record<string, number> = {
@@ -180,6 +187,9 @@ const CATEGORY_LABELS: Record<Category, string> = {
   'tech-help':          'Tech help',
   'wait-delivery':      'Wait for delivery',
   'midnight-lift':      'Midnight Lift',
+  'airbnb-essential':   'Airbnb Host Essential',
+  'airbnb-popular':     'Airbnb Host Popular',
+  'airbnb-premium':     'Airbnb Host Full Management',
 };
 
 serve(async (req) => {
