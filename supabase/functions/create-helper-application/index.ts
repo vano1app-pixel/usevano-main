@@ -3,8 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Public endpoint for helper (student) signups.
 // Accepts multipart/form-data with photo file + JSON fields.
-// Uses service-role key to upload photo and insert the helper row —
-// no Supabase auth account required, no email confirmation delay.
+// Inserts the helper row, then redirects to a Stripe subscription
+// checkout for the €2/month platform membership.
+
+function formEncode(obj: Record<string, string>): string {
+  return Object.entries(obj)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -27,6 +33,8 @@ serve(async (req) => {
     const email      = (formData.get('email')      as string | null)?.trim().toLowerCase();
     const phone      = (formData.get('phone')      as string | null)?.trim();
     const city       = (formData.get('city')       as string | null)?.trim();
+    const ageRaw     = (formData.get('age')        as string | null)?.trim();
+    const bioRaw     = (formData.get('bio')        as string | null)?.trim();
     const categories = JSON.parse((formData.get('categories') as string | null) ?? '[]') as string[];
     const tutorSubjects = JSON.parse((formData.get('tutor_subjects') as string | null) ?? '[]') as string[];
     const tutorLevels   = JSON.parse((formData.get('tutor_levels')   as string | null) ?? '[]') as string[];
@@ -43,6 +51,8 @@ serve(async (req) => {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
+
+    const age = ageRaw ? parseInt(ageRaw, 10) : null;
 
     // Upload photo to helper-photos bucket
     const ext  = photo.name.split('.').pop() ?? 'jpg';
@@ -74,6 +84,8 @@ serve(async (req) => {
         photo_url: publicUrl,
         categories,
         status: 'pending',
+        ...(age !== null && !isNaN(age) ? { age } : {}),
+        ...(bioRaw ? { bio: bioRaw } : {}),
         ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
           ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
           : {}),
@@ -81,7 +93,6 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('[create-helper-application] insert failed', insertError);
-      // Clean up uploaded photo
       await supabase.storage.from('helper-photos').remove([path]);
       return new Response(JSON.stringify({ error: 'Could not save application' }), {
         status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -101,7 +112,57 @@ serve(async (req) => {
       }),
     }).catch(() => {/* non-critical */});
 
-    return new Response(JSON.stringify({ success: true }), {
+    // Create Stripe subscription checkout for €2/month membership
+    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
+    if (!STRIPE_SECRET_KEY) {
+      // Fallback: return success without checkout (Stripe not configured)
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const origin =
+      req.headers.get('origin') ||
+      Deno.env.get('SITE_URL') ||
+      'https://vanojobs.com';
+
+    const checkoutParams: Record<string, string> = {
+      mode: 'subscription',
+      'line_items[0][price_data][currency]': 'eur',
+      'line_items[0][price_data][unit_amount]': '200',
+      'line_items[0][price_data][recurring][interval]': 'month',
+      'line_items[0][price_data][product_data][name]': 'VANO Helper Membership',
+      'line_items[0][price_data][product_data][description]': 'Monthly membership — be listed on VANO and receive bookings',
+      'line_items[0][quantity]': '1',
+      success_url: `${origin}/join?welcome=1&name=${encodeURIComponent(name)}`,
+      cancel_url:  `${origin}/join`,
+      customer_email: email,
+      'metadata[helper_name]': name,
+      'metadata[helper_phone]': phone,
+      'metadata[helper_city]': city,
+    };
+
+    const stripeResp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formEncode(checkoutParams),
+    });
+
+    if (!stripeResp.ok) {
+      const text = await stripeResp.text();
+      console.error('[create-helper-application] stripe error', stripeResp.status, text);
+      // Application saved — return success even if Stripe fails
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const session = await stripeResp.json() as { id: string; url: string };
+
+    return new Response(JSON.stringify({ success: true, checkout_url: session.url }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
 

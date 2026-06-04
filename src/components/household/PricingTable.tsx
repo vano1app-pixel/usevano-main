@@ -81,6 +81,7 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
   const [open,    setOpen]    = useState(false);
   const [name,    setName]    = useState('');
   const [phone,   setPhone]   = useState('');
+  const [city,    setCity]    = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -97,6 +98,7 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
           size_label:     tier.name,
           customer_name:  name.trim(),
           customer_phone: phone.trim(),
+          ...(city.trim() ? { city: city.trim() } : {}),
         }},
       );
       if (fnErr || !data?.checkout_url) {
@@ -164,6 +166,11 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
             <input
               type="tel" value={phone} onChange={e => setPhone(e.target.value)}
               placeholder="Your phone number" required
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            />
+            <input
+              type="text" value={city} onChange={e => setCity(e.target.value)}
+              placeholder="Your city (e.g. Galway)"
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
             <Button
