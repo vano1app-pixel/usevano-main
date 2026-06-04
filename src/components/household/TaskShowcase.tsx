@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -238,21 +238,53 @@ const card = {
   show:   { opacity: 1, y: 0,  scale: 1, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
+const LS_NAME  = 'vano_customer_name';
+const LS_PHONE = 'vano_customer_phone';
+
+// Reverse-geocode coords to a VANO supported city, or null.
+async function detectCity(lat: number, lng: number): Promise<string | null> {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+      headers: { 'Accept-Language': 'en' },
+    });
+    const j = await r.json() as { address?: { city?: string; town?: string; county?: string } };
+    const raw = (j.address?.city ?? j.address?.town ?? j.address?.county ?? '').toLowerCase();
+    return SUPPORTED_CITIES.find(c => raw.includes(c.toLowerCase())) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const TaskShowcase: React.FC = () => {
   const [selected,    setSelected]    = useState<Task | null>(null);
   const [q1Val,       setQ1Val]       = useState('');
   const [q2Val,       setQ2Val]       = useState('');
   const [when,        setWhen]        = useState('');
   const [note,        setNote]        = useState('');
-  const [name,        setName]        = useState('');
-  const [phone,       setPhone]       = useState('');
+  const [name,        setName]        = useState(() => localStorage.getItem(LS_NAME)  ?? '');
+  const [phone,       setPhone]       = useState(() => localStorage.getItem(LS_PHONE) ?? '');
   const [city,        setCity]        = useState('');
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [isLoyalty,   setIsLoyalty]   = useState(false);
   const [loyaltyChecking, setLoyaltyChecking] = useState(false);
+  const geoAttempted = useRef(false);
 
   const timeOptions  = useMemo(() => getTimeOptions(), []);
+
+  // One-time: try to auto-detect city from browser geolocation
+  useEffect(() => {
+    if (geoAttempted.current || !navigator.geolocation) return;
+    geoAttempted.current = true;
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        const detected = await detectCity(coords.latitude, coords.longitude);
+        if (detected) setCity(detected);
+      },
+      () => { /* denied or unavailable — silent */ },
+      { timeout: 5000 },
+    );
+  }, []);
 
   async function checkLoyalty(phoneVal: string) {
     if (phoneVal.replace(/\D/g, '').length < 8) return;
@@ -269,17 +301,27 @@ export const TaskShowcase: React.FC = () => {
     }
   }
 
-  function open(task: Task) {
+  function open(task: Task, preQ1 = '') {
     setSelected(task);
-    setQ1Val(''); setQ2Val(''); setWhen(''); setNote('');
-    setName(''); setPhone(''); setCity('');
+    setQ1Val(preQ1); setQ2Val(''); setWhen(''); setNote('');
     setIsLoyalty(false);
     setError(null);
+    setTapped(null);
     setTimeout(() => {
       document.getElementById('task-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 80);
   }
-  function close() { setSelected(null); setError(null); }
+  function handleCardTap(task: Task) {
+    if (selected?.slug === task.slug) { setSelected(null); setTapped(null); setError(null); return; }
+    if (tapped?.slug === task.slug)   { setTapped(null); return; }
+    // Tasks with Q1 show inline sub-options first; others open panel directly
+    if (task.q1 && !task.whatsappOnly) { setTapped(task); setSelected(null); }
+    else open(task);
+  }
+  function close() { setSelected(null); setTapped(null); setError(null); }
+
+  // tapped = card waiting for inline Q1 selection (if it has q1)
+  const [tapped, setTapped] = useState<Task | null>(null);
 
   const baseCents      = selected ? getPriceCents(selected.slug, q1Val, q2Val) : null;
   const selectedOption = timeOptions.find(o => o.label === when);
@@ -328,6 +370,9 @@ export const TaskShowcase: React.FC = () => {
       if (fnErr || !data?.checkout_url) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
+      // Remember details for next visit
+      localStorage.setItem(LS_NAME,  name.trim());
+      localStorage.setItem(LS_PHONE, phone.trim());
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
@@ -347,27 +392,59 @@ export const TaskShowcase: React.FC = () => {
         variants={container} initial="hidden" whileInView="show"
         viewport={{ once: true, margin: '-48px' }}
       >
-        {ALL_TASKS.map((task) => (
-          <motion.button
-            key={task.slug} variants={card}
-            onClick={() => selected?.slug === task.slug ? close() : open(task)}
-            aria-pressed={selected?.slug === task.slug}
-            className={cn(
-              'group flex items-center gap-2.5 rounded-xl p-3 text-left',
-              'border transition-[background-color,border-color,box-shadow] duration-200',
-              'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-              selected?.slug === task.slug
-                ? 'bg-primary/[0.06] border-primary/30 shadow-tinted-sm'
-                : 'bg-secondary/50 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
-            )}
-          >
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none" aria-hidden="true">
-              {task.emoji}
-            </span>
-            <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">{task.label}</span>
-            <span className="flex-shrink-0 text-[11px] text-muted-foreground/70 font-medium whitespace-nowrap">{task.price}</span>
-          </motion.button>
-        ))}
+        {ALL_TASKS.map((task) => {
+          const isActive = selected?.slug === task.slug || tapped?.slug === task.slug;
+          return (
+            <motion.button
+              key={task.slug} variants={card}
+              onClick={() => handleCardTap(task)}
+              aria-pressed={isActive}
+              className={cn(
+                'group flex items-center gap-2.5 rounded-xl p-3 text-left',
+                'border transition-[background-color,border-color,box-shadow] duration-200',
+                'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                isActive
+                  ? 'bg-primary/[0.06] border-primary/30 shadow-tinted-sm'
+                  : 'bg-secondary/50 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
+              )}
+            >
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none" aria-hidden="true">
+                {task.emoji}
+              </span>
+              <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">{task.label}</span>
+              <span className="flex-shrink-0 text-[11px] text-muted-foreground/70 font-medium whitespace-nowrap">{task.price}</span>
+            </motion.button>
+          );
+        })}
+
+        {/* Inline Q1 sub-options — spans full grid width below the tapped card */}
+        <AnimatePresence>
+          {tapped?.q1 && (
+            <motion.div
+              key={`inline-${tapped.slug}`}
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="col-span-2 sm:col-span-3 overflow-hidden"
+            >
+              <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  {tapped.q1.label}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {tapped.q1.options.map(opt => (
+                    <motion.button
+                      key={opt} type="button"
+                      onClick={() => open(tapped, opt)}
+                      whileTap={{ scale: 0.91 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                      className={chip(false)}
+                    >{opt}</motion.button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Booking panel */}
@@ -437,8 +514,8 @@ export const TaskShowcase: React.FC = () => {
                 ) : (
                   <motion.form key="book-form" {...fadeSlide} onSubmit={handlePay} className="space-y-5">
 
-                    {/* Q1 */}
-                    {selected.q1 && (
+                    {/* Q1 — hidden when already chosen via inline card picker */}
+                    {selected.q1 && !q1Val && (
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
                           {selected.q1.label}
@@ -454,6 +531,19 @@ export const TaskShowcase: React.FC = () => {
                             >{opt}</motion.button>
                           ))}
                         </div>
+                      </div>
+                    )}
+                    {/* Selected Q1 shown as a dismissible pill */}
+                    {selected.q1 && q1Val && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{selected.q1.label}:</span>
+                        <button
+                          type="button"
+                          onClick={() => { setQ1Val(''); setQ2Val(''); }}
+                          className="flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 text-xs font-medium text-primary"
+                        >
+                          {q1Val} <X className="w-3 h-3 ml-0.5" />
+                        </button>
                       </div>
                     )}
 
