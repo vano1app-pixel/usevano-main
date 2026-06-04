@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
-import logo from '@/assets/logo.png';
 
 /* Glass-on-scroll pattern mirrored from Navbar.tsx:
    mobile threshold=4px (instant) so touch users don't see
@@ -61,7 +60,6 @@ export const HouseholdNav: React.FC = () => {
           >
             <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
             <span className="hidden sm:inline">WhatsApp us</span>
-            <img src={logo} alt="VANO" className="w-7 h-7 rounded-full object-cover ml-1" />
           </a>
         </div>
       </div>
