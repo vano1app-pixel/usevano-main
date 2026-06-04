@@ -78,10 +78,15 @@ const TIERS: AirbnbTier[] = [
 ];
 
 function TierCard({ tier }: { tier: AirbnbTier }) {
+  const [open,    setOpen]    = useState(false);
+  const [name,    setName]    = useState('');
+  const [phone,   setPhone]   = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
-  async function handleCheckout() {
+  async function handleCheckout(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) return;
     setLoading(true); setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
@@ -90,8 +95,8 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
           category:       tier.slug,
           when_label:     'Monthly plan',
           size_label:     tier.name,
-          customer_name:  'Airbnb Host',
-          customer_phone: 'plan',
+          customer_name:  name.trim(),
+          customer_phone: phone.trim(),
         }},
       );
       if (fnErr || !data?.checkout_url) {
@@ -141,20 +146,41 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
           ))}
         </ul>
 
-        <Button
-          onClick={handleCheckout}
-          disabled={loading}
-          className={cn(
-            'w-full rounded-full gap-2 font-semibold',
-            tier.highlight
-              ? 'bg-amber-500 hover:bg-amber-600 text-white border-transparent'
-              : '',
-          )}
-        >
-          {loading
-            ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
-            : <><CreditCard className="w-4 h-4" />Pay {tier.label}/month</>}
-        </Button>
+        {!open ? (
+          <Button
+            onClick={() => setOpen(true)}
+            className={cn(
+              'w-full rounded-full gap-2 font-semibold',
+              tier.highlight ? 'bg-amber-500 hover:bg-amber-600 text-white border-transparent' : '',
+            )}
+          >
+            <CreditCard className="w-4 h-4" />Get started — {tier.label}/mo
+          </Button>
+        ) : (
+          <form onSubmit={handleCheckout} className="space-y-2">
+            <input
+              type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Your name" required
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            />
+            <input
+              type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+              placeholder="Your phone number" required
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            />
+            <Button
+              type="submit" disabled={loading || !name.trim() || !phone.trim()}
+              className={cn(
+                'w-full rounded-full gap-2 font-semibold',
+                tier.highlight ? 'bg-amber-500 hover:bg-amber-600 text-white border-transparent' : '',
+              )}
+            >
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
+                : <><CreditCard className="w-4 h-4" />Pay {tier.label}/month</>}
+            </Button>
+          </form>
+        )}
         {error && <p className="text-center text-[11px] text-destructive mt-2">{error}</p>}
         <p className="text-center text-[10px] text-muted-foreground mt-2">Stripe · cancel anytime</p>
       </div>

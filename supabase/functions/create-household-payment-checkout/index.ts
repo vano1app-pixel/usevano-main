@@ -229,19 +229,23 @@ serve(async (req) => {
     if (!priceCents) {
       return bad(400, `No price available for ${category} / ${sl}${el ? ' / ' + el : ''}`);
     }
-    // Apply 10% schedule-ahead discount server-side
-    if (isScheduled) priceCents = Math.round(priceCents * 0.9);
+    const isMonthlyPlan = cat.startsWith('airbnb-');
 
-    // Loyalty reward: every 3rd confirmed booking is 50% off (VANO covers the diff)
+    // Schedule and loyalty discounts don't apply to monthly Airbnb plans
+    if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
+
     const supabase = createClient(supabaseUrl, serviceKey);
-    const { count: loyaltyCount } = await supabase
-      .from('household_bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('customer_phone', customer_phone.trim())
-      .not('status', 'in', '(awaiting_payment,cancelled)');
-    const confirmedCount = loyaltyCount ?? 0;
-    const isLoyalty      = (confirmedCount + 1) % 3 === 0;
-    if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
+    let isLoyalty = false;
+    if (!isMonthlyPlan) {
+      const { count: loyaltyCount } = await supabase
+        .from('household_bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('customer_phone', customer_phone.trim())
+        .not('status', 'in', '(awaiting_payment,cancelled)');
+      const confirmedCount = loyaltyCount ?? 0;
+      isLoyalty = (confirmedCount + 1) % 3 === 0;
+      if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
+    }
 
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
