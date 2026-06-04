@@ -14,29 +14,44 @@ function formEncode(obj: Record<string, string>): string {
 }
 
 const VALID_CATEGORIES = [
-  'shopping', 'dog-walk', 'garden', 'moving', 'cleaning',
-  'tutoring', 'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
+  // CategoryGrid originals
+  'shopping', 'dog-walk', 'garden', 'moving', 'cleaning', 'tutoring',
+  // TaskShowcase own slugs (each bookable independently)
+  'grocery-shopping', 'dog-walking', 'lawn-mowing', 'moving-help', 'outdoor-cleaning', 'tutoring-grinds',
+  // Misc / errand slugs
+  'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
 ] as const;
 type Category = typeof VALID_CATEGORIES[number];
 
 function computePriceCents(category: Category, sizeLabel: string): number | null {
-  if (category === 'shopping')       return 1500; // €15 flat
-  if (category === 'post-office')    return 1000; // €10 flat
-  if (category === 'pharmacy-run')   return 1000; // €10 flat
-  if (category === 'wait-delivery')  return 1000; // €10 flat
-  if (category === 'dog-walk') {
-    return sizeLabel === '30 min' ? 1500 : 2000; // €15 or €20 (1 dog; quick flow)
+  // Flat-rate categories
+  const flat: Partial<Record<Category, number>> = {
+    'shopping':          1500,
+    'grocery-shopping':  1500,
+    'post-office':       1000,
+    'pharmacy-run':      1000,
+    'wait-delivery':     1000,
+  };
+  if (category in flat) return flat[category]!;
+
+  if (category === 'dog-walk' || category === 'dog-walking') {
+    return sizeLabel === '30 min' ? 1500 : 2000;
   }
+
   const key = `${category}|${sizeLabel}`;
   const map: Record<string, number> = {
-    // Garden — €18/hr; half-day = 4hrs = €72
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 7200,
-    // Moving — €18/hr (1 helper assumed; multi-helper via WhatsApp)
-    'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4+ hours': 7200,
-    // Cleaning — €16/hr
-    'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200, 'cleaning|3 hours': 4800,
+    // Garden / lawn mowing — €18/hr
+    'garden|1 hour': 1800,        'garden|2 hours': 3600,       'garden|Half day': 7200,
+    'lawn-mowing|1 hour': 1800,   'lawn-mowing|2 hours': 3600,  'lawn-mowing|Half day': 7200,
+    // Moving — €18/hr
+    'moving|1 hour': 1800,        'moving|2 hours': 3600,       'moving|3 hours': 5400,       'moving|4+ hours': 7200,
+    'moving-help|1 hour': 1800,   'moving-help|2 hours': 3600,  'moving-help|3 hours': 5400,  'moving-help|4+ hours': 7200,
+    // Cleaning / outdoor cleaning — €16/hr
+    'cleaning|1 hour': 1600,         'cleaning|2 hours': 3200,         'cleaning|3 hours': 4800,
+    'outdoor-cleaning|1 hour': 1600, 'outdoor-cleaning|2 hours': 3200, 'outdoor-cleaning|3 hours': 4800,
     // Tutoring — €15/hr
-    'tutoring|1 hour': 1500, 'tutoring|2 hours': 3000, 'tutoring|3 hours': 4500,
+    'tutoring|1 hour': 1500,         'tutoring|2 hours': 3000,         'tutoring|3 hours': 4500,
+    'tutoring-grinds|1 hour': 1500,  'tutoring-grinds|2 hours': 3000,  'tutoring-grinds|3 hours': 4500,
     // Furniture assembly — €15/hr
     'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
     // Tech help — €15/hr
@@ -46,17 +61,23 @@ function computePriceCents(category: Category, sizeLabel: string): number | null
 }
 
 const CATEGORY_LABELS: Record<Category, string> = {
-  shopping: 'Shopping run',
-  'dog-walk': 'Dog walk',
-  garden: 'Garden help',
-  moving: 'Moving help',
-  cleaning: 'Cleaning',
-  tutoring: 'Tutoring',
-  'post-office': 'Post office run',
-  'pharmacy-run': 'Pharmacy run',
+  shopping:             'Shopping run',
+  'grocery-shopping':   'Grocery shopping',
+  'dog-walk':           'Dog walk',
+  'dog-walking':        'Dog walking',
+  garden:               'Garden help',
+  'lawn-mowing':        'Lawn mowing',
+  moving:               'Moving help',
+  'moving-help':        'Moving help',
+  cleaning:             'Cleaning',
+  'outdoor-cleaning':   'Outdoor cleaning',
+  tutoring:             'Tutoring',
+  'tutoring-grinds':    'Tutoring & grinds',
+  'post-office':        'Post office run',
+  'pharmacy-run':       'Pharmacy run',
   'furniture-assembly': 'Furniture assembly',
-  'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery',
+  'tech-help':          'Tech help',
+  'wait-delivery':      'Wait for delivery',
 };
 
 serve(async (req) => {

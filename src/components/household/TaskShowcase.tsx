@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronRight, X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
+import { X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -8,62 +8,106 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 
-// Tasks that map to the main booking grid at the top of the page
-const GRID_TASKS = [
-  { emoji: '🛒', label: 'Grocery shopping',  gridSlug: 'shopping'  },
-  { emoji: '🐕', label: 'Dog walking',        gridSlug: 'dog-walk'  },
-  { emoji: '🌿', label: 'Lawn mowing',        gridSlug: 'garden'    },
-  { emoji: '📦', label: 'Moving help',        gridSlug: 'moving'    },
-  { emoji: '🧹', label: 'Outdoor cleaning',   gridSlug: 'cleaning'  },
-  { emoji: '📚', label: 'Tutoring & grinds',  gridSlug: 'tutoring'  },
-];
-
-interface MiscTask {
-  emoji:        string;
-  label:        string;
-  miscSlug:     string;
-  price:        string;
-  description:  string;
-  sizes?:       string[];
+interface Task {
+  emoji:         string;
+  label:         string;
+  slug:          string;
+  price:         string;
+  description:   string;
+  sizes?:        string[];
+  sizeLabel?:    string;
   whatsappOnly?: boolean;
 }
 
-const MISC_TASKS: MiscTask[] = [
+const ALL_TASKS: Task[] = [
   {
-    emoji: '💊', label: 'Pharmacy run',       miscSlug: 'pharmacy-run',       price: '€10 flat',
+    emoji: '🛒', label: 'Grocery shopping',   slug: 'grocery-shopping',   price: '€15 flat',
+    description: 'We shop any store, follow your list, and deliver to your door.',
+  },
+  {
+    emoji: '🐕', label: 'Dog walking',         slug: 'dog-walking',        price: '€15–€20',
+    description: 'Collected from your door, walked on-lead, returned home safely.',
+    sizeLabel: 'How long?', sizes: ['30 min', '1 hour'],
+  },
+  {
+    emoji: '🌿', label: 'Lawn mowing',         slug: 'lawn-mowing',        price: 'from €18/hr',
+    description: 'Grass cut, edges trimmed and clippings cleared — all done in one visit.',
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', 'Half day'],
+  },
+  {
+    emoji: '📦', label: 'Moving help',         slug: 'moving-help',        price: 'from €18/hr',
+    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
+  },
+  {
+    emoji: '🧹', label: 'Outdoor cleaning',    slug: 'outdoor-cleaning',   price: 'from €16/hr',
+    description: 'Patios, driveways, bins, windows and gutters — outside sorted.',
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
+  },
+  {
+    emoji: '📚', label: 'Tutoring & grinds',   slug: 'tutoring-grinds',    price: 'from €15/hr',
+    description: 'One-to-one at your home. Any subject — Maths, science, languages.',
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
+  },
+  {
+    emoji: '💊', label: 'Pharmacy run',        slug: 'pharmacy-run',       price: '€10 flat',
     description: 'We collect your prescription or over-the-counter items from your local pharmacy.',
   },
   {
-    emoji: '📬', label: 'Post office run',    miscSlug: 'post-office',        price: '€10 flat',
+    emoji: '📬', label: 'Post office run',     slug: 'post-office',        price: '€10 flat',
     description: 'We drop off or collect parcels, letters and forms at your local post office.',
   },
   {
-    emoji: '🔧', label: 'Furniture assembly', miscSlug: 'furniture-assembly', price: 'from €15/hr',
+    emoji: '🔧', label: 'Furniture assembly',  slug: 'furniture-assembly', price: 'from €15/hr',
     description: 'IKEA or any flat-pack furniture assembled at your home — no tools needed on your end.',
-    sizes: ['1 hour', '2 hours', '3 hours'],
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '📱', label: 'Tech help',          miscSlug: 'tech-help',          price: 'from €15/hr',
+    emoji: '📱', label: 'Tech help',           slug: 'tech-help',          price: 'from €15/hr',
     description: 'Phone, tablet, laptop or TV setup and troubleshooting. Great for elderly family members.',
-    sizes: ['1 hour', '2 hours'],
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours'],
   },
   {
-    emoji: '🚪', label: 'Wait for deliveries', miscSlug: 'wait-delivery',     price: '€10 flat',
-    description: 'We wait at your home for a delivery or tradesperson while you\'re out.',
+    emoji: '🚪', label: 'Wait for deliveries', slug: 'wait-delivery',      price: '€10 flat',
+    description: "We wait at your home for a delivery or tradesperson while you're out.",
   },
   {
-    emoji: '✨', label: 'Anything else',       miscSlug: 'anything-else',      price: 'Custom',
-    description: 'Not listed? Send us a WhatsApp and we\'ll sort it out.',
+    emoji: '✨', label: 'Anything else',        slug: 'anything-else',      price: 'Custom',
+    description: "Not listed? Send us a WhatsApp and we'll sort it out.",
     whatsappOnly: true,
   },
 ];
 
-function getMiscPriceCents(miscSlug: string, size: string): number | null {
-  if (miscSlug === 'pharmacy-run' || miscSlug === 'post-office' || miscSlug === 'wait-delivery') return 1000;
-  const key = `${miscSlug}|${size}`;
+function getPriceCents(slug: string, size: string): number | null {
+  const flat: Record<string, number> = {
+    'grocery-shopping': 1500,
+    'pharmacy-run':     1000,
+    'post-office':      1000,
+    'wait-delivery':    1000,
+  };
+  if (slug in flat) return flat[slug];
+  const key = `${slug}|${size}`;
   const map: Record<string, number> = {
-    'furniture-assembly|1 hour': 1500, 'furniture-assembly|2 hours': 3000, 'furniture-assembly|3 hours': 4500,
-    'tech-help|1 hour': 1500,          'tech-help|2 hours': 3000,
+    'dog-walking|30 min':          1500,
+    'dog-walking|1 hour':          2000,
+    'lawn-mowing|1 hour':          1800,
+    'lawn-mowing|2 hours':         3600,
+    'lawn-mowing|Half day':        7200,
+    'moving-help|1 hour':          1800,
+    'moving-help|2 hours':         3600,
+    'moving-help|3 hours':         5400,
+    'moving-help|4+ hours':        7200,
+    'outdoor-cleaning|1 hour':     1600,
+    'outdoor-cleaning|2 hours':    3200,
+    'outdoor-cleaning|3 hours':    4800,
+    'tutoring-grinds|1 hour':      1500,
+    'tutoring-grinds|2 hours':     3000,
+    'tutoring-grinds|3 hours':     4500,
+    'furniture-assembly|1 hour':   1500,
+    'furniture-assembly|2 hours':  3000,
+    'furniture-assembly|3 hours':  4500,
+    'tech-help|1 hour':            1500,
+    'tech-help|2 hours':           3000,
   };
   return map[key] ?? null;
 }
@@ -87,12 +131,6 @@ function getTimeSlots(): string[] {
   return slots;
 }
 
-function scrollToGridAndSelect(gridSlug: string) {
-  const grid = document.getElementById('category-grid');
-  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug: gridSlug } }));
-}
-
 const chipBase =
   'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,color,border-color] duration-150';
 
@@ -113,40 +151,40 @@ const card = {
 };
 
 export const TaskShowcase: React.FC = () => {
-  const [selectedMisc, setSelectedMisc] = useState<MiscTask | null>(null);
-  const [when, setWhen] = useState('');
-  const [size, setSize] = useState('');
-  const [note, setNote] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Task | null>(null);
+  const [when, setWhen]         = useState('');
+  const [size, setSize]         = useState('');
+  const [note, setNote]         = useState('');
+  const [name, setName]         = useState('');
+  const [phone, setPhone]       = useState('');
+  const [city, setCity]         = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
 
   const timeSlots = useMemo(() => getTimeSlots(), []);
 
-  function openMisc(task: MiscTask) {
-    setSelectedMisc(task);
+  function open(task: Task) {
+    setSelected(task);
     setWhen(''); setSize(''); setNote('');
     setName(''); setPhone(''); setCity('');
     setError(null);
     setTimeout(() => {
-      document.getElementById('misc-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('task-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 80);
   }
 
-  function closeMisc() {
-    setSelectedMisc(null);
+  function close() {
+    setSelected(null);
     setError(null);
   }
 
-  const priceCents = selectedMisc ? getMiscPriceCents(selectedMisc.miscSlug, size) : null;
-  const canBook = !!when && (priceCents !== null);
-  const canWhatsApp = !!when || !!selectedMisc?.whatsappOnly;
+  const priceCents  = selected ? getPriceCents(selected.slug, size) : null;
+  const canBook     = !!when && priceCents !== null;
+  const canWhatsApp = !!when || !!selected?.whatsappOnly;
 
   function sendWhatsApp() {
-    if (!selectedMisc) return;
-    const lines = [`Hi VANO! I need help with: ${selectedMisc.label}.`];
+    if (!selected) return;
+    const lines = [`Hi VANO! I need help with: ${selected.label}.`];
     if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
     if (size) lines.push(`Duration: ${size}`);
     if (note.trim()) lines.push(note.trim());
@@ -156,21 +194,21 @@ export const TaskShowcase: React.FC = () => {
 
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedMisc || !priceCents || !when) return;
-    if (!name.trim()) { setError('Please enter your name.'); return; }
+    if (!selected || !priceCents || !when) return;
+    if (!name.trim())  { setError('Please enter your name.');         return; }
     if (!phone.trim()) { setError('Please enter your phone number.'); return; }
-    if (!city) { setError('Please select your city.'); return; }
+    if (!city)         { setError('Please select your city.');        return; }
     setLoading(true); setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
         { body: {
-          category: selectedMisc.miscSlug,
-          when_label: when,
-          size_label: size,
-          note: note.trim(),
-          customer_name: name.trim(),
-          customer_phone: phone.trim(),
+          category:        selected.slug,
+          when_label:      when,
+          size_label:      size,
+          note:            note.trim(),
+          customer_name:   name.trim(),
+          customer_phone:  phone.trim(),
           city,
         }},
       );
@@ -198,40 +236,17 @@ export const TaskShowcase: React.FC = () => {
         whileInView="show"
         viewport={{ once: true, margin: '-48px' }}
       >
-        {/* Grid tasks — scroll to top and pre-select */}
-        {GRID_TASKS.map(({ emoji, label, gridSlug }) => (
+        {ALL_TASKS.map((task) => (
           <motion.button
-            key={label}
+            key={task.slug}
             variants={card}
-            onClick={() => scrollToGridAndSelect(gridSlug)}
-            className={cn(
-              'group flex items-center gap-2.5 rounded-xl p-3 text-left',
-              'border border-border/40 bg-secondary/50',
-              'transition-[background-color,border-color,box-shadow] duration-200',
-              'hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
-              'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-            )}
-          >
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none" aria-hidden="true">
-              {emoji}
-            </span>
-            <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">{label}</span>
-            <ChevronRight className="flex-shrink-0 w-3.5 h-3.5 text-primary/50 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-[opacity,transform] duration-200" strokeWidth={1.75} />
-          </motion.button>
-        ))}
-
-        {/* Misc tasks — open inline wizard */}
-        {MISC_TASKS.map((task) => (
-          <motion.button
-            key={task.label}
-            variants={card}
-            onClick={() => selectedMisc?.miscSlug === task.miscSlug ? closeMisc() : openMisc(task)}
-            aria-pressed={selectedMisc?.miscSlug === task.miscSlug}
+            onClick={() => selected?.slug === task.slug ? close() : open(task)}
+            aria-pressed={selected?.slug === task.slug}
             className={cn(
               'group flex items-center gap-2.5 rounded-xl p-3 text-left',
               'border transition-[background-color,border-color,box-shadow] duration-200',
               'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-              selectedMisc?.miscSlug === task.miscSlug
+              selected?.slug === task.slug
                 ? 'bg-primary/[0.06] border-primary/30 shadow-tinted-sm'
                 : 'bg-secondary/50 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
             )}
@@ -245,12 +260,12 @@ export const TaskShowcase: React.FC = () => {
         ))}
       </motion.div>
 
-      {/* Inline booking panel for misc tasks */}
+      {/* Inline booking panel */}
       <AnimatePresence>
-        {selectedMisc && (
+        {selected && (
           <motion.div
-            id="misc-panel"
-            key={selectedMisc.miscSlug}
+            id="task-panel"
+            key={selected.slug}
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.99 }}
@@ -259,24 +274,24 @@ export const TaskShowcase: React.FC = () => {
           >
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 bg-secondary/30">
-              <span className="text-xl leading-none select-none">{selectedMisc.emoji}</span>
+              <span className="text-xl leading-none select-none">{selected.emoji}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{selectedMisc.label}</p>
-                <p className="text-xs text-muted-foreground">{selectedMisc.price}</p>
+                <p className="text-sm font-semibold text-foreground">{selected.label}</p>
+                <p className="text-xs text-muted-foreground">{selected.price}</p>
               </div>
-              <button onClick={closeMisc} aria-label="Close" className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+              <button onClick={close} aria-label="Close" className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Description */}
             <div className="px-4 py-3 border-b border-border/30 bg-background/60">
-              <p className="text-xs text-muted-foreground leading-relaxed">{selectedMisc.description}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{selected.description}</p>
             </div>
 
             <div className="p-4">
               <AnimatePresence mode="wait">
-                {selectedMisc.whatsappOnly ? (
+                {selected.whatsappOnly ? (
                   <motion.div key="whatsapp-only" {...fadeSlide} className="space-y-3">
                     <textarea
                       value={note}
@@ -313,12 +328,14 @@ export const TaskShowcase: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Size / duration */}
-                    {selectedMisc.sizes && selectedMisc.sizes.length > 0 && (
+                    {/* Duration */}
+                    {selected.sizes && selected.sizes.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">How long?</p>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                          {selected.sizeLabel ?? 'How long?'}
+                        </p>
                         <div className="flex flex-wrap gap-2">
-                          {selectedMisc.sizes.map(opt => (
+                          {selected.sizes.map(opt => (
                             <motion.button
                               key={opt} type="button"
                               onClick={() => setSize(size === opt ? '' : opt)}
@@ -343,7 +360,7 @@ export const TaskShowcase: React.FC = () => {
                       />
                     </div>
 
-                    {/* Contact details — only shown when a time is picked */}
+                    {/* Contact details — revealed when time is picked */}
                     <AnimatePresence>
                       {when && (
                         <motion.div
@@ -367,7 +384,9 @@ export const TaskShowcase: React.FC = () => {
                     {/* CTAs */}
                     {canBook && (
                       <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold">
-                        {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</> : <><CreditCard className="w-4 h-4" />Book for €{(priceCents! / 100).toFixed(0)} — pay by card</>}
+                        {loading
+                          ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
+                          : <><CreditCard className="w-4 h-4" />Book for €{(priceCents! / 100).toFixed(0)} — pay by card</>}
                       </Button>
                     )}
                     <Button
