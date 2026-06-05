@@ -42,7 +42,7 @@ export const HeroSection: React.FC = () => {
   }, []);
 
   return (
-    <section className="relative overflow-hidden bg-navy pt-[88px] px-4 lg:pt-[96px] flex flex-col" style={{ minHeight: 'calc(100vh - 2.5rem)' }}>
+    <section className="relative overflow-hidden bg-navy pt-[80px] px-4 lg:pt-[96px] xl:px-12 flex flex-col min-h-[auto] lg:min-h-[calc(100vh-2.5rem)]">
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
@@ -54,10 +54,10 @@ export const HeroSection: React.FC = () => {
       />
 
       <div className="relative max-w-5xl mx-auto">
-        <div className="lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 lg:items-center">
+        <div className="lg:grid lg:grid-cols-[1fr,420px] xl:grid-cols-[1fr,500px] lg:gap-12 xl:gap-20 lg:items-center py-8 lg:py-12 xl:py-16">
 
           {/* ── Left column — pitch ── */}
-          <div className="mb-8 lg:mb-0 lg:pt-4">
+          <div className="mb-6 lg:mb-0 lg:pt-4">
 
             {/* Live pill */}
             <motion.div
@@ -91,7 +91,7 @@ export const HeroSection: React.FC = () => {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-white/65 text-base lg:text-lg leading-relaxed mb-8 max-w-sm"
+              className="text-white/65 text-base lg:text-lg xl:text-xl leading-relaxed mb-6 lg:mb-8 max-w-sm xl:max-w-md"
             >
               Local students, booked by card in under a minute. No account. No back-and-forth. Money back if it's not right.
             </motion.p>
