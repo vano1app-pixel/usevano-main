@@ -9,8 +9,8 @@ const PRICES = [
   { emoji: '🛒', slug: 'shopping',  label: 'Shopping',    price: 'from €15'    },
   { emoji: '🐕', slug: 'dog-walk',  label: 'Dog walking', price: '€15–€20'     },
   { emoji: '🌿', slug: 'garden',    label: 'Garden work', price: 'from €18/hr' },
-  { emoji: '📦', slug: 'moving',    label: 'Moving help', price: 'from €18/hr' },
-  { emoji: '🧹', slug: 'cleaning',  label: 'Cleaning',    price: 'from €16/hr' },
+  { emoji: '📦', slug: 'moving',    label: 'Moving help', price: 'from €18/hr · up to 8 hrs' },
+  { emoji: '🧹', slug: 'cleaning',  label: 'Cleaning',    price: 'from €16/hr · up to 8 hrs' },
   { emoji: '📚', slug: 'tutoring',  label: 'Tutoring',    price: 'from €15/hr' },
 ];
 
