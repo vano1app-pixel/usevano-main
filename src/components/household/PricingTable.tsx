@@ -273,17 +273,6 @@ export const PricingTable: React.FC = () => {
         Pay by card at checkout. Price locked upfront — no surprises.
       </p>
 
-      <div className="flex justify-center">
-        <Button
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          className="rounded-full px-8 font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
-        >
-          <ArrowDown className="w-4 h-4" aria-hidden="true" />
-          Book a single job from €10
-        </Button>
-      </div>
     </section>
   );
 };
