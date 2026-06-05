@@ -1,83 +1,125 @@
 import React, { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 
-interface QAPair {
-  q: string;
-  a: string;
-}
-
-const FAQ: QAPair[] = [
+const FAQ = [
   {
     q: 'Is it safe to have a student in my home?',
-    a: 'Every student is personally verified before their first job. You can see their photo and name before they arrive.',
+    a: 'Every student is verified before their first job. You see their photo and name before they arrive.',
   },
   {
     q: "What if I'm not happy?",
-    a: "Let us know within 24 hours if anything wasn't right. We'll make it right or you don't pay.",
+    a: "Tell us within 24 hours. We'll make it right or you don't pay — guaranteed.",
   },
   {
     q: 'How does payment work?',
-    a: 'Pay by card, Revolut, or cash when the job is done — price agreed upfront, no surprises.',
+    a: 'Pay by card when the job is done. Price agreed upfront — no surprises.',
   },
   {
     q: 'Which cities do you cover?',
-    a: 'Currently Galway — city centre and surrounding areas. More cities coming soon.',
+    a: 'Currently Galway — city and surrounding areas. More cities coming soon.',
   },
 ];
+
+const bubbles = FAQ.flatMap((pair, i) => [
+  { id: `q-${i}`, text: pair.q, side: 'customer' as const },
+  { id: `a-${i}`, text: pair.a, side: 'vano' as const },
+]);
+
+function PersonSilhouette({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 60 84" fill="currentColor" className={className}>
+      <circle cx="30" cy="18" r="15" />
+      <path d="M3 84 C3 56 13 46 30 44 C47 46 57 56 57 84Z" />
+    </svg>
+  );
+}
 
 export const ChatFAQ: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-60px' });
 
-  const bubbles = FAQ.flatMap((pair, i) => [
-    { id: `q-${i}`, text: pair.q, side: 'customer' as const },
-    { id: `a-${i}`, text: pair.a, side: 'vano' as const },
-  ]);
-
   return (
-    <section className="px-4 py-12 max-w-lg mx-auto md:max-w-xl lg:max-w-5xl">
-      <p className="eyebrow mb-4">Got questions?</p>
-      <h2 className="display-lg text-foreground mb-10">We've got answers</h2>
+    <section className="py-16 bg-cream">
+      <div className="px-4 max-w-xl mx-auto lg:max-w-2xl">
 
-      {/* Ref wrapper — always in the DOM so useInView fires on both breakpoints */}
-      <div ref={ref}>
-        {/* Mobile: chat bubble thread */}
-        <div className="flex flex-col gap-2.5 lg:hidden">
-          {bubbles.map((bubble, i) => (
-            <motion.div
-              key={bubble.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ delay: i * 0.15, duration: 0.38, ease: [0.16, 1, 0.3, 1] as const }}
-              className={bubble.side === 'customer' ? 'self-start max-w-[85%]' : 'self-end max-w-[85%]'}
-            >
-              {bubble.side === 'customer' ? (
-                <div className="bg-secondary text-foreground rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed shadow-tinted-sm">
-                  {bubble.text}
-                </div>
-              ) : (
-                <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed">
-                  {bubble.text}
-                </div>
-              )}
-            </motion.div>
-          ))}
+        <div className="text-center mb-10">
+          <p className="eyebrow mb-3">Got questions?</p>
+          <h2 className="display-lg text-foreground">We've got answers</h2>
         </div>
 
-        {/* Desktop: 2×2 card grid */}
-        <div className="hidden lg:grid lg:grid-cols-2 gap-5">
-          {FAQ.map((pair, i) => (
+        <div ref={ref} className="relative">
+
+          {/* Chat bubbles */}
+          <div className="flex flex-col gap-4 pb-2">
+            {bubbles.map((bubble, i) => (
+              <motion.div
+                key={bubble.id}
+                initial={{ opacity: 0, y: 14, scale: 0.96 }}
+                animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
+                transition={{ delay: i * 0.13, duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+                className={bubble.side === 'customer' ? 'self-start max-w-[78%]' : 'self-end max-w-[78%]'}
+              >
+                {bubble.side === 'customer' ? (
+                  <div className="relative">
+                    <div className="bg-white border border-border/40 text-foreground rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+                      {bubble.text}
+                    </div>
+                    {/* tail pointing down-left toward customer silhouette */}
+                    <div
+                      className="absolute -bottom-[9px] left-4"
+                      style={{
+                        width: 0, height: 0,
+                        borderLeft: '7px solid transparent',
+                        borderRight: '7px solid transparent',
+                        borderTop: '10px solid white',
+                        filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.06))',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="bg-primary text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed">
+                      {bubble.text}
+                    </div>
+                    {/* tail pointing down-right toward VANO silhouette */}
+                    <div
+                      className="absolute -bottom-[9px] right-4"
+                      style={{
+                        width: 0, height: 0,
+                        borderLeft: '7px solid transparent',
+                        borderRight: '7px solid transparent',
+                        borderTop: '10px solid hsl(var(--primary))',
+                      }}
+                    />
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Silhouettes */}
+          <div className="flex justify-between items-end mt-10 px-2">
             <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ delay: i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
-              className="rounded-2xl border border-border/50 bg-secondary/30 p-6"
+              transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col items-center gap-2"
             >
-              <p className="font-semibold text-foreground text-base mb-2">{pair.q}</p>
-              <p className="text-muted-foreground text-sm leading-relaxed">{pair.a}</p>
+              <PersonSilhouette className="w-14 h-[72px] text-slate-200" />
+              <span className="text-xs text-muted-foreground/70 font-medium tracking-wide">You</span>
             </motion.div>
-          ))}
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={inView ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 0.2, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col items-center gap-2"
+            >
+              <PersonSilhouette className="w-14 h-[72px] text-primary/25" />
+              <span className="text-xs text-muted-foreground/70 font-medium tracking-wide">VANO</span>
+            </motion.div>
+          </div>
+
         </div>
       </div>
     </section>
