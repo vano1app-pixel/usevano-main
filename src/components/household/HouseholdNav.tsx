@@ -33,9 +33,9 @@ export const HouseholdNav: React.FC = () => {
         navSurfaceClass,
       )}
     >
-      <div className="max-w-5xl mx-auto flex items-center justify-between h-14 px-4 lg:px-6">
+      <div className="max-w-5xl mx-auto flex items-center justify-between h-[72px] px-5 lg:px-8">
         <Link to="/home" className="flex items-center">
-          <img src={logo} alt="VANO" className="h-7 w-auto" />
+          <img src={logo} alt="VANO" className="h-8 w-auto" />
         </Link>
 
         <div className="flex items-center gap-3">
