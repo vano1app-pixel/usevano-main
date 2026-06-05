@@ -3,7 +3,6 @@ import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
-import { HowItWorks } from '@/components/household/HowItWorks';
 import { HelperCards } from '@/components/household/HelperCards';
 import { TaskShowcase } from '@/components/household/TaskShowcase';
 import { PricingTable } from '@/components/household/PricingTable';
@@ -23,7 +22,6 @@ const HouseholdHome: React.FC = () => {
         <HeroSection />
         <ActivityTicker />
         <ReviewCarousel />
-        <HowItWorks />
         <HelperCards />
         <TaskShowcase />
         <PricingTable />

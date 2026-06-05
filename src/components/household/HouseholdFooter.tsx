@@ -13,16 +13,10 @@ const NAV_LINKS = [
 export const HouseholdFooter: React.FC = () => {
   return (
     <footer className="bg-navy text-white px-4 py-12">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 mb-10">
-          {/* Logo with CSS invert so it reads white on dark bg */}
           <Link to="/home" className="inline-block">
-            <img
-              src={logo}
-              alt="VANO"
-              className="h-7 w-auto"
-              style={{ filter: 'brightness(0) invert(1)' }}
-            />
+            <img src={logo} alt="VANO" className="h-7 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />
           </Link>
 
           <nav aria-label="Footer navigation">
@@ -53,12 +47,10 @@ export const HouseholdFooter: React.FC = () => {
         </div>
 
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <p className="text-white/40 text-xs">
+          <a href="mailto:hello@vanojobs.com" className="text-white/40 hover:text-white text-xs transition-colors duration-150">
             hello@vanojobs.com
-          </p>
-          <p className="text-white/40 text-xs">
-            © 2026 VANO · Ireland
-          </p>
+          </a>
+          <p className="text-white/40 text-xs">© 2026 VANO · Ireland</p>
         </div>
       </div>
     </footer>

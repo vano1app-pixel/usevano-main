@@ -237,6 +237,10 @@
     text-wrap: balance;
   }
 
+  @media (min-width: 1280px) {
+    .display-xl { font-size: clamp(2.5rem, 4vw, 4.5rem); }
+  }
+
   /* Tinted shadow tier above shadow-tinted-xl, for the hero's primary
      CTA — picks up the brand hue so the elevation reads warm + intentional
      instead of generic neutral. */
