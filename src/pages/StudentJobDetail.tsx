@@ -43,7 +43,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   garden: 'Garden help',
   moving: 'Moving help',
   cleaning: 'Cleaning',
-  other: 'General help',
+  tutoring: 'Tutoring',
 };
 
 const SLOT_LABELS: Record<string, string> = {

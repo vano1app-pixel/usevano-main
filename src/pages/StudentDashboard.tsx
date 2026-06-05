@@ -38,7 +38,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   garden: 'Garden help',
   moving: 'Moving help',
   cleaning: 'Cleaning',
-  other: 'Other task',
+  tutoring: 'Tutoring',
 };
 
 const SLOT_LABELS: Record<string, string> = {
@@ -72,9 +72,10 @@ const StudentDashboard = () => {
   const [helperId, setHelperId] = useState<string | null>(null);
   const [helperAvailable, setHelperAvailable] = useState<boolean | null>(null);
   const [helperCity, setHelperCity] = useState<string | null>(null);
+  const [helperCategories, setHelperCategories] = useState<string[]>([]);
   const [togglingAvailable, setTogglingAvailable] = useState(false);
 
-  const loadData = useCallback(async (uid: string, city?: string | null) => {
+  const loadData = useCallback(async (uid: string, city?: string | null, categories?: string[]) => {
     let availableQuery = hdb
       .from('household_bookings')
       .select('*')
@@ -83,6 +84,7 @@ const StudentDashboard = () => {
       .order('created_at', { ascending: false })
       .limit(30);
     if (city) availableQuery = availableQuery.eq('city', city);
+    if (categories && categories.length > 0) availableQuery = availableQuery.in('category', categories);
 
     const [available, mine, earnedPayouts] = await Promise.all([
       availableQuery,
@@ -114,21 +116,23 @@ const StudentDashboard = () => {
       const uid = session.user.id;
       setUserId(uid);
 
-      // Load helper profile first so we can filter jobs by city
+      // Load helper profile first so we can filter jobs by city + categories
       const { data: helperRow } = await hdb
         .from('household_helpers')
-        .select('id, is_available, city')
+        .select('id, is_available, city, categories')
         .eq('user_id', uid)
         .maybeSingle();
 
       const city = (helperRow?.city as string | null) ?? null;
+      const categories = (helperRow?.categories as string[] | null) ?? [];
       if (!cancelled && helperRow) {
         setHelperId(helperRow.id as string);
         setHelperAvailable(helperRow.is_available as boolean);
         setHelperCity(city);
+        setHelperCategories(categories);
       }
 
-      await loadData(uid, city);
+      await loadData(uid, city, categories);
     };
     void run();
     return () => { cancelled = true; };
@@ -160,7 +164,7 @@ const StudentDashboard = () => {
       setAvailableJobs((prev) => prev.filter((j) => j.id !== jobId));
       // Fire-and-forget: email the customer that their helper accepted
       void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: jobId } });
-      if (userId) await loadData(userId, helperCity);
+      if (userId) await loadData(userId, helperCity, helperCategories);
     }
     setAccepting(null);
   };

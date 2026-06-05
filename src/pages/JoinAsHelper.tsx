@@ -13,16 +13,12 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 
 
 const CATEGORY_OPTIONS = [
-  { emoji: '🛒', label: 'Shopping & errands',    slug: 'shopping'           },
-  { emoji: '🐕', label: 'Dog walking',            slug: 'dog-walk'           },
-  { emoji: '🌿', label: 'Garden work',            slug: 'garden'             },
-  { emoji: '📦', label: 'Moving help',            slug: 'moving'             },
-  { emoji: '🧹', label: 'Cleaning',               slug: 'cleaning'           },
-  { emoji: '📚', label: 'Tutoring',               slug: 'tutoring'           },
-  { emoji: '📬', label: 'Post office runs',       slug: 'post-office'        },
-  { emoji: '🔧', label: 'Furniture assembly',     slug: 'furniture-assembly' },
-  { emoji: '📱', label: 'Tech help',              slug: 'tech-help'          },
-  { emoji: '🚪', label: 'Wait for deliveries',    slug: 'wait-delivery'      },
+  { emoji: '🛒', label: 'Shopping & errands', slug: 'shopping'  },
+  { emoji: '🐕', label: 'Dog walking',         slug: 'dog-walk'  },
+  { emoji: '🌿', label: 'Garden work',         slug: 'garden'    },
+  { emoji: '📦', label: 'Moving help',         slug: 'moving'    },
+  { emoji: '🧹', label: 'Cleaning',            slug: 'cleaning'  },
+  { emoji: '📚', label: 'Tutoring',            slug: 'tutoring'  },
 ];
 
 const STATS = [
@@ -50,7 +46,7 @@ const JOBS = [
   { emoji: '🌿', label: 'Garden work' },
   { emoji: '📦', label: 'Moving help' },
   { emoji: '🧹', label: 'Cleaning' },
-  { emoji: '✨', label: 'Errands & more' },
+  { emoji: '📚', label: 'Tutoring' },
 ];
 
 export const JoinAsHelper: React.FC = () => {

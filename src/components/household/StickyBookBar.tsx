@@ -20,14 +20,14 @@ export const StickyBookBar: React.FC = () => (
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
           <p className="text-xs text-emerald-700 font-semibold">Helpers available now</p>
         </div>
-        <p className="font-semibold text-foreground text-sm">From €15 · Galway</p>
+        <p className="font-semibold text-foreground text-sm">From €15 · book in 30 sec</p>
       </div>
       <Button
         onClick={scrollToGrid}
         className="rounded-full px-7 font-semibold flex-shrink-0 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
         size="default"
       >
-        Book now
+        Get help today
       </Button>
     </div>
   </div>

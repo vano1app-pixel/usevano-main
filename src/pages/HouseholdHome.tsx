@@ -1,6 +1,7 @@
 import React from 'react';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
+import { ActivityTicker } from '@/components/household/ActivityTicker';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HowItWorks } from '@/components/household/HowItWorks';
 import { HelperCards } from '@/components/household/HelperCards';
@@ -11,18 +12,16 @@ import { ElderlyPitch } from '@/components/household/ElderlyPitch';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 
-/* /home — household help platform landing page.
-   This route intentionally bypasses the marketplace Navbar and MobileBottomNav;
-   HouseholdNav replaces both. The -mt-14 lg:-mt-16 wrapper corrects the global
-   md:pt-14 lg:pt-16 offset that App.tsx applies to every route, since
-   HouseholdNav is fixed and already offsets the hero internally (pt-24). */
 const HouseholdHome: React.FC = () => {
   return (
-    <div className="-mt-14 lg:-mt-16">
+    // Cream warm-white base — distinguishes the household platform from the
+    // pure-white marketplace and reads warmer/more trustworthy for in-home services
+    <div className="-mt-14 lg:-mt-16 bg-cream">
       <HouseholdNav />
 
       <main>
         <HeroSection />
+        <ActivityTicker />
         <ReviewCarousel />
         <HowItWorks />
         <HelperCards />
@@ -33,7 +32,6 @@ const HouseholdHome: React.FC = () => {
         <HouseholdFooter />
       </main>
 
-      {/* Only visible on mobile — stays above iOS home indicator */}
       <StickyBookBar />
     </div>
   );

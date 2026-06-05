@@ -42,8 +42,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        /* Plus Jakarta Sans — close to typical social / carousel branding; swap if you export an exact font from IG */
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        /* Bricolage Grotesque — warm, slightly irregular grotesque. Used for hero/display headings only. */
+        display: ['"Bricolage Grotesque"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -94,10 +95,11 @@ export default {
           light: "hsl(var(--sage-light))",
           dark: "hsl(var(--sage-dark))",
         },
-        navy: "hsl(var(--navy))",
-        gold: "hsl(var(--gold))",
+        navy:            "hsl(var(--navy))",
+        gold:            "hsl(var(--gold))",
+        cream:           "hsl(var(--cream))",
         "express-orange": "hsl(var(--express-orange))",
-        whatsapp: "hsl(var(--whatsapp))",
+        whatsapp:        "hsl(var(--whatsapp))",
       },
       transitionTimingFunction: {
         'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
