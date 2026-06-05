@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { MessageCircle, Check, ArrowRight } from 'lucide-react';
+import { MessageCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
 
@@ -84,56 +84,43 @@ function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
   return (
     <div
       className={cn(
-        'relative rounded-2xl p-6 flex flex-col h-full',
+        'relative flex flex-col h-full rounded-2xl border overflow-hidden',
         plan.popular
-          ? 'bg-primary shadow-xl ring-2 ring-primary/30'
-          : 'bg-white border border-border/50 shadow-sm',
+          ? 'border-primary/30 shadow-sm shadow-primary/5'
+          : 'border-border/50 shadow-sm',
       )}
     >
       {plan.popular && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-primary text-xs font-bold uppercase tracking-widest rounded-full px-3 py-1 whitespace-nowrap">
-          Popular
-        </span>
+        <div className="px-4 py-1.5 flex items-center gap-1.5 bg-primary">
+          <span className="text-white text-[11px] font-bold tracking-wide uppercase">Most Popular</span>
+        </div>
       )}
-      <p className={cn('text-xs font-bold uppercase tracking-widest mb-2', plan.popular ? 'text-white/70' : 'text-muted-foreground')}>
-        {plan.name}
-      </p>
-      <div className="flex items-baseline gap-1 mb-1">
-        <span className={cn('text-4xl font-bold leading-none tracking-tight', plan.popular ? 'text-white' : 'text-foreground')}>
-          {plan.price}
-        </span>
-        <span className={cn('text-sm font-medium', plan.popular ? 'text-white/70' : 'text-muted-foreground')}>
-          {plan.period}
-        </span>
+      <div className={cn('flex flex-col flex-1 p-5', plan.popular ? 'bg-primary/[0.04]' : 'bg-card')}>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">{plan.name}</p>
+        <div className="flex items-end gap-1 mb-0.5">
+          <span className="text-3xl font-bold tracking-tight text-foreground">{plan.price}</span>
+          <span className="text-sm text-muted-foreground mb-1">{plan.period}</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">{plan.tagline}</p>
+        <ul className="space-y-2.5 mb-6 flex-1">
+          {plan.features.map((f) => (
+            <li key={f} className="flex items-start gap-2">
+              <Check className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-primary" strokeWidth={2.5} />
+              <span className="text-xs text-foreground/80 leading-relaxed">{f}</span>
+            </li>
+          ))}
+        </ul>
+        <a
+          href={`${teamWhatsAppHref}?text=${encodeURIComponent(plan.waText)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full rounded-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.96]"
+          style={{ backgroundColor: 'hsl(var(--primary))' }}
+        >
+          <MessageCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
+          <span>{plan.cta}</span>
+        </a>
       </div>
-      <p className={cn('text-sm leading-snug mb-4', plan.popular ? 'text-white/80' : 'text-muted-foreground')}>
-        {plan.tagline}
-      </p>
-      <div className={cn('h-px mb-4', plan.popular ? 'bg-white/20' : 'bg-black/10')} />
-      <ul className="space-y-2.5 mb-6 flex-1">
-        {plan.features.map((f) => (
-          <li key={f} className="flex items-start gap-2">
-            <Check className={cn('w-4 h-4 mt-px flex-shrink-0', plan.popular ? 'text-white' : 'text-primary')} strokeWidth={2.5} />
-            <span className={cn('text-sm leading-snug', plan.popular ? 'text-white/90' : 'text-foreground/80')}>{f}</span>
-          </li>
-        ))}
-      </ul>
-      <a
-        href={`${teamWhatsAppHref}?text=${encodeURIComponent(plan.waText)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn(
-          'group flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold',
-          'transition-all duration-150 active:scale-[0.96] hover:-translate-y-px',
-          plan.popular
-            ? 'bg-white text-primary shadow-md hover:opacity-90'
-            : 'bg-primary text-white hover:opacity-90 hover:shadow-md',
-        )}
-      >
-        <MessageCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
-        <span>{plan.cta}</span>
-        <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 opacity-60 group-hover:translate-x-0.5 transition-transform" />
-      </a>
     </div>
   );
 }
@@ -173,7 +160,7 @@ function ElderlyCards() {
             <button
               key={i}
               onClick={() => scrollTo(i)}
-              className={cn('rounded-full transition-all duration-200', active === i ? 'w-5 h-2 bg-white' : 'w-2 h-2 bg-white/40')}
+              className={cn('rounded-full transition-all duration-200', active === i ? 'w-5 h-2 bg-primary' : 'w-2 h-2 bg-border')}
             />
           ))}
         </div>
