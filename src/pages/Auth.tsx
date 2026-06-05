@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
-import { LiveMatchesCounter } from '@/components/LiveMatchesCounter';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
 import { sendMagicLink } from '@/lib/magicLink';
@@ -213,11 +212,6 @@ const Auth = () => {
           {/* Social-proof chip — auto-hides when the public match count is
               too small to be reassuring (< 3). Signup-only; login-return
               users don't need the reminder. */}
-          {!isLogin && (
-            <div className="mt-3 flex justify-center">
-              <LiveMatchesCounter />
-            </div>
-          )}
         </div>
 
         <div className="mb-5 flex rounded-full border border-border/70 bg-foreground/[0.025] p-1">

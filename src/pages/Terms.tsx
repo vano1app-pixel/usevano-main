@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Navbar } from '@/components/Navbar';
+import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft } from 'lucide-react';
 
@@ -11,7 +11,7 @@ const Terms = () => (
       title="Terms of Service – VANO"
       description="Terms and conditions for using the VANO platform."
     />
-    <Navbar />
+    <HouseholdNav />
     <div className="mx-auto max-w-2xl lg:max-w-3xl px-4 pt-24 pb-12 sm:pt-28 md:px-8">
       <Link
         to="/"
