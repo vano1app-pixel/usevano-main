@@ -84,7 +84,7 @@ export const HeroSection: React.FC = () => {
               transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               className="display-xl text-white mb-4"
             >
-              At your door<br />in 90 minutes.
+              Same-day help,<br />booked in seconds.
             </motion.h1>
 
             <motion.p
@@ -118,7 +118,7 @@ export const HeroSection: React.FC = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-[#FAF9F6] rounded-2xl shadow-2xl p-5 lg:p-7 mt-2"
+            className="bg-cream rounded-2xl shadow-2xl p-5 lg:p-7 mt-2"
           >
             <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40 mb-4">
               What do you need?

@@ -195,7 +195,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           when_label:     when,
           size_label:     size,
           note:           '',
-          customer_name:  '',
+          customer_name:  'Guest', // name collected by Stripe at checkout
           customer_phone: phone.trim(),
           customer_email: null,
           city,
@@ -232,7 +232,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-[#FAF9F6] rounded-t-3xl shadow-2xl safe-area-bottom"
+        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
         style={{ maxHeight: '88vh', overflowY: 'auto' }}
         role="dialog"
         aria-modal="true"

@@ -1,42 +1,50 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TickerItem {
   emoji: string;
   service: string;
   area: string;
-  minsAgo: number;
+  baseMinsAgo: number; // age at the moment the item was fetched/seeded
+  fetchedAt: number;   // Date.now() when minsAgo was captured
 }
 
 const EMOJI: Record<string, string> = {
-  shopping:  '🛒',
+  shopping:   '🛒',
   'dog-walk': '🐕',
-  garden:    '🌿',
-  moving:    '📦',
-  cleaning:  '🧹',
-  tutoring:  '📚',
+  garden:     '🌿',
+  moving:     '📦',
+  cleaning:   '🧹',
+  tutoring:   '📚',
 };
 
 const SERVICE_LABEL: Record<string, string> = {
-  shopping:  'Shopping',
+  shopping:   'Shopping',
   'dog-walk': 'Dog walk',
-  garden:    'Garden',
-  moving:    'Moving help',
-  cleaning:  'Cleaning',
-  tutoring:  'Tutoring',
+  garden:     'Garden',
+  moving:     'Moving help',
+  cleaning:   'Cleaning',
+  tutoring:   'Tutoring',
 };
 
-// Fixed-offset seeds — specific times look more real than round numbers
+// Seeds use non-round offsets so they don't feel generated.
+// fetchedAt is set at module load so the ages advance in real time.
+const NOW = Date.now();
 const SEEDS: TickerItem[] = [
-  { emoji: '🧹', service: 'Cleaning',     area: 'Salthill',        minsAgo: 6  },
-  { emoji: '🐕', service: 'Dog walk',     area: 'Knocknacarra',    minsAgo: 19 },
-  { emoji: '🌿', service: 'Garden',       area: 'Renmore',         minsAgo: 38 },
-  { emoji: '📦', service: 'Moving help',  area: "Taylor's Hill",   minsAgo: 67 },
-  { emoji: '🛒', service: 'Shopping',     area: 'Shantalla',       minsAgo: 94 },
-  { emoji: '📚', service: 'Tutoring',     area: 'Westside',        minsAgo: 121},
-  { emoji: '🧹', service: 'Cleaning',     area: 'Rahoon',          minsAgo: 148},
-  { emoji: '🐕', service: 'Dog walk',     area: 'Salthill',        minsAgo: 173},
+  { emoji: '🧹', service: 'Cleaning',    area: 'Salthill',      baseMinsAgo: 6,   fetchedAt: NOW },
+  { emoji: '🐕', service: 'Dog walk',    area: 'Knocknacarra',  baseMinsAgo: 19,  fetchedAt: NOW },
+  { emoji: '🌿', service: 'Garden',      area: 'Renmore',       baseMinsAgo: 38,  fetchedAt: NOW },
+  { emoji: '📦', service: 'Moving help', area: "Taylor's Hill", baseMinsAgo: 67,  fetchedAt: NOW },
+  { emoji: '🛒', service: 'Shopping',    area: 'Shantalla',     baseMinsAgo: 94,  fetchedAt: NOW },
+  { emoji: '📚', service: 'Tutoring',    area: 'Westside',      baseMinsAgo: 121, fetchedAt: NOW },
+  { emoji: '🧹', service: 'Cleaning',    area: 'Rahoon',        baseMinsAgo: 148, fetchedAt: NOW },
+  { emoji: '🐕', service: 'Dog walk',    area: 'Salthill',      baseMinsAgo: 173, fetchedAt: NOW },
 ];
+
+function currentMins(item: TickerItem, nowMs: number): number {
+  const elapsed = Math.floor((nowMs - item.fetchedAt) / 60000);
+  return item.baseMinsAgo + elapsed;
+}
 
 function fmtMins(m: number): string {
   if (m < 60) return `${m} min ago`;
@@ -45,11 +53,17 @@ function fmtMins(m: number): string {
 }
 
 export const ActivityTicker: React.FC = () => {
-  const [items, setItems] = useState<TickerItem[]>(SEEDS);
-  const pausedRef = useRef(false);
+  const [items,  setItems]  = useState<TickerItem[]>(SEEDS);
+  const [paused, setPaused] = useState(false);
+  // Tick every minute so displayed ages advance in real time
+  const [nowMs,  setNowMs]  = useState(() => Date.now());
 
   useEffect(() => {
-    // Try to pull real recent bookings from the DB
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     (async () => {
       try {
         const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
@@ -62,38 +76,35 @@ export const ActivityTicker: React.FC = () => {
           .limit(12);
 
         if (data && data.length >= 4) {
-          const real: TickerItem[] = data.map((row: { category: string; city: string; created_at: string }) => {
-            const minsAgo = Math.round((Date.now() - new Date(row.created_at).getTime()) / 60000);
-            return {
-              emoji:   EMOJI[row.category]         ?? '✅',
-              service: SERVICE_LABEL[row.category] ?? row.category,
-              area:    row.city ?? 'Galway',
-              minsAgo: Math.max(1, minsAgo),
-            };
-          });
+          const fetchedAt = Date.now();
+          const real: TickerItem[] = data.map((row: { category: string; city: string; created_at: string }) => ({
+            emoji:       EMOJI[row.category]         ?? '✅',
+            service:     SERVICE_LABEL[row.category] ?? row.category,
+            area:        row.city ?? 'Galway',
+            baseMinsAgo: Math.max(1, Math.round((fetchedAt - new Date(row.created_at).getTime()) / 60000)),
+            fetchedAt,
+          }));
           setItems(real);
         }
-        // Fewer than 4 real bookings → keep seeds (they look normal)
       } catch {
-        // DB unavailable — seeds are fine
+        // DB unavailable — seeds age correctly on their own
       }
     })();
   }, []);
 
-  // Duplicate for seamless loop
   const doubled = [...items, ...items];
 
   return (
     <div
       className="overflow-hidden border-y border-border/40 bg-background"
-      onMouseEnter={() => { pausedRef.current = true; }}
-      onMouseLeave={() => { pausedRef.current = false; }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
       aria-label="Recent bookings"
       aria-live="off"
     >
       <div
         className="flex animate-scroll-left whitespace-nowrap py-2.5"
-        style={{ animationPlayState: pausedRef.current ? 'paused' : 'running' }}
+        style={{ animationPlayState: paused ? 'paused' : 'running' }}
       >
         {doubled.map((item, i) => (
           <span
@@ -107,7 +118,7 @@ export const ActivityTicker: React.FC = () => {
               <span className="font-medium text-foreground">{item.area}</span>
             </span>
             <span className="text-muted-foreground/50 select-none">·</span>
-            <span className="tabular-nums">{fmtMins(item.minsAgo)}</span>
+            <span className="tabular-nums">{fmtMins(currentMins(item, nowMs))}</span>
             <span className="ml-3 text-border select-none" aria-hidden="true">—</span>
           </span>
         ))}
