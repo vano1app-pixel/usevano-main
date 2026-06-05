@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { MessageCircle, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
@@ -71,84 +71,8 @@ export const ElderlyPitch: React.FC = () => {
           </p>
         </div>
 
-        {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.name}
-              className={cn(
-                'relative rounded-2xl p-6 flex flex-col',
-                plan.popular
-                  ? 'bg-white shadow-xl ring-2 ring-white/30'
-                  : 'bg-white/15 border border-white/25',
-              )}
-            >
-              {/* Most popular badge */}
-              {plan.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[hsl(var(--gold))] text-foreground text-xs font-bold uppercase tracking-widest rounded-full px-3 py-1 whitespace-nowrap">
-                  Popular
-                </span>
-              )}
-
-              {/* Plan name */}
-              <p className={cn(
-                'text-xs font-bold uppercase tracking-widest mb-2',
-                plan.popular ? 'text-muted-foreground' : 'text-white/80',
-              )}>
-                {plan.name}
-              </p>
-
-              {/* Price */}
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className={cn('text-4xl font-bold leading-none tracking-tight', plan.popular ? 'text-foreground' : 'text-white')}>
-                  {plan.price}
-                </span>
-                <span className={cn('text-sm font-medium', plan.popular ? 'text-muted-foreground' : 'text-white/70')}>
-                  {plan.period}
-                </span>
-              </div>
-              <p className={cn('text-sm leading-snug mb-4', plan.popular ? 'text-muted-foreground' : 'text-white/80')}>
-                {plan.tagline}
-              </p>
-
-              {/* Divider */}
-              <div className={cn('h-px mb-4', plan.popular ? 'bg-black/10' : 'bg-white/20')} />
-
-              {/* Features */}
-              <ul className="space-y-2.5 mb-6 flex-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check
-                      className={cn('w-4 h-4 mt-px flex-shrink-0', plan.popular ? 'text-primary' : 'text-white')}
-                      strokeWidth={2.5}
-                    />
-                    <span className={cn('text-sm leading-snug', plan.popular ? 'text-foreground/80' : 'text-white')}>
-                      {f}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA button */}
-              <a
-                href={`${teamWhatsAppHref}?text=${encodeURIComponent(plan.waText)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  'group flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold',
-                  'transition-all duration-150 active:scale-[0.96] hover:-translate-y-px',
-                  plan.popular
-                    ? 'bg-primary text-white shadow-md hover:shadow-[0_6px_20px_hsl(var(--primary)/0.4)] hover:opacity-90'
-                    : 'bg-white text-foreground hover:bg-white/90 hover:shadow-md',
-                )}
-              >
-                <MessageCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
-                <span>{plan.cta}</span>
-                <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 opacity-60 group-hover:translate-x-0.5 transition-transform" />
-              </a>
-            </div>
-          ))}
-        </div>
+        {/* Plan cards — swipeable on mobile, grid on desktop */}
+        <ElderlyCards />
 
         <p className="text-center text-primary-foreground/60 text-sm mt-5">
           All plans via WhatsApp — no app, no login needed
@@ -157,3 +81,112 @@ export const ElderlyPitch: React.FC = () => {
     </section>
   );
 };
+
+function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
+  return (
+    <div
+      className={cn(
+        'relative rounded-2xl p-6 flex flex-col h-full',
+        plan.popular
+          ? 'bg-white shadow-xl ring-2 ring-white/30'
+          : 'bg-white/15 border border-white/25',
+      )}
+    >
+      {plan.popular && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[hsl(var(--gold))] text-foreground text-xs font-bold uppercase tracking-widest rounded-full px-3 py-1 whitespace-nowrap">
+          Popular
+        </span>
+      )}
+      <p className={cn('text-xs font-bold uppercase tracking-widest mb-2', plan.popular ? 'text-muted-foreground' : 'text-white/80')}>
+        {plan.name}
+      </p>
+      <div className="flex items-baseline gap-1 mb-1">
+        <span className={cn('text-4xl font-bold leading-none tracking-tight', plan.popular ? 'text-foreground' : 'text-white')}>
+          {plan.price}
+        </span>
+        <span className={cn('text-sm font-medium', plan.popular ? 'text-muted-foreground' : 'text-white/70')}>
+          {plan.period}
+        </span>
+      </div>
+      <p className={cn('text-sm leading-snug mb-4', plan.popular ? 'text-muted-foreground' : 'text-white/80')}>
+        {plan.tagline}
+      </p>
+      <div className={cn('h-px mb-4', plan.popular ? 'bg-black/10' : 'bg-white/20')} />
+      <ul className="space-y-2.5 mb-6 flex-1">
+        {plan.features.map((f) => (
+          <li key={f} className="flex items-start gap-2">
+            <Check className={cn('w-4 h-4 mt-px flex-shrink-0', plan.popular ? 'text-primary' : 'text-white')} strokeWidth={2.5} />
+            <span className={cn('text-sm leading-snug', plan.popular ? 'text-foreground/80' : 'text-white')}>{f}</span>
+          </li>
+        ))}
+      </ul>
+      <a
+        href={`${teamWhatsAppHref}?text=${encodeURIComponent(plan.waText)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(
+          'group flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold',
+          'transition-all duration-150 active:scale-[0.96] hover:-translate-y-px',
+          plan.popular
+            ? 'bg-primary text-white shadow-md hover:shadow-[0_6px_20px_hsl(var(--primary)/0.4)] hover:opacity-90'
+            : 'bg-white text-foreground hover:bg-white/90 hover:shadow-md',
+        )}
+      >
+        <MessageCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
+        <span>{plan.cta}</span>
+        <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 opacity-60 group-hover:translate-x-0.5 transition-transform" />
+      </a>
+    </div>
+  );
+}
+
+function ElderlyCards() {
+  const [active, setActive] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setActive(Math.round(el.scrollLeft / el.offsetWidth));
+  }
+
+  function scrollTo(i: number) {
+    trackRef.current?.scrollTo({ left: i * (trackRef.current.offsetWidth), behavior: 'smooth' });
+    setActive(i);
+  }
+
+  return (
+    <div>
+      {/* Mobile swipeable */}
+      <div className="sm:hidden">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 pb-2"
+        >
+          {PLANS.map((plan) => (
+            <div key={plan.name} className="snap-center flex-shrink-0 w-[calc(100%-2rem)] pt-4">
+              <PlanCard plan={plan} />
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center gap-2 mt-3">
+          {PLANS.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => scrollTo(i)}
+              className={cn('rounded-full transition-all duration-200', active === i ? 'w-5 h-2 bg-white' : 'w-2 h-2 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop grid */}
+      <div className="hidden sm:grid sm:grid-cols-3 gap-4 pt-4">
+        {PLANS.map((plan) => (
+          <PlanCard key={plan.name} plan={plan} />
+        ))}
+      </div>
+    </div>
+  );
+}
