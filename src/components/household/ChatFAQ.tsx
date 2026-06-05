@@ -61,15 +61,15 @@ export const ChatFAQ: React.FC = () => {
       </div>
 
       {/* Main stage */}
-      <div ref={ref} className="relative mx-auto max-w-2xl lg:max-w-3xl" style={{ minHeight: 480 }}>
+      <div ref={ref} className="relative mx-auto max-w-2xl lg:max-w-3xl" style={{ minHeight: 560 }}>
 
         {/* ── Left silhouette — YOU ── */}
         <motion.div
           initial={{ opacity: 0, x: -24 }}
           animate={inView ? { opacity: 1, x: 0 } : {}}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute left-0 bottom-0 w-32 lg:w-40 select-none"
-          style={{ transform: 'translateX(-42%)' }}
+          className="absolute left-0 bottom-0 select-none"
+          style={{ width: 160, transform: 'translateX(-30%)' }}
         >
           <PersonSilhouette id="grad-customer" color="#94a3b8" />
           <p className="text-center text-xs font-semibold text-slate-400 tracking-wide mt-1">You</p>
@@ -80,15 +80,15 @@ export const ChatFAQ: React.FC = () => {
           initial={{ opacity: 0, x: 24 }}
           animate={inView ? { opacity: 1, x: 0 } : {}}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute right-0 bottom-0 w-32 lg:w-40 select-none"
-          style={{ transform: 'translateX(42%) scaleX(-1)' }}
+          className="absolute right-0 bottom-0 select-none"
+          style={{ width: 160, transform: 'translateX(30%) scaleX(-1)' }}
         >
           <PersonSilhouette id="grad-vano" color="hsl(143,40%,40%)" />
           <p className="text-center text-xs font-semibold tracking-wide mt-1" style={{ transform: 'scaleX(-1)', color: 'hsl(143,35%,50%)' }}>VANO</p>
         </motion.div>
 
         {/* ── Speech bubbles ── */}
-        <div className="relative z-10 flex flex-col gap-3.5 pt-2 pb-6 px-[5.5rem] lg:px-[7rem]">
+        <div className="relative z-10 flex flex-col gap-3.5 pt-2 pb-6 px-[6.5rem] lg:px-[8rem]">
           {bubbles.map((bubble, i) => (
             <motion.div
               key={bubble.id}
