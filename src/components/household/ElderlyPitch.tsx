@@ -55,18 +55,16 @@ const PLANS = [
 
 export const ElderlyPitch: React.FC = () => {
   return (
-    <section className="relative bg-primary px-4 py-14">
-      <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
-
+    <section className="relative bg-white px-4 py-14">
       <div className="relative max-w-4xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-10">
-          <p className="eyebrow mb-3 text-primary-foreground/70">For families &amp; businesses</p>
-          <h2 className="display-lg text-primary-foreground mb-3">
+          <p className="eyebrow mb-3 text-foreground/50">For families &amp; businesses</p>
+          <h2 className="display-lg text-foreground mb-3">
             Worried about a parent near you?
           </h2>
-          <p className="text-primary-foreground/80 text-base max-w-sm mx-auto leading-relaxed">
+          <p className="text-foreground/60 text-base max-w-sm mx-auto leading-relaxed">
             One simple monthly plan. Verified students handle the weekly tasks — so you stop worrying.
           </p>
         </div>
@@ -74,7 +72,7 @@ export const ElderlyPitch: React.FC = () => {
         {/* Plan cards — swipeable on mobile, grid on desktop */}
         <ElderlyCards />
 
-        <p className="text-center text-primary-foreground/60 text-sm mt-5">
+        <p className="text-center text-foreground/50 text-sm mt-5">
           All plans via WhatsApp — no app, no login needed
         </p>
       </div>
@@ -88,35 +86,35 @@ function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
       className={cn(
         'relative rounded-2xl p-6 flex flex-col h-full',
         plan.popular
-          ? 'bg-white shadow-xl ring-2 ring-white/30'
-          : 'bg-white/15 border border-white/25',
+          ? 'bg-primary shadow-xl ring-2 ring-primary/30'
+          : 'bg-white border border-border/50 shadow-sm',
       )}
     >
       {plan.popular && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[hsl(var(--gold))] text-foreground text-xs font-bold uppercase tracking-widest rounded-full px-3 py-1 whitespace-nowrap">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-primary text-xs font-bold uppercase tracking-widest rounded-full px-3 py-1 whitespace-nowrap">
           Popular
         </span>
       )}
-      <p className={cn('text-xs font-bold uppercase tracking-widest mb-2', plan.popular ? 'text-muted-foreground' : 'text-white/80')}>
+      <p className={cn('text-xs font-bold uppercase tracking-widest mb-2', plan.popular ? 'text-white/70' : 'text-muted-foreground')}>
         {plan.name}
       </p>
       <div className="flex items-baseline gap-1 mb-1">
-        <span className={cn('text-4xl font-bold leading-none tracking-tight', plan.popular ? 'text-foreground' : 'text-white')}>
+        <span className={cn('text-4xl font-bold leading-none tracking-tight', plan.popular ? 'text-white' : 'text-foreground')}>
           {plan.price}
         </span>
-        <span className={cn('text-sm font-medium', plan.popular ? 'text-muted-foreground' : 'text-white/70')}>
+        <span className={cn('text-sm font-medium', plan.popular ? 'text-white/70' : 'text-muted-foreground')}>
           {plan.period}
         </span>
       </div>
-      <p className={cn('text-sm leading-snug mb-4', plan.popular ? 'text-muted-foreground' : 'text-white/80')}>
+      <p className={cn('text-sm leading-snug mb-4', plan.popular ? 'text-white/80' : 'text-muted-foreground')}>
         {plan.tagline}
       </p>
-      <div className={cn('h-px mb-4', plan.popular ? 'bg-black/10' : 'bg-white/20')} />
+      <div className={cn('h-px mb-4', plan.popular ? 'bg-white/20' : 'bg-black/10')} />
       <ul className="space-y-2.5 mb-6 flex-1">
         {plan.features.map((f) => (
           <li key={f} className="flex items-start gap-2">
-            <Check className={cn('w-4 h-4 mt-px flex-shrink-0', plan.popular ? 'text-primary' : 'text-white')} strokeWidth={2.5} />
-            <span className={cn('text-sm leading-snug', plan.popular ? 'text-foreground/80' : 'text-white')}>{f}</span>
+            <Check className={cn('w-4 h-4 mt-px flex-shrink-0', plan.popular ? 'text-white' : 'text-primary')} strokeWidth={2.5} />
+            <span className={cn('text-sm leading-snug', plan.popular ? 'text-white/90' : 'text-foreground/80')}>{f}</span>
           </li>
         ))}
       </ul>
@@ -128,8 +126,8 @@ function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
           'group flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold',
           'transition-all duration-150 active:scale-[0.96] hover:-translate-y-px',
           plan.popular
-            ? 'bg-primary text-white shadow-md hover:shadow-[0_6px_20px_hsl(var(--primary)/0.4)] hover:opacity-90'
-            : 'bg-white text-foreground hover:bg-white/90 hover:shadow-md',
+            ? 'bg-white text-primary shadow-md hover:opacity-90'
+            : 'bg-primary text-white hover:opacity-90 hover:shadow-md',
         )}
       >
         <MessageCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
