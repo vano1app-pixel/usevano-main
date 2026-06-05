@@ -231,7 +231,7 @@ function TierCarousel() {
 // ─── Main export ───────────────────────────────────────────────────────────
 export const PricingTable: React.FC = () => {
   return (
-    <section className="px-4 py-12 max-w-lg mx-auto md:max-w-xl lg:max-w-5xl">
+    <section className="px-4 py-12 max-w-lg mx-auto md:max-w-xl lg:max-w-5xl xl:max-w-6xl">
       <p className="eyebrow mb-3">Transparent pricing</p>
       <h2 className="text-2xl font-semibold text-foreground mb-2">
         Simple pricing. No surprises.

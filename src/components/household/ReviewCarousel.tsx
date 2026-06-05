@@ -72,13 +72,13 @@ export const ReviewCarousel: React.FC = () => {
 
   return (
     <section className="pt-16 pb-12 lg:pt-20 lg:pb-16">
-      <div className="px-4 max-w-5xl mx-auto mb-8">
+      <div className="px-4 max-w-6xl mx-auto mb-8">
         <p className="eyebrow mb-3">Real customers · Galway</p>
         <h2 className="display-lg text-foreground">People love it</h2>
       </div>
 
       {/* Desktop: full-width 4-column static grid */}
-      <div className="hidden lg:grid lg:grid-cols-4 gap-3 px-4 max-w-5xl mx-auto">
+      <div className="hidden lg:grid lg:grid-cols-4 gap-3 xl:gap-4 px-4 max-w-6xl mx-auto">
         {REVIEWS.map((r) => (
           <article key={r.name} className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-4 border border-border/40">
             <div className="flex gap-0.5" aria-label="5 out of 5 stars">

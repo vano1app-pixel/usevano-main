@@ -53,8 +53,8 @@ export const HeroSection: React.FC = () => {
         aria-hidden="true"
       />
 
-      <div className="relative max-w-5xl mx-auto">
-        <div className="lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 lg:items-center">
+      <div className="relative max-w-6xl mx-auto">
+        <div className="lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 xl:grid-cols-[1fr,480px] xl:gap-14 lg:items-center">
 
           {/* ── Left column — pitch ── */}
           <div className="mb-8 lg:mb-0 lg:pt-4">
