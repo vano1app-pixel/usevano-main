@@ -10,8 +10,8 @@ const FAQ = [
 
 function ShadowShape({ flip = false }: { flip?: boolean }) {
   return (
-    <div className="w-full h-full" style={{ filter: 'blur(9px)', transform: flip ? 'scaleX(-1)' : undefined }}>
-      <svg viewBox="0 0 100 230" fill="rgba(28,18,6,0.72)" className="w-full h-full" preserveAspectRatio="xMidYMax meet">
+    <div className="w-full h-full overflow-hidden" style={{ filter: 'blur(9px)', transform: flip ? 'scaleX(-1)' : undefined }}>
+      <svg viewBox="0 0 100 230" fill="rgba(28,18,6,0.72)" className="w-full h-full" preserveAspectRatio="xMidYMax slice">
         <ellipse cx="50" cy="36" rx="26" ry="30" />
         <rect x="42" y="62" width="16" height="20" rx="7" />
         <path d="M0 230 C0 158 16 118 50 113 C84 118 100 158 100 230Z" />
