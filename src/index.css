@@ -67,6 +67,7 @@
     --gold: 43 90% 60%;
     --express-orange: 16 78% 58%;
     --whatsapp: 142 70% 45%;
+    --cream: 40 30% 97%;
   }
 
   .dark {
@@ -217,21 +218,22 @@
   }
   .dark .grain { opacity: 0.06; }
 
-  /* Editorial display headings — heavy negative tracking + balanced wrap.
-     Use on hero h1's. Replaces the inline -tracking-[-0.035em] sprinkled
-     across pages so future headlines stay consistent. */
+  /* Editorial display headings — Bricolage Grotesque for personality,
+     heavy negative tracking, balanced wrap. */
   .display-xl {
+    font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
     font-size: clamp(2.5rem, 6.4vw + 0.5rem, 5.75rem);
     line-height: 0.96;
     letter-spacing: -0.038em;
-    font-weight: 600;
+    font-weight: 700;
     text-wrap: balance;
   }
   .display-lg {
+    font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
     font-size: clamp(1.875rem, 3.6vw + 0.5rem, 3.25rem);
     line-height: 1.04;
     letter-spacing: -0.028em;
-    font-weight: 600;
+    font-weight: 700;
     text-wrap: balance;
   }
 

@@ -6,32 +6,31 @@ import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
   { icon: ShieldCheck, text: 'Every student is screened before their first job' },
-  { icon: Zap,         text: "You'll see their photo and name before they arrive" },
-  { icon: BadgeCheck,  text: 'Full refund if the job isn\'t done right — no questions' },
+  { icon: Zap,         text: 'See their name and photo before they arrive' },
+  { icon: BadgeCheck,  text: 'Full refund if the job isn\'t right — no questions' },
 ];
 
 const SEED = 3;
 
-function useCountUp(target: number, duration = 600): number {
-  const [display, setDisplay] = useState(target);
+function useCountUp(target: number, duration = 700): number {
+  const [display, setDisplay] = useState(0);
   useEffect(() => {
+    if (target === 0) return;
     const start = Date.now();
-    const from = 0;
-    const raf = () => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.round(from + (target - from) * ease));
-      if (progress < 1) requestAnimationFrame(raf);
+    const tick = () => {
+      const p = Math.min((Date.now() - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setDisplay(Math.round(target * ease));
+      if (p < 1) requestAnimationFrame(tick);
     };
-    requestAnimationFrame(raf);
+    requestAnimationFrame(tick);
   }, [target, duration]);
   return display;
 }
 
 export const HeroSection: React.FC = () => {
-  const [helperCount, setHelperCount] = useState<number>(0);
-  const displayCount = useCountUp(helperCount, 700);
+  const [helperCount, setHelperCount] = useState(0);
+  const displayCount = useCountUp(helperCount);
 
   useEffect(() => {
     (supabase as any)
@@ -43,60 +42,90 @@ export const HeroSection: React.FC = () => {
   }, []);
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-sage-light/40 to-background pt-20 pb-10 px-4 lg:pt-28 lg:pb-16">
-      <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
+    <section className="relative overflow-hidden bg-navy pt-20 pb-10 px-4 lg:pt-28 lg:pb-16">
+      {/* Grain on dark background */}
+      <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
+
+      {/* Subtle radial glow — top left, warm */}
+      <div
+        className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full opacity-20"
+        style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.35) 0%, transparent 70%)' }}
+        aria-hidden="true"
+      />
 
       <div className="relative max-w-5xl mx-auto">
-        <div className="lg:grid lg:grid-cols-[1fr,500px] lg:gap-14 lg:items-start">
+        <div className="lg:grid lg:grid-cols-[1fr,480px] lg:gap-14 lg:items-start">
 
-          {/* Left */}
-          <div className="mb-7 lg:mb-0 lg:pt-6">
-            {/* Availability pill — count animates in */}
-            <div className="flex flex-wrap items-center gap-2 mb-5 lg:mb-6">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
-                <span className="text-xs font-semibold text-emerald-700 tracking-wide">
-                  {displayCount} helpers available now
+          {/* ── Left column — pitch ── */}
+          <div className="mb-8 lg:mb-0 lg:pt-4">
+
+            {/* Live pill */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-wrap items-center gap-2 mb-6"
+            >
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" aria-hidden="true" />
+                <span className="text-xs font-semibold text-emerald-300 tracking-wide">
+                  {displayCount > 0 ? `${displayCount} helpers online` : 'Helpers online now'}
                 </span>
-              </motion.div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/8 border border-primary/15 px-3 py-1">
-                <span className="text-xs font-semibold text-primary tracking-wide">🚀 Growing from Galway</span>
               </div>
-            </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/8 border border-white/12 px-3 py-1.5">
+                <span className="text-xs font-semibold text-white/70 tracking-wide">📍 Galway · Ireland</span>
+              </div>
+            </motion.div>
 
-            <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-3 sm:text-[2.8rem] lg:text-6xl">
-              Someone local,<br />here when you need it.
-            </h1>
-            <p className="text-base text-muted-foreground leading-relaxed mb-6 max-w-sm lg:text-lg lg:mb-8">
-              Real students from your area. Booked in seconds, paid by card — and if it's not right, you get your money back.
-            </p>
+            {/* Headline — Bricolage Grotesque via display-xl */}
+            <motion.h1
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              className="display-xl text-white mb-4"
+            >
+              At your door<br />in 90 minutes.
+            </motion.h1>
 
-            {/* Trust badges — pill cards */}
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="text-white/65 text-base lg:text-lg leading-relaxed mb-8 max-w-sm"
+            >
+              Local students, booked by card in under a minute. No account. No back-and-forth. Money back if it's not right.
+            </motion.p>
+
+            {/* Trust badges — pill cards on dark */}
             <ul className="flex flex-col gap-2.5">
               {TRUST.map(({ icon: Icon, text }, i) => (
                 <motion.li
                   key={text}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 + i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex items-center gap-2.5 bg-background/70 border border-border/50 rounded-xl px-3 py-2.5 text-sm text-foreground/80"
+                  transition={{ delay: 0.2 + i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex items-center gap-2.5 bg-white/6 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/80"
                 >
-                  <Icon className="w-4 h-4 text-sage flex-shrink-0" aria-hidden="true" />
+                  <Icon className="w-4 h-4 text-emerald-400 flex-shrink-0" aria-hidden="true" />
                   {text}
                 </motion.li>
               ))}
             </ul>
           </div>
 
-          {/* Right — booking widget */}
-          <div className="lg:bg-card lg:rounded-2xl lg:shadow-lg lg:border lg:border-border/40 lg:p-7">
+          {/* ── Right column — booking widget, cream card ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="bg-[#FAF9F6] rounded-2xl shadow-2xl p-5 lg:p-7 mt-2"
+          >
+            <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40 mb-4">
+              What do you need?
+            </p>
             <CategoryGrid />
-          </div>
+          </motion.div>
+
         </div>
       </div>
     </section>

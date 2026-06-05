@@ -1,181 +1,209 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, CreditCard, Loader2 } from 'lucide-react';
+import { MessageCircle, CreditCard, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 
+// ─── Data ─────────────────────────────────────────────────────────────────
+
 interface Category {
   emoji:       string;
   label:       string;
   slug:        string;
-  price:       string;
   hint:        string;
   description: string;
   popular?:    boolean;
-  sizeLabel?:  string;
   sizes?:      string[];
+  sizeLabel?:  string;
 }
 
 const CATEGORIES: Category[] = [
   {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €15',
+    emoji: '🛒', label: 'Shopping',  slug: 'shopping',
     hint: 'Any store · delivered to your door',
     description: 'We shop any store, follow your list, and deliver to your door.',
   },
   {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15–€20',
+    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',
     hint: 'On-lead · collected & returned safely',
     description: 'Collected from your door, walked on-lead, returned home safely.',
     sizeLabel: 'How long?', sizes: ['30 min', '1 hour'],
   },
   {
-    emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €18/hr',
+    emoji: '🌿', label: 'Garden',    slug: 'garden',
     hint: 'Mow, weed & tidy · waste bagged',
     description: 'Mowing, weeding, edging and tidying — all waste bagged.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', 'Half day'],
   },
   {
-    emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €18/hr',
+    emoji: '📦', label: 'Moving',    slug: 'moving',
     hint: 'Heavy lifting · you arrange the van',
-    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting. Price for 1 helper; need more? Book via WhatsApp.',
+    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
   },
   {
-    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €16/hr',
+    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',
     hint: 'Kitchen, bathroom, floors & surfaces',
-    popular: true,
     description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
+    popular: true,
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €15/hr',
+    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',
     hint: 'One-to-one · any subject at home',
     description: 'One-to-one at your home. Any subject — Maths, science, languages.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
 ];
 
-function getTimeSlots(): string[] {
-  const now = new Date();
-  const slots: string[] = ['Now'];
-  const next = new Date(now);
-  next.setSeconds(0, 0);
-  next.setMinutes(now.getMinutes() < 30 ? 30 : 60);
-  const fmt = (d: Date) => {
-    const h = d.getHours(), m = d.getMinutes();
-    const period = h >= 12 ? 'pm' : 'am';
-    const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
-    return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${period}`;
-  };
-  while (next.getHours() < 21) {
-    slots.push(fmt(next));
-    next.setMinutes(next.getMinutes() + 30);
-  }
-  return slots;
-}
+// Smart defaults — most common booking for each service
+const DEFAULT_SIZE: Record<string, string> = {
+  shopping:  '',
+  'dog-walk': '30 min',
+  garden:    '2 hours',
+  moving:    '2 hours',
+  cleaning:  '2 hours',
+  tutoring:  '1 hour',
+};
+
+// ─── Pricing ──────────────────────────────────────────────────────────────
 
 function getPriceCents(slug: string, size: string): number | null {
   if (slug === 'shopping') return 1500;
   if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
-  const key = `${slug}|${size}`;
   const map: Record<string, number> = {
     'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|Half day': 7200,
     'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4+ hours': 7200,
     'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800,
     'tutoring|1 hour': 1500, 'tutoring|2 hours': 3000,  'tutoring|3 hours': 4500,
   };
-  return map[key] ?? null;
+  return map[`${slug}|${size}`] ?? null;
 }
 
-function buildWhatsAppMsg(cat: Category, when: string, size: string, note: string): string {
+function fmt(cents: number): string {
+  return `€${(cents / 100).toFixed(0)}`;
+}
+
+// What to show on the card before tapping
+function cardPrice(cat: Category): string {
+  const defSize = DEFAULT_SIZE[cat.slug];
+  const cents = getPriceCents(cat.slug, defSize);
+  if (cents === null) return 'from €15';
+  const price = fmt(cents);
+  if (!defSize) return price;
+  return `${price} · ${defSize}`;
+}
+
+// ─── Time slots ───────────────────────────────────────────────────────────
+
+function getTimeSlots(): string[] {
+  const slots: string[] = ['Now'];
+  const next = new Date();
+  next.setSeconds(0, 0);
+  next.setMinutes(next.getMinutes() < 30 ? 30 : 60);
+  const fmt = (d: Date) => {
+    const h = d.getHours(), m = d.getMinutes();
+    return `${h > 12 ? h - 12 : h === 0 ? 12 : h}${m ? `:${String(m).padStart(2, '0')}` : ''}${h >= 12 ? 'pm' : 'am'}`;
+  };
+  while (next.getHours() < 21) {
+    slots.push(fmt(next));
+    next.setMinutes(next.getMinutes() + 30);
+  }
+  return slots.slice(0, 8); // max 8 time chips
+}
+
+// ─── WhatsApp ─────────────────────────────────────────────────────────────
+
+function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
   const lines = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
   if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
-  if (size) lines.push(`${cat.sizeLabel || 'Duration'}: ${size}`);
-  if (note.trim()) lines.push(note.trim());
+  if (size) lines.push(`Duration: ${size}`);
   lines.push('Can you let me know who is available?');
   return lines.join('\n');
 }
 
-const chip = (active: boolean, now?: boolean) => cn(
-  'px-3.5 py-1.5 rounded-full text-sm font-medium border flex-shrink-0',
+// ─── Chip helper ──────────────────────────────────────────────────────────
+
+const chip = (active: boolean, accent?: boolean) => cn(
+  'px-3.5 py-1.5 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none',
   'transition-[background-color,color,border-color] duration-150',
   active
-    ? now ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-primary text-primary-foreground border-primary'
-    : now ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800'
-          : 'bg-background text-foreground border-border hover:border-primary/40',
+    ? accent
+      ? 'bg-emerald-500 text-white border-emerald-500'
+      : 'bg-foreground text-background border-foreground'
+    : accent
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold'
+      : 'bg-background text-foreground border-border hover:border-foreground/30',
 );
 
-// Slide direction: 1 = forward (left), -1 = back (right)
-const slideVariants = {
-  enter:  (d: number) => ({ x: d * 32, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit:   (d: number) => ({ x: d * -32, opacity: 0 }),
-};
-const slideTransition = { duration: 0.22, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] };
+// ─── Bottom sheet ─────────────────────────────────────────────────────────
 
-type View = 'grid' | 'options' | 'contact';
+interface SheetProps {
+  cat:       Category;
+  onClose:   () => void;
+}
 
-export const CategoryGrid: React.FC = () => {
-  const [view, setView]           = useState<View>('grid');
-  const [dir, setDir]             = useState(1);
-  const [selected, setSelected]   = useState<Category | null>(null);
-  const [when, setWhen]           = useState('');
-  const [size, setSize]           = useState('');
-  const [note, setNote]           = useState('');
-  const [name, setName]           = useState('');
-  const [phone, setPhone]         = useState('');
-  const [email, setEmail]         = useState('');
-  const [city, setCity]           = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
+  const timeSlots  = useMemo(() => getTimeSlots(), []);
+  const [when,     setWhen]    = useState('Now');
+  const [size,     setSize]    = useState(DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '');
+  const [phone,    setPhone]   = useState('');
+  const [city,     setCity]    = useState<string>('Galway');
+  const [loading,  setLoading] = useState(false);
+  const [error,    setError]   = useState<string | null>(null);
 
-  const timeSlots = useMemo(() => getTimeSlots(), []);
-
-  React.useEffect(() => {
-    function handle(e: Event) {
-      const slug = (e as CustomEvent<{ slug: string }>).detail.slug;
-      const cat = CATEGORIES.find(c => c.slug === slug);
-      if (cat) { goTo('options', 1, cat); }
-    }
-    window.addEventListener('vano:select-category', handle);
-    return () => window.removeEventListener('vano:select-category', handle);
+  // Lock body scroll while sheet is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
   }, []);
 
-  function goTo(v: View, d: number, cat?: Category) {
-    setDir(d);
-    setView(v);
-    if (cat) { setSelected(cat); setWhen(''); setSize(''); setNote(''); }
-    if (v === 'grid') { setSelected(null); setWhen(''); setSize(''); setNote(''); setName(''); setPhone(''); setEmail(''); setCity(''); setError(null); }
-    if (v !== 'grid' && v !== 'contact') { setError(null); }
-  }
+  // Escape key
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handle);
+    return () => window.removeEventListener('keydown', handle);
+  }, [onClose]);
 
-  const priceCents    = selected ? getPriceCents(selected.slug, size) : null;
-  const canPayByCard  = priceCents !== null && !!when;
-  const canWhatsApp   = !!when;
+  const priceCents = getPriceCents(cat.slug, size);
+  const priceLabel = priceCents ? fmt(priceCents) : null;
+
+  const ctaLabel = [
+    `Book ${cat.label}`,
+    size || null,
+    priceLabel,
+  ].filter(Boolean).join(' · ');
 
   function sendWhatsApp() {
-    if (!selected) return;
-    const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(selected, when, size, note))}`;
+    const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(cat, when, size))}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  async function handlePay(e: React.FormEvent) {
+  async function handleBook(e: React.FormEvent) {
     e.preventDefault();
-    if (!selected || !priceCents) return;
-    if (!name.trim()) { setError('Please enter your name.'); return; }
     if (!phone.trim()) { setError('Please enter your phone number.'); return; }
-    if (!city) { setError('Please select your city.'); return; }
     setLoading(true); setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
-        { body: { category: selected.slug, when_label: when, size_label: size, note: note.trim(), customer_name: name.trim(), customer_phone: phone.trim(), customer_email: email.trim() || null, city } },
+        { body: {
+          category:       cat.slug,
+          when_label:     when,
+          size_label:     size,
+          note:           '',
+          customer_name:  '',
+          customer_phone: phone.trim(),
+          customer_email: null,
+          city,
+        }},
       );
-      if (fnErr || !data?.checkout_url) throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
+      if (fnErr || !data?.checkout_url) {
+        throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
+      }
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
@@ -184,188 +212,264 @@ export const CategoryGrid: React.FC = () => {
   }
 
   return (
-    <section id="category-grid" aria-label="What do you need help with?">
-      <div className="overflow-hidden">
-        <AnimatePresence mode="wait" custom={dir}>
+    <>
+      {/* Backdrop */}
+      <motion.div
+        key="backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.22 }}
+        className="fixed inset-0 z-[69] bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-          {/* ── SCREEN 1: Category grid ── */}
-          {view === 'grid' && (
-            <motion.div key="grid" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={slideTransition}>
-              <div className="grid grid-cols-3 gap-2.5 lg:gap-3">
-                {CATEGORIES.map((cat, idx) => (
+      {/* Sheet */}
+      <motion.div
+        key="sheet"
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
+        className="fixed inset-x-0 bottom-0 z-[70] bg-[#FAF9F6] rounded-t-3xl shadow-2xl safe-area-bottom"
+        style={{ maxHeight: '88vh', overflowY: 'auto' }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Book ${cat.label}`}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-foreground/15" />
+        </div>
+
+        <div className="px-5 pb-6 pt-2">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <div className="flex items-center gap-2.5 mb-0.5">
+                <span className="text-2xl leading-none" aria-hidden="true">{cat.emoji}</span>
+                <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
+                  {cat.label}
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground ml-9">{cat.hint}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center hover:bg-foreground/12 transition-colors flex-shrink-0 mt-0.5"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4 text-foreground/60" />
+            </button>
+          </div>
+
+          <form onSubmit={handleBook} className="space-y-5">
+            {/* When? */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                {timeSlots.map(opt => (
                   <motion.button
-                    key={cat.slug}
-                    onClick={() => goTo('options', 1, cat)}
-                    whileHover={{ y: -3, scale: 1.04 }}
-                    whileTap={{ scale: 0.93 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 28 }}
-                    className={cn(
-                      'relative flex flex-col items-center justify-center gap-1.5',
-                      'min-h-[90px] lg:min-h-[130px] rounded-2xl px-2 py-3 lg:py-4 border',
-                      'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-primary/40 hover:shadow-sm',
-                      'transition-[background-color,border-color,box-shadow] duration-150',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                    )}
+                    key={opt}
+                    type="button"
+                    onClick={() => setWhen(opt)}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(when === opt, opt === 'Now')}
                   >
-                    {/* Subtle pulse ring */}
-                    <span
-                      className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-primary/20 animate-pulse"
-                      style={{ animationDelay: `${idx * 180}ms`, animationDuration: '2.8s' }}
-                    />
-                    {/* Popular badge */}
-                    {cat.popular && (
-                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap">
-                        Popular
-                      </span>
-                    )}
-                    <span className="text-2xl lg:text-[2rem] leading-none select-none">{cat.emoji}</span>
-                    <span className="text-[13px] lg:text-[14px] font-semibold leading-tight text-center">{cat.label}</span>
-                    <span className="text-[11px] lg:text-[12px] text-muted-foreground leading-tight">{cat.price}</span>
-                    <span className="hidden lg:block text-[10px] text-muted-foreground/70 text-center leading-tight px-1 mt-0.5">{cat.hint}</span>
+                    {opt}
                   </motion.button>
                 ))}
               </div>
+            </div>
 
-              {!selected && (
-                <button
-                  onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
-                  className="mt-4 w-full rounded-2xl bg-[#25D366]/10 border border-[#25D366]/30 px-4 py-4 flex items-center gap-4 hover:bg-[#25D366]/15 active:scale-[0.98] transition-[background-color,transform] duration-150"
-                >
-                  <span className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
-                    <MessageCircle className="w-4 h-4 text-white" aria-hidden="true" />
-                  </span>
-                  <span className="flex-1 text-left">
-                    <span className="block text-sm font-semibold text-foreground">Need something else?</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">Chat to us on WhatsApp — we'll sort it</span>
-                  </span>
-                  <span className="text-[#25D366] text-lg font-bold leading-none">→</span>
-                </button>
-              )}
-            </motion.div>
-          )}
-
-          {/* ── SCREEN 2: When + size ── */}
-          {view === 'options' && selected && (
-            <motion.div key="options" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={slideTransition}
-              className="space-y-5">
-
-              {/* Back + category identity */}
-              <div className="flex items-center gap-3">
-                <button onClick={() => goTo('grid', -1)}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  <ArrowLeft className="w-4 h-4" />
-                  Back
-                </button>
-                <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-lg leading-none">{selected.emoji}</span>
-                  <span className="text-sm font-semibold text-foreground">{selected.label}</span>
-                  <span className="text-xs text-muted-foreground">· {selected.price}</span>
-                </div>
-              </div>
-
-              {/* Description */}
-              <p className="text-sm text-muted-foreground leading-relaxed">{selected.description}</p>
-
-              {/* When? */}
+            {/* How long? */}
+            {cat.sizes && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">When?</p>
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                  {timeSlots.map(opt => (
-                    <motion.button key={opt} onClick={() => setWhen(when === opt ? '' : opt)}
-                      whileTap={{ scale: 0.91 }} transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(when === opt, opt === 'Now')}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                  {cat.sizeLabel ?? 'How long?'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {cat.sizes.map(opt => (
+                    <motion.button
+                      key={opt}
+                      type="button"
+                      onClick={() => setSize(opt)}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                      className={chip(size === opt)}
+                    >
                       {opt}
                     </motion.button>
                   ))}
                 </div>
               </div>
+            )}
 
-              {/* Size */}
-              {selected.sizes && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">{selected.sizeLabel}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selected.sizes.map(opt => (
-                      <motion.button key={opt} onClick={() => setSize(size === opt ? '' : opt)}
-                        whileTap={{ scale: 0.91 }} transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                        className={chip(size === opt)}>
-                        {opt}
-                      </motion.button>
-                    ))}
-                  </div>
+            {/* Phone */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="08x xxx xxxx"
+                autoComplete="tel"
+                autoFocus
+                required
+                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
+            </div>
+
+            {/* City chips */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your city</p>
+              <div className="flex flex-wrap gap-2">
+                {SUPPORTED_CITIES.map(c => (
+                  <motion.button
+                    key={c}
+                    type="button"
+                    onClick={() => setCity(c)}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(city === c)}
+                  >
+                    {c}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* Price summary + CTA */}
+            <div className="space-y-2.5 pt-1">
+              {priceCents && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
+                  <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
+                  <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
                 </div>
               )}
 
-              {/* Note */}
-              <input type="text" value={note} onChange={e => setNote(e.target.value)}
-                placeholder="Anything to add? (optional)"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
+              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                <Button
+                  type="submit"
+                  disabled={loading || !phone.trim()}
+                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
+                >
+                  {loading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
+                    : <><CreditCard className="w-4 h-4" />{ctaLabel}</>}
+                </Button>
+              </motion.div>
 
-              {/* CTAs */}
-              <div className="space-y-2.5">
-                {canPayByCard && (
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                    <Button onClick={() => goTo('contact', 1)} className="w-full rounded-full gap-2 font-semibold">
-                      <CreditCard className="w-4 h-4" />
-                      Book for €{(priceCents! / 100).toFixed(0)} — pay by card
-                    </Button>
-                  </motion.div>
+              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={sendWhatsApp}
+                  className="w-full rounded-full gap-2 font-medium text-sm h-10 border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Or book via WhatsApp
+                </Button>
+              </motion.div>
+            </div>
+
+            {error && <p className="text-center text-xs text-destructive">{error}</p>}
+            <p className="text-center text-[11px] text-muted-foreground">
+              Stripe secure checkout · paid upfront · money back guarantee
+            </p>
+          </form>
+        </div>
+      </motion.div>
+    </>
+  );
+};
+
+// ─── Main grid ────────────────────────────────────────────────────────────
+
+export const CategoryGrid: React.FC = () => {
+  const [selectedCat, setSelectedCat] = useState<Category | null>(null);
+
+  const openSheet = useCallback((cat: Category) => setSelectedCat(cat), []);
+  const closeSheet = useCallback(() => setSelectedCat(null), []);
+
+  // Support the vano:select-category custom event from TaskShowcase etc.
+  useEffect(() => {
+    const handle = (e: Event) => {
+      const slug = (e as CustomEvent<{ slug: string }>).detail.slug;
+      const cat = CATEGORIES.find(c => c.slug === slug);
+      if (cat) openSheet(cat);
+    };
+    window.addEventListener('vano:select-category', handle);
+    return () => window.removeEventListener('vano:select-category', handle);
+  }, [openSheet]);
+
+  return (
+    <>
+      <div id="category-grid" aria-label="What do you need help with?">
+        <div className="grid grid-cols-3 gap-2.5">
+          {CATEGORIES.map((cat, idx) => {
+            const shown = cardPrice(cat);
+            return (
+              <motion.button
+                key={cat.slug}
+                onClick={() => openSheet(cat)}
+                whileHover={{ y: -3, scale: 1.04 }}
+                whileTap={{ scale: 0.93 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+                className={cn(
+                  'relative flex flex-col items-center justify-center gap-1.5',
+                  'min-h-[96px] rounded-2xl px-2 py-3 border',
+                  'bg-white text-foreground hover:bg-secondary/60 border-border/60 hover:border-foreground/20 hover:shadow-sm',
+                  'transition-[background-color,border-color,box-shadow] duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 )}
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                  <Button onClick={sendWhatsApp} disabled={!canWhatsApp}
-                    variant={canPayByCard ? 'outline' : 'default'}
-                    className={cn('w-full rounded-full gap-2 font-semibold',
-                      !canPayByCard && when ? 'bg-[#25D366] hover:bg-[#1ebe5d] text-white border-transparent' : '')}>
-                    <MessageCircle className="w-4 h-4" />
-                    {canPayByCard ? 'Or book via WhatsApp' : 'Book via WhatsApp'}
-                  </Button>
-                </motion.div>
-                {!when && selected.slug !== 'tutoring' && (
-                  <p className="text-center text-xs text-muted-foreground">Pick a time above to continue</p>
+              >
+                {/* Pulse ring */}
+                <span
+                  className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-foreground/10 animate-pulse"
+                  style={{ animationDelay: `${idx * 180}ms`, animationDuration: '3s' }}
+                  aria-hidden="true"
+                />
+                {/* Popular badge */}
+                {cat.popular && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10">
+                    Popular
+                  </span>
                 )}
-              </div>
-            </motion.div>
-          )}
+                <span className="text-2xl leading-none select-none" aria-hidden="true">{cat.emoji}</span>
+                <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
+                {/* Smart default price — the key info before you tap */}
+                <span className="text-[11px] font-medium text-foreground/50 leading-tight tabular-nums">{shown}</span>
+              </motion.button>
+            );
+          })}
+        </div>
 
-          {/* ── SCREEN 3: Contact + pay ── */}
-          {view === 'contact' && selected && (
-            <motion.div key="contact" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={slideTransition}>
-              <button onClick={() => goTo('options', -1)}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5">
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-
-              <p className="text-base font-semibold text-foreground mb-4">Your details</p>
-
-              <form onSubmit={handlePay} className="space-y-3">
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" required
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Your phone number" required
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email (for your receipt)"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150" />
-                <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Your city" /></SelectTrigger>
-                  <SelectContent>{SUPPORTED_CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                  <Button type="submit" disabled={loading} className="w-full rounded-full gap-2 font-semibold mt-1">
-                    {loading
-                      ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
-                      : <><CreditCard className="w-4 h-4" />Pay €{(priceCents! / 100).toFixed(0)} securely</>}
-                  </Button>
-                </motion.div>
-
-                {error && <p className="text-center text-xs text-destructive">{error}</p>}
-                <p className="text-center text-xs text-muted-foreground">Stripe secure checkout · paid upfront, confirmed instantly</p>
-              </form>
-            </motion.div>
-          )}
-
-        </AnimatePresence>
+        {/* WhatsApp fallback */}
+        <button
+          onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
+          className="mt-3.5 w-full rounded-2xl bg-[#25D366]/8 border border-[#25D366]/25 px-4 py-3.5 flex items-center gap-3.5 hover:bg-[#25D366]/12 active:scale-[0.98] transition-[background-color,transform] duration-150"
+        >
+          <span className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
+            <MessageCircle className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+          </span>
+          <span className="flex-1 text-left">
+            <span className="block text-sm font-semibold text-foreground">Need something else?</span>
+            <span className="block text-xs text-muted-foreground mt-0.5">Chat to us on WhatsApp — we'll sort it</span>
+          </span>
+          <span className="text-[#25D366] text-lg font-bold leading-none">→</span>
+        </button>
       </div>
-    </section>
+
+      {/* Bottom sheet portal-style — rendered outside the grid */}
+      <AnimatePresence>
+        {selectedCat && (
+          <Sheet cat={selectedCat} onClose={closeSheet} />
+        )}
+      </AnimatePresence>
+    </>
   );
 };

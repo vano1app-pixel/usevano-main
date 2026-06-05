@@ -42,8 +42,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        /* Plus Jakarta Sans — close to typical social / carousel branding; swap if you export an exact font from IG */
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        /* Bricolage Grotesque — warm, slightly irregular grotesque. Used for hero/display headings only. */
+        display: ['"Bricolage Grotesque"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
