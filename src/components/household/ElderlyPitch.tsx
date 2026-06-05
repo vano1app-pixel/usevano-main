@@ -55,7 +55,7 @@ const PLANS = [
 
 export const ElderlyPitch: React.FC = () => {
   return (
-    <section className="relative bg-primary px-4 py-14 overflow-hidden">
+    <section className="relative bg-primary px-4 py-14">
       <div className="grain pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <div className="relative max-w-4xl mx-auto">
@@ -158,7 +158,7 @@ function ElderlyCards() {
   return (
     <div>
       {/* Mobile swipeable */}
-      <div className="sm:hidden">
+      <div className="md:hidden">
         <div
           ref={trackRef}
           onScroll={onScroll}
@@ -182,7 +182,7 @@ function ElderlyCards() {
       </div>
 
       {/* Desktop grid */}
-      <div className="hidden sm:grid sm:grid-cols-3 gap-4 pt-4">
+      <div className="hidden md:grid md:grid-cols-3 gap-4 pt-4">
         {PLANS.map((plan) => (
           <PlanCard key={plan.name} plan={plan} />
         ))}
