@@ -28,7 +28,7 @@ export const HowItWorks: React.FC = () => {
       <p className="eyebrow mb-4">How it works</p>
       <h2 className="display-lg text-foreground mb-10">Three steps. That's it.</h2>
 
-      <div ref={ref} className="relative grid grid-cols-1 md:grid-cols-3 gap-6 xl:gap-8">
+      <div ref={ref} className="relative grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Dashed connector — desktop only, runs between the circle centres */}
         <div
           className="hidden md:block absolute top-5 left-[calc(16.66%+20px)] right-[calc(16.66%+20px)] h-px border-t-2 border-dashed border-border/60"

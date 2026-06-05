@@ -42,14 +42,14 @@ const CATEGORIES: Category[] = [
     emoji: '📦', label: 'Moving',    slug: 'moving',
     hint: 'Heavy lifting · you arrange the van',
     description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
   },
   {
     emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',
     hint: 'Kitchen, bathroom, floors & surfaces',
     description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
     popular: true,
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
     emoji: '📚', label: 'Tutoring',  slug: 'tutoring',

@@ -42,10 +42,7 @@ export const HeroSection: React.FC = () => {
   }, []);
 
   return (
-    <section
-      className="relative overflow-hidden bg-navy pt-[72px] pb-4 px-4 lg:pt-[96px] lg:pb-0 flex flex-col"
-      style={{ minHeight: 'calc(100dvh - 2.5rem)' }}
-    >
+    <section className="relative overflow-hidden bg-navy pt-20 pb-10 px-4 lg:pt-20 lg:pb-14">
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
@@ -56,18 +53,18 @@ export const HeroSection: React.FC = () => {
         aria-hidden="true"
       />
 
-      <div className="relative max-w-6xl mx-auto">
-        <div className="lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 xl:grid-cols-[1fr,480px] xl:gap-14 lg:items-center">
+      <div className="relative max-w-5xl mx-auto">
+        <div className="lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 lg:items-center">
 
           {/* ── Left column — pitch ── */}
-          <div className="mb-5 lg:mb-0 lg:pt-4">
+          <div className="mb-8 lg:mb-0 lg:pt-4">
 
             {/* Live pill */}
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-wrap items-center gap-2 mb-4 lg:mb-6"
+              className="flex flex-wrap items-center gap-2 mb-6"
             >
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" aria-hidden="true" />
@@ -94,7 +91,7 @@ export const HeroSection: React.FC = () => {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-white/65 text-sm lg:text-lg leading-relaxed mb-5 lg:mb-8 max-w-sm"
+              className="text-white/65 text-base lg:text-lg leading-relaxed mb-8 max-w-sm"
             >
               Local students, booked by card in under a minute. No account. No back-and-forth. Money back if it's not right.
             </motion.p>
