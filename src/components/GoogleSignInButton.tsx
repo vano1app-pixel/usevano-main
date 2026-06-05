@@ -1,6 +1,5 @@
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NewFeatureBadge } from '@/components/NewFeatureBadge';
 
 function GoogleMark({ className }: { className?: string }) {
   return (
@@ -57,10 +56,7 @@ export function GoogleSignInButton({
       )}
     >
       {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleMark />}
-      <span className="inline-flex items-center gap-2">
-        Continue with Google
-        <NewFeatureBadge />
-      </span>
+      <span>Continue with Google</span>
     </button>
   );
 }
