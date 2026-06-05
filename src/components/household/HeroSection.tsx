@@ -42,7 +42,7 @@ export const HeroSection: React.FC = () => {
   }, []);
 
   return (
-    <section className="relative overflow-hidden bg-navy pt-[88px] pb-0 px-4 lg:pt-[96px] lg:pb-0">
+    <section className="relative overflow-hidden bg-navy pt-[88px] px-4 lg:pt-[96px] flex flex-col" style={{ minHeight: 'calc(100vh - 2.5rem)' }}>
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
