@@ -49,7 +49,7 @@ const CATEGORIES: Category[] = [
     hint: 'Kitchen, bathroom, floors & surfaces',
     description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
     popular: true,
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
+    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
   },
   {
     emoji: '📚', label: 'Tutoring',  slug: 'tutoring',
