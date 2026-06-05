@@ -31,9 +31,9 @@ const TIERS: AirbnbTier[] = [
     tagline: 'Great for occasional lets',
     highlight: true,
     features: [
-      '2 changeover cleans per month',
-      'Fresh linen & towels restocked',
-      'Welcome pack stocked before arrival',
+      '2 full property cleans per month',
+      'Grocery & welcome pack before each stay',
+      'Garden tidied before guest arrival',
       'Booking confirmed in under 2 hrs',
     ],
   },
@@ -41,23 +41,23 @@ const TIERS: AirbnbTier[] = [
     slug: 'airbnb-popular', name: 'Popular', price: 19900, label: '€199',
     tagline: 'Best value for active hosts',
     features: [
-      '4 changeover cleans per month',
-      'Fresh linen & towels restocked',
+      '4 full property cleans per month',
       'Grocery & welcome pack every stay',
       'Garden & outdoor area kept tidy',
+      'Shopping runs as needed',
       'Priority same-day booking',
       'Booking confirmed in under 1 hr',
     ],
   },
   {
     slug: 'airbnb-premium', name: 'Full Management', price: 29900, label: '€299',
-    tagline: 'Hands-off property management',
+    tagline: 'Hands-off hosting — we handle it',
     features: [
-      'Unlimited changeover cleans',
-      'Fresh linen & towels restocked',
+      'Unlimited property cleans',
       'Grocery & welcome pack every stay',
-      'Garden, gutters & outdoor upkeep',
-      'Minor maintenance & odd jobs',
+      'Garden & outdoor area maintained',
+      'Shopping runs as needed',
+      'Dog walking between guest stays',
       'Dedicated student who knows your home',
       '24 hr WhatsApp response guarantee',
     ],
@@ -103,9 +103,7 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
   return (
     <div className={cn(
       'relative flex flex-col h-full rounded-2xl border overflow-hidden',
-      tier.highlight
-        ? 'border-[#FF385C]/40 shadow-lg shadow-[#FF385C]/10'
-        : 'border-border/50 shadow-sm',
+      'border-[#FF385C]/30 shadow-sm shadow-[#FF385C]/5',
     )}>
       {tier.highlight && (
         <div className="px-4 py-1.5 flex items-center gap-1.5" style={{ background: '#FF385C' }}>
@@ -125,8 +123,8 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
           {tier.features.map(f => (
             <li key={f} className="flex items-start gap-2">
               <CheckCircle2
-                className={cn('w-3.5 h-3.5 flex-shrink-0 mt-0.5', !tier.highlight && 'text-emerald-500')}
-                style={tier.highlight ? { color: '#FF385C' } : undefined}
+                className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"
+                style={{ color: '#FF385C' }}
               />
               <span className="text-xs text-foreground/80 leading-relaxed">{f}</span>
             </li>
@@ -136,8 +134,8 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
         {!open ? (
           <Button
             onClick={() => setOpen(true)}
-            className={cn('w-full rounded-full gap-2 font-semibold', tier.highlight && 'text-white border-transparent')}
-            style={tier.highlight ? { backgroundColor: '#FF385C' } : undefined}
+            className="w-full rounded-full gap-2 font-semibold text-white border-transparent"
+            style={{ backgroundColor: '#FF385C' }}
           >
             <CreditCard className="w-4 h-4" />Get started — {tier.label}/mo
           </Button>
@@ -153,8 +151,8 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
               placeholder="Your city (e.g. Galway)"
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring" />
             <Button type="submit" disabled={loading || !name.trim() || !phone.trim()}
-              className={cn('w-full rounded-full gap-2 font-semibold', tier.highlight && 'text-white border-transparent')}
-              style={tier.highlight ? { backgroundColor: '#FF385C' } : undefined}
+              className="w-full rounded-full gap-2 font-semibold text-white border-transparent"
+              style={{ backgroundColor: '#FF385C' }}
             >
               {loading
                 ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
