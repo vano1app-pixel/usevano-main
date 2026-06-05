@@ -6,12 +6,12 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ─── Pay-per-job prices (matches the 6 bookable categories) ──────────────
 const PRICES = [
-  { emoji: '🛒', label: 'Shopping & errands', price: 'from €15'    },
-  { emoji: '🐕', label: 'Dog walking',         price: '€15–€20'     },
-  { emoji: '🌿', label: 'Garden work',         price: 'from €18/hr' },
-  { emoji: '📦', label: 'Moving help',         price: 'from €18/hr' },
-  { emoji: '🧹', label: 'Cleaning',            price: 'from €16/hr' },
-  { emoji: '📚', label: 'Tutoring & grinds',   price: 'from €15/hr' },
+  { emoji: '🛒', slug: 'shopping',  label: 'Shopping',    price: 'from €15'    },
+  { emoji: '🐕', slug: 'dog-walk',  label: 'Dog walking', price: '€15–€20'     },
+  { emoji: '🌿', slug: 'garden',    label: 'Garden work', price: 'from €18/hr' },
+  { emoji: '📦', slug: 'moving',    label: 'Moving help', price: 'from €18/hr' },
+  { emoji: '🧹', slug: 'cleaning',  label: 'Cleaning',    price: 'from €16/hr' },
+  { emoji: '📚', slug: 'tutoring',  label: 'Tutoring',    price: 'from €15/hr' },
 ];
 
 // ─── Airbnb tiers ──────────────────────────────────────────────────────────
@@ -255,14 +255,19 @@ export const PricingTable: React.FC = () => {
       <h3 className="text-lg font-semibold text-foreground mb-4">One-off pricing</h3>
 
       <div className="grid grid-cols-2 gap-2 mb-6">
-        {PRICES.map(({ emoji, label, price }) => (
-          <div key={label} className="flex items-center justify-between rounded-xl border border-border/50 bg-secondary/30 px-3 py-2.5 gap-2">
+        {PRICES.map(({ emoji, slug, label, price }) => (
+          <button
+            key={slug}
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug } }))}
+            className="flex items-center justify-between rounded-xl border border-border/50 bg-secondary/30 px-3 py-2.5 gap-2 text-left hover:border-foreground/30 hover:bg-secondary/60 transition-colors duration-150 w-full"
+          >
             <span className="flex items-center gap-2 text-xs text-foreground/80 min-w-0">
               <span className="text-base leading-none flex-shrink-0" aria-hidden="true">{emoji}</span>
               <span className="truncate">{label}</span>
             </span>
             <span className="font-semibold text-xs text-foreground whitespace-nowrap">{price}</span>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -273,8 +278,7 @@ export const PricingTable: React.FC = () => {
       <div className="flex justify-center">
         <Button
           onClick={() => {
-            const el = document.getElementById('task-showcase');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           className="rounded-full px-8 font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
         >

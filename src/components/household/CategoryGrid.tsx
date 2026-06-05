@@ -104,12 +104,12 @@ function getTimeSlots(): string[] {
   const next = new Date();
   next.setSeconds(0, 0);
   next.setMinutes(next.getMinutes() < 30 ? 30 : 60);
-  const fmt = (d: Date) => {
+  const fmtTime = (d: Date) => {
     const h = d.getHours(), m = d.getMinutes();
     return `${h > 12 ? h - 12 : h === 0 ? 12 : h}${m ? `:${String(m).padStart(2, '0')}` : ''}${h >= 12 ? 'pm' : 'am'}`;
   };
   while (next.getHours() < 21) {
-    slots.push(fmt(next));
+    slots.push(fmtTime(next));
     next.setMinutes(next.getMinutes() + 30);
   }
   return slots.slice(0, 8); // max 8 time chips
@@ -185,7 +185,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
-    if (!phone.trim()) { setError('Please enter your phone number.'); return; }
+    const phoneClean = phone.trim().replace(/\s+/g, '');
+    if (!phoneClean) { setError('Please enter your phone number.'); return; }
+    if (!/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) { setError('Please enter a valid phone number.'); return; }
     setLoading(true); setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
@@ -196,7 +198,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           size_label:     size,
           note:           '',
           customer_name:  'Guest', // name collected by Stripe at checkout
-          customer_phone: phone.trim(),
+          customer_phone: phoneClean,
           customer_email: null,
           city,
         }},

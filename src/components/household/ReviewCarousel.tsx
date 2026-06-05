@@ -121,7 +121,7 @@ export const ReviewCarousel: React.FC = () => {
               <p className="text-foreground/80 text-sm leading-relaxed">"{review.text}"</p>
               <div className="flex items-center gap-2.5">
                 <Avatar name={review.name} color={review.color} />
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold text-foreground leading-tight">{review.name} · {review.area}</p>
                   <p className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium mt-0.5">
                     <BadgeCheck className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
