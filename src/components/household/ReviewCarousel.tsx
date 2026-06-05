@@ -1,35 +1,49 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Star } from 'lucide-react';
+import { Star, BadgeCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Review {
-  text: string;
-  name: string;
-  area: string;
+  text:   string;
+  name:   string;
+  area:   string;
+  color:  string;
 }
 
 const REVIEWS: Review[] = [
   {
-    text: "Cian picked up my shopping from Dunnes in the rain and had everything sorted in an hour. Brilliant.",
-    name: 'Sarah M.',
-    area: 'Salthill',
+    text:  "Cian picked up my shopping from Dunnes in the rain and had everything sorted in an hour. Brilliant.",
+    name:  'Sarah M.',
+    area:  'Salthill',
+    color: 'bg-violet-100 text-violet-700',
   },
   {
-    text: "The lads who helped us move were fast, careful with the furniture, and great craic. Saved us a fortune.",
-    name: 'Michael O.',
-    area: 'Knocknacarra',
+    text:  "The lads who helped us move were fast, careful with the furniture, and great craic. Saved us a fortune.",
+    name:  'Michael O.',
+    area:  'Knocknacarra',
+    color: 'bg-sky-100 text-sky-700',
   },
   {
-    text: "Emma walks my dog Biscuit every Tuesday. He goes mad when he sees her coming. Absolutely delighted.",
-    name: 'Áine K.',
-    area: 'Renmore',
+    text:  "Emma walks my dog Biscuit every Tuesday. He goes mad when he sees her coming. Absolutely delighted.",
+    name:  'Áine K.',
+    area:  'Renmore',
+    color: 'bg-emerald-100 text-emerald-700',
   },
   {
-    text: "I set this up for my mother and she says it's the best thing since sliced bread. Someone every week for the garden.",
-    name: 'Margaret F.',
-    area: 'Salthill',
+    text:  "I set this up for my mother and she says it's the best thing since sliced bread. Someone every week for the garden.",
+    name:  'Margaret F.',
+    area:  'Salthill',
+    color: 'bg-amber-100 text-amber-700',
   },
 ];
+
+function Avatar({ name, color }: { name: string; color: string }) {
+  const initial = name.charAt(0).toUpperCase();
+  return (
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${color}`}>
+      {initial}
+    </div>
+  );
+}
 
 const INTERVAL = 4000;
 
@@ -73,14 +87,23 @@ export const ReviewCarousel: React.FC = () => {
               ))}
             </div>
             <p className="text-foreground/80 text-sm leading-relaxed flex-1">"{r.text}"</p>
-            <p className="text-muted-foreground text-xs font-medium">{r.name} · {r.area}</p>
+            <div className="flex items-center gap-2.5 mt-auto">
+              <Avatar name={r.name} color={r.color} />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-foreground leading-tight">{r.name} · {r.area}</p>
+                <p className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium mt-0.5">
+                  <BadgeCheck className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                  Verified booking
+                </p>
+              </div>
+            </div>
           </article>
         ))}
       </div>
 
       {/* Mobile: auto-rotating single card */}
       <div className="lg:hidden px-4">
-        <div className="relative overflow-hidden" style={{ minHeight: 180 }}>
+        <div className="relative overflow-hidden" style={{ minHeight: 190 }}>
           <AnimatePresence mode="wait">
             <motion.article
               key={index}
@@ -96,7 +119,16 @@ export const ReviewCarousel: React.FC = () => {
                 ))}
               </div>
               <p className="text-foreground/80 text-sm leading-relaxed">"{review.text}"</p>
-              <p className="text-muted-foreground text-xs font-medium">{review.name} · {review.area}</p>
+              <div className="flex items-center gap-2.5">
+                <Avatar name={review.name} color={review.color} />
+                <div>
+                  <p className="text-xs font-semibold text-foreground leading-tight">{review.name} · {review.area}</p>
+                  <p className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium mt-0.5">
+                    <BadgeCheck className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                    Verified booking
+                  </p>
+                </div>
+              </div>
             </motion.article>
           </AnimatePresence>
         </div>

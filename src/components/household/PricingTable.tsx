@@ -4,20 +4,14 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
-// ─── Pay-per-job prices ────────────────────────────────────────────────────
+// ─── Pay-per-job prices (matches the 6 bookable categories) ──────────────
 const PRICES = [
-  { emoji: '🛒', label: 'Grocery shopping',   price: 'from €12'    },
-  { emoji: '🐕', label: 'Dog walking',         price: 'from €12'    },
-  { emoji: '🌿', label: 'Lawn mowing',         price: 'from €22'    },
-  { emoji: '📦', label: 'Moving help',         price: 'from €25'    },
-  { emoji: '🧹', label: 'Outdoor cleaning',    price: 'from €22'    },
-  { emoji: '📚', label: 'Tutoring & grinds',   price: 'from €22/hr' },
-  { emoji: '🔧', label: 'Furniture assembly',  price: 'from €22'    },
-  { emoji: '📱', label: 'Tech help',           price: 'from €20'    },
-  { emoji: '🌙', label: 'Midnight Lift',       price: 'from €10'    },
-  { emoji: '💊', label: 'Pharmacy run',        price: '€12 flat'    },
-  { emoji: '📬', label: 'Post office run',     price: '€10 flat'    },
-  { emoji: '🚪', label: 'Wait for deliveries', price: '€10 flat'    },
+  { emoji: '🛒', label: 'Shopping & errands', price: 'from €15'    },
+  { emoji: '🐕', label: 'Dog walking',         price: '€15–€20'     },
+  { emoji: '🌿', label: 'Garden work',         price: 'from €18/hr' },
+  { emoji: '📦', label: 'Moving help',         price: 'from €18/hr' },
+  { emoji: '🧹', label: 'Cleaning',            price: 'from €16/hr' },
+  { emoji: '📚', label: 'Tutoring & grinds',   price: 'from €15/hr' },
 ];
 
 // ─── Airbnb tiers ──────────────────────────────────────────────────────────

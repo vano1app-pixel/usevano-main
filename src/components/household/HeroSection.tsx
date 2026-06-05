@@ -1,18 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Zap, ThumbsUp } from 'lucide-react';
+import { ShieldCheck, Zap, BadgeCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { CategoryGrid } from './CategoryGrid';
 
 const TRUST = [
-  { icon: ShieldCheck, text: 'All students are screened before joining' },
-  { icon: Zap,         text: 'See their photo and name before they arrive' },
-  { icon: ThumbsUp,    text: "Money back if the job isn't done right." },
+  { icon: ShieldCheck, text: 'Every student is screened before their first job' },
+  { icon: Zap,         text: "You'll see their photo and name before they arrive" },
+  { icon: BadgeCheck,  text: 'Full refund if the job isn\'t done right — no questions' },
 ];
 
 const SEED = 3;
 
+function useCountUp(target: number, duration = 600): number {
+  const [display, setDisplay] = useState(target);
+  useEffect(() => {
+    const start = Date.now();
+    const from = 0;
+    const raf = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(from + (target - from) * ease));
+      if (progress < 1) requestAnimationFrame(raf);
+    };
+    requestAnimationFrame(raf);
+  }, [target, duration]);
+  return display;
+}
+
 export const HeroSection: React.FC = () => {
-  const [helperCount, setHelperCount] = useState<number>(5);
+  const [helperCount, setHelperCount] = useState<number>(0);
+  const displayCount = useCountUp(helperCount, 700);
 
   useEffect(() => {
     (supabase as any)
@@ -32,30 +51,44 @@ export const HeroSection: React.FC = () => {
 
           {/* Left */}
           <div className="mb-7 lg:mb-0 lg:pt-6">
-            {/* Availability pill */}
+            {/* Availability pill — count animates in */}
             <div className="flex flex-wrap items-center gap-2 mb-5 lg:mb-6">
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1"
+              >
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
                 <span className="text-xs font-semibold text-emerald-700 tracking-wide">
-                  {helperCount} helpers available now
+                  {displayCount} helpers available now
                 </span>
-              </div>
+              </motion.div>
               <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/8 border border-primary/15 px-3 py-1">
                 <span className="text-xs font-semibold text-primary tracking-wide">🚀 Growing from Galway</span>
               </div>
             </div>
 
-            <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-5 sm:text-[2.8rem] lg:text-6xl lg:mb-8">
-              A Galway student,<br />here to help.
+            <h1 className="text-[2.2rem] leading-[1.08] font-extrabold tracking-tight text-foreground mb-3 sm:text-[2.8rem] lg:text-6xl">
+              Someone local,<br />here when you need it.
             </h1>
+            <p className="text-base text-muted-foreground leading-relaxed mb-6 max-w-sm lg:text-lg lg:mb-8">
+              Real students from your area. Booked in seconds, paid by card — and if it's not right, you get your money back.
+            </p>
 
-            {/* Trust badges */}
-            <ul className="flex flex-wrap gap-x-4 gap-y-2 lg:flex-col lg:gap-2.5">
-              {TRUST.map(({ icon: Icon, text }) => (
-                <li key={text} className="flex items-center gap-2 text-xs sm:text-sm text-foreground/70">
-                  <Icon className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-sage flex-shrink-0" aria-hidden="true" />
+            {/* Trust badges — pill cards */}
+            <ul className="flex flex-col gap-2.5">
+              {TRUST.map(({ icon: Icon, text }, i) => (
+                <motion.li
+                  key={text}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 + i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex items-center gap-2.5 bg-background/70 border border-border/50 rounded-xl px-3 py-2.5 text-sm text-foreground/80"
+                >
+                  <Icon className="w-4 h-4 text-sage flex-shrink-0" aria-hidden="true" />
                   {text}
-                </li>
+                </motion.li>
               ))}
             </ul>
           </div>

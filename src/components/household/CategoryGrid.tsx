@@ -13,7 +13,9 @@ interface Category {
   label:       string;
   slug:        string;
   price:       string;
+  hint:        string;
   description: string;
+  popular?:    boolean;
   sizeLabel?:  string;
   sizes?:      string[];
 }
@@ -21,30 +23,37 @@ interface Category {
 const CATEGORIES: Category[] = [
   {
     emoji: '🛒', label: 'Shopping',  slug: 'shopping',  price: 'from €15',
+    hint: 'Any store · delivered to your door',
     description: 'We shop any store, follow your list, and deliver to your door.',
   },
   {
     emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',  price: '€15–€20',
+    hint: 'On-lead · collected & returned safely',
     description: 'Collected from your door, walked on-lead, returned home safely.',
     sizeLabel: 'How long?', sizes: ['30 min', '1 hour'],
   },
   {
     emoji: '🌿', label: 'Garden',    slug: 'garden',    price: 'from €18/hr',
+    hint: 'Mow, weed & tidy · waste bagged',
     description: 'Mowing, weeding, edging and tidying — all waste bagged.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', 'Half day'],
   },
   {
     emoji: '📦', label: 'Moving',    slug: 'moving',    price: 'from €18/hr',
+    hint: 'Heavy lifting · you arrange the van',
     description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting. Price for 1 helper; need more? Book via WhatsApp.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
   },
   {
     emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',  price: 'from €16/hr',
+    hint: 'Kitchen, bathroom, floors & surfaces',
+    popular: true,
     description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
   {
     emoji: '📚', label: 'Tutoring',  slug: 'tutoring',  price: 'from €15/hr',
+    hint: 'One-to-one · any subject at home',
     description: 'One-to-one at your home. Any subject — Maths, science, languages.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
@@ -191,21 +200,28 @@ export const CategoryGrid: React.FC = () => {
                     whileTap={{ scale: 0.93 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 28 }}
                     className={cn(
-                      'relative flex flex-col items-center justify-center gap-2',
-                      'min-h-[90px] lg:min-h-[120px] rounded-2xl px-2 py-3 lg:py-4 border',
+                      'relative flex flex-col items-center justify-center gap-1.5',
+                      'min-h-[90px] lg:min-h-[130px] rounded-2xl px-2 py-3 lg:py-4 border',
                       'bg-secondary/60 text-foreground hover:bg-secondary border-border/50 hover:border-primary/40 hover:shadow-sm',
                       'transition-[background-color,border-color,box-shadow] duration-150',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                     )}
                   >
-                    {/* Subtle pulse ring — draws the eye to tap */}
+                    {/* Subtle pulse ring */}
                     <span
                       className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-primary/20 animate-pulse"
                       style={{ animationDelay: `${idx * 180}ms`, animationDuration: '2.8s' }}
                     />
+                    {/* Popular badge */}
+                    {cat.popular && (
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap">
+                        Popular
+                      </span>
+                    )}
                     <span className="text-2xl lg:text-[2rem] leading-none select-none">{cat.emoji}</span>
                     <span className="text-[13px] lg:text-[14px] font-semibold leading-tight text-center">{cat.label}</span>
                     <span className="text-[11px] lg:text-[12px] text-muted-foreground leading-tight">{cat.price}</span>
+                    <span className="hidden lg:block text-[10px] text-muted-foreground/70 text-center leading-tight px-1 mt-0.5">{cat.hint}</span>
                   </motion.button>
                 ))}
               </div>
