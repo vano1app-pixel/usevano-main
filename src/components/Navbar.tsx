@@ -195,9 +195,9 @@ export const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className={`fixed top-2.5 left-3 right-3 sm:top-4 sm:left-5 sm:right-5 lg:top-5 lg:left-8 lg:right-8 z-[2000] rounded-2xl border transition-all duration-300 ${navSurfaceClass}`}
+        className={`fixed top-2.5 left-3 right-3 sm:top-4 sm:left-5 sm:right-5 lg:top-5 lg:left-8 lg:right-8 xl:left-12 xl:right-12 z-[2000] rounded-2xl border transition-all duration-300 ${navSurfaceClass}`}
       >
-        <div className="max-w-7xl mx-auto px-3.5 sm:px-5 md:px-8 lg:px-10 h-14 sm:h-[3.75rem] flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-5 md:px-8 lg:px-10 xl:px-12 h-14 sm:h-[3.75rem] xl:h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
             <img src={logo} alt="VANO" className="h-8 w-8 rounded-[10px] shadow-sm transition-transform duration-200 group-hover:scale-105" />
             <span className="text-[22px] font-bold tracking-tight text-primary">VANO</span>

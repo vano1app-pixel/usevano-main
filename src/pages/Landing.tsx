@@ -285,11 +285,11 @@ const Landing = () => {
       <Navbar />
 
       {/* Hero */}
-      <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 pt-20 pb-4 overflow-hidden">
+      <section data-hero-section className="relative min-h-[70dvh] flex flex-col justify-center px-4 md:px-8 lg:px-12 xl:px-20 pt-20 pb-4 overflow-hidden">
         {/* Breathing gradient orb */}
-        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
+        <div data-hero-orb className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220px] h-[220px] sm:w-[500px] sm:h-[500px] md:w-[700px] md:h-[700px] xl:w-[900px] xl:h-[900px] rounded-full bg-gradient-to-br from-primary/[0.07] via-transparent to-emerald-500/[0.05] blur-2xl sm:blur-3xl" />
 
-        <div data-hero-content className="relative max-w-3xl mx-auto text-center" style={{ perspective: '800px' }}>
+        <div data-hero-content className="relative max-w-3xl xl:max-w-4xl mx-auto text-center" style={{ perspective: '800px' }}>
           {/* Vano Match eyebrow — "hand-picked for you" sells the
               bespoke promise without naming the price. */}
           <div data-hero-eyebrow className="mb-5 flex justify-center">
@@ -312,7 +312,7 @@ const Landing = () => {
               </span>
             </h1>
           </div>
-          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px]">
+          <p data-hero-sub className="mx-auto mb-8 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground text-balance sm:text-base lg:text-[17px] xl:text-[18px]">
             €1 to find your freelancer in 20 seconds. Or free in 24h.
           </p>
 
@@ -326,7 +326,7 @@ const Landing = () => {
           <div
             data-hero-paths
             className={cn(
-              'mx-auto grid max-w-2xl gap-3 text-left sm:gap-4',
+              'mx-auto grid max-w-2xl xl:max-w-[680px] gap-3 text-left sm:gap-4 xl:gap-5',
               !session ? 'sm:grid-cols-2' : 'sm:grid-cols-1',
             )}
           >
@@ -422,11 +422,11 @@ const Landing = () => {
 
 
       {/* What do you need? */}
-      <section data-section-categories className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
-        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+      <section data-section-categories className="py-20 md:py-28 xl:py-32 px-4 md:px-8 lg:px-12 xl:px-20">
+        <div className="max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto">
           <div>
           <span className="eyebrow mb-5">What do you need</span>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 xl:gap-5">
             {[
               { label: 'Videography', sub: 'Filming, reels & promos', icon: Video, cat: 'videography', image: '/cat-videography.png' as string | null },
               { label: 'Digital Sales', sub: 'Outbound, lead gen & closing', icon: TrendingUp, cat: 'digital_sales', image: '/cat-digital_sales.png' as string | null },
@@ -442,7 +442,7 @@ const Landing = () => {
                   key={slug}
                   type="button"
                   onClick={() => { navigate(`/hire?category=${slug}`); }}
-                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 text-left shadow-tinted transition-all duration-300 ease-out-expo active:scale-[0.98] hover:border-foreground/20 hover:shadow-tinted-lg hover:-translate-y-[2px]"
+                  className="group relative overflow-hidden flex flex-col items-start gap-3 rounded-2xl border border-foreground/10 bg-card p-4 md:p-5 lg:p-6 xl:p-7 text-left shadow-tinted transition-all duration-300 ease-out-expo active:scale-[0.98] hover:border-foreground/20 hover:shadow-tinted-lg hover:-translate-y-[2px]"
                   style={{ transformStyle: 'preserve-3d' }}
                 >
                   {item.image ? (
@@ -477,13 +477,14 @@ const Landing = () => {
                       of fighting it. */}
                   <div className="absolute inset-0 bg-gradient-to-t from-[hsl(25_30%_8%/0.55)] via-[hsl(25_30%_8%/0.18)] to-transparent pointer-events-none" />
                   <div className="relative z-10 flex flex-col gap-3 md:gap-4">
-                    <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm transition-all duration-200 group-hover:bg-white/25">
+                    <div className="flex h-10 w-10 md:h-12 md:w-12 xl:h-14 xl:w-14 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm transition-all duration-200 group-hover:bg-white/25">
                       <item.icon size={18} className="transition-colors duration-200 text-white group-hover:text-white md:hidden" strokeWidth={2} />
-                      <item.icon size={22} className="transition-colors duration-200 text-white group-hover:text-white hidden md:block" strokeWidth={2} />
+                      <item.icon size={22} className="transition-colors duration-200 text-white group-hover:text-white hidden md:block xl:hidden" strokeWidth={2} />
+                      <item.icon size={26} className="transition-colors duration-200 text-white group-hover:text-white hidden xl:block" strokeWidth={2} />
                     </div>
                     <div>
-                      <p className="text-[13px] md:text-[15px] font-bold text-white leading-snug drop-shadow-sm">{item.label}</p>
-                      <p className="text-[11px] md:text-[13px] text-white/80 mt-0.5 leading-snug">{item.sub}</p>
+                      <p className="text-[13px] md:text-[15px] xl:text-[16px] font-bold text-white leading-snug drop-shadow-sm">{item.label}</p>
+                      <p className="text-[11px] md:text-[13px] xl:text-[14px] text-white/80 mt-0.5 leading-snug">{item.sub}</p>
                     </div>
                   </div>
                 </button>
@@ -494,9 +495,9 @@ const Landing = () => {
         </div>
       </section>
       {(studentsLoaded ? featuredStudents.length > 0 : true) && (
-        <section data-section-freelancers className="py-10 md:py-14 overflow-hidden">
+        <section data-section-freelancers className="py-10 md:py-14 xl:py-18 overflow-hidden">
           <div
-            className="max-w-5xl lg:max-w-6xl mx-auto px-4 md:px-8 lg:px-12"
+            className="max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-8 lg:px-12 xl:px-20"
           >
             <div data-section-label className="flex items-end justify-between mb-4">
               <div>
@@ -574,7 +575,7 @@ const Landing = () => {
                   ? [1, 2, 3, 4, 5].map((i) => (
                       <div
                         key={i}
-                        className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
+                        className="flex w-48 sm:w-56 md:w-64 xl:w-72 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 animate-pulse"
                       >
                         <div className="flex gap-2.5">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
@@ -604,7 +605,7 @@ const Landing = () => {
                           key={s.user_id}
                           type="button"
                           onClick={() => navigate(`/students/${s.user_id}`)}
-                          className="group flex w-48 sm:w-56 md:w-64 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
+                          className="group flex w-48 sm:w-56 md:w-64 xl:w-72 shrink-0 flex-col gap-2 rounded-2xl border border-foreground/10 bg-card p-3 md:p-4 xl:p-5 text-left shadow-sm transition-all hover:border-foreground/20 hover:shadow-md active:scale-[0.98]"
                         >
                           <div className="flex items-start gap-2.5">
                             <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
@@ -670,7 +671,7 @@ const Landing = () => {
                   <button
                     type="button"
                     onClick={() => navigate('/students')}
-                    className="flex w-48 sm:w-56 md:w-64 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
+                    className="flex w-48 sm:w-56 md:w-64 xl:w-72 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-foreground/15 bg-muted/20 p-4 transition-all hover:border-foreground/30 hover:bg-muted/40 min-h-[9.5rem]"
                   >
                     <ArrowRight size={22} className="text-muted-foreground" />
                     <p className="text-center text-[12px] font-semibold text-muted-foreground">
@@ -689,8 +690,8 @@ const Landing = () => {
       )}
 
       {/* FAQ */}
-      <section data-section-faq className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
-        <div className="max-w-2xl lg:max-w-3xl mx-auto">
+      <section data-section-faq className="py-20 md:py-28 xl:py-32 px-4 md:px-8 lg:px-12 xl:px-20">
+        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <span className="inline-block rounded-full bg-foreground/[0.05] px-3 py-1 text-[10.5px] font-semibold text-muted-foreground uppercase tracking-[0.18em] mb-5">
               FAQ
@@ -758,8 +759,8 @@ const Landing = () => {
       </section>
 
       {/* CTA */}
-      <section data-section-cta className="py-20 md:py-28 px-4 md:px-8 lg:px-12">
-        <div className="max-w-2xl lg:max-w-3xl mx-auto">
+      <section data-section-cta className="py-20 md:py-28 xl:py-32 px-4 md:px-8 lg:px-12 xl:px-20">
+        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
           <div data-cta-box className="relative overflow-hidden rounded-[28px] bg-primary px-5 py-12 sm:px-10 sm:py-16 lg:px-20 lg:py-20 text-center shadow-primary-glow">
             {/* Single radial mesh light source — replaces two competing
                 blur orbs. Off-axis (top-right) suggests a single sun
@@ -807,8 +808,8 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer data-section-footer className="border-t border-foreground/6 py-20 md:py-28 px-4 md:px-8 lg:px-12">
-        <div className="max-w-5xl lg:max-w-6xl mx-auto">
+      <footer data-section-footer className="border-t border-foreground/6 py-20 md:py-28 xl:py-32 px-4 md:px-8 lg:px-12 xl:px-20">
+        <div className="max-w-5xl lg:max-w-6xl xl:max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-start justify-between gap-10 lg:gap-16 mb-10">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2.5">
