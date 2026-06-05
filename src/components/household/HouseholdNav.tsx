@@ -23,8 +23,8 @@ export const HouseholdNav: React.FC = () => {
   }, [handleScroll]);
 
   const navSurfaceClass = scrolled
-    ? 'bg-background/80 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg'
-    : 'bg-transparent border-transparent shadow-none backdrop-blur-none';
+    ? 'bg-cream/90 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg'
+    : 'bg-cream border-border/30 shadow-none';
 
   return (
     <header

@@ -42,7 +42,7 @@ export const HeroSection: React.FC = () => {
   }, []);
 
   return (
-    <section className="relative overflow-hidden bg-navy pt-20 pb-10 px-4 lg:pt-28 lg:pb-16">
+    <section className="relative overflow-hidden bg-navy pt-20 pb-10 px-4 lg:pt-20 lg:pb-14">
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
@@ -54,7 +54,7 @@ export const HeroSection: React.FC = () => {
       />
 
       <div className="relative max-w-5xl mx-auto">
-        <div className="lg:grid lg:grid-cols-[1fr,480px] lg:gap-14 lg:items-start">
+        <div className="lg:grid lg:grid-cols-[1fr,420px] lg:gap-10 lg:items-center">
 
           {/* ── Left column — pitch ── */}
           <div className="mb-8 lg:mb-0 lg:pt-4">
