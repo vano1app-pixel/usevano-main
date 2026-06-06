@@ -616,7 +616,7 @@ async function handleHelperSubscriptionCompleted(
 ): Promise<Response> {
   const { error } = await supabase
     .from('household_helpers')
-    .update({ status: 'approved' })
+    .update({ status: 'approved', is_available: true })
     .eq('email', helperEmail)
     .eq('status', 'pending');
 
