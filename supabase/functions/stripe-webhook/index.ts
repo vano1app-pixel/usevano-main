@@ -513,12 +513,36 @@ async function handleHouseholdCheckoutCompleted(
     }
   })();
 
+  // Auto-dispatch the job to eligible helpers — fire and forget.
+  // Finds up to 3 approved + available helpers in the same city and
+  // emails them the job with a 15-minute claim window.
+  // Uses the same booking record already returned from the flip above,
+  // so no extra DB read needed. If dispatch fails for any reason it is
+  // silently swallowed — admin WhatsApp above is the fallback.
+  const dispatchPromise = (async () => {
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ record: { ...flipped, status: 'pending' } }),
+      });
+    } catch (e) {
+      console.warn('[stripe-webhook] dispatch-household-job call failed (non-fatal)', e);
+    }
+  })();
+
   const runtime = (globalThis as unknown as {
     EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
   }).EdgeRuntime;
   if (runtime?.waitUntil) {
     runtime.waitUntil(emailPromise);
     runtime.waitUntil(adminNotifyPromise);
+    runtime.waitUntil(dispatchPromise);
   }
 
   return new Response(
