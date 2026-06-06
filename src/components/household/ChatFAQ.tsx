@@ -1,86 +1,287 @@
-import React, { useRef } from 'react';
-import { motion, useInView } from 'framer-motion';
+import React, { useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { MessageCircle, X, Send } from 'lucide-react';
 
-const FAQ = [
-  { q: 'Is it safe to have a student in my home?', a: 'Every student is verified before their first job. You see their photo and name before they arrive.' },
-  { q: "What if I'm not happy?", a: "Tell us within 24 hours. We'll make it right or you don't pay." },
-  { q: 'How does payment work?', a: 'Pay by card when done. Price agreed upfront — no surprises.' },
-  { q: 'Which cities do you cover?', a: 'Currently Galway — city and surrounding areas. More cities coming soon.' },
+const FAQS = [
+  {
+    chip: 'Is it safe?',
+    q: 'Is it safe to have a student in my home?',
+    a: 'Every student is ID-verified before their first job. You see their photo, name and rating before they arrive — and you can rate them afterwards.',
+  },
+  {
+    chip: 'How does payment work?',
+    q: 'How does payment work?',
+    a: 'You pay by card at checkout. The price is agreed upfront and locked in — no surprise charges after the job.',
+  },
+  {
+    chip: 'Which cities?',
+    q: 'Which cities do you cover?',
+    a: 'We currently cover Galway city and the surrounding areas. More cities are on the way — drop us a WhatsApp if yours isn\'t listed yet.',
+  },
+  {
+    chip: 'What if I\'m not happy?',
+    q: 'What if I\'m not satisfied?',
+    a: 'Tell us within 24 hours. We\'ll make it right — either re-do the job or give you a refund. Your satisfaction is guaranteed.',
+  },
+  {
+    chip: 'How fast can I book?',
+    q: 'How quickly can someone arrive?',
+    a: 'Most jobs are confirmed within a few hours. For urgent requests, message us on WhatsApp and we\'ll do our best to sort something same-day.',
+  },
 ];
 
-function ShadowShape({ flip = false }: { flip?: boolean }) {
-  return (
-    <div className="w-full h-full overflow-hidden" style={{ filter: 'blur(9px)', transform: flip ? 'scaleX(-1)' : undefined }}>
-      <svg viewBox="0 0 100 230" fill="rgba(28,18,6,0.72)" className="w-full h-full" preserveAspectRatio="xMidYMax slice">
-        <ellipse cx="50" cy="36" rx="26" ry="30" />
-        <rect x="42" y="62" width="16" height="20" rx="7" />
-        <path d="M0 230 C0 158 16 118 50 113 C84 118 100 158 100 230Z" />
-      </svg>
-    </div>
-  );
+interface Message {
+  id: number;
+  from: 'bot' | 'user';
+  text: string;
 }
 
+const GREETING: Message = {
+  id: 0,
+  from: 'bot',
+  text: 'Hi! 👋 I\'m here to answer your questions about VANO. Pick one below or type your own.',
+};
+
+let _id = 1;
+function nextId() { return _id++; }
+
 export const ChatFAQ: React.FC = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-60px' });
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([GREETING]);
+  const [usedChips, setUsedChips] = useState<Set<string>>(new Set());
+  const [typing, setTyping] = useState(false);
+  const [input, setInput] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const availableChips = FAQS.filter(f => !usedChips.has(f.chip));
+  const allAnswered = availableChips.length === 0;
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, typing]);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 300);
+  }, [open]);
+
+  function ask(chipLabel: string, questionText: string, answerText: string) {
+    if (usedChips.has(chipLabel)) return;
+    setUsedChips(prev => new Set([...prev, chipLabel]));
+    const userMsg: Message = { id: nextId(), from: 'user', text: questionText };
+    setMessages(prev => [...prev, userMsg]);
+    setTyping(true);
+    setTimeout(() => {
+      setTyping(false);
+      setMessages(prev => [...prev, { id: nextId(), from: 'bot', text: answerText }]);
+    }, 600);
+  }
+
+  function sendFreeText() {
+    const text = input.trim();
+    if (!text) return;
+    setInput('');
+    const userMsg: Message = { id: nextId(), from: 'user', text };
+    setMessages(prev => [...prev, userMsg]);
+    setTyping(true);
+    setTimeout(() => {
+      setTyping(false);
+      setMessages(prev => [...prev, {
+        id: nextId(), from: 'bot',
+        text: 'Great question! For anything not covered here, our team is just a WhatsApp message away — we usually reply within minutes. 💬',
+      }]);
+    }, 700);
+  }
 
   return (
-    <section
-      className="py-12 overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse 65% 65% at 50% 55%, rgba(255,155,55,0.17) 0%, hsl(var(--cream)) 68%)' }}
-    >
-      <div className="text-center mb-8 px-4">
-        <p className="eyebrow mb-3">Got questions?</p>
-        <h2 className="display-lg text-foreground">We've got answers</h2>
-      </div>
+    <section className="py-14 px-4 flex flex-col items-center">
+      <p className="eyebrow mb-3 text-center">Got questions?</p>
+      <h2 className="display-lg text-foreground text-center mb-10">Ask away</h2>
 
-      <div ref={ref} className="flex items-stretch max-w-2xl mx-auto lg:max-w-3xl">
-
+      {/* Arrow + button row */}
+      <div className="relative flex items-center gap-4">
+        {/* Animated arrow */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={inView ? { opacity: 1 } : {}}
-          transition={{ duration: 1, ease: 'easeOut' }}
-          className="w-24 lg:w-32 flex-shrink-0 -mr-3"
+          className="flex items-center gap-1"
+          animate={{ x: [0, 6, 0] }}
+          transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
         >
-          <ShadowShape />
+          <span className="text-2xl select-none" aria-hidden>👉</span>
         </motion.div>
 
-        <div className="flex-1 flex flex-col gap-3 py-2 px-2 z-10">
-          {FAQ.flatMap((pair, i) => [
-            <motion.div
-              key={`q-${i}`}
-              initial={{ opacity: 0, x: -8 }}
-              animate={inView ? { opacity: 1, x: 0 } : {}}
-              transition={{ delay: 0.25 + i * 0.22, duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-              className="self-start relative"
-            >
-              <div className="absolute top-3 -left-[8px]" style={{ width: 0, height: 0, borderTop: '6px solid transparent', borderBottom: '6px solid transparent', borderRight: '9px solid white' }} />
-              <div className="bg-white border border-border/30 text-foreground rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm leading-relaxed shadow-sm">{pair.q}</div>
-            </motion.div>,
-
-            <motion.div
-              key={`a-${i}`}
-              initial={{ opacity: 0, x: 8 }}
-              animate={inView ? { opacity: 1, x: 0 } : {}}
-              transition={{ delay: 0.4 + i * 0.22, duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-              className="self-end relative"
-            >
-              <div className="absolute top-3 -right-[8px]" style={{ width: 0, height: 0, borderTop: '6px solid transparent', borderBottom: '6px solid transparent', borderLeft: '9px solid hsl(var(--primary))' }} />
-              <div className="bg-primary text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-sm leading-relaxed">{pair.a}</div>
-            </motion.div>,
-          ])}
+        {/* Pulsing chat circle */}
+        <div className="relative">
+          <motion.div
+            className="absolute inset-0 rounded-full bg-primary/30"
+            animate={{ scale: [1, 1.55, 1], opacity: [0.6, 0, 0.6] }}
+            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+          />
+          <motion.button
+            onClick={() => setOpen(true)}
+            whileTap={{ scale: 0.93 }}
+            className="relative w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Open chat"
+          >
+            <MessageCircle className="w-7 h-7 text-white" />
+          </motion.button>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={inView ? { opacity: 1 } : {}}
-          transition={{ duration: 1, ease: 'easeOut' }}
-          className="w-24 lg:w-32 flex-shrink-0 -ml-3"
-        >
-          <ShadowShape flip />
-        </motion.div>
-
+        {/* Callout label */}
+        <AnimatePresence>
+          {!open && (
+            <motion.div
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -6 }}
+              className="bg-white border border-border/30 rounded-2xl px-3 py-2 shadow-sm text-sm text-foreground/80 whitespace-nowrap"
+            >
+              Chat with us ✨
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Chat panel */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="chat"
+            initial={{ opacity: 0, y: 20, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.97 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-6 w-full max-w-sm rounded-2xl border border-border bg-card shadow-xl overflow-hidden flex flex-col"
+            style={{ maxHeight: '70vh' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-primary">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-white" />
+                <span className="text-white text-sm font-semibold">VANO Chat</span>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-white/80 hover:text-white transition-colors"
+                aria-label="Close chat"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 min-h-0">
+              {messages.map(msg => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22 }}
+                  className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[82%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                    msg.from === 'user'
+                      ? 'bg-primary text-white rounded-tr-sm'
+                      : 'bg-secondary/50 text-foreground rounded-tl-sm'
+                  }`}>
+                    {msg.text}
+                  </div>
+                </motion.div>
+              ))}
+
+              {/* Typing indicator */}
+              <AnimatePresence>
+                {typing && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex justify-start"
+                  >
+                    <div className="bg-secondary/50 rounded-2xl rounded-tl-sm px-3 py-2.5 flex gap-1 items-center">
+                      {[0, 1, 2].map(i => (
+                        <motion.span
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 block"
+                          animate={{ y: [0, -4, 0] }}
+                          transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* WhatsApp CTA when all questions used */}
+              <AnimatePresence>
+                {allAnswered && !typing && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-start"
+                  >
+                    <div className="bg-secondary/50 rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-foreground/80">
+                      Still have questions?{' '}
+                      <a
+                        href="https://wa.me/353894466350"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-primary underline underline-offset-2"
+                      >
+                        Message us on WhatsApp →
+                      </a>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div ref={bottomRef} />
+            </div>
+
+            {/* Chips */}
+            <AnimatePresence>
+              {availableChips.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="px-3 pt-1 pb-2 flex flex-wrap gap-1.5"
+                >
+                  {availableChips.map(f => (
+                    <button
+                      key={f.chip}
+                      onClick={() => ask(f.chip, f.q, f.a)}
+                      className="text-xs border border-primary/40 text-primary rounded-full px-3 py-1 bg-primary/5 hover:bg-primary/15 transition-colors"
+                    >
+                      {f.chip}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Input */}
+            <div className="border-t border-border px-3 py-2 flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') sendFreeText(); }}
+                placeholder="Type a question…"
+                className="flex-1 text-sm bg-transparent placeholder:text-muted-foreground/50 focus:outline-none"
+              />
+              <button
+                onClick={sendFreeText}
+                disabled={!input.trim()}
+                className="text-primary disabled:opacity-30 transition-opacity"
+                aria-label="Send"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };
