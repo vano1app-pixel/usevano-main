@@ -110,6 +110,7 @@ serve(async (req) => {
       .eq('city', city)
       .eq('status', 'approved')
       .eq('is_available', true)
+      .contains('categories', [category])
       .order('accepted_count', { ascending: true })
       .limit(MAX_OFFERS);
 
