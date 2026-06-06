@@ -137,6 +137,7 @@ serve(async (req) => {
       success_url: `${origin}/join?welcome=1&name=${encodeURIComponent(name)}`,
       cancel_url:  `${origin}/join`,
       customer_email: email,
+      'metadata[helper_email]': email,
       'metadata[helper_name]': name,
       'metadata[helper_phone]': phone,
       'metadata[helper_city]': city,

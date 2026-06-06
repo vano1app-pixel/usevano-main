@@ -606,6 +606,31 @@ async function handleChargeRefunded(
   });
 }
 
+// --- Handler: helper subscription checkout completed ---------------------
+// Fires when a student pays the €2/month membership.
+// Flips their status from pending → approved so they immediately start
+// receiving job dispatches. No manual approval needed.
+async function handleHelperSubscriptionCompleted(
+  supabase: SupabaseClient,
+  helperEmail: string,
+): Promise<Response> {
+  const { error } = await supabase
+    .from('household_helpers')
+    .update({ status: 'approved' })
+    .eq('email', helperEmail)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('[stripe-webhook] helper approval flip failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+
+  return new Response(
+    JSON.stringify({ received: true, triggered: 'helper_approved' }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
 // --- Entry point ----------------------------------------------------------
 serve(async (req) => {
   if (req.method !== 'POST') {
@@ -657,6 +682,10 @@ serve(async (req) => {
     }
     if (householdBookingId) {
       return handleHouseholdCheckoutCompleted(supabase, session, householdBookingId);
+    }
+    const helperEmail = session.metadata?.helper_email;
+    if (helperEmail) {
+      return handleHelperSubscriptionCompleted(supabase, helperEmail);
     }
 
     // Fallback: look at client_reference_id as an AI Find request id
