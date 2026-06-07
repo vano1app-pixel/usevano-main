@@ -58,7 +58,7 @@ const INPUT_CLASS = cn(
 
 const LABEL_CLASS = 'text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5';
 
-const STEP_TITLES = ['Your details', 'Contact info', 'Jobs you want', 'Go live'];
+const STEP_TITLES = ['Your details', 'Contact info', 'Jobs you want', 'Pay & join'];
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
@@ -162,7 +162,11 @@ export const JoinAsHelper: React.FC = () => {
         window.location.href = json.checkout_url;
         return;
       }
-      setSubmitted(true);
+
+      // Application saved but Stripe checkout couldn't be created — do NOT
+      // show success. The helper row stays pending (invisible, no jobs sent)
+      // until a real payment goes through. Tell them to try again.
+      setError("We saved your details but couldn't start the payment page. Please try again or text us on WhatsApp.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.toLowerCase().includes('already')) {
@@ -196,8 +200,12 @@ export const JoinAsHelper: React.FC = () => {
               <h1 className="display-xl text-foreground mb-4">
                 Earn money between lectures
               </h1>
-              <p className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-sm mx-auto">
+              <p className="text-muted-foreground text-lg leading-relaxed mb-6 max-w-sm mx-auto">
                 Pick up flexible household jobs in your city. Shopping runs, dog walks, cleaning, garden work — you choose what you take on.
+              </p>
+
+              <p className="text-sm text-muted-foreground mb-6">
+                <span className="font-semibold text-foreground">€2/month</span> membership · cancel any time
               </p>
 
               <div className="flex justify-center gap-3 flex-wrap mb-2">
@@ -574,7 +582,7 @@ export const JoinAsHelper: React.FC = () => {
                           disabled={categories.length === 0}
                           className="flex-1 rounded-full font-semibold hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
                         >
-                          Continue →
+                          Continue to payment →
                         </Button>
                       </div>
                     </motion.div>
@@ -594,7 +602,14 @@ export const JoinAsHelper: React.FC = () => {
                     >
                       <div>
                         <h2 className="text-xl font-semibold text-foreground mb-1">One last step</h2>
-                        <p className="text-muted-foreground text-sm">Pay €2/month to go live on the platform.</p>
+                        <p className="text-muted-foreground text-sm">Pay €2/month to be listed on VANO and start receiving jobs.</p>
+                      </div>
+
+                      {/* Payment required notice */}
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                        <p className="text-xs font-semibold text-amber-800 leading-snug">
+                          You won't appear on VANO or receive any jobs until payment is confirmed.
+                        </p>
                       </div>
 
                       {/* Summary card */}
