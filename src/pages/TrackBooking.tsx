@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, Clock, CheckCircle2, Circle, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, CheckCircle2, Circle, Loader2, Send, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -42,6 +42,71 @@ interface ChatMessage {
   sender_id: string;
   body: string;
   created_at: string;
+}
+
+// Live map component — re-mounts iframe when coordinates change (forces tile refresh)
+// and shows a "last updated" indicator + Google Maps link.
+function LiveLocationMap({ lat, lng }: { lat: number; lng: number }) {
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [secondsAgo, setSecondsAgo] = useState(0);
+
+  // Track when coordinates actually change
+  const prevRef = useRef({ lat, lng });
+  useEffect(() => {
+    if (prevRef.current.lat !== lat || prevRef.current.lng !== lng) {
+      prevRef.current = { lat, lng };
+      setLastUpdated(new Date());
+      setSecondsAgo(0);
+    }
+  }, [lat, lng]);
+
+  // Tick the "X seconds ago" counter
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
+    }, 5000);
+    return () => clearInterval(id);
+  }, [lastUpdated]);
+
+  const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+  const mapKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+      className="mt-6"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Helper location</p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {secondsAgo < 30 ? 'Just updated' : `Updated ${Math.floor(secondsAgo / 60) > 0 ? `${Math.floor(secondsAgo / 60)}m` : `${secondsAgo}s`} ago`}
+        </p>
+      </div>
+      <div className="rounded-2xl overflow-hidden border border-border/60 h-48 bg-secondary">
+        <iframe
+          key={mapKey}
+          title="Helper live location"
+          src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.008},${lat - 0.006},${lng + 0.008},${lat + 0.006}&layer=mapnik&marker=${lat},${lng}`}
+          className="w-full h-full border-0"
+          loading="lazy"
+        />
+      </div>
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 flex items-center justify-center gap-1.5 text-xs text-primary font-medium"
+      >
+        <Navigation size={11} />
+        Open in Google Maps
+      </a>
+    </motion.div>
+  );
 }
 
 const STATUS_STEPS: { key: UpdateStatus; label: string; detail: string }[] = [
@@ -369,29 +434,9 @@ const TrackBooking = () => {
           )}
         </div>
 
-        {/* Worker location map — shown once when they tap "I'm on my way" */}
+        {/* Live worker location — updates every ~15 seconds while on the way */}
         {booking.status === 'on_way' && booking.worker_lat && booking.worker_lng && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
-            className="mt-6"
-          >
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Worker location
-            </p>
-            <div className="rounded-2xl overflow-hidden border border-border/60 h-44 bg-secondary">
-              <iframe
-                title="Worker location"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${booking.worker_lng - 0.008},${booking.worker_lat - 0.006},${booking.worker_lng + 0.008},${booking.worker_lat + 0.006}&layer=mapnik&marker=${booking.worker_lat},${booking.worker_lng}`}
-                className="w-full h-full border-0"
-                loading="lazy"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1.5 text-center">
-              Pinned when your helper set off
-            </p>
-          </motion.div>
+          <LiveLocationMap lat={booking.worker_lat} lng={booking.worker_lng} />
         )}
 
         {/* Chat — only show when a student is assigned */}
