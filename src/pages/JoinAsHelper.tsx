@@ -200,12 +200,8 @@ export const JoinAsHelper: React.FC = () => {
               <h1 className="display-xl text-foreground mb-4">
                 Earn money between lectures
               </h1>
-              <p className="text-muted-foreground text-lg leading-relaxed mb-6 max-w-sm mx-auto">
+              <p className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-sm mx-auto">
                 Pick up flexible household jobs in your city. Shopping runs, dog walks, cleaning, garden work — you choose what you take on.
-              </p>
-
-              <p className="text-sm text-muted-foreground mb-6">
-                <span className="font-semibold text-foreground">€2/month</span> membership · cancel any time
               </p>
 
               <div className="flex justify-center gap-3 flex-wrap mb-2">
