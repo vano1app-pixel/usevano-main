@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, Clock, CheckCircle2, Circle, Loader2, Send, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 
 // Household tables not yet in generated types — remove once migration is applied and types are regenerated
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,14 +47,42 @@ interface ChatMessage {
   created_at: string;
 }
 
-// Live map component — re-mounts iframe when coordinates change (forces tile refresh)
-// and shows a "last updated" indicator + Google Maps link.
+// Inject custom marker animation once on module load
+if (typeof document !== 'undefined' && !document.getElementById('vano-map-css')) {
+  const s = document.createElement('style');
+  s.id = 'vano-map-css';
+  s.textContent =
+    '@keyframes vano-dot-pulse{0%{transform:scale(1);opacity:.55}to{transform:scale(2.8);opacity:0}}' +
+    '.vano-dot-ring{animation:vano-dot-pulse 1.8s ease-out infinite}';
+  document.head.appendChild(s);
+}
+
+const helperMarkerIcon = L.divIcon({
+  className: '',
+  html:
+    '<div style="position:relative;width:18px;height:18px">' +
+    '<div class="vano-dot-ring" style="position:absolute;inset:-6px;border:2px solid #4a7c59;border-radius:50%"></div>' +
+    '<div style="width:18px;height:18px;background:#4a7c59;border:2.5px solid #fff;border-radius:50%;box-shadow:0 1px 6px rgba(74,124,89,.45)"></div>' +
+    '</div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+// Smoothly pans the map to follow new coordinates without remounting
+function MapFollow({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.8 });
+  }, [lat, lng, map]);
+  return null;
+}
+
+// Live map — marker moves smoothly, no flash on location update
 function LiveLocationMap({ lat, lng }: { lat: number; lng: number }) {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [secondsAgo, setSecondsAgo] = useState(0);
-
-  // Track when coordinates actually change
   const prevRef = useRef({ lat, lng });
+
   useEffect(() => {
     if (prevRef.current.lat !== lat || prevRef.current.lng !== lng) {
       prevRef.current = { lat, lng };
@@ -60,7 +91,6 @@ function LiveLocationMap({ lat, lng }: { lat: number; lng: number }) {
     }
   }, [lat, lng]);
 
-  // Tick the "X seconds ago" counter
   useEffect(() => {
     const id = setInterval(() => {
       setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
@@ -69,7 +99,12 @@ function LiveLocationMap({ lat, lng }: { lat: number; lng: number }) {
   }, [lastUpdated]);
 
   const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
-  const mapKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+
+  const updatedLabel = secondsAgo < 30
+    ? 'Just updated'
+    : Math.floor(secondsAgo / 60) > 0
+      ? `Updated ${Math.floor(secondsAgo / 60)}m ago`
+      : `Updated ${secondsAgo}s ago`;
 
   return (
     <motion.div
@@ -83,18 +118,21 @@ function LiveLocationMap({ lat, lng }: { lat: number; lng: number }) {
           <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Helper location</p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {secondsAgo < 30 ? 'Just updated' : `Updated ${Math.floor(secondsAgo / 60) > 0 ? `${Math.floor(secondsAgo / 60)}m` : `${secondsAgo}s`} ago`}
-        </p>
+        <p className="text-xs text-muted-foreground">{updatedLabel}</p>
       </div>
-      <div className="rounded-2xl overflow-hidden border border-border/60 h-48 bg-secondary">
-        <iframe
-          key={mapKey}
-          title="Helper live location"
-          src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.008},${lat - 0.006},${lng + 0.008},${lat + 0.006}&layer=mapnik&marker=${lat},${lng}`}
-          className="w-full h-full border-0"
-          loading="lazy"
-        />
+      <div className="rounded-2xl overflow-hidden border border-border/60 h-48">
+        <MapContainer
+          center={[lat, lng]}
+          zoom={15}
+          className="w-full h-full"
+          zoomControl={false}
+          scrollWheelZoom={false}
+          attributionControl={false}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <Marker position={[lat, lng]} icon={helperMarkerIcon} />
+          <MapFollow lat={lat} lng={lng} />
+        </MapContainer>
       </div>
       <a
         href={mapsUrl}
