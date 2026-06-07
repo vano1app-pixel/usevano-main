@@ -99,6 +99,37 @@ serve(async (req) => {
 
       await sendWhatsApp(adminNumber, message);
 
+    } else if (type === 'helper_on_way') {
+      const { helper_name, customer_name, category, city, booking_id } = body;
+      const categoryLabels: Record<string, string> = {
+        shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+        moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
+      };
+      const message =
+        `🚶 *Helper on the way!*\n` +
+        `Helper: ${helper_name ?? 'Unknown'}\n` +
+        `Customer: ${customer_name ?? 'Unknown'}\n` +
+        `Job: ${categoryLabels[category] ?? category}\n` +
+        `City: ${city ?? '—'}\n` +
+        `Ref: ${String(booking_id).slice(-8).toUpperCase()}`;
+      await sendWhatsApp(adminNumber, message);
+
+    } else if (type === 'job_complete') {
+      const { helper_name, customer_name, category, city, price_euros, student_earns_euros, booking_id } = body;
+      const categoryLabels: Record<string, string> = {
+        shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+        moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
+      };
+      const message =
+        `✅ *Job complete!*\n` +
+        `Helper: ${helper_name ?? 'Unknown'}\n` +
+        `Customer: ${customer_name ?? 'Unknown'}\n` +
+        `Job: ${categoryLabels[category] ?? category}\n` +
+        `City: ${city ?? '—'}\n` +
+        `Paid: €${price_euros ?? '?'} · Student earns: €${student_earns_euros ?? '?'}\n` +
+        `Ref: ${String(booking_id).slice(-8).toUpperCase()}`;
+      await sendWhatsApp(adminNumber, message);
+
     } else {
       return new Response(JSON.stringify({ error: 'unknown type' }), {
         status: 400,

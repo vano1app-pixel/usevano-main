@@ -125,6 +125,10 @@ serve(async (req) => {
     const bookingData: BookingData = { category, ...(booking_data ?? {}) };
     const priceCents = computePriceCents(bookingData, !!is_express);
 
+    // Extract customer coordinates from booking_data if provided by the address picker
+    const customerLat = typeof booking_data?.customerLat === 'number' ? booking_data.customerLat : null;
+    const customerLng = typeof booking_data?.customerLng === 'number' ? booking_data.customerLng : null;
+
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Create the booking row in awaiting_payment state (customer_id NULL = anonymous)
@@ -143,6 +147,7 @@ serve(async (req) => {
         customer_address: customer_address.trim(),
         customer_phone: customer_phone.trim(),
         booking_data: bookingData,
+        ...(customerLat !== null && customerLng !== null ? { customer_lat: customerLat, customer_lng: customerLng } : {}),
       })
       .select('id')
       .single();

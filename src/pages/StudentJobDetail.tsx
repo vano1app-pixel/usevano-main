@@ -225,7 +225,6 @@ const StudentJobDetail = () => {
     }
 
     if (next.status === 'arrived') {
-      // Stop tracking once they arrive
       stopLocationWatch();
     }
 
@@ -233,6 +232,13 @@ const StudentJobDetail = () => {
       hdb.from('household_bookings').update(bookingUpdate).eq('id', bookingId),
       hdb.from('household_job_updates').insert({ booking_id: bookingId, status: next.status }),
     ]);
+
+    // Notify customer when helper is on the way — fire and forget, never blocks UI
+    if (!updateRes.error && next.status === 'on_way') {
+      supabase.functions.invoke('notify-household-on-way', {
+        body: { booking_id: bookingId },
+      }).catch(() => {});
+    }
 
     if (updateRes.error) {
       toast({ title: 'Update failed', description: getUserFriendlyError(updateRes.error), variant: 'destructive' });
