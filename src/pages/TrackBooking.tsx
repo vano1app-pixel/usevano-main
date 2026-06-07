@@ -199,6 +199,7 @@ const TrackBooking = () => {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [updates, setUpdates] = useState<JobUpdate[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [helperName, setHelperName] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -279,6 +280,30 @@ const TrackBooking = () => {
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [bookingId]);
+
+  // Fetch helper name when a student is assigned
+  useEffect(() => {
+    const studentId = booking?.student_id;
+    if (!studentId) { setHelperName(null); return; }
+    let cancelled = false;
+    const fetch_ = async () => {
+      const { data: helper } = await hdb
+        .from('household_helpers')
+        .select('name')
+        .eq('user_id', studentId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (helper?.name) { setHelperName(helper.name.split(' ')[0]); return; }
+      const { data: profile } = await hdb
+        .from('profiles')
+        .select('display_name')
+        .eq('user_id', studentId)
+        .maybeSingle();
+      if (!cancelled) setHelperName(profile?.display_name?.split(' ')[0] ?? null);
+    };
+    void fetch_();
+    return () => { cancelled = true; };
+  }, [booking?.student_id]);
 
   // Scroll chat to bottom on new messages
   useEffect(() => {
@@ -400,6 +425,24 @@ const TrackBooking = () => {
             </div>
           )}
         </div>
+
+        {/* Helper name — shown once a student is assigned */}
+        {booking.student_id && helperName && !isPending && !isCancelled && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 flex items-center gap-2.5 bg-sage-light border border-sage/20 rounded-2xl px-4 py-3"
+          >
+            <div className="w-8 h-8 rounded-full bg-sage/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-sage font-bold text-sm">{helperName[0].toUpperCase()}</span>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Your helper</p>
+              <p className="text-sm font-semibold text-foreground leading-tight">{helperName}</p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Status area */}
         <div className="mt-6">
