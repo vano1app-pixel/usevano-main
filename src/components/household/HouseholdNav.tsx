@@ -43,12 +43,13 @@ export const HouseholdNav: React.FC = () => {
           <Link
             to="/join"
             className={cn(
-              'hidden sm:flex items-center rounded-full border border-border/60 px-3.5 py-1.5',
+              'flex items-center rounded-full border border-border/60 px-3.5 py-1.5',
               'text-sm font-medium text-foreground/75 hover:text-foreground hover:border-border',
               'transition-[color,border-color] duration-150 active:scale-[0.97]',
             )}
           >
-            Become a helper
+            <span className="hidden sm:inline">Become a helper</span>
+            <span className="sm:hidden">Join</span>
           </Link>
 
           {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
