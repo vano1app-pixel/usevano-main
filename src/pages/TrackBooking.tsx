@@ -585,7 +585,7 @@ const TrackBooking = () => {
                 )}
               </div>
               <span className="text-xs text-muted-foreground flex-shrink-0">
-                {locationAge < 30 ? 'Live' : locationAge < 120 ? `${Math.floor(locationAge / 60)}m ago` : `${Math.floor(locationAge / 60)}m ago`}
+                {locationAge < 30 ? 'Live' : locationAge < 60 ? `${locationAge}s ago` : `${Math.floor(locationAge / 60)}m ago`}
               </span>
             </div>
             {/* Map */}

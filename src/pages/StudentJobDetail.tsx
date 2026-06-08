@@ -330,7 +330,7 @@ const StudentJobDetail = () => {
             {booking.price_estimate_cents && (
               <div className="text-right flex-shrink-0">
                 <p className="text-lg font-bold tabular-nums">
-                  €{((booking.price_estimate_cents * 0.95) / 100).toFixed(0)}
+                  €{((booking.price_estimate_cents * 0.85) / 100).toFixed(0)}
                 </p>
                 <p className="text-[11px] text-muted-foreground">your earnings</p>
               </div>
