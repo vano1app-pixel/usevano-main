@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
+import { useToast } from '@/hooks/use-toast';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 
-// Household tables not yet in generated types — remove once migration is applied and types are regenerated
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
 
-type BookingStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'on_way' | 'in_progress' | 'completed' | 'cancelled';
+type BookingStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
 type UpdateStatus = 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
 
 interface Booking {
@@ -31,6 +31,7 @@ interface Booking {
   student_id: string | null;
   worker_lat: number | null;
   worker_lng: number | null;
+  worker_location_updated_at: string | null;
   customer_lat: number | null;
   customer_lng: number | null;
 }
@@ -58,7 +59,6 @@ interface ChatMessage {
   created_at: string;
 }
 
-// Inject custom marker animation once on module load
 if (typeof document !== 'undefined' && !document.getElementById('vano-map-css')) {
   const s = document.createElement('style');
   s.id = 'vano-map-css';
@@ -79,7 +79,6 @@ const helperMarkerIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-// Customer destination pin — white circle with green border
 const customerDestIcon = L.divIcon({
   className: '',
   html: '<div style="width:14px;height:14px;background:#fff;border:3px solid #4a7c59;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.3)"></div>',
@@ -87,7 +86,6 @@ const customerDestIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
-// Auto-fits both helper + customer in view, then follows helper on updates
 function FitBoundsOrFollow({
   helperLat, helperLng, customerLat, customerLng,
 }: { helperLat: number; helperLng: number; customerLat: number | null; customerLng: number | null }) {
@@ -109,24 +107,19 @@ function FitBoundsOrFollow({
 }
 
 const STATUS_STEPS: { key: UpdateStatus; label: string; detail: string }[] = [
-  { key: 'accepted',    label: 'Booking confirmed',   detail: 'A student has accepted your job' },
-  { key: 'on_way',      label: 'Student on the way',  detail: 'Your helper is heading to you'   },
-  { key: 'arrived',     label: 'Student arrived',     detail: 'They are at your address'        },
-  { key: 'in_progress', label: 'Job in progress',     detail: 'Work has started'                },
-  { key: 'completed',   label: 'All done',            detail: 'Job completed successfully'      },
+  { key: 'accepted',    label: 'Booking confirmed',  detail: 'A helper has accepted your job'   },
+  { key: 'on_way',      label: 'Helper on the way',  detail: 'Your helper is heading to you'    },
+  { key: 'arrived',     label: 'Helper arrived',     detail: 'They are at your address'         },
+  { key: 'in_progress', label: 'Job in progress',    detail: 'Work has started'                 },
+  { key: 'completed',   label: 'All done',           detail: 'Job completed successfully'       },
 ];
 
 const STATUS_ORDER: UpdateStatus[] = ['accepted', 'on_way', 'arrived', 'in_progress', 'completed'];
 
 function formatCategory(cat: string): string {
   const map: Record<string, string> = {
-    shopping: 'Shopping run',
-    'dog-walk': 'Dog walk',
-    garden: 'Garden help',
-    moving: 'Moving help',
-    cleaning: 'Cleaning',
-    tutoring: 'Tutoring',
-    other: 'Other task',
+    shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+    moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'Other task',
   };
   return map[cat] ?? cat;
 }
@@ -134,9 +127,7 @@ function formatCategory(cat: string): string {
 function formatTimeSlot(slot: string | null): string | null {
   if (!slot) return null;
   const map: Record<string, string> = {
-    morning: 'Morning · 8am–12pm',
-    afternoon: 'Afternoon · 12–5pm',
-    evening: 'Evening · 5–8pm',
+    morning: 'Morning · 8am–12pm', afternoon: 'Afternoon · 12–5pm', evening: 'Evening · 5–8pm',
   };
   return map[slot] ?? slot;
 }
@@ -151,10 +142,17 @@ function formatDate(d: string): string {
   return parsed.toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
+function formatLocationAge(seconds: number): string {
+  if (seconds < 30) return 'Live';
+  if (seconds < 60) return `${seconds}s ago`;
+  return `${Math.floor(seconds / 60)}m ago`;
+}
+
 const TrackBooking = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const justPaid = searchParams.get('paid') === 'true';
 
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -166,12 +164,29 @@ const TrackBooking = () => {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
-  const [locationAge, setLocationAge] = useState(0); // seconds since last worker position update
+  const [locationAge, setLocationAge] = useState(0);
   const locationUpdatedAt = useRef<number>(Date.now());
+
+  // Cancel state
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  // Rating state
+  const [hoverRating, setHoverRating] = useState(0);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [alreadyRated, setAlreadyRated] = useState(false);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // Fetch booking + updates + messages
+  useEffect(() => {
+    if (!bookingId) return;
+    if (typeof localStorage !== 'undefined') {
+      setAlreadyRated(!!localStorage.getItem(`vano_rated_${bookingId}`));
+    }
+  }, [bookingId]);
+
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
@@ -195,86 +210,61 @@ const TrackBooking = () => {
 
     void load();
     return () => { cancelled = true; };
-  }, [bookingId, navigate]);
+  }, [bookingId]);
 
-  // Realtime booking status subscription — keeps status badge / progress live
   useEffect(() => {
     if (!bookingId) return;
     const channel = supabase
       .channel(`hh-booking-${bookingId}`)
-      .on(
-        'postgres_changes',
+      .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'household_bookings', filter: `id=eq.${bookingId}` },
-        (payload) => {
-          setBooking(payload.new as Booking);
-        },
-      )
-      .subscribe();
+        (payload) => setBooking(payload.new as Booking),
+      ).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [bookingId]);
 
-  // Realtime job updates subscription — drives the progress timeline
   useEffect(() => {
     if (!bookingId) return;
     const channel = supabase
       .channel(`hh-updates-${bookingId}`)
-      .on(
-        'postgres_changes',
+      .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'household_job_updates', filter: `booking_id=eq.${bookingId}` },
-        (payload) => {
-          setUpdates((prev) => [...prev, payload.new as JobUpdate]);
-        },
-      )
-      .subscribe();
+        (payload) => setUpdates((prev) => [...prev, payload.new as JobUpdate]),
+      ).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [bookingId]);
 
-  // Realtime chat subscription
   useEffect(() => {
     if (!bookingId) return;
     const channel = supabase
       .channel(`hh-chat-${bookingId}`)
-      .on(
-        'postgres_changes',
+      .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'household_chat', filter: `booking_id=eq.${bookingId}` },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as ChatMessage]);
-        },
-      )
-      .subscribe();
+        (payload) => setMessages((prev) => [...prev, payload.new as ChatMessage]),
+      ).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [bookingId]);
 
-  // Fetch helper name when a student is assigned
   useEffect(() => {
     const studentId = booking?.student_id;
     if (!studentId) { setHelperName(null); return; }
     let cancelled = false;
     const fetch_ = async () => {
-      const { data: helper } = await hdb
-        .from('household_helpers')
-        .select('name')
-        .eq('user_id', studentId)
-        .maybeSingle();
+      const { data: helper } = await hdb.from('household_helpers').select('name').eq('user_id', studentId).maybeSingle();
       if (cancelled) return;
       if (helper?.name) { setHelperName(helper.name.split(' ')[0]); return; }
-      const { data: profile } = await hdb
-        .from('profiles')
-        .select('display_name')
-        .eq('user_id', studentId)
-        .maybeSingle();
+      const { data: profile } = await hdb.from('profiles').select('display_name').eq('user_id', studentId).maybeSingle();
       if (!cancelled) setHelperName(profile?.display_name?.split(' ')[0] ?? null);
     };
     void fetch_();
     return () => { cancelled = true; };
   }, [booking?.student_id]);
 
-  // Scroll chat to bottom on new messages
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Recalculate distance when helper moves
+  // Location age — use DB timestamp when available for accuracy across page reloads
   useEffect(() => {
     const wLat = booking?.worker_lat;
     const wLng = booking?.worker_lng;
@@ -285,11 +275,16 @@ const TrackBooking = () => {
     } else {
       setDistanceKm(null);
     }
-    locationUpdatedAt.current = Date.now();
-    setLocationAge(0);
-  }, [booking?.worker_lat, booking?.worker_lng, booking?.customer_lat, booking?.customer_lng]);
+    const dbTs = booking?.worker_location_updated_at;
+    if (dbTs) {
+      locationUpdatedAt.current = new Date(dbTs).getTime();
+      setLocationAge(Math.floor((Date.now() - locationUpdatedAt.current) / 1000));
+    } else {
+      locationUpdatedAt.current = Date.now();
+      setLocationAge(0);
+    }
+  }, [booking?.worker_lat, booking?.worker_lng, booking?.customer_lat, booking?.customer_lng, booking?.worker_location_updated_at]);
 
-  // Tick location age every 15s so the "updated X ago" label stays fresh
   useEffect(() => {
     const id = setInterval(() => {
       setLocationAge(Math.floor((Date.now() - locationUpdatedAt.current) / 1000));
@@ -297,10 +292,48 @@ const TrackBooking = () => {
     return () => clearInterval(id);
   }, []);
 
+  const handleCancel = async () => {
+    if (!bookingId || cancelling) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase.functions.invoke('cancel-household-booking', {
+        body: { booking_id: bookingId, type: 'customer_cancel' },
+      });
+      if (error) throw error;
+      setBooking((b) => b ? { ...b, status: 'cancelled' } : b);
+      toast({ title: 'Booking cancelled', description: 'Your refund will arrive in 5–7 business days.' });
+      setCancelConfirm(false);
+    } catch {
+      toast({ title: 'Could not cancel', description: 'Please WhatsApp us on +353 89 981 7111', variant: 'destructive' });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleRate = async () => {
+    if (!bookingId || selectedRating === 0 || submittingRating) return;
+    setSubmittingRating(true);
+    try {
+      const { error } = await supabase.functions.invoke('rate-household-booking', {
+        body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined },
+      });
+      if (error) throw error;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(`vano_rated_${bookingId}`, '1');
+      }
+      setAlreadyRated(true);
+      toast({ title: 'Thanks for your rating!' });
+    } catch {
+      toast({ title: 'Could not save rating', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
   const sendMessage = async () => {
     if (!draft.trim() || !bookingId || !userId) return;
     setSending(true);
-    const body = draft.trim();
+    const body = draft.trim().slice(0, 1000);
     setDraft('');
     try {
       const { error } = await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
@@ -313,9 +346,7 @@ const TrackBooking = () => {
   };
 
   const latestUpdateStatus = updates.at(-1)?.status ?? null;
-  const currentStepIndex = latestUpdateStatus
-    ? STATUS_ORDER.indexOf(latestUpdateStatus)
-    : -1;
+  const currentStepIndex = latestUpdateStatus ? STATUS_ORDER.indexOf(latestUpdateStatus) : -1;
 
   if (loading) {
     return (
@@ -336,15 +367,15 @@ const TrackBooking = () => {
     );
   }
 
-  const isPending = booking.status === 'pending' || booking.status === 'awaiting_payment';
-  const isCompleted = booking.status === 'completed';
-  const isCancelled = booking.status === 'cancelled';
+  const isPending    = booking.status === 'pending' || booking.status === 'awaiting_payment';
+  const isCompleted  = booking.status === 'completed';
+  const isCancelled  = booking.status === 'cancelled';
+  const showMapPanel = booking.status === 'on_way' && booking.worker_lat && booking.worker_lng;
 
   return (
     <div className="min-h-dvh bg-background">
       <SEOHead title="Track your booking" description="Track your VANO booking status in real time." noindex />
 
-      {/* Nav */}
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button
           onClick={() => navigate('/home')}
@@ -357,7 +388,7 @@ const TrackBooking = () => {
         <div className="w-8" />
       </header>
 
-      <main className={cn('pt-14 max-w-sm mx-auto px-4', booking.status === 'on_way' && booking.worker_lat ? 'pb-[320px]' : 'pb-40')}>
+      <main className={cn('pt-14 max-w-sm mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
 
         {/* Payment success banner */}
         <AnimatePresence>
@@ -369,7 +400,7 @@ const TrackBooking = () => {
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
               className="mt-6 bg-sage-light border border-sage/30 rounded-2xl px-5 py-4 flex items-start gap-3"
             >
-              <CheckCircle2 className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <CheckCircle2 className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
               <div className="flex-1">
                 <p className="font-semibold text-foreground text-sm">You're booked — we're on it!</p>
                 <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
@@ -413,7 +444,7 @@ const TrackBooking = () => {
           )}
         </div>
 
-        {/* Helper name — shown once a student is assigned */}
+        {/* Helper chip */}
         {booking.student_id && helperName && !isPending && !isCancelled && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
@@ -434,25 +465,71 @@ const TrackBooking = () => {
         {/* Status area */}
         <div className="mt-6">
           {isPending && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl bg-sage-light border border-sage/20 p-5"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
-                <p className="text-sm font-semibold text-foreground">Finding your helper</p>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="rounded-2xl bg-sage-light border border-sage/20 p-5">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
+                  <p className="text-sm font-semibold text-foreground">Finding your helper</p>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  We're on it — you'll get a text with your helper's name and photo within minutes.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                We're on it — you'll get a text with your helper's name and photo within minutes.
-              </p>
+
+              {/* Customer cancel */}
+              {booking.status === 'pending' && (
+                <div className="mt-3">
+                  {!cancelConfirm ? (
+                    <button
+                      onClick={() => setCancelConfirm(true)}
+                      className="w-full text-xs text-muted-foreground py-2 underline underline-offset-2 text-center"
+                    >
+                      Need to cancel this booking?
+                    </button>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.97 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <p className="text-sm font-semibold text-foreground">Cancel this booking?</p>
+                        <button onClick={() => setCancelConfirm(false)} className="text-muted-foreground -mt-0.5 -mr-0.5">
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                        You'll receive a full refund within 5–7 business days.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCancelConfirm(false)}
+                          className="flex-1 h-10 rounded-xl bg-secondary text-sm font-semibold text-foreground transition-colors hover:bg-secondary/70"
+                        >
+                          Keep it
+                        </button>
+                        <button
+                          onClick={() => void handleCancel()}
+                          disabled={cancelling}
+                          className="flex-1 h-10 rounded-xl bg-destructive text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 transition-opacity"
+                        >
+                          {cancelling ? <Loader2 size={15} className="animate-spin" /> : 'Yes, cancel'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
 
           {isCancelled && (
             <div className="rounded-2xl bg-destructive/5 border border-destructive/20 p-5">
               <p className="text-sm font-semibold text-foreground">Booking cancelled</p>
-              <p className="text-xs text-muted-foreground mt-0.5">This booking was cancelled.</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Your refund will appear within 5–7 business days. Questions? WhatsApp{' '}
+                <a href="https://wa.me/353899817111" className="text-primary underline">+353 89 981 7111</a>
+              </p>
             </div>
           )}
 
@@ -460,12 +537,11 @@ const TrackBooking = () => {
             <div className="space-y-0">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Progress</p>
               {STATUS_STEPS.map((step, i) => {
-                const done = i <= currentStepIndex;
+                const done   = i <= currentStepIndex;
                 const active = i === currentStepIndex;
                 const isLast = i === STATUS_STEPS.length - 1;
                 return (
                   <div key={step.key} className="flex gap-3">
-                    {/* Line + dot column */}
                     <div className="flex flex-col items-center w-5 flex-shrink-0">
                       <div className={cn(
                         'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
@@ -480,7 +556,6 @@ const TrackBooking = () => {
                         <div className={cn('w-[2px] flex-1 my-1', done ? 'bg-sage/40' : 'bg-border/40')} />
                       )}
                     </div>
-                    {/* Text */}
                     <div className={cn('pb-4', isLast && 'pb-0')}>
                       <p className={cn('text-sm font-semibold leading-snug', done ? 'text-foreground' : 'text-muted-foreground/60')}>
                         {step.label}
@@ -502,7 +577,79 @@ const TrackBooking = () => {
           )}
         </div>
 
-        {/* Chat — only show when a student is assigned */}
+        {/* Completed: thank-you + rating */}
+        {isCompleted && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-8 rounded-2xl bg-sage-light border border-sage/20 p-5"
+          >
+            <div className="text-center mb-4">
+              <CheckCircle2 size={28} className="text-sage mx-auto mb-2" strokeWidth={1.5} />
+              <p className="font-semibold text-foreground">All done!</p>
+              <p className="text-xs text-muted-foreground mt-1">Thanks for using VANO</p>
+            </div>
+
+            {/* Rating */}
+            {!alreadyRated ? (
+              <div className="border-t border-sage/20 pt-4">
+                <p className="text-xs font-semibold text-foreground text-center mb-3">
+                  How was {helperName ?? 'your helper'}?
+                </p>
+                <div className="flex gap-1 justify-center mb-3">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onMouseEnter={() => setHoverRating(n)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setSelectedRating(n)}
+                      className="p-1 transition-transform active:scale-90"
+                    >
+                      <Star
+                        size={28}
+                        className={cn(
+                          'transition-colors',
+                          n <= (hoverRating || selectedRating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25',
+                        )}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <AnimatePresence>
+                  {selectedRating > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <textarea
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value.slice(0, 300))}
+                        placeholder="Leave a comment (optional)…"
+                        className="w-full p-3 rounded-xl border border-border/60 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-2"
+                        rows={2}
+                      />
+                      <button
+                        onClick={() => void handleRate()}
+                        disabled={submittingRating}
+                        className="w-full h-11 rounded-full bg-sage text-white font-semibold text-sm flex items-center justify-center disabled:opacity-50 transition-opacity"
+                      >
+                        {submittingRating ? <Loader2 size={16} className="animate-spin" /> : 'Submit rating'}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <p className="text-center text-xs text-muted-foreground border-t border-sage/20 pt-4">
+                Thanks for your feedback! ⭐
+              </p>
+            )}
+          </motion.div>
+        )}
+
+        {/* Chat */}
         {booking.student_id && (
           <div className="mt-8">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Messages</p>
@@ -542,23 +689,10 @@ const TrackBooking = () => {
             )}
           </div>
         )}
-
-        {isCompleted && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-8 rounded-2xl bg-sage-light border border-sage/20 p-5 text-center"
-          >
-            <CheckCircle2 size={28} className="text-sage mx-auto mb-2" strokeWidth={1.5} />
-            <p className="font-semibold text-foreground">Job complete</p>
-            <p className="text-xs text-muted-foreground mt-1">Payment will be released to your helper.</p>
-          </motion.div>
-        )}
       </main>
 
-      {/* Fixed bottom map panel — shown when helper is on the way */}
-      {booking.status === 'on_way' && booking.worker_lat && booking.worker_lng && (
+      {/* Live map panel */}
+      {showMapPanel && booking.worker_lat && booking.worker_lng && (
         <div className={cn(
           'fixed inset-x-0 z-30 flex justify-center px-4',
           booking.student_id && !isCompleted && !isCancelled && userId ? 'bottom-[68px]' : 'bottom-0 pb-safe',
@@ -569,10 +703,9 @@ const TrackBooking = () => {
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className="w-full max-w-sm bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
           >
-            {/* Map header */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-sage animate-pulse flex-shrink-0" />
+                <Navigation size={13} className="text-sage flex-shrink-0" />
                 <span className="text-sm font-semibold text-foreground">
                   {distanceKm !== null
                     ? `${distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`} away`
@@ -585,10 +718,9 @@ const TrackBooking = () => {
                 )}
               </div>
               <span className="text-xs text-muted-foreground flex-shrink-0">
-                {locationAge < 30 ? 'Live' : locationAge < 120 ? `${Math.floor(locationAge / 60)}m ago` : `${Math.floor(locationAge / 60)}m ago`}
+                {formatLocationAge(locationAge)}
               </span>
             </div>
-            {/* Map */}
             <div style={{ height: 200 }}>
               <MapContainer
                 center={[booking.worker_lat, booking.worker_lng]}
@@ -616,14 +748,14 @@ const TrackBooking = () => {
         </div>
       )}
 
-      {/* Chat input — fixed bottom when student assigned and user is logged in */}
+      {/* Chat input */}
       {booking.student_id && !isCompleted && !isCancelled && userId && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
           <div className="max-w-sm mx-auto flex items-center gap-2">
             <input
               type="text"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
               placeholder="Message your helper…"
               className="flex-1 h-11 rounded-full bg-secondary border border-border/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"

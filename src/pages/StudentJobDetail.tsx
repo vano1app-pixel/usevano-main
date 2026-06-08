@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -77,6 +77,13 @@ function googleMapsUrl(address: string) {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
 }
 
+function formatPhone(raw: string): string {
+  const d = raw.replace(/\D/g, '');
+  if (d.startsWith('353') && d.length >= 12) return `+353 ${d.slice(3, 5)} ${d.slice(5, 8)} ${d.slice(8)}`;
+  if (d.startsWith('0') && d.length >= 9) return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`;
+  return raw;
+}
+
 // Status machine: what action advances the job
 const NEXT_STATUS: Partial<Record<JobStatus, { status: UpdateStatus; label: string }>> = {
   accepted:    { status: 'on_way',      label: "I'm on my way" },
@@ -104,6 +111,8 @@ const StudentJobDetail = () => {
   const [sending, setSending] = useState(false);
   const [sharingLocation, setSharingLocation] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [releaseConfirm, setReleaseConfirm] = useState(false);
+  const [releasing, setReleasing] = useState(false);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   // Geolocation watch handle — kept while status is on_way
@@ -179,6 +188,7 @@ const StudentJobDetail = () => {
         hdb.from('household_bookings').update({
           worker_lat: pos.coords.latitude,
           worker_lng: pos.coords.longitude,
+          worker_location_updated_at: new Date().toISOString(),
         }).eq('id', bid).then(() => {/* fire and forget */});
       },
       () => {/* denied or unavailable — silently ignore */},
@@ -194,6 +204,25 @@ const StudentJobDetail = () => {
     }
     setSharingLocation(false);
   }
+
+  const handleRelease = async () => {
+    if (!bookingId || releasing) return;
+    setReleasing(true);
+    try {
+      const { error } = await supabase.functions.invoke('cancel-household-booking', {
+        body: { booking_id: bookingId, type: 'helper_release' },
+      });
+      if (error) throw error;
+      stopLocationWatch();
+      toast({ title: 'Job released', description: 'The customer has been notified. We are finding another helper.' });
+      navigate('/student-dashboard');
+    } catch (err) {
+      toast({ title: 'Could not release job', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setReleasing(false);
+      setReleaseConfirm(false);
+    }
+  };
 
   const advanceStatus = async () => {
     if (!booking || !bookingId) return;
@@ -349,7 +378,7 @@ const StudentJobDetail = () => {
             <div className="flex items-center gap-2 text-sm text-foreground">
               <Phone size={14} className="text-muted-foreground flex-shrink-0" />
               <a href={`tel:${booking.customer_phone}`} className="underline underline-offset-2">
-                {booking.customer_phone}
+                {formatPhone(booking.customer_phone)}
               </a>
             </div>
           </div>
@@ -408,11 +437,54 @@ const StudentJobDetail = () => {
           </motion.button>
         )}
 
+        {/* Release-job option */}
+        {!isComplete && !isCancelled && (
+          <div className="mb-6">
+            {!releaseConfirm ? (
+              <button
+                onClick={() => setReleaseConfirm(true)}
+                className="w-full text-xs text-muted-foreground py-2 underline underline-offset-2 text-center"
+              >
+                I can't make it
+              </button>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 p-4"
+              >
+                <div className="flex items-start gap-2 mb-2">
+                  <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm font-semibold text-foreground">Release this job?</p>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                  The customer will be notified and we'll find another helper as soon as possible.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setReleaseConfirm(false)}
+                    className="flex-1 h-10 rounded-xl bg-secondary text-sm font-semibold transition-colors hover:bg-secondary/70"
+                  >
+                    Stay on job
+                  </button>
+                  <button
+                    onClick={() => void handleRelease()}
+                    disabled={releasing}
+                    className="flex-1 h-10 rounded-xl bg-amber-500 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 transition-opacity"
+                  >
+                    {releasing ? <Loader2 size={15} className="animate-spin" /> : 'Release job'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        )}
+
         {isComplete && (
           <div className="flex flex-col items-center text-center py-4 mb-6">
             <CheckCircle2 size={32} className="text-sage mb-2" strokeWidth={1.5} />
             <p className="font-semibold text-foreground">Job complete</p>
-            <p className="text-sm text-muted-foreground mt-0.5">Payment has been captured and will be transferred shortly.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">You'll be paid shortly via Revolut.</p>
           </div>
         )}
 
