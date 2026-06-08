@@ -74,6 +74,8 @@ const StudentDashboard = () => {
   const [helperCity, setHelperCity] = useState<string | null>(null);
   const [helperCategories, setHelperCategories] = useState<string[]>([]);
   const [togglingAvailable, setTogglingAvailable] = useState(false);
+  const [helperName, setHelperName] = useState<string | null>(null);
+  const [helperPhoto, setHelperPhoto] = useState<string | null>(null);
 
   const loadData = useCallback(async (uid: string, city?: string | null, categories?: string[]) => {
     let availableQuery = hdb
@@ -119,7 +121,7 @@ const StudentDashboard = () => {
       // Load helper profile first so we can filter jobs by city + categories
       const { data: helperRow } = await hdb
         .from('household_helpers')
-        .select('id, is_available, city, categories')
+        .select('id, name, photo_url, is_available, city, categories')
         .eq('user_id', uid)
         .maybeSingle();
 
@@ -130,6 +132,8 @@ const StudentDashboard = () => {
         setHelperAvailable(helperRow.is_available as boolean);
         setHelperCity(city);
         setHelperCategories(categories);
+        setHelperName((helperRow.name as string | null) ?? null);
+        setHelperPhoto((helperRow.photo_url as string | null) ?? null);
       }
 
       await loadData(uid, city, categories);
@@ -188,19 +192,31 @@ const StudentDashboard = () => {
       <SEOHead title="Student dashboard — VANO" description="Pick up household jobs near you." noindex />
 
       {/* Header */}
-      <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
-        <div className="w-8" />
+      <header className="fixed top-0 inset-x-0 z-50 h-16 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
+        <div className="w-16" />
         <button
           onClick={() => navigate('/student-account')}
-          className="flex items-center"
+          className="flex flex-col items-center gap-0.5"
           aria-label="My account"
         >
           <img src={logo} alt="VANO" className="h-6 w-auto" />
+          {(helperName || helperPhoto) && (
+            <div className="flex items-center gap-1">
+              {helperPhoto ? (
+                <img src={helperPhoto} className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0" alt="" />
+              ) : (
+                <div className="w-3.5 h-3.5 rounded-full bg-sage/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[7px] font-bold text-sage leading-none">{helperName?.[0]?.toUpperCase()}</span>
+                </div>
+              )}
+              <span className="text-[10px] text-muted-foreground font-medium leading-none">{helperName?.split(' ')[0]}</span>
+            </div>
+          )}
         </button>
-        <div className="w-8" />
+        <div className="w-16" />
       </header>
 
-      <main className="pt-14 max-w-sm mx-auto px-4">
+      <main className="pt-16 max-w-sm mx-auto px-4">
         {/* Page title */}
         <div className="pt-6 pb-4">
           <div className="flex items-start justify-between gap-3">

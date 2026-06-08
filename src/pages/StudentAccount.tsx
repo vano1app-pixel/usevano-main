@@ -46,6 +46,13 @@ interface HelperRow {
   status: string;
 }
 
+const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
+const phonesMatch = (stored: string, entered: string) => {
+  const s = normalizePhone(stored);
+  const e = normalizePhone(entered);
+  return s === e || s.endsWith(e) || e.endsWith(s);
+};
+
 const StudentAccount = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -54,6 +61,11 @@ const StudentAccount = () => {
   const [helper, setHelper] = useState<HelperRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+
+  // Phone gate
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const [bio, setBio] = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -89,6 +101,17 @@ const StudentAccount = () => {
     };
     void run();
   }, [navigate]);
+
+  const handlePhoneVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!helper) return;
+    if (phonesMatch(helper.phone, phoneInput.trim())) {
+      setPhoneVerified(true);
+      setPhoneError('');
+    } else {
+      setPhoneError("That number doesn't match your account. Try again or WhatsApp +353 89 981 7111.");
+    }
+  };
 
   // Reset "saved" tick after 3 seconds
   useEffect(() => {
@@ -194,6 +217,45 @@ const StudentAccount = () => {
         <p className="text-sm text-muted-foreground">
           <a href="/join" className="underline underline-offset-2 text-primary">Apply to join VANO →</a>
         </p>
+      </div>
+    );
+  }
+
+  // Phone gate — shown until user proves they own this account
+  if (!phoneVerified) {
+    return (
+      <div className="min-h-dvh bg-background">
+        <SEOHead title="My account — VANO" description="Manage your VANO helper account." noindex />
+        <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
+          <img src={logo} alt="VANO" className="h-6 w-auto" />
+        </header>
+        <div className="min-h-dvh flex flex-col items-center justify-center px-6 pt-14 pb-10">
+          <div className="w-full max-w-sm">
+            <h1 className="text-2xl font-bold text-foreground mb-2">Your account</h1>
+            <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+              Enter the phone number you used when you signed up to VANO.
+            </p>
+            <form onSubmit={handlePhoneVerify} className="space-y-3">
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={e => { setPhoneInput(e.target.value); setPhoneError(''); }}
+                placeholder="+353 87 123 4567"
+                autoFocus
+                className="w-full h-14 rounded-2xl border border-border bg-background px-4 text-base focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/40"
+              />
+              {phoneError && (
+                <p className="text-sm text-destructive">{phoneError}</p>
+              )}
+              <button
+                type="submit"
+                className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base active:scale-[0.98] transition-transform"
+              >
+                Continue →
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     );
   }
