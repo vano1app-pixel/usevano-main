@@ -114,6 +114,7 @@ const StudentJobDetail = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [releaseConfirm, setReleaseConfirm] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [helperName, setHelperName] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   // Geolocation watch handle — kept while status is on_way
@@ -140,6 +141,15 @@ const StudentJobDetail = () => {
         setBooking(b);
         // Restore live tracking if the page is reloaded while on_way
         if (b.status === 'on_way') startLocationWatch(bookingId);
+        // Load helper name for admin notifications
+        if (b.student_id) {
+          const { data: helperRow } = await hdb
+            .from('household_helpers')
+            .select('name')
+            .eq('user_id', b.student_id)
+            .maybeSingle();
+          if (helperRow?.name) setHelperName(helperRow.name);
+        }
       }
       if (msgRes.data) setMessages(msgRes.data as ChatMessage[]);
       setLoading(false);
@@ -290,11 +300,18 @@ const StudentJobDetail = () => {
       }).catch(() => {});
     }
 
-    // Ping admin when helper arrives so they know the job has started
+    // Notify customer + ping admin when helper arrives
     if (!updateRes.error && next.status === 'arrived') {
+      // Customer "helper is at your door" email
+      supabase.functions.invoke('notify-household-arrived', {
+        body: { booking_id: bookingId },
+      }).catch(() => {});
+      // Admin WhatsApp with helper name
+      const helperNameForAdmin = helperName ?? 'Helper';
       supabase.functions.invoke('notify-admin-whatsapp', {
         body: {
           type: 'helper_arrived',
+          helper_name: helperNameForAdmin,
           booking_id: bookingId,
           category: booking.category,
           customer_name: booking.customer_name,
