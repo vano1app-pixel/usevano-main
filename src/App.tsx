@@ -17,6 +17,7 @@ const BookingFlow = lazyWithRetry(() => import("./pages/BookingFlow"));
 const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
 const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
 const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"));
+const StudentAccount = lazyWithRetry(() => import("./pages/StudentAccount"));
 const JoinAsHelper = lazyWithRetry(() => import("./pages/JoinAsHelper"));
 const HelperProfile = lazyWithRetry(() => import("./pages/HelperProfile"));
 const HouseholdAdmin = lazyWithRetry(() => import("./pages/HouseholdAdmin"));
@@ -87,6 +88,7 @@ const App = () => {
             <Route path="/track/:bookingId" element={<P><TrackBooking /></P>} />
             <Route path="/student-dashboard" element={<P><StudentDashboard /></P>} />
             <Route path="/student-job/:bookingId" element={<P><StudentJobDetail /></P>} />
+            <Route path="/student-account" element={<P><StudentAccount /></P>} />
             <Route path="/join" element={<P><JoinAsHelper /></P>} />
             <Route path="/helper/profile" element={<P><HelperProfile /></P>} />
             <Route path="/household-admin" element={<P><HouseholdAdmin /></P>} />

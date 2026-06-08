@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Clock, CheckCircle2, MapPin, Loader2, Star, Zap } from 'lucide-react';
+import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -188,15 +188,15 @@ const StudentDashboard = () => {
       <SEOHead title="Student dashboard — VANO" description="Pick up household jobs near you." noindex />
 
       {/* Header */}
-      <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
+      <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
+        <div className="w-8" />
         <button
-          onClick={() => navigate('/profile')}
-          className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
-          aria-label="Back to profile"
+          onClick={() => navigate('/student-account')}
+          className="flex items-center"
+          aria-label="My account"
         >
-          <ArrowLeft size={18} strokeWidth={2} />
+          <img src={logo} alt="VANO" className="h-6 w-auto" />
         </button>
-        <img src={logo} alt="VANO" className="h-6 w-auto mx-auto" />
         <div className="w-8" />
       </header>
 
