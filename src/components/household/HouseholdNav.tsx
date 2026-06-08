@@ -43,9 +43,10 @@ export const HouseholdNav: React.FC = () => {
           <Link
             to="/join"
             className={cn(
-              'flex items-center rounded-full border border-border/60 px-3.5 py-1.5',
-              'text-sm font-medium text-foreground/75 hover:text-foreground hover:border-border',
-              'transition-[color,border-color] duration-150 active:scale-[0.97]',
+              'flex items-center rounded-full border px-3.5 py-1.5',
+              'border-foreground/25 bg-foreground/5',
+              'text-sm font-medium text-foreground/80 hover:text-foreground hover:border-foreground/40 hover:bg-foreground/10',
+              'transition-colors duration-150 active:scale-[0.97]',
             )}
           >
             <span className="hidden sm:inline">Become a helper</span>
@@ -70,7 +71,7 @@ export const HouseholdNav: React.FC = () => {
             aria-label="Helper profile"
             className="active:scale-95 transition-transform duration-150"
           >
-            <img src={logo} alt="VANO" className="w-8 h-8 rounded-full object-cover" />
+            <img src={logo} alt="VANO" className="w-8 h-8 rounded-full object-cover ring-1 ring-foreground/20" />
           </Link>
         </div>
       </div>
