@@ -1,14 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
 // Sends the customer a "helper is on the way" email + admin WhatsApp ping.
 // Called fire-and-forget from StudentJobDetail when status advances to on_way.
-// Guard: booking must already be in on_way status (the DB update happened first).
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Guards:
+//   - Caller must supply a valid user JWT
+//   - Caller must be the booking's assigned student
+//   - Booking must already be in on_way status (DB update happened first)
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
@@ -16,28 +15,42 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  const corsHeaders = buildCorsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  if (!isOriginAllowed(req)) return new Response(JSON.stringify({ error: 'Forbidden origin' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   const ok = (data: Record<string, unknown>) =>
-    new Response(JSON.stringify(data), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+    new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   const bad = (status: number, error: string) =>
-    new Response(JSON.stringify({ error }), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase    = createClient(supabaseUrl, serviceKey);
+    const anonKey     = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !user) return bad(401, 'Invalid session');
 
     const { booking_id } = await req.json().catch(() => ({})) as { booking_id?: string };
     if (!booking_id) return bad(400, 'booking_id required');
 
-    // Fetch booking — only proceed if status is actually on_way (prevents spurious emails)
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Fetch booking — verify caller is the assigned student AND status is on_way
     const { data: booking } = await supabase
       .from('household_bookings')
       .select('id, status, customer_name, customer_email, category, scheduled_date, student_id, city, price_estimate_cents')
       .eq('id', booking_id)
       .eq('status', 'on_way')
+      .eq('student_id', user.id)
       .maybeSingle() as { data: Record<string, string | null | number> | null };
 
     if (!booking) return ok({ ok: true, emailed: false, reason: 'booking_not_on_way' });
