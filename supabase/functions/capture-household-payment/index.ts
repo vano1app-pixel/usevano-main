@@ -73,7 +73,7 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('[capture-household-payment] booking update failed', updateError);
-      return bad(500, 'Payment captured but booking status update failed. Contact support.');
+      return bad(500, 'Booking status update failed. Contact support.');
     }
 
     // Create the payout row (pending — admin pays student manually via Revolut)

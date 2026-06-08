@@ -552,7 +552,7 @@ const TrackBooking = () => {
           >
             <CheckCircle2 size={28} className="text-sage mx-auto mb-2" strokeWidth={1.5} />
             <p className="font-semibold text-foreground">Job complete</p>
-            <p className="text-xs text-muted-foreground mt-1">Payment will be released to your helper.</p>
+            <p className="text-xs text-muted-foreground mt-1">Thanks for using VANO!</p>
           </motion.div>
         )}
       </main>
