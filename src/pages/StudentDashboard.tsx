@@ -127,7 +127,7 @@ const StudentDashboard = () => {
     let cancelled = false;
     const run = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/auth', { replace: true }); return; }
+      if (!session?.user) { navigate('/auth', { replace: true, state: { from: '/student-dashboard' } }); return; }
       if (cancelled) return;
       const uid = session.user.id;
       setUserId(uid);
