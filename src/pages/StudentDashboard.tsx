@@ -220,27 +220,26 @@ const StudentDashboard = () => {
 
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 h-16 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
-        <div className="w-16" />
+        <span className="text-base font-bold text-foreground tracking-tight">Dashboard</span>
         <button
           onClick={() => navigate('/student-account')}
-          className="flex flex-col items-center gap-0.5"
+          className="flex items-center gap-2"
           aria-label="My account"
         >
-          <img src={logo} alt="VANO" className="h-6 w-auto" />
           {(helperName || helperPhoto) && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-muted-foreground font-medium">{helperName?.split(' ')[0]}</span>
               {helperPhoto ? (
-                <img src={helperPhoto} className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0" alt="" />
+                <img src={helperPhoto} className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-border/60" alt="" />
               ) : (
-                <div className="w-3.5 h-3.5 rounded-full bg-sage/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-[7px] font-bold text-sage leading-none">{helperName?.[0]?.toUpperCase()}</span>
+                <div className="w-7 h-7 rounded-full bg-sage/20 flex items-center justify-center flex-shrink-0 border border-border/60">
+                  <span className="text-xs font-bold text-sage leading-none">{helperName?.[0]?.toUpperCase()}</span>
                 </div>
               )}
-              <span className="text-[10px] text-muted-foreground font-medium leading-none">{helperName?.split(' ')[0]}</span>
             </div>
           )}
+          <img src={logo} alt="VANO" className="h-6 w-auto" />
         </button>
-        <div className="w-16" />
       </header>
 
       <main className="pt-16 max-w-sm mx-auto px-4">
