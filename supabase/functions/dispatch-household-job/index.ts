@@ -15,8 +15,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   - Set household_bookings.student_id and status = 'accepted'
 //   - Expire remaining offers for that booking (handled in the accept endpoint)
 
-const MAX_OFFERS = 3;
-const OFFER_TTL_MINUTES = 15;
+// MAX_OFFERS caps the DB offer rows. Emails are sent to all matched helpers
+// regardless, so everyone available in the city hears about the job.
+const MAX_OFFERS = 10;
+const OFFER_TTL_MINUTES = 20;
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run',
@@ -114,10 +116,10 @@ serve(async (req) => {
       const when = scheduled_date ?? 'flexible';
       const dashboardUrl = `${siteUrl}/student-dashboard`;
 
-      await Promise.allSettled(
+      const emailResults = await Promise.allSettled(
         (helpers as Array<{ id: string; name: string; phone: string; email?: string }>)
           .filter((h) => h.email)
-          .map((h) => {
+          .map(async (h) => {
             const firstName = h.name.split(' ')[0];
             const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
@@ -132,7 +134,7 @@ serve(async (req) => {
   </div>
 </div>
 </body></html>`;
-            return fetch('https://api.resend.com/emails', {
+            const res = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -143,9 +145,17 @@ serve(async (req) => {
                 text: `Hi ${firstName}! New VANO job in ${city}: ${catLabel}, when: ${when}. Accept here: ${dashboardUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
               }),
             });
+            if (!res.ok) {
+              const body = await res.text().catch(() => '');
+              console.warn(`[dispatch] Resend rejected email to ${h.email} (${res.status}): ${body}`);
+            } else {
+              console.log(`[dispatch] email sent to ${h.email}`);
+            }
+            return res.ok;
           }),
       );
-      console.log(`[dispatch] emailed ${helpers.filter((h: { email?: string }) => h.email).length} helper(s)`);
+      const sent = emailResults.filter(r => r.status === 'fulfilled' && r.value).length;
+      console.log(`[dispatch] emailed ${sent}/${helpers.filter((h: { email?: string }) => h.email).length} helper(s) — from: ${resendFrom}`);
     } else {
       console.info('[dispatch] RESEND_API_KEY not set — skipping helper notifications');
     }
