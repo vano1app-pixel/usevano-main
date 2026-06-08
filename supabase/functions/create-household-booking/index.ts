@@ -163,8 +163,7 @@ serve(async (req) => {
       Deno.env.get('SITE_URL') ||
       'https://vanojobs.com';
 
-    // Stripe Checkout Session — manual capture so we only authorize the
-    // card now and capture when the student marks the job complete.
+    // Stripe Checkout Session — automatic capture, money collected immediately at checkout.
     const checkoutParams: Record<string, string> = {
       mode: 'payment',
       'line_items[0][price_data][currency]': 'eur',
