@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -37,8 +38,7 @@ function Card({ h }: { h: HelperRow }) {
   const firstName = h.name.split(' ')[0];
 
   return (
-    <article className="snap-start w-[220px] lg:w-auto bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col">
-      {/* Photo — square crop, full width */}
+    <article className="snap-start flex-shrink-0 w-[200px] sm:w-[220px] bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col">
       <div className="w-full aspect-[4/3] overflow-hidden bg-secondary/40 flex-shrink-0">
         <img
           src={h.photo_url}
@@ -47,9 +47,7 @@ function Card({ h }: { h: HelperRow }) {
           loading="lazy"
         />
       </div>
-
       <div className="p-3 flex flex-col gap-2 flex-1">
-        {/* Name + age */}
         <div>
           <p className="font-semibold text-foreground text-sm leading-tight">
             Hey, I'm {firstName}
@@ -61,15 +59,10 @@ function Card({ h }: { h: HelperRow }) {
             <p className="text-xs text-muted-foreground mt-0.5">Based in {h.city}</p>
           )}
         </div>
-
-        {/* Category chips */}
         {cats.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-auto">
             {cats.map(slug => (
-              <span
-                key={slug}
-                className="text-[10px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5"
-              >
+              <span key={slug} className="text-[10px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5">
                 {CATEGORY_LABELS[slug] ?? slug}
               </span>
             ))}
@@ -82,6 +75,30 @@ function Card({ h }: { h: HelperRow }) {
 
 export const HelperCards: React.FC = () => {
   const [helpers, setHelpers] = useState<HelperRow[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 8);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener('scroll', updateScrollState, { passive: true });
+    return () => el.removeEventListener('scroll', updateScrollState);
+  }, [helpers, updateScrollState]);
+
+  const scroll = (dir: 'left' | 'right') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === 'left' ? -460 : 460, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     (supabase as any)
@@ -94,7 +111,7 @@ export const HelperCards: React.FC = () => {
       .then(({ data }: { data: HelperRow[] | null }) => {
         if (data && data.length > 0) {
           const shuffled = [...data].sort(() => Math.random() - 0.5);
-          setHelpers(shuffled.slice(0, 6));
+          setHelpers(shuffled);
         }
       });
   }, []);
@@ -125,19 +142,39 @@ export const HelperCards: React.FC = () => {
           </div>
         </div>
       ) : (
-        <>
-          {/* Mobile: horizontal scroll */}
-          <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 lg:hidden">
+        <div className="relative">
+          {/* Left arrow */}
+          {canScrollLeft && (
+            <button
+              onClick={() => scroll('left')}
+              aria-label="Scroll left"
+              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-card border border-border/60 shadow-md hover:bg-secondary transition-colors duration-150"
+            >
+              <ChevronLeft className="w-4 h-4 text-foreground/70" />
+            </button>
+          )}
+
+          {/* Scroll container */}
+          <div
+            ref={scrollRef}
+            className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4"
+          >
             <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
               {helpers.map((h) => <Card key={h.id} h={h} />)}
             </div>
           </div>
 
-          {/* Desktop: grid */}
-          <div className="hidden lg:grid lg:grid-cols-6 gap-3 px-4 max-w-5xl mx-auto">
-            {helpers.map((h) => <Card key={h.id} h={h} />)}
-          </div>
-        </>
+          {/* Right arrow */}
+          {canScrollRight && (
+            <button
+              onClick={() => scroll('right')}
+              aria-label="Scroll right"
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-card border border-border/60 shadow-md hover:bg-secondary transition-colors duration-150"
+            >
+              <ChevronRight className="w-4 h-4 text-foreground/70" />
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
