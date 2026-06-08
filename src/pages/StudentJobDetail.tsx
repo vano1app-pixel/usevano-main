@@ -330,7 +330,7 @@ const StudentJobDetail = () => {
             {booking.price_estimate_cents && (
               <div className="text-right flex-shrink-0">
                 <p className="text-lg font-bold tabular-nums">
-                  €{((booking.price_estimate_cents * 0.95) / 100).toFixed(0)}
+                  €{((booking.price_estimate_cents * 0.85) / 100).toFixed(0)}
                 </p>
                 <p className="text-[11px] text-muted-foreground">your earnings</p>
               </div>
@@ -413,7 +413,7 @@ const StudentJobDetail = () => {
           <div className="flex flex-col items-center text-center py-4 mb-6">
             <CheckCircle2 size={32} className="text-sage mb-2" strokeWidth={1.5} />
             <p className="font-semibold text-foreground">Job complete</p>
-            <p className="text-sm text-muted-foreground mt-0.5">Payment has been captured and will be transferred shortly.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">You'll be paid shortly via Revolut.</p>
           </div>
         )}
 
