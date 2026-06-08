@@ -2,16 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
-// Captures an authorized Stripe PaymentIntent for a completed household job.
+// Marks a household job as complete, records the student payout, and fires
+// post-completion notifications.
 //
-// Called when:
-//   - A student marks a job as completed (status → completed)
-//   - An admin manually releases payment
+// Payment was already captured by Stripe automatically at checkout — this
+// function does NOT call Stripe; it just closes out the booking and creates
+// the payout ledger row so admin knows how much to pay the student.
 //
 // Guards:
-//   - Caller must be the assigned student OR a service-role call
-//   - Booking must be in 'in_progress' or 'completed' status
-//   - stripe_payment_intent_id must be set (webhook stamped it after checkout)
+//   - Caller must be the assigned student
+//   - Booking must be in an active status (accepted / on_way / arrived / in_progress)
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -27,9 +27,6 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
-
-    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!STRIPE_SECRET_KEY) return bad(500, 'STRIPE_SECRET_KEY not configured');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -66,29 +63,7 @@ serve(async (req) => {
       return bad(409, `Cannot capture payment in status: ${booking.status}`);
     }
 
-    if (!booking.stripe_payment_intent_id) {
-      return bad(409, 'No payment intent found — webhook may not have fired yet');
-    }
-
-    // Capture the PaymentIntent
-    const captureResp = await fetch(
-      `https://api.stripe.com/v1/payment_intents/${booking.stripe_payment_intent_id}/capture`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      },
-    );
-
-    if (!captureResp.ok) {
-      const text = await captureResp.text();
-      console.error('[capture-household-payment] stripe error', captureResp.status, text);
-      return bad(502, 'Payment capture failed. Please try again.');
-    }
-
-    const pi = await captureResp.json() as { id: string; status: string };
+    // Payment was already captured automatically at Stripe checkout — nothing to do with Stripe here.
 
     // Mark booking completed
     const { error: updateError } = await supabase
@@ -102,8 +77,8 @@ serve(async (req) => {
       return bad(500, 'Payment captured but booking status update failed. Contact support.');
     }
 
-    // Create the payout row (pending — actual transfer happens via weekly batch or manual release)
-    const PLATFORM_FEE_BPS = 500; // 5% platform fee
+    // Create the payout row (pending — admin pays student manually via Revolut)
+    const PLATFORM_FEE_BPS = 1500; // 15% platform fee
     const priceCents = booking.price_estimate_cents ?? 0;
     const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
 
@@ -218,7 +193,7 @@ serve(async (req) => {
     }).catch(() => {});
 
     return new Response(
-      JSON.stringify({ success: true, payment_intent_status: pi.status, student_earns_cents: studentCents }),
+      JSON.stringify({ success: true, student_earns_cents: studentCents }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {
