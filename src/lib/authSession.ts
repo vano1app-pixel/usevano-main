@@ -177,7 +177,17 @@ async function studentHasListing(userId: string): Promise<boolean> {
  */
 export async function getPostAuthPath(
   userId: string,
-): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard' | '/list-on-community' | '/home'> {
+): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard' | '/list-on-community' | '/home' | '/student-dashboard'> {
+  // Approved household helpers always land on the helper dashboard
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: helperRow } = await (supabase as any)
+    .from('household_helpers')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'approved')
+    .maybeSingle();
+  if (helperRow) return '/student-dashboard';
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, avatar_url, user_type')
@@ -202,7 +212,7 @@ export async function getPostAuthPath(
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community' | '/home'> {
+): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community' | '/home' | '/student-dashboard'> {
   return getPostAuthPath(userId);
 }
 

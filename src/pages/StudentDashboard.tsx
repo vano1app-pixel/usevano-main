@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap } from 'lucide-react';
+import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -42,6 +42,16 @@ const CATEGORY_LABELS: Record<string, string> = {
   tutoring: 'Tutoring',
 };
 
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  shopping:  <ShoppingCart size={13} />,
+  'dog-walk': <PawPrint size={13} />,
+  garden:    <Leaf size={13} />,
+  moving:    <Package size={13} />,
+  cleaning:  <Sparkles size={13} />,
+  tutoring:  <GraduationCap size={13} />,
+  other:     <Zap size={13} />,
+};
+
 const SLOT_LABELS: Record<string, string> = {
   morning: 'Morning · 8am–12pm',
   afternoon: 'Afternoon · 12–5pm',
@@ -78,11 +88,13 @@ const StudentDashboard = () => {
   const [togglingAvailable, setTogglingAvailable] = useState(false);
   const [helperName, setHelperName] = useState<string | null>(null);
   const [helperPhoto, setHelperPhoto] = useState<string | null>(null);
+  const [helperAvgRating, setHelperAvgRating] = useState<number | null>(null);
+  const [helperRatingCount, setHelperRatingCount] = useState(0);
 
   const loadData = useCallback(async (uid: string, city?: string | null, categories?: string[]) => {
     let availableQuery = hdb
       .from('household_bookings')
-      .select('*')
+      .select('id, category, scheduled_date, time_slot, is_express, status, customer_address, city, price_estimate_cents, student_id, created_at')
       .eq('status', 'pending')
       .is('student_id', null)
       .order('created_at', { ascending: false })
@@ -115,7 +127,7 @@ const StudentDashboard = () => {
     let cancelled = false;
     const run = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/auth', { replace: true }); return; }
+      if (!session?.user) { navigate('/auth', { replace: true, state: { from: '/student-dashboard' } }); return; }
       if (cancelled) return;
       const uid = session.user.id;
       setUserId(uid);
@@ -123,7 +135,7 @@ const StudentDashboard = () => {
       // Load helper profile first so we can filter jobs by city + categories
       const { data: helperRow } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, is_available, city, categories')
+        .select('id, name, photo_url, is_available, city, categories, average_rating, rating_count')
         .eq('user_id', uid)
         .maybeSingle();
 
@@ -136,6 +148,12 @@ const StudentDashboard = () => {
         setHelperCategories(categories);
         setHelperName((helperRow.name as string | null) ?? null);
         setHelperPhoto((helperRow.photo_url as string | null) ?? null);
+        const avgRating = (helperRow.average_rating as number | null) ?? null;
+        const ratingCount = (helperRow.rating_count as number) ?? 0;
+        if (avgRating !== null && ratingCount > 0) {
+          setHelperAvgRating(avgRating);
+          setHelperRatingCount(ratingCount);
+        }
       }
 
       await loadData(uid, city, categories);
@@ -175,6 +193,8 @@ const StudentDashboard = () => {
       return;
     }
 
+    // Log accepted update so TrackBooking stepper shows "Booking confirmed" immediately
+    void hdb.from('household_job_updates').insert({ booking_id: jobId, status: 'accepted' });
     // Email the customer + admin fire-and-forget, then go to the job detail
     void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: jobId } });
     navigate(`/student-job/${jobId}?claimed=1`);
@@ -319,6 +339,11 @@ const StudentDashboard = () => {
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
+                              {CATEGORY_ICONS[job.category] && (
+                                <span className="text-muted-foreground flex-shrink-0">
+                                  {CATEGORY_ICONS[job.category]}
+                                </span>
+                              )}
                               <span className="text-sm font-semibold text-foreground">
                                 {CATEGORY_LABELS[job.category] ?? job.category}
                               </span>
@@ -453,16 +478,37 @@ const StudentDashboard = () => {
                   </div>
                 )}
 
-                {/* Rating placeholder */}
+                {/* Rating */}
                 <div className="mt-5 rounded-2xl border border-border/60 p-4 flex items-center gap-4">
                   <div className="flex gap-0.5">
-                    {[1,2,3,4,5].map((n) => (
-                      <Star key={n} size={16} className="fill-gold text-gold" />
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star
+                        key={n}
+                        size={16}
+                        className={cn(
+                          helperAvgRating !== null && n <= Math.round(helperAvgRating)
+                            ? 'fill-amber-400 text-amber-400'
+                            : 'text-muted-foreground/25',
+                        )}
+                      />
                     ))}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Rating visible after first job</p>
-                    <p className="text-xs text-muted-foreground">Customers rate you after each completed job.</p>
+                    {helperAvgRating !== null && helperRatingCount > 0 ? (
+                      <>
+                        <p className="text-sm font-semibold text-foreground">
+                          {helperAvgRating.toFixed(1)} / 5.0
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {helperRatingCount} {helperRatingCount === 1 ? 'rating' : 'ratings'} from customers
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-foreground">No ratings yet</p>
+                        <p className="text-xs text-muted-foreground">Customers rate you after each completed job.</p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

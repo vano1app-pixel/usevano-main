@@ -9,8 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   2. Find approved + available helpers in the same city.
 //   3. Offer the job to up to MAX_OFFERS helpers (ordered by fewest accepted jobs).
 //   4. Insert household_job_offers rows — helpers see these on their dashboard.
-//   5. Send a WhatsApp nudge to each helper via Twilio (graceful degradation if
-//      TWILIO_* env vars are not set — dispatch still works, notification skipped).
+//   5. Email each matched helper via Resend about the new job.
 //
 // When a helper accepts (via /student-job/:bookingId):
 //   - Set household_bookings.student_id and status = 'accepted'
@@ -18,41 +17,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MAX_OFFERS = 3;
 const OFFER_TTL_MINUTES = 15;
-
-// Normalise Irish mobile numbers to E.164 (+353…).
-// Handles: 083…, +353 83…, 353083…, etc.
-function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('353') && digits.length >= 12) return `+${digits}`;
-  if (digits.startsWith('0') && digits.length >= 9) return `+353${digits.slice(1)}`;
-  if (digits.length === 9 && /^[89]/.test(digits)) return `+353${digits}`;
-  return `+${digits}`;
-}
-
-async function sendWhatsApp(
-  accountSid: string,
-  authToken: string,
-  from: string,
-  to: string,
-  body: string,
-): Promise<void> {
-  const params = new URLSearchParams({ From: `whatsapp:${from}`, To: `whatsapp:${to}`, Body: body });
-  const resp = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
-    },
-  );
-  if (!resp.ok) {
-    const text = await resp.text();
-    console.warn('[dispatch] Twilio error', resp.status, text.slice(0, 200));
-  }
-}
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run',

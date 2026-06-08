@@ -56,6 +56,18 @@ serve(async (req) => {
       .eq('student_id', user.id)
       .maybeSingle() as { data: Record<string, string | null> | null };
 
+    if (!booking) return bad(404, 'Booking not found or not assigned to you');
+
+    // Insert an 'accepted' update row if one doesn't already exist
+    const { count: existingAccepted } = await supabase
+      .from('household_job_updates')
+      .select('id', { count: 'exact', head: true })
+      .eq('booking_id', booking_id)
+      .eq('status', 'accepted');
+    if (!existingAccepted) {
+      await supabase.from('household_job_updates').insert({ booking_id, status: 'accepted' });
+    }
+
     if (!booking?.customer_email) return ok({ ok: true, emailed: false, reason: 'no_customer_email' });
 
     // Get helper name — household_helpers first, profiles fallback
