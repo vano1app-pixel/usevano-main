@@ -41,6 +41,8 @@ export interface BookingData {
   customerAddress?: string;
   customerPhone?: string;
   customerCity?: string;
+  customerLat?: number;
+  customerLng?: number;
 }
 
 export interface StepProps {

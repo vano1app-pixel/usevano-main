@@ -66,7 +66,6 @@ export const JoinAsHelper: React.FC = () => {
   const [tutorSubjects, setTutorSubjects] = useState<string[]>([]);
   const [tutorLevels, setTutorLevels] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -130,7 +129,10 @@ export const JoinAsHelper: React.FC = () => {
         window.location.href = json.checkout_url;
         return;
       }
-      setSubmitted(true);
+
+      // No checkout URL returned — payment couldn't be started.
+      // Don't show success: the helper stays pending and won't go live.
+      setError('Something went wrong with payment — please try again or text us on WhatsApp.');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.toLowerCase().includes('already')) {
@@ -183,7 +185,7 @@ export const JoinAsHelper: React.FC = () => {
 
         {/* Application form */}
         <section className="px-4 pb-16 max-w-sm mx-auto">
-          {welcomeBack || submitted ? (
+          {welcomeBack ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

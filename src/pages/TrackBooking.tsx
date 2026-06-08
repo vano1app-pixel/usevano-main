@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, Clock, CheckCircle2, Circle, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import logo from '@/assets/logo.png';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 
 // Household tables not yet in generated types — remove once migration is applied and types are regenerated
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,6 +45,106 @@ interface ChatMessage {
   sender_id: string;
   body: string;
   created_at: string;
+}
+
+// Inject custom marker animation once on module load
+if (typeof document !== 'undefined' && !document.getElementById('vano-map-css')) {
+  const s = document.createElement('style');
+  s.id = 'vano-map-css';
+  s.textContent =
+    '@keyframes vano-dot-pulse{0%{transform:scale(1);opacity:.55}to{transform:scale(2.8);opacity:0}}' +
+    '.vano-dot-ring{animation:vano-dot-pulse 1.8s ease-out infinite}';
+  document.head.appendChild(s);
+}
+
+const helperMarkerIcon = L.divIcon({
+  className: '',
+  html:
+    '<div style="position:relative;width:18px;height:18px">' +
+    '<div class="vano-dot-ring" style="position:absolute;inset:-6px;border:2px solid #4a7c59;border-radius:50%"></div>' +
+    '<div style="width:18px;height:18px;background:#4a7c59;border:2.5px solid #fff;border-radius:50%;box-shadow:0 1px 6px rgba(74,124,89,.45)"></div>' +
+    '</div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+// Smoothly pans the map to follow new coordinates without remounting
+function MapFollow({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.8 });
+  }, [lat, lng, map]);
+  return null;
+}
+
+// Live map — marker moves smoothly, no flash on location update
+function LiveLocationMap({ lat, lng }: { lat: number; lng: number }) {
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [secondsAgo, setSecondsAgo] = useState(0);
+  const prevRef = useRef({ lat, lng });
+
+  useEffect(() => {
+    if (prevRef.current.lat !== lat || prevRef.current.lng !== lng) {
+      prevRef.current = { lat, lng };
+      setLastUpdated(new Date());
+      setSecondsAgo(0);
+    }
+  }, [lat, lng]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
+    }, 5000);
+    return () => clearInterval(id);
+  }, [lastUpdated]);
+
+  const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+
+  const updatedLabel = secondsAgo < 30
+    ? 'Just updated'
+    : Math.floor(secondsAgo / 60) > 0
+      ? `Updated ${Math.floor(secondsAgo / 60)}m ago`
+      : `Updated ${secondsAgo}s ago`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+      className="mt-6"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Helper location</p>
+        </div>
+        <p className="text-xs text-muted-foreground">{updatedLabel}</p>
+      </div>
+      <div className="rounded-2xl overflow-hidden border border-border/60 h-48">
+        <MapContainer
+          center={[lat, lng]}
+          zoom={15}
+          className="w-full h-full"
+          zoomControl={false}
+          scrollWheelZoom={false}
+          attributionControl={false}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <Marker position={[lat, lng]} icon={helperMarkerIcon} />
+          <MapFollow lat={lat} lng={lng} />
+        </MapContainer>
+      </div>
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 flex items-center justify-center gap-1.5 text-xs text-primary font-medium"
+      >
+        <Navigation size={11} />
+        Open in Google Maps
+      </a>
+    </motion.div>
+  );
 }
 
 const STATUS_STEPS: { key: UpdateStatus; label: string; detail: string }[] = [
@@ -96,6 +199,7 @@ const TrackBooking = () => {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [updates, setUpdates] = useState<JobUpdate[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [helperName, setHelperName] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -176,6 +280,30 @@ const TrackBooking = () => {
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [bookingId]);
+
+  // Fetch helper name when a student is assigned
+  useEffect(() => {
+    const studentId = booking?.student_id;
+    if (!studentId) { setHelperName(null); return; }
+    let cancelled = false;
+    const fetch_ = async () => {
+      const { data: helper } = await hdb
+        .from('household_helpers')
+        .select('name')
+        .eq('user_id', studentId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (helper?.name) { setHelperName(helper.name.split(' ')[0]); return; }
+      const { data: profile } = await hdb
+        .from('profiles')
+        .select('display_name')
+        .eq('user_id', studentId)
+        .maybeSingle();
+      if (!cancelled) setHelperName(profile?.display_name?.split(' ')[0] ?? null);
+    };
+    void fetch_();
+    return () => { cancelled = true; };
+  }, [booking?.student_id]);
 
   // Scroll chat to bottom on new messages
   useEffect(() => {
@@ -298,6 +426,24 @@ const TrackBooking = () => {
           )}
         </div>
 
+        {/* Helper name — shown once a student is assigned */}
+        {booking.student_id && helperName && !isPending && !isCancelled && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 flex items-center gap-2.5 bg-sage-light border border-sage/20 rounded-2xl px-4 py-3"
+          >
+            <div className="w-8 h-8 rounded-full bg-sage/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-sage font-bold text-sm">{helperName[0].toUpperCase()}</span>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Your helper</p>
+              <p className="text-sm font-semibold text-foreground leading-tight">{helperName}</p>
+            </div>
+          </motion.div>
+        )}
+
         {/* Status area */}
         <div className="mt-6">
           {isPending && (
@@ -369,29 +515,9 @@ const TrackBooking = () => {
           )}
         </div>
 
-        {/* Worker location map — shown once when they tap "I'm on my way" */}
+        {/* Live worker location — updates every ~15 seconds while on the way */}
         {booking.status === 'on_way' && booking.worker_lat && booking.worker_lng && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
-            className="mt-6"
-          >
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Worker location
-            </p>
-            <div className="rounded-2xl overflow-hidden border border-border/60 h-44 bg-secondary">
-              <iframe
-                title="Worker location"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${booking.worker_lng - 0.008},${booking.worker_lat - 0.006},${booking.worker_lng + 0.008},${booking.worker_lat + 0.006}&layer=mapnik&marker=${booking.worker_lat},${booking.worker_lng}`}
-                className="w-full h-full border-0"
-                loading="lazy"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1.5 text-center">
-              Pinned when your helper set off
-            </p>
-          </motion.div>
+          <LiveLocationMap lat={booking.worker_lat} lng={booking.worker_lng} />
         )}
 
         {/* Chat — only show when a student is assigned */}

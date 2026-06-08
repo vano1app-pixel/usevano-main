@@ -52,7 +52,7 @@ serve(async (req) => {
     // Fetch the booking
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, customer_id, status, stripe_payment_intent_id, price_estimate_cents')
+      .select('id, student_id, customer_id, status, stripe_payment_intent_id, price_estimate_cents, customer_name, customer_email, category, city')
       .eq('id', bookingId)
       .maybeSingle();
 
@@ -120,6 +120,80 @@ serve(async (req) => {
       status: 'completed',
       note: 'Job completed and payment captured.',
     });
+
+    // ── Post-completion notifications — fire and forget ───────────────────
+    const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+    const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+    const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+    const categoryLabels: Record<string, string> = {
+      shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+      moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
+    };
+    const catLabel = categoryLabels[(booking as Record<string, unknown>).category as string] ?? 'job';
+    const custName = String((booking as Record<string, unknown>).customer_name ?? 'there');
+    const custEmail = (booking as Record<string, unknown>).customer_email as string | null;
+    const ref = bookingId.slice(-8).toUpperCase();
+    const trackUrl = `${siteUrl}/track/${bookingId}`;
+
+    // Helper name for the email
+    let helperFirst = 'Your helper';
+    const { data: helperRow } = await supabase
+      .from('household_helpers')
+      .select('name')
+      .eq('user_id', callerId)
+      .maybeSingle() as { data: { name?: string } | null };
+    if (helperRow?.name) helperFirst = helperRow.name.split(' ')[0];
+
+    // Customer completion email
+    if (resendKey && custEmail) {
+      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">All done! ✓</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+      <strong>${helperFirst}</strong> has completed your <strong>${catLabel}</strong>.
+      Payment has been processed — all done!
+    </p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+      If you have any questions or need anything else, text us on WhatsApp:
+      <a href="https://wa.me/353899817111" style="color:#4a7c59;">+353 89 981 7111</a>
+    </p>
+    <a href="${trackUrl}" style="display:inline-block;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;border:1px solid #e5e7eb;">View booking →</a>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Thanks for using VANO · Ref: ${ref}</p>
+  </div>
+</div>
+</body></html>`;
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: [custEmail],
+          subject: `Your ${catLabel} is complete — VANO`,
+          html,
+          text: `Hi ${custName}, ${helperFirst} has completed your ${catLabel}. Payment processed. Any questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
+        }),
+      }).catch(() => {});
+    }
+
+    // Admin WhatsApp ping
+    fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'job_complete',
+        helper_name: helperFirst,
+        customer_name: custName,
+        category: (booking as Record<string, unknown>).category,
+        city: (booking as Record<string, unknown>).city,
+        price_euros: (((booking as Record<string, unknown>).price_estimate_cents as number ?? 0) / 100).toFixed(2),
+        student_earns_euros: (studentCents / 100).toFixed(2),
+        booking_id: bookingId,
+      }),
+    }).catch(() => {});
 
     return new Response(
       JSON.stringify({ success: true, payment_intent_status: pi.status, student_earns_cents: studentCents }),

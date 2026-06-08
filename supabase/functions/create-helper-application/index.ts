@@ -115,9 +115,9 @@ serve(async (req) => {
     // Create Stripe subscription checkout for €2/month membership
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
     if (!STRIPE_SECRET_KEY) {
-      // Fallback: return success without checkout (Stripe not configured)
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
+      console.error('[create-helper-application] STRIPE_SECRET_KEY not set — cannot create checkout');
+      return new Response(JSON.stringify({ error: 'Payment not configured. Please contact us on WhatsApp.' }), {
+        status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 
@@ -137,6 +137,7 @@ serve(async (req) => {
       success_url: `${origin}/join?welcome=1&name=${encodeURIComponent(name)}`,
       cancel_url:  `${origin}/join`,
       customer_email: email,
+      'metadata[helper_email]': email,
       'metadata[helper_name]': name,
       'metadata[helper_phone]': phone,
       'metadata[helper_city]': city,
@@ -154,9 +155,8 @@ serve(async (req) => {
     if (!stripeResp.ok) {
       const text = await stripeResp.text();
       console.error('[create-helper-application] stripe error', stripeResp.status, text);
-      // Application saved — return success even if Stripe fails
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: 'Could not start payment. Please try again.' }), {
+        status: 502, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 

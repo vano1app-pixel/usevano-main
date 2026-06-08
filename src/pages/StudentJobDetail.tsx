@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -60,6 +60,10 @@ function formatDate(d: string): string {
   } catch { return d; }
 }
 
+function googleMapsUrl(address: string) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+}
+
 // Status machine: what action advances the job
 const NEXT_STATUS: Partial<Record<JobStatus, { status: UpdateStatus; label: string }>> = {
   accepted:    { status: 'on_way',      label: "I'm on my way" },
@@ -67,6 +71,9 @@ const NEXT_STATUS: Partial<Record<JobStatus, { status: UpdateStatus; label: stri
   arrived:     { status: 'in_progress', label: 'Starting job'  },
   in_progress: { status: 'completed',   label: 'Job complete'  },
 };
+
+// How often (ms) to push location updates to Supabase while on the way
+const LOCATION_UPDATE_INTERVAL_MS = 15_000;
 
 const StudentJobDetail = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
@@ -80,9 +87,14 @@ const StudentJobDetail = () => {
   const [advancing, setAdvancing] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sharingLocation, setSharingLocation] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  // Geolocation watch handle — kept while status is on_way
+  const watchIdRef = useRef<number | null>(null);
+  // Timestamp of last DB location push — throttles writes
+  const lastLocationPushRef = useRef<number>(0);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -98,13 +110,24 @@ const StudentJobDetail = () => {
       ]);
 
       if (cancelled) return;
-      if (bookingRes.data) setBooking(bookingRes.data as Booking);
+      if (bookingRes.data) {
+        const b = bookingRes.data as Booking;
+        setBooking(b);
+        // Restore live tracking if the page is reloaded while on_way
+        if (b.status === 'on_way') startLocationWatch(bookingId);
+      }
       if (msgRes.data) setMessages(msgRes.data as ChatMessage[]);
       setLoading(false);
     };
     void load();
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, navigate]);
+
+  // Clear the geolocation watch on unmount
+  useEffect(() => {
+    return () => stopLocationWatch();
+  }, []);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -123,6 +146,35 @@ const StudentJobDetail = () => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  function startLocationWatch(bid: string) {
+    if (!('geolocation' in navigator)) return;
+    if (watchIdRef.current !== null) return; // already watching
+
+    setSharingLocation(true);
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const now = Date.now();
+        if (now - lastLocationPushRef.current < LOCATION_UPDATE_INTERVAL_MS) return;
+        lastLocationPushRef.current = now;
+        hdb.from('household_bookings').update({
+          worker_lat: pos.coords.latitude,
+          worker_lng: pos.coords.longitude,
+        }).eq('id', bid).then(() => {/* fire and forget */});
+      },
+      () => {/* denied or unavailable — silently ignore */},
+      { enableHighAccuracy: true, maximumAge: 5000 },
+    );
+    watchIdRef.current = id;
+  }
+
+  function stopLocationWatch() {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setSharingLocation(false);
+  }
+
   const advanceStatus = async () => {
     if (!booking || !bookingId) return;
     const next = NEXT_STATUS[booking.status];
@@ -137,6 +189,7 @@ const StudentJobDetail = () => {
           body: { booking_id: bookingId },
         });
         if (error) throw error;
+        stopLocationWatch();
         setBooking((b) => b ? { ...b, status: 'completed' } : b);
         toast({ title: 'Job complete — payment captured' });
       } catch (err) {
@@ -149,24 +202,44 @@ const StudentJobDetail = () => {
 
     setAdvancing(true);
 
-    // Capture worker's location when setting off — stored as a static pin for the customer
     const bookingUpdate: Record<string, unknown> = { status: next.status };
-    if (next.status === 'on_way' && 'geolocation' in navigator) {
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000, maximumAge: 30000 }),
-        );
-        bookingUpdate.worker_lat = pos.coords.latitude;
-        bookingUpdate.worker_lng = pos.coords.longitude;
-      } catch {
-        // Location denied or unavailable — proceed without it
+
+    if (next.status === 'on_way') {
+      // Get initial location snapshot, then start continuous watch
+      if ('geolocation' in navigator) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000, maximumAge: 10000 }),
+          );
+          bookingUpdate.worker_lat = pos.coords.latitude;
+          bookingUpdate.worker_lng = pos.coords.longitude;
+          lastLocationPushRef.current = Date.now();
+        } catch {
+          // Denied — proceed without location
+        }
       }
+      // Open Google Maps navigation to customer's address
+      window.open(googleMapsUrl(booking.customer_address), '_blank');
+      // Start live location tracking
+      startLocationWatch(bookingId);
+    }
+
+    if (next.status === 'arrived') {
+      stopLocationWatch();
     }
 
     const [updateRes] = await Promise.all([
       hdb.from('household_bookings').update(bookingUpdate).eq('id', bookingId),
       hdb.from('household_job_updates').insert({ booking_id: bookingId, status: next.status }),
     ]);
+
+    // Notify customer when helper is on the way — fire and forget, never blocks UI
+    if (!updateRes.error && next.status === 'on_way') {
+      supabase.functions.invoke('notify-household-on-way', {
+        body: { booking_id: bookingId },
+      }).catch(() => {});
+    }
+
     if (updateRes.error) {
       toast({ title: 'Update failed', description: getUserFriendlyError(updateRes.error), variant: 'destructive' });
     } else {
@@ -244,10 +317,16 @@ const StudentJobDetail = () => {
             )}
           </div>
           <div className="space-y-2 pt-3 border-t border-border/40">
-            <div className="flex items-center gap-2 text-sm text-foreground">
+            {/* Address — tappable to open Google Maps */}
+            <a
+              href={googleMapsUrl(booking.customer_address)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+            >
               <MapPin size={14} className="text-muted-foreground flex-shrink-0" />
-              <span>{booking.customer_address}</span>
-            </div>
+              <span className="underline underline-offset-2">{booking.customer_address}</span>
+            </a>
             <div className="flex items-center gap-2 text-sm text-foreground">
               <Phone size={14} className="text-muted-foreground flex-shrink-0" />
               <a href={`tel:${booking.customer_phone}`} className="underline underline-offset-2">
@@ -256,6 +335,18 @@ const StudentJobDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Live location sharing indicator */}
+        {sharingLocation && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 bg-sage-light border border-sage/30 rounded-xl px-4 py-2.5 mb-4"
+          >
+            <Navigation size={14} className="text-sage flex-shrink-0" />
+            <p className="text-xs text-foreground font-medium">Sharing your live location with the customer</p>
+          </motion.div>
+        )}
 
         {/* Status action button */}
         {!isComplete && !isCancelled && next && (

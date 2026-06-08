@@ -513,12 +513,36 @@ async function handleHouseholdCheckoutCompleted(
     }
   })();
 
+  // Auto-dispatch the job to eligible helpers — fire and forget.
+  // Finds up to 3 approved + available helpers in the same city and
+  // emails them the job with a 15-minute claim window.
+  // Uses the same booking record already returned from the flip above,
+  // so no extra DB read needed. If dispatch fails for any reason it is
+  // silently swallowed — admin WhatsApp above is the fallback.
+  const dispatchPromise = (async () => {
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ record: { ...flipped, status: 'pending' } }),
+      });
+    } catch (e) {
+      console.warn('[stripe-webhook] dispatch-household-job call failed (non-fatal)', e);
+    }
+  })();
+
   const runtime = (globalThis as unknown as {
     EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
   }).EdgeRuntime;
   if (runtime?.waitUntil) {
     runtime.waitUntil(emailPromise);
     runtime.waitUntil(adminNotifyPromise);
+    runtime.waitUntil(dispatchPromise);
   }
 
   return new Response(
@@ -582,6 +606,31 @@ async function handleChargeRefunded(
   });
 }
 
+// --- Handler: helper subscription checkout completed ---------------------
+// Fires when a student pays the €2/month membership.
+// Flips their status from pending → approved so they immediately start
+// receiving job dispatches. No manual approval needed.
+async function handleHelperSubscriptionCompleted(
+  supabase: SupabaseClient,
+  helperEmail: string,
+): Promise<Response> {
+  const { error } = await supabase
+    .from('household_helpers')
+    .update({ status: 'approved', is_available: true })
+    .eq('email', helperEmail)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('[stripe-webhook] helper approval flip failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+
+  return new Response(
+    JSON.stringify({ received: true, triggered: 'helper_approved' }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
 // --- Entry point ----------------------------------------------------------
 serve(async (req) => {
   if (req.method !== 'POST') {
@@ -633,6 +682,10 @@ serve(async (req) => {
     }
     if (householdBookingId) {
       return handleHouseholdCheckoutCompleted(supabase, session, householdBookingId);
+    }
+    const helperEmail = session.metadata?.helper_email;
+    if (helperEmail) {
+      return handleHelperSubscriptionCompleted(supabase, helperEmail);
     }
 
     // Fallback: look at client_reference_id as an AI Find request id
