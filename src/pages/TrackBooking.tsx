@@ -31,6 +31,17 @@ interface Booking {
   student_id: string | null;
   worker_lat: number | null;
   worker_lng: number | null;
+  customer_lat: number | null;
+  customer_lng: number | null;
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 interface JobUpdate {
@@ -68,83 +79,33 @@ const helperMarkerIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-// Smoothly pans the map to follow new coordinates without remounting
-function MapFollow({ lat, lng }: { lat: number; lng: number }) {
+// Customer destination pin — white circle with green border
+const customerDestIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;background:#fff;border:3px solid #4a7c59;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.3)"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+// Auto-fits both helper + customer in view, then follows helper on updates
+function FitBoundsOrFollow({
+  helperLat, helperLng, customerLat, customerLng,
+}: { helperLat: number; helperLng: number; customerLat: number | null; customerLng: number | null }) {
   const map = useMap();
+  const fitted = useRef(false);
   useEffect(() => {
-    map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.8 });
-  }, [lat, lng, map]);
-  return null;
-}
-
-// Live map — marker moves smoothly, no flash on location update
-function LiveLocationMap({ lat, lng }: { lat: number; lng: number }) {
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [secondsAgo, setSecondsAgo] = useState(0);
-  const prevRef = useRef({ lat, lng });
-
-  useEffect(() => {
-    if (prevRef.current.lat !== lat || prevRef.current.lng !== lng) {
-      prevRef.current = { lat, lng };
-      setLastUpdated(new Date());
-      setSecondsAgo(0);
+    if (!fitted.current && customerLat && customerLng) {
+      map.fitBounds(
+        L.latLngBounds([[helperLat, helperLng], [customerLat, customerLng]]),
+        { padding: [44, 44], maxZoom: 16, animate: false },
+      );
+      fitted.current = true;
+    } else {
+      map.setView([helperLat, helperLng], map.getZoom(), { animate: true, duration: 0.8 });
     }
-  }, [lat, lng]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
-    }, 5000);
-    return () => clearInterval(id);
-  }, [lastUpdated]);
-
-  const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
-
-  const updatedLabel = secondsAgo < 30
-    ? 'Just updated'
-    : Math.floor(secondsAgo / 60) > 0
-      ? `Updated ${Math.floor(secondsAgo / 60)}m ago`
-      : `Updated ${secondsAgo}s ago`;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
-      className="mt-6"
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Helper location</p>
-        </div>
-        <p className="text-xs text-muted-foreground">{updatedLabel}</p>
-      </div>
-      <div className="rounded-2xl overflow-hidden border border-border/60 h-48">
-        <MapContainer
-          center={[lat, lng]}
-          zoom={15}
-          className="w-full h-full"
-          zoomControl={false}
-          scrollWheelZoom={false}
-          attributionControl={false}
-        >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <Marker position={[lat, lng]} icon={helperMarkerIcon} />
-          <MapFollow lat={lat} lng={lng} />
-        </MapContainer>
-      </div>
-      <a
-        href={mapsUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-2 flex items-center justify-center gap-1.5 text-xs text-primary font-medium"
-      >
-        <Navigation size={11} />
-        Open in Google Maps
-      </a>
-    </motion.div>
-  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [helperLat, helperLng]);
+  return null;
 }
 
 const STATUS_STEPS: { key: UpdateStatus; label: string; detail: string }[] = [
@@ -204,6 +165,9 @@ const TrackBooking = () => {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [locationAge, setLocationAge] = useState(0); // seconds since last worker position update
+  const locationUpdatedAt = useRef<number>(Date.now());
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
@@ -310,6 +274,29 @@ const TrackBooking = () => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Recalculate distance when helper moves
+  useEffect(() => {
+    const wLat = booking?.worker_lat;
+    const wLng = booking?.worker_lng;
+    const cLat = booking?.customer_lat;
+    const cLng = booking?.customer_lng;
+    if (wLat && wLng && cLat && cLng) {
+      setDistanceKm(haversineKm(wLat, wLng, cLat, cLng));
+    } else {
+      setDistanceKm(null);
+    }
+    locationUpdatedAt.current = Date.now();
+    setLocationAge(0);
+  }, [booking?.worker_lat, booking?.worker_lng, booking?.customer_lat, booking?.customer_lng]);
+
+  // Tick location age every 15s so the "updated X ago" label stays fresh
+  useEffect(() => {
+    const id = setInterval(() => {
+      setLocationAge(Math.floor((Date.now() - locationUpdatedAt.current) / 1000));
+    }, 15_000);
+    return () => clearInterval(id);
+  }, []);
+
   const sendMessage = async () => {
     if (!draft.trim() || !bookingId || !userId) return;
     setSending(true);
@@ -370,7 +357,7 @@ const TrackBooking = () => {
         <div className="w-8" />
       </header>
 
-      <main className="pt-14 pb-40 max-w-sm mx-auto px-4">
+      <main className={cn('pt-14 max-w-sm mx-auto px-4', booking.status === 'on_way' && booking.worker_lat ? 'pb-[320px]' : 'pb-40')}>
 
         {/* Payment success banner */}
         <AnimatePresence>
@@ -515,11 +502,6 @@ const TrackBooking = () => {
           )}
         </div>
 
-        {/* Live worker location — updates every ~15 seconds while on the way */}
-        {booking.status === 'on_way' && booking.worker_lat && booking.worker_lng && (
-          <LiveLocationMap lat={booking.worker_lat} lng={booking.worker_lng} />
-        )}
-
         {/* Chat — only show when a student is assigned */}
         {booking.student_id && (
           <div className="mt-8">
@@ -574,6 +556,65 @@ const TrackBooking = () => {
           </motion.div>
         )}
       </main>
+
+      {/* Fixed bottom map panel — shown when helper is on the way */}
+      {booking.status === 'on_way' && booking.worker_lat && booking.worker_lng && (
+        <div className={cn(
+          'fixed inset-x-0 z-30 flex justify-center px-4',
+          booking.student_id && !isCompleted && !isCancelled && userId ? 'bottom-[68px]' : 'bottom-0 pb-safe',
+        )}>
+          <motion.div
+            initial={{ y: 60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="w-full max-w-sm bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
+          >
+            {/* Map header */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-sage animate-pulse flex-shrink-0" />
+                <span className="text-sm font-semibold text-foreground">
+                  {distanceKm !== null
+                    ? `${distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`} away`
+                    : 'Helper on the way'}
+                </span>
+                {distanceKm !== null && (
+                  <span className="text-xs text-muted-foreground">
+                    · ~{Math.max(1, Math.round(distanceKm * 3))} min
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground flex-shrink-0">
+                {locationAge < 30 ? 'Live' : locationAge < 120 ? `${Math.floor(locationAge / 60)}m ago` : `${Math.floor(locationAge / 60)}m ago`}
+              </span>
+            </div>
+            {/* Map */}
+            <div style={{ height: 200 }}>
+              <MapContainer
+                center={[booking.worker_lat, booking.worker_lng]}
+                zoom={14}
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={false}
+                attributionControl={false}
+                scrollWheelZoom={false}
+                dragging={false}
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Marker position={[booking.worker_lat, booking.worker_lng]} icon={helperMarkerIcon} />
+                {booking.customer_lat && booking.customer_lng && (
+                  <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerDestIcon} />
+                )}
+                <FitBoundsOrFollow
+                  helperLat={booking.worker_lat}
+                  helperLng={booking.worker_lng}
+                  customerLat={booking.customer_lat ?? null}
+                  customerLng={booking.customer_lng ?? null}
+                />
+              </MapContainer>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Chat input — fixed bottom when student assigned and user is logged in */}
       {booking.student_id && !isCompleted && !isCancelled && userId && (
