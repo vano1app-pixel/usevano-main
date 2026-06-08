@@ -5,6 +5,7 @@ import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
+import { useToast } from '@/hooks/use-toast';
 import logo from '@/assets/logo.png';
 
 // Household tables not yet in generated types — remove once migration is applied and types are regenerated
@@ -59,6 +60,7 @@ function formatDate(d: string): string {
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<'available' | 'mine' | 'earnings'>('available');
@@ -164,13 +166,17 @@ const StudentDashboard = () => {
       .eq('status', 'pending')
       .is('student_id', null);
 
-    if (!error) {
-      setAvailableJobs((prev) => prev.filter((j) => j.id !== jobId));
-      // Fire-and-forget: email the customer that their helper accepted
-      void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: jobId } });
-      if (userId) await loadData(userId, helperCity, helperCategories);
+    if (error) {
+      toast({ title: 'Could not accept job', description: 'It may have just been taken by someone else. Try another.', variant: 'destructive' });
+      setAccepting(null);
+      // Refresh so the job disappears if someone else grabbed it
+      void loadData(userId, helperCity, helperCategories);
+      return;
     }
-    setAccepting(null);
+
+    // Email the customer fire-and-forget, then navigate to job detail immediately
+    void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: jobId } });
+    navigate(`/student-job/${jobId}`);
   };
 
   const totalEarned = payouts

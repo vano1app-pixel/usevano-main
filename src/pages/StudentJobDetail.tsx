@@ -8,6 +8,17 @@ import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import logo from '@/assets/logo.png';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix default Leaflet marker icons broken by bundlers
+const customerIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:#4a7c59;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
 
 // Household tables not yet in generated types — remove once migration is applied and types are regenerated
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,6 +37,8 @@ interface Booking {
   customer_name: string;
   customer_address: string;
   customer_phone: string;
+  customer_lat: number | null;
+  customer_lng: number | null;
   price_estimate_cents: number | null;
   booking_data: Record<string, unknown>;
 }
@@ -335,6 +348,25 @@ const StudentJobDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Customer location map — shown whenever we have coords */}
+        {booking.customer_lat && booking.customer_lng && (
+          <div className="rounded-2xl overflow-hidden border border-border/60 mb-4" style={{ height: 200 }}>
+            <MapContainer
+              center={[booking.customer_lat, booking.customer_lng]}
+              zoom={15}
+              style={{ height: '100%', width: '100%' }}
+              zoomControl={false}
+              attributionControl={false}
+              dragging={false}
+              scrollWheelZoom={false}
+              doubleClickZoom={false}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
+            </MapContainer>
+          </div>
+        )}
 
         {/* Live location sharing indicator */}
         {sharingLocation && (
