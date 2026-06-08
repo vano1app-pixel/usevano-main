@@ -193,6 +193,8 @@ const StudentDashboard = () => {
       return;
     }
 
+    // Log accepted update so TrackBooking stepper shows "Booking confirmed" immediately
+    void hdb.from('household_job_updates').insert({ booking_id: jobId, status: 'accepted' });
     // Email the customer + admin fire-and-forget, then go to the job detail
     void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: jobId } });
     navigate(`/student-job/${jobId}?claimed=1`);
