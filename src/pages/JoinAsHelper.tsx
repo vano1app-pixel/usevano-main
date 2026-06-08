@@ -89,6 +89,11 @@ export const JoinAsHelper: React.FC = () => {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !phone.trim() || !city || !photo || !age.trim()) return;
+    const ageNum = parseInt(age.trim(), 10);
+    if (isNaN(ageNum) || ageNum < 18) {
+      setError('You must be 18 or older to join VANO.');
+      return;
+    }
     if (categories.length === 0) {
       setError('Please select at least one job type.');
       return;
@@ -286,14 +291,14 @@ export const JoinAsHelper: React.FC = () => {
               {/* Age */}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                  Your age
+                  Your age <span className="normal-case font-normal text-muted-foreground">(must be 18+)</span>
                 </p>
                 <input
                   type="number"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
                   placeholder="e.g. 20"
-                  min={16} max={35}
+                  min={18} max={35}
                   required
                   className={cn(
                     'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
