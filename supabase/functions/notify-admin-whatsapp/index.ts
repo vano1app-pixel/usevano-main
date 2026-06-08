@@ -114,6 +114,21 @@ serve(async (req) => {
         `Ref: ${String(booking_id).slice(-8).toUpperCase()}`;
       await sendWhatsApp(adminNumber, message);
 
+    } else if (type === 'helper_arrived') {
+      const { helper_name, customer_name, category, city, booking_id } = body;
+      const categoryLabels: Record<string, string> = {
+        shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+        moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
+      };
+      const message =
+        `📍 *Helper arrived!*\n` +
+        `Helper: ${helper_name ?? 'Unknown'}\n` +
+        `Customer: ${customer_name ?? 'Unknown'}\n` +
+        `Job: ${categoryLabels[category] ?? category}\n` +
+        `City: ${city ?? '—'}\n` +
+        `Ref: ${String(booking_id).slice(-8).toUpperCase()}`;
+      await sendWhatsApp(adminNumber, message);
+
     } else if (type === 'job_complete') {
       const { helper_name, customer_name, category, city, price_euros, student_earns_euros, booking_id } = body;
       const categoryLabels: Record<string, string> = {

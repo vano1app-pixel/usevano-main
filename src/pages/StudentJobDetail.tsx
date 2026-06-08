@@ -290,6 +290,19 @@ const StudentJobDetail = () => {
       }).catch(() => {});
     }
 
+    // Ping admin when helper arrives so they know the job has started
+    if (!updateRes.error && next.status === 'arrived') {
+      supabase.functions.invoke('notify-admin-whatsapp', {
+        body: {
+          type: 'helper_arrived',
+          booking_id: bookingId,
+          category: booking.category,
+          customer_name: booking.customer_name,
+          city: (booking.booking_data?.city as string | undefined) ?? '',
+        },
+      }).catch(() => {});
+    }
+
     if (updateRes.error) {
       toast({ title: 'Update failed', description: getUserFriendlyError(updateRes.error), variant: 'destructive' });
     } else {
