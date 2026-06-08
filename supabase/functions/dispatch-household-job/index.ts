@@ -99,7 +99,7 @@ serve(async (req) => {
 
     const { error: insertError } = await supabase
       .from('household_job_offers')
-      .insert(offers);
+      .upsert(offers, { onConflict: 'booking_id,helper_id', ignoreDuplicates: true });
 
     if (insertError) {
       console.error('[dispatch] insert offers error', insertError);

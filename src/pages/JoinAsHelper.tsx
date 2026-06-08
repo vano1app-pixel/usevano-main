@@ -482,7 +482,7 @@ export const JoinAsHelper: React.FC = () => {
 
               <Button
                 type="submit"
-                disabled={submitting || !name.trim() || !age.trim() || !email.trim() || !phone.trim() || !city || !photo || categories.length === 0}
+                disabled={submitting || !name.trim() || !age.trim() || parseInt(age.trim(), 10) < 18 || !email.trim() || !phone.trim() || !city || !photo || categories.length === 0}
                 className="w-full rounded-full font-semibold gap-2 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
               >
                 {submitting ? (
