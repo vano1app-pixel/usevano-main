@@ -34,6 +34,7 @@ interface Booking {
   time_slot: string;
   is_express: boolean;
   status: JobStatus;
+  student_id: string | null;
   customer_name: string;
   customer_address: string;
   customer_phone: string;
@@ -375,12 +376,14 @@ const StudentJobDetail = () => {
               <MapPin size={14} className="text-muted-foreground flex-shrink-0" />
               <span className="underline underline-offset-2">{booking.customer_address}</span>
             </a>
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <Phone size={14} className="text-muted-foreground flex-shrink-0" />
-              <a href={`tel:${booking.customer_phone}`} className="underline underline-offset-2">
-                {formatPhone(booking.customer_phone)}
-              </a>
-            </div>
+            {booking.student_id === userId && (
+              <div className="flex items-center gap-2 text-sm text-foreground">
+                <Phone size={14} className="text-muted-foreground flex-shrink-0" />
+                <a href={`tel:${booking.customer_phone}`} className="underline underline-offset-2">
+                  {formatPhone(booking.customer_phone)}
+                </a>
+              </div>
+            )}
           </div>
         </div>
 

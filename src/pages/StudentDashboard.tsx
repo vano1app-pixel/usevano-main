@@ -94,7 +94,7 @@ const StudentDashboard = () => {
   const loadData = useCallback(async (uid: string, city?: string | null, categories?: string[]) => {
     let availableQuery = hdb
       .from('household_bookings')
-      .select('*')
+      .select('id, category, scheduled_date, time_slot, is_express, status, customer_address, city, price_estimate_cents, student_id, created_at')
       .eq('status', 'pending')
       .is('student_id', null)
       .order('created_at', { ascending: false })
