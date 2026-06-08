@@ -159,24 +159,25 @@ const StudentDashboard = () => {
   const acceptJob = async (jobId: string) => {
     if (!userId) return;
     setAccepting(jobId);
-    const { error } = await hdb
+    // Use .select('id') so we can detect a race — if data is empty, someone else got there first
+    const { data: claimed, error } = await hdb
       .from('household_bookings')
       .update({ student_id: userId, status: 'accepted' })
       .eq('id', jobId)
       .eq('status', 'pending')
-      .is('student_id', null);
+      .is('student_id', null)
+      .select('id');
 
-    if (error) {
-      toast({ title: 'Could not accept job', description: 'It may have just been taken by someone else. Try another.', variant: 'destructive' });
+    if (error || !claimed?.length) {
+      toast({ title: 'Job just taken', description: 'Someone else got there first — try another job.', variant: 'destructive' });
       setAccepting(null);
-      // Refresh so the job disappears if someone else grabbed it
       void loadData(userId, helperCity, helperCategories);
       return;
     }
 
-    // Email the customer fire-and-forget, then navigate to job detail immediately
+    // Email the customer + admin fire-and-forget, then go to the job detail
     void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: jobId } });
-    navigate(`/student-job/${jobId}`);
+    navigate(`/student-job/${jobId}?claimed=1`);
   };
 
   const totalEarned = payouts

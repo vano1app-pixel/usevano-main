@@ -179,6 +179,28 @@ serve(async (req) => {
       }).catch(() => {});
     }
 
+    // Admin job-done email
+    const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
+    if (resendKey && adminEmail) {
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: [adminEmail],
+          subject: `✅ Job done — ${helperFirst} completed ${catLabel}`,
+          text: [
+            `${helperFirst} just completed a job.`,
+            `Job: ${catLabel}`,
+            `Customer: ${custName}`,
+            `Paid: €${(priceCents / 100).toFixed(2)} (student earns €${(studentCents / 100).toFixed(2)})`,
+            `Ref: ${ref}`,
+            `Track: ${trackUrl}`,
+          ].join('\n'),
+        }),
+      }).catch(() => {});
+    }
+
     // Admin WhatsApp ping
     fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
       method: 'POST',
