@@ -212,7 +212,7 @@ export async function getPostAuthPath(
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community' | '/home'> {
+): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community' | '/home' | '/student-dashboard'> {
   return getPostAuthPath(userId);
 }
 
