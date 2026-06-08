@@ -126,6 +126,29 @@ serve(async (req) => {
 
     if (!res.ok) console.warn('[notify-household-accepted] Resend error', res.status, await res.text());
 
+    // ── Silent admin email ─────────────────────────────────────────────────
+    const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
+    if (adminEmail) {
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: [adminEmail],
+          subject: `✅ Job claimed — ${helperFirstName} on ${catLabel}`,
+          text: [
+            `${helperFirstName} just claimed a job.`,
+            `Job: ${catLabel}`,
+            `Customer: ${custName}`,
+            `Email: ${booking.customer_email ?? '—'}`,
+            `When: ${whenLine || 'Flexible'}`,
+            `Ref: ${ref}`,
+            `Track: ${trackUrl}`,
+          ].join('\n'),
+        }),
+      }).catch(() => {});
+    }
+
     return ok({ ok: true, emailed: res.ok });
   } catch (err) {
     console.error('[notify-household-accepted] unhandled', err);

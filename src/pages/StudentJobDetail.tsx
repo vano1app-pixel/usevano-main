@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -91,7 +91,9 @@ const LOCATION_UPDATE_INTERVAL_MS = 15_000;
 const StudentJobDetail = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const justClaimed = new URLSearchParams(location.search).get('claimed') === '1';
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -158,6 +160,11 @@ const StudentJobDetail = () => {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (justClaimed) toast({ title: '🎉 Job claimed!', description: "You got it. Head over when you're ready." });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function startLocationWatch(bid: string) {
     if (!('geolocation' in navigator)) return;
