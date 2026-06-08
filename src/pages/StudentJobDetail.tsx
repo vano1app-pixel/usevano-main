@@ -300,7 +300,7 @@ const StudentJobDetail = () => {
   const sendMessage = async () => {
     if (!draft.trim() || !bookingId || !userId) return;
     setSending(true);
-    const body = draft.trim();
+    const body = draft.trim().slice(0, 1000);
     setDraft('');
     await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
     setSending(false);
@@ -522,7 +522,7 @@ const StudentJobDetail = () => {
             <input
               type="text"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
               placeholder="Message customer…"
               className="flex-1 h-11 rounded-full bg-secondary border border-border/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"

@@ -36,6 +36,7 @@ interface Helper {
   status: string;
   average_rating: number | null;
   rating_count: number;
+  user_id: string | null;
   created_at: string;
 }
 
@@ -46,7 +47,7 @@ interface Payout {
   amount_cents: number;
   status: string;
   created_at: string;
-  helper_name?: string;
+  helper_name?: string | null;
   category?: string;
   city?: string;
 }
@@ -91,7 +92,7 @@ export default function HouseholdAdmin() {
         .order('created_at', { ascending: false })
         .limit(200),
       db.from('household_helpers')
-        .select('id, name, phone, email, city, categories, photo_url, status, average_rating, rating_count, created_at')
+        .select('id, name, phone, email, city, categories, photo_url, status, average_rating, rating_count, user_id, created_at')
         .order('created_at', { ascending: false })
         .limit(200),
       db.from('household_payouts')
@@ -104,21 +105,16 @@ export default function HouseholdAdmin() {
     const helperList  = (h as Helper[]) ?? [];
     const rawPayouts  = (p as Payout[]) ?? [];
 
-    // Enrich payouts with helper name + booking category
+    // Enrich payouts with helper name + booking category/city
     const enriched = rawPayouts.map((pay) => {
-      const helperRow = helperList.find((hh) => hh.id && b && bookingList.find((bk) => bk.id === pay.booking_id && bk.student_id === pay.student_id));
-      const booking   = bookingList.find((bk) => bk.id === pay.booking_id);
-      const helper    = helperList.find((hh) => {
-        // Match helper by student_id via booking
-        const bk = bookingList.find((bk2) => bk2.id === pay.booking_id);
-        return bk && hh.id; // placeholder — just attach what we have
-      });
-      void helperRow;
-      void helper;
+      const booking = bookingList.find((bk) => bk.id === pay.booking_id);
+      // student_id is the auth user id; match to helper via user_id
+      const helper  = helperList.find((hh) => hh.user_id === pay.student_id);
       return {
         ...pay,
-        category: booking?.category ?? '—',
-        city:     booking?.city ?? '—',
+        helper_name: helper?.name ?? null,
+        category:    booking?.category ?? '—',
+        city:        booking?.city ?? '—',
       };
     });
 
@@ -441,9 +437,10 @@ export default function HouseholdAdmin() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground">
                         €{(p.amount_cents / 100).toFixed(2)}
-                        <span className="ml-2 text-xs font-normal text-muted-foreground capitalize">{CAT_LABELS[p.category ?? ''] ?? p.category}</span>
+                        {p.helper_name && <span className="ml-1.5 text-xs font-medium text-foreground/70">{p.helper_name.split(' ')[0]}</span>}
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground capitalize">{CAT_LABELS[p.category ?? ''] ?? p.category}</span>
                       </p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), 'dd MMM, HH:mm')} · #{p.booking_id.slice(-6).toUpperCase()}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), 'dd MMM, HH:mm')} · #{p.booking_id.slice(-6).toUpperCase()} · {p.city}</p>
                     </div>
                     {p.status === 'pending' ? (
                       <button
