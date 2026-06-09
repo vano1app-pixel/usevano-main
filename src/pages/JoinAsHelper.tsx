@@ -13,12 +13,17 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 
 
 const CATEGORY_OPTIONS = [
-  { emoji: '🛒', label: 'Shopping & errands', slug: 'shopping'  },
-  { emoji: '🐕', label: 'Dog walking',         slug: 'dog-walk'  },
-  { emoji: '🌿', label: 'Garden work',         slug: 'garden'    },
-  { emoji: '📦', label: 'Moving help',         slug: 'moving'    },
-  { emoji: '🧹', label: 'Cleaning',            slug: 'cleaning'  },
-  { emoji: '📚', label: 'Tutoring',            slug: 'tutoring'  },
+  { emoji: '🛒', label: 'Shopping & errands',   slug: 'shopping'           },
+  { emoji: '🐕', label: 'Dog walking',           slug: 'dog-walk'           },
+  { emoji: '🌿', label: 'Garden work',           slug: 'garden'             },
+  { emoji: '📦', label: 'Moving help',           slug: 'moving'             },
+  { emoji: '🧹', label: 'Cleaning',              slug: 'cleaning'           },
+  { emoji: '📚', label: 'Tutoring',              slug: 'tutoring'           },
+  { emoji: '🔨', label: 'Handyman',              slug: 'handyman'           },
+  { emoji: '🔧', label: 'Plumbing help',         slug: 'plumbing'           },
+  { emoji: '🪑', label: 'Furniture assembly',    slug: 'furniture-assembly' },
+  { emoji: '💻', label: 'Tech help',             slug: 'tech-help'          },
+  { emoji: '📦', label: 'Wait for delivery',     slug: 'wait-delivery'      },
 ];
 
 const STATS = [
