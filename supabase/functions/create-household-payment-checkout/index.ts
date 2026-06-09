@@ -20,6 +20,8 @@ const VALID_CATEGORIES = [
   'grocery-shopping', 'dog-walking', 'lawn-mowing', 'moving-help', 'outdoor-cleaning', 'tutoring-grinds',
   // Misc / errand slugs
   'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
+  // Extra home services
+  'handyman', 'plumbing',
   // Midnight lift
   'midnight-lift',
   // Airbnb Host monthly plans
@@ -131,6 +133,23 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
+  // Handyman — hourly
+  if (category === 'handyman') {
+    return ({ '1 hour': 2500, '2 hours': 4500, '3 hours': 6500 })[sizeLabel] ?? null;
+  }
+
+  // Plumbing help — hourly
+  if (category === 'plumbing') {
+    return ({ '1 hour': 3000, '2 hours': 5500 })[sizeLabel] ?? null;
+  }
+
+  // Wait for delivery — duration tier
+  if (category === 'wait-delivery') {
+    const extra: Record<string, number> = { 'Up to 2 hours': 1000, 'Up to 4 hours': 1800 };
+    if (extra[sizeLabel]) return extra[sizeLabel];
+    return 1000; // legacy flat
+  }
+
   // Airbnb Host monthly plans — flat rate per tier
   if (category === 'airbnb-essential') return 12900;
   if (category === 'airbnb-popular')   return 19900;
@@ -187,6 +206,8 @@ const CATEGORY_LABELS: Record<Category, string> = {
   'tech-help':          'Tech help',
   'wait-delivery':      'Wait for delivery',
   'midnight-lift':      'Midnight Lift',
+  handyman:             'Handyman',
+  plumbing:             'Plumbing help',
   'airbnb-essential':   'Airbnb Host Essential',
   'airbnb-popular':     'Airbnb Host Popular',
   'airbnb-premium':     'Airbnb Host Full Management',

@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Fragment } from 'react';
+import { ExtraServicesSection } from './ExtraServicesSection';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -356,6 +357,7 @@ export const TaskShowcase: React.FC = () => {
   }
 
   return (
+    <Fragment>
     <section className="px-4 py-12 max-w-5xl mx-auto">
       <p className="eyebrow mb-3">Full list</p>
       <h2 className="text-2xl font-semibold text-foreground mb-6" style={{ letterSpacing: '-0.02em' }}>
@@ -430,42 +432,6 @@ export const TaskShowcase: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── What else can helpers do? ── */}
-      <div className="mt-8 mb-2">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">What else can helpers do?</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {[
-            { emoji: '🔨', label: 'Handyman jobs',      detail: 'Shelves, curtain rails, small repairs around the home.' },
-            { emoji: '🚿', label: 'Plumbing help',       detail: 'Leaky taps, blocked drains, toilet fixes — basic plumbing.' },
-            { emoji: '🪑', label: 'Furniture assembly',  detail: 'IKEA or any flat-pack built and placed exactly where you want it.' },
-            { emoji: '📱', label: 'Tech help',           detail: 'Phone, laptop, TV, Wi-Fi setup — great for elderly family members.' },
-            { emoji: '🚪', label: 'Wait for deliveries', detail: "We wait at your home for a delivery or tradesperson while you're out." },
-          ].map(item => (
-            <a
-              key={item.label}
-              href={`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO! I need help with: ${item.label}. Can you let me know who is available?`)}`}
-              target="_blank" rel="noopener noreferrer"
-              className={cn(
-                'flex items-start gap-3 rounded-xl p-3.5 border group',
-                'bg-secondary/30 border-border/40',
-                'hover:bg-primary/[0.04] hover:border-primary/20 transition-[background-color,border-color] duration-150',
-              )}
-            >
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none mt-0.5">
-                {item.emoji}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground leading-tight">{item.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{item.detail}</p>
-              </div>
-              <span className="flex-shrink-0 text-xs text-muted-foreground/50 font-medium self-center group-hover:text-primary transition-colors">
-                WhatsApp →
-              </span>
-            </a>
-          ))}
-        </div>
-      </div>
 
       {/* Booking panel */}
       <AnimatePresence>
@@ -735,5 +701,7 @@ export const TaskShowcase: React.FC = () => {
         )}
       </AnimatePresence>
     </section>
+    <ExtraServicesSection />
+    </Fragment>
   );
 };
