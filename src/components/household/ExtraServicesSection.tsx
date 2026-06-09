@@ -8,14 +8,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 
 interface ExtraCategory {
-  emoji:      string;
-  label:      string;
-  slug:       string;
-  tagline:    string;
+  emoji:       string;
+  label:       string;
+  slug:        string;
+  tagline:     string;
   description: string;
-  sizeLabel:  string;
-  sizes:      string[];
-  priceHint:  string; // shown on card
+  sizeLabel:   string;
+  sizes:       string[];
+  priceHint:   string;
+  accentBg:    string; // emoji icon background
 }
 
 const EXTRA_CATEGORIES: ExtraCategory[] = [
@@ -26,6 +27,7 @@ const EXTRA_CATEGORIES: ExtraCategory[] = [
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours', '3 hours'],
     priceHint: 'from €25',
+    accentBg: 'bg-amber-50',
   },
   {
     emoji: '🚿', label: 'Plumbing help', slug: 'plumbing',
@@ -34,6 +36,7 @@ const EXTRA_CATEGORIES: ExtraCategory[] = [
     sizeLabel: 'How long?',
     sizes: ['1 hour', '2 hours'],
     priceHint: 'from €30',
+    accentBg: 'bg-sky-50',
   },
   {
     emoji: '🪑', label: 'Furniture assembly', slug: 'furniture-assembly',
@@ -42,6 +45,7 @@ const EXTRA_CATEGORIES: ExtraCategory[] = [
     sizeLabel: 'How many items?',
     sizes: ['1 item', '2–3 items', '4–6 items', '7+ items'],
     priceHint: 'from €22',
+    accentBg: 'bg-violet-50',
   },
   {
     emoji: '📱', label: 'Tech help', slug: 'tech-help',
@@ -50,14 +54,16 @@ const EXTRA_CATEGORIES: ExtraCategory[] = [
     sizeLabel: 'What needs help?',
     sizes: ['Phone / tablet', 'Laptop / PC', 'TV / streaming', 'Wi-Fi / router', 'Smart home setup'],
     priceHint: 'from €20',
+    accentBg: 'bg-blue-50',
   },
   {
     emoji: '🚪', label: 'Wait for delivery', slug: 'wait-delivery',
-    tagline: 'We wait at home while you\'re out',
-    description: 'We wait at your home to receive a delivery or let in a tradesperson — so you don\'t have to take time off.',
+    tagline: "We wait at home while you're out",
+    description: "We wait at your home to receive a delivery or let in a tradesperson — so you don't have to take time off.",
     sizeLabel: 'How long?',
     sizes: ['Up to 2 hours', 'Up to 4 hours'],
     priceHint: '€10 / €18',
+    accentBg: 'bg-emerald-50',
   },
 ];
 
@@ -321,10 +327,13 @@ export const ExtraServicesSection: React.FC = () => {
 
   return (
     <>
-      <section className="bg-navy px-4 py-14">
+      {/* Gradient bridge from light section → navy */}
+      <div className="h-12 bg-gradient-to-b from-background to-navy" aria-hidden="true" />
+
+      <section className="bg-navy px-4 pb-14">
         <div className="max-w-5xl mx-auto">
           {/* Heading */}
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">More services</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3 pt-2">More services</p>
           <h2 className="text-2xl font-bold text-white mb-2" style={{ letterSpacing: '-0.02em' }}>
             What else can helpers do?
           </h2>
@@ -345,23 +354,26 @@ export const ExtraServicesSection: React.FC = () => {
                 onClick={() => open(cat)}
                 className={cn(
                   'group flex items-center gap-4 rounded-2xl bg-white p-4 text-left',
-                  'border border-white/10 shadow-sm',
-                  'hover:shadow-md hover:-translate-y-0.5',
+                  'border-l-[3px] border-l-transparent border border-white/10 shadow-sm',
+                  'hover:border-l-sage hover:shadow-lg hover:-translate-y-0.5',
                   'active:scale-[0.98]',
-                  'transition-[transform,box-shadow] duration-200',
+                  'transition-[transform,box-shadow,border-color] duration-200',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-navy',
                 )}
               >
-                {/* Emoji */}
-                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-2xl leading-none shadow-sm">
+                {/* Emoji with per-category accent bg */}
+                <span className={cn(
+                  'flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-2xl leading-none shadow-sm',
+                  cat.accentBg,
+                )}>
                   {cat.emoji}
                 </span>
 
                 {/* Text */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <p className="text-sm font-bold text-foreground leading-tight">{cat.label}</p>
-                    <span className="text-[11px] font-semibold text-muted-foreground border border-border/60 bg-secondary/60 px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-semibold text-sage-dark bg-sage/10 border border-sage/25 px-2 py-0.5 rounded-full whitespace-nowrap">
                       {cat.priceHint}
                     </span>
                   </div>
@@ -369,7 +381,7 @@ export const ExtraServicesSection: React.FC = () => {
                 </div>
 
                 {/* Arrow */}
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0 group-hover:text-foreground/60 group-hover:translate-x-0.5 transition-[color,transform] duration-150" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground/30 flex-shrink-0 group-hover:text-sage group-hover:translate-x-0.5 transition-[color,transform] duration-150" />
               </motion.button>
             ))}
           </motion.div>
