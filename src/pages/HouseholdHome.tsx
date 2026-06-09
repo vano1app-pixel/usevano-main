@@ -23,7 +23,7 @@ const HouseholdHome: React.FC = () => {
         keywords="home help Galway, student helpers Ireland, grocery shopping Galway, dog walking Galway, cleaning service Galway, same day help Ireland, household help Cork Dublin Limerick, VANO"
         url="https://vanojobs.com/"
       />
-      <HouseholdNav />
+      <HouseholdNav darkHero />
 
       <main>
         <HeroSection />

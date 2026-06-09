@@ -1,6 +1,45 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
+
+// ── Inlined CORS ──────────────────────────────────────────────────────────────
+const FALLBACK_ORIGINS = [
+  'https://vanojobs.com', 'https://www.vanojobs.com',
+  'http://localhost:5173', 'http://localhost:4173',
+];
+const ALLOWED_HEADERS = [
+  'authorization','x-client-info','apikey','content-type',
+  'x-supabase-client-platform','x-supabase-client-platform-version',
+  'x-supabase-client-runtime','x-supabase-client-runtime-version',
+].join(', ');
+function getAllowlist(): string[] {
+  const raw = Deno.env.get('ALLOWED_ORIGINS');
+  if (!raw) return FALLBACK_ORIGINS;
+  return raw.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+}
+function allowsVercelPreview(origin: string): boolean {
+  try { return new URL(origin).hostname.endsWith('-vano1app-pixels-projects.vercel.app'); } catch { return false; }
+}
+function matchOrigin(req: Request): string | null {
+  const origin = req.headers.get('Origin');
+  if (!origin) return null;
+  const n = origin.replace(/\/$/, '');
+  if (getAllowlist().includes(n)) return n;
+  if (allowsVercelPreview(n)) return n;
+  return null;
+}
+function buildCorsHeaders(req: Request): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': matchOrigin(req) ?? 'null',
+    'Access-Control-Allow-Headers': ALLOWED_HEADERS,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+}
+function isOriginAllowed(req: Request): boolean {
+  if (!req.headers.get('Origin')) return true;
+  return matchOrigin(req) !== null;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Public (no-auth) entry point for the CategoryGrid quick-booking flow.
 // Validates inputs, prices the booking server-side (prevents client tampering),
@@ -35,7 +74,6 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     'shopping':      1500,
     'post-office':   1000,
     'pharmacy-run':  1200, // €12 — covers student travel + time
-    'wait-delivery': 1000,
   };
   if (category in flat) return flat[category]!;
 

@@ -6,7 +6,11 @@ import { teamWhatsAppHref } from '@/lib/contact';
 import { useAuth } from '@/hooks/useAuthContext';
 import logo from '@/assets/logo.png';
 
-export const HouseholdNav: React.FC = () => {
+interface HouseholdNavProps {
+  darkHero?: boolean;
+}
+
+export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) => {
   const { user, authLoading } = useAuth();
   const [scrolled,  setScrolled]  = useState(false);
   const [hidden,    setHidden]    = useState(false);
@@ -32,7 +36,7 @@ export const HouseholdNav: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
-  const dark = !scrolled; // on the hero, before first scroll
+  const dark = darkHero && !scrolled; // on the hero, before first scroll
 
   return (
     <header
