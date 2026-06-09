@@ -328,14 +328,14 @@ export const ExtraServicesSection: React.FC = () => {
   return (
     <>
       {/* Gradient bridge from light section → navy */}
-      <section className="bg-navy px-4 pb-14">
+      <section className="bg-cream px-4 pb-14">
         <div className="max-w-5xl mx-auto">
           {/* Heading */}
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3 pt-2">More services</p>
-          <h2 className="text-2xl font-bold text-white mb-2" style={{ letterSpacing: '-0.02em' }}>
+          <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40 mb-3 pt-2">More services</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2" style={{ letterSpacing: '-0.02em' }}>
             What else can helpers do?
           </h2>
-          <p className="text-sm text-white/55 mb-8 max-w-sm leading-relaxed">
+          <p className="text-sm text-muted-foreground mb-8 max-w-sm leading-relaxed">
             These jobs go beyond errands — skilled helpers ready for trickier tasks around your home.
           </p>
 
@@ -352,11 +352,11 @@ export const ExtraServicesSection: React.FC = () => {
                 onClick={() => open(cat)}
                 className={cn(
                   'group flex items-center gap-4 rounded-2xl bg-white p-4 text-left',
-                  'border-l-[3px] border-l-transparent border border-white/10 shadow-sm',
-                  'hover:border-l-sage hover:shadow-lg hover:-translate-y-0.5',
+                  'border-l-[3px] border-l-transparent border border-border/60 shadow-sm',
+                  'hover:border-l-navy hover:shadow-lg hover:-translate-y-0.5',
                   'active:scale-[0.98]',
                   'transition-[transform,box-shadow,border-color] duration-200',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-navy',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy/40 focus-visible:ring-offset-2',
                 )}
               >
                 {/* Emoji with per-category accent bg */}
@@ -393,8 +393,8 @@ export const ExtraServicesSection: React.FC = () => {
               <MessageCircle className="w-3.5 h-3.5 text-white" aria-hidden="true" />
             </span>
             <span className="flex-1 text-left">
-              <span className="block text-sm font-semibold text-white">Need something else?</span>
-              <span className="block text-xs text-white/50 mt-0.5">Chat to us on WhatsApp — we'll sort it</span>
+              <span className="block text-sm font-semibold text-foreground">Need something else?</span>
+              <span className="block text-xs text-muted-foreground mt-0.5">Chat to us on WhatsApp — we'll sort it</span>
             </span>
             <span className="text-[#25D366] text-lg font-bold leading-none">→</span>
           </button>

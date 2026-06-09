@@ -30,9 +30,9 @@ const HouseholdHome: React.FC = () => {
         <ActivityTicker />
         <ReviewCarousel />
         <HelperCards />
-        <ActivityTicker dark />
+        <ActivityTicker />
         <ExtraServicesSection />
-        <ActivityTicker dark />
+        <ActivityTicker />
 <ChatFAQ />
         <ElderlyPitch />
         <FindBookingBar />
