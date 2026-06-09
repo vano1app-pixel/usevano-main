@@ -52,7 +52,7 @@ function fmtMins(m: number): string {
   return h === 1 ? '1 hr ago' : `${h} hrs ago`;
 }
 
-export const ActivityTicker: React.FC = () => {
+export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) => {
   const [items,  setItems]  = useState<TickerItem[]>(SEEDS);
   const [paused, setPaused] = useState(false);
   // Tick every minute so displayed ages advance in real time
@@ -96,7 +96,9 @@ export const ActivityTicker: React.FC = () => {
 
   return (
     <div
-      className="overflow-hidden border-y border-border/40 bg-cream"
+      className={dark
+        ? "overflow-hidden border-y border-white/10 bg-navy"
+        : "overflow-hidden border-y border-border/40 bg-cream"}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-label="Recent bookings"
@@ -109,17 +111,19 @@ export const ActivityTicker: React.FC = () => {
         {doubled.map((item, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-1.5 px-5 text-xs text-muted-foreground flex-shrink-0"
+            className={dark
+              ? "inline-flex items-center gap-1.5 px-5 text-xs text-white/50 flex-shrink-0"
+              : "inline-flex items-center gap-1.5 px-5 text-xs text-muted-foreground flex-shrink-0"}
           >
             <span className="text-sm leading-none" aria-hidden="true">{item.emoji}</span>
             <span>
-              <span className="font-medium text-foreground">{item.service}</span>
+              <span className={dark ? "font-medium text-white/80" : "font-medium text-foreground"}>{item.service}</span>
               {' '}booked in{' '}
-              <span className="font-medium text-foreground">{item.area}</span>
+              <span className={dark ? "font-medium text-white/80" : "font-medium text-foreground"}>{item.area}</span>
             </span>
-            <span className="text-muted-foreground/50 select-none">·</span>
+            <span className={dark ? "text-white/20 select-none" : "text-muted-foreground/50 select-none"}>·</span>
             <span className="tabular-nums">{fmtMins(currentMins(item, nowMs))}</span>
-            <span className="ml-3 text-border select-none" aria-hidden="true">—</span>
+            <span className={dark ? "ml-3 text-white/20 select-none" : "ml-3 text-border select-none"} aria-hidden="true">—</span>
           </span>
         ))}
       </div>

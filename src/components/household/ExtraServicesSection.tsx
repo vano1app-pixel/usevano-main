@@ -328,8 +328,6 @@ export const ExtraServicesSection: React.FC = () => {
   return (
     <>
       {/* Gradient bridge from light section → navy */}
-      <div className="h-12 bg-gradient-to-b from-cream to-navy" aria-hidden="true" />
-
       <section className="bg-navy px-4 pb-14">
         <div className="max-w-5xl mx-auto">
           {/* Heading */}
