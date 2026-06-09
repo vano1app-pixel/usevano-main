@@ -153,8 +153,10 @@ export const JoinAsHelper: React.FC = () => {
   return (
     <>
       <SEOHead
-        title="Earn money as a student helper — VANO"
-        description="Students across Ireland earn €12–€25 per job helping households. Flexible hours, paid same day by Revolut."
+        title="Earn money as a student helper in Ireland — VANO"
+        description="Pick up same-day home help jobs near you. Earn €12–€65 per job — grocery runs, dog walks, cleaning, gardening, tutoring & more. Flexible hours, paid same day. Apply in 2 minutes."
+        keywords="student jobs Ireland, earn money as a student Galway, part time student jobs Cork Dublin Limerick, flexible student work Ireland, student helper jobs, VANO helper, home help jobs Ireland"
+        url="https://vanojobs.com/join"
       />
       <HouseholdNav />
 

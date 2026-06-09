@@ -8,6 +8,7 @@ import { HelperCards } from '@/components/household/HelperCards';
 import { TaskShowcase } from '@/components/household/TaskShowcase';
 import { ChatFAQ } from '@/components/household/ChatFAQ';
 import { ElderlyPitch } from '@/components/household/ElderlyPitch';
+import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 
@@ -32,6 +33,7 @@ const HouseholdHome: React.FC = () => {
         <TaskShowcase />
 <ChatFAQ />
         <ElderlyPitch />
+        <FindBookingBar />
         <HouseholdFooter />
       </main>
 
