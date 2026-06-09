@@ -3,22 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VANO — Hand-picked freelancers, paid safely</title>
-    <meta name="description" content="€1 AI-matches your freelancer in 20 seconds, or free hand-picked by Vano in 24h. Chat, agree a rate, then pay safely through Vano Pay. Freelancers: list yourself free and get hired directly — videography, content, web design, digital sales." />
+    <title>VANO — Same-day home help in Galway &amp; Ireland</title>
+    <meta name="description" content="Book a trusted student helper in minutes. Grocery shopping, dog walking, cleaning, garden, moving help &amp; more. Same-day service from €10. Available in Galway, Cork, Dublin, Limerick &amp; across Ireland." />
     <meta name="author" content="VANO" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="keywords" content="home help Galway, student helpers Ireland, grocery shopping delivery Galway, dog walking Galway, cleaning service Ireland, same day help Ireland, household help Ireland, VANO, vanojobs" />
+    <!-- Geo targeting — Ireland, anchored to Galway HQ -->
+    <meta name="geo.region" content="IE-G" />
+    <meta name="geo.placename" content="Galway, Ireland" />
+    <meta name="geo.position" content="53.2707;-9.0568" />
+    <meta name="ICBM" content="53.2707, -9.0568" />
     <!-- Block browser auto-translate (Chrome/Edge): translation extensions wrap
          text nodes in <font> tags and reparent children, orphaning React's refs
          and triggering "Failed to execute 'removeChild' on 'Node'" errors. -->
     <meta name="google" content="notranslate" />
     <link rel="canonical" href="https://vanojobs.com/" />
 
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" content="#1a2340" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,59 +43,90 @@
     <meta property="og:site_name" content="VANO" />
     <meta property="og:locale" content="en_IE" />
     <meta property="og:url" content="https://vanojobs.com/" />
-    <meta property="og:title" content="VANO — Hand-picked freelancers, paid safely" />
-    <meta property="og:description" content="€1 AI-matches your freelancer in 20 seconds, or free hand-picked by Vano in 24h. Chat, agree a rate, then pay safely through Vano Pay. Freelancers list free." />
-    <!-- og:image is 1200x630 PNG per OpenGraph spec. LinkedIn / Slack /
-         WhatsApp / Facebook all require raster; the old og.svg failed
-         the preview scrapers silently. Keep width + height tags so
-         crawlers that don't download the image eagerly still reserve
-         the correct card shape. -->
+    <meta property="og:title" content="VANO — Same-day home help in Galway &amp; Ireland" />
+    <meta property="og:description" content="Book a trusted student helper in minutes. Grocery shopping, dog walking, cleaning, garden &amp; more. Same-day, from €10. Galway, Cork, Dublin, Limerick." />
     <meta property="og:image" content="https://vanojobs.com/og.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="VANO — any brief, any budget, your perfect match. Hand-picked freelancers paid safely through Vano." />
+    <meta property="og:image:alt" content="VANO — Same-day home help in Ireland. Book a student helper in minutes." />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="VANO — Hand-picked freelancers, paid safely" />
-    <meta name="twitter:description" content="€1 AI-matches your freelancer in 20 seconds, or free hand-picked in 24h. Chat, agree a rate, pay safely through Vano Pay. Freelancers list free." />
+    <meta name="twitter:title" content="VANO — Same-day home help in Galway &amp; Ireland" />
+    <meta name="twitter:description" content="Book a trusted student helper in minutes. Grocery shopping, dog walking, cleaning, garden &amp; more. Same-day, from €10." />
     <meta name="twitter:image" content="https://vanojobs.com/og.png" />
-    <meta name="twitter:image:alt" content="VANO — any brief, any budget, your perfect match." />
+    <meta name="twitter:image:alt" content="VANO — Same-day home help in Ireland." />
 
-    <!-- Organization & WebSite structured data; rendered server-side so crawlers see it pre-hydration. -->
+    <!-- Structured data — LocalBusiness + WebSite; crawlers see this pre-hydration. -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
         {
-          "@type": "Organization",
+          "@type": ["LocalBusiness", "HomeAndConstructionBusiness"],
           "@id": "https://vanojobs.com/#organization",
           "name": "VANO",
-          "alternateName": "VANO Jobs",
+          "alternateName": "VANO Home Help",
           "url": "https://vanojobs.com/",
           "logo": "https://vanojobs.com/pwa-512x512.png",
           "image": "https://vanojobs.com/og.png",
-          "description": "VANO is a freelance marketplace for Ireland. €1 AI-matches a business with a freelancer in 20 seconds, or hand-picked free by the Vano team in 24h. Payment is held and released safely through Vano Pay. Headquartered in Galway, freelancers + clients Ireland-wide.",
-          "areaServed": {
-            "@type": "City",
-            "name": "Galway",
-            "containedInPlace": { "@type": "Country", "name": "Ireland" }
-          },
+          "description": "VANO connects you with trusted, vetted student helpers for same-day home tasks — grocery shopping, dog walking, garden work, cleaning, moving help, tutoring and more. Available across Ireland, same-day bookings from €10.",
+          "telephone": "+353899817111",
+          "priceRange": "€€",
+          "currenciesAccepted": "EUR",
+          "paymentAccepted": "Credit Card, Debit Card",
           "address": {
             "@type": "PostalAddress",
             "addressLocality": "Galway",
+            "addressRegion": "County Galway",
             "addressCountry": "IE"
-          }
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 53.2707,
+            "longitude": -9.0568
+          },
+          "areaServed": [
+            { "@type": "City", "name": "Galway", "containedInPlace": { "@type": "Country", "name": "Ireland" } },
+            { "@type": "City", "name": "Cork",   "containedInPlace": { "@type": "Country", "name": "Ireland" } },
+            { "@type": "City", "name": "Dublin", "containedInPlace": { "@type": "Country", "name": "Ireland" } },
+            { "@type": "City", "name": "Limerick","containedInPlace": { "@type": "Country", "name": "Ireland" } },
+            { "@type": "City", "name": "Waterford","containedInPlace": { "@type": "Country", "name": "Ireland" } },
+            { "@type": "Country", "name": "Ireland" }
+          ],
+          "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "Home Help Services",
+            "itemListElement": [
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Grocery shopping", "description": "We shop any store, follow your list, and deliver to your door." } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Dog walking",      "description": "Collected from your door, walked on-lead, returned home safely." } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Garden help",       "description": "Mowing, weeding, edging and tidying." } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Cleaning",          "description": "Hoovering, mopping, surfaces, kitchen and bathroom." } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Moving help",       "description": "Loading, carrying, unloading — heavy lifting done." } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Tutoring",          "description": "One-to-one at your home. Any subject, any level." } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Furniture assembly","description": "IKEA or any flat-pack assembled at your home." } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Tech help",         "description": "Device setup and troubleshooting at your home." } }
+            ]
+          },
+          "sameAs": [
+            "https://www.instagram.com/vanojobs",
+            "https://wa.me/353899817111"
+          ]
         },
         {
           "@type": "WebSite",
           "@id": "https://vanojobs.com/#website",
           "url": "https://vanojobs.com/",
           "name": "VANO",
-          "description": "AI match in 20 seconds for €1, or free hand-picked by Vano in 24h. Pay them safely through Vano Pay.",
+          "description": "Same-day student helpers for home tasks in Ireland. Book in seconds.",
           "publisher": { "@id": "https://vanojobs.com/#organization" },
-          "inLanguage": "en-IE"
+          "inLanguage": "en-IE",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": { "@type": "EntryPoint", "urlTemplate": "https://vanojobs.com/?q={search_term_string}" },
+            "query-input": "required name=search_term_string"
+          }
         }
       ]
     }

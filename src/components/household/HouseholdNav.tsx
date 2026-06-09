@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { useAuth } from '@/hooks/useAuthContext';
 import logo from '@/assets/logo.png';
 
 /* Glass-on-scroll pattern mirrored from Navbar.tsx:
    mobile threshold=4px (instant) so touch users don't see
    a laggy transition; desktop threshold=50px keeps the hero clean. */
 export const HouseholdNav: React.FC = () => {
+  const { user, authLoading } = useAuth();
   const [scrolled, setScrolled] = useState(false);
 
   const handleScroll = useCallback(() => {
@@ -38,41 +40,51 @@ export const HouseholdNav: React.FC = () => {
           <img src={logo} alt="VANO" className="h-8 w-auto" />
         </Link>
 
-        <div className="flex items-center gap-3">
-          {/* Become a helper — shown unless already on /join */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Join as a helper */}
           <Link
             to="/join"
             className={cn(
               'flex items-center rounded-full border px-3.5 py-1.5',
               'border-foreground/25 bg-foreground/5',
               'text-sm font-medium text-foreground/80 hover:text-foreground hover:border-foreground/40 hover:bg-foreground/10',
-              'transition-colors duration-150 active:scale-[0.97]',
+              'transition-colors duration-150 active:scale-[0.97] whitespace-nowrap',
             )}
           >
-            <span className="hidden sm:inline">Become a helper</span>
-            <span className="sm:hidden">Join</span>
+            Join as a helper
           </Link>
 
-          {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
+          {/* WhatsApp */}
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO, I need some help around the house!')}`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Chat on WhatsApp"
-            className="flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors duration-150 active:scale-95"
+            className="hidden sm:flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors duration-150 active:scale-95"
           >
             <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
-            <span className="hidden sm:inline">WhatsApp us</span>
+            <span>WhatsApp us</span>
           </a>
 
-          {/* Helper profile — circular VANO logo */}
-          <Link
-            to="/helper/profile"
-            aria-label="Helper profile"
-            className="active:scale-95 transition-transform duration-150"
-          >
-            <img src={logo} alt="VANO" className="w-8 h-8 rounded-full object-cover ring-1 ring-foreground/20" />
-          </Link>
+          {/* Profile / account button */}
+          {!authLoading && (
+            <Link
+              to={user ? '/student-account' : '/auth'}
+              aria-label={user ? 'My account' : 'Sign in'}
+              className={cn(
+                'flex items-center justify-center w-9 h-9 rounded-full',
+                'border border-foreground/20 bg-foreground/5',
+                'hover:bg-foreground/10 hover:border-foreground/35',
+                'transition-[background-color,border-color] duration-150 active:scale-95',
+              )}
+            >
+              {user ? (
+                <img src={logo} alt="Account" className="w-5 h-5 object-contain" />
+              ) : (
+                <UserCircle2 className="w-5 h-5 text-foreground/60" />
+              )}
+            </Link>
+          )}
         </div>
       </div>
     </header>
