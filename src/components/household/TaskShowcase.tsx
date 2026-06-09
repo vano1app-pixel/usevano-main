@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Fragment } from 'react';
+import { ExtraServicesSection } from './ExtraServicesSection';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -356,14 +357,16 @@ export const TaskShowcase: React.FC = () => {
   }
 
   return (
+    <Fragment>
     <section className="px-4 py-12 max-w-5xl mx-auto">
       <p className="eyebrow mb-3">Full list</p>
-      <h2 className="text-2xl font-semibold text-foreground mb-8" style={{ letterSpacing: '-0.02em' }}>
+      <h2 className="text-2xl font-semibold text-foreground mb-6" style={{ letterSpacing: '-0.02em' }}>
         What can your helper do?
       </h2>
 
+      {/* ── Task list ── */}
       <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-2"
         variants={container} initial="hidden" whileInView="show"
         viewport={{ once: true, margin: '-48px' }}
       >
@@ -375,52 +378,60 @@ export const TaskShowcase: React.FC = () => {
               onClick={() => handleCardTap(task)}
               aria-pressed={isActive}
               className={cn(
-                'group flex items-center gap-2.5 rounded-xl p-3 text-left',
-                'border transition-[background-color,border-color,box-shadow] duration-200',
+                'group flex items-start gap-3 rounded-xl p-3.5 text-left border',
+                'transition-[background-color,border-color,box-shadow] duration-150',
                 'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 isActive
-                  ? 'bg-primary/[0.06] border-primary/30 shadow-tinted-sm'
-                  : 'bg-secondary/50 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
+                  ? 'bg-primary/[0.07] border-primary/30 shadow-tinted-sm'
+                  : 'bg-secondary/30 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
               )}
             >
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none" aria-hidden="true">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none mt-0.5" aria-hidden="true">
                 {task.emoji}
               </span>
-              <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">{task.label}</span>
-              <span className="flex-shrink-0 text-[11px] text-muted-foreground/70 font-medium whitespace-nowrap">{task.price}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground leading-tight">{task.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{task.description}</p>
+              </div>
+              <span className={cn(
+                'flex-shrink-0 self-center text-[11px] font-semibold px-2 py-1 rounded-full whitespace-nowrap',
+                isActive ? 'bg-primary/15 text-primary' : 'bg-background/80 text-muted-foreground border border-border/60',
+              )}>
+                {task.price}
+              </span>
             </motion.button>
           );
         })}
-
-        {/* Inline Q1 sub-options — spans full grid width below the tapped card */}
-        <AnimatePresence>
-          {tapped?.q1 && (
-            <motion.div
-              key={`inline-${tapped.slug}`}
-              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="col-span-2 sm:col-span-3 overflow-hidden"
-            >
-              <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                  {tapped.q1.label}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {tapped.q1.options.map(opt => (
-                    <motion.button
-                      key={opt} type="button"
-                      onClick={() => open(tapped, opt)}
-                      whileTap={{ scale: 0.91 }}
-                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(false)}
-                    >{opt}</motion.button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
+
+      {/* Inline Q1 sub-options — shown below the grid */}
+      <AnimatePresence>
+        {tapped?.q1 && (
+          <motion.div
+            key={`inline-${tapped.slug}`}
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-2 overflow-hidden"
+          >
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                {tapped.q1.label}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {tapped.q1.options.map(opt => (
+                  <motion.button
+                    key={opt} type="button"
+                    onClick={() => open(tapped, opt)}
+                    whileTap={{ scale: 0.91 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(false)}
+                  >{opt}</motion.button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Booking panel */}
       <AnimatePresence>
@@ -690,5 +701,7 @@ export const TaskShowcase: React.FC = () => {
         )}
       </AnimatePresence>
     </section>
+    <ExtraServicesSection />
+    </Fragment>
   );
 };

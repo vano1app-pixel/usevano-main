@@ -54,7 +54,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, status, student_id, stripe_payment_intent_id, price_estimate_cents, customer_name, customer_email, category, city')
+      .select('id, status, student_id, stripe_payment_intent_id, price_estimate_cents, customer_name, customer_email, category, city, scheduled_date')
       .eq('id', booking_id)
       .maybeSingle();
 
@@ -225,6 +225,13 @@ serve(async (req) => {
           }),
         }).catch(() => {});
       }
+
+      // Expire all pending offers so re-dispatch isn't blocked by idempotency check.
+      await supabase
+        .from('household_job_offers')
+        .update({ status: 'expired' })
+        .eq('booking_id', booking_id)
+        .eq('status', 'pending');
 
       // Re-dispatch to other helpers
       fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {

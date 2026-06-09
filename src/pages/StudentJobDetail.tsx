@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuthContext';
 import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -102,6 +103,7 @@ const StudentJobDetail = () => {
   const location = useLocation();
   const { toast } = useToast();
   const justClaimed = new URLSearchParams(location.search).get('claimed') === '1';
+  const { session: authSession, loading: authLoading } = useAuth();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -121,13 +123,22 @@ const StudentJobDetail = () => {
   // Timestamp of last DB location push — throttles writes
   const lastLocationPushRef = useRef<number>(0);
 
+  // Redirect unauthenticated users only after auth state is known (avoids
+  // race where getSession() returns null briefly while the context hydrates)
+  useEffect(() => {
+    if (authLoading) return;
+    if (!authSession?.user) navigate('/auth', { replace: true });
+  }, [authLoading, authSession, navigate]);
+
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
     const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/auth', { replace: true }); return; }
-      if (!cancelled) setUserId(session.user.id);
+      // Wait for auth context to resolve before checking session
+      if (authLoading) return;
+      const uid = authSession?.user?.id ?? null;
+      if (!uid) return; // redirect handled by the effect above
+      if (!cancelled) setUserId(uid);
 
       const [bookingRes, msgRes] = await Promise.all([
         hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
@@ -147,7 +158,7 @@ const StudentJobDetail = () => {
     void load();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookingId, navigate]);
+  }, [bookingId, navigate, authLoading, authSession]);
 
   // Clear the geolocation watch on unmount
   useEffect(() => {

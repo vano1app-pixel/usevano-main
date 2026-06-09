@@ -56,11 +56,11 @@ const PLANS = [
 export const ElderlyPitch: React.FC = () => {
   return (
     <section className="relative bg-white px-4 py-14">
-      <div className="relative max-w-4xl mx-auto">
+      <div className="relative max-w-5xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-10">
-          <p className="eyebrow mb-3 text-foreground/50">For families &amp; businesses</p>
+          <p className="eyebrow mb-3">For families &amp; businesses</p>
           <h2 className="display-lg text-foreground mb-3">
             Worried about a parent near you?
           </h2>

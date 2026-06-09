@@ -1,19 +1,33 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { useAuth } from '@/hooks/useAuthContext';
 import logo from '@/assets/logo.png';
 
-/* Glass-on-scroll pattern mirrored from Navbar.tsx:
-   mobile threshold=4px (instant) so touch users don't see
-   a laggy transition; desktop threshold=50px keeps the hero clean. */
-export const HouseholdNav: React.FC = () => {
-  const [scrolled, setScrolled] = useState(false);
+interface HouseholdNavProps {
+  darkHero?: boolean;
+}
+
+export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) => {
+  const { user, loading: authLoading } = useAuth();
+  const [scrolled,  setScrolled]  = useState(false);
+  const [hidden,    setHidden]    = useState(false);
+  const lastY = useRef(0);
 
   const handleScroll = useCallback(() => {
-    const threshold = window.innerWidth < 768 ? 4 : 50;
-    setScrolled(window.scrollY > threshold);
+    const y = window.scrollY;
+    const threshold = window.innerWidth < 768 ? 4 : 60;
+    setScrolled(y > threshold);
+
+    // Hide when scrolling down past 120px, reveal on scroll up
+    if (y > lastY.current + 8 && y > 120) {
+      setHidden(true);
+    } else if (y < lastY.current - 4) {
+      setHidden(false);
+    }
+    lastY.current = y;
   }, []);
 
   useEffect(() => {
@@ -22,57 +36,83 @@ export const HouseholdNav: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
-  const navSurfaceClass = scrolled
-    ? 'bg-cream/90 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg'
-    : 'bg-cream border-border/30 shadow-none';
+  const dark = darkHero && !scrolled; // on the hero, before first scroll
 
   return (
     <header
       className={cn(
-        'fixed top-0 left-0 right-0 z-50 border-b transition-[background-color,backdrop-filter,box-shadow,border-color] duration-300 ease-out-expo',
-        navSurfaceClass,
+        'fixed top-0 left-0 right-0 z-50 border-b',
+        'transition-[background-color,backdrop-filter,box-shadow,border-color,transform] duration-300 ease-out-expo',
+        hidden ? '-translate-y-full' : 'translate-y-0',
+        scrolled
+          ? 'bg-cream/90 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg'
+          : 'bg-transparent border-transparent',
       )}
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between h-[72px] px-5 lg:px-8 xl:px-10">
+        {/* Logo — white filter on dark hero, normal on scroll */}
         <Link to="/home" className="flex items-center">
-          <img src={logo} alt="VANO" className="h-8 w-auto" />
+          <img
+            src={logo}
+            alt="VANO"
+            className={cn('h-8 w-auto transition-[filter] duration-300', dark && 'brightness-0 invert')}
+          />
         </Link>
 
-        <div className="flex items-center gap-3">
-          {/* Become a helper — shown unless already on /join */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Join as a helper */}
           <Link
             to="/join"
             className={cn(
               'flex items-center rounded-full border px-3.5 py-1.5',
-              'border-foreground/25 bg-foreground/5',
-              'text-sm font-medium text-foreground/80 hover:text-foreground hover:border-foreground/40 hover:bg-foreground/10',
-              'transition-colors duration-150 active:scale-[0.97]',
+              'text-sm font-medium transition-colors duration-150 active:scale-[0.97] whitespace-nowrap',
+              dark
+                ? 'border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50'
+                : 'border-foreground/25 bg-foreground/5 text-foreground/80 hover:text-foreground hover:border-foreground/40 hover:bg-foreground/10',
             )}
           >
-            <span className="hidden sm:inline">Become a helper</span>
-            <span className="sm:hidden">Join</span>
+            Join as a helper
           </Link>
 
-          {/* WhatsApp quick-contact — green #25D366 is the official brand color */}
+          {/* WhatsApp */}
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO, I need some help around the house!')}`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Chat on WhatsApp"
-            className="flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors duration-150 active:scale-95"
+            className={cn(
+              'hidden sm:flex items-center gap-2 text-sm font-medium transition-colors duration-150 active:scale-95',
+              dark ? 'text-white/80 hover:text-white' : 'text-foreground/80 hover:text-foreground',
+            )}
           >
             <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
-            <span className="hidden sm:inline">WhatsApp us</span>
+            <span>WhatsApp us</span>
           </a>
 
-          {/* Helper profile — circular VANO logo */}
-          <Link
-            to="/helper/profile"
-            aria-label="Helper profile"
-            className="active:scale-95 transition-transform duration-150"
-          >
-            <img src={logo} alt="VANO" className="w-8 h-8 rounded-full object-cover ring-1 ring-foreground/20" />
-          </Link>
+          {/* Profile / account */}
+          {!authLoading && (
+            <Link
+              to={user ? '/student-account' : '/auth'}
+              aria-label={user ? 'My account' : 'Sign in'}
+              className={cn(
+                'flex items-center justify-center w-9 h-9 rounded-full',
+                'transition-[background-color,border-color] duration-150 active:scale-95',
+                dark
+                  ? 'border border-white/25 bg-white/10 hover:bg-white/20 hover:border-white/40'
+                  : 'border border-foreground/20 bg-foreground/5 hover:bg-foreground/10 hover:border-foreground/35',
+              )}
+            >
+              {user ? (
+                <img
+                  src={logo}
+                  alt="Account"
+                  className={cn('w-5 h-5 object-contain transition-[filter] duration-300', dark && 'brightness-0 invert')}
+                />
+              ) : (
+                <UserCircle2 className={cn('w-5 h-5', dark ? 'text-white/70' : 'text-foreground/60')} />
+              )}
+            </Link>
+          )}
         </div>
       </div>
     </header>

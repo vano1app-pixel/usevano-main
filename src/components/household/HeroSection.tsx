@@ -66,12 +66,22 @@ export const HeroSection: React.FC = () => {
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-wrap items-center gap-2 mb-6"
             >
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" aria-hidden="true" />
-                <span className="text-xs font-semibold text-emerald-300 tracking-wide">
-                  {displayCount > 0 ? `${displayCount} helpers online` : 'Helpers online now'}
-                </span>
-              </div>
+              {displayCount === 0 ? (
+                /* Skeleton shimmer while count loads */
+                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5 overflow-hidden relative">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400/40 flex-shrink-0" aria-hidden="true" />
+                  <span className="w-28 h-3 rounded-full bg-emerald-400/20 relative overflow-hidden">
+                    <span className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-emerald-300/20 to-transparent" />
+                  </span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" aria-hidden="true" />
+                  <span className="text-xs font-semibold text-emerald-300 tracking-wide">
+                    {displayCount} helpers online
+                  </span>
+                </div>
+              )}
               <div className="inline-flex items-center gap-1.5 rounded-full bg-white/8 border border-white/12 px-3 py-1.5">
                 <span className="text-xs font-semibold text-white/70 tracking-wide">📍 Galway · Ireland</span>
               </div>
