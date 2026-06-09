@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
 #lovable-badge {
   display: none !important;
 }
@@ -140,6 +144,7 @@
   /* Bricolage Grotesque on all headings — matches the hero */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
+    letter-spacing: -0.025em;
   }
 
   /* Premium text selection — tinted to primary */
