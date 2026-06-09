@@ -64,12 +64,25 @@ serve(async (req) => {
 
     // Payment was already captured automatically at Stripe checkout — nothing to do with Stripe here.
 
-    // Mark booking completed
+    // Idempotency: if a payout row already exists this job was already completed.
+    const { count: existingPayout } = await supabase
+      .from('household_payouts')
+      .select('id', { count: 'exact', head: true })
+      .eq('booking_id', bookingId);
+
+    if (existingPayout && existingPayout > 0) {
+      return new Response(JSON.stringify({ success: true, already_complete: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Mark booking completed — only if still in an active status (atomic guard).
     const { error: updateError } = await supabase
       .from('household_bookings')
       .update({ status: 'completed' })
       .eq('id', bookingId)
-      .eq('student_id', callerId);
+      .eq('student_id', callerId)
+      .in('status', ['accepted', 'on_way', 'arrived', 'in_progress']);
 
     if (updateError) {
       console.error('[capture-household-payment] booking update failed', updateError);
