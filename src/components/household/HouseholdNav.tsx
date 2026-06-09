@@ -44,7 +44,7 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
         'fixed top-0 left-0 right-0 z-50 border-b',
         'transition-[background-color,backdrop-filter,box-shadow,border-color,transform] duration-300 ease-out-expo',
         hidden ? '-translate-y-full' : 'translate-y-0',
-        scrolled
+        scrolled || !darkHero
           ? 'bg-cream/90 backdrop-blur-2xl backdrop-saturate-[1.2] border-border/50 shadow-tinted-lg'
           : 'bg-transparent border-transparent',
       )}
