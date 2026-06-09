@@ -11,7 +11,7 @@ interface HouseholdNavProps {
 }
 
 export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) => {
-  const { user, authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [scrolled,  setScrolled]  = useState(false);
   const [hidden,    setHidden]    = useState(false);
   const lastY = useRef(0);
