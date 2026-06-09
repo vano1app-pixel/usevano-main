@@ -137,6 +137,11 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* Bricolage Grotesque on all headings — matches the hero */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
   /* Premium text selection — tinted to primary */
   ::selection {
     background-color: hsl(var(--primary) / 0.14);
