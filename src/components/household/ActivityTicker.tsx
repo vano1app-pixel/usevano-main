@@ -96,7 +96,7 @@ export const ActivityTicker: React.FC = () => {
 
   return (
     <div
-      className="overflow-hidden border-y border-border/40 bg-background"
+      className="overflow-hidden border-y border-border/40 bg-cream"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-label="Recent bookings"
