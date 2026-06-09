@@ -355,6 +355,9 @@ export const TaskShowcase: React.FC = () => {
     }
   }
 
+  const FEATURED = ALL_TASKS.slice(0, 3);
+  const REST     = ALL_TASKS.slice(3);
+
   return (
     <section className="px-4 py-12 max-w-5xl mx-auto">
       <p className="eyebrow mb-3">Full list</p>
@@ -362,12 +365,57 @@ export const TaskShowcase: React.FC = () => {
         What can your helper do?
       </h2>
 
+      {/* ── Featured bento cards ── */}
       <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
+        className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3"
         variants={container} initial="hidden" whileInView="show"
         viewport={{ once: true, margin: '-48px' }}
       >
-        {ALL_TASKS.map((task) => {
+        {FEATURED.map((task, i) => {
+          const isActive = selected?.slug === task.slug || tapped?.slug === task.slug;
+          return (
+            <motion.button
+              key={task.slug} variants={card}
+              onClick={() => handleCardTap(task)}
+              aria-pressed={isActive}
+              className={cn(
+                'group relative flex flex-col justify-between rounded-2xl p-4 text-left min-h-[130px]',
+                'border transition-[background-color,border-color,box-shadow] duration-200',
+                'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                // first card spans full width on mobile, 2 cols on desktop
+                i === 0 ? 'col-span-2 sm:col-span-2' : 'col-span-1',
+                isActive
+                  ? 'bg-primary/[0.07] border-primary/30 shadow-tinted-sm'
+                  : 'bg-secondary/60 border-border/50 hover:bg-primary/[0.05] hover:border-primary/25 hover:shadow-tinted-sm',
+              )}
+            >
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-background shadow-tinted-sm text-2xl leading-none" aria-hidden="true">
+                  {task.emoji}
+                </span>
+                <span className={cn(
+                  'flex-shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full',
+                  isActive ? 'bg-primary/15 text-primary' : 'bg-background/80 text-muted-foreground border border-border/60',
+                )}>
+                  {task.price}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground leading-tight mb-1">{task.label}</p>
+                <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{task.description}</p>
+              </div>
+            </motion.button>
+          );
+        })}
+      </motion.div>
+
+      {/* ── Compact grid for remaining services ── */}
+      <motion.div
+        className="grid grid-cols-2 sm:grid-cols-3 gap-2"
+        variants={container} initial="hidden" whileInView="show"
+        viewport={{ once: true, margin: '-48px' }}
+      >
+        {REST.map((task) => {
           const isActive = selected?.slug === task.slug || tapped?.slug === task.slug;
           return (
             <motion.button
@@ -380,21 +428,21 @@ export const TaskShowcase: React.FC = () => {
                 'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 isActive
                   ? 'bg-primary/[0.06] border-primary/30 shadow-tinted-sm'
-                  : 'bg-secondary/50 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
+                  : 'bg-secondary/40 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
               )}
             >
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none" aria-hidden="true">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-base leading-none" aria-hidden="true">
                 {task.emoji}
               </span>
               <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">{task.label}</span>
-              <span className="flex-shrink-0 text-[11px] text-muted-foreground/70 font-medium whitespace-nowrap">{task.price}</span>
+              <span className="flex-shrink-0 text-[11px] text-muted-foreground/60 font-medium whitespace-nowrap">{task.price}</span>
             </motion.button>
           );
         })}
 
         {/* Inline Q1 sub-options — spans full grid width below the tapped card */}
         <AnimatePresence>
-          {tapped?.q1 && (
+          {tapped?.q1 && REST.some(t => t.slug === tapped.slug) && (
             <motion.div
               key={`inline-${tapped.slug}`}
               initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
@@ -421,6 +469,35 @@ export const TaskShowcase: React.FC = () => {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Inline Q1 for featured cards (renders outside the compact grid) */}
+      <AnimatePresence>
+        {tapped?.q1 && FEATURED.some(t => t.slug === tapped.slug) && (
+          <motion.div
+            key={`inline-featured-${tapped.slug}`}
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-3 overflow-hidden"
+          >
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                {tapped.q1.label}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {tapped.q1.options.map(opt => (
+                  <motion.button
+                    key={opt} type="button"
+                    onClick={() => open(tapped, opt)}
+                    whileTap={{ scale: 0.91 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(false)}
+                  >{opt}</motion.button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Booking panel */}
       <AnimatePresence>
