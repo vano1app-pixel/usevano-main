@@ -355,23 +355,20 @@ export const TaskShowcase: React.FC = () => {
     }
   }
 
-  const FEATURED = ALL_TASKS.slice(0, 3);
-  const REST     = ALL_TASKS.slice(3);
-
   return (
     <section className="px-4 py-12 max-w-5xl mx-auto">
       <p className="eyebrow mb-3">Full list</p>
-      <h2 className="text-2xl font-semibold text-foreground mb-8" style={{ letterSpacing: '-0.02em' }}>
+      <h2 className="text-2xl font-semibold text-foreground mb-6" style={{ letterSpacing: '-0.02em' }}>
         What can your helper do?
       </h2>
 
-      {/* ── Featured bento cards ── */}
+      {/* ── Task list ── */}
       <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-2"
         variants={container} initial="hidden" whileInView="show"
         viewport={{ once: true, margin: '-48px' }}
       >
-        {FEATURED.map((task, i) => {
+        {ALL_TASKS.map((task) => {
           const isActive = selected?.slug === task.slug || tapped?.slug === task.slug;
           return (
             <motion.button
@@ -379,142 +376,40 @@ export const TaskShowcase: React.FC = () => {
               onClick={() => handleCardTap(task)}
               aria-pressed={isActive}
               className={cn(
-                'group relative flex flex-col justify-between rounded-2xl p-4 text-left min-h-[130px]',
-                'border transition-[background-color,border-color,box-shadow] duration-200',
+                'group flex items-start gap-3 rounded-xl p-3.5 text-left border',
+                'transition-[background-color,border-color,box-shadow] duration-150',
                 'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                // first card spans full width on mobile, 2 cols on desktop
-                i === 0 ? 'col-span-2 sm:col-span-2' : 'col-span-1',
                 isActive
                   ? 'bg-primary/[0.07] border-primary/30 shadow-tinted-sm'
-                  : 'bg-secondary/60 border-border/50 hover:bg-primary/[0.05] hover:border-primary/25 hover:shadow-tinted-sm',
+                  : 'bg-secondary/30 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
               )}
             >
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-background shadow-tinted-sm text-2xl leading-none" aria-hidden="true">
-                  {task.emoji}
-                </span>
-                <span className={cn(
-                  'flex-shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full',
-                  isActive ? 'bg-primary/15 text-primary' : 'bg-background/80 text-muted-foreground border border-border/60',
-                )}>
-                  {task.price}
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground leading-tight mb-1">{task.label}</p>
-                <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{task.description}</p>
-              </div>
-            </motion.button>
-          );
-        })}
-      </motion.div>
-
-      {/* ── Compact grid for remaining services ── */}
-      <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-2"
-        variants={container} initial="hidden" whileInView="show"
-        viewport={{ once: true, margin: '-48px' }}
-      >
-        {REST.map((task) => {
-          const isActive = selected?.slug === task.slug || tapped?.slug === task.slug;
-          return (
-            <motion.button
-              key={task.slug} variants={card}
-              onClick={() => handleCardTap(task)}
-              aria-pressed={isActive}
-              className={cn(
-                'group flex items-center gap-2.5 rounded-xl p-3 text-left',
-                'border transition-[background-color,border-color,box-shadow] duration-200',
-                'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                isActive
-                  ? 'bg-primary/[0.06] border-primary/30 shadow-tinted-sm'
-                  : 'bg-secondary/40 border-border/40 hover:bg-primary/[0.04] hover:border-primary/20 hover:shadow-tinted-sm',
-              )}
-            >
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-base leading-none" aria-hidden="true">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none mt-0.5" aria-hidden="true">
                 {task.emoji}
               </span>
-              <span className="flex-1 min-w-0 text-sm font-medium text-foreground/80 leading-tight">{task.label}</span>
-              <span className="flex-shrink-0 text-[11px] text-muted-foreground/60 font-medium whitespace-nowrap">{task.price}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground leading-tight">{task.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{task.description}</p>
+              </div>
+              <span className={cn(
+                'flex-shrink-0 self-center text-[11px] font-semibold px-2 py-1 rounded-full whitespace-nowrap',
+                isActive ? 'bg-primary/15 text-primary' : 'bg-background/80 text-muted-foreground border border-border/60',
+              )}>
+                {task.price}
+              </span>
             </motion.button>
           );
         })}
-
-        {/* Inline Q1 sub-options — spans full grid width below the tapped card */}
-        <AnimatePresence>
-          {tapped?.q1 && REST.some(t => t.slug === tapped.slug) && (
-            <motion.div
-              key={`inline-${tapped.slug}`}
-              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="col-span-2 sm:col-span-3 overflow-hidden"
-            >
-              <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
-                  {tapped.q1.label}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {tapped.q1.options.map(opt => (
-                    <motion.button
-                      key={opt} type="button"
-                      onClick={() => open(tapped, opt)}
-                      whileTap={{ scale: 0.91 }}
-                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(false)}
-                    >{opt}</motion.button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
 
-      {/* ── What else can helpers do? ── */}
-      <div className="mt-8 mb-2">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">What else can helpers do?</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {[
-            { emoji: '🔨', label: 'Handyman jobs',        detail: 'Shelves, curtain rails, small repairs around the home.' },
-            { emoji: '🚿', label: 'Plumbing help',         detail: 'Leaky taps, blocked drains, toilet fixes — basic plumbing.' },
-            { emoji: '🪑', label: 'Furniture assembly',    detail: 'IKEA or any flat-pack built and placed exactly where you want it.' },
-            { emoji: '📱', label: 'Tech help',             detail: 'Phone, laptop, TV, Wi-Fi setup — great for elderly family members.' },
-            { emoji: '🚪', label: 'Wait for deliveries',   detail: 'We wait at your home for a delivery or tradesperson while you\'re out.' },
-          ].map(item => (
-            <a
-              key={item.label}
-              href={`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO! I need help with: ${item.label}. Can you let me know who is available?`)}`}
-              target="_blank" rel="noopener noreferrer"
-              className={cn(
-                'flex items-start gap-3 rounded-xl p-3.5 border',
-                'bg-secondary/30 border-border/40',
-                'hover:bg-primary/[0.04] hover:border-primary/20 transition-[background-color,border-color] duration-150',
-                'group',
-              )}
-            >
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-background shadow-tinted-sm text-lg leading-none mt-0.5">
-                {item.emoji}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground leading-tight">{item.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{item.detail}</p>
-              </div>
-              <span className="flex-shrink-0 text-xs text-muted-foreground/50 font-medium self-center group-hover:text-primary transition-colors">
-                WhatsApp →
-              </span>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* Inline Q1 for featured cards (renders outside the compact grid) */}
+      {/* Inline Q1 sub-options — shown below the grid */}
       <AnimatePresence>
-        {tapped?.q1 && FEATURED.some(t => t.slug === tapped.slug) && (
+        {tapped?.q1 && (
           <motion.div
-            key={`inline-featured-${tapped.slug}`}
+            key={`inline-${tapped.slug}`}
             initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-3 overflow-hidden"
+            className="mt-2 overflow-hidden"
           >
             <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
