@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { MessageCircle, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
-import { useAuth } from '@/hooks/useAuthContext';
 import logo from '@/assets/logo.png';
 
 interface HouseholdNavProps {
@@ -11,7 +10,6 @@ interface HouseholdNavProps {
 }
 
 export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) => {
-  const { user, loading: authLoading } = useAuth();
   const [scrolled,  setScrolled]  = useState(false);
   const [hidden,    setHidden]    = useState(false);
   const lastY = useRef(0);
@@ -90,29 +88,19 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           </a>
 
           {/* Profile / account */}
-          {!authLoading && (
-            <Link
-              to={user ? '/student-account' : '/auth'}
-              aria-label={user ? 'My account' : 'Sign in'}
-              className={cn(
-                'flex items-center justify-center w-9 h-9 rounded-full',
-                'transition-[background-color,border-color] duration-150 active:scale-95',
-                dark
-                  ? 'border border-white/25 bg-white/10 hover:bg-white/20 hover:border-white/40'
-                  : 'border border-foreground/20 bg-foreground/5 hover:bg-foreground/10 hover:border-foreground/35',
-              )}
-            >
-              {user ? (
-                <img
-                  src={logo}
-                  alt="Account"
-                  className={cn('w-5 h-5 object-contain transition-[filter] duration-300', dark && 'brightness-0 invert')}
-                />
-              ) : (
-                <UserCircle2 className={cn('w-5 h-5', dark ? 'text-white/70' : 'text-foreground/60')} />
-              )}
-            </Link>
-          )}
+          <Link
+            to="/student-account"
+            aria-label="My account"
+            className={cn(
+              'flex items-center justify-center w-9 h-9 rounded-full',
+              'transition-[background-color,border-color] duration-150 active:scale-95',
+              dark
+                ? 'border border-white/25 bg-white/10 hover:bg-white/20 hover:border-white/40'
+                : 'border border-foreground/20 bg-foreground/5 hover:bg-foreground/10 hover:border-foreground/35',
+            )}
+          >
+            <UserCircle2 className={cn('w-5 h-5', dark ? 'text-white/70' : 'text-foreground/60')} />
+          </Link>
         </div>
       </div>
     </header>
