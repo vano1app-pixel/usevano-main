@@ -76,8 +76,7 @@ const StudentAccount = () => {
   const lastPinchDist  = useRef<number | null>(null);
 
   const [helper,  setHelper]  = useState<HelperRow | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userId,  setUserId]  = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // no initial load needed — wait for phone gate
 
   const [bio,          setBio]          = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -89,6 +88,7 @@ const StudentAccount = () => {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [gateInput,     setGateInput]     = useState('');
   const [gateError,     setGateError]     = useState('');
+  const [gateLoading,   setGateLoading]   = useState(false);
 
   // Phone inline edit
   const [editingPhone, setEditingPhone] = useState(false);
@@ -110,50 +110,62 @@ const StudentAccount = () => {
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    const run = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate('/auth', { replace: true, state: { from: '/student-account' } });
-        return;
-      }
-      setUserId(session.user.id);
-
-      const { data } = await hdb
-        .from('household_helpers')
-        .select('id, name, phone, email, photo_url, city, bio, categories, availability, status')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
-      if (data) {
-        setHelper(data as HelperRow);
-        setBio(data.bio ?? '');
-        setSelectedCats(data.categories ?? []);
-        setAvail(data.availability ?? []);
-        setPhotoPreview(data.photo_url);
-        setPhoneInput(data.phone ?? '');
-      }
-      setLoading(false);
-    };
-    void run();
-  }, [navigate]);
-
-  useEffect(() => {
     if (!saved) return;
     const t = setTimeout(() => setSaved(false), 3000);
     return () => clearTimeout(t);
   }, [saved]);
 
   // ── Phone gate ────────────────────────────────────────────────────────────
-  const handlePhoneVerify = (e: React.FormEvent) => {
+  const handlePhoneVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!helper) return;
-    if (phonesMatch(helper.phone, gateInput.trim())) {
-      setPhoneVerified(true);
-      setGateError('');
-    } else {
-      setGateError("That number doesn't match your account. Try again or WhatsApp +353 89 981 7111.");
+    const entered = gateInput.trim();
+    if (!entered) return;
+    setGateLoading(true);
+    setGateError('');
+    try {
+      // Look up helper by phone
+      const { data, error } = await hdb
+        .from('household_helpers')
+        .select('id, name, phone, email, photo_url, city, bio, categories, availability, status')
+        .ilike('phone', `%${normalizePhone(entered).slice(-9)}%`)
+        .maybeSingle();
+
+      if (error || !data) {
+        // fallback: try exact normalised match across all helpers
+        const { data: all } = await hdb
+          .from('household_helpers')
+          .select('id, name, phone, email, photo_url, city, bio, categories, availability, status');
+        const match = (all ?? []).find((h: HelperRow) => phonesMatch(h.phone, entered));
+        if (!match) {
+          setGateError("That number doesn't match any account. Try again or WhatsApp +353 89 981 7111.");
+          setGateLoading(false);
+          return;
+        }
+        loadHelper(match as HelperRow);
+      } else {
+        if (!phonesMatch((data as HelperRow).phone, entered)) {
+          setGateError("That number doesn't match any account. Try again or WhatsApp +353 89 981 7111.");
+          setGateLoading(false);
+          return;
+        }
+        loadHelper(data as HelperRow);
+      }
+    } catch {
+      setGateError('Something went wrong. Please try again.');
+    } finally {
+      setGateLoading(false);
     }
   };
+
+  function loadHelper(data: HelperRow) {
+    setHelper(data);
+    setBio(data.bio ?? '');
+    setSelectedCats(data.categories ?? []);
+    setAvail(data.availability ?? []);
+    setPhotoPreview(data.photo_url);
+    setPhoneInput(data.phone ?? '');
+    setPhoneVerified(true);
+  }
 
   // ── Photo selection ────────────────────────────────────────────────────────
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -252,13 +264,13 @@ const StudentAccount = () => {
 
   // ── Phone inline save ──────────────────────────────────────────────────────
   const savePhone = async () => {
-    if (!userId || !phoneInput.trim()) return;
+    if (!helper || !phoneInput.trim()) return;
     setPhoneSaving(true);
     try {
       const { error } = await hdb
         .from('household_helpers')
         .update({ phone: phoneInput.trim() })
-        .eq('user_id', userId);
+        .eq('id', helper.id);
       if (error) throw error;
       setHelper(h => h ? { ...h, phone: phoneInput.trim() } : h);
       setEditingPhone(false);
@@ -276,7 +288,7 @@ const StudentAccount = () => {
 
   // ── Main save ──────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!helper || !userId) return;
+    if (!helper) return;
     setSaving(true); setSaved(false);
     try {
       let photoUrl = helper.photo_url;
@@ -284,7 +296,6 @@ const StudentAccount = () => {
       if (photoFile) {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
         const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-        const { data: { session } } = await supabase.auth.getSession();
         const fd = new FormData();
         fd.append('phone',        helper.phone);
         fd.append('bio',          bio.trim());
@@ -293,7 +304,7 @@ const StudentAccount = () => {
         const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${session?.access_token ?? anonKey}`,
+            Authorization: `Bearer ${anonKey}`,
             apikey: anonKey,
           },
           body: fd,
@@ -311,7 +322,7 @@ const StudentAccount = () => {
           availability: avail,
           ...(photoUrl !== helper.photo_url ? { photo_url: photoUrl } : {}),
         })
-        .eq('user_id', userId);
+        .eq('id', helper.id);
       if (error) throw error;
 
       setHelper(h => h
@@ -327,11 +338,22 @@ const StudentAccount = () => {
   };
 
   const handleLeave = async () => {
+    if (!helper) return;
     setCancelling(true);
     try {
-      const { error } = await supabase.functions.invoke('cancel-helper-subscription');
-      if (error) throw error;
-      await supabase.auth.signOut();
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const res = await fetch(`${supabaseUrl}/functions/v1/cancel-helper-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${anonKey}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+      });
+      const json = await res.json() as { cancelled?: boolean; error?: string };
+      if (!json.cancelled) throw new Error(json.error ?? 'Unknown error');
       navigate('/', { replace: true });
     } catch {
       toast({
@@ -352,27 +374,16 @@ const StudentAccount = () => {
     );
   }
 
-  if (!helper) {
-    return (
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-4 text-center">
-        <p className="text-base font-semibold text-foreground">No helper account linked</p>
-        <p className="text-sm text-muted-foreground">
-          <a href="/join" className="underline underline-offset-2 text-primary">Apply to join VANO →</a>
-        </p>
-      </div>
-    );
-  }
-
-  // Phone gate — confirm identity before showing account details
+  // Phone gate — enter phone to load your account
   if (!phoneVerified) {
     return (
       <div className="min-h-dvh bg-background">
         <SEOHead title="My account — VANO" description="Manage your VANO helper account." noindex />
         <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
           <button
-            onClick={() => navigate('/student-dashboard')}
+            onClick={() => navigate(-1)}
             className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
-            aria-label="Back to dashboard"
+            aria-label="Back"
           >
             <ChevronLeft size={20} strokeWidth={2} />
           </button>
@@ -381,9 +392,9 @@ const StudentAccount = () => {
         </header>
         <div className="min-h-dvh flex flex-col items-center justify-center px-6 pt-14 pb-10">
           <div className="w-full max-w-sm">
-            <h1 className="text-2xl font-bold text-foreground mb-2">Verify your number</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Enter your number</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              Enter the phone number linked to your VANO account to continue.
+              Enter the phone number you signed up with to access your VANO account.
             </p>
             <form onSubmit={handlePhoneVerify} className="space-y-3">
               <input
@@ -397,9 +408,10 @@ const StudentAccount = () => {
               {gateError && <p className="text-sm text-destructive">{gateError}</p>}
               <button
                 type="submit"
-                className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base active:scale-[0.98] transition-transform"
+                disabled={gateLoading || !gateInput.trim()}
+                className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Continue →
+                {gateLoading ? <><Loader2 size={17} className="animate-spin" />Looking up…</> : 'Continue →'}
               </button>
             </form>
           </div>
@@ -408,11 +420,22 @@ const StudentAccount = () => {
     );
   }
 
+  if (!helper) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="text-base font-semibold text-foreground">No helper account found</p>
+        <p className="text-sm text-muted-foreground">
+          <a href="/join" className="underline underline-offset-2 text-primary">Apply to join VANO →</a>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-dvh bg-background">
       <SEOHead title="My account — VANO" description="Manage your VANO helper account." noindex />
 
-      {/* Header — back arrow · title · logo */}
+      {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button
           onClick={() => navigate('/student-dashboard')}
