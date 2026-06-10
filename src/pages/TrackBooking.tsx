@@ -193,6 +193,22 @@ const TrackBooking = () => {
     }
   }, [bookingId]);
 
+  // ?rate=N deep link from the completion email — pre-select that star and
+  // bring the rating card into view once the booking has loaded.
+  const ratingCardRef = useRef<HTMLDivElement>(null);
+  const rateParamApplied = useRef(false);
+  useEffect(() => {
+    if (rateParamApplied.current || alreadyRated) return;
+    const n = parseInt(searchParams.get('rate') ?? '', 10);
+    if (!Number.isInteger(n) || n < 1 || n > 5) return;
+    if (booking?.status !== 'completed') return;
+    rateParamApplied.current = true;
+    setSelectedRating(n);
+    window.setTimeout(() => {
+      ratingCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 450);
+  }, [booking?.status, alreadyRated, searchParams]);
+
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
@@ -641,6 +657,7 @@ const TrackBooking = () => {
         {/* Completed: thank-you + rating */}
         {isCompleted && (
           <motion.div
+            ref={ratingCardRef}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
