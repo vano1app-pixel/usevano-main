@@ -123,33 +123,17 @@ const StudentAccount = () => {
     setGateLoading(true);
     setGateError('');
     try {
-      // Look up helper by phone
-      const { data, error } = await hdb
-        .from('household_helpers')
-        .select('id, name, phone, email, photo_url, city, bio, categories, availability, status')
-        .ilike('phone', `%${normalizePhone(entered).slice(-9)}%`)
-        .maybeSingle();
-
-      if (error || !data) {
-        // fallback: try exact normalised match across all helpers
-        const { data: all } = await hdb
-          .from('household_helpers')
-          .select('id, name, phone, email, photo_url, city, bio, categories, availability, status');
-        const match = (all ?? []).find((h: HelperRow) => phonesMatch(h.phone, entered));
-        if (!match) {
-          setGateError("That number doesn't match any account. Try again or WhatsApp +353 89 981 7111.");
-          setGateLoading(false);
-          return;
-        }
-        loadHelper(match as HelperRow);
-      } else {
-        if (!phonesMatch((data as HelperRow).phone, entered)) {
-          setGateError("That number doesn't match any account. Try again or WhatsApp +353 89 981 7111.");
-          setGateLoading(false);
-          return;
-        }
-        loadHelper(data as HelperRow);
+      // Server-side lookup — phone/email aren't readable with the anon key
+      const { data, error } = await supabase.functions.invoke('find-helper-by-phone', {
+        body: { phone: entered },
+      });
+      const match = (data as { helper?: HelperRow | null } | null)?.helper ?? null;
+      if (error || !match || !phonesMatch(match.phone, entered)) {
+        setGateError("That number doesn't match any account. Try again or WhatsApp +353 89 981 7111.");
+        setGateLoading(false);
+        return;
       }
+      loadHelper(match);
     } catch {
       setGateError('Something went wrong. Please try again.');
     } finally {
@@ -263,15 +247,24 @@ const StudentAccount = () => {
   };
 
   // ── Phone inline save ──────────────────────────────────────────────────────
+  // Goes through the service-role edge function: the anon key has no UPDATE
+  // access to household_helpers, so a direct .update() silently changes nothing.
   const savePhone = async () => {
     if (!helper || !phoneInput.trim()) return;
     setPhoneSaving(true);
     try {
-      const { error } = await hdb
-        .from('household_helpers')
-        .update({ phone: phoneInput.trim() })
-        .eq('id', helper.id);
-      if (error) throw error;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const fd = new FormData();
+      fd.append('phone',     helper.phone);
+      fd.append('new_phone', phoneInput.trim());
+      const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
+        body: fd,
+      });
+      const json = await res.json() as { success?: boolean };
+      if (!res.ok || !json.success) throw new Error('Update failed');
       setHelper(h => h ? { ...h, phone: phoneInput.trim() } : h);
       setEditingPhone(false);
     } catch {
@@ -287,44 +280,35 @@ const StudentAccount = () => {
     setAvail(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
 
   // ── Main save ──────────────────────────────────────────────────────────────
+  // Everything goes through the service-role edge function: the anon key has
+  // no UPDATE access to household_helpers, so a direct .update() silently
+  // changes nothing for phone-gated (unauthenticated) helpers.
   const handleSave = async () => {
     if (!helper) return;
     setSaving(true); setSaved(false);
     try {
-      let photoUrl = helper.photo_url;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const fd = new FormData();
+      fd.append('phone',        helper.phone);
+      fd.append('bio',          bio.trim());
+      fd.append('availability', JSON.stringify(avail));
+      fd.append('categories',   JSON.stringify(selectedCats));
+      if (photoFile) fd.append('photo', photoFile);
 
-      if (photoFile) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-        const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-        const fd = new FormData();
-        fd.append('phone',        helper.phone);
-        fd.append('bio',          bio.trim());
-        fd.append('availability', JSON.stringify(avail));
-        fd.append('photo',        photoFile);
-        const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${anonKey}`,
-            apikey: anonKey,
-          },
-          body: fd,
-        });
-        const json = await res.json() as { photo_url?: string };
-        if (json.photo_url) photoUrl = json.photo_url;
-        setPhotoFile(null);
-      }
+      const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${anonKey}`,
+          apikey: anonKey,
+        },
+        body: fd,
+      });
+      const json = await res.json() as { success?: boolean; photo_url?: string; error?: string };
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Save failed');
 
-      const { error } = await hdb
-        .from('household_helpers')
-        .update({
-          bio:          bio.trim() || null,
-          categories:   selectedCats,
-          availability: avail,
-          ...(photoUrl !== helper.photo_url ? { photo_url: photoUrl } : {}),
-        })
-        .eq('id', helper.id);
-      if (error) throw error;
-
+      const photoUrl = json.photo_url ?? helper.photo_url;
+      setPhotoFile(null);
       setHelper(h => h
         ? { ...h, bio: bio.trim() || null, categories: selectedCats, availability: avail, photo_url: photoUrl }
         : h,

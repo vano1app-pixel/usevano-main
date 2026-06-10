@@ -1,17 +1,19 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
 
 interface HelperRow {
-  id:            string;
-  name:          string;
-  photo_url:     string;
-  city:          string;
-  age:           number | null;
-  bio:           string | null;
-  categories:    string[] | null;
+  id:             string;
+  name:           string;
+  photo_url:      string;
+  city:           string;
+  age:            number | null;
+  bio:            string | null;
+  categories:     string[] | null;
+  average_rating: number | null;
+  accepted_count: number;
 }
 
 function Card({ h }: { h: HelperRow }) {
@@ -35,10 +37,18 @@ function Card({ h }: { h: HelperRow }) {
         </div>
         <div className="p-3 flex flex-col gap-2 flex-1">
           <div>
-            <p className="font-semibold text-foreground text-sm leading-tight">
-              Hey, I'm {firstName}
-              {h.age ? <span className="font-normal text-muted-foreground"> · {h.age}</span> : null}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-semibold text-foreground text-sm leading-tight">
+                Hey, I'm {firstName}
+                {h.age ? <span className="font-normal text-muted-foreground"> · {h.age}</span> : null}
+              </p>
+              {h.average_rating ? (
+                <span className="flex items-center gap-0.5 text-xs font-semibold text-foreground flex-shrink-0">
+                  <Star className="w-3 h-3 fill-gold text-gold" aria-hidden="true" />
+                  {Number(h.average_rating).toFixed(1)}
+                </span>
+              ) : null}
+            </div>
             {h.bio ? (
               <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{h.bio}</p>
             ) : (
@@ -94,7 +104,7 @@ export const HelperCards: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('household_helpers')
-      .select('id, name, photo_url, city, age, bio, categories')
+      .select('id, name, photo_url, city, age, bio, categories, average_rating, accepted_count')
       .eq('status', 'approved')
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
