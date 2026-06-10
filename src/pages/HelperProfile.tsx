@@ -5,18 +5,7 @@ import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-
-const SLOTS = [
-  { id: 'mon-fri-morning',   label: 'Mon–Fri mornings'   },
-  { id: 'mon-fri-afternoon', label: 'Mon–Fri afternoons' },
-  { id: 'mon-fri-evening',   label: 'Mon–Fri evenings'   },
-  { id: 'sat-morning',       label: 'Sat mornings'       },
-  { id: 'sat-afternoon',     label: 'Sat afternoons'     },
-  { id: 'sat-evening',       label: 'Sat evenings'       },
-  { id: 'sun-morning',       label: 'Sun mornings'       },
-  { id: 'sun-afternoon',     label: 'Sun afternoons'     },
-  { id: 'sun-evening',       label: 'Sun evenings'       },
-];
+import { AVAILABILITY_SLOTS as SLOTS } from '@/lib/helperCategories';
 
 interface HelperRow {
   id:           string;

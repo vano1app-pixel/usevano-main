@@ -20,6 +20,7 @@ const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"))
 const StudentAccount = lazyWithRetry(() => import("./pages/StudentAccount"));
 const JoinAsHelper = lazyWithRetry(() => import("./pages/JoinAsHelper"));
 const HelperProfile = lazyWithRetry(() => import("./pages/HelperProfile"));
+const HelperPublicProfile = lazyWithRetry(() => import("./pages/HelperPublicProfile"));
 const HouseholdAdmin = lazyWithRetry(() => import("./pages/HouseholdAdmin"));
 const Auth = lazyWithRetry(() => import("./pages/Auth"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
@@ -56,7 +57,7 @@ import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'rise';
   if (path === '/home' || path === '/join' || path.startsWith('/book/') || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/')) return 'rise';
-  if (['/auth', '/helper/profile'].includes(path)) return 'rise';
+  if (['/auth', '/helper/profile'].includes(path) || path.startsWith('/helpers/')) return 'rise';
   return 'default';
 }
 
@@ -91,6 +92,7 @@ const App = () => {
             <Route path="/student-account" element={<P><StudentAccount /></P>} />
             <Route path="/join" element={<P><JoinAsHelper /></P>} />
             <Route path="/helper/profile" element={<P><HelperProfile /></P>} />
+            <Route path="/helpers/:id" element={<P><HelperPublicProfile /></P>} />
             <Route path="/household-admin" element={<P><HouseholdAdmin /></P>} />
             <Route path="/auth" element={<P><Auth /></P>} />
             <Route path="/privacy" element={<P><Privacy /></P>} />

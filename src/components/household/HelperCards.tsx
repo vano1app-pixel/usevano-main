@@ -1,27 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-const CATEGORY_LABELS: Record<string, string> = {
-  'shopping':           '🛒 Shopping',
-  'grocery-shopping':   '🛒 Groceries',
-  'dog-walk':           '🐕 Dog walks',
-  'dog-walking':        '🐕 Dog walks',
-  'garden':             '🌿 Garden',
-  'lawn-mowing':        '🌿 Lawn mowing',
-  'moving':             '📦 Moving',
-  'moving-help':        '📦 Moving',
-  'cleaning':           '🧹 Cleaning',
-  'outdoor-cleaning':   '🧹 Cleaning',
-  'tutoring':           '📚 Tutoring',
-  'tutoring-grinds':    '📚 Tutoring',
-  'post-office':        '📬 Post office',
-  'pharmacy-run':       '💊 Pharmacy',
-  'furniture-assembly': '🔧 Furniture',
-  'tech-help':          '📱 Tech help',
-  'wait-delivery':      '🚪 Deliveries',
-  'midnight-lift':      '🌙 Midnight Lift',
-};
+import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
 
 interface HelperRow {
   id:            string;
@@ -38,38 +19,47 @@ function Card({ h }: { h: HelperRow }) {
   const firstName = h.name.split(' ')[0];
 
   return (
-    <article className="snap-start flex-shrink-0 w-[200px] sm:w-[220px] bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col">
-      <div className="w-full aspect-[4/3] overflow-hidden bg-secondary/40 flex-shrink-0">
-        <img
-          src={h.photo_url}
-          alt={h.name}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-      </div>
-      <div className="p-3 flex flex-col gap-2 flex-1">
-        <div>
-          <p className="font-semibold text-foreground text-sm leading-tight">
-            Hey, I'm {firstName}
-            {h.age ? <span className="font-normal text-muted-foreground"> · {h.age}</span> : null}
-          </p>
-          {h.bio ? (
-            <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{h.bio}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-0.5">Based in {h.city}</p>
-          )}
+    <Link
+      to={`/helpers/${h.id}`}
+      aria-label={`View ${firstName}'s profile`}
+      className="snap-start flex-shrink-0 w-[200px] sm:w-[220px] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
+    >
+      <article className="h-full bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col transition-[transform,box-shadow,border-color] duration-200 ease-out group-hover:-translate-y-1 group-hover:shadow-tinted-lg group-hover:border-border/70 group-active:scale-[0.98]">
+        <div className="w-full aspect-[4/3] overflow-hidden bg-secondary/40 flex-shrink-0">
+          <img
+            src={h.photo_url}
+            alt={h.name}
+            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+            loading="lazy"
+          />
         </div>
-        {cats.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-auto">
-            {cats.map(slug => (
-              <span key={slug} className="text-[10px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5">
-                {CATEGORY_LABELS[slug] ?? slug}
-              </span>
-            ))}
+        <div className="p-3 flex flex-col gap-2 flex-1">
+          <div>
+            <p className="font-semibold text-foreground text-sm leading-tight">
+              Hey, I'm {firstName}
+              {h.age ? <span className="font-normal text-muted-foreground"> · {h.age}</span> : null}
+            </p>
+            {h.bio ? (
+              <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{h.bio}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-0.5">Based in {h.city}</p>
+            )}
           </div>
-        )}
-      </div>
-    </article>
+          {cats.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-auto">
+              {cats.map(slug => (
+                <span key={slug} className="text-[10px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5">
+                  {CATEGORY_LABELS[slug] ?? slug}
+                </span>
+              ))}
+            </div>
+          )}
+          <span className="text-[11px] font-semibold text-sage opacity-0 group-hover:opacity-100 transition-opacity duration-150 hidden sm:block">
+            View profile →
+          </span>
+        </div>
+      </article>
+    </Link>
   );
 }
 
@@ -101,6 +91,7 @@ export const HelperCards: React.FC = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('household_helpers')
       .select('id, name, photo_url, city, age, bio, categories')

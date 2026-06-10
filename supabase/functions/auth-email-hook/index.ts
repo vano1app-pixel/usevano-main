@@ -227,11 +227,11 @@ async function handleWebhook(req: Request): Promise<Response> {
     newEmail: payload.data.new_email,
   }
 
-  // Render React Email to HTML and plain text
-  const html = await renderAsync(React.createElement(EmailTemplate, templateProps))
-  const text = await renderAsync(React.createElement(EmailTemplate, templateProps), {
-    plainText: true,
-  })
+  // Render React Email to HTML and plain text (in parallel — they're independent)
+  const [html, text] = await Promise.all([
+    renderAsync(React.createElement(EmailTemplate, templateProps)),
+    renderAsync(React.createElement(EmailTemplate, templateProps), { plainText: true }),
+  ])
 
   // Send email via Lovable Email API
   // The callback URL is provided in the payload by Lovable, ensuring correct routing
@@ -245,23 +245,59 @@ async function handleWebhook(req: Request): Promise<Response> {
     })
   }
 
-  let result: { message_id?: string }
-  try {
-    result = await sendLovableEmail(
-      {
+  // GoTrue aborts the auth request (504 for the end user) if this hook takes
+  // longer than ~10s, which happens when the downstream email API is slow.
+  // Race the send against a 6.5s deadline: on the fast path behaviour is
+  // unchanged; on the slow path we ACK now and let the send finish in the
+  // background so password resets / signups don't time out.
+  const sendPromise = sendLovableEmail(
+    {
+      run_id,
+      to: payload.data.email,
+      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+      sender_domain: SENDER_DOMAIN,
+      subject: EMAIL_SUBJECTS[emailType] || 'Notification',
+      html,
+      text,
+      purpose: 'transactional',
+    },
+    { apiKey, sendUrl: callbackUrl }
+  )
+
+  const DEADLINE_MS = 6_500
+  const timedOut = Symbol('timeout')
+  let timer: number | undefined
+  const raced = await Promise.race([
+    sendPromise.then(
+      (r) => ({ ok: true as const, result: r }),
+      (error) => ({ ok: false as const, error }),
+    ),
+    new Promise<typeof timedOut>((resolve) => {
+      timer = setTimeout(() => resolve(timedOut), DEADLINE_MS)
+    }),
+  ])
+  if (timer !== undefined) clearTimeout(timer)
+
+  if (raced === timedOut) {
+    console.warn('Email send exceeded deadline — completing in background', { run_id })
+    const finishInBackground = sendPromise.then(
+      (r) => console.log('Email sent successfully (background)', { message_id: r.message_id, run_id }),
+      (error) => console.error('Email API error (background)', {
+        error: error instanceof Error ? error.message : 'Failed to send email',
         run_id,
-        to: payload.data.email,
-        from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-        sender_domain: SENDER_DOMAIN,
-        subject: EMAIL_SUBJECTS[emailType] || 'Notification',
-        html,
-        text,
-        purpose: 'transactional',
-      },
-      { apiKey, sendUrl: callbackUrl }
+      }),
     )
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to send email'
+    // deno-lint-ignore no-explicit-any
+    const runtime = (globalThis as any).EdgeRuntime
+    if (runtime?.waitUntil) runtime.waitUntil(finishInBackground)
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  if (!raced.ok) {
+    const message = raced.error instanceof Error ? raced.error.message : 'Failed to send email'
     console.error('Email API error', { error: message, run_id })
     return new Response(JSON.stringify({ error: 'Failed to send email' }), {
       status: 500,
@@ -269,10 +305,10 @@ async function handleWebhook(req: Request): Promise<Response> {
     })
   }
 
-  console.log('Email sent successfully', { message_id: result.message_id, run_id })
+  console.log('Email sent successfully', { message_id: raced.result.message_id, run_id })
 
   return new Response(
-    JSON.stringify({ success: true, message_id: result.message_id }),
+    JSON.stringify({ success: true, message_id: raced.result.message_id }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 }
