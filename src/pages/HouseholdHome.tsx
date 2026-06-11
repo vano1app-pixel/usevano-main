@@ -16,7 +16,7 @@ const HouseholdHome: React.FC = () => {
   return (
     // Cream warm-white base — distinguishes the household platform from the
     // pure-white marketplace and reads warmer/more trustworthy for in-home services
-    <div className="-mt-14 lg:-mt-16 bg-cream">
+    <div className="bg-cream">
       <SEOHead
         title="Same-day home help in Galway & Ireland"
         description="Book a trusted student helper in minutes. Grocery shopping, dog walking, garden, cleaning, moving help & more. Same-day service from €10. Available across Ireland."

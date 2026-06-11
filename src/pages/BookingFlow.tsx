@@ -146,8 +146,7 @@ const BookingFlow: React.FC = () => {
   const CurrentStep = allSteps[step].component;
 
   return (
-    // -mt-14 corrects the App.tsx global md:pt-14 offset; this page owns its own header
-    <div className="min-h-dvh bg-background -mt-14 lg:-mt-16 flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       <BookingProgress
         current={step + 1}
         total={allSteps.length}
