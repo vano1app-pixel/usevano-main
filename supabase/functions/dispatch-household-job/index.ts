@@ -22,6 +22,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   moving: 'Moving help',
   cleaning: 'Cleaning',
   tutoring: 'Tutoring',
+  handyman: 'Handyman',
+  plumbing: 'Plumbing help',
+  'furniture-assembly': 'Furniture assembly',
+  'tech-help': 'Tech help',
+  'wait-delivery': 'Wait for delivery',
   other: 'General help',
 };
 

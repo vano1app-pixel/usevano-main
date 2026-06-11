@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { serviceFeeCents, totalWithFeeCents, fmtEuro } from '@/lib/householdPricing';
 
 interface ExtraCategory {
   emoji:       string;
@@ -89,8 +90,6 @@ function getPriceCents(slug: string, size: string): number | null {
   return null;
 }
 
-function fmt(cents: number) { return `€${(cents / 100).toFixed(0)}`; }
-
 const DEFAULT_SIZE: Record<string, string> = {
   handyman:            '1 hour',
   plumbing:            '1 hour',
@@ -144,6 +143,9 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
   }, [onClose]);
 
   const priceCents = getPriceCents(cat.slug, size);
+  // Stripe adds a 5% service fee as a second line item — show the final total.
+  const feeCents   = priceCents ? serviceFeeCents(priceCents) : 0;
+  const totalCents = priceCents ? totalWithFeeCents(priceCents) : null;
 
   function sendWhatsApp() {
     const lines = [
@@ -281,10 +283,15 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
             </div>
 
             {/* Price summary */}
-            {priceCents && (
-              <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                <span className="text-sm text-foreground/60">{cat.label} · {size}</span>
-                <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
+            {priceCents && totalCents && (
+              <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground/60">{cat.label} · {size}</span>
+                  <span className="text-lg font-bold text-foreground tabular-nums">{fmtEuro(totalCents)}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {fmtEuro(priceCents)} job + {fmtEuro(feeCents)} service fee — exactly what you'll pay
+                </p>
               </div>
             )}
 
@@ -298,7 +305,7 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
                 >
                   {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
-                    : <><CreditCard className="w-4 h-4" />Book {cat.label}{priceCents ? ` — ${fmt(priceCents)}` : ''}</>}
+                    : <><CreditCard className="w-4 h-4" />Book {cat.label}{totalCents ? ` — ${fmtEuro(totalCents)}` : ''}</>}
                 </Button>
               </motion.div>
 

@@ -95,18 +95,20 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       '1 hr · 2 dogs':   2000,
       '2 hrs · 1 dog':   2200,
       '2 hrs · 2+ dogs': 2800,
+      // CategoryGrid quick-book — must match the prices shown in the sheet
+      '30 min': 1500, '1 hour': 2000,
     };
-    // Legacy CategoryGrid fallback
-    if (!combined[sizeLabel]) return sizeLabel === '30 min' ? 1200 : 1600;
-    return combined[sizeLabel];
+    return combined[sizeLabel] ?? null;
   }
 
-  // Lawn mowing — garden size
+  // Garden / lawn mowing — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
   if (category === 'garden' || category === 'lawn-mowing') {
     const map: Record<string, number> = {
-      // legacy time-based (CategoryGrid)
-      '1 hour': 2000, '2 hours': 4000, 'Half day': 7200,
-      // new size-based
+      // time-based (CategoryGrid)
+      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
+      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      'Half day': 7200,
+      // size-based (TaskShowcase)
       'Small (terrace / apartment)': 2200,
       'Medium (semi-detached)':      3800,
       'Large (detached)':            6000,
@@ -115,12 +117,13 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
-  // Moving — job size
+  // Moving — hour labels must match the CategoryGrid sheet (€18/hr, '4+ hours' priced as 4h)
   if (category === 'moving' || category === 'moving-help') {
     const map: Record<string, number> = {
-      // legacy time-based
-      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000, '4+ hours': 8000,
-      // new job-size
+      // time-based (CategoryGrid)
+      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200, '4+ hours': 7200,
+      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // job-size (TaskShowcase)
       'A few boxes / items': 2500,
       'One room':            4000,
       '2–3 rooms':           7000,
@@ -129,12 +132,13 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
-  // Outdoor cleaning — area size
+  // Cleaning — hour labels must match the CategoryGrid sheet (€16/hr × 1–8h)
   if (category === 'cleaning' || category === 'outdoor-cleaning') {
     const map: Record<string, number> = {
-      // legacy time-based
-      '1 hour': 1800, '2 hours': 3600, '3 hours': 5400,
-      // new area-based
+      // time-based (CategoryGrid)
+      '1 hour': 1600,  '2 hours': 3200, '3 hours': 4800,  '4 hours': 6400,
+      '5 hours': 8000, '6 hours': 9600, '7 hours': 11200, '8 hours': 12800,
+      // area-based (TaskShowcase)
       'Small area':  2200,
       'Medium area': 3800,
       'Large area':  5500,
@@ -212,10 +216,13 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       'College / Uni':  3800,
     };
     const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
-    // Legacy flat rate fallback
+    // CategoryGrid quick-book sends plain hour labels — €15/hr × 1–8h, must match the sheet
     if (!rate[sizeLabel]) {
-      const legacyMap: Record<string, number> = { '1 hour': 2200, '2 hours': 4400, '3 hours': 6600 };
-      return legacyMap[sizeLabel] ?? null;
+      const hourMap: Record<string, number> = {
+        '1 hour': 1500,  '2 hours': 3000, '3 hours': 4500,  '4 hours': 6000,
+        '5 hours': 7500, '6 hours': 9000, '7 hours': 10500, '8 hours': 12000,
+      };
+      return hourMap[sizeLabel] ?? null;
     }
     const h = hrs[extraLabel];
     if (h === undefined) return null;
