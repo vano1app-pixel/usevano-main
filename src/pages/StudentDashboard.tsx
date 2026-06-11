@@ -863,7 +863,7 @@ const StudentDashboard = () => {
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Subscription</p>
                     <div className="rounded-2xl border border-border/60 px-4 py-3.5 flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-foreground">€2 / month</p>
+                        <p className="text-sm font-medium text-foreground">VANO membership</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Active plan</p>
                       </div>
                       <button
@@ -1004,7 +1004,7 @@ const StudentDashboard = () => {
               </div>
               <h2 className="text-lg font-bold text-foreground mb-2">Leave VANO?</h2>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                This will cancel your €2/month subscription and remove you from the platform. Any pending payouts will still be transferred.
+                This will cancel your monthly subscription and remove you from the platform. Any pending payouts will still be transferred.
               </p>
               <div className="space-y-2.5">
                 <button

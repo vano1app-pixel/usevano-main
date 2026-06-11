@@ -145,8 +145,10 @@ export const JoinAsHelper: React.FC = () => {
       setError('Something went wrong with payment — please try again or text us on WhatsApp.');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes('already')) {
-        setError('That email is already registered. Use a different email.');
+      // The signup function returns specific, user-friendly messages for
+      // duplicate applications — show them as-is.
+      if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('whatsapp')) {
+        setError(msg);
       } else {
         setError('Something went wrong — please try again or text us on WhatsApp.');
       }
@@ -209,7 +211,7 @@ export const JoinAsHelper: React.FC = () => {
                 You're in{welcomeName ? `, ${welcomeName.split(' ')[0]}` : ''}! 🎉
               </h2>
               <p className="text-muted-foreground text-sm leading-relaxed mb-2">
-                Your €2/month membership is confirmed. You're now part of the VANO helper team.
+                Your €4.99/month membership is confirmed. You're now part of the VANO helper team.
               </p>
               <p className="text-muted-foreground text-sm leading-relaxed mb-6">
                 We'll text you when a job near you comes in. Keep an eye on your phone.

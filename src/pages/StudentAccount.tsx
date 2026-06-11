@@ -531,7 +531,7 @@ const StudentAccount = () => {
               {/* Subscription */}
               <div className="px-4 py-3.5 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Plan</span>
-                <span className="flex-1 text-sm text-foreground">€2 / month</span>
+                <span className="flex-1 text-sm text-foreground">Monthly membership</span>
                 <button
                   onClick={() => setShowConfirm(true)}
                   className="text-xs text-destructive font-medium"
@@ -762,7 +762,7 @@ const StudentAccount = () => {
               </div>
               <h2 className="text-lg font-bold text-foreground mb-2">Leave VANO?</h2>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                This will cancel your €2/month subscription and remove you from the platform. Any pending payouts will still be transferred.
+                This will cancel your monthly subscription and remove you from the platform. Any pending payouts will still be transferred.
               </p>
               <div className="space-y-2.5">
                 <button

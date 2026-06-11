@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { AddressPicker } from '@/components/household/AddressPicker';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
   const [when,     setWhen]    = useState('Now');
   const [size,     setSize]    = useState(DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '');
   const [phone,    setPhone]   = useState('');
+  const [address,  setAddress] = useState('');
+  const [coords,   setCoords]  = useState<{ lat: number; lng: number } | null>(null);
   const [city,     setCity]    = useState<string>('Galway');
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
@@ -205,18 +208,21 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
     const phoneClean = phone.trim().replace(/\s+/g, '');
     if (!phoneClean) { setError('Please enter your phone number.'); return; }
     if (!/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) { setError('Please enter a valid phone number.'); return; }
+    if (!address.trim()) { setError('Please enter your address or Eircode.'); return; }
     setLoading(true); setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
         { body: {
-          category:       cat.slug,
-          when_label:     when,
-          size_label:     size,
-          note:           '',
-          customer_name:  'Guest', // name collected by Stripe at checkout
-          customer_phone: phoneClean,
-          customer_email: null,
+          category:         cat.slug,
+          when_label:       when,
+          size_label:       size,
+          note:             '',
+          customer_name:    'Guest', // name collected by Stripe at checkout
+          customer_phone:   phoneClean,
+          customer_email:   null,
+          customer_address: address.trim(),
+          ...(coords ? { customer_lat: coords.lat, customer_lng: coords.lng } : {}),
           city,
         }},
       );
@@ -340,6 +346,22 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                 className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
+            </div>
+
+            {/* Address — Eircode search or current location */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
+              <AddressPicker
+                value={address}
+                coords={coords}
+                error={false}
+                onAddress={(addr, lat, lng) => { setAddress(addr); setCoords({ lat, lng }); }}
+                onTextChange={(t) => { setAddress(t); setCoords(null); }}
+                onBlur={() => {}}
+                placeholder="Address or Eircode…"
+                showMapPreview={false}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </div>
 
             {/* City chips */}
