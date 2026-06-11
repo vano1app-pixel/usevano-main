@@ -271,7 +271,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, city } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city } = body;
 
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
       return bad(400, 'Invalid category');
@@ -320,7 +320,16 @@ serve(async (req) => {
         price_estimate_cents: priceCents,
         status: 'awaiting_payment',
         customer_name: customer_name.trim(),
-        customer_address: typeof note === 'string' && note.trim() ? note.trim() : 'Not provided',
+        // Prefer the dedicated address field (quick-book sheet sends it);
+        // fall back to the legacy note-as-address behaviour.
+        customer_address:
+          typeof customer_address === 'string' && customer_address.trim() ? customer_address.trim()
+          : typeof note === 'string' && note.trim() ? note.trim()
+          : 'Not provided',
+        ...(typeof customer_lat === 'number' && typeof customer_lng === 'number' &&
+            isFinite(customer_lat) && isFinite(customer_lng)
+          ? { customer_lat, customer_lng } : {}),
+        ...(typeof city === 'string' && city.trim() ? { city: city.trim() } : {}),
         customer_phone: customer_phone.trim(),
         ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
         booking_data: {

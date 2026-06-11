@@ -3,8 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Public endpoint for helper (student) signups.
 // Accepts multipart/form-data with photo file + JSON fields.
-// Inserts the helper row, then redirects to a Stripe subscription
-// checkout for the €2/month platform membership.
+// Inserts the helper row (or updates an existing pending application —
+// duplicate phone/email submissions update in place rather than creating
+// a second row), then redirects to a Stripe subscription checkout for
+// the €4.99/month platform membership.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -54,6 +56,34 @@ serve(async (req) => {
 
     const age = ageRaw ? parseInt(ageRaw, 10) : null;
 
+    // ── Duplicate guard ────────────────────────────────────────────────────
+    // Match an existing helper by email or by phone (digits-only, last 9 —
+    // catches "+353 89..." vs "089..." formatting differences). Approved
+    // helpers are sent to their account page; pending applications are
+    // updated in place so a double-tap or abandoned checkout never creates
+    // a second row.
+    const phoneDigits = phone.replace(/\D/g, '');
+    const last9 = phoneDigits.slice(-9);
+    const { data: allHelpers } = await supabase
+      .from('household_helpers')
+      .select('id, email, phone, status');
+    const existing = (allHelpers ?? []).find((h: { email: string | null; phone: string | null }) =>
+      (h.email && h.email.toLowerCase() === email) ||
+      (h.phone && last9.length === 9 && h.phone.replace(/\D/g, '').endsWith(last9)),
+    ) as { id: string; status: string } | undefined;
+
+    if (existing && existing.status === 'approved') {
+      return new Response(JSON.stringify({
+        error: "You're already a VANO helper! Manage your profile from the account page, or WhatsApp us if something's wrong.",
+      }), { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    }
+    if (existing && (existing.status === 'suspended' || existing.status === 'rejected')) {
+      return new Response(JSON.stringify({
+        error: 'We already have an application with these details. WhatsApp us on +353 89 981 7111 and we will sort it out.',
+      }), { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    }
+    const pendingExisting = existing ?? null; // status 'pending' → update in place
+
     // Upload photo to helper-photos bucket
     const ext  = photo.name.split('.').pop() ?? 'jpg';
     const path = `${crypto.randomUUID()}.${ext}`;
@@ -72,47 +102,52 @@ serve(async (req) => {
       .from('helper-photos')
       .getPublicUrl(path);
 
-    // Insert helper row (no user_id — they don't need a Supabase auth account)
-    const { error: insertError } = await supabase
-      .from('household_helpers')
-      .insert({
-        user_id: null,
-        name,
-        email,
-        phone,
-        city,
-        photo_url: publicUrl,
-        categories,
-        status: 'pending',
-        ...(age !== null && !isNaN(age) ? { age } : {}),
-        ...(bioRaw ? { bio: bioRaw } : {}),
-        ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
-          ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
-          : {}),
-      });
+    // Insert helper row (no user_id — they don't need a Supabase auth
+    // account), or refresh the existing pending application in place.
+    const helperFields = {
+      name,
+      email,
+      phone,
+      city,
+      photo_url: publicUrl,
+      categories,
+      status: 'pending',
+      ...(age !== null && !isNaN(age) ? { age } : {}),
+      ...(bioRaw ? { bio: bioRaw } : {}),
+      ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
+        ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
+        : {}),
+    };
 
-    if (insertError) {
-      console.error('[create-helper-application] insert failed', insertError);
+    const { error: saveError } = pendingExisting
+      ? await supabase.from('household_helpers').update(helperFields).eq('id', pendingExisting.id)
+      : await supabase.from('household_helpers').insert({ user_id: null, ...helperFields });
+
+    if (saveError) {
+      console.error('[create-helper-application] save failed', saveError);
       await supabase.storage.from('helper-photos').remove([path]);
       return new Response(JSON.stringify({ error: 'Could not save application' }), {
         status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 
-    // Notify admin via WhatsApp — fire and forget
-    fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'new_student',
-        name, phone, email, city, categories,
-        tutor_subjects: tutorSubjects,
-        tutor_levels: tutorLevels,
-        photo_url: publicUrl,
-      }),
-    }).catch(() => {/* non-critical */});
+    // Notify admin via WhatsApp — fire and forget. Skipped on resubmission
+    // so a retried signup doesn't ping the admin twice.
+    if (!pendingExisting) {
+      fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new_student',
+          name, phone, email, city, categories,
+          tutor_subjects: tutorSubjects,
+          tutor_levels: tutorLevels,
+          photo_url: publicUrl,
+        }),
+      }).catch(() => {/* non-critical */});
+    }
 
-    // Create Stripe subscription checkout for €2/month membership
+    // Create Stripe subscription checkout for the €4.99/month membership
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
     if (!STRIPE_SECRET_KEY) {
       console.error('[create-helper-application] STRIPE_SECRET_KEY not set — cannot create checkout');
@@ -129,7 +164,7 @@ serve(async (req) => {
     const checkoutParams: Record<string, string> = {
       mode: 'subscription',
       'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': '200',
+      'line_items[0][price_data][unit_amount]': '499',
       'line_items[0][price_data][recurring][interval]': 'month',
       'line_items[0][price_data][product_data][name]': 'VANO Helper Membership',
       'line_items[0][price_data][product_data][description]': 'Monthly membership — be listed on VANO and receive bookings',
