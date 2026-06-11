@@ -578,10 +578,12 @@ const TrackBooking = () => {
               <div className="rounded-2xl bg-sage-light border border-sage/20 p-5">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
-                  <p className="text-sm font-semibold text-foreground">Finding your helper</p>
+                  <p className="text-sm font-semibold text-foreground">Finding your student helper</p>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  We're on it — you'll get a text with your helper's name and photo within minutes.
+                  We're pinging vetted students{booking.city ? ` in ${booking.city}` : ' near you'} right now.
+                  Their name and photo will appear here the moment one accepts —{' '}
+                  <span className="font-semibold text-foreground">you don't pay anything until then.</span>
                 </p>
               </div>
 
@@ -608,7 +610,9 @@ const TrackBooking = () => {
                         </button>
                       </div>
                       <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-                        You'll receive a full refund within 5–7 business days.
+                        {booking.paid_at
+                          ? "You'll receive a full refund within 5–7 business days."
+                          : "You haven't paid anything yet — cancelling is completely free."}
                       </p>
                       <div className="flex gap-2">
                         <button
@@ -636,7 +640,10 @@ const TrackBooking = () => {
             <div className="rounded-2xl bg-destructive/5 border border-destructive/20 p-5">
               <p className="text-sm font-semibold text-foreground">Booking cancelled</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Your refund will appear within 5–7 business days. Questions? WhatsApp{' '}
+                {booking.paid_at
+                  ? 'Your refund will appear within 5–7 business days. '
+                  : 'You were never charged — no money left your account. '}
+                Questions? WhatsApp{' '}
                 <a href="https://wa.me/353899817111" className="text-primary underline">+353 89 981 7111</a>
               </p>
             </div>

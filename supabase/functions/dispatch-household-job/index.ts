@@ -50,7 +50,11 @@ serve(async (req) => {
   try {
     const payload = await req.json();
     const booking = payload?.record ?? payload;
-    const { id: bookingId, city, status, category, scheduled_date } = booking;
+    const { id: bookingId, city, status, category, scheduled_date, price_estimate_cents } = booking;
+    // Students respond to money: show what they'd keep (95% of the job).
+    const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
+      ? Math.floor(price_estimate_cents * 0.95)
+      : null;
 
     if (status !== 'pending') {
       return new Response('Not a pending booking — skipping', { status: 200 });
@@ -227,8 +231,9 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 8px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
+    ${earnCents ? `<p style="margin:0 0 4px;color:#111827;font-size:26px;font-weight:800;">Earn €${(earnCents / 100).toFixed(2)}</p>` : ''}
     <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city ?? 'Ireland'}</p>
-    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · Offer expires in ${OFFER_TTL_MINUTES} min</p>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · First to accept gets it · expires in ${OFFER_TTL_MINUTES} min</p>
     <a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">View &amp; Accept →</a>
   </div>
 </div>
@@ -239,9 +244,11 @@ serve(async (req) => {
               body: JSON.stringify({
                 from: resendFrom,
                 to: [h.email!],
-                subject: `New VANO job — ${catLabel} in ${city ?? 'your area'}`,
+                subject: earnCents
+                  ? `Earn €${(earnCents / 100).toFixed(2)} — ${catLabel} in ${city ?? 'your area'}`
+                  : `New VANO job — ${catLabel} in ${city ?? 'your area'}`,
                 html,
-                text: `Hi ${firstName}! New VANO job: ${catLabel} in ${city ?? 'your area'}, when: ${when}. Accept here: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
+                text: `Hi ${firstName}! ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}, when: ${when}. First to accept gets it: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
               }),
             });
             if (!res.ok) {

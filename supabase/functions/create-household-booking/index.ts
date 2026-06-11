@@ -162,7 +162,7 @@ serve(async (req) => {
         method: 'POST',
         headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          record: { id: bookingId, status: 'pending', city, category, scheduled_date },
+          record: { id: bookingId, status: 'pending', city, category, scheduled_date, price_estimate_cents: priceCents },
         }),
       });
       if (!dispatchResp.ok) {

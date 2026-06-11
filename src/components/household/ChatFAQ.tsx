@@ -11,7 +11,7 @@ const FAQS = [
   {
     chip: 'How does payment work?',
     q: 'How does payment work?',
-    a: 'You pay by card at checkout. The price is agreed upfront and locked in — no surprise charges after the job.',
+    a: 'Booking is free — you pay €0 upfront. Once a student accepts your job you get a secure card link for the exact price you saw when booking. Locked in, no cash, no surprises.',
   },
   {
     chip: 'Which cities?',

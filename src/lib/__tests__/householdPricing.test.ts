@@ -71,20 +71,20 @@ describe('quick-book pricing client/server agreement', () => {
 });
 
 describe('service fee display math', () => {
-  it('matches the server formula: fee = round(base × 5%), total = base + fee', () => {
-    expect(serviceFeeCents(3200)).toBe(160);
-    expect(totalWithFeeCents(3200)).toBe(3360);
-    expect(serviceFeeCents(1500)).toBe(75);
-    expect(totalWithFeeCents(1500)).toBe(1575);
+  it('matches the server formula: fee = round(base × 7.5%), total = base + fee', () => {
+    expect(serviceFeeCents(3200)).toBe(240);
+    expect(totalWithFeeCents(3200)).toBe(3440);
+    expect(serviceFeeCents(1500)).toBe(113); // 112.5 rounds up
+    expect(totalWithFeeCents(1500)).toBe(1613);
   });
 
-  it('the 5% rate in the edge function matches SERVICE_FEE_PCT here', () => {
-    expect(edgeFnSrc).toMatch(/SERVICE_FEE_PCT\s*=\s*0\.05/);
+  it('the 7.5% rate in the edge function matches SERVICE_FEE_PCT here', () => {
+    expect(edgeFnSrc).toMatch(/SERVICE_FEE_PCT\s*=\s*0\.075/);
   });
 
   it('formats whole euros without decimals and cents with two', () => {
     expect(fmtEuro(3200)).toBe('€32');
-    expect(fmtEuro(3360)).toBe('€33.60');
-    expect(fmtEuro(1575)).toBe('€15.75');
+    expect(fmtEuro(3440)).toBe('€34.40');
+    expect(fmtEuro(1613)).toBe('€16.13');
   });
 });

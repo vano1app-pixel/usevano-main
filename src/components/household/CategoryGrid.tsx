@@ -353,7 +353,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 
             {error && <p className="text-center text-xs text-destructive">{error}</p>}
             <p className="text-center text-[11px] text-muted-foreground">
-              Stripe secure checkout · paid upfront · money back guarantee
+              €0 to book · pay only when a student accepts · free cancellation until then
             </p>
           </form>
         </div>

@@ -1,13 +1,15 @@
 // Customer-facing pricing for household quick-book.
 //
 // The server (create-household-payment-checkout) is the source of truth for
-// the job price AND adds a 5% service fee as a second Stripe line item.
+// the job price AND adds a 7.5% service fee as a second Stripe line item.
+// Together with the 5% platform cut on the student side that puts VANO's
+// total take at 12.5% of the job price.
 // Every cent here must match the server's computePriceCents — the number on
 // the "Book" button has to be the number on the customer's card statement.
 // householdPricing.test.ts cross-checks both sides; if you change a price,
 // change it in the edge function too.
 
-export const SERVICE_FEE_PCT = 0.05; // keep in sync with the edge function
+export const SERVICE_FEE_PCT = 0.075; // keep in sync with the edge function
 
 export function serviceFeeCents(baseCents: number): number {
   return Math.round(baseCents * SERVICE_FEE_PCT);

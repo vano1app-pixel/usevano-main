@@ -297,7 +297,8 @@ serve(async (req) => {
     // Schedule and loyalty discounts don't apply to monthly Airbnb plans
     if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
 
-    const SERVICE_FEE_PCT  = 0.05; // 5% — raise this as platform grows
+    // 7.5% customer fee + 5% student-side cut = 12.5% total platform take
+    const SERVICE_FEE_PCT  = 0.075;
     const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 
     const supabase = createClient(supabaseUrl, serviceKey);
@@ -378,6 +379,7 @@ serve(async (req) => {
           record: {
             id: bookingId, status: 'pending', city: cityVal,
             category: cat, scheduled_date: when_label || 'flexible',
+            price_estimate_cents: priceCents,
           },
         }),
       });

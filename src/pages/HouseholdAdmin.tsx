@@ -158,6 +158,31 @@ export default function HouseholdAdmin() {
     }
   };
 
+  // Marks the job complete: flips the booking, records the student's 95%
+  // payout (it then appears in the Payouts tab), and emails both sides.
+  const handleComplete = async (bookingId: string) => {
+    if (!window.confirm("Mark this job complete? This records the student's payout.")) return;
+    setActioning(bookingId);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-complete-household-job', {
+        body: { booking_id: bookingId },
+      });
+      if (error) throw error;
+      const earns = (data as { student_earns_cents?: number | null })?.student_earns_cents;
+      toast({
+        title: 'Job completed',
+        description: earns ? `Payout of €${(earns / 100).toFixed(2)} recorded — see the Payouts tab.` : undefined,
+      });
+      setBookings((prev) => prev.map((bk) => bk.id === bookingId ? { ...bk, status: 'completed' } : bk));
+      void loadAll(); // refresh payouts tab counts
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: 'Failed', description: msg, variant: 'destructive' });
+    } finally {
+      setActioning(null);
+    }
+  };
+
   const handleApproveHelper = async (helperId: string) => {
     setActioning(helperId);
     try {
@@ -340,18 +365,30 @@ export default function HouseholdAdmin() {
                     )}
                     {b.customer_email && <p><span className="text-muted-foreground">Email: </span>{b.customer_email}</p>}
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">{format(new Date(b.created_at), 'dd MMM yyyy, HH:mm')} · #{b.id.slice(-8).toUpperCase()}</p>
-                    {CANCELLABLE.includes(b.status) && (
-                      <button
-                        onClick={() => void handleRefund(b.id)}
-                        disabled={actioning === b.id}
-                        className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-full hover:bg-destructive/5 disabled:opacity-50 flex items-center gap-1 transition-colors"
-                      >
-                        {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />}
-                        Cancel + refund
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {CANCELLABLE.includes(b.status) && b.student_id && b.status !== 'pending' && (
+                        <button
+                          onClick={() => void handleComplete(b.id)}
+                          disabled={actioning === b.id}
+                          className="text-xs text-sage bg-sage/10 border border-sage/30 px-3 py-1 rounded-full hover:bg-sage/20 disabled:opacity-50 flex items-center gap-1 font-semibold transition-colors"
+                        >
+                          {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                          Complete
+                        </button>
+                      )}
+                      {CANCELLABLE.includes(b.status) && (
+                        <button
+                          onClick={() => void handleRefund(b.id)}
+                          disabled={actioning === b.id}
+                          className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-full hover:bg-destructive/5 disabled:opacity-50 flex items-center gap-1 transition-colors"
+                        >
+                          {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />}
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))

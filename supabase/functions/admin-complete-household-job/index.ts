@@ -2,23 +2,29 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
-// Admin endpoint to mark a household job complete and capture the Stripe payment.
+// Admin endpoint to mark a household job complete.
 //
-// Called from the /admin dashboard when an operator manually completes a job.
-// Unlike capture-household-payment (which requires the assigned student's JWT),
-// this accepts any verified admin session.
+// Called from the /admin dashboard when an operator completes a job.
+//
+// Pay-after-accept notes: payments are taken with automatic capture when the
+// customer pays the post-acceptance link, so there is normally nothing to
+// capture here. A capture is only attempted for legacy manual-capture
+// PaymentIntents (pi_ id present but paid_at empty), and "already captured"
+// style errors are tolerated. An UNPAID booking can still be completed —
+// the student did the work and their payout must be recorded either way;
+// the admin UI shows the UNPAID chip so the operator can chase payment.
 //
 // Guards:
 //   1. Valid Supabase JWT required.
 //   2. Caller must have the 'admin' role in user_roles.
-//   3. Booking must be in a capturable state (pending → in_progress).
-//   4. stripe_payment_intent_id must exist (payment was made).
+//   3. Booking must be in an active state (pending → in_progress).
 //
 // On success:
-//   - Stripe PaymentIntent is captured (money moves).
 //   - household_bookings status → 'completed'.
 //   - household_job_updates row inserted.
 //   - household_payouts row inserted (if a student is assigned).
+//   - Customer gets a "job done — rate your helper" email (if email known).
+//   - Student gets a "you earned €X" email.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -79,7 +85,7 @@ serve(async (req) => {
     // Fetch the booking
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, stripe_payment_intent_id, price_estimate_cents')
+      .select('id, student_id, status, stripe_payment_intent_id, price_estimate_cents, paid_at, customer_name, customer_email, category, city, scheduled_date')
       .eq('id', bookingId)
       .maybeSingle();
 
@@ -89,68 +95,52 @@ serve(async (req) => {
       return bad(409, `Cannot complete booking in status: ${booking.status}`);
     }
 
-    if (!booking.stripe_payment_intent_id) {
-      return bad(409, 'No payment found — Stripe webhook may not have fired yet');
-    }
-
-    // Resolve the actual PaymentIntent ID.
-    // After the webhook fires, stripe_payment_intent_id holds the pi_xxx.
-    // Before the webhook (edge case), it holds the cs_xxx checkout session id.
-    let piId = booking.stripe_payment_intent_id as string;
-
-    if (piId.startsWith('cs_')) {
-      // Fetch the checkout session from Stripe to get the real PI
-      const sessionResp = await fetch(`https://api.stripe.com/v1/checkout/sessions/${piId}`, {
-        headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
-      });
-      if (!sessionResp.ok) {
-        return bad(502, 'Could not retrieve Stripe checkout session');
-      }
-      const session = await sessionResp.json() as { payment_intent?: string };
-      if (!session.payment_intent) {
-        return bad(409, 'Stripe checkout session has no payment intent — payment may not have completed');
-      }
-      piId = session.payment_intent;
-    }
-
-    // Capture the PaymentIntent
-    const captureResp = await fetch(
-      `https://api.stripe.com/v1/payment_intents/${piId}/capture`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
+    // Legacy safety net: manual-capture PaymentIntents from the pay-first era
+    // still need an explicit capture. Current payments use automatic capture
+    // (paid_at is stamped by the webhook), so this is normally skipped.
+    const piId = booking.stripe_payment_intent_id as string | null;
+    if (piId?.startsWith('pi_') && !booking.paid_at) {
+      const captureResp = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${piId}/capture`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         },
-      },
-    );
-
-    if (!captureResp.ok) {
-      const text = await captureResp.text();
-      console.error('[admin-complete] stripe capture error', captureResp.status, text);
-
-      // Already captured is fine (idempotent)
-      if (!text.includes('already_captured')) {
-        return bad(502, 'Payment capture failed. Check the Stripe dashboard.');
+      );
+      if (!captureResp.ok) {
+        const text = await captureResp.text();
+        // Already-captured / already-succeeded responses are fine (idempotent);
+        // anything else is logged but does NOT block completion — the student
+        // did the work and the payout must be recorded regardless.
+        if (text.includes('already_captured') || text.includes('succeeded')) {
+          await supabase.from('household_bookings').update({ paid_at: new Date().toISOString() }).eq('id', bookingId);
+        } else {
+          console.error('[admin-complete] stripe capture error (non-blocking)', captureResp.status, text.slice(0, 300));
+        }
+      } else {
+        await supabase.from('household_bookings').update({ paid_at: new Date().toISOString() }).eq('id', bookingId);
       }
     }
 
     // Mark booking completed
     const { error: updateError } = await supabase
       .from('household_bookings')
-      .update({ status: 'completed', stripe_payment_intent_id: piId })
+      .update({ status: 'completed' })
       .eq('id', bookingId);
 
     if (updateError) {
       console.error('[admin-complete] booking update failed', updateError);
-      return bad(500, 'Payment captured but booking update failed. Contact support with booking ID.');
+      return bad(500, 'Booking update failed. Contact support with booking ID.');
     }
 
     // Audit trail
     await supabase.from('household_job_updates').insert({
       booking_id: bookingId,
       status: 'completed',
-      note: `Completed and payment captured by admin (${callerId.slice(0, 8)}).`,
+      note: `Completed by admin (${callerId.slice(0, 8)}).`,
     });
 
     // Payout row — only if a student is assigned
@@ -166,8 +156,106 @@ serve(async (req) => {
       });
     }
 
+    // ── Completion emails — fire and forget ────────────────────────────────
+    const emailsPromise = (async () => {
+      const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+      if (!resendKey) return;
+      const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+      const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+      const trackUrl = `${siteUrl}/track/${bookingId}`;
+      const catLabels: Record<string, string> = {
+        shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+        moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
+        handyman: 'Handyman', plumbing: 'Plumbing help',
+        'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
+        'wait-delivery': 'Wait for delivery', other: 'General help',
+      };
+      const catLabel = catLabels[(booking.category as string) ?? ''] ?? (booking.category as string) ?? 'job';
+
+      // Helper name + email for both messages
+      let helperFirst = 'your helper';
+      let helperEmail: string | null = null;
+      if (booking.student_id) {
+        const { data: helper } = await supabase
+          .from('household_helpers')
+          .select('name, email')
+          .eq('user_id', booking.student_id)
+          .maybeSingle() as { data: { name?: string; email?: string } | null };
+        if (helper?.name) helperFirst = helper.name.split(' ')[0];
+        helperEmail = helper?.email ?? null;
+      }
+
+      // Customer: job done + one-tap star rating (deep links to track?rate=N)
+      const custEmail = booking.customer_email as string | null;
+      if (custEmail) {
+        const stars = [1, 2, 3, 4, 5].map((n) =>
+          `<a href="${trackUrl}?rate=${n}" style="text-decoration:none;font-size:30px;line-height:1;color:#f5b301;padding:0 3px;">&#9733;</a>`,
+        ).join('');
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [custEmail],
+            subject: `Job done ✓ — how did ${helperFirst} do?`,
+            html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">All done ✓</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${booking.customer_name ?? 'there'},</p>
+    <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> is complete. Quick one — how did <strong>${helperFirst}</strong> do? One tap is all it takes:</p>
+    <div style="text-align:center;margin:0 0 24px;">${stars}</div>
+    <p style="margin:0 0 8px;color:#374151;font-size:14px;line-height:1.6;">Need anything else done? Every 3rd booking is <strong>50% off</strong>.</p>
+    <a href="${siteUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Book again →</a>
+    <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Ref: ${bookingId.slice(-8).toUpperCase()}</p>
+  </div>
+</div>
+</body></html>`,
+            text: `Hi ${booking.customer_name ?? 'there'}, your ${catLabel} is complete! How did ${helperFirst} do? Rate them in one tap: ${trackUrl}?rate=5 — and remember, every 3rd booking is 50% off: ${siteUrl}`,
+          }),
+        }).catch(() => {});
+      }
+
+      // Student: you earned €X
+      if (helperEmail && studentEarnsCents) {
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [helperEmail],
+            subject: `You earned €${(studentEarnsCents / 100).toFixed(2)} 🎉`,
+            html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">€${(studentEarnsCents / 100).toFixed(2)} earned 🎉</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${helperFirst}!</p>
+    <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">Nice work on the <strong>${catLabel}</strong> — you keep <strong>€${(studentEarnsCents / 100).toFixed(2)}</strong> (95% of the job). Your Revolut payout is on the way.</p>
+    <a href="${siteUrl}/student-dashboard" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">See your earnings →</a>
+  </div>
+</div>
+</body></html>`,
+            text: `Hi ${helperFirst}! Nice work on the ${catLabel} — you keep €${(studentEarnsCents / 100).toFixed(2)} (95% of the job). Revolut payout on the way. Earnings: ${siteUrl}/student-dashboard`,
+          }),
+        }).catch(() => {});
+      }
+    })();
+
+    const runtime = (globalThis as unknown as {
+      EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+    }).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(emailsPromise);
+    else emailsPromise.catch(() => {});
+
     return new Response(
-      JSON.stringify({ success: true, booking_id: bookingId, student_earns_cents: studentEarnsCents }),
+      JSON.stringify({
+        success: true,
+        booking_id: bookingId,
+        student_earns_cents: studentEarnsCents,
+        paid: !!booking.paid_at || !!piId?.startsWith('pi_'),
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {
