@@ -33,6 +33,10 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
 }
 
 async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
+  // Master SMS switch — OFF unless VANO_SMS_ENABLED='true'. Keep off until a
+  // carrier-trusted sender is configured: an unregistered alphanumeric sender
+  // ("VANO") is relabelled "Likely Scam" by Irish networks.
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
   const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
   const from  = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
