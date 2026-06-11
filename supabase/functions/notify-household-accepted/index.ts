@@ -146,7 +146,9 @@ serve(async (req) => {
       }
     }
 
-    if (!booking?.customer_email) return ok({ ok: true, emailed: false, reason: 'no_customer_email', pay_url: payUrl });
+    // Quick-book customers often leave no email — keep going so the admin
+    // email below still fires (it carries the pay link to WhatsApp onward).
+    const hasCustomerEmail = !!booking?.customer_email;
 
     // Get helper details — household_helpers first, profiles fallback
     let helperFirstName = 'Your helper';
@@ -236,21 +238,24 @@ serve(async (req) => {
 </div>
 </body></html>`;
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from,
-        to: [booking.customer_email as string],
-        subject: payUrl && !booking.paid_at
-          ? `${helperFirstName} accepted your ${catLabel} — confirm & pay €${(totalCents / 100).toFixed(2)}`
-          : `${helperFirstName} is on your ${catLabel} — VANO`,
-        html,
-        text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}.${payUrl && !booking.paid_at ? ` Confirm & pay €${(totalCents / 100).toFixed(2)} securely here: ${payUrl}.` : ''} Track: ${trackUrl}. Ref: ${ref}`,
-      }),
-    });
-
-    if (!res.ok) console.warn('[notify-household-accepted] Resend error', res.status, await res.text());
+    let emailedOk = false;
+    if (hasCustomerEmail) {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: [booking.customer_email as string],
+          subject: payUrl && !booking.paid_at
+            ? `${helperFirstName} accepted your ${catLabel} — confirm & pay €${(totalCents / 100).toFixed(2)}`
+            : `${helperFirstName} is on your ${catLabel} — VANO`,
+          html,
+          text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}.${payUrl && !booking.paid_at ? ` Confirm & pay €${(totalCents / 100).toFixed(2)} securely here: ${payUrl}.` : ''} Track: ${trackUrl}. Ref: ${ref}`,
+        }),
+      });
+      if (!res.ok) console.warn('[notify-household-accepted] Resend error', res.status, await res.text());
+      emailedOk = res.ok;
+    }
 
     // ── Silent admin email ─────────────────────────────────────────────────
     const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
@@ -269,6 +274,7 @@ serve(async (req) => {
             `Email: ${booking.customer_email ?? '—'}`,
             `When: ${whenLine || 'Flexible'}`,
             `Payment: ${booking.paid_at ? 'PAID' : `UNPAID — customer asked to pay €${(totalCents / 100).toFixed(2)}`}`,
+            ...(payUrl && !booking.paid_at ? [`Pay link (WhatsApp it to the customer if they have no email): ${payUrl}`] : []),
             `Ref: ${ref}`,
             `Track: ${trackUrl}`,
           ].join('\n'),
@@ -276,7 +282,7 @@ serve(async (req) => {
       }).catch(() => {});
     }
 
-    return ok({ ok: true, emailed: res.ok });
+    return ok({ ok: true, emailed: emailedOk, pay_url: payUrl });
   } catch (err) {
     console.error('[notify-household-accepted] unhandled', err);
     return bad(500, 'Unexpected error');
