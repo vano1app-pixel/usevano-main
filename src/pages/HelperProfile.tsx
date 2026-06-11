@@ -5,22 +5,12 @@ import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-
-const SLOTS = [
-  { id: 'mon-fri-morning',   label: 'Mon–Fri mornings'   },
-  { id: 'mon-fri-afternoon', label: 'Mon–Fri afternoons' },
-  { id: 'mon-fri-evening',   label: 'Mon–Fri evenings'   },
-  { id: 'sat-morning',       label: 'Sat mornings'       },
-  { id: 'sat-afternoon',     label: 'Sat afternoons'     },
-  { id: 'sat-evening',       label: 'Sat evenings'       },
-  { id: 'sun-morning',       label: 'Sun mornings'       },
-  { id: 'sun-afternoon',     label: 'Sun afternoons'     },
-  { id: 'sun-evening',       label: 'Sun evenings'       },
-];
+import { AVAILABILITY_SLOTS as SLOTS } from '@/lib/helperCategories';
 
 interface HelperRow {
   id:           string;
   name:         string;
+  phone:        string;
   photo_url:    string;
   bio:          string | null;
   availability: string[] | null;
@@ -46,18 +36,17 @@ export const HelperProfile: React.FC = () => {
   async function lookup(e: React.FormEvent) {
     e.preventDefault();
     setLooking(true); setNotFound(false);
-    const { data } = await (supabase as any)
-      .from('household_helpers')
-      .select('id, name, photo_url, bio, availability')
-      .eq('phone', phone.trim())
-      .neq('status', 'suspended')
-      .maybeSingle();
+    // Server-side lookup — helpers' phone numbers aren't readable with the anon key
+    const { data } = await supabase.functions.invoke('find-helper-by-phone', {
+      body: { phone: phone.trim() },
+    });
+    const found = (data as { helper?: HelperRow | null } | null)?.helper ?? null;
     setLooking(false);
-    if (!data) { setNotFound(true); return; }
-    setHelper(data as HelperRow);
-    setAvail(data.availability ?? []);
-    setBio(data.bio ?? '');
-    setPreview(data.photo_url);
+    if (!found) { setNotFound(true); return; }
+    setHelper(found);
+    setAvail(found.availability ?? []);
+    setBio(found.bio ?? '');
+    setPreview(found.photo_url);
   }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -82,7 +71,8 @@ export const HelperProfile: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       const fd = new FormData();
-      fd.append('phone', phone.trim());
+      // Use the phone as stored in the DB (the typed one may differ in format)
+      fd.append('phone', helper.phone || phone.trim());
       fd.append('bio', bio.trim());
       fd.append('availability', JSON.stringify(avail));
       if (newPhoto) fd.append('photo', newPhoto);

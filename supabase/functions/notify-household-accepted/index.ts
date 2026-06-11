@@ -70,15 +70,23 @@ serve(async (req) => {
 
     if (!booking?.customer_email) return ok({ ok: true, emailed: false, reason: 'no_customer_email' });
 
-    // Get helper name — household_helpers first, profiles fallback
+    // Get helper details — household_helpers first, profiles fallback
     let helperFirstName = 'Your helper';
+    let helperId: string | null = null;
+    let helperPhoto: string | null = null;
+    let helperRating: number | null = null;
+    let helperJobs = 0;
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('name')
+      .select('id, name, photo_url, average_rating, accepted_count')
       .eq('user_id', user.id)
-      .maybeSingle() as { data: { name?: string } | null };
+      .maybeSingle() as { data: { id?: string; name?: string; photo_url?: string | null; average_rating?: number | null; accepted_count?: number } | null };
     if (helper?.name) {
       helperFirstName = helper.name.split(' ')[0];
+      helperId     = helper.id ?? null;
+      helperPhoto  = helper.photo_url || null;
+      helperRating = helper.average_rating ?? null;
+      helperJobs   = helper.accepted_count ?? 0;
     } else {
       const { data: profile } = await supabase
         .from('profiles')
@@ -104,6 +112,25 @@ serve(async (req) => {
     const slotStr = booking.time_slot ? ` ${SLOT_LABELS[booking.time_slot as string] ?? booking.time_slot}` : '';
     const whenLine = dateStr ? `${dateStr}${slotStr}` : '';
 
+    // Mini helper card — photo, rating, jobs done, link to public profile.
+    // The "see who's coming to your home" trust moment.
+    const profileUrl  = helperId ? `${siteUrl}/helpers/${helperId}` : null;
+    const ratingBits  = [
+      helperRating ? `&#9733; ${Number(helperRating).toFixed(1)}` : null,
+      helperJobs > 0 ? `${helperJobs} task${helperJobs === 1 ? '' : 's'} done` : null,
+    ].filter(Boolean).join(' &middot; ');
+    const helperCard = helperId ? `
+    <table cellpadding="0" cellspacing="0" style="width:100%;background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;margin:0 0 24px;">
+      <tr>
+        ${helperPhoto ? `<td style="padding:14px 0 14px 16px;width:64px;vertical-align:middle;"><img src="${helperPhoto}" alt="${helperFirstName}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
+        <td style="padding:14px 16px;vertical-align:middle;">
+          <p style="margin:0;color:#111827;font-size:15px;font-weight:700;">${helperFirstName}</p>
+          ${ratingBits ? `<p style="margin:2px 0 0;color:#4b5563;font-size:13px;">${ratingBits}</p>` : ''}
+          <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:#4a7c59;font-weight:600;text-decoration:none;">View ${helperFirstName}'s profile &rarr;</a></p>
+        </td>
+      </tr>
+    </table>` : '';
+
     const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;">
@@ -112,9 +139,10 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 8px;color:#374151;font-size:15px;line-height:1.6;">
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
       <strong>${helperFirstName}</strong> has accepted your <strong>${catLabel}</strong>${whenLine ? ' for <strong>' + whenLine + '</strong>' : ''}.
     </p>
+    ${helperCard}
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
       You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.
     </p>

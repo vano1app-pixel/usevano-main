@@ -43,13 +43,17 @@ serve(async (req) => {
     const studentId = (booking as Record<string, unknown>).student_id as string | null;
 
     let helperId: string | null = null;
+    let helperName: string | null = null;
+    let helperEmail: string | null = null;
     if (studentId) {
       const { data: helperRow } = await supabase
         .from('household_helpers')
-        .select('id')
+        .select('id, name, email')
         .eq('user_id', studentId)
-        .maybeSingle() as { data: { id?: string } | null };
+        .maybeSingle() as { data: { id?: string; name?: string; email?: string | null } | null };
       helperId = helperRow?.id ?? null;
+      helperName = helperRow?.name ?? null;
+      helperEmail = helperRow?.email ?? null;
     }
 
     const { error: insertErr } = await supabase.from('household_ratings').insert({
@@ -66,6 +70,8 @@ serve(async (req) => {
     }
 
     // Update denormalized average on the helper row
+    let newAvg: number | null = null;
+    let newCount = 0;
     if (helperId) {
       const { data: allRatings } = await supabase
         .from('household_ratings')
@@ -76,11 +82,49 @@ serve(async (req) => {
         const avg = allRatings.reduce(
           (sum: number, r: { rating: number }) => sum + r.rating, 0,
         ) / allRatings.length;
+        newAvg = Math.round(avg * 10) / 10;
+        newCount = allRatings.length;
         await supabase.from('household_helpers').update({
-          average_rating: Math.round(avg * 10) / 10,
-          rating_count: allRatings.length,
+          average_rating: newAvg,
+          rating_count: newCount,
         }).eq('id', helperId);
       }
+    }
+
+    // Tell the helper they got rated — fire and forget. Customer stays
+    // anonymous; we only pass on the stars and any written comment.
+    const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+    if (resendKey && helperEmail && helperName && helperId) {
+      const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+      const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+      const helperFirst = helperName.split(' ')[0];
+      const starsTxt = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+      const commentClean = typeof comment === 'string' ? comment.trim().slice(0, 300) : '';
+      const profileUrl = `${siteUrl}/helpers/${helperId}`;
+      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${helperFirst},</p>
+    <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">A customer just rated your recent job:</p>
+    <p style="margin:0 0 16px;font-size:26px;color:#f5b301;letter-spacing:2px;">${starsTxt}</p>
+    ${commentClean ? `<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;font-style:italic;">"${commentClean.replace(/</g, '&lt;')}"</p>` : ''}
+    ${newAvg ? `<p style="margin:0 0 20px;color:#6b7280;font-size:13px;">Your profile now shows &#9733; ${newAvg} from ${newCount} rating${newCount === 1 ? '' : 's'}.</p>` : ''}
+    <a href="${profileUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;">See your profile &rarr;</a>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Great ratings get you matched to more jobs. Keep it up!</p>
+  </div>
+</div>
+</body></html>`;
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: [helperEmail],
+          subject: `You got ${rating === 5 ? '★★★★★' : `${rating} star${rating === 1 ? '' : 's'}`} on VANO`,
+          html,
+          text: `Hi ${helperFirst}, a customer just rated your recent job ${rating}/5${commentClean ? `: "${commentClean}"` : '.'} ${newAvg ? `Your profile now shows ${newAvg} from ${newCount} ratings. ` : ''}See it: ${profileUrl}`,
+        }),
+      }).catch(() => {});
     }
 
     return new Response(JSON.stringify({ success: true }), {

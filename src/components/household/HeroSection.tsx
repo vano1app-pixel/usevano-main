@@ -33,9 +33,11 @@ export const HeroSection: React.FC = () => {
   const displayCount = useCountUp(helperCount);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('household_helpers')
-      .select('*', { count: 'exact', head: true })
+      // count by id — anon no longer has SELECT on every column, so * would 403
+      .select('id', { count: 'exact', head: true })
       .then(({ count }: { count: number | null }) => {
         if (count !== null) setHelperCount(Math.max(5, count * 2 + SEED));
       });

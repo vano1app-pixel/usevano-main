@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -159,6 +159,12 @@ const TrackBooking = () => {
   const [updates, setUpdates] = useState<JobUpdate[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [helperName, setHelperName] = useState<string | null>(null);
+  const [helperCard, setHelperCard] = useState<{
+    id: string;
+    photo_url: string | null;
+    average_rating: number | null;
+    accepted_count: number;
+  } | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -186,6 +192,22 @@ const TrackBooking = () => {
       setAlreadyRated(!!localStorage.getItem(`vano_rated_${bookingId}`));
     }
   }, [bookingId]);
+
+  // ?rate=N deep link from the completion email — pre-select that star and
+  // bring the rating card into view once the booking has loaded.
+  const ratingCardRef = useRef<HTMLDivElement>(null);
+  const rateParamApplied = useRef(false);
+  useEffect(() => {
+    if (rateParamApplied.current || alreadyRated) return;
+    const n = parseInt(searchParams.get('rate') ?? '', 10);
+    if (!Number.isInteger(n) || n < 1 || n > 5) return;
+    if (booking?.status !== 'completed') return;
+    rateParamApplied.current = true;
+    setSelectedRating(n);
+    window.setTimeout(() => {
+      ratingCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 450);
+  }, [booking?.status, alreadyRated, searchParams]);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -247,12 +269,25 @@ const TrackBooking = () => {
 
   useEffect(() => {
     const studentId = booking?.student_id;
-    if (!studentId) { setHelperName(null); return; }
+    if (!studentId) { setHelperName(null); setHelperCard(null); return; }
     let cancelled = false;
     const fetch_ = async () => {
-      const { data: helper } = await hdb.from('household_helpers').select('name').eq('user_id', studentId).maybeSingle();
+      const { data: helper } = await hdb
+        .from('household_helpers')
+        .select('id, name, photo_url, average_rating, rating_avg, accepted_count')
+        .eq('user_id', studentId)
+        .maybeSingle();
       if (cancelled) return;
-      if (helper?.name) { setHelperName(helper.name.split(' ')[0]); return; }
+      if (helper?.name) {
+        setHelperName(helper.name.split(' ')[0]);
+        setHelperCard({
+          id: helper.id,
+          photo_url: helper.photo_url || null,
+          average_rating: helper.average_rating ?? helper.rating_avg ?? null,
+          accepted_count: helper.accepted_count ?? 0,
+        });
+        return;
+      }
       const { data: profile } = await hdb.from('profiles').select('display_name').eq('user_id', studentId).maybeSingle();
       if (!cancelled) setHelperName(profile?.display_name?.split(' ')[0] ?? null);
     };
@@ -444,21 +479,63 @@ const TrackBooking = () => {
           )}
         </div>
 
-        {/* Helper chip */}
+        {/* Helper chip — links to the helper's public profile when we have one */}
         {booking.student_id && helperName && !isPending && !isCancelled && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
-            className="mt-4 flex items-center gap-2.5 bg-sage-light border border-sage/20 rounded-2xl px-4 py-3"
+            className="mt-4"
           >
-            <div className="w-8 h-8 rounded-full bg-sage/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-sage font-bold text-sm">{helperName[0].toUpperCase()}</span>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Your helper</p>
-              <p className="text-sm font-semibold text-foreground leading-tight">{helperName}</p>
-            </div>
+            {(() => {
+              const inner = (
+                <>
+                  {helperCard?.photo_url ? (
+                    <img
+                      src={helperCard.photo_url}
+                      alt={helperName}
+                      className="w-11 h-11 rounded-full object-cover flex-shrink-0 border border-sage/25"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-full bg-sage/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sage font-bold text-base">{helperName[0].toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground font-medium">Your helper</p>
+                    <p className="text-sm font-semibold text-foreground leading-tight">{helperName}</p>
+                    {helperCard && (helperCard.average_rating || helperCard.accepted_count > 0) && (
+                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                        {helperCard.average_rating ? (
+                          <>
+                            <Star className="w-3 h-3 fill-gold text-gold flex-shrink-0" />
+                            {Number(helperCard.average_rating).toFixed(1)}
+                          </>
+                        ) : null}
+                        {helperCard.average_rating && helperCard.accepted_count > 0 ? ' · ' : null}
+                        {helperCard.accepted_count > 0
+                          ? `${helperCard.accepted_count} task${helperCard.accepted_count === 1 ? '' : 's'} done`
+                          : null}
+                      </p>
+                    )}
+                  </div>
+                  {helperCard && (
+                    <span className="text-xs font-semibold text-sage flex-shrink-0">View profile →</span>
+                  )}
+                </>
+              );
+              const chipClass = 'flex items-center gap-3 bg-sage-light border border-sage/20 rounded-2xl px-4 py-3';
+              return helperCard ? (
+                <Link
+                  to={`/helpers/${helperCard.id}`}
+                  className={cn(chipClass, 'transition-[background-color,border-color] duration-150 hover:bg-sage/15 hover:border-sage/35 active:scale-[0.99]')}
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div className={chipClass}>{inner}</div>
+              );
+            })()}
           </motion.div>
         )}
 
@@ -580,6 +657,7 @@ const TrackBooking = () => {
         {/* Completed: thank-you + rating */}
         {isCompleted && (
           <motion.div
+            ref={ratingCardRef}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
