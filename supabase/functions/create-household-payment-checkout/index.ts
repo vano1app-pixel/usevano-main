@@ -43,14 +43,14 @@ function isOriginAllowed(req: Request): boolean {
 
 // Public (no-auth) entry point for the CategoryGrid quick-booking flow.
 // Validates inputs, prices the booking server-side (prevents client tampering),
-// inserts an anonymous household_bookings row, then opens a Stripe Checkout
-// session with automatic capture — charged immediately at checkout.
-
-function formEncode(obj: Record<string, string>): string {
-  return Object.entries(obj)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-}
+// inserts an anonymous household_bookings row as status='pending' and
+// dispatches it to helpers IMMEDIATELY — no upfront payment.
+//
+// Pay-after-accept: the customer is only asked to pay once a helper accepts
+// (notify-household-accepted creates the Stripe Checkout session and emails
+// the pay link). Paying for a named, confirmed person converts far better
+// than paying a form — every booking under the old pay-first flow abandoned
+// at checkout.
 
 const VALID_CATEGORIES = [
   // CategoryGrid originals
@@ -271,9 +271,6 @@ serve(async (req) => {
   if (req.method !== 'POST') return bad(405, 'Method not allowed');
 
   try {
-    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!STRIPE_SECRET_KEY) return bad(500, 'STRIPE_SECRET_KEY not configured');
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -306,11 +303,15 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
     let isLoyalty = false;
     if (!isMonthlyPlan) {
+      // Only PAID bookings count toward loyalty — bookings are now created
+      // before payment, so counting all non-cancelled rows would let spam
+      // bookings farm the every-3rd-booking discount.
       const { count: loyaltyCount } = await supabase
         .from('household_bookings')
         .select('id', { count: 'exact', head: true })
         .eq('customer_phone', customer_phone.trim())
-        .not('status', 'in', '(awaiting_payment,cancelled)');
+        .not('paid_at', 'is', null)
+        .neq('status', 'cancelled');
       const confirmedCount = loyaltyCount ?? 0;
       isLoyalty = (confirmedCount + 1) % 3 === 0;
       if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
@@ -325,7 +326,7 @@ serve(async (req) => {
         time_slot: null,
         is_express: false,
         price_estimate_cents: priceCents,
-        status: 'awaiting_payment',
+        status: 'pending', // live immediately — payment is requested after a helper accepts
         customer_name: customer_name.trim(),
         // Prefer the dedicated address field (quick-book sheet sends it);
         // fall back to the legacy note-as-address behaviour.
@@ -364,63 +365,102 @@ serve(async (req) => {
       req.headers.get('origin') ||
       Deno.env.get('SITE_URL') ||
       'https://vanojobs.com';
+    const trackUrl = `${origin}/track/${bookingId}`;
+    const cityVal = typeof city === 'string' && city.trim() ? city.trim() : null;
 
-    const checkoutParams: Record<string, string> = {
-      mode: 'payment',
-      'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': String(priceCents),
-      'line_items[0][price_data][product_data][name]': `VANO — ${CATEGORY_LABELS[cat]}`,
-      'line_items[0][price_data][product_data][description]': [
-        when_label || null,
-        sl || null,
-        el || null,
-        isScheduled ? 'Scheduled (10% off)' : null,
-        isLoyalty   ? '🎉 Loyalty reward (50% off)' : null,
-        city || null,
-      ].filter(Boolean).join(' · ') || 'Ireland',
-      'line_items[0][quantity]': '1',
-      ...(serviceFeeCents > 0 ? {
-        'line_items[1][price_data][currency]': 'eur',
-        'line_items[1][price_data][unit_amount]': String(serviceFeeCents),
-        'line_items[1][price_data][product_data][name]': 'VANO service fee',
-        'line_items[1][price_data][product_data][description]': 'Platform fee — keeps VANO running',
-        'line_items[1][quantity]': '1',
-      } : {}),
-      'payment_intent_data[capture_method]': 'automatic',
-      'payment_intent_data[metadata][household_booking_id]': bookingId,
-      'phone_number_collection[enabled]': 'true',
-      ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
-      success_url: `${origin}/track/${bookingId}?paid=true`,
-      cancel_url: `${origin}/`,
-      'metadata[household_booking_id]': bookingId,
-      client_reference_id: bookingId,
-    };
-
-    const stripeResp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formEncode(checkoutParams),
-    });
-
-    if (!stripeResp.ok) {
-      const text = await stripeResp.text();
-      console.error('[create-household-payment-checkout] stripe error', stripeResp.status, text);
-      await supabase.from('household_bookings').delete().eq('id', bookingId);
-      return bad(502, 'Payment provider error. Please try again.');
+    // Dispatch to helpers right away — this is what makes the booking real.
+    // Awaited so a dispatch failure is at least logged before we respond.
+    try {
+      const dispatchResp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          record: {
+            id: bookingId, status: 'pending', city: cityVal,
+            category: cat, scheduled_date: when_label || 'flexible',
+          },
+        }),
+      });
+      if (!dispatchResp.ok) {
+        console.error('[create-household-payment-checkout] dispatch non-2xx', dispatchResp.status, await dispatchResp.text().catch(() => ''));
+      }
+    } catch (e) {
+      console.error('[create-household-payment-checkout] dispatch call failed', e);
     }
 
-    const session = await stripeResp.json() as { id: string; url: string };
+    // Admin ping (WhatsApp + email) — used to fire from stripe-webhook on
+    // payment, but payment now happens after acceptance, so notify here.
+    const adminNotifyPromise = (async () => {
+      const priceStr = `€${((priceCents + serviceFeeCents) / 100).toFixed(2)}`;
+      const ref = bookingId.slice(-8).toUpperCase();
+      const catLabel = CATEGORY_LABELS[cat];
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'new_booking',
+            customer_name: customer_name.trim(),
+            customer_phone: customer_phone.trim(),
+            customer_email: typeof customer_email === 'string' ? customer_email.trim() : null,
+            category: cat,
+            scheduled_date: when_label || 'flexible',
+            city: cityVal,
+            price_euros: ((priceCents + serviceFeeCents) / 100).toFixed(2),
+            booking_id: bookingId,
+          }),
+        });
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] admin whatsapp error', e);
+      }
+      try {
+        const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+        const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim() || 'vano1app@gmail.com';
+        if (!resendKey) return;
+        const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: resendFrom,
+            to: [adminEmail],
+            subject: `🆕 New booking — ${catLabel} in ${cityVal ?? '?'} (${priceStr}, pay on accept)`,
+            text: [
+              'New booking (unpaid — customer pays once a helper accepts).',
+              `Job: ${catLabel}`,
+              `Customer: ${customer_name.trim()}`,
+              `Phone: ${customer_phone.trim()}`,
+              `City: ${cityVal ?? '—'}`,
+              `When: ${when_label || 'Flexible'}`,
+              `Total on accept: ${priceStr}`,
+              `Ref: ${ref}`,
+              `Track: ${trackUrl}`,
+            ].join('\n'),
+          }),
+        });
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] admin email error', e);
+      }
+    })();
 
-    await supabase
-      .from('household_bookings')
-      .update({ stripe_payment_intent_id: session.id })
-      .eq('id', bookingId);
+    const runtime = (globalThis as unknown as {
+      EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+    }).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(adminNotifyPromise);
+    else adminNotifyPromise.catch(() => {});
 
+    // checkout_url intentionally mirrors track_url: frontends built before
+    // pay-after-accept redirect to checkout_url, and the track page is the
+    // correct destination now.
     return new Response(
-      JSON.stringify({ booking_id: bookingId, checkout_url: session.url, price_cents: priceCents }),
+      JSON.stringify({
+        booking_id: bookingId,
+        track_url: trackUrl,
+        checkout_url: trackUrl,
+        price_cents: priceCents,
+        total_cents: priceCents + serviceFeeCents,
+        pay_later: true,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {

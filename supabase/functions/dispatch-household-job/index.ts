@@ -55,8 +55,8 @@ serve(async (req) => {
     if (status !== 'pending') {
       return new Response('Not a pending booking — skipping', { status: 200 });
     }
-    if (!bookingId || !city) {
-      return new Response('Missing booking id or city', { status: 400 });
+    if (!bookingId) {
+      return new Response('Missing booking id', { status: 400 });
     }
 
     // Expire any stale pending offers so re-dispatch isn't blocked by the idempotency check.
@@ -78,27 +78,32 @@ serve(async (req) => {
       return new Response('Offers already sent', { status: 200 });
     }
 
-    // Find helpers in the booking city first.
-    let { data: helpers, error: helpersError } = await supabase
-      .from('household_helpers')
-      .select('id, name, phone, email')
-      .eq('city', city)
-      .eq('status', 'approved')
-      .eq('is_available', true)
-      .contains('categories', [category])
-      .order('accepted_count', { ascending: true })
-      .limit(MAX_OFFERS);
+    // Find helpers in the booking city first (bookings without a city skip
+    // straight to the platform-wide search below).
+    let helpers: Array<{ id: string; name: string; phone: string; email?: string }> | null = null;
+    if (city) {
+      const { data: cityHelpers, error: helpersError } = await supabase
+        .from('household_helpers')
+        .select('id, name, phone, email')
+        .eq('city', city)
+        .eq('status', 'approved')
+        .eq('is_available', true)
+        .contains('categories', [category])
+        .order('accepted_count', { ascending: true })
+        .limit(MAX_OFFERS);
 
-    if (helpersError) {
-      console.error('[dispatch] helpers query error', helpersError);
-      return new Response('DB error', { status: 500 });
+      if (helpersError) {
+        console.error('[dispatch] helpers query error', helpersError);
+        return new Response('DB error', { status: 500 });
+      }
+      helpers = cityHelpers;
     }
 
     let expandedSearch = false;
 
     // No helpers in city — fall back to ALL approved helpers on the platform.
     if (!helpers || helpers.length === 0) {
-      console.warn(`[dispatch] no helpers in ${city} for ${bookingId} — expanding to platform-wide search`);
+      console.warn(`[dispatch] no helpers in ${city ?? 'unknown city'} for ${bookingId} — expanding to platform-wide search`);
       const { data: allHelpers, error: allErr } = await supabase
         .from('household_helpers')
         .select('id, name, phone, email')
@@ -147,7 +152,7 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      We're actively searching for a helper for your <strong>${catLabel}</strong> in ${city}.
+      We're actively searching for a helper for your <strong>${catLabel}</strong> in ${city ?? 'your area'}.
       We'll confirm your helper as soon as we find the right match — your booking is secure.
     </p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
@@ -156,11 +161,11 @@ serve(async (req) => {
     <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;margin-bottom:12px;">💬 WhatsApp us</a>
     <br>
     <a href="${trackUrl}" style="display:inline-block;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;border:1px solid #e5e7eb;margin-top:8px;">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Your payment is held securely until a helper is confirmed.</p>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · You won't be charged anything until a helper is confirmed.</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
+            text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city ?? 'your area'}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
           }),
         }).catch(() => {});
       }
@@ -173,8 +178,8 @@ serve(async (req) => {
           body: JSON.stringify({
             from: resendFrom,
             to: [adminEmail],
-            subject: `🚨 No helpers found — ${catLabel} in ${city} — ${ref}`,
-            text: `No helpers available for booking ${ref}.\nCategory: ${catLabel}\nCity: ${city}\nBooking ID: ${bookingId}\nCustomer: ${custName} (${custEmail ?? '—'})\n\nACTION NEEDED: manually find a helper or issue refund.`,
+            subject: `🚨 No helpers found — ${catLabel} in ${city ?? '?'} — ${ref}`,
+            text: `No helpers available for booking ${ref}.\nCategory: ${catLabel}\nCity: ${city ?? '—'}\nBooking ID: ${bookingId}\nCustomer: ${custName} (${custEmail ?? '—'})\n\nACTION NEEDED: manually find a helper or issue refund.`,
           }),
         }).catch(() => {});
       }
@@ -222,7 +227,7 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 8px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
-    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city}</p>
+    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city ?? 'Ireland'}</p>
     <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · Offer expires in ${OFFER_TTL_MINUTES} min</p>
     <a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">View &amp; Accept →</a>
   </div>
@@ -234,9 +239,9 @@ serve(async (req) => {
               body: JSON.stringify({
                 from: resendFrom,
                 to: [h.email!],
-                subject: `New VANO job — ${catLabel} in ${city}`,
+                subject: `New VANO job — ${catLabel} in ${city ?? 'your area'}`,
                 html,
-                text: `Hi ${firstName}! New VANO job: ${catLabel} in ${city}, when: ${when}. Accept here: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
+                text: `Hi ${firstName}! New VANO job: ${catLabel} in ${city ?? 'your area'}, when: ${when}. Accept here: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
               }),
             });
             if (!res.ok) {

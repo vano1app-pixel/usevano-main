@@ -37,6 +37,7 @@ serve(async (req) => {
     const city       = (formData.get('city')       as string | null)?.trim();
     const ageRaw     = (formData.get('age')        as string | null)?.trim();
     const bioRaw     = (formData.get('bio')        as string | null)?.trim();
+    const revolutRaw = (formData.get('revolut_tag') as string | null)?.trim();
     const categories = JSON.parse((formData.get('categories') as string | null) ?? '[]') as string[];
     const tutorSubjects = JSON.parse((formData.get('tutor_subjects') as string | null) ?? '[]') as string[];
     const tutorLevels   = JSON.parse((formData.get('tutor_levels')   as string | null) ?? '[]') as string[];
@@ -114,6 +115,7 @@ serve(async (req) => {
       status: 'pending',
       ...(age !== null && !isNaN(age) ? { age } : {}),
       ...(bioRaw ? { bio: bioRaw } : {}),
+      ...(revolutRaw ? { revolut_tag: revolutRaw.replace(/^@/, '') } : {}),
       ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
         ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
         : {}),

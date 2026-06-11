@@ -152,10 +152,13 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           city,
         }},
       );
-      if (fnErr || !data?.checkout_url) {
+      // Pay-after-accept: the server returns track_url — the customer pays
+      // only once a helper accepts. checkout_url kept as legacy fallback.
+      const nextUrl = (data?.track_url ?? data?.checkout_url) as string | undefined;
+      if (fnErr || !nextUrl) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
-      window.location.href = data.checkout_url as string;
+      window.location.href = nextUrl;
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -318,7 +321,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                     <span className="text-lg font-bold text-foreground tabular-nums">{fmtEuro(totalCents)}</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    {fmtEuro(priceCents)} job + {fmtEuro(feeCents)} service fee — exactly what you'll pay
+                    {fmtEuro(priceCents)} job + {fmtEuro(feeCents)} service fee — pay only when a helper accepts
                   </p>
                 </div>
               )}
@@ -330,7 +333,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                   className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
                 >
                   {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Placing booking…</>
                     : <><CreditCard className="w-4 h-4" />{ctaLabel}</>}
                 </Button>
               </motion.div>

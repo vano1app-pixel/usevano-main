@@ -340,7 +340,8 @@ export const TaskShowcase: React.FC = () => {
           loyalty_hint:   isLoyalty,
         }},
       );
-      if (fnErr || !data?.checkout_url) {
+      const nextUrl = (data?.track_url ?? data?.checkout_url) as string | undefined;
+      if (fnErr || !nextUrl) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
       try {
@@ -349,7 +350,7 @@ export const TaskShowcase: React.FC = () => {
         localStorage.setItem(LS_CITY,    city);
         if (note.trim()) localStorage.setItem(LS_ADDRESS, note.trim());
       } catch { /* storage blocked */ }
-      window.location.href = data.checkout_url as string;
+      window.location.href = nextUrl;
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

@@ -2,8 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Called by StudentDashboard after a helper claims a booking.
-// Sends the customer a "your helper is confirmed" email via Resend.
+// Pay-after-accept: creates the Stripe Checkout session for the booking
+// (customers no longer pay upfront) and sends the customer a
+// "your helper is confirmed — pay to secure" email via Resend.
 // Requires a valid user JWT — verifies the caller is the assigned student.
+
+function formEncode(obj: Record<string, string>): string {
+  return Object.entries(obj)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +20,15 @@ const CORS = {
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
+  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
+  handyman: 'Handyman', plumbing: 'Plumbing help',
+  'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
+  'wait-delivery': 'Wait for delivery', 'post-office': 'Post office run',
+  'pharmacy-run': 'Pharmacy run', 'grocery-shopping': 'Grocery shopping',
+  'dog-walking': 'Dog walking', 'lawn-mowing': 'Lawn mowing',
+  'moving-help': 'Moving help', 'outdoor-cleaning': 'Outdoor cleaning',
+  'tutoring-grinds': 'Tutoring & grinds', 'midnight-lift': 'Midnight Lift',
+  other: 'General help',
 };
 
 const SLOT_LABELS: Record<string, string> = {
@@ -51,10 +67,10 @@ serve(async (req) => {
     // Only proceed if this user is actually the assigned student
     const { data: booking } = await supabase
       .from('household_bookings')
-      .select('id, customer_name, customer_email, category, scheduled_date, time_slot, student_id')
+      .select('id, customer_name, customer_email, category, scheduled_date, time_slot, student_id, price_estimate_cents, booking_data, paid_at, stripe_checkout_url')
       .eq('id', booking_id)
       .eq('student_id', user.id)
-      .maybeSingle() as { data: Record<string, string | null> | null };
+      .maybeSingle() as { data: Record<string, unknown> | null };
 
     if (!booking) return bad(404, 'Booking not found or not assigned to you');
 
@@ -68,7 +84,69 @@ serve(async (req) => {
       await supabase.from('household_job_updates').insert({ booking_id, status: 'accepted' });
     }
 
-    if (!booking?.customer_email) return ok({ ok: true, emailed: false, reason: 'no_customer_email' });
+    // ── Pay-after-accept: create the Stripe Checkout session now ──────────
+    // A helper is confirmed, so this is the moment the customer pays.
+    // Idempotent: reuse the session created on a previous acceptance
+    // (e.g. helper released → re-dispatched → accepted again).
+    const priceCents = Number(booking.price_estimate_cents) || 0;
+    const bookingData = (booking.booking_data ?? {}) as { service_fee_cents?: number };
+    const serviceFeeCents = Number(bookingData.service_fee_cents) || 0;
+    const totalCents = priceCents + serviceFeeCents;
+    let payUrl = (booking.stripe_checkout_url as string | null) ?? null;
+
+    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
+    if (!payUrl && !booking.paid_at && priceCents > 0 && STRIPE_SECRET_KEY) {
+      const origin = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+      const checkoutParams: Record<string, string> = {
+        mode: 'payment',
+        'line_items[0][price_data][currency]': 'eur',
+        'line_items[0][price_data][unit_amount]': String(priceCents),
+        'line_items[0][price_data][product_data][name]': `VANO — ${CATEGORY_LABELS[booking.category as string] ?? 'Household help'}`,
+        'line_items[0][price_data][product_data][description]': 'Your helper is confirmed — this payment secures the booking',
+        'line_items[0][quantity]': '1',
+        ...(serviceFeeCents > 0 ? {
+          'line_items[1][price_data][currency]': 'eur',
+          'line_items[1][price_data][unit_amount]': String(serviceFeeCents),
+          'line_items[1][price_data][product_data][name]': 'VANO service fee',
+          'line_items[1][quantity]': '1',
+        } : {}),
+        'payment_intent_data[capture_method]': 'automatic',
+        'payment_intent_data[metadata][household_booking_id]': booking_id,
+        ...(booking.customer_email ? { customer_email: String(booking.customer_email).toLowerCase() } : {}),
+        success_url: `${origin}/track/${booking_id}?paid=true`,
+        cancel_url: `${origin}/track/${booking_id}`,
+        'metadata[household_booking_id]': booking_id,
+        client_reference_id: booking_id,
+      };
+      try {
+        const stripeResp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formEncode(checkoutParams),
+        });
+        if (stripeResp.ok) {
+          const session = await stripeResp.json() as { id: string; url: string };
+          payUrl = session.url;
+          await supabase
+            .from('household_bookings')
+            .update({
+              stripe_checkout_url: session.url,
+              payment_requested_at: new Date().toISOString(),
+              stripe_payment_intent_id: session.id, // webhook replaces with the real PI on payment
+            })
+            .eq('id', booking_id);
+        } else {
+          console.error('[notify-household-accepted] stripe session error', stripeResp.status, (await stripeResp.text()).slice(0, 300));
+        }
+      } catch (e) {
+        console.error('[notify-household-accepted] stripe session exception', e);
+      }
+    }
+
+    if (!booking?.customer_email) return ok({ ok: true, emailed: false, reason: 'no_customer_email', pay_url: payUrl });
 
     // Get helper details — household_helpers first, profiles fallback
     let helperFirstName = 'Your helper';
@@ -143,10 +221,16 @@ serve(async (req) => {
       <strong>${helperFirstName}</strong> has accepted your <strong>${catLabel}</strong>${whenLine ? ' for <strong>' + whenLine + '</strong>' : ''}.
     </p>
     ${helperCard}
+    ${payUrl && !booking.paid_at ? `
+    <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
+      <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">Secure your booking — €${(totalCents / 100).toFixed(2)}</p>
+      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">Pay securely by card to confirm ${helperFirstName}. No cash needed on the day.</p>
+      <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Confirm &amp; pay €${(totalCents / 100).toFixed(2)} →</a>
+    </div>` : ''}
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
       You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.
     </p>
-    <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 28px;border-radius:100px;text-decoration:none;">Track booking →</a>
+    <a href="${trackUrl}" style="display:inline-block;background:${payUrl && !booking.paid_at ? '#f3f4f6' : '#4a7c59'};color:${payUrl && !booking.paid_at ? '#374151' : '#fff'};font-size:14px;font-weight:600;padding:13px 28px;border-radius:100px;text-decoration:none;${payUrl && !booking.paid_at ? 'border:1px solid #e5e7eb;' : ''}">Track booking →</a>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
   </div>
 </div>
@@ -158,9 +242,11 @@ serve(async (req) => {
       body: JSON.stringify({
         from,
         to: [booking.customer_email as string],
-        subject: `${helperFirstName} is on your ${catLabel} — VANO`,
+        subject: payUrl && !booking.paid_at
+          ? `${helperFirstName} accepted your ${catLabel} — confirm & pay €${(totalCents / 100).toFixed(2)}`
+          : `${helperFirstName} is on your ${catLabel} — VANO`,
         html,
-        text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}. You'll get a live map when they're on their way. Track: ${trackUrl}. Ref: ${ref}`,
+        text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}.${payUrl && !booking.paid_at ? ` Confirm & pay €${(totalCents / 100).toFixed(2)} securely here: ${payUrl}.` : ''} Track: ${trackUrl}. Ref: ${ref}`,
       }),
     });
 
@@ -175,13 +261,14 @@ serve(async (req) => {
         body: JSON.stringify({
           from,
           to: [adminEmail],
-          subject: `✅ Job claimed — ${helperFirstName} on ${catLabel}`,
+          subject: `✅ Job claimed — ${helperFirstName} on ${catLabel}${booking.paid_at ? '' : ' (payment requested)'}`,
           text: [
             `${helperFirstName} just claimed a job.`,
             `Job: ${catLabel}`,
             `Customer: ${custName}`,
             `Email: ${booking.customer_email ?? '—'}`,
             `When: ${whenLine || 'Flexible'}`,
+            `Payment: ${booking.paid_at ? 'PAID' : `UNPAID — customer asked to pay €${(totalCents / 100).toFixed(2)}`}`,
             `Ref: ${ref}`,
             `Track: ${trackUrl}`,
           ].join('\n'),

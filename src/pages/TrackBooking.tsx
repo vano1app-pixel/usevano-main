@@ -34,6 +34,10 @@ interface Booking {
   worker_location_updated_at: string | null;
   customer_lat: number | null;
   customer_lng: number | null;
+  // Pay-after-accept: set once a helper accepts / once the customer pays
+  paid_at: string | null;
+  stripe_checkout_url: string | null;
+  booking_data: { service_fee_cents?: number } | null;
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -406,6 +410,11 @@ const TrackBooking = () => {
   const isCompleted  = booking.status === 'completed';
   const isCancelled  = booking.status === 'cancelled';
   const showMapPanel = booking.status === 'on_way' && booking.worker_lat && booking.worker_lng;
+  // Pay-after-accept: helper confirmed but the booking isn't paid yet.
+  // justPaid suppresses the banner while the Stripe webhook catches up.
+  const needsPayment = !!booking.stripe_checkout_url && !booking.paid_at
+    && !justPaid && !isPending && !isCancelled && !isCompleted;
+  const totalDueCents = (booking.price_estimate_cents ?? 0) + (booking.booking_data?.service_fee_cents ?? 0);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -437,9 +446,9 @@ const TrackBooking = () => {
             >
               <CheckCircle2 className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <p className="font-semibold text-foreground text-sm">You're booked — we're on it!</p>
+                <p className="font-semibold text-foreground text-sm">Payment received — you're all set ✓</p>
                 <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
-                  We're finding your helper right now. You'll get a text with their name and photo within minutes.
+                  Your booking is locked in. You'll get a message (with a live map) when your helper is on the way.
                 </p>
                 {bookingId && (
                   <p className="text-muted-foreground text-xs mt-2 font-mono tracking-wide">
@@ -450,6 +459,29 @@ const TrackBooking = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Pay-after-accept: helper confirmed → ask for payment */}
+        {needsPayment && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-6 bg-gold/10 border border-gold/40 rounded-2xl px-5 py-4"
+          >
+            <p className="font-semibold text-foreground text-sm">
+              {helperName ? `${helperName} is confirmed — secure your booking` : 'Helper confirmed — secure your booking'}
+            </p>
+            <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
+              Pay securely by card to lock it in. No cash needed on the day.
+            </p>
+            <a
+              href={booking.stripe_checkout_url!}
+              className="mt-3 inline-flex items-center justify-center w-full h-11 rounded-full bg-foreground text-background text-sm font-semibold active:scale-[0.98] transition-transform"
+            >
+              Confirm &amp; pay €{(totalDueCents / 100).toFixed(2)} →
+            </a>
+          </motion.div>
+        )}
 
         {/* Booking summary card */}
         <div className="mt-6 rounded-2xl border border-border/60 bg-secondary/30 p-5">
