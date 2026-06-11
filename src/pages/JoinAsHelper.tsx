@@ -167,7 +167,7 @@ export const JoinAsHelper: React.FC = () => {
       />
       <HouseholdNav />
 
-      <main className="-mt-14 lg:-mt-16">
+      <main>
         {/* Hero */}
         <section className="pt-32 pb-12 px-4 bg-gradient-to-b from-sage-light via-background to-background">
           <div className="max-w-lg mx-auto text-center">

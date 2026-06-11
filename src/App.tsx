@@ -79,7 +79,10 @@ const App = () => {
       <SilentErrorBoundary source="InAppBrowserBanner"><InAppBrowserBanner /></SilentErrorBoundary>
       <Toaster />
       <Sonner />
-      <div style={{ perspective: '1200px' }}>
+      {/* No transform/perspective here: any non-none perspective would make this
+          div the containing block for every position:fixed descendant (nav,
+          bottom sheets), anchoring them to the page instead of the viewport. */}
+      <div>
         <RouteErrorBoundary routeKey={location.pathname}>
         <Suspense fallback={<RouteSuspenseFallback />}>
           <Routes location={location} key={location.pathname}>
