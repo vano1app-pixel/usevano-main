@@ -48,13 +48,10 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
       )}
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between h-[72px] px-5 lg:px-8 xl:px-10">
-        {/* Logo — white filter on dark hero, normal on scroll */}
         <Link to="/home" className="flex items-center">
-          <img
-            src={logo}
-            alt="VANO"
-            className={cn('h-8 w-auto transition-[filter] duration-300', dark && 'brightness-0 invert')}
-          />
+          <div className="w-9 h-9 rounded-full overflow-hidden shrink-0">
+            <img src={logo} alt="VANO" className="w-full h-full object-cover" />
+          </div>
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
