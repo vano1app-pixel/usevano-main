@@ -144,11 +144,14 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
         },
       });
 
-      if (error || !result?.checkout_url) {
-        throw error ?? new Error('No checkout URL returned');
+      // Pay-after-accept: the server returns track_url — the customer pays
+      // only once a helper accepts. checkout_url kept as legacy fallback.
+      const nextUrl = (result?.track_url ?? result?.checkout_url) as string | undefined;
+      if (error || !nextUrl) {
+        throw error ?? new Error('No booking URL returned');
       }
 
-      window.location.href = result.checkout_url as string;
+      window.location.href = nextUrl;
     } catch (err: unknown) {
       toast({
         title: 'Could not start booking',

@@ -7,97 +7,20 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AddressPicker } from '@/components/household/AddressPicker';
-
-// ─── Data ─────────────────────────────────────────────────────────────────
-
-interface Category {
-  emoji:       string;
-  label:       string;
-  slug:        string;
-  hint:        string;
-  description: string;
-  popular?:    boolean;
-  sizes?:      string[];
-  sizeLabel?:  string;
-}
-
-const CATEGORIES: Category[] = [
-  {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',
-    hint: 'Any store · delivered to your door',
-    description: 'We shop any store, follow your list, and deliver to your door.',
-  },
-  {
-    emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',
-    hint: 'On-lead · collected & returned safely',
-    description: 'Collected from your door, walked on-lead, returned home safely.',
-    sizeLabel: 'How long?', sizes: ['30 min', '1 hour'],
-  },
-  {
-    emoji: '🌿', label: 'Garden',    slug: 'garden',
-    hint: 'Mow, weed & tidy · waste bagged',
-    description: 'Mowing, weeding, edging and tidying — all waste bagged.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
-  },
-  {
-    emoji: '📦', label: 'Moving',    slug: 'moving',
-    hint: 'Heavy lifting · you arrange the van',
-    description: 'Loading, carrying, unloading — you arrange the van, we do the heavy lifting.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4+ hours'],
-  },
-  {
-    emoji: '🧹', label: 'Cleaning',  slug: 'cleaning',
-    hint: 'Kitchen, bathroom, floors & surfaces',
-    description: 'Hoovering, mopping, surfaces, kitchen and bathroom.',
-    popular: true,
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
-  },
-  {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',
-    hint: 'One-to-one · any subject at home',
-    description: 'One-to-one at your home. Any subject — Maths, science, languages.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
-  },
-];
-
-// Smart defaults — most common booking for each service
-const DEFAULT_SIZE: Record<string, string> = {
-  shopping:  '',
-  'dog-walk': '30 min',
-  garden:    '2 hours',
-  moving:    '2 hours',
-  cleaning:  '2 hours',
-  tutoring:  '1 hour',
-};
-
-// ─── Pricing ──────────────────────────────────────────────────────────────
-
-function getPriceCents(slug: string, size: string): number | null {
-  if (slug === 'shopping') return 1500;
-  if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
-  const map: Record<string, number> = {
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|3 hours': 5400,  'garden|4 hours': 7200,
-    'garden|5 hours': 9000,  'garden|6 hours': 10800,  'garden|7 hours': 12600, 'garden|8 hours': 14400,
-    'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4 hours': 7200,
-    'moving|5 hours': 9000,  'moving|6 hours': 10800,  'moving|7 hours': 12600, 'moving|8 hours': 14400,
-    'cleaning|1 hour': 1600, 'cleaning|2 hours': 3200,  'cleaning|3 hours': 4800, 'cleaning|4 hours': 6400,
-    'cleaning|5 hours': 8000, 'cleaning|6 hours': 9600, 'cleaning|7 hours': 11200, 'cleaning|8 hours': 12800,
-    'tutoring|1 hour': 1500, 'tutoring|2 hours': 3000,  'tutoring|3 hours': 4500, 'tutoring|4 hours': 6000,
-    'tutoring|5 hours': 7500, 'tutoring|6 hours': 9000, 'tutoring|7 hours': 10500, 'tutoring|8 hours': 12000,
-  };
-  return map[`${slug}|${size}`] ?? null;
-}
-
-function fmt(cents: number): string {
-  return `€${(cents / 100).toFixed(0)}`;
-}
+import {
+  QUICK_BOOK_CATEGORIES as CATEGORIES,
+  QUICK_BOOK_DEFAULT_SIZE as DEFAULT_SIZE,
+  quickBookPriceCents as getPriceCents,
+  type QuickBookCategory as Category,
+  serviceFeeCents, totalWithFeeCents, fmtEuro,
+} from '@/lib/householdPricing';
 
 // What to show on the card before tapping
 function cardPrice(cat: Category): string {
   const defSize = DEFAULT_SIZE[cat.slug];
   const cents = getPriceCents(cat.slug, defSize);
   if (cents === null) return 'from €15';
-  const price = fmt(cents);
+  const price = fmtEuro(cents);
   if (!defSize) return price;
   return `${price} · ${defSize}`;
 }
@@ -190,12 +113,15 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
   }, [onClose]);
 
   const priceCents = getPriceCents(cat.slug, size);
-  const priceLabel = priceCents ? fmt(priceCents) : null;
+  // Stripe adds a 5% service fee as a second line item — the button and
+  // summary must show that final total, never a smaller number.
+  const feeCents   = priceCents ? serviceFeeCents(priceCents) : 0;
+  const totalCents = priceCents ? totalWithFeeCents(priceCents) : null;
 
   const ctaLabel = [
     `Book ${cat.label}`,
     size || null,
-    priceLabel,
+    totalCents ? fmtEuro(totalCents) : null,
   ].filter(Boolean).join(' · ');
 
   function sendWhatsApp() {
@@ -226,10 +152,13 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           city,
         }},
       );
-      if (fnErr || !data?.checkout_url) {
+      // Pay-after-accept: the server returns track_url — the customer pays
+      // only once a helper accepts. checkout_url kept as legacy fallback.
+      const nextUrl = (data?.track_url ?? data?.checkout_url) as string | undefined;
+      if (fnErr || !nextUrl) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
-      window.location.href = data.checkout_url as string;
+      window.location.href = nextUrl;
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -385,10 +314,15 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 
             {/* Price summary + CTA */}
             <div className="space-y-2.5 pt-1">
-              {priceCents && (
-                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                  <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
+              {priceCents && totalCents && (
+                <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
+                    <span className="text-lg font-bold text-foreground tabular-nums">{fmtEuro(totalCents)}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {fmtEuro(priceCents)} job + {fmtEuro(feeCents)} service fee — pay only when a helper accepts
+                  </p>
                 </div>
               )}
 
@@ -399,7 +333,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                   className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
                 >
                   {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Placing booking…</>
                     : <><CreditCard className="w-4 h-4" />{ctaLabel}</>}
                 </Button>
               </motion.div>
@@ -419,7 +353,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 
             {error && <p className="text-center text-xs text-destructive">{error}</p>}
             <p className="text-center text-[11px] text-muted-foreground">
-              Stripe secure checkout · paid upfront · money back guarantee
+              €0 to book · pay only when a student accepts · free cancellation until then
             </p>
           </form>
         </div>

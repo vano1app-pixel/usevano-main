@@ -23,6 +23,7 @@ interface Booking {
   price_estimate_cents: number | null;
   created_at: string;
   student_id: string | null;
+  paid_at: string | null;
 }
 
 interface Helper {
@@ -38,6 +39,7 @@ interface Helper {
   rating_count: number;
   user_id: string | null;
   created_at: string;
+  revolut_tag: string | null;
 }
 
 interface Payout {
@@ -48,6 +50,7 @@ interface Payout {
   status: string;
   created_at: string;
   helper_name?: string | null;
+  revolut_tag?: string | null;
   category?: string;
   city?: string;
 }
@@ -88,11 +91,11 @@ export default function HouseholdAdmin() {
   const loadAll = async () => {
     const [{ data: b }, { data: h }, { data: p }] = await Promise.all([
       db.from('household_bookings')
-        .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_estimate_cents, created_at, student_id')
+        .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_estimate_cents, created_at, student_id, paid_at')
         .order('created_at', { ascending: false })
         .limit(200),
       db.from('household_helpers')
-        .select('id, name, phone, email, city, categories, photo_url, status, average_rating, rating_count, user_id, created_at')
+        .select('id, name, phone, email, city, categories, photo_url, status, average_rating, rating_count, user_id, created_at, revolut_tag')
         .order('created_at', { ascending: false })
         .limit(200),
       db.from('household_payouts')
@@ -113,6 +116,7 @@ export default function HouseholdAdmin() {
       return {
         ...pay,
         helper_name: helper?.name ?? null,
+        revolut_tag: helper?.revolut_tag ?? null,
         category:    booking?.category ?? '—',
         city:        booking?.city ?? '—',
       };
@@ -146,6 +150,31 @@ export default function HouseholdAdmin() {
       if (error) throw error;
       toast({ title: 'Booking cancelled + refund issued' });
       setBookings((prev) => prev.map((bk) => bk.id === bookingId ? { ...bk, status: 'cancelled' } : bk));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: 'Failed', description: msg, variant: 'destructive' });
+    } finally {
+      setActioning(null);
+    }
+  };
+
+  // Marks the job complete: flips the booking, records the student's 95%
+  // payout (it then appears in the Payouts tab), and emails both sides.
+  const handleComplete = async (bookingId: string) => {
+    if (!window.confirm("Mark this job complete? This records the student's payout.")) return;
+    setActioning(bookingId);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-complete-household-job', {
+        body: { booking_id: bookingId },
+      });
+      if (error) throw error;
+      const earns = (data as { student_earns_cents?: number | null })?.student_earns_cents;
+      toast({
+        title: 'Job completed',
+        description: earns ? `Payout of €${(earns / 100).toFixed(2)} recorded — see the Payouts tab.` : undefined,
+      });
+      setBookings((prev) => prev.map((bk) => bk.id === bookingId ? { ...bk, status: 'completed' } : bk));
+      void loadAll(); // refresh payouts tab counts
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       toast({ title: 'Failed', description: msg, variant: 'destructive' });
@@ -313,6 +342,12 @@ export default function HouseholdAdmin() {
                       <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full capitalize', STATUS_COLOURS[b.status] ?? 'bg-gray-100 text-gray-600')}>
                         {b.status.replace(/_/g, ' ')}
                       </span>
+                      {/* Pay-after-accept: surface payment state at a glance */}
+                      {!['cancelled'].includes(b.status) && (
+                        b.paid_at
+                          ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">PAID</span>
+                          : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">UNPAID</span>
+                      )}
                       {b.price_estimate_cents && (
                         <span className="text-sm font-bold text-green-600">€{(b.price_estimate_cents / 100).toFixed(2)}</span>
                       )}
@@ -330,18 +365,30 @@ export default function HouseholdAdmin() {
                     )}
                     {b.customer_email && <p><span className="text-muted-foreground">Email: </span>{b.customer_email}</p>}
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">{format(new Date(b.created_at), 'dd MMM yyyy, HH:mm')} · #{b.id.slice(-8).toUpperCase()}</p>
-                    {CANCELLABLE.includes(b.status) && (
-                      <button
-                        onClick={() => void handleRefund(b.id)}
-                        disabled={actioning === b.id}
-                        className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-full hover:bg-destructive/5 disabled:opacity-50 flex items-center gap-1 transition-colors"
-                      >
-                        {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />}
-                        Cancel + refund
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {CANCELLABLE.includes(b.status) && b.student_id && b.status !== 'pending' && (
+                        <button
+                          onClick={() => void handleComplete(b.id)}
+                          disabled={actioning === b.id}
+                          className="text-xs text-sage bg-sage/10 border border-sage/30 px-3 py-1 rounded-full hover:bg-sage/20 disabled:opacity-50 flex items-center gap-1 font-semibold transition-colors"
+                        >
+                          {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                          Complete
+                        </button>
+                      )}
+                      {CANCELLABLE.includes(b.status) && (
+                        <button
+                          onClick={() => void handleRefund(b.id)}
+                          disabled={actioning === b.id}
+                          className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-full hover:bg-destructive/5 disabled:opacity-50 flex items-center gap-1 transition-colors"
+                        >
+                          {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />}
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -440,7 +487,10 @@ export default function HouseholdAdmin() {
                         {p.helper_name && <span className="ml-1.5 text-xs font-medium text-foreground/70">{p.helper_name.split(' ')[0]}</span>}
                         <span className="ml-1.5 text-xs font-normal text-muted-foreground capitalize">{CAT_LABELS[p.category ?? ''] ?? p.category}</span>
                       </p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(p.created_at), 'dd MMM, HH:mm')} · #{p.booking_id.slice(-6).toUpperCase()} · {p.city}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(p.created_at), 'dd MMM, HH:mm')} · #{p.booking_id.slice(-6).toUpperCase()} · {p.city}
+                        {p.revolut_tag && <span className="ml-1 text-sage font-medium">· Revolut @{p.revolut_tag}</span>}
+                      </p>
                     </div>
                     {p.status === 'pending' ? (
                       <button

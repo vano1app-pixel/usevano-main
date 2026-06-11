@@ -13,7 +13,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // the idempotency check doesn't block re-runs after the TTL window.
 
 const MAX_OFFERS = 10;
-const OFFER_TTL_MINUTES = 20;
+// Helpers are notified by email only, and every offer sent so far expired
+// unaccepted at the old 20-minute TTL — students simply don't see email that
+// fast. 60 min keeps urgency but gives a realistic window, and still fits
+// inside no-helper-fallback's 2-hour auto-refund cutoff.
+const OFFER_TTL_MINUTES = 60;
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run',
@@ -22,8 +26,78 @@ const CATEGORY_LABELS: Record<string, string> = {
   moving: 'Moving help',
   cleaning: 'Cleaning',
   tutoring: 'Tutoring',
+  handyman: 'Handyman',
+  plumbing: 'Plumbing help',
+  'furniture-assembly': 'Furniture assembly',
+  'tech-help': 'Tech help',
+  'wait-delivery': 'Wait for delivery',
   other: 'General help',
 };
+
+// ── SMS via Twilio (no-op when not configured) ─────────────────────────────
+function normalizeIrishPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-().]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+
+async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
+  const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
+  if (!sid || !token) return false;
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  // WhatsApp preferred — no Irish carrier filtering, higher open rates.
+  // Set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886 (sandbox) or production number.
+  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
+  if (waFrom) {
+    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+    try {
+      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ To: `whatsapp:${e164}`, From: from, Body: body }).toString(),
+      });
+      if (!resp.ok) console.warn('[dispatch whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
+      else console.log(`[dispatch whatsapp] sent to ${e164}`);
+      return resp.ok;
+    } catch (e) {
+      console.warn('[dispatch whatsapp] twilio exception', e);
+      return false;
+    }
+  }
+  // SMS fallback — off until a carrier-trusted Irish number is configured.
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
+  const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!from || from.startsWith('whatsapp:')) return false;
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: e164, From: from, Body: body }).toString(),
+    });
+    if (!resp.ok) console.warn('[dispatch sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
+    else console.log(`[dispatch sms] sent to ${e164}`);
+    return resp.ok;
+  } catch (e) {
+    console.warn('[dispatch sms] twilio exception', e);
+    return false;
+  }
+}
 
 serve(async (req) => {
   if (req.method !== 'POST') {
@@ -41,13 +115,17 @@ serve(async (req) => {
   try {
     const payload = await req.json();
     const booking = payload?.record ?? payload;
-    const { id: bookingId, city, status, category, scheduled_date } = booking;
+    const { id: bookingId, city, status, category, scheduled_date, price_estimate_cents } = booking;
+    // Students respond to money: show what they'd keep (95% of the job).
+    const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
+      ? Math.floor(price_estimate_cents * 0.95)
+      : null;
 
     if (status !== 'pending') {
       return new Response('Not a pending booking — skipping', { status: 200 });
     }
-    if (!bookingId || !city) {
-      return new Response('Missing booking id or city', { status: 400 });
+    if (!bookingId) {
+      return new Response('Missing booking id', { status: 400 });
     }
 
     // Expire any stale pending offers so re-dispatch isn't blocked by the idempotency check.
@@ -69,27 +147,32 @@ serve(async (req) => {
       return new Response('Offers already sent', { status: 200 });
     }
 
-    // Find helpers in the booking city first.
-    let { data: helpers, error: helpersError } = await supabase
-      .from('household_helpers')
-      .select('id, name, phone, email')
-      .eq('city', city)
-      .eq('status', 'approved')
-      .eq('is_available', true)
-      .contains('categories', [category])
-      .order('accepted_count', { ascending: true })
-      .limit(MAX_OFFERS);
+    // Find helpers in the booking city first (bookings without a city skip
+    // straight to the platform-wide search below).
+    let helpers: Array<{ id: string; name: string; phone: string; email?: string }> | null = null;
+    if (city) {
+      const { data: cityHelpers, error: helpersError } = await supabase
+        .from('household_helpers')
+        .select('id, name, phone, email')
+        .eq('city', city)
+        .eq('status', 'approved')
+        .eq('is_available', true)
+        .contains('categories', [category])
+        .order('accepted_count', { ascending: true })
+        .limit(MAX_OFFERS);
 
-    if (helpersError) {
-      console.error('[dispatch] helpers query error', helpersError);
-      return new Response('DB error', { status: 500 });
+      if (helpersError) {
+        console.error('[dispatch] helpers query error', helpersError);
+        return new Response('DB error', { status: 500 });
+      }
+      helpers = cityHelpers;
     }
 
     let expandedSearch = false;
 
     // No helpers in city — fall back to ALL approved helpers on the platform.
     if (!helpers || helpers.length === 0) {
-      console.warn(`[dispatch] no helpers in ${city} for ${bookingId} — expanding to platform-wide search`);
+      console.warn(`[dispatch] no helpers in ${city ?? 'unknown city'} for ${bookingId} — expanding to platform-wide search`);
       const { data: allHelpers, error: allErr } = await supabase
         .from('household_helpers')
         .select('id, name, phone, email')
@@ -138,7 +221,7 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      We're actively searching for a helper for your <strong>${catLabel}</strong> in ${city}.
+      We're actively searching for a helper for your <strong>${catLabel}</strong> in ${city ?? 'your area'}.
       We'll confirm your helper as soon as we find the right match — your booking is secure.
     </p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
@@ -147,11 +230,11 @@ serve(async (req) => {
     <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;margin-bottom:12px;">💬 WhatsApp us</a>
     <br>
     <a href="${trackUrl}" style="display:inline-block;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;border:1px solid #e5e7eb;margin-top:8px;">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Your payment is held securely until a helper is confirmed.</p>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · You won't be charged anything until a helper is confirmed.</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
+            text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city ?? 'your area'}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
           }),
         }).catch(() => {});
       }
@@ -164,8 +247,8 @@ serve(async (req) => {
           body: JSON.stringify({
             from: resendFrom,
             to: [adminEmail],
-            subject: `🚨 No helpers found — ${catLabel} in ${city} — ${ref}`,
-            text: `No helpers available for booking ${ref}.\nCategory: ${catLabel}\nCity: ${city}\nBooking ID: ${bookingId}\nCustomer: ${custName} (${custEmail ?? '—'})\n\nACTION NEEDED: manually find a helper or issue refund.`,
+            subject: `🚨 No helpers found — ${catLabel} in ${city ?? '?'} — ${ref}`,
+            text: `No helpers available for booking ${ref}.\nCategory: ${catLabel}\nCity: ${city ?? '—'}\nBooking ID: ${bookingId}\nCustomer: ${custName} (${custEmail ?? '—'})\n\nACTION NEEDED: manually find a helper or issue refund.`,
           }),
         }).catch(() => {});
       }
@@ -195,6 +278,17 @@ serve(async (req) => {
 
     console.log(`[dispatch] offered booking ${bookingId} to ${offers.length} helper(s)${expandedSearch ? ' (platform-wide)' : ` in ${city}`}`);
 
+    // SMS each helper — the offer reaches their pocket, not their inbox.
+    // Email alone proved too slow (every offer expired unaccepted).
+    {
+      const catSms = CATEGORY_LABELS[category] ?? 'Household job';
+      const jobUrlSms = `${siteUrl}/student-job/${bookingId}`;
+      const smsBody = `VANO: ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catSms} in ${city ?? 'your area'}. First to accept gets it: ${jobUrlSms}`;
+      await Promise.allSettled(
+        (helpers as Array<{ phone?: string }>).filter((h) => h.phone).map((h) => sendSms(h.phone, smsBody)),
+      );
+    }
+
     // Email each helper with a direct link to the specific job.
     if (resendKey) {
       const catLabel = CATEGORY_LABELS[category] ?? 'Household help';
@@ -213,8 +307,9 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 8px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
-    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city}</p>
-    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · Offer expires in ${OFFER_TTL_MINUTES} min</p>
+    ${earnCents ? `<p style="margin:0 0 4px;color:#111827;font-size:26px;font-weight:800;">Earn €${(earnCents / 100).toFixed(2)}</p>` : ''}
+    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city ?? 'Ireland'}</p>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · First to accept gets it · expires in ${OFFER_TTL_MINUTES} min</p>
     <a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">View &amp; Accept →</a>
   </div>
 </div>
@@ -225,9 +320,11 @@ serve(async (req) => {
               body: JSON.stringify({
                 from: resendFrom,
                 to: [h.email!],
-                subject: `New VANO job — ${catLabel} in ${city}`,
+                subject: earnCents
+                  ? `Earn €${(earnCents / 100).toFixed(2)} — ${catLabel} in ${city ?? 'your area'}`
+                  : `New VANO job — ${catLabel} in ${city ?? 'your area'}`,
                 html,
-                text: `Hi ${firstName}! New VANO job: ${catLabel} in ${city}, when: ${when}. Accept here: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
+                text: `Hi ${firstName}! ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}, when: ${when}. First to accept gets it: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
               }),
             });
             if (!res.ok) {

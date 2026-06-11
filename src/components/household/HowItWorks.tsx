@@ -4,13 +4,13 @@ import { motion, useInView } from 'framer-motion';
 const STEPS = [
   {
     n: '1',
-    title: 'Pick and pay in 30 seconds',
-    body: 'Choose a category, pick a time, and pay securely by card. Price shown upfront — no surprises.',
+    title: 'Book in 30 seconds — pay €0 now',
+    body: 'Choose a category and a time. No card needed to book — the price you see is locked in.',
   },
   {
     n: '2',
-    title: 'We find your helper',
-    body: 'A verified student nearby accepts the job. You get their name and photo before they arrive.',
+    title: 'We find your helper — then you pay',
+    body: 'A verified student nearby accepts the job. You see their name, photo and rating, then pay securely by card.',
   },
   {
     n: '3',

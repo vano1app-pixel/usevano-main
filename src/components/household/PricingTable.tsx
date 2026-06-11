@@ -90,10 +90,11 @@ function TierCard({ tier }: { tier: AirbnbTier }) {
           ...(city.trim() ? { city: city.trim() } : {}),
         }},
       );
-      if (fnErr || !data?.checkout_url) {
+      const nextUrl = (data?.track_url ?? data?.checkout_url) as string | undefined;
+      if (fnErr || !nextUrl) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
-      window.location.href = data.checkout_url as string;
+      window.location.href = nextUrl;
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

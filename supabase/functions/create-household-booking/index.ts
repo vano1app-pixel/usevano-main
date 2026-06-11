@@ -2,24 +2,19 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"; // service-role only
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 
-// Creates a household_bookings row (status=awaiting_payment) and a
-// Stripe Checkout Session with automatic capture.
+// Creates a household_bookings row as status='pending' and dispatches it to
+// helpers immediately — no upfront payment (pay-after-accept).
 //
 // Flow:
 //   1. Customer fills out booking wizard and submits.
-//   2. This function validates + writes the booking row, then opens
-//      a Stripe Checkout session (automatic capture — charged immediately).
-//   3. Customer pays → Stripe fires checkout.session.completed webhook.
-//   4. stripe-webhook flips status awaiting_payment → pending and pings admin.
+//   2. This function validates + writes the booking row, then triggers
+//      dispatch-household-job so helpers get the offer straight away.
+//   3. A helper accepts → notify-household-accepted creates the Stripe
+//      Checkout session and emails the customer the pay link.
+//   4. Customer pays → stripe-webhook stamps paid_at on the booking.
 //
 // Prices are computed server-side from booking_data to prevent
 // client-side tampering.
-
-function formEncode(obj: Record<string, string>): string {
-  return Object.entries(obj)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-}
 
 interface BookingData {
   category: string;
@@ -98,9 +93,6 @@ serve(async (req) => {
   if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
-    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!STRIPE_SECRET_KEY) return bad(500, 'STRIPE_SECRET_KEY not configured');
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -142,7 +134,7 @@ serve(async (req) => {
         is_express: !!is_express,
         city,
         price_estimate_cents: priceCents,
-        status: 'awaiting_payment',
+        status: 'pending', // live immediately — payment is requested after a helper accepts
         customer_name: customer_name.trim(),
         customer_address: customer_address.trim(),
         customer_phone: customer_phone.trim(),
@@ -162,51 +154,92 @@ serve(async (req) => {
       req.headers.get('origin') ||
       Deno.env.get('SITE_URL') ||
       'https://vanojobs.com';
+    const trackUrl = `${origin}/track/${bookingId}`;
 
-    // Stripe Checkout Session — automatic capture, money collected immediately at checkout.
-    const checkoutParams: Record<string, string> = {
-      mode: 'payment',
-      'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': String(priceCents),
-      'line_items[0][price_data][product_data][name]': `VANO — ${categoryLabel(category)}`,
-      'line_items[0][price_data][product_data][description]':
-        `${scheduled_date === 'today' ? 'Today' : scheduled_date === 'tomorrow' ? 'Tomorrow' : scheduled_date} · ${time_slot}`,
-      'line_items[0][quantity]': '1',
-      'payment_intent_data[capture_method]': 'automatic',
-      'payment_intent_data[metadata][household_booking_id]': bookingId,
-      success_url: `${origin}/track/${bookingId}?paid=true`,
-      cancel_url: `${origin}/book/${category}`,
-      'metadata[household_booking_id]': bookingId,
-      client_reference_id: bookingId,
-    };
-
-    const stripeResp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formEncode(checkoutParams),
-    });
-
-    if (!stripeResp.ok) {
-      const text = await stripeResp.text();
-      console.error('[create-household-booking] stripe error', stripeResp.status, text);
-      // Clean up the booking row so the customer can retry cleanly
-      await supabase.from('household_bookings').delete().eq('id', bookingId);
-      return bad(502, 'Payment provider error. Please try again.');
+    // Dispatch to helpers right away — this is what makes the booking real.
+    try {
+      const dispatchResp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          record: { id: bookingId, status: 'pending', city, category, scheduled_date, price_estimate_cents: priceCents },
+        }),
+      });
+      if (!dispatchResp.ok) {
+        console.error('[create-household-booking] dispatch non-2xx', dispatchResp.status, await dispatchResp.text().catch(() => ''));
+      }
+    } catch (e) {
+      console.error('[create-household-booking] dispatch call failed', e);
     }
 
-    const session = await stripeResp.json() as { id: string; url: string };
+    // Admin ping — payment now happens after acceptance, so notify on creation.
+    const adminNotifyPromise = (async () => {
+      const ref = bookingId.slice(-8).toUpperCase();
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'new_booking',
+            customer_name: customer_name.trim(),
+            customer_phone: customer_phone.trim(),
+            category,
+            scheduled_date,
+            city,
+            price_euros: (priceCents / 100).toFixed(2),
+            booking_id: bookingId,
+          }),
+        });
+      } catch (e) {
+        console.warn('[create-household-booking] admin whatsapp error', e);
+      }
+      try {
+        const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+        const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim() || 'vano1app@gmail.com';
+        if (!resendKey) return;
+        const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: resendFrom,
+            to: [adminEmail],
+            subject: `🆕 New booking — ${categoryLabel(category)} in ${city} (€${(priceCents / 100).toFixed(2)}, pay on accept)`,
+            text: [
+              'New booking (unpaid — customer pays once a helper accepts).',
+              `Job: ${categoryLabel(category)}`,
+              `Customer: ${customer_name.trim()}`,
+              `Phone: ${customer_phone.trim()}`,
+              `City: ${city}`,
+              `When: ${scheduled_date} · ${time_slot}`,
+              `Total on accept: €${(priceCents / 100).toFixed(2)}`,
+              `Ref: ${ref}`,
+              `Track: ${trackUrl}`,
+            ].join('\n'),
+          }),
+        });
+      } catch (e) {
+        console.warn('[create-household-booking] admin email error', e);
+      }
+    })();
 
-    // Stamp the Stripe session id so the webhook can find this row
-    await supabase
-      .from('household_bookings')
-      .update({ stripe_payment_intent_id: session.id }) // session.id at checkout, PI id comes via webhook
-      .eq('id', bookingId);
+    const runtime = (globalThis as unknown as {
+      EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+    }).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(adminNotifyPromise);
+    else adminNotifyPromise.catch(() => {});
 
+    // checkout_url intentionally mirrors track_url: frontends built before
+    // pay-after-accept redirect to checkout_url, and the track page is the
+    // correct destination now.
     return new Response(
-      JSON.stringify({ booking_id: bookingId, checkout_url: session.url, price_cents: priceCents }),
+      JSON.stringify({
+        booking_id: bookingId,
+        track_url: trackUrl,
+        checkout_url: trackUrl,
+        price_cents: priceCents,
+        pay_later: true,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {

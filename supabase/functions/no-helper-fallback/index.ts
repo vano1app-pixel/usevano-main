@@ -2,9 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Cron: runs every 30 minutes.
-// Finds bookings that have been in 'pending' status for more than 2 hours
-// with no helper assigned, issues a full Stripe refund, flips them to
-// 'cancelled', and emails both the customer and admin.
+// Finds bookings that have been in 'pending' status with no helper assigned
+// and gives up on them — after 2 hours for immediate ("Now"/"Today") jobs,
+// after 24 hours for scheduled ones (the redispatch cron keeps re-offering
+// them in the meantime). Issues a Stripe refund when something was actually
+// charged, flips the booking to 'cancelled', and emails customer + admin.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -32,7 +34,7 @@ serve(async (_req) => {
 
   const { data: stuckBookings, error: queryErr } = await supabase
     .from('household_bookings')
-    .select('id, customer_name, customer_email, category, city, price_estimate_cents, stripe_payment_intent_id')
+    .select('id, customer_name, customer_email, category, city, price_estimate_cents, stripe_payment_intent_id, scheduled_date, created_at')
     .eq('status', 'pending')
     .is('student_id', null)
     .lt('created_at', cutoff);
@@ -59,9 +61,20 @@ serve(async (_req) => {
     const custEmail = b.customer_email as string | null;
     const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
 
-    // Stripe refund
+    // Scheduled bookings ("Tomorrow", "This week", a date…) get a 24-hour
+    // window — the redispatch cron keeps re-offering them, so cancelling a
+    // next-Tuesday clean 2 hours after booking would be throwing demand away.
+    const label = String(b.scheduled_date ?? '').toLowerCase();
+    const isImmediate = !label || ['now', 'today', 'asap', 'flexible', 'immediate'].some((k) => label.includes(k));
+    const ageMs = Date.now() - new Date(String(b.created_at)).getTime();
+    if (!isImmediate && ageMs < 24 * 60 * 60 * 1000) continue;
+
+    // Stripe refund — only relevant when the customer actually paid. Under
+    // pay-after-accept, pending bookings are unpaid (payment is requested at
+    // acceptance), so most cancellations charge nothing.
     let refundOk = false;
     const piId = b.stripe_payment_intent_id as string | null;
+    const wasCharged = !!piId?.startsWith('pi_');
     if (STRIPE_SECRET && piId?.startsWith('pi_')) {
       try {
         const refundResp = await fetch('https://api.stripe.com/v1/refunds', {
@@ -86,7 +99,7 @@ serve(async (_req) => {
     await supabase.from('household_job_updates').insert({
       booking_id: b.id,
       status: 'cancelled',
-      note: 'No helper available — auto-cancelled after 2 hours.',
+      note: `No helper available — auto-cancelled after ${isImmediate ? '2' : '24'} hours.`,
     });
 
     if (resendKey && custEmail) {
@@ -104,14 +117,18 @@ serve(async (_req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">We're really sorry — we weren't able to find an available helper for your <strong>${catLabel}</strong> in time. Your booking has been cancelled.</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${refundOk ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.' : 'Please contact us and we will arrange your refund immediately.'}</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${
+      !wasCharged ? "<strong>You haven't been charged anything</strong> — with VANO you only pay once a helper accepts your job."
+      : refundOk  ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.'
+      : 'Please contact us and we will arrange your refund immediately.'
+    }</p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;">Want to try again? <a href="${siteUrl}" style="color:#4a7c59;font-weight:600;">Book here</a></p>
     <p style="margin:0;color:#374151;font-size:15px;">Or message us on WhatsApp: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-          text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${refundOk ? 'Full refund issued (5–7 days).' : 'Contact us about refund.'} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
+          text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${!wasCharged ? "You haven't been charged anything." : refundOk ? 'Full refund issued (5–7 days).' : 'Contact us about refund.'} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
         }),
       }).catch(() => {});
     }
@@ -124,11 +141,11 @@ serve(async (_req) => {
           from, to: [adminEmail],
           subject: `⚠️ No helper found — auto-cancelled ${ref}`,
           text: [
-            `Booking ${ref} was auto-cancelled (2h, no helper).`,
+            `Booking ${ref} was auto-cancelled (${isImmediate ? '2h' : '24h'}, no helper).`,
             `Job: ${catLabel}`,
             `Customer: ${custName} (${custEmail ?? '—'})`,
             `City: ${b.city ?? '?'}`,
-            `Refund: ${refundOk ? 'Issued' : 'FAILED — check manually'}`,
+            `Refund: ${!wasCharged ? 'Not needed (never charged)' : refundOk ? 'Issued' : 'FAILED — check manually'}`,
             `ID: ${b.id}`,
           ].join('\n'),
         }),

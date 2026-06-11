@@ -64,6 +64,7 @@ export const JoinAsHelper: React.FC = () => {
   const [bio, setBio] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [revolutTag, setRevolutTag] = useState('');
   const [city, setCity] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -113,6 +114,7 @@ export const JoinAsHelper: React.FC = () => {
       if (bio.trim()) fd.append('bio', bio.trim());
       fd.append('email', email.trim().toLowerCase());
       fd.append('phone', phone.trim());
+      if (revolutTag.trim()) fd.append('revolut_tag', revolutTag.trim());
       fd.append('city', city);
       fd.append('categories', JSON.stringify(categories));
       fd.append('tutor_subjects', JSON.stringify(tutorSubjects));
@@ -379,6 +381,28 @@ export const JoinAsHelper: React.FC = () => {
                 />
               </div>
 
+              {/* Revolut tag — where same-day payouts go */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
+                  Revolut tag <span className="normal-case font-normal tracking-normal">(optional — for same-day payouts)</span>
+                </p>
+                <input
+                  type="text"
+                  value={revolutTag}
+                  onChange={(e) => setRevolutTag(e.target.value)}
+                  placeholder="@yourtag"
+                  className={cn(
+                    'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
+                    'placeholder:text-muted-foreground/50',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                    'transition-[border-color,box-shadow] duration-150',
+                  )}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  You keep 95% of every job — we send your earnings straight to your Revolut.
+                </p>
+              </div>
+
               {/* City */}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">
@@ -561,7 +585,7 @@ export const JoinAsHelper: React.FC = () => {
             {[
               { n: '1', title: 'Apply above', body: 'Fill in your name, number, and a face photo. Takes 30 seconds.' },
               { n: '2', title: 'Get matched to jobs', body: "When a job near you comes in, we'll text you first. Accept or pass — totally your call." },
-              { n: '3', title: 'Do the job, get paid', body: 'Show up, do great work, get paid by Revolut the same day. Easy.' },
+              { n: '3', title: 'Do the job, get paid', body: 'Show up, do great work, keep 95% of the job price — paid to your Revolut the same day.' },
             ].map(({ n, title, body }) => (
               <li key={n} className="flex gap-4">
                 <div className="w-8 h-8 rounded-full bg-sage text-white font-bold text-sm flex items-center justify-center flex-shrink-0 mt-0.5">
