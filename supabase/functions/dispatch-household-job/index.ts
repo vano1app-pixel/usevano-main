@@ -13,7 +13,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // the idempotency check doesn't block re-runs after the TTL window.
 
 const MAX_OFFERS = 10;
-const OFFER_TTL_MINUTES = 20;
+// Helpers are notified by email only, and every offer sent so far expired
+// unaccepted at the old 20-minute TTL — students simply don't see email that
+// fast. 60 min keeps urgency but gives a realistic window, and still fits
+// inside no-helper-fallback's 2-hour auto-refund cutoff.
+const OFFER_TTL_MINUTES = 60;
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run',
