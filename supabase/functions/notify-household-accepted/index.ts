@@ -33,16 +33,36 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
 }
 
 async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
-  // Master SMS switch — OFF unless VANO_SMS_ENABLED='true'. Keep off until a
-  // carrier-trusted sender is configured: an unregistered alphanumeric sender
-  // ("VANO") is relabelled "Likely Scam" by Irish networks.
-  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
   const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
-  const from  = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
-  if (!sid || !token || !from || from.startsWith('whatsapp:')) return false;
+  if (!sid || !token) return false;
   const e164 = normalizeIrishPhone(to);
   if (!e164) return false;
+  // WhatsApp preferred — no Irish carrier filtering, higher open rates.
+  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
+  if (waFrom) {
+    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+    try {
+      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ To: `whatsapp:${e164}`, From: from, Body: body }).toString(),
+      });
+      if (!resp.ok) console.warn('[whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
+      else console.log(`[whatsapp] sent to ${e164}`);
+      return resp.ok;
+    } catch (e) {
+      console.warn('[whatsapp] twilio exception', e);
+      return false;
+    }
+  }
+  // SMS fallback — off until a carrier-trusted Irish number is configured.
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
+  const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!from || from.startsWith('whatsapp:')) return false;
   try {
     const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: 'POST',
