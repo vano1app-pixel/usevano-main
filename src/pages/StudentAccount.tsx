@@ -365,7 +365,7 @@ const StudentAccount = () => {
         <SEOHead title="My account — VANO" description="Manage your VANO helper account." noindex />
         <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
             aria-label="Back"
           >
