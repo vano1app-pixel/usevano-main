@@ -2,9 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Cron: runs every 30 minutes.
-// Finds bookings that have been in 'pending' status for more than 2 hours
-// with no helper assigned, issues a full Stripe refund, flips them to
-// 'cancelled', and emails both the customer and admin.
+// Finds bookings that have been in 'pending' status with no helper assigned
+// and gives up on them — after 2 hours for immediate ("Now"/"Today") jobs,
+// after 24 hours for scheduled ones (the redispatch cron keeps re-offering
+// them in the meantime). Issues a Stripe refund when something was actually
+// charged, flips the booking to 'cancelled', and emails customer + admin.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -32,7 +34,7 @@ serve(async (_req) => {
 
   const { data: stuckBookings, error: queryErr } = await supabase
     .from('household_bookings')
-    .select('id, customer_name, customer_email, category, city, price_estimate_cents, stripe_payment_intent_id')
+    .select('id, customer_name, customer_email, category, city, price_estimate_cents, stripe_payment_intent_id, scheduled_date, created_at')
     .eq('status', 'pending')
     .is('student_id', null)
     .lt('created_at', cutoff);
@@ -58,6 +60,14 @@ serve(async (_req) => {
     const custName  = String(b.customer_name ?? 'there');
     const custEmail = b.customer_email as string | null;
     const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
+
+    // Scheduled bookings ("Tomorrow", "This week", a date…) get a 24-hour
+    // window — the redispatch cron keeps re-offering them, so cancelling a
+    // next-Tuesday clean 2 hours after booking would be throwing demand away.
+    const label = String(b.scheduled_date ?? '').toLowerCase();
+    const isImmediate = !label || ['now', 'today', 'asap', 'flexible', 'immediate'].some((k) => label.includes(k));
+    const ageMs = Date.now() - new Date(String(b.created_at)).getTime();
+    if (!isImmediate && ageMs < 24 * 60 * 60 * 1000) continue;
 
     // Stripe refund — only relevant when the customer actually paid. Under
     // pay-after-accept, pending bookings are unpaid (payment is requested at
@@ -89,7 +99,7 @@ serve(async (_req) => {
     await supabase.from('household_job_updates').insert({
       booking_id: b.id,
       status: 'cancelled',
-      note: 'No helper available — auto-cancelled after 2 hours.',
+      note: `No helper available — auto-cancelled after ${isImmediate ? '2' : '24'} hours.`,
     });
 
     if (resendKey && custEmail) {
@@ -131,7 +141,7 @@ serve(async (_req) => {
           from, to: [adminEmail],
           subject: `⚠️ No helper found — auto-cancelled ${ref}`,
           text: [
-            `Booking ${ref} was auto-cancelled (2h, no helper).`,
+            `Booking ${ref} was auto-cancelled (${isImmediate ? '2h' : '24h'}, no helper).`,
             `Job: ${catLabel}`,
             `Customer: ${custName} (${custEmail ?? '—'})`,
             `City: ${b.city ?? '?'}`,

@@ -35,6 +35,46 @@ function formEncode(obj: Record<string, string>): string {
 const CAPTURABLE_STATUSES = ['pending', 'accepted', 'on_way', 'arrived', 'in_progress'];
 const PLATFORM_FEE_BPS = 500; // 5%
 
+// ── SMS via Twilio (no-op when not configured) ─────────────────────────────
+function normalizeIrishPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-().]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+
+async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
+  const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
+  const from  = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!sid || !token || !from || from.startsWith('whatsapp:')) return false;
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: e164, From: from, Body: body }).toString(),
+    });
+    if (!resp.ok) console.warn('[sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
+    else console.log(`[sms] sent to ${e164}`);
+    return resp.ok;
+  } catch (e) {
+    console.warn('[sms] twilio exception', e);
+    return false;
+  }
+}
+
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   const bad = (status: number, error: string): Response =>
@@ -85,7 +125,7 @@ serve(async (req) => {
     // Fetch the booking
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, stripe_payment_intent_id, price_estimate_cents, paid_at, customer_name, customer_email, category, city, scheduled_date')
+      .select('id, student_id, status, stripe_payment_intent_id, price_estimate_cents, paid_at, customer_name, customer_email, customer_phone, category, city, scheduled_date')
       .eq('id', bookingId)
       .maybeSingle();
 
@@ -184,6 +224,12 @@ serve(async (req) => {
         if (helper?.name) helperFirst = helper.name.split(' ')[0];
         helperEmail = helper?.email ?? null;
       }
+
+      // Customer SMS: done + rate + rebook nudge (works even with no email)
+      await sendSms(
+        booking.customer_phone as string | null,
+        `VANO: Your ${catLabel} is done ✓ How did ${helperFirst} do? Rate in one tap: ${trackUrl}?rate=5 — Every 3rd booking is 50% off!`,
+      );
 
       // Customer: job done + one-tap star rating (deep links to track?rate=N)
       const custEmail = booking.customer_email as string | null;

@@ -13,6 +13,50 @@ function formEncode(obj: Record<string, string>): string {
     .join('&');
 }
 
+// ── SMS via Twilio ──────────────────────────────────────────────────────────
+// Quick-book customers usually leave only a phone number, so SMS is the main
+// channel for the pay link. Uses TWILIO_SMS_FROM if set (SMS-capable number
+// or alphanumeric 'VANO'), falling back to TWILIO_FROM_NUMBER. No-ops
+// gracefully when Twilio isn't configured.
+function normalizeIrishPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-().]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+
+async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
+  const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
+  const from  = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!sid || !token || !from || from.startsWith('whatsapp:')) return false;
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: e164, From: from, Body: body }).toString(),
+    });
+    if (!resp.ok) console.warn('[sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
+    else console.log(`[sms] sent to ${e164}`);
+    return resp.ok;
+  } catch (e) {
+    console.warn('[sms] twilio exception', e);
+    return false;
+  }
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -67,7 +111,7 @@ serve(async (req) => {
     // Only proceed if this user is actually the assigned student
     const { data: booking } = await supabase
       .from('household_bookings')
-      .select('id, customer_name, customer_email, category, scheduled_date, time_slot, student_id, price_estimate_cents, booking_data, paid_at, stripe_checkout_url')
+      .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, time_slot, student_id, price_estimate_cents, booking_data, paid_at, stripe_checkout_url')
       .eq('id', booking_id)
       .eq('student_id', user.id)
       .maybeSingle() as { data: Record<string, unknown> | null };
@@ -174,6 +218,20 @@ serve(async (req) => {
         .eq('user_id', user.id)
         .maybeSingle() as { data: { display_name?: string } | null };
       if (profile?.display_name) helperFirstName = profile.display_name.split(' ')[0];
+    }
+
+    // SMS the customer the pay link — most quick-book customers leave only a
+    // phone number, so this is the primary channel for the trust moment.
+    {
+      const phone = booking.customer_phone as string | null;
+      if (phone) {
+        const siteUrlSms = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+        const catSms = CATEGORY_LABELS[booking.category as string] ?? 'job';
+        const smsBody = payUrl && !booking.paid_at
+          ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm & pay €${(totalCents / 100).toFixed(2)} securely: ${payUrl}`
+          : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${siteUrlSms}/track/${booking_id}`;
+        await sendSms(phone, smsBody);
+      }
     }
 
     const resendKey  = Deno.env.get('RESEND_API_KEY')?.trim();

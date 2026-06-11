@@ -34,6 +34,46 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'General help',
 };
 
+// ── SMS via Twilio (no-op when not configured) ─────────────────────────────
+function normalizeIrishPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-().]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+
+async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
+  const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
+  const from  = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!sid || !token || !from || from.startsWith('whatsapp:')) return false;
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: e164, From: from, Body: body }).toString(),
+    });
+    if (!resp.ok) console.warn('[dispatch sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
+    else console.log(`[dispatch sms] sent to ${e164}`);
+    return resp.ok;
+  } catch (e) {
+    console.warn('[dispatch sms] twilio exception', e);
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -212,6 +252,17 @@ serve(async (req) => {
     }
 
     console.log(`[dispatch] offered booking ${bookingId} to ${offers.length} helper(s)${expandedSearch ? ' (platform-wide)' : ` in ${city}`}`);
+
+    // SMS each helper — the offer reaches their pocket, not their inbox.
+    // Email alone proved too slow (every offer expired unaccepted).
+    {
+      const catSms = CATEGORY_LABELS[category] ?? 'Household job';
+      const jobUrlSms = `${siteUrl}/student-job/${bookingId}`;
+      const smsBody = `VANO: ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catSms} in ${city ?? 'your area'}. First to accept gets it: ${jobUrlSms}`;
+      await Promise.allSettled(
+        (helpers as Array<{ phone?: string }>).filter((h) => h.phone).map((h) => sendSms(h.phone, smsBody)),
+      );
+    }
 
     // Email each helper with a direct link to the specific job.
     if (resendKey) {
