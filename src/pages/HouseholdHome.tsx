@@ -6,7 +6,6 @@ import { ActivityTicker } from '@/components/household/ActivityTicker';
 import { HowItWorks } from '@/components/household/HowItWorks';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HelperCards } from '@/components/household/HelperCards';
-import { ExtraServicesSection } from '@/components/household/ExtraServicesSection';
 import { ChatFAQ } from '@/components/household/ChatFAQ';
 import { HomePlans } from '@/components/household/HomePlans';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
@@ -34,10 +33,10 @@ const HouseholdHome: React.FC = () => {
         <ReviewCarousel />
         <HelperCards />
         <ActivityTicker dark />
-        <ExtraServicesSection />
+        {/* Flagship offer — house autopilot in the navy feature slot */}
+        <HomePlans />
         <ActivityTicker dark />
         <ChatFAQ />
-        <HomePlans />
         <FindBookingBar />
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <section className="px-4 pb-12 bg-background">

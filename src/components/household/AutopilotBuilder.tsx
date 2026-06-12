@@ -140,8 +140,8 @@ export const AutopilotBuilder: React.FC = () => {
             className={cn(
               'relative px-3.5 py-2 rounded-full border text-xs font-semibold transition-all duration-150 active:scale-[0.95]',
               activePreset === p.key
-                ? 'bg-foreground text-background border-foreground'
-                : 'bg-white text-foreground/70 border-border hover:border-foreground/30',
+                ? 'bg-white text-navy border-white'
+                : 'bg-white/10 text-white/80 border-white/20 hover:bg-white/[0.16] hover:border-white/40',
             )}
           >
             {p.emoji} {p.label}

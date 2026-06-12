@@ -570,7 +570,7 @@ export const CategoryGrid: React.FC = () => {
     return { cat, size, price: cents ? fmt(cents) : null };
   }, []);
 
-  // Support the vano:select-category custom event from TaskShowcase etc.
+  // Support the vano:select-category custom event (PricingTable, WeatherNudge).
   useEffect(() => {
     const handle = (e: Event) => {
       const { slug, size } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
