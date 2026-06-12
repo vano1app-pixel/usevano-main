@@ -1,17 +1,30 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MessageCircle, Check, Gift, Building2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MessageCircle, Check, Gift, Building2, CreditCard, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { supabase } from '@/integrations/supabase/client';
+import { loadBookingMemory } from '@/lib/bookingMemory';
 
 /**
- * Monthly plans + gifting. Successor to the elderly-only pitch: the Family
- * plans stay (strong niche), but Home Pass opens the section to every busy
- * household, and gift vouchers turn happy customers into new ones. All CTAs
- * are WhatsApp conversations — no checkout, the team closes the details.
+ * Monthly plans + gifting. Plans are self-serve Stripe subscriptions
+ * (create-plan-checkout) — card, Apple Pay, Google Pay — with WhatsApp kept
+ * as the "questions first" path. Gift vouchers and the Business plan stay
+ * WhatsApp conversations.
  */
 
-const PLANS = [
+interface Plan {
+  slug:     string;
+  name:     string;
+  price:    string;
+  period:   string;
+  tagline:  string;
+  features: string[];
+  popular:  boolean;
+}
+
+const PLANS: Plan[] = [
   {
+    slug: 'family',
     name: 'Family',
     price: '€80',
     period: '/mo',
@@ -23,11 +36,9 @@ const PLANS = [
       'Same familiar face each week',
     ],
     popular: false,
-    cta: 'Get started',
-    waText:
-      "Hi VANO! 👋 I'd like to set up the Family plan (€80/month) for regular help for my parent. Can you tell me more about how it works?",
   },
   {
+    slug: 'home-pass',
     name: 'Home Pass',
     price: '€99',
     period: '/mo',
@@ -40,11 +51,9 @@ const PLANS = [
       'Pause or cancel anytime',
     ],
     popular: true,
-    cta: 'Get started',
-    waText:
-      "Hi VANO! 👋 I'm interested in the Home Pass (€99/month) — a weekly 2-hour visit for my home. Can you tell me how it works?",
   },
   {
+    slug: 'family-plus',
     name: 'Family Plus',
     price: '€149',
     period: '/mo',
@@ -56,9 +65,6 @@ const PLANS = [
       'Priority booking',
     ],
     popular: false,
-    cta: 'Get started',
-    waText:
-      "Hi VANO! 👋 I'm interested in the Family Plus plan (€149/month) for my parent. Can you walk me through what's included?",
   },
 ];
 
@@ -70,13 +76,37 @@ function giftWaHref(amount: string): string {
   return `${teamWhatsAppHref}?text=${encodeURIComponent(text)}`;
 }
 
+function planWaHref(plan: Plan): string {
+  const text =
+    `Hi VANO! 👋 I have a question about the ${plan.name} plan (${plan.price}/month) before signing up.`;
+  return `${teamWhatsAppHref}?text=${encodeURIComponent(text)}`;
+}
+
 const BUSINESS_WA_TEXT =
   "Hi VANO! 👋 I'm interested in the Business plan (€499/month) for my company. Can we have a chat about what's available and how it works?";
 
 export const HomePlans: React.FC = () => {
+  // Stripe redirects back with ?plan=success after a completed subscription
+  const planSuccess = useMemo(() => {
+    try { return new URLSearchParams(window.location.search).get('plan') === 'success'; }
+    catch { return false; }
+  }, []);
+
   return (
-    <section className="relative bg-white px-4 py-14">
+    <section id="plans" className="relative bg-white px-4 py-14">
       <div className="relative max-w-5xl mx-auto">
+
+        {planSuccess && (
+          <div className="mb-8 rounded-2xl border border-sage/30 bg-sage-light px-5 py-4 flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-foreground text-sm">You're all set! 🎉</p>
+              <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
+                Your plan is active. We'll WhatsApp you within the hour to schedule your first visit and match your regular helper.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="text-center mb-10">
@@ -93,7 +123,7 @@ export const HomePlans: React.FC = () => {
         <PlanCards />
 
         <p className="text-center text-foreground/50 text-sm mt-5">
-          All plans via WhatsApp — no app, no login needed
+          Card, Apple Pay or Google Pay · cancel anytime · no contracts
         </p>
 
         {/* Gift VANO */}
@@ -147,7 +177,39 @@ export const HomePlans: React.FC = () => {
   );
 };
 
-function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
+function PlanCard({ plan }: { plan: Plan }) {
+  const remembered = useMemo(() => loadBookingMemory(), []);
+  const [open,    setOpen]    = useState(false);
+  const [name,    setName]    = useState('');
+  const [phone,   setPhone]   = useState(remembered?.phone ?? '');
+  const [city,    setCity]    = useState(remembered?.city ?? '');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+
+  async function handleSubscribe(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) return;
+    setLoading(true); setError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke(
+        'create-plan-checkout',
+        { body: {
+          plan:           plan.slug,
+          customer_name:  name.trim(),
+          customer_phone: phone.trim(),
+          ...(city.trim() ? { city: city.trim() } : {}),
+        }},
+      );
+      if (fnErr || !(data as { checkout_url?: string } | null)?.checkout_url) {
+        throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
+      }
+      window.location.href = (data as { checkout_url: string }).checkout_url;
+    } catch (err: unknown) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    }
+  }
+
   return (
     <div
       className={cn(
@@ -177,15 +239,54 @@ function PlanCard({ plan }: { plan: typeof PLANS[number] }) {
             </li>
           ))}
         </ul>
+
+        {!open ? (
+          <button
+            onClick={() => setOpen(true)}
+            className="w-full rounded-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.96]"
+            style={{ backgroundColor: 'hsl(var(--primary))' }}
+          >
+            <CreditCard className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
+            <span>Start {plan.name} — {plan.price}/mo</span>
+          </button>
+        ) : (
+          <form onSubmit={handleSubscribe} className="space-y-2">
+            <input
+              type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Your name" required autoFocus
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <input
+              type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+              placeholder="Your phone number" required
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <input
+              type="text" value={city} onChange={e => setCity(e.target.value)}
+              placeholder="Your city (e.g. Galway)"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <button
+              type="submit"
+              disabled={loading || !name.trim() || !phone.trim()}
+              className="w-full rounded-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.96] disabled:opacity-50"
+              style={{ backgroundColor: 'hsl(var(--primary))' }}
+            >
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Opening secure checkout…</>
+                : <><CreditCard className="w-4 h-4" />Subscribe — {plan.price}/mo</>}
+            </button>
+          </form>
+        )}
+        {error && <p className="text-center text-[11px] text-destructive mt-2">{error}</p>}
         <a
-          href={`${teamWhatsAppHref}?text=${encodeURIComponent(plan.waText)}`}
+          href={planWaHref(plan)}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full rounded-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.96]"
-          style={{ backgroundColor: 'hsl(var(--primary))' }}
+          className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          <MessageCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
-          <span>{plan.cta}</span>
+          <MessageCircle className="w-3 h-3" />
+          Questions first? WhatsApp us
         </a>
       </div>
     </div>
@@ -227,7 +328,7 @@ function PlanCards() {
           className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 pb-2"
         >
           {PLANS.map((plan) => (
-            <div key={plan.name} className="snap-center flex-shrink-0 w-[calc(100%-2rem)] pt-4">
+            <div key={plan.slug} className="snap-center flex-shrink-0 w-[calc(100%-2rem)] pt-4">
               <PlanCard plan={plan} />
             </div>
           ))}
@@ -247,7 +348,7 @@ function PlanCards() {
       {/* Desktop grid */}
       <div className="hidden md:grid md:grid-cols-3 gap-4 pt-4">
         {PLANS.map((plan) => (
-          <PlanCard key={plan.name} plan={plan} />
+          <PlanCard key={plan.slug} plan={plan} />
         ))}
       </div>
     </div>

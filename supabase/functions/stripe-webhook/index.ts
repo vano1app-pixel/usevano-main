@@ -323,8 +323,16 @@ type StripeCheckoutSession = {
   payment_status?: string;
   payment_intent?: string;
   client_reference_id?: string;
+  subscription?: string;
+  customer?: string;
   metadata?: Record<string, string | undefined>;
-  customer_details?: { email?: string | null; name?: string | null };
+  customer_details?: { email?: string | null; name?: string | null; phone?: string | null };
+};
+
+type StripeSubscription = {
+  id?: string;
+  customer?: string;
+  metadata?: Record<string, string | undefined>;
 };
 
 type StripeAccount = {
@@ -392,6 +400,197 @@ async function settleReferrals(
   } catch (e) {
     console.warn('[stripe-webhook] referral bookkeeping error (non-fatal)', e);
   }
+}
+
+// --- Handler: household plan subscription started -------------------------
+// HomePlans self-serve flow: create-plan-checkout opened a subscription
+// Checkout; the customer just completed it. Record the subscription
+// (idempotent on stripe_subscription_id), welcome the customer, ping admin
+// so the team schedules the first visit.
+async function handleHouseholdPlanSubscribed(
+  supabase: SupabaseClient,
+  session: StripeCheckoutSession,
+  planSlug: string,
+): Promise<Response> {
+  const name  = session.metadata?.plan_customer_name ?? null;
+  const phone = session.metadata?.plan_customer_phone ?? session.customer_details?.phone ?? null;
+  const city  = session.metadata?.plan_city ?? null;
+  const email = session.customer_details?.email ?? null;
+
+  const PLAN_LABELS: Record<string, string> = {
+    'family': 'Family (€80/mo)',
+    'home-pass': 'Home Pass (€99/mo)',
+    'family-plus': 'Family Plus (€149/mo)',
+  };
+  const planLabel = PLAN_LABELS[planSlug] ?? planSlug;
+
+  try {
+    const { error: insErr } = await supabase
+      .from('household_plan_subscriptions')
+      .upsert({
+        plan: planSlug,
+        customer_name: name,
+        customer_phone: phone,
+        customer_email: email,
+        city,
+        stripe_subscription_id: session.subscription ?? null,
+        stripe_customer_id: session.customer ?? null,
+        status: 'active',
+      }, { onConflict: 'stripe_subscription_id', ignoreDuplicates: true });
+    if (insErr) console.warn('[stripe-webhook] plan subscription insert failed', insErr);
+  } catch (e) {
+    console.warn('[stripe-webhook] plan subscription insert threw', e);
+  }
+
+  const notifyPromise = (async () => {
+    const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+    if (!resendKey) return;
+    const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+    const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+
+    // Welcome the customer
+    if (email) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [email],
+            subject: `Welcome to VANO ${planLabel.split(' (')[0]} — your home is on autopilot 🎉`,
+            html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">You're all set 🎉</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${name ?? 'there'},</p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${planLabel}</strong> is active. Here's what happens next:</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.7;">
+    1. We'll <strong>WhatsApp you within the hour</strong> to schedule your first visit<br>
+    2. We match you with your <strong>regular helper</strong> — same friendly face every week<br>
+    3. Sit back — your weekly visit just happens
+    </p>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:13px;line-height:1.6;">Pause or cancel anytime — just message us on WhatsApp.</p>
+    <a href="https://wa.me/353899817111" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">WhatsApp us →</a>
+    <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">VANO · ${siteUrl}</p>
+  </div>
+</div>
+</body></html>`,
+            text: `Hi ${name ?? 'there'}, your ${planLabel} is active! We'll WhatsApp you within the hour to schedule your first visit and match your regular helper. Pause or cancel anytime: https://wa.me/353899817111`,
+          }),
+        });
+      } catch (e) {
+        console.warn('[stripe-webhook] plan welcome email error', e);
+      }
+    }
+
+    // Ping admin — a new recurring customer needs scheduling NOW
+    try {
+      const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim() || 'vano1app@gmail.com';
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from, to: [adminEmail],
+          subject: `🏠 NEW PLAN SUBSCRIBER — ${planLabel} — ${name ?? '?'}`,
+          text: [
+            'New monthly plan subscription! Schedule their first visit ASAP (customer was told within the hour).',
+            `Plan: ${planLabel}`,
+            `Name: ${name ?? '—'}`,
+            `Phone: ${phone ?? '—'}`,
+            `Email: ${email ?? '—'}`,
+            `City: ${city ?? '—'}`,
+            `Stripe subscription: ${session.subscription ?? '—'}`,
+          ].join('\n'),
+        }),
+      });
+    } catch (e) {
+      console.warn('[stripe-webhook] plan admin email error', e);
+    }
+
+    // WhatsApp ping via the existing admin channel
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new_booking',
+          customer_name: `${name ?? '?'} — NEW ${planLabel} SUBSCRIBER`,
+          customer_phone: phone,
+          customer_email: email,
+          category: `plan:${planSlug}`,
+          scheduled_date: 'Schedule first visit within the hour',
+          city,
+          price_euros: planSlug === 'family' ? '80.00' : planSlug === 'home-pass' ? '99.00' : '149.00',
+          booking_id: session.subscription ?? session.id ?? 'plan',
+        }),
+      });
+    } catch (e) {
+      console.warn('[stripe-webhook] plan admin whatsapp error', e);
+    }
+  })();
+
+  const runtime = (globalThis as unknown as {
+    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(notifyPromise);
+
+  return new Response(
+    JSON.stringify({ received: true, triggered: 'household_plan', plan: planSlug }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
+// --- Handler: subscription cancelled ---------------------------------------
+// Keeps household_plan_subscriptions honest when a plan is cancelled from
+// the Stripe dashboard or by the customer. No row → not a plan sub → no-op.
+async function handlePlanSubscriptionDeleted(
+  supabase: SupabaseClient,
+  sub: StripeSubscription,
+): Promise<Response> {
+  if (!sub?.id) {
+    return new Response(JSON.stringify({ received: true, ignored: 'no_subscription_id' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  const nowIso = new Date().toISOString();
+  const { data: flipped, error } = await supabase
+    .from('household_plan_subscriptions')
+    .update({ status: 'cancelled', cancelled_at: nowIso })
+    .eq('stripe_subscription_id', sub.id)
+    .eq('status', 'active')
+    .select('plan, customer_name, customer_phone')
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[stripe-webhook] plan cancel flip failed', error);
+  }
+  if (flipped) {
+    try {
+      const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+      const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim() || 'vano1app@gmail.com';
+      const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+      if (resendKey) {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [adminEmail],
+            subject: `❌ Plan cancelled — ${(flipped as { plan?: string }).plan} — ${(flipped as { customer_name?: string }).customer_name ?? '?'}`,
+            text: `Plan subscription cancelled.\nPlan: ${(flipped as { plan?: string }).plan}\nCustomer: ${(flipped as { customer_name?: string }).customer_name ?? '—'} (${(flipped as { customer_phone?: string }).customer_phone ?? '—'})\nStripe sub: ${sub.id}`,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('[stripe-webhook] plan cancel admin email error', e);
+    }
+  }
+  return new Response(
+    JSON.stringify({ received: true, triggered: flipped ? 'plan_cancelled' : 'plan_cancel_noop' }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
 }
 
 // --- Handler: household checkout.session.completed -----------------------
@@ -891,6 +1090,10 @@ serve(async (req) => {
     if (householdBookingId) {
       return handleHouseholdCheckoutCompleted(supabase, session, householdBookingId);
     }
+    const householdPlan = session.metadata?.household_plan;
+    if (householdPlan) {
+      return handleHouseholdPlanSubscribed(supabase, session, householdPlan);
+    }
     const helperEmail = session.metadata?.helper_email;
     if (helperEmail) {
       return handleHelperSubscriptionCompleted(supabase, helperEmail);
@@ -913,6 +1116,15 @@ serve(async (req) => {
   if (eventType === 'account.updated') {
     const account = event.data?.object as StripeAccount | undefined;
     return handleAccountUpdated(supabase, account ?? {});
+  }
+
+  // Plan subscriptions cancelled from the Stripe dashboard or by the
+  // customer — keeps household_plan_subscriptions honest. Requires the
+  // event to be enabled on the webhook endpoint in Stripe; if it isn't,
+  // nothing breaks — the table just stays admin-managed.
+  if (eventType === 'customer.subscription.deleted') {
+    const sub = event.data?.object as StripeSubscription | undefined;
+    return handlePlanSubscriptionDeleted(supabase, sub ?? {});
   }
 
   // charge.refunded covers out-of-band refunds (Stripe dashboard

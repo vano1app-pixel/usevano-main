@@ -91,7 +91,9 @@ function getPriceCents(slug: string, size: string): number | null {
 }
 
 function fmt(cents: number): string {
-  return `€${(cents / 100).toFixed(0)}`;
+  const eur = cents / 100;
+  // Discounted prices (10% off) aren't whole euros — show cents only then
+  return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
 }
 
 // What to show on the card before tapping
@@ -120,6 +122,16 @@ function getTimeSlots(): string[] {
     next.setMinutes(next.getMinutes() + 30);
   }
   return slots.slice(0, 8); // max 8 time chips
+}
+
+// Booking ahead earns the server-side 10% scheduled discount (the backend
+// has supported `scheduled: true` all along — the quick sheet just never
+// offered it). Labels are stored verbatim as scheduled_date.
+const TOMORROW_SLOTS = ['Tomorrow 9am', 'Tomorrow 12pm', 'Tomorrow 3pm', 'Tomorrow 6pm'];
+
+/** Must mirror the backend's discount math exactly: Math.round(cents * 0.9) */
+function applyScheduledDiscount(cents: number): number {
+  return Math.round(cents * 0.9);
 }
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────
@@ -209,7 +221,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
 
-  const priceCents = getPriceCents(cat.slug, size);
+  const isScheduledAhead = when.startsWith('Tomorrow');
+  const baseCents  = getPriceCents(cat.slug, size);
+  const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
   const ctaLabel = [
@@ -237,6 +251,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
           category:         cat.slug,
           when_label:       when,
           size_label:       size,
+          scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
           note:             '',
           customer_name:    'Guest', // name collected by Stripe at checkout
           customer_phone:   phoneClean,
@@ -352,6 +367,22 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   </motion.button>
                 ))}
               </div>
+              {/* Book ahead — server grants 10% off scheduled bookings */}
+              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                {TOMORROW_SLOTS.map(opt => (
+                  <motion.button
+                    key={opt}
+                    type="button"
+                    onClick={() => setWhen(opt)}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(when === opt)}
+                  >
+                    {opt}
+                  </motion.button>
+                ))}
+              </div>
             </div>
 
             {/* How long? */}
@@ -431,9 +462,17 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
             {/* Price summary + CTA */}
             <div className="space-y-2.5 pt-1">
               {priceCents && (
-                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                  <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
+                <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
+                    <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
+                  </div>
+                  {isScheduledAhead && baseCents && (
+                    <p className="flex items-center justify-between text-[11px] mt-1">
+                      <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
+                      <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
+                    </p>
+                  )}
                 </div>
               )}
 
