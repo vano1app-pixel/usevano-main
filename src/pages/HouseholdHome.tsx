@@ -5,7 +5,7 @@ import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HelperCards } from '@/components/household/HelperCards';
-import { ChatFAQ } from '@/components/household/ChatFAQ';
+import { FAQSection } from '@/components/household/FAQSection';
 import { HomePlans } from '@/components/household/HomePlans';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
@@ -37,7 +37,7 @@ const HouseholdHome: React.FC = () => {
         <HomePlans />
         <ReviewCarousel />
         <HelperCards />
-        <ChatFAQ />
+        <FAQSection />
         <FindBookingBar />
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <section className="px-4 pb-12 bg-background">
