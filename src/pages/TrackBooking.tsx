@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
+import { ReferralShareCard } from '@/components/household/ReferralShareCard';
+import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -26,6 +28,7 @@ interface Booking {
   status: BookingStatus;
   customer_name: string;
   customer_address: string;
+  customer_email: string | null;
   city: string | null;
   price_estimate_cents: number | null;
   student_id: string | null;
@@ -34,6 +37,13 @@ interface Booking {
   worker_location_updated_at: string | null;
   customer_lat: number | null;
   customer_lng: number | null;
+  /** Pay-after-accept: set by notify-household-accepted when a helper claims */
+  stripe_checkout_url: string | null;
+  paid_at: string | null;
+  booking_data: {
+    service_fee_cents?: number;
+    referral_discount_cents?: number;
+  } | null;
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -466,9 +476,16 @@ const TrackBooking = () => {
               )}
             </div>
             {booking.price_estimate_cents && (
-              <span className="text-lg font-bold text-foreground tabular-nums flex-shrink-0">
-                €{(booking.price_estimate_cents / 100).toFixed(0)}
-              </span>
+              <div className="flex flex-col items-end flex-shrink-0">
+                <span className="text-lg font-bold text-foreground tabular-nums">
+                  €{(booking.price_estimate_cents / 100).toFixed(0)}
+                </span>
+                {booking.paid_at && (
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-sage mt-0.5">
+                    <CheckCircle2 className="w-3 h-3" /> Paid
+                  </span>
+                )}
+              </div>
             )}
           </div>
           {booking.customer_address && booking.customer_address !== 'Not provided' && (
@@ -478,6 +495,51 @@ const TrackBooking = () => {
             </div>
           )}
         </div>
+
+        {/* Pay-after-accept: a helper is confirmed but the booking is unpaid.
+            The email/WhatsApp pay link doesn't reach phone-only customers
+            reliably — this card is the always-works path, updating live the
+            moment notify-household-accepted stores the checkout URL. */}
+        {booking.stripe_checkout_url && !booking.paid_at && !isCancelled && !isCompleted && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 rounded-2xl border-2 border-sage/40 bg-sage-light p-5"
+          >
+            <p className="font-bold text-foreground text-sm">
+              {helperName ? `${helperName} is confirmed — secure your booking` : 'Helper confirmed — secure your booking'}
+            </p>
+            <p className="text-foreground/65 text-xs mt-1 leading-relaxed">
+              Pay now to lock in your helper. No cash needed on the day.
+            </p>
+            {(() => {
+              const price = booking.price_estimate_cents ?? 0;
+              const fee = booking.booking_data?.service_fee_cents ?? 0;
+              const discount = booking.booking_data?.referral_discount_cents ?? 0;
+              const due = Math.max(0, price + fee - discount);
+              return (
+                <>
+                  {discount > 0 && (
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-sage-dark mt-2">
+                      <span aria-hidden="true">🎁</span>
+                      €{(discount / 100).toFixed(0)} referral discount applied
+                    </p>
+                  )}
+                  <a
+                    href={booking.stripe_checkout_url!}
+                    className="mt-3 w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-[opacity,transform] duration-150"
+                  >
+                    Pay €{(due / 100).toFixed(2)} to confirm →
+                  </a>
+                </>
+              );
+            })()}
+            <p className="text-center text-[11px] text-muted-foreground mt-2">
+              Card, Apple Pay or Google Pay · secured by Stripe · money back guarantee
+            </p>
+          </motion.div>
+        )}
 
         {/* Helper chip — links to the helper's public profile when we have one */}
         {booking.student_id && helperName && !isPending && !isCancelled && (
@@ -767,6 +829,20 @@ const TrackBooking = () => {
             )}
           </div>
         )}
+
+        {/* Email opt-in — quick-book never collects email, so this is where
+            confirmation / pay link / receipt emails get unlocked */}
+        {!isCancelled && bookingId && (
+          <BookingEmailCapture
+            bookingId={bookingId}
+            currentEmail={booking.customer_email}
+            onSaved={(email) => setBooking(b => (b ? { ...b, customer_email: email } : b))}
+          />
+        )}
+
+        {/* Give €5, get €5 — the post-booking wait is the highest-intent
+            sharing moment; renders only when this device has booking memory */}
+        <ReferralShareCard className="mt-8" />
       </main>
 
       {/* Live map panel */}

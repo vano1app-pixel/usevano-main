@@ -41,7 +41,14 @@ export interface AddressPickerProps {
   value: string;
   coords: { lat: number; lng: number } | null;
   error: boolean;
-  onAddress: (address: string, lat: number, lng: number) => void;
+  onAddress: (
+    address: string,
+    lat: number,
+    lng: number,
+    /** Geocoder locality parts (suburb/town/city/county) — lets callers
+     *  auto-derive the booking area instead of asking the customer. */
+    locality?: NominatimResult['address'],
+  ) => void;
   onBlur: () => void;
   /** Shown in the empty input. */
   placeholder?: string;
@@ -106,7 +113,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
     setQuery(formatted);
     setSuggestions([]);
     setOpen(false);
-    onAddress(formatted, parseFloat(s.lat), parseFloat(s.lon));
+    onAddress(formatted, parseFloat(s.lat), parseFloat(s.lon), s.address);
   }
 
   async function locateMe() {
@@ -131,7 +138,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
       setQuery(formatted);
       setSuggestions([]);
       setOpen(false);
-      onAddress(formatted, lat, lng);
+      onAddress(formatted, lat, lng, result.address);
     } catch (err) {
       const isDenied = err instanceof GeolocationPositionError && err.code === 1;
       toast({

@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Zap, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
+import { useHelperCount } from '@/hooks/useHelperCount';
 import { CategoryGrid } from './CategoryGrid';
+import { WeatherNudge } from './WeatherNudge';
+import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 
 const TRUST = [
   { icon: ShieldCheck, text: 'Every student is screened before their first job' },
   { icon: Zap,         text: 'See their name and photo before they arrive' },
   { icon: BadgeCheck,  text: 'Full refund if the job isn\'t right — no questions' },
 ];
-
-const SEED = 3;
 
 function useCountUp(target: number, duration = 700): number {
   const [display, setDisplay] = useState(0);
@@ -29,19 +29,8 @@ function useCountUp(target: number, duration = 700): number {
 }
 
 export const HeroSection: React.FC = () => {
-  const [helperCount, setHelperCount] = useState(0);
+  const helperCount = useHelperCount();
   const displayCount = useCountUp(helperCount);
-
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from('household_helpers')
-      // count by id — anon no longer has SELECT on every column, so * would 403
-      .select('id', { count: 'exact', head: true })
-      .then(({ count }: { count: number | null }) => {
-        if (count !== null) setHelperCount(Math.max(5, count * 2 + SEED));
-      });
-  }, []);
 
   return (
     <section className="relative overflow-hidden bg-navy min-h-screen flex flex-col justify-center pt-20 pb-10 px-4">
@@ -60,6 +49,8 @@ export const HeroSection: React.FC = () => {
 
           {/* ── Left column — pitch ── */}
           <div className="mb-8 lg:mb-0 lg:pt-4">
+
+            <ReferralWelcomeBanner />
 
             {/* Live pill */}
             <motion.div
@@ -105,7 +96,7 @@ export const HeroSection: React.FC = () => {
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="text-white/65 text-base lg:text-lg leading-relaxed mb-8 max-w-sm"
             >
-              Local students, booked by card in under a minute. No account. No back-and-forth. Money back if it's not right.
+              Local students, booked in under a minute. No account, no payment until a helper accepts. Money back if it's not right.
             </motion.p>
 
             {/* Trust badges — pill cards on dark */}
@@ -136,6 +127,7 @@ export const HeroSection: React.FC = () => {
               What do you need?
             </p>
             <CategoryGrid />
+            <WeatherNudge />
           </motion.div>
 
         </div>

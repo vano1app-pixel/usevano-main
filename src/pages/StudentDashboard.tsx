@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
@@ -99,6 +100,9 @@ function formatDate(d: string): string {
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  // Job alerts — jobs go to the fastest helper, and email is too slow.
+  // Dispatch sends web push to subscribed helpers the second a job lands.
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, loading: pushLoading, subscribe: pushSubscribe } = usePushNotifications();
 
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<'available' | 'mine' | 'earnings'>('available');
@@ -496,6 +500,39 @@ const StudentDashboard = () => {
             </p>
           )}
         </div>
+
+        {/* Job alerts — jobs are first-come-first-served; push is the only
+            channel fast enough to win them */}
+        {pushSupported && !pushSubscribed && pushPermission !== 'denied' && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mb-4 rounded-2xl border border-sage/30 bg-sage-light p-4"
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">🔔</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-foreground">Turn on job alerts</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Jobs go to the fastest helper. Get a ping the second one comes in — before the email even lands.
+                </p>
+                <button
+                  onClick={() => {
+                    void pushSubscribe().then((ok) => {
+                      if (ok) toast({ title: '🔔 Job alerts on', description: "You'll get a notification the moment a job near you comes in." });
+                    });
+                  }}
+                  disabled={pushLoading}
+                  className="mt-2.5 h-9 px-4 rounded-full bg-sage text-white text-xs font-semibold disabled:opacity-50 flex items-center gap-1.5 transition-opacity"
+                >
+                  {pushLoading ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                  Enable alerts
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-secondary rounded-2xl mb-5">

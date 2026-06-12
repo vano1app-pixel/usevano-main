@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { MessageCircle, CreditCard, Loader2, X } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AddressPicker } from '@/components/household/AddressPicker';
+import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
+import { getReferralCode } from '@/lib/referral';
+import { deriveArea } from '@/lib/areaFromAddress';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -23,9 +26,13 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',
-    hint: 'Any store · delivered to your door',
-    description: 'We shop any store, follow your list, and deliver to your door.',
+    // Click & collect model — the customer orders and pays the store online,
+    // the helper collects and delivers. No helper money-handling, no list
+    // disputes; the old "we shop your list" version put students' own cash
+    // at risk and was the weakest flow on the platform.
+    emoji: '🛒', label: 'Groceries', slug: 'shopping',
+    hint: 'Order click & collect · we deliver it',
+    description: 'Order online from Tesco, Dunnes or SuperValu (click & collect). Your helper picks it up and brings it to your door — you never carry a bag.',
   },
   {
     emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',
@@ -89,7 +96,9 @@ function getPriceCents(slug: string, size: string): number | null {
 }
 
 function fmt(cents: number): string {
-  return `€${(cents / 100).toFixed(0)}`;
+  const eur = cents / 100;
+  // Discounted prices (10% off) aren't whole euros — show cents only then
+  return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
 }
 
 // What to show on the card before tapping
@@ -120,6 +129,16 @@ function getTimeSlots(): string[] {
   return slots.slice(0, 8); // max 8 time chips
 }
 
+// Booking ahead earns the server-side 10% scheduled discount (the backend
+// has supported `scheduled: true` all along — the quick sheet just never
+// offered it). Labels are stored verbatim as scheduled_date.
+const TOMORROW_SLOTS = ['Tomorrow 9am', 'Tomorrow 12pm', 'Tomorrow 3pm', 'Tomorrow 6pm'];
+
+/** Must mirror the backend's discount math exactly: Math.round(cents * 0.9) */
+function applyScheduledDiscount(cents: number): number {
+  return Math.round(cents * 0.9);
+}
+
 // ─── WhatsApp ─────────────────────────────────────────────────────────────
 
 function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
@@ -147,20 +166,40 @@ const chip = (active: boolean, accent?: boolean) => cn(
 // ─── Bottom sheet ─────────────────────────────────────────────────────────
 
 interface SheetProps {
-  cat:       Category;
-  onClose:   () => void;
+  cat:          Category;
+  onClose:      () => void;
+  /** Pre-select a size (e.g. the "book your usual" shortcut). */
+  initialSize?: string;
 }
 
-const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
+const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const timeSlots  = useMemo(() => getTimeSlots(), []);
+  const remembered = useMemo(() => loadBookingMemory(), []);
+  const referralCode = useMemo(() => getReferralCode(), []);
   const [when,     setWhen]    = useState('Now');
-  const [size,     setSize]    = useState(DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '');
-  const [phone,    setPhone]   = useState('');
-  const [address,  setAddress] = useState('');
-  const [coords,   setCoords]  = useState<{ lat: number; lng: number } | null>(null);
-  const [city,     setCity]    = useState<string>('Galway');
+  const [size,     setSize]    = useState(
+    (initialSize && cat.sizes?.includes(initialSize) ? initialSize : null)
+      ?? DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '',
+  );
+  const [phone,    setPhone]   = useState(remembered?.phone ?? '');
+  const [address,  setAddress] = useState(remembered?.address ?? '');
+  const [coords,   setCoords]  = useState<{ lat: number; lng: number } | null>(
+    remembered?.lat != null && remembered?.lng != null
+      ? { lat: remembered.lat, lng: remembered.lng }
+      : null,
+  );
+  const [city,     setCity]    = useState<string>(remembered?.city ?? 'Galway');
+  // True once the area came from the address geocoder — hides the manual chips
+  const [cityAuto, setCityAuto] = useState(false);
+  const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+
+  function forgetMe() {
+    clearBookingMemory();
+    setPhone(''); setAddress(''); setCoords(null); setCity('Galway'); setCityAuto(false);
+    setPrefilled(false);
+  }
 
   // Lock body scroll while sheet is open without changing scroll position
   useEffect(() => {
@@ -189,7 +228,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
 
-  const priceCents = getPriceCents(cat.slug, size);
+  const isScheduledAhead = when.startsWith('Tomorrow');
+  const baseCents  = getPriceCents(cat.slug, size);
+  const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
   const ctaLabel = [
@@ -217,6 +258,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           category:         cat.slug,
           when_label:       when,
           size_label:       size,
+          scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
           note:             '',
           customer_name:    'Guest', // name collected by Stripe at checkout
           customer_phone:   phoneClean,
@@ -224,11 +266,20 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           customer_address: address.trim(),
           ...(coords ? { customer_lat: coords.lat, customer_lng: coords.lng } : {}),
           city,
+          ...(referralCode ? { referral_code: referralCode } : {}),
         }},
       );
       if (fnErr || !data?.checkout_url) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
+      saveBookingMemory({
+        phone:   phoneClean,
+        address: address.trim(),
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+        city,
+        lastCategory: cat.slug,
+        lastSize:     size,
+      });
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
@@ -290,6 +341,22 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           </div>
 
           <form onSubmit={handleBook} className="space-y-5">
+            {/* Welcome back — details remembered from the last booking */}
+            {prefilled && (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
+                <p className="text-xs text-foreground/70">
+                  <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
+                </p>
+                <button
+                  type="button"
+                  onClick={forgetMe}
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
             {/* When? */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
@@ -302,6 +369,22 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                     whileTap={{ scale: 0.92 }}
                     transition={{ type: 'spring', stiffness: 600, damping: 22 }}
                     className={chip(when === opt, opt === 'Now')}
+                  >
+                    {opt}
+                  </motion.button>
+                ))}
+              </div>
+              {/* Book ahead — server grants 10% off scheduled bookings */}
+              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                {TOMORROW_SLOTS.map(opt => (
+                  <motion.button
+                    key={opt}
+                    type="button"
+                    onClick={() => setWhen(opt)}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(when === opt)}
                   >
                     {opt}
                   </motion.button>
@@ -341,7 +424,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                 onChange={e => setPhone(e.target.value)}
                 placeholder="08x xxx xxxx"
                 autoComplete="tel"
-                autoFocus
+                autoFocus={!prefilled}
                 required
                 className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
               />
@@ -355,7 +438,13 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                 value={address}
                 coords={coords}
                 error={false}
-                onAddress={(addr, lat, lng) => { setAddress(addr); setCoords({ lat, lng }); }}
+                onAddress={(addr, lat, lng, locality) => {
+                  setAddress(addr);
+                  setCoords({ lat, lng });
+                  // Eircode/address already knows the area — don't make them pick
+                  const area = deriveArea(locality, { lat, lng });
+                  if (area) { setCity(area); setCityAuto(true); }
+                }}
                 onTextChange={(t) => { setAddress(t); setCoords(null); }}
                 onBlur={() => {}}
                 placeholder="Address or Eircode…"
@@ -364,32 +453,66 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
               <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </div>
 
-            {/* City chips */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your city</p>
-              <div className="flex flex-wrap gap-2">
-                {SUPPORTED_CITIES.map(c => (
-                  <motion.button
-                    key={c}
-                    type="button"
-                    onClick={() => setCity(c)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(city === c)}
-                  >
-                    {c}
-                  </motion.button>
-                ))}
+            {/* Area — auto-detected from the address; chips only as fallback */}
+            {cityAuto ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+                <p className="text-sm text-foreground/75 min-w-0 truncate">
+                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
+                  <span className="text-muted-foreground text-xs"> · from your address</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCityAuto(false)}
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                >
+                  Change
+                </button>
               </div>
-            </div>
+            ) : (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
+                <div className="flex flex-wrap gap-2">
+                  {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
+                    ? [...SUPPORTED_CITIES]
+                    : [city, ...SUPPORTED_CITIES]
+                  ).map(c => (
+                    <motion.button
+                      key={c}
+                      type="button"
+                      onClick={() => setCity(c)}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                      className={chip(city === c)}
+                    >
+                      {c}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Price summary + CTA */}
             <div className="space-y-2.5 pt-1">
               {priceCents && (
-                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                  <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
+                <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
+                    <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
+                  </div>
+                  {isScheduledAhead && baseCents && (
+                    <p className="flex items-center justify-between text-[11px] mt-1">
+                      <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
+                      <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
+                    </p>
+                  )}
                 </div>
+              )}
+
+              {referralCode && (
+                <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
+                  <span aria-hidden="true">🎁</span>
+                  Your friend's €5 comes off your first booking when you pay
+                </p>
               )}
 
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
@@ -399,8 +522,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                   className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
                 >
                   {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
-                    : <><CreditCard className="w-4 h-4" />{ctaLabel}</>}
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                    : <><Zap className="w-4 h-4" />{ctaLabel}</>}
                 </Button>
               </motion.div>
 
@@ -419,7 +542,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 
             {error && <p className="text-center text-xs text-destructive">{error}</p>}
             <p className="text-center text-[11px] text-muted-foreground">
-              Stripe secure checkout · paid upfront · money back guarantee
+              No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
             </p>
           </form>
         </div>
@@ -431,17 +554,28 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 // ─── Main grid ────────────────────────────────────────────────────────────
 
 export const CategoryGrid: React.FC = () => {
-  const [selectedCat, setSelectedCat] = useState<Category | null>(null);
+  const [selected, setSelected] = useState<{ cat: Category; size?: string } | null>(null);
 
-  const openSheet = useCallback((cat: Category) => setSelectedCat(cat), []);
-  const closeSheet = useCallback(() => setSelectedCat(null), []);
+  const openSheet = useCallback((cat: Category, size?: string) => setSelected({ cat, size }), []);
+  const closeSheet = useCallback(() => setSelected(null), []);
 
-  // Support the vano:select-category custom event from TaskShowcase etc.
+  // One-tap rebook: last booked job from this device
+  const usual = useMemo(() => {
+    const mem = loadBookingMemory();
+    if (!mem?.lastCategory) return null;
+    const cat = CATEGORIES.find(c => c.slug === mem.lastCategory);
+    if (!cat) return null;
+    const size = mem.lastSize && cat.sizes?.includes(mem.lastSize) ? mem.lastSize : undefined;
+    const cents = getPriceCents(cat.slug, size ?? DEFAULT_SIZE[cat.slug] ?? '');
+    return { cat, size, price: cents ? fmt(cents) : null };
+  }, []);
+
+  // Support the vano:select-category custom event (PricingTable, WeatherNudge).
   useEffect(() => {
     const handle = (e: Event) => {
-      const slug = (e as CustomEvent<{ slug: string }>).detail.slug;
+      const { slug, size } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
       const cat = CATEGORIES.find(c => c.slug === slug);
-      if (cat) openSheet(cat);
+      if (cat) openSheet(cat, size);
     };
     window.addEventListener('vano:select-category', handle);
     return () => window.removeEventListener('vano:select-category', handle);
@@ -489,6 +623,25 @@ export const CategoryGrid: React.FC = () => {
           })}
         </div>
 
+        {/* One-tap rebook — remembers the last job booked on this device */}
+        {usual && (
+          <button
+            onClick={() => openSheet(usual.cat, usual.size)}
+            className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left hover:bg-sage/14 active:scale-[0.98] transition-[background-color,transform] duration-150"
+          >
+            <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-foreground leading-snug">
+                Book your usual{usual.price ? ` — ${usual.price}` : ''}
+              </span>
+              <span className="block text-xs text-muted-foreground mt-0.5 truncate">
+                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details already filled in
+              </span>
+            </span>
+            <span className="text-sage text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+          </button>
+        )}
+
         {/* WhatsApp fallback */}
         <button
           onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
@@ -507,8 +660,8 @@ export const CategoryGrid: React.FC = () => {
 
       {/* Bottom sheet portal-style — rendered outside the grid */}
       <AnimatePresence>
-        {selectedCat && (
-          <Sheet cat={selectedCat} onClose={closeSheet} />
+        {selected && (
+          <Sheet cat={selected.cat} initialSize={selected.size} onClose={closeSheet} />
         )}
       </AnimatePresence>
     </>

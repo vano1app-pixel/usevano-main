@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { loadBookingMemory } from '@/lib/bookingMemory';
 
 interface BookingResult {
   id: string;
@@ -39,7 +40,8 @@ const STATUS_LABEL: Record<string, { label: string; colour: string }> = {
 
 export const FindBookingBar: React.FC = () => {
   const navigate  = useNavigate();
-  const [phone,   setPhone]   = useState('');
+  // Prefilled for returning customers — one tap from "where's my booking?"
+  const [phone,   setPhone]   = useState(() => loadBookingMemory()?.phone ?? '');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BookingResult[] | null>(null);
   const [error,   setError]   = useState<string | null>(null);

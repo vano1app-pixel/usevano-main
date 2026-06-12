@@ -3,11 +3,12 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
+import { HowItWorks } from '@/components/household/HowItWorks';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HelperCards } from '@/components/household/HelperCards';
-import { ExtraServicesSection } from '@/components/household/ExtraServicesSection';
 import { ChatFAQ } from '@/components/household/ChatFAQ';
-import { ElderlyPitch } from '@/components/household/ElderlyPitch';
+import { HomePlans } from '@/components/household/HomePlans';
+import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
@@ -28,14 +29,21 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
+        <HowItWorks />
         <ReviewCarousel />
         <HelperCards />
         <ActivityTicker dark />
-        <ExtraServicesSection />
+        {/* Flagship offer — house autopilot in the navy feature slot */}
+        <HomePlans />
         <ActivityTicker dark />
-<ChatFAQ />
-        <ElderlyPitch />
+        <ChatFAQ />
         <FindBookingBar />
+        {/* Self-hides unless this device has booked before (needs the phone) */}
+        <section className="px-4 pb-12 bg-background">
+          <div className="max-w-lg mx-auto">
+            <ReferralShareCard />
+          </div>
+        </section>
         <HouseholdFooter />
       </main>
 

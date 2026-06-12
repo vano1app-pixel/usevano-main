@@ -147,6 +147,46 @@ serve(async (req) => {
       }).catch(() => {/* non-critical */});
     }
 
+    // Confirmation email to the applicant — applying into silence loses
+    // people. Fire and forget; new applications only.
+    if (!pendingExisting) {
+      const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+      const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+      if (resendKey) {
+        const firstName = name.split(' ')[0];
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: resendFrom,
+            to: [email],
+            subject: `Application received 🎓 — VANO`,
+            html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">Application received 🎓</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${firstName},</p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
+      Thanks for applying to be a VANO helper in <strong>${city}</strong>. We review every application
+      personally — you'll hear back <strong>within 24 hours</strong>, usually much faster.
+    </p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
+      Make sure you complete the <strong>€4.99/month membership</strong> step — your profile only goes
+      live once that's done and you're approved.
+    </p>
+    <p style="margin:0 0 4px;color:#374151;font-size:14px;">Questions or in a hurry?</p>
+    <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;margin-top:6px;">💬 WhatsApp us</a>
+  </div>
+</div>
+</body></html>`,
+            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. We review every application personally — you'll hear back within 24 hours. Make sure you complete the €4.99/month membership step so your profile can go live. Questions? WhatsApp +353 89 981 7111`,
+          }),
+        }).catch(() => {/* non-critical */});
+      }
+    }
+
     // Create Stripe subscription checkout for the €4.99/month membership
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
     if (!STRIPE_SECRET_KEY) {

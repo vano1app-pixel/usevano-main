@@ -1,19 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Triggered by stripe-webhook after payment completes (booking → 'pending').
-// Also called by cancel-household-booking (helper_release) for re-dispatch.
+// Triggered by create-household-payment-checkout when a booking goes live,
+// and by the redispatch-stale-jobs cron when all offers have expired.
 //
 // Dispatch priority:
 //   1. Helpers in the same city with matching category (up to MAX_OFFERS).
 //   2. If none found → fall back to ALL helpers on the platform with matching category.
 //   3. If still none → email customer "we're on it, WhatsApp us if urgent" (NO auto-refund).
 //
-// Re-dispatch safety: stale pending offers (past expires_at) are expired first so
-// the idempotency check doesn't block re-runs after the TTL window.
+// Notification channels per helper: web push (instant, pocket), email, and
+// WhatsApp/SMS via Twilio when configured.
+//
+// Re-dispatch safety: stale pending offers (past expires_at) are expired first
+// so the idempotency check doesn't block re-runs after the TTL window — and
+// the offer upsert UPDATES existing (booking_id, helper_id) rows back to a
+// live pending state. (It previously used ignoreDuplicates, which meant a
+// re-dispatch could never revive an expired offer: ON CONFLICT DO NOTHING
+// left every offer dead and jobs quietly stranded.)
 
 const MAX_OFFERS = 10;
-const OFFER_TTL_MINUTES = 20;
+// Helpers are notified by email only, and every offer sent so far expired
+// unaccepted at the old 20-minute TTL — students simply don't see email that
+// fast. 60 min keeps urgency but gives a realistic window, and still fits
+// inside no-helper-fallback's 2-hour auto-refund cutoff.
+const OFFER_TTL_MINUTES = 60;
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run',
@@ -22,8 +33,232 @@ const CATEGORY_LABELS: Record<string, string> = {
   moving: 'Moving help',
   cleaning: 'Cleaning',
   tutoring: 'Tutoring',
+  handyman: 'Handyman',
+  plumbing: 'Plumbing help',
+  'furniture-assembly': 'Furniture assembly',
+  'tech-help': 'Tech help',
+  'wait-delivery': 'Wait for delivery',
   other: 'General help',
 };
+
+// ── Web push (raw VAPID + aes128gcm, same implementation as notify-new-message) ──
+function base64UrlToArrayBuffer(base64url: string): ArrayBuffer {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(base64 + padding);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function createVapidJwt(
+  endpoint: string,
+  publicKey: string,
+  privateKey: string,
+  subject: string,
+): Promise<string> {
+  const audience = new URL(endpoint).origin;
+  const header = { typ: "JWT", alg: "ES256" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = { aud: audience, exp: now + 86400, sub: subject };
+
+  const headerB64 = arrayBufferToBase64Url(new TextEncoder().encode(JSON.stringify(header)));
+  const payloadB64 = arrayBufferToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+  const unsignedToken = `${headerB64}.${payloadB64}`;
+
+  const keyData = base64UrlToArrayBuffer(privateKey);
+  let cryptoKey: CryptoKey;
+  try {
+    const rawKey = new Uint8Array(keyData);
+    if (rawKey.length === 32) {
+      const pubKeyRaw = base64UrlToArrayBuffer(publicKey);
+      const pubKeyBytes = new Uint8Array(pubKeyRaw);
+      const x = arrayBufferToBase64Url(pubKeyBytes.slice(1, 33));
+      const y = arrayBufferToBase64Url(pubKeyBytes.slice(33, 65));
+      const d = arrayBufferToBase64Url(rawKey);
+      cryptoKey = await crypto.subtle.importKey(
+        "jwk",
+        { kty: "EC", crv: "P-256", x, y, d },
+        { name: "ECDSA", namedCurve: "P-256" },
+        false,
+        ["sign"]
+      );
+    } else {
+      cryptoKey = await crypto.subtle.importKey("pkcs8", keyData, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+    }
+  } catch {
+    cryptoKey = await crypto.subtle.importKey("pkcs8", keyData, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  }
+
+  const signature = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    cryptoKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const sigBytes = new Uint8Array(signature);
+  let r: Uint8Array, s: Uint8Array;
+  if (sigBytes.length === 64) {
+    r = sigBytes.slice(0, 32);
+    s = sigBytes.slice(32, 64);
+  } else {
+    let offset = 2;
+    const rLen = sigBytes[offset + 1];
+    r = sigBytes.slice(offset + 2, offset + 2 + rLen);
+    offset = offset + 2 + rLen;
+    const sLen = sigBytes[offset + 1];
+    s = sigBytes.slice(offset + 2, offset + 2 + sLen);
+    if (r.length > 32) r = r.slice(r.length - 32);
+    if (s.length > 32) s = s.slice(s.length - 32);
+    if (r.length < 32) r = new Uint8Array([...new Uint8Array(32 - r.length), ...r]);
+    if (s.length < 32) s = new Uint8Array([...new Uint8Array(32 - s.length), ...s]);
+  }
+
+  const rawSig = new Uint8Array([...r, ...s]);
+  return `${unsignedToken}.${arrayBufferToBase64Url(rawSig)}`;
+}
+
+async function sendWebPush(
+  subscription: { endpoint: string; p256dh: string; auth: string },
+  payload: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+): Promise<boolean> {
+  try {
+    const localKeyPair = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]
+    );
+
+    const subscriberPubKey = await crypto.subtle.importKey(
+      "raw", base64UrlToArrayBuffer(subscription.p256dh),
+      { name: "ECDH", namedCurve: "P-256" }, false, []
+    );
+
+    const sharedSecret = await crypto.subtle.deriveBits(
+      { name: "ECDH", public: subscriberPubKey }, localKeyPair.privateKey, 256
+    );
+
+    const authSecret = base64UrlToArrayBuffer(subscription.auth);
+    const localPubKeyRaw = await crypto.subtle.exportKey("raw", localKeyPair.publicKey);
+    const encoder = new TextEncoder();
+
+    const prkKey = await crypto.subtle.importKey("raw", authSecret, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const prk = await crypto.subtle.sign("HMAC", prkKey, sharedSecret);
+
+    const cekInfo = encoder.encode("Content-Encoding: aes128gcm\0");
+    const cekHmacKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const cekBits = await crypto.subtle.sign("HMAC", cekHmacKey, new Uint8Array([...cekInfo, 1]));
+    const contentEncryptionKey = await crypto.subtle.importKey("raw", new Uint8Array(cekBits).slice(0, 16), { name: "AES-GCM" }, false, ["encrypt"]);
+
+    const nonceInfo = encoder.encode("Content-Encoding: nonce\0");
+    const nonceHmacKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const nonceBits = await crypto.subtle.sign("HMAC", nonceHmacKey, new Uint8Array([...nonceInfo, 1]));
+    const nonce = new Uint8Array(nonceBits).slice(0, 12);
+
+    const paddedPayload = new Uint8Array([...encoder.encode(payload), 2]);
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, contentEncryptionKey, paddedPayload);
+
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const localPubKeyBytes = new Uint8Array(localPubKeyRaw);
+    const recordSize = new Uint8Array(4);
+    new DataView(recordSize.buffer).setUint32(0, 4096);
+
+    const body = new Uint8Array([
+      ...salt, ...recordSize, localPubKeyBytes.length, ...localPubKeyBytes, ...new Uint8Array(encrypted),
+    ]);
+
+    const vapidJwt = await createVapidJwt(subscription.endpoint, vapidPublicKey, vapidPrivateKey, "mailto:hello@usevano.com");
+
+    const response = await fetch(subscription.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Encoding': 'aes128gcm',
+        'Authorization': `vapid t=${vapidJwt}, k=${vapidPublicKey}`,
+        'TTL': '3600',
+        'Urgency': 'high',
+      },
+      body,
+    });
+
+    return response.ok || response.status === 201;
+  } catch (err) {
+    console.error("Web push error:", err);
+    return false;
+  }
+}
+
+// ── SMS via Twilio (no-op when not configured) ─────────────────────────────
+function normalizeIrishPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-().]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+
+async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
+  const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
+  if (!sid || !token) return false;
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  // WhatsApp preferred — no Irish carrier filtering, higher open rates.
+  // Set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886 (sandbox) or production number.
+  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
+  if (waFrom) {
+    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+    try {
+      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ To: `whatsapp:${e164}`, From: from, Body: body }).toString(),
+      });
+      if (!resp.ok) console.warn('[dispatch whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
+      else console.log(`[dispatch whatsapp] sent to ${e164}`);
+      return resp.ok;
+    } catch (e) {
+      console.warn('[dispatch whatsapp] twilio exception', e);
+      return false;
+    }
+  }
+  // SMS fallback — off until a carrier-trusted Irish number is configured.
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
+  const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!from || from.startsWith('whatsapp:')) return false;
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: e164, From: from, Body: body }).toString(),
+    });
+    if (!resp.ok) console.warn('[dispatch sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
+    else console.log(`[dispatch sms] sent to ${e164}`);
+    return resp.ok;
+  } catch (e) {
+    console.warn('[dispatch sms] twilio exception', e);
+    return false;
+  }
+}
 
 serve(async (req) => {
   if (req.method !== 'POST') {
@@ -41,13 +276,21 @@ serve(async (req) => {
   try {
     const payload = await req.json();
     const booking = payload?.record ?? payload;
-    const { id: bookingId, city, status, category, scheduled_date } = booking;
+    const { id: bookingId, city, status, category, scheduled_date, price_estimate_cents } = booking;
+    // Quiet mode (re-dispatch rounds): revive offers + web push only. No
+    // email/SMS — repeat emails for the same job annoy helpers, and the
+    // original "View & Accept" email links keep working once offers are live.
+    const quiet = booking?.quiet === true || payload?.quiet === true;
+    // Students respond to money: show what they'd keep (95% of the job).
+    const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
+      ? Math.floor(price_estimate_cents * 0.95)
+      : null;
 
     if (status !== 'pending') {
       return new Response('Not a pending booking — skipping', { status: 200 });
     }
-    if (!bookingId || !city) {
-      return new Response('Missing booking id or city', { status: 400 });
+    if (!bookingId) {
+      return new Response('Missing booking id', { status: 400 });
     }
 
     // Expire any stale pending offers so re-dispatch isn't blocked by the idempotency check.
@@ -69,30 +312,35 @@ serve(async (req) => {
       return new Response('Offers already sent', { status: 200 });
     }
 
-    // Find helpers in the booking city first.
-    let { data: helpers, error: helpersError } = await supabase
-      .from('household_helpers')
-      .select('id, name, phone, email')
-      .eq('city', city)
-      .eq('status', 'approved')
-      .eq('is_available', true)
-      .contains('categories', [category])
-      .order('accepted_count', { ascending: true })
-      .limit(MAX_OFFERS);
+    // Find helpers in the booking city first (bookings without a city skip
+    // straight to the platform-wide search below).
+    let helpers: Array<{ id: string; name: string; phone: string; email?: string; user_id?: string }> | null = null;
+    if (city) {
+      const { data: cityHelpers, error: helpersError } = await supabase
+        .from('household_helpers')
+        .select('id, name, phone, email, user_id')
+        .eq('city', city)
+        .eq('status', 'approved')
+        .eq('is_available', true)
+        .contains('categories', [category])
+        .order('accepted_count', { ascending: true })
+        .limit(MAX_OFFERS);
 
-    if (helpersError) {
-      console.error('[dispatch] helpers query error', helpersError);
-      return new Response('DB error', { status: 500 });
+      if (helpersError) {
+        console.error('[dispatch] helpers query error', helpersError);
+        return new Response('DB error', { status: 500 });
+      }
+      helpers = cityHelpers;
     }
 
     let expandedSearch = false;
 
     // No helpers in city — fall back to ALL approved helpers on the platform.
     if (!helpers || helpers.length === 0) {
-      console.warn(`[dispatch] no helpers in ${city} for ${bookingId} — expanding to platform-wide search`);
+      console.warn(`[dispatch] no helpers in ${city ?? 'unknown city'} for ${bookingId} — expanding to platform-wide search`);
       const { data: allHelpers, error: allErr } = await supabase
         .from('household_helpers')
-        .select('id, name, phone, email')
+        .select('id, name, phone, email, user_id')
         .eq('status', 'approved')
         .eq('is_available', true)
         .contains('categories', [category])
@@ -117,12 +365,13 @@ serve(async (req) => {
         .maybeSingle() as { data: { customer_name?: string; customer_email?: string } | null };
 
       const custEmail = fullBooking?.customer_email;
-      const custName = fullBooking?.customer_name ?? 'there';
+      const custName = fullBooking?.customer_name && fullBooking.customer_name !== 'Guest'
+        ? fullBooking.customer_name : 'there';
       const catLabel = CATEGORY_LABELS[category] ?? 'job';
       const trackUrl = `${siteUrl}/track/${bookingId}`;
       const ref = bookingId.slice(-8).toUpperCase();
 
-      if (resendKey && custEmail) {
+      if (resendKey && custEmail && !quiet) {
         fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -138,7 +387,7 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      We're actively searching for a helper for your <strong>${catLabel}</strong> in ${city}.
+      We're actively searching for a helper for your <strong>${catLabel}</strong> in ${city ?? 'your area'}.
       We'll confirm your helper as soon as we find the right match — your booking is secure.
     </p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
@@ -147,11 +396,11 @@ serve(async (req) => {
     <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;margin-bottom:12px;">💬 WhatsApp us</a>
     <br>
     <a href="${trackUrl}" style="display:inline-block;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;border:1px solid #e5e7eb;margin-top:8px;">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Your payment is held securely until a helper is confirmed.</p>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · You won't be charged anything until a helper is confirmed.</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
+            text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city ?? 'your area'}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
           }),
         }).catch(() => {});
       }
@@ -164,8 +413,8 @@ serve(async (req) => {
           body: JSON.stringify({
             from: resendFrom,
             to: [adminEmail],
-            subject: `🚨 No helpers found — ${catLabel} in ${city} — ${ref}`,
-            text: `No helpers available for booking ${ref}.\nCategory: ${catLabel}\nCity: ${city}\nBooking ID: ${bookingId}\nCustomer: ${custName} (${custEmail ?? '—'})\n\nACTION NEEDED: manually find a helper or issue refund.`,
+            subject: `🚨 No helpers found — ${catLabel} in ${city ?? '?'} — ${ref}`,
+            text: `No helpers available for booking ${ref}.\nCategory: ${catLabel}\nCity: ${city ?? '—'}\nBooking ID: ${bookingId}\nCustomer: ${custName} (${custEmail ?? '—'})\n\nACTION NEEDED: manually find a helper or issue refund.`,
           }),
         }).catch(() => {});
       }
@@ -184,9 +433,12 @@ serve(async (req) => {
       status: 'pending',
     }));
 
+    // NOTE: no ignoreDuplicates — on re-dispatch the conflict UPDATE revives
+    // expired (booking_id, helper_id) rows with a fresh expiry. With DO
+    // NOTHING, a re-dispatched job could never get live offers again.
     const { error: insertError } = await supabase
       .from('household_job_offers')
-      .upsert(offers, { onConflict: 'booking_id,helper_id', ignoreDuplicates: true });
+      .upsert(offers, { onConflict: 'booking_id,helper_id' });
 
     if (insertError) {
       console.error('[dispatch] insert offers error', insertError);
@@ -195,11 +447,51 @@ serve(async (req) => {
 
     console.log(`[dispatch] offered booking ${bookingId} to ${offers.length} helper(s)${expandedSearch ? ' (platform-wide)' : ` in ${city}`}`);
 
+    const catLabel = CATEGORY_LABELS[category] ?? 'Household help';
+    const jobUrl = `${siteUrl}/student-job/${bookingId}`;
+
+    // Web push first — the only channel that reaches a pocket instantly.
+    // Sent on every round (incl. quiet re-dispatch): the tag replaces any
+    // earlier notification for the same job instead of stacking.
+    {
+      const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+      const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+      const userIds = helpers.map((h) => h.user_id).filter(Boolean) as string[];
+      if (vapidPublicKey && vapidPrivateKey && userIds.length > 0) {
+        const { data: subs } = await supabase
+          .from('push_subscriptions')
+          .select('endpoint, p256dh, auth')
+          .in('user_id', userIds);
+        if (subs && subs.length > 0) {
+          const pushPayload = JSON.stringify({
+            title: earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ${catLabel}` : `New job — ${catLabel}`,
+            body: `${city ?? 'Ireland'} · first to accept gets it`,
+            tag: `vano-job-${bookingId}`,
+            url: `/student-job/${bookingId}`,
+          });
+          const results = await Promise.allSettled(
+            (subs as Array<{ endpoint: string; p256dh: string; auth: string }>).map((s) =>
+              sendWebPush(s, pushPayload, vapidPublicKey, vapidPrivateKey),
+            ),
+          );
+          const ok = results.filter((r) => r.status === 'fulfilled' && r.value).length;
+          console.log(`[dispatch] web push sent to ${ok}/${subs.length} subscription(s)`);
+        }
+      }
+    }
+
+    // SMS each helper — the offer reaches their pocket, not their inbox.
+    // Email alone proved too slow (every offer expired unaccepted).
+    if (!quiet) {
+      const smsBody = `VANO: ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}. First to accept gets it: ${jobUrl}`;
+      await Promise.allSettled(
+        (helpers as Array<{ phone?: string }>).filter((h) => h.phone).map((h) => sendSms(h.phone, smsBody)),
+      );
+    }
+
     // Email each helper with a direct link to the specific job.
-    if (resendKey) {
-      const catLabel = CATEGORY_LABELS[category] ?? 'Household help';
+    if (!quiet && resendKey) {
       const when = scheduled_date ?? 'flexible';
-      const jobUrl = `${siteUrl}/student-job/${bookingId}`;
 
       const emailResults = await Promise.allSettled(
         (helpers as Array<{ id: string; name: string; phone: string; email?: string }>)
@@ -213,8 +505,9 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 8px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
-    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city}</p>
-    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · Offer expires in ${OFFER_TTL_MINUTES} min</p>
+    ${earnCents ? `<p style="margin:0 0 4px;color:#111827;font-size:26px;font-weight:800;">Earn €${(earnCents / 100).toFixed(2)}</p>` : ''}
+    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city ?? 'Ireland'}</p>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · First to accept gets it · expires in ${OFFER_TTL_MINUTES} min</p>
     <a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">View &amp; Accept →</a>
   </div>
 </div>
@@ -225,9 +518,11 @@ serve(async (req) => {
               body: JSON.stringify({
                 from: resendFrom,
                 to: [h.email!],
-                subject: `New VANO job — ${catLabel} in ${city}`,
+                subject: earnCents
+                  ? `Earn €${(earnCents / 100).toFixed(2)} — ${catLabel} in ${city ?? 'your area'}`
+                  : `New VANO job — ${catLabel} in ${city ?? 'your area'}`,
                 html,
-                text: `Hi ${firstName}! New VANO job: ${catLabel} in ${city}, when: ${when}. Accept here: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
+                text: `Hi ${firstName}! ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}, when: ${when}. First to accept gets it: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
               }),
             });
             if (!res.ok) {
@@ -241,12 +536,14 @@ serve(async (req) => {
       );
       const sent = emailResults.filter(r => r.status === 'fulfilled' && r.value).length;
       console.log(`[dispatch] emailed ${sent}/${helpers.filter((h: { email?: string }) => h.email).length} helper(s) — from: ${resendFrom}`);
+    } else if (quiet) {
+      console.log('[dispatch] quiet re-dispatch — offers revived + push only, no email/SMS');
     } else {
       console.info('[dispatch] RESEND_API_KEY not set — skipping helper notifications');
     }
 
     return new Response(
-      JSON.stringify({ dispatched: offers.length, city, bookingId, expandedSearch, notified: Boolean(resendKey) }),
+      JSON.stringify({ dispatched: offers.length, city, bookingId, expandedSearch, quiet, notified: Boolean(resendKey) }),
       { headers: { 'Content-Type': 'application/json' } },
     );
   } catch (err) {

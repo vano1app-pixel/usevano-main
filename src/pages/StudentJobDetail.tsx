@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
-import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { microCelebrate } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -59,6 +60,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   moving: 'Moving help',
   cleaning: 'Cleaning',
   tutoring: 'Tutoring',
+  handyman: 'Handyman',
+  plumbing: 'Plumbing help',
+  'furniture-assembly': 'Furniture assembly',
+  'tech-help': 'Tech help',
+  'wait-delivery': 'Wait for delivery',
+  'post-office': 'Post office run',
+  'pharmacy-run': 'Pharmacy run',
+  other: 'General help',
 };
 
 const SLOT_LABELS: Record<string, string> = {
@@ -116,6 +125,10 @@ const StudentJobDetail = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [releaseConfirm, setReleaseConfirm] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  // Set when the browser refuses geolocation while on_way — the customer's
+  // live map silently shows nothing, so the helper deserves to know.
+  const [locationDenied, setLocationDenied] = useState(false);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   // Geolocation watch handle — kept while status is on_way
@@ -127,8 +140,9 @@ const StudentJobDetail = () => {
   // race where getSession() returns null briefly while the context hydrates)
   useEffect(() => {
     if (authLoading) return;
-    if (!authSession?.user) navigate('/auth', { replace: true });
-  }, [authLoading, authSession, navigate]);
+    // Carry the deep link so the dispatch-email journey survives sign-in
+    if (!authSession?.user) navigate('/auth', { replace: true, state: { from: location.pathname } });
+  }, [authLoading, authSession, navigate, location.pathname]);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -183,7 +197,10 @@ const StudentJobDetail = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (justClaimed) toast({ title: '🎉 Job claimed!', description: "You got it. Head over when you're ready." });
+    if (justClaimed) {
+      microCelebrate();
+      toast({ title: '🎉 Job claimed!', description: "You got it. Head over when you're ready." });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -203,7 +220,14 @@ const StudentJobDetail = () => {
           worker_location_updated_at: new Date().toISOString(),
         }).eq('id', bid).then(() => {/* fire and forget */});
       },
-      () => {/* denied or unavailable — silently ignore */},
+      (err) => {
+        // Permission denied means the customer's live map shows nothing —
+        // surface it instead of failing silently.
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocationDenied(true);
+          stopLocationWatch();
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 5000 },
     );
     watchIdRef.current = id;
@@ -216,6 +240,40 @@ const StudentJobDetail = () => {
     }
     setSharingLocation(false);
   }
+
+  // Claim straight from this page — the dispatch email deep-links here, so
+  // "View & Accept" must actually offer Accept. Same atomic guard as the
+  // dashboard: only one helper can flip pending → accepted.
+  const claimJob = async () => {
+    if (!booking || !bookingId || !userId || claiming) return;
+    setClaiming(true);
+    const { data: claimed, error } = await hdb
+      .from('household_bookings')
+      .update({ student_id: userId, status: 'accepted' })
+      .eq('id', bookingId)
+      .eq('status', 'pending')
+      .is('student_id', null)
+      .select('id');
+
+    if (error || !claimed?.length) {
+      toast({ title: 'Job just taken', description: 'Someone else got there first — keep an eye out for the next one.', variant: 'destructive' });
+      // Re-fetch so the page reflects whoever actually has it
+      const { data: fresh } = await hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle();
+      if (fresh) setBooking(fresh as Booking);
+      setClaiming(false);
+      return;
+    }
+
+    // Log accepted update so TrackBooking stepper shows "Booking confirmed" immediately
+    void hdb.from('household_job_updates').insert({ booking_id: bookingId, status: 'accepted' });
+    // Email + SMS the customer their pay link, fire-and-forget
+    void supabase.functions.invoke('notify-household-accepted', { body: { booking_id: bookingId } });
+
+    setBooking((b) => b ? { ...b, status: 'accepted', student_id: userId } : b);
+    setClaiming(false);
+    microCelebrate();
+    toast({ title: '🎉 Job claimed!', description: 'The customer is being asked to pay to confirm you.' });
+  };
 
   const handleRelease = async () => {
     if (!bookingId || releasing) return;
@@ -353,6 +411,10 @@ const StudentJobDetail = () => {
   const next = NEXT_STATUS[booking.status];
   const isComplete = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
+  const mine = !!userId && booking.student_id === userId;
+  const isUnclaimed = booking.status === 'pending' && !booking.student_id;
+  const claimedByOther = !!booking.student_id && booking.student_id !== userId;
+  const earnCents = booking.price_estimate_cents ? Math.floor(booking.price_estimate_cents * 0.95) : null;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -430,6 +492,71 @@ const StudentJobDetail = () => {
           </div>
         )}
 
+        {/* Unclaimed — the dispatch email lands here, so Accept lives here too */}
+        {isUnclaimed && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-2xl border-2 border-sage/40 bg-sage-light p-5 mb-6"
+          >
+            {earnCents && (
+              <p className="text-2xl font-extrabold text-foreground mb-0.5">
+                Earn €{(earnCents / 100).toFixed(2)}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mb-4">
+              This job is still open — first to accept gets it.
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => void claimJob()}
+              disabled={claiming}
+              className="w-full h-14 rounded-full bg-sage text-white font-semibold text-base flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {claiming ? <Loader2 size={18} className="animate-spin" /> : <><Zap size={18} />Accept this job</>}
+            </motion.button>
+            <p className="text-center text-[11px] text-muted-foreground mt-2">
+              Accepting asks the customer to pay and confirms you as their helper
+            </p>
+          </motion.div>
+        )}
+
+        {/* Someone else got it */}
+        {claimedByOther && !isCancelled && (
+          <div className="rounded-2xl border border-border/60 bg-secondary/30 px-4 py-3.5 mb-6 flex items-start gap-2.5">
+            <AlertTriangle size={15} className="text-muted-foreground flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-muted-foreground">
+              Another helper claimed this job. Keep an eye on your dashboard for the next one.
+            </p>
+          </div>
+        )}
+
+        {/* Just claimed — walk the helper through what happens next */}
+        {mine && booking.status === 'accepted' && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-2xl border border-sage/25 bg-sage-light p-5 mb-6"
+          >
+            <p className="font-bold text-foreground text-sm mb-3">✅ This job is yours — here's how it works</p>
+            <ol className="space-y-2.5">
+              {[
+                ['1', 'The customer is being asked to pay now — that locks the booking in.'],
+                ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
+                ['3', 'Tap “I arrived” at the door — location sharing stops automatically.'],
+                ['4', 'Tap “Starting job”, do your thing, then “Job complete” to get paid.'],
+              ].map(([n, text]) => (
+                <li key={n} className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-sage text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
+                  <span className="text-xs text-foreground/80 leading-relaxed">{text}</span>
+                </li>
+              ))}
+            </ol>
+          </motion.div>
+        )}
+
         {/* Live location sharing indicator */}
         {sharingLocation && (
           <motion.div
@@ -438,12 +565,22 @@ const StudentJobDetail = () => {
             className="flex items-center gap-2 bg-sage-light border border-sage/30 rounded-xl px-4 py-2.5 mb-4"
           >
             <Navigation size={14} className="text-sage flex-shrink-0" />
-            <p className="text-xs text-foreground font-medium">Sharing your live location with the customer</p>
+            <p className="text-xs text-foreground font-medium">Sharing your live location with the customer — stops when you arrive</p>
           </motion.div>
         )}
 
+        {/* Location denied — the customer's map is blank and the helper should know */}
+        {locationDenied && booking.status === 'on_way' && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-4 dark:bg-amber-950/20 dark:border-amber-800/40">
+            <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground/80 leading-relaxed">
+              Location is off, so the customer can't see you on their map. Allow location access in your browser settings, then reload this page.
+            </p>
+          </div>
+        )}
+
         {/* Status action button */}
-        {!isComplete && !isCancelled && next && (
+        {mine && !isComplete && !isCancelled && next && (
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => void advanceStatus()}
@@ -464,8 +601,8 @@ const StudentJobDetail = () => {
           </motion.button>
         )}
 
-        {/* Release-job option */}
-        {!isComplete && !isCancelled && (
+        {/* Release-job option — only for the helper who owns the job */}
+        {mine && !isComplete && !isCancelled && (
           <div className="mb-6">
             {!releaseConfirm ? (
               <button
@@ -542,8 +679,8 @@ const StudentJobDetail = () => {
         </div>
       </main>
 
-      {/* Chat input */}
-      {!isComplete && !isCancelled && (
+      {/* Chat input — only once the job is yours */}
+      {mine && !isComplete && !isCancelled && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
           <div className="max-w-sm mx-auto flex items-center gap-2">
             <input

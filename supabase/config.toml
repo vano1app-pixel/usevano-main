@@ -49,3 +49,6 @@ project_id = "puomfwjtpvqedwxjxogh"
   # Helper signup — no auth account needed, service-role handles photo upload + DB insert.
   [functions.create-helper-application]
     verify_jwt = false
+  # HomePlans self-serve monthly subscriptions — same anonymous customer pattern.
+  [functions.create-plan-checkout]
+    verify_jwt = false
