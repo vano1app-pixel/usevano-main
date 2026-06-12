@@ -7,6 +7,7 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AddressPicker } from '@/components/household/AddressPicker';
+import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -153,14 +154,26 @@ interface SheetProps {
 
 const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
   const timeSlots  = useMemo(() => getTimeSlots(), []);
+  const remembered = useMemo(() => loadBookingMemory(), []);
   const [when,     setWhen]    = useState('Now');
   const [size,     setSize]    = useState(DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '');
-  const [phone,    setPhone]   = useState('');
-  const [address,  setAddress] = useState('');
-  const [coords,   setCoords]  = useState<{ lat: number; lng: number } | null>(null);
-  const [city,     setCity]    = useState<string>('Galway');
+  const [phone,    setPhone]   = useState(remembered?.phone ?? '');
+  const [address,  setAddress] = useState(remembered?.address ?? '');
+  const [coords,   setCoords]  = useState<{ lat: number; lng: number } | null>(
+    remembered?.lat != null && remembered?.lng != null
+      ? { lat: remembered.lat, lng: remembered.lng }
+      : null,
+  );
+  const [city,     setCity]    = useState<string>(remembered?.city ?? 'Galway');
+  const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+
+  function forgetMe() {
+    clearBookingMemory();
+    setPhone(''); setAddress(''); setCoords(null); setCity('Galway');
+    setPrefilled(false);
+  }
 
   // Lock body scroll while sheet is open without changing scroll position
   useEffect(() => {
@@ -229,6 +242,12 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
       if (fnErr || !data?.checkout_url) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
+      saveBookingMemory({
+        phone:   phoneClean,
+        address: address.trim(),
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+        city,
+      });
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
@@ -290,6 +309,22 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           </div>
 
           <form onSubmit={handleBook} className="space-y-5">
+            {/* Welcome back — details remembered from the last booking */}
+            {prefilled && (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
+                <p className="text-xs text-foreground/70">
+                  <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
+                </p>
+                <button
+                  type="button"
+                  onClick={forgetMe}
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
             {/* When? */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
@@ -341,7 +376,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                 onChange={e => setPhone(e.target.value)}
                 placeholder="08x xxx xxxx"
                 autoComplete="tel"
-                autoFocus
+                autoFocus={!prefilled}
                 required
                 className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
               />

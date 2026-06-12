@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 
 interface ExtraCategory {
   emoji:       string;
@@ -112,11 +113,19 @@ const chip = (active: boolean) => cn(
 // ─── Bottom sheet ─────────────────────────────────────────────────────────────
 
 const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onClose }) => {
+  const remembered = useMemo(() => loadBookingMemory(), []);
   const [size,    setSize]    = useState(DEFAULT_SIZE[cat.slug] ?? cat.sizes[0]);
-  const [phone,   setPhone]   = useState('');
-  const [city,    setCity]    = useState('Galway');
+  const [phone,   setPhone]   = useState(remembered?.phone ?? '');
+  const [city,    setCity]    = useState(remembered?.city ?? 'Galway');
+  const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
+
+  function forgetMe() {
+    clearBookingMemory();
+    setPhone(''); setCity('Galway');
+    setPrefilled(false);
+  }
 
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -177,6 +186,7 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
       if (fnErr || !data?.checkout_url) {
         throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
       }
+      saveBookingMemory({ phone: phoneClean, city });
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
@@ -231,6 +241,22 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
           <p className="text-sm text-muted-foreground mb-5 leading-relaxed">{cat.description}</p>
 
           <form onSubmit={handleBook} className="space-y-5">
+            {/* Welcome back — details remembered from the last booking */}
+            {prefilled && (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
+                <p className="text-xs text-foreground/70">
+                  <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
+                </p>
+                <button
+                  type="button"
+                  onClick={forgetMe}
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
             {/* Size / option */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">{cat.sizeLabel}</p>
@@ -256,7 +282,7 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
                 type="tel" value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="08x xxx xxxx"
-                autoComplete="tel" autoFocus required
+                autoComplete="tel" autoFocus={!prefilled} required
                 className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when a helper accepts</p>

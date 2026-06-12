@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Review {
-  text:   string;
-  name:   string;
-  area:   string;
-  color:  string;
-  stars:  number;
+  text:      string;
+  name:      string;
+  area:      string;
+  color:     string;
+  stars:     number;
+  /** True only for ratings pulled from real completed bookings. */
+  verified?: boolean;
 }
 
-const REVIEWS: Review[] = [
+// Seed testimonials shown while the platform builds up real ratings. These
+// deliberately do NOT carry the "Verified booking" badge — only ratings
+// fetched from household_ratings (one per paid booking) earn that.
+const SEED_REVIEWS: Review[] = [
   {
     text:  "Cian picked up my shopping from Dunnes in the rain and had everything sorted in an hour. Brilliant.",
     name:  'Sarah M.',   area: 'Salthill',      color: 'bg-violet-100 text-violet-700', stars: 5,
@@ -53,6 +59,62 @@ const REVIEWS: Review[] = [
   },
 ];
 
+const REAL_COLORS = [
+  'bg-emerald-100 text-emerald-700',
+  'bg-sky-100 text-sky-700',
+  'bg-violet-100 text-violet-700',
+  'bg-amber-100 text-amber-700',
+  'bg-teal-100 text-teal-700',
+  'bg-rose-100 text-rose-700',
+];
+
+function relativeTime(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7)  return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} month${months === 1 ? '' : 's'} ago`;
+}
+
+/** Real ratings replace the seeds as they come in: once we have six genuine
+ *  reviews the section is 100% verified customer voice. */
+function useReviews(): Review[] {
+  const [reviews, setReviews] = useState<Review[]>(SEED_REVIEWS);
+
+  useEffect(() => {
+    let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('household_ratings')
+      .select('rating, comment, created_at')
+      .gte('rating', 4)
+      .not('comment', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(8)
+      .then(({ data }: { data: { rating: number; comment: string | null; created_at: string }[] | null }) => {
+        if (cancelled || !data) return;
+        const real: Review[] = data
+          .filter(r => (r.comment ?? '').trim().length >= 8)
+          .map((r, i) => ({
+            text:     r.comment!.trim(),
+            name:     'VANO customer',
+            area:     relativeTime(r.created_at),
+            color:    REAL_COLORS[i % REAL_COLORS.length],
+            stars:    r.rating,
+            verified: true,
+          }));
+        if (real.length === 0) return;
+        setReviews(real.length >= 6 ? real : [...real, ...SEED_REVIEWS.slice(0, 8 - real.length)]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  return reviews;
+}
+
 function Avatar({ name, color }: { name: string; color: string }) {
   return (
     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${color}`}>
@@ -75,6 +137,22 @@ function Stars({ count }: { count: number }) {
   );
 }
 
+function Byline({ r }: { r: Review }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-semibold text-foreground leading-tight">{r.name} · {r.area}</p>
+      {r.verified ? (
+        <p className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium mt-0.5">
+          <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          Verified booking
+        </p>
+      ) : (
+        <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Galway customer</p>
+      )}
+    </div>
+  );
+}
+
 function ReviewCard({ r }: { r: Review }) {
   return (
     <article className="bg-white rounded-2xl shadow-tinted p-5 flex flex-col gap-4 border border-border/40 w-72 flex-shrink-0">
@@ -82,22 +160,16 @@ function ReviewCard({ r }: { r: Review }) {
       <p className="text-foreground/80 text-sm leading-relaxed flex-1">"{r.text}"</p>
       <div className="flex items-center gap-2.5 mt-auto">
         <Avatar name={r.name} color={r.color} />
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-foreground leading-tight">{r.name} · {r.area}</p>
-          <p className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium mt-0.5">
-            <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Verified booking
-          </p>
-        </div>
+        <Byline r={r} />
       </div>
     </article>
   );
 }
 
 // Infinite horizontal ticker
-function ReviewTicker() {
+function ReviewTicker({ reviews }: { reviews: Review[] }) {
   // Duplicate reviews so the loop looks seamless
-  const items = [...REVIEWS, ...REVIEWS];
+  const items = [...reviews, ...reviews];
 
   return (
     <div className="overflow-hidden" aria-hidden="true">
@@ -122,27 +194,28 @@ function ReviewTicker() {
 const INTERVAL = 4000;
 
 export const ReviewCarousel: React.FC = () => {
+  const reviews = useReviews();
   const [index, setIndex] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  function startTimer() {
-    timer.current = setInterval(() => {
-      setIndex(i => (i + 1) % REVIEWS.length);
-    }, INTERVAL);
-  }
-
+  // Restart the rotation whenever the list changes (real reviews arriving)
   useEffect(() => {
-    startTimer();
+    setIndex(0);
+    timer.current = setInterval(() => {
+      setIndex(i => (i + 1) % reviews.length);
+    }, INTERVAL);
     return () => { if (timer.current) clearInterval(timer.current); };
-  }, []);
+  }, [reviews]);
 
   function goTo(i: number) {
     if (timer.current) clearInterval(timer.current);
     setIndex(i);
-    startTimer();
+    timer.current = setInterval(() => {
+      setIndex(j => (j + 1) % reviews.length);
+    }, INTERVAL);
   }
 
-  const review = REVIEWS[index];
+  const review = reviews[index] ?? reviews[0];
 
   return (
     <section className="pt-16 pb-12 lg:pt-20 lg:pb-16 overflow-hidden">
@@ -153,7 +226,7 @@ export const ReviewCarousel: React.FC = () => {
 
       {/* Desktop: infinite scrolling ticker */}
       <div className="hidden lg:block px-4">
-        <ReviewTicker />
+        <ReviewTicker reviews={reviews} />
       </div>
 
       {/* Mobile: auto-rotating single card */}
@@ -172,20 +245,14 @@ export const ReviewCarousel: React.FC = () => {
               <p className="text-foreground/80 text-sm leading-relaxed">"{review.text}"</p>
               <div className="flex items-center gap-2.5">
                 <Avatar name={review.name} color={review.color} />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground leading-tight">{review.name} · {review.area}</p>
-                  <p className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium mt-0.5">
-                    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    Verified booking
-                  </p>
-                </div>
+                <Byline r={review} />
               </div>
             </motion.article>
           </AnimatePresence>
         </div>
 
         <div className="flex justify-center gap-2 mt-4">
-          {REVIEWS.map((_, i) => (
+          {reviews.map((_, i) => (
             <button
               key={i}
               onClick={() => goTo(i)}

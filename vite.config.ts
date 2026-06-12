@@ -69,12 +69,13 @@ export default defineConfig(({ mode }) => ({
         enabled: false,
       },
       manifest: {
-        name: "VANO - Local Gig Marketplace",
+        name: "VANO — Same-day home help",
         short_name: "VANO",
-        description: "Post a shift and get the work done! Connect with local students and freelancers in Galway.",
+        description: "Book a trusted local helper in minutes — shopping, cleaning, garden, dog walks, moving & more. Same-day across Ireland.",
         // Non-standard but harmless; primary update signal is the SW + precache hash
         version: pwaBuildVersion,
-        theme_color: "#3b82f6",
+        // Matches the navy <meta name="theme-color"> in index.html
+        theme_color: "#1a2340",
         background_color: "#f5f0e8",
         display: "standalone",
         orientation: "portrait",
