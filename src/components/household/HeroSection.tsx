@@ -128,9 +128,15 @@ export const HeroSection: React.FC = () => {
             transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             className="bg-cream rounded-3xl shadow-2xl p-5 lg:p-6"
           >
-            <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40 mb-4">
-              What do you need?
-            </p>
+            <div className="flex items-baseline justify-between gap-3 mb-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
+                What do you need?
+              </p>
+              {/* Surfaces the server's book-ahead discount before the sheet opens */}
+              <p className="text-[11px] font-semibold text-sage-dark whitespace-nowrap">
+                Book ahead · 10% off
+              </p>
+            </div>
             <CategoryGrid />
           </motion.div>
 

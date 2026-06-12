@@ -6,6 +6,7 @@ import { ActivityTicker } from '@/components/household/ActivityTicker';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
+import { FAQS } from '@/components/household/faqData';
 import { HomePlans } from '@/components/household/HomePlans';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
@@ -23,10 +24,19 @@ const HouseholdHome: React.FC = () => {
     // pure-white marketplace and reads warmer/more trustworthy for in-home services
     <div className="bg-cream">
       <SEOHead
-        title="Same-day home help in Galway & Ireland"
-        description="Book a trusted student helper in minutes. Grocery shopping, dog walking, garden, cleaning, moving help & more. Same-day service from €10. Available across Ireland."
-        keywords="home help Galway, student helpers Ireland, grocery shopping Galway, dog walking Galway, cleaning service Galway, same day help Ireland, household help Cork Dublin Limerick, VANO"
+        title="Same-day home help in Galway"
+        description="Book a trusted local student helper in minutes — cleaning, garden, dog walks, groceries, moving & more. Same-day in Galway, from €15."
+        keywords="home help Galway, cleaner Galway, dog walker Galway, garden help Galway, grocery delivery Galway, student helpers Galway, same day help Galway, VANO"
         url="https://vanojobs.com/"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: FAQS.map(f => ({
+            '@type': 'Question',
+            name: f.q,
+            acceptedAnswer: { '@type': 'Answer', text: f.a },
+          })),
+        }}
       />
       <HouseholdNav darkHero />
 

@@ -245,7 +245,7 @@ export const AutopilotBuilder: React.FC = () => {
               className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
             >
               <CreditCard size={17} />
-              {mode === 'ongoing' ? 'Set up my autopilot' : 'Cover my trip'} {selected.length > 0 && `· ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
+              {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'} {selected.length > 0 && `· ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
             </motion.button>
           ) : (
             <form onSubmit={handleCheckout} className="space-y-2">
@@ -278,6 +278,11 @@ export const AutopilotBuilder: React.FC = () => {
               {error && <p className="text-center text-[11px] text-destructive">{error}</p>}
             </form>
           )}
+
+          {/* Risk reversal — the same guarantee one-off bookings carry */}
+          <p className="mt-2.5 text-center text-[11px] text-muted-foreground">
+            Not happy after the first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
+          </p>
 
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}

@@ -477,18 +477,34 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
                     ? [...SUPPORTED_CITIES]
                     : [city, ...SUPPORTED_CITIES]
-                  ).map(c => (
-                    <motion.button
-                      key={c}
-                      type="button"
-                      onClick={() => setCity(c)}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(city === c)}
-                    >
-                      {c}
-                    </motion.button>
-                  ))}
+                  ).map(c => {
+                    // Galway-first: dispatch is live in Galway today. Other cities
+                    // read as "soon" — but a remembered or address-derived area
+                    // stays selectable so returning customers aren't locked out.
+                    const comingSoon = c !== 'Galway' && c !== city;
+                    if (comingSoon) {
+                      return (
+                        <span
+                          key={c}
+                          className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
+                        >
+                          {c} · soon
+                        </span>
+                      );
+                    }
+                    return (
+                      <motion.button
+                        key={c}
+                        type="button"
+                        onClick={() => setCity(c)}
+                        whileTap={{ scale: 0.92 }}
+                        transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                        className={chip(city === c)}
+                      >
+                        {c}
+                      </motion.button>
+                    );
+                  })}
                 </div>
               </div>
             )}
