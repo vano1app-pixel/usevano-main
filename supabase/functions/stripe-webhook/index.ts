@@ -355,22 +355,66 @@ function normalizeE164(raw: string | null | undefined): string | null {
   return null;
 }
 
+// --- Referral settlement (give €5, get €5) --------------------------------
+// Runs after a household booking payment lands, from the metadata that
+// notify-household-accepted stamped on the Stripe session:
+//   referral_welcome_id → the referee just paid their first booking, so the
+//                         referrer's €5 flips pending → earned (spendable).
+//   redeem_referral_id  → the referrer just spent an earned €5 on this
+//                         booking, so it flips earned → redeemed.
+// Both filters include the expected current status, making replays no-ops.
+// Always fire-and-forget: referral bookkeeping must never block payments.
+async function settleReferrals(
+  supabase: SupabaseClient,
+  session: StripeCheckoutSession,
+  bookingId: string,
+): Promise<void> {
+  try {
+    const nowIso = new Date().toISOString();
+    const welcomeId = session.metadata?.referral_welcome_id;
+    if (welcomeId) {
+      const { error: refErr } = await supabase
+        .from('household_referrals')
+        .update({ status: 'earned', earned_at: nowIso })
+        .eq('id', welcomeId)
+        .eq('status', 'pending');
+      if (refErr) console.warn('[stripe-webhook] referral earn flip failed', refErr);
+    }
+    const redeemId = session.metadata?.redeem_referral_id;
+    if (redeemId) {
+      const { error: redeemErr } = await supabase
+        .from('household_referrals')
+        .update({ status: 'redeemed', redeemed_at: nowIso, redeemed_booking_id: bookingId })
+        .eq('id', redeemId)
+        .eq('status', 'earned');
+      if (redeemErr) console.warn('[stripe-webhook] referral redeem flip failed', redeemErr);
+    }
+  } catch (e) {
+    console.warn('[stripe-webhook] referral bookkeeping error (non-fatal)', e);
+  }
+}
+
 // --- Handler: household checkout.session.completed -----------------------
-// Fires when a customer pays for a household booking. Flips the booking
-// from awaiting_payment → pending so it appears in the student job feed.
-// Also stamps the real Stripe PaymentIntent id (needed for capture).
-// Fire-and-forget confirmation email sent to the customer via Resend.
+// Two payment flows land here:
+//   1. Legacy pay-first: booking sits at awaiting_payment until the customer
+//      pays → flip to pending + dispatch. Kept so links created before the
+//      pay-after-accept rollout still work.
+//   2. Pay-after-accept (current): the booking is already live and accepted;
+//      the session was created by notify-household-accepted. Stamp paid_at +
+//      the real PaymentIntent id, email the customer a receipt, ping admin.
 async function handleHouseholdCheckoutCompleted(
   supabase: SupabaseClient,
   session: StripeCheckoutSession,
   bookingId: string,
 ): Promise<Response> {
   const customerEmail = session.customer_details?.email ?? null;
+  const nowIso = new Date().toISOString();
 
   const { data: flipped, error } = await supabase
     .from('household_bookings')
     .update({
       status: 'pending',
+      paid_at: nowIso,
       stripe_payment_intent_id: session.payment_intent ?? null,
       ...(customerEmail ? { customer_email: customerEmail } : {}),
     })
@@ -384,9 +428,7 @@ async function handleHouseholdCheckoutCompleted(
     return new Response('DB error', { status: 500 });
   }
   if (!flipped) {
-    return new Response(JSON.stringify({ received: true, replay: true }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return handleHouseholdPostAcceptPayment(supabase, session, bookingId, customerEmail, nowIso);
   }
 
   // Send confirmation email via Resend — fire and forget
@@ -536,37 +578,7 @@ async function handleHouseholdCheckoutCompleted(
     }
   })();
 
-  // Referral bookkeeping — fire and forget, never blocks payment handling.
-  //   referral_welcome_id → the referee just paid their first booking, so the
-  //                         referrer's €5 flips pending → earned (spendable).
-  //   redeem_referral_id  → the referrer just spent an earned €5 on this
-  //                         booking, so it flips earned → redeemed.
-  // Both filters include the expected current status, making replays no-ops.
-  const referralPromise = (async () => {
-    try {
-      const nowIso = new Date().toISOString();
-      const welcomeId = session.metadata?.referral_welcome_id;
-      if (welcomeId) {
-        const { error: refErr } = await supabase
-          .from('household_referrals')
-          .update({ status: 'earned', earned_at: nowIso })
-          .eq('id', welcomeId)
-          .eq('status', 'pending');
-        if (refErr) console.warn('[stripe-webhook] referral earn flip failed', refErr);
-      }
-      const redeemId = session.metadata?.redeem_referral_id;
-      if (redeemId) {
-        const { error: redeemErr } = await supabase
-          .from('household_referrals')
-          .update({ status: 'redeemed', redeemed_at: nowIso, redeemed_booking_id: bookingId })
-          .eq('id', redeemId)
-          .eq('status', 'earned');
-        if (redeemErr) console.warn('[stripe-webhook] referral redeem flip failed', redeemErr);
-      }
-    } catch (e) {
-      console.warn('[stripe-webhook] referral bookkeeping error (non-fatal)', e);
-    }
-  })();
+  const referralPromise = settleReferrals(supabase, session, bookingId);
 
   const runtime = (globalThis as unknown as {
     EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
@@ -580,6 +592,131 @@ async function handleHouseholdCheckoutCompleted(
 
   return new Response(
     JSON.stringify({ received: true, triggered: 'household_booking', state: 'pending' }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
+// --- Handler: household post-accept payment -------------------------------
+// Pay-after-accept flow: the booking was dispatched at creation, a helper
+// accepted, notify-household-accepted created the checkout session, and the
+// customer just paid it. Stamp paid_at (idempotent — replays no-op on the
+// is-null filter), store the real PaymentIntent id, confirm to customer,
+// ping admin. No dispatch — the job already has its helper.
+async function handleHouseholdPostAcceptPayment(
+  supabase: SupabaseClient,
+  session: StripeCheckoutSession,
+  bookingId: string,
+  customerEmail: string | null,
+  nowIso: string,
+): Promise<Response> {
+  const { data: paidRow, error } = await supabase
+    .from('household_bookings')
+    .update({
+      paid_at: nowIso,
+      stripe_payment_intent_id: session.payment_intent ?? null,
+      ...(customerEmail ? { customer_email: customerEmail } : {}),
+    })
+    .eq('id', bookingId)
+    .is('paid_at', null)
+    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents, status')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[stripe-webhook] post-accept payment stamp failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!paidRow) {
+    return new Response(JSON.stringify({ received: true, replay: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const b = paidRow as {
+    customer_name?: string; customer_email?: string; customer_phone?: string;
+    category?: string; scheduled_date?: string; city?: string; price_estimate_cents?: number;
+  };
+  const categoryLabels: Record<string, string> = {
+    shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+    moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
+    handyman: 'Handyman', plumbing: 'Plumbing help',
+    'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
+    'wait-delivery': 'Wait for delivery', other: 'General help',
+  };
+  const catLabel = categoryLabels[b.category ?? ''] ?? b.category ?? 'job';
+  const ref = bookingId.slice(-8).toUpperCase();
+  const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+  const trackUrl = `${siteUrl}/track/${bookingId}`;
+  const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+  const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+
+  const notifyPromise = (async () => {
+    const toEmail = b.customer_email;
+    if (resendKey && toEmail) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [toEmail],
+            subject: `Payment received — your ${catLabel} is locked in ✓`,
+            html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#4a7c59;padding:32px 32px 24px;">
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">Payment received ✓</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${b.customer_name ?? 'there'},</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> is fully confirmed — helper booked, payment sorted. Nothing more to do. You'll get a message (with a live map) when your helper is on the way.</p>
+    <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Track your booking →</a>
+    <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
+  </div>
+</div>
+</body></html>`,
+            text: `Hi ${b.customer_name ?? 'there'}, payment received — your ${catLabel} is fully confirmed. Track: ${trackUrl}. Ref: ${ref}`,
+          }),
+        });
+      } catch (e) {
+        console.warn('[stripe-webhook] post-accept customer email error', e);
+      }
+    }
+    if (resendKey) {
+      try {
+        const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim() || 'vano1app@gmail.com';
+        const priceStr = b.price_estimate_cents ? `€${(b.price_estimate_cents / 100).toFixed(2)}` : '?';
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [adminEmail],
+            subject: `💰 PAID — ${catLabel} in ${b.city ?? '?'} (${priceStr}) — ${ref}`,
+            text: [
+              `Customer paid after helper acceptance.`,
+              `Job: ${catLabel}`,
+              `Customer: ${b.customer_name ?? '—'} (${b.customer_phone ?? '—'})`,
+              `City: ${b.city ?? '—'}`,
+              `Job price: ${priceStr} (+ service fee paid on top)`,
+              `Ref: ${ref}`,
+            ].join('\n'),
+          }),
+        });
+      } catch (e) {
+        console.warn('[stripe-webhook] post-accept admin email error', e);
+      }
+    }
+  })();
+
+  const referralPromise = settleReferrals(supabase, session, bookingId);
+
+  const runtime = (globalThis as unknown as {
+    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(notifyPromise);
+    runtime.waitUntil(referralPromise);
+  }
+
+  return new Response(
+    JSON.stringify({ received: true, triggered: 'household_booking', state: 'paid_post_accept' }),
     { headers: { 'Content-Type': 'application/json' } },
   );
 }
@@ -640,7 +777,7 @@ async function handleChargeRefunded(
 }
 
 // --- Handler: helper subscription checkout completed ---------------------
-// Fires when a student pays the €2/month membership.
+// Fires when a student pays the monthly membership.
 // Flips their status from pending → approved so they immediately start
 // receiving job dispatches. No manual approval needed.
 async function handleHelperSubscriptionCompleted(

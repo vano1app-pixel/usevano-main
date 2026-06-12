@@ -96,7 +96,7 @@ export const HeroSection: React.FC = () => {
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="text-white/65 text-base lg:text-lg leading-relaxed mb-8 max-w-sm"
             >
-              Local students, booked by card in under a minute. No account. No back-and-forth. Money back if it's not right.
+              Local students, booked in under a minute. No account, no payment until a helper accepts. Money back if it's not right.
             </motion.p>
 
             {/* Trust badges — pill cards on dark */}

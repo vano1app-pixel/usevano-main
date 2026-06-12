@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ── Inlined CORS ──────────────────────────────────────────────────────────────
+// ── Inlined CORS ──────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
   'https://vanojobs.com', 'https://www.vanojobs.com',
   'http://localhost:5173', 'http://localhost:4173',
@@ -39,18 +39,24 @@ function isOriginAllowed(req: Request): boolean {
   if (!req.headers.get('Origin')) return true;
   return matchOrigin(req) !== null;
 }
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
 
 // Public (no-auth) entry point for the CategoryGrid quick-booking flow.
 // Validates inputs, prices the booking server-side (prevents client tampering),
-// inserts an anonymous household_bookings row, then opens a Stripe Checkout
-// session with automatic capture — charged immediately at checkout.
-
-function formEncode(obj: Record<string, string>): string {
-  return Object.entries(obj)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-}
+// inserts an anonymous household_bookings row as status='pending' and
+// dispatches it to helpers IMMEDIATELY — no upfront payment.
+//
+// Pay-after-accept: the customer is only asked to pay once a helper accepts
+// (notify-household-accepted creates the Stripe Checkout session and emails
+// the pay link). Paying for a named, confirmed person converts far better
+// than paying a form — every booking under the old pay-first flow abandoned
+// at checkout.
+//
+// Referral programme (give €5, get €5): an optional referral_code is
+// validated here and the discount is RESERVED on the booking
+// (booking_data.referral_* + a pending household_referrals row).
+// notify-household-accepted applies it to the Stripe session as a coupon,
+// and stripe-webhook flips the referral state when the payment lands.
 
 // Same normalization as get-referral-code / stripe-webhook — referral rows
 // are keyed on E.164 so "087 123 4567" and "+353871234567" are one customer.
@@ -111,18 +117,20 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       '1 hr · 2 dogs':   2000,
       '2 hrs · 1 dog':   2200,
       '2 hrs · 2+ dogs': 2800,
+      // CategoryGrid quick-book — must match the prices shown in the sheet
+      '30 min': 1500, '1 hour': 2000,
     };
-    // Legacy CategoryGrid fallback
-    if (!combined[sizeLabel]) return sizeLabel === '30 min' ? 1200 : 1600;
-    return combined[sizeLabel];
+    return combined[sizeLabel] ?? null;
   }
 
-  // Lawn mowing — garden size
+  // Garden / lawn mowing — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
   if (category === 'garden' || category === 'lawn-mowing') {
     const map: Record<string, number> = {
-      // legacy time-based (CategoryGrid)
-      '1 hour': 2000, '2 hours': 4000, 'Half day': 7200,
-      // new size-based
+      // time-based (CategoryGrid)
+      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
+      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      'Half day': 7200,
+      // size-based (TaskShowcase)
       'Small (terrace / apartment)': 2200,
       'Medium (semi-detached)':      3800,
       'Large (detached)':            6000,
@@ -131,12 +139,13 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
-  // Moving — job size
+  // Moving — hour labels must match the CategoryGrid sheet (€18/hr, '4+ hours' priced as 4h)
   if (category === 'moving' || category === 'moving-help') {
     const map: Record<string, number> = {
-      // legacy time-based
-      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000, '4+ hours': 8000,
-      // new job-size
+      // time-based (CategoryGrid)
+      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200, '4+ hours': 7200,
+      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // job-size (TaskShowcase)
       'A few boxes / items': 2500,
       'One room':            4000,
       '2–3 rooms':           7000,
@@ -145,12 +154,13 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
-  // Outdoor cleaning — area size
+  // Cleaning — hour labels must match the CategoryGrid sheet (€16/hr × 1–8h)
   if (category === 'cleaning' || category === 'outdoor-cleaning') {
     const map: Record<string, number> = {
-      // legacy time-based
-      '1 hour': 1800, '2 hours': 3600, '3 hours': 5400,
-      // new area-based
+      // time-based (CategoryGrid)
+      '1 hour': 1600,  '2 hours': 3200, '3 hours': 4800,  '4 hours': 6400,
+      '5 hours': 8000, '6 hours': 9600, '7 hours': 11200, '8 hours': 12800,
+      // area-based (TaskShowcase)
       'Small area':  2200,
       'Medium area': 3800,
       'Large area':  5500,
@@ -228,10 +238,13 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       'College / Uni':  3800,
     };
     const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
-    // Legacy flat rate fallback
+    // CategoryGrid quick-book sends plain hour labels — €15/hr × 1–8h, must match the sheet
     if (!rate[sizeLabel]) {
-      const legacyMap: Record<string, number> = { '1 hour': 2200, '2 hours': 4400, '3 hours': 6600 };
-      return legacyMap[sizeLabel] ?? null;
+      const hourMap: Record<string, number> = {
+        '1 hour': 1500,  '2 hours': 3000, '3 hours': 4500,  '4 hours': 6000,
+        '5 hours': 7500, '6 hours': 9000, '7 hours': 10500, '8 hours': 12000,
+      };
+      return hourMap[sizeLabel] ?? null;
     }
     const h = hrs[extraLabel];
     if (h === undefined) return null;
@@ -280,9 +293,6 @@ serve(async (req) => {
   if (req.method !== 'POST') return bad(405, 'Method not allowed');
 
   try {
-    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!STRIPE_SECRET_KEY) return bad(500, 'STRIPE_SECRET_KEY not configured');
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -309,17 +319,22 @@ serve(async (req) => {
     // Schedule and loyalty discounts don't apply to monthly Airbnb plans
     if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
 
-    const SERVICE_FEE_PCT  = 0.05; // 5% — raise this as platform grows
+    // 7.5% customer fee + 5% student-side cut = 12.5% total platform take
+    const SERVICE_FEE_PCT  = 0.075;
     const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 
     const supabase = createClient(supabaseUrl, serviceKey);
     let isLoyalty = false;
     if (!isMonthlyPlan) {
+      // Only PAID bookings count toward loyalty — bookings are now created
+      // before payment, so counting all non-cancelled rows would let spam
+      // bookings farm the every-3rd-booking discount.
       const { count: loyaltyCount } = await supabase
         .from('household_bookings')
         .select('id', { count: 'exact', head: true })
         .eq('customer_phone', customer_phone.trim())
-        .not('status', 'in', '(awaiting_payment,cancelled)');
+        .not('paid_at', 'is', null)
+        .neq('status', 'cancelled');
       const confirmedCount = loyaltyCount ?? 0;
       isLoyalty = (confirmedCount + 1) % 3 === 0;
       if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
@@ -329,10 +344,11 @@ serve(async (req) => {
     // Two mutually exclusive discounts, at most one per booking:
     //   welcome — first-ever booking arriving through a friend's ?ref link
     //   redeem  — referrer spending a credit a friend earned them
-    // Every step is best-effort: any error here zeroes the discount and the
-    // booking proceeds at full price. Helper pay is based on
-    // price_estimate_cents, which the discount NEVER touches — the €5 rides
-    // a Stripe coupon, funded by the platform.
+    // Validated here, reserved on the booking, applied to the Stripe session
+    // by notify-household-accepted. Every step is best-effort: any error
+    // zeroes the discount and the booking proceeds at full price. Helper pay
+    // is based on price_estimate_cents, which the discount NEVER touches —
+    // the €5 rides a Stripe coupon, funded by the platform.
     const normalizedPhone = normalizeE164(customer_phone);
     let referralWelcome: { code: string; referrerPhone: string } | null = null;
     let redeemRow: { id: string; credit_cents: number } | null = null;
@@ -348,17 +364,17 @@ serve(async (req) => {
             .maybeSingle();
           if (codeRow && (codeRow.phone as string) !== normalizedPhone) {
             const phoneForms = [...new Set([customer_phone.trim(), normalizedPhone])];
-            const { count: priorBookings } = await supabase
+            const { count: paidBookings } = await supabase
               .from('household_bookings')
               .select('id', { count: 'exact', head: true })
               .in('customer_phone', phoneForms)
-              .not('status', 'in', '(awaiting_payment,cancelled)');
+              .not('paid_at', 'is', null);
             const { data: priorReferral } = await supabase
               .from('household_referrals')
               .select('id')
               .eq('referee_phone', normalizedPhone)
               .maybeSingle();
-            if ((priorBookings ?? 0) === 0 && !priorReferral) {
+            if ((paidBookings ?? 0) === 0 && !priorReferral) {
               referralWelcome = { code: codeRow.code as string, referrerPhone: codeRow.phone as string };
             }
           }
@@ -383,7 +399,7 @@ serve(async (req) => {
 
     const baseTotalCents = priceCents + serviceFeeCents;
     let referralDiscountCents = referralWelcome ? 500 : redeemRow ? Math.min(redeemRow.credit_cents, 500) : 0;
-    // Keep the charged total at least €1 so we never trip Stripe's minimum,
+    // Keep the eventual charge at least €1 so we never trip Stripe's minimum,
     // and don't bother with sub-€1 discounts.
     referralDiscountCents = Math.min(referralDiscountCents, Math.max(0, baseTotalCents - 100));
     if (referralDiscountCents < 100) {
@@ -391,6 +407,25 @@ serve(async (req) => {
       referralWelcome = null;
       redeemRow = null;
     }
+
+    // booking_data is built once and (only for welcome referrals) updated in
+    // place after the referral row insert supplies its id.
+    const bookingData: Record<string, unknown> = {
+      when_label:    when_label || null,
+      size_label:    sl || null,
+      extra_label:   el || null,
+      scheduled:     isScheduled,
+      loyalty:       isLoyalty,
+      note:          typeof note === 'string' ? note.trim() : null,
+      source:        'task_showcase',
+      service_fee_cents: serviceFeeCents,
+      total_cents:       baseTotalCents,
+      ...(referralDiscountCents > 0 ? {
+        referral_discount_cents: referralDiscountCents,
+        referral_kind: referralWelcome ? 'welcome' : 'redeem',
+        ...(redeemRow ? { redeem_referral_id: redeemRow.id } : {}),
+      } : {}),
+    };
 
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
@@ -401,7 +436,7 @@ serve(async (req) => {
         time_slot: null,
         is_express: false,
         price_estimate_cents: priceCents,
-        status: 'awaiting_payment',
+        status: 'pending', // live immediately — payment is requested after a helper accepts
         customer_name: customer_name.trim(),
         // Prefer the dedicated address field (quick-book sheet sends it);
         // fall back to the legacy note-as-address behaviour.
@@ -415,23 +450,7 @@ serve(async (req) => {
         ...(typeof city === 'string' && city.trim() ? { city: city.trim() } : {}),
         customer_phone: customer_phone.trim(),
         ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
-        booking_data: {
-          when_label:    when_label || null,
-          size_label:    sl || null,
-          extra_label:   el || null,
-          scheduled:     isScheduled,
-          loyalty:       isLoyalty,
-          note:          typeof note === 'string' ? note.trim() : null,
-          source:        'task_showcase',
-          service_fee_cents: serviceFeeCents,
-          // What the customer is actually charged (after referral discount).
-          // price_estimate_cents stays the full job price for helper-side math.
-          total_cents:       baseTotalCents - referralDiscountCents,
-          ...(referralDiscountCents > 0 ? {
-            referral_discount_cents: referralDiscountCents,
-            referral_kind: referralWelcome ? 'welcome' : 'redeem',
-          } : {}),
-        },
+        booking_data: bookingData,
       })
       .select('id')
       .single();
@@ -446,136 +465,145 @@ serve(async (req) => {
       req.headers.get('origin') ||
       Deno.env.get('SITE_URL') ||
       'https://vanojobs.com';
+    const trackUrl = `${origin}/track/${bookingId}`;
+    const cityVal = typeof city === 'string' && city.trim() ? city.trim() : null;
 
-    // Materialize the referral: pending row for a welcome discount, then an
-    // ad-hoc Stripe coupon. If any step fails we roll the discount back to
-    // zero (and remove the pending row) rather than block the checkout.
-    let referralWelcomeId: string | null = null;
-    let couponId: string | null = null;
-    if (referralDiscountCents > 0) {
-      if (referralWelcome && normalizedPhone) {
-        try {
-          const { data: refRow, error: refErr } = await supabase
-            .from('household_referrals')
-            .insert({
-              code: referralWelcome.code,
-              referrer_phone: referralWelcome.referrerPhone,
-              referee_phone: normalizedPhone,
-              referee_booking_id: bookingId,
-              credit_cents: 500,
-              status: 'pending',
-            })
-            .select('id')
-            .single();
-          if (refErr) console.warn('[create-household-payment-checkout] referral row insert failed', refErr);
-          referralWelcomeId = (refRow?.id as string | undefined) ?? null;
-        } catch (e) {
-          console.warn('[create-household-payment-checkout] referral row insert threw', e);
-        }
-        if (!referralWelcomeId) referralDiscountCents = 0;
+    // Reserve the welcome referral now that the booking id exists. If this
+    // fails the discount is dropped from booking_data so the pay link stays
+    // honest — never block the booking itself.
+    if (referralWelcome && normalizedPhone && referralDiscountCents > 0) {
+      let welcomeId: string | null = null;
+      try {
+        const { data: refRow, error: refErr } = await supabase
+          .from('household_referrals')
+          .insert({
+            code: referralWelcome.code,
+            referrer_phone: referralWelcome.referrerPhone,
+            referee_phone: normalizedPhone,
+            referee_booking_id: bookingId,
+            credit_cents: 500,
+            status: 'pending',
+          })
+          .select('id')
+          .single();
+        if (refErr) console.warn('[create-household-payment-checkout] referral row insert failed', refErr);
+        welcomeId = (refRow?.id as string | undefined) ?? null;
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] referral row insert threw', e);
       }
-
-      if (referralDiscountCents > 0) {
-        try {
-          const couponResp = await fetch('https://api.stripe.com/v1/coupons', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: formEncode({
-              amount_off: String(referralDiscountCents),
-              currency: 'eur',
-              duration: 'once',
-              name: referralWelcome ? 'Friend discount' : 'Referral credit',
-            }),
-          });
-          if (couponResp.ok) {
-            couponId = ((await couponResp.json()) as { id: string }).id;
-          } else {
-            console.warn('[create-household-payment-checkout] coupon create failed', await couponResp.text());
-          }
-        } catch (e) {
-          console.warn('[create-household-payment-checkout] coupon create threw', e);
-        }
-        if (!couponId) {
+      try {
+        if (welcomeId) {
+          bookingData.referral_welcome_id = welcomeId;
+        } else {
           referralDiscountCents = 0;
-          if (referralWelcomeId) {
-            await supabase.from('household_referrals')
-              .delete()
-              .eq('id', referralWelcomeId)
-              .eq('status', 'pending');
-            referralWelcomeId = null;
-          }
+          delete bookingData.referral_discount_cents;
+          delete bookingData.referral_kind;
         }
+        await supabase
+          .from('household_bookings')
+          .update({ booking_data: bookingData })
+          .eq('id', bookingId);
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] booking_data referral stamp failed', e);
       }
     }
 
-    const checkoutParams: Record<string, string> = {
-      mode: 'payment',
-      'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': String(priceCents),
-      'line_items[0][price_data][product_data][name]': `VANO — ${CATEGORY_LABELS[cat]}`,
-      'line_items[0][price_data][product_data][description]': [
-        when_label || null,
-        sl || null,
-        el || null,
-        isScheduled ? 'Scheduled (10% off)' : null,
-        isLoyalty   ? '🎉 Loyalty reward (50% off)' : null,
-        city || null,
-      ].filter(Boolean).join(' · ') || 'Ireland',
-      'line_items[0][quantity]': '1',
-      ...(serviceFeeCents > 0 ? {
-        'line_items[1][price_data][currency]': 'eur',
-        'line_items[1][price_data][unit_amount]': String(serviceFeeCents),
-        'line_items[1][price_data][product_data][name]': 'VANO service fee',
-        'line_items[1][price_data][product_data][description]': 'Platform fee — keeps VANO running',
-        'line_items[1][quantity]': '1',
-      } : {}),
-      'payment_intent_data[capture_method]': 'automatic',
-      'payment_intent_data[metadata][household_booking_id]': bookingId,
-      'phone_number_collection[enabled]': 'true',
-      ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
-      success_url: `${origin}/track/${bookingId}?paid=true`,
-      cancel_url: `${origin}/`,
-      'metadata[household_booking_id]': bookingId,
-      ...(couponId ? { 'discounts[0][coupon]': couponId } : {}),
-      ...(referralWelcomeId ? { 'metadata[referral_welcome_id]': referralWelcomeId } : {}),
-      ...(redeemRow && referralDiscountCents > 0 ? { 'metadata[redeem_referral_id]': redeemRow.id } : {}),
-      client_reference_id: bookingId,
-    };
-
-    const stripeResp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formEncode(checkoutParams),
-    });
-
-    if (!stripeResp.ok) {
-      const text = await stripeResp.text();
-      console.error('[create-household-payment-checkout] stripe error', stripeResp.status, text);
-      if (referralWelcomeId) {
-        await supabase.from('household_referrals')
-          .delete()
-          .eq('id', referralWelcomeId)
-          .eq('status', 'pending');
+    // Dispatch to helpers right away — this is what makes the booking real.
+    // Awaited so a dispatch failure is at least logged before we respond.
+    try {
+      const dispatchResp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          record: {
+            id: bookingId, status: 'pending', city: cityVal,
+            category: cat, scheduled_date: when_label || 'flexible',
+            price_estimate_cents: priceCents,
+          },
+        }),
+      });
+      if (!dispatchResp.ok) {
+        console.error('[create-household-payment-checkout] dispatch non-2xx', dispatchResp.status, await dispatchResp.text().catch(() => ''));
       }
-      await supabase.from('household_bookings').delete().eq('id', bookingId);
-      return bad(502, 'Payment provider error. Please try again.');
+    } catch (e) {
+      console.error('[create-household-payment-checkout] dispatch call failed', e);
     }
 
-    const session = await stripeResp.json() as { id: string; url: string };
+    // Admin ping (WhatsApp + email) — used to fire from stripe-webhook on
+    // payment, but payment now happens after acceptance, so notify here.
+    const adminNotifyPromise = (async () => {
+      const priceStr = `€${((priceCents + serviceFeeCents) / 100).toFixed(2)}`;
+      const ref = bookingId.slice(-8).toUpperCase();
+      const catLabel = CATEGORY_LABELS[cat];
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'new_booking',
+            customer_name: customer_name.trim(),
+            customer_phone: customer_phone.trim(),
+            customer_email: typeof customer_email === 'string' ? customer_email.trim() : null,
+            category: cat,
+            scheduled_date: when_label || 'flexible',
+            city: cityVal,
+            price_euros: ((priceCents + serviceFeeCents) / 100).toFixed(2),
+            booking_id: bookingId,
+          }),
+        });
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] admin whatsapp error', e);
+      }
+      try {
+        const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+        const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim() || 'vano1app@gmail.com';
+        if (!resendKey) return;
+        const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: resendFrom,
+            to: [adminEmail],
+            subject: `🆕 New booking — ${catLabel} in ${cityVal ?? '?'} (${priceStr}, pay on accept)`,
+            text: [
+              'New booking (unpaid — customer pays once a helper accepts).',
+              `Job: ${catLabel}`,
+              `Customer: ${customer_name.trim()}`,
+              `Phone: ${customer_phone.trim()}`,
+              `City: ${cityVal ?? '—'}`,
+              `When: ${when_label || 'Flexible'}`,
+              `Total on accept: ${priceStr}`,
+              ...(referralDiscountCents > 0 ? [`Referral discount reserved: -€${(referralDiscountCents / 100).toFixed(2)}`] : []),
+              `Ref: ${ref}`,
+              `Track: ${trackUrl}`,
+            ].join('\n'),
+          }),
+        });
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] admin email error', e);
+      }
+    })();
 
-    await supabase
-      .from('household_bookings')
-      .update({ stripe_payment_intent_id: session.id })
-      .eq('id', bookingId);
+    const runtime = (globalThis as unknown as {
+      EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+    }).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(adminNotifyPromise);
+    else adminNotifyPromise.catch(() => {});
 
+    // checkout_url intentionally mirrors track_url: frontends built before
+    // pay-after-accept redirect to checkout_url, and the track page is the
+    // correct destination now.
     return new Response(
-      JSON.stringify({ booking_id: bookingId, checkout_url: session.url, price_cents: priceCents }),
+      JSON.stringify({
+        booking_id: bookingId,
+        track_url: trackUrl,
+        checkout_url: trackUrl,
+        price_cents: priceCents,
+        total_cents: priceCents + serviceFeeCents,
+        ...(referralDiscountCents > 0 ? { referral_discount_cents: referralDiscountCents } : {}),
+        pay_later: true,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { MessageCircle, CreditCard, Loader2, X, ChevronRight } from 'lucide-react';
+import { MessageCircle, Loader2, X, ChevronRight, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -320,7 +320,7 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
             {referralCode && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
                 <span aria-hidden="true">🎁</span>
-                €5 friend discount applies at checkout on your first booking
+                Your friend's €5 comes off your first booking when you pay
               </p>
             )}
 
@@ -333,8 +333,8 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
                   className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
                 >
                   {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Opening checkout…</>
-                    : <><CreditCard className="w-4 h-4" />Book {cat.label}{priceCents ? ` — ${fmt(priceCents)}` : ''}</>}
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                    : <><Zap className="w-4 h-4" />Book {cat.label}{priceCents ? ` — ${fmt(priceCents)}` : ''}</>}
                 </Button>
               </motion.div>
 
@@ -352,7 +352,7 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
 
             {error && <p className="text-center text-xs text-destructive">{error}</p>}
             <p className="text-center text-[11px] text-muted-foreground">
-              Stripe secure checkout · Apple Pay &amp; Google Pay · money back guarantee
+              No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
             </p>
           </form>
         </div>
