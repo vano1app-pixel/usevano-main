@@ -115,8 +115,10 @@ export const AutopilotBuilder: React.FC = () => {
   const waText = `Hi VANO! 👋 I'm setting up house autopilot (${selected.join(', ') || 'no services yet'}) and have a question.`;
 
   return (
-    <div className="max-w-md mx-auto">
-      <div className="rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden">
+    <div className="max-w-md lg:max-w-4xl mx-auto">
+      <div className="rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden lg:grid lg:grid-cols-[1fr,340px]">
+        {/* Left column — configure: pick mode, tick the jobs, set the dates */}
+        <div className="lg:border-r lg:border-border/50">
         {/* Mode toggle — the only decision above the ticks */}
         <div className="p-1.5 m-4 mb-0 rounded-full bg-secondary/80 flex">
           {([['ongoing', '🏠 Ongoing · monthly'], ['away', "✈️ While I'm away"]] as [Mode, string][]).map(([m, label]) => (
@@ -201,8 +203,11 @@ export const AutopilotBuilder: React.FC = () => {
           )}
         </div>
 
-        {/* Total + CTA */}
-        <div className="border-t border-border/50 bg-secondary/30 p-4">
+        </div>
+
+        {/* Right column — summary + checkout. On desktop it sits beside the
+            ticks so the running price stays on screen, no scrolling. */}
+        <div className="border-t lg:border-t-0 border-border/50 bg-secondary/30 p-4 lg:p-5 lg:flex lg:flex-col lg:justify-center">
           <AnimatePresence>
             {bundled && (
               <motion.p
@@ -222,7 +227,7 @@ export const AutopilotBuilder: React.FC = () => {
                   ? 'Nothing ticked yet'
                   : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'away' ? ` · ${weeks}wk` : ''}`}
               </p>
-              <p className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+              <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
                 {selected.length === 0 ? '—' : euro(totalCents)}
                 {selected.length > 0 && (
                   <span className="text-sm font-semibold text-muted-foreground">
