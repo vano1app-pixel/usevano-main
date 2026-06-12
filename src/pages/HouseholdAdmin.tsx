@@ -161,7 +161,10 @@ export default function HouseholdAdmin() {
         .update({ status: 'approved', is_available: true })
         .eq('id', helperId);
       if (error) throw error;
-      toast({ title: 'Helper approved' });
+      // Tell the helper they're in (email + WhatsApp) — approval used to be
+      // a silent DB flip and approved helpers never knew to go available
+      void supabase.functions.invoke('notify-helper-approved', { body: { helper_id: helperId } });
+      toast({ title: 'Helper approved', description: 'They have been notified by email.' });
       setHelpers((prev) => prev.map((hh) => hh.id === helperId ? { ...hh, status: 'approved', is_available: true } : hh));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

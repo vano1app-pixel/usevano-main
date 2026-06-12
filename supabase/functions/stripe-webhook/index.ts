@@ -1061,6 +1061,21 @@ async function handleHelperSubscriptionCompleted(
     }).catch((e) => console.warn('[stripe-webhook] helper welcome email failed', e));
   }
 
+  // Ping the admin — a paid membership means a new live helper, and that
+  // used to happen completely silently.
+  fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-admin-whatsapp`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'helper_membership_paid',
+      helper_name: (flipped as { name?: string } | null)?.name ?? null,
+      helper_email: helperEmail,
+    }),
+  }).catch(() => {/* non-critical */});
+
   return new Response(
     JSON.stringify({ received: true, triggered: 'helper_approved' }),
     { headers: { 'Content-Type': 'application/json' } },
