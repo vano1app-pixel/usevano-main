@@ -15,8 +15,9 @@ import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 
 /**
  * Two sections sell: the hero (book one job now) and House Autopilot
- * (never think about it again). Everything after exists purely for
- * trust — reviews, real helpers, FAQ, booking lookup.
+ * (never think about it again). Reviews and real helper faces sit
+ * between them, so the bigger monthly ask only comes once trust is
+ * built; FAQ and booking lookup follow.
  */
 const HouseholdHome: React.FC = () => {
   return (
@@ -43,10 +44,13 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
-        {/* Flagship offer — straight after the hero, nothing in between */}
-        <HomePlans />
+        {/* Trust first — social proof and real helper faces — so the bigger
+            monthly ask below only comes once the visitor believes us */}
         <ReviewCarousel />
         <HelperCards />
+        {/* Flagship offer lands after trust; the navy band also anchors the
+            middle of the page between the cream sections */}
+        <HomePlans />
         <FAQSection />
         <FindBookingBar />
         {/* Self-hides unless this device has booked before (needs the phone) */}

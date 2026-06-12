@@ -31,7 +31,7 @@ export const HomePlans: React.FC = () => {
 
   return (
     <section id="plans" className="relative bg-navy px-4 py-14">
-      <div className="relative max-w-5xl mx-auto">
+      <div className="relative max-w-4xl mx-auto">
 
         {planSuccess && (
           <div className="mb-8 rounded-2xl border border-sage/40 bg-sage/15 px-5 py-4 flex items-start gap-3">

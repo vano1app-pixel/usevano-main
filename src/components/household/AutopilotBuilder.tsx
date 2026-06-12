@@ -80,6 +80,11 @@ export const AutopilotBuilder: React.FC = () => {
   const bundled = selected.length >= BUNDLE_MIN;
   // Same rounding as the server so the displayed figure matches checkout
   const totalCents = Math.round((bundled ? baseCents * 0.9 : baseCents) / 50) * 50;
+  // Soften the monthly sticker: visits are weekly, so show the weekly and
+  // daily equivalent of whatever's ticked. Rounded to whole euros — the
+  // "≈"/"about" copy covers the rounding.
+  const perWeekCents = Math.round((totalCents * 12) / 52 / 100) * 100;
+  const perDayCents = Math.round((totalCents * 12) / 365 / 100) * 100;
 
   function toggle(key: string) {
     setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
@@ -115,8 +120,10 @@ export const AutopilotBuilder: React.FC = () => {
   const waText = `Hi VANO! 👋 I'm setting up house autopilot (${selected.join(', ') || 'no services yet'}) and have a question.`;
 
   return (
-    <div className="max-w-md mx-auto">
-      <div className="rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden">
+    <div className="max-w-md lg:max-w-4xl mx-auto">
+      <div className="rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden lg:grid lg:grid-cols-[1fr,340px]">
+        {/* Left column — configure: pick mode, tick the jobs, set the dates */}
+        <div className="lg:border-r lg:border-border/50">
         {/* Mode toggle — the only decision above the ticks */}
         <div className="p-1.5 m-4 mb-0 rounded-full bg-secondary/80 flex">
           {([['ongoing', '🏠 Ongoing · monthly'], ['away', "✈️ While I'm away"]] as [Mode, string][]).map(([m, label]) => (
@@ -201,8 +208,11 @@ export const AutopilotBuilder: React.FC = () => {
           )}
         </div>
 
-        {/* Total + CTA */}
-        <div className="border-t border-border/50 bg-secondary/30 p-4">
+        </div>
+
+        {/* Right column — summary + checkout. On desktop it sits beside the
+            ticks so the running price stays on screen, no scrolling. */}
+        <div className="border-t lg:border-t-0 border-border/50 bg-secondary/30 p-4 lg:p-5 lg:flex lg:flex-col lg:justify-center">
           <AnimatePresence>
             {bundled && (
               <motion.p
@@ -222,7 +232,7 @@ export const AutopilotBuilder: React.FC = () => {
                   ? 'Nothing ticked yet'
                   : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'away' ? ` · ${weeks}wk` : ''}`}
               </p>
-              <p className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+              <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
                 {selected.length === 0 ? '—' : euro(totalCents)}
                 {selected.length > 0 && (
                   <span className="text-sm font-semibold text-muted-foreground">
@@ -230,6 +240,11 @@ export const AutopilotBuilder: React.FC = () => {
                   </span>
                 )}
               </p>
+              {mode === 'ongoing' && selected.length > 0 && (
+                <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">
+                  ≈ {euro(perWeekCents)}/week · about {euro(perDayCents)}/day
+                </p>
+              )}
             </div>
             <p className="text-[10px] text-muted-foreground text-right leading-relaxed pb-1">
               Same trusted helper<br />Pause or cancel anytime
@@ -283,6 +298,18 @@ export const AutopilotBuilder: React.FC = () => {
           <p className="mt-2.5 text-center text-[11px] text-muted-foreground">
             Not happy after the first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
           </p>
+
+          {/* Lower-commitment off-ramp — a monthly plan is a big first ask, so
+              send hesitant visitors back to the one-off booking in the hero */}
+          {!open && (
+            <a
+              href="#book"
+              className="mt-2.5 flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Not ready for a plan?{' '}
+              <span className="font-semibold text-foreground/70 underline underline-offset-2">Book a single visit →</span>
+            </a>
+          )}
 
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
