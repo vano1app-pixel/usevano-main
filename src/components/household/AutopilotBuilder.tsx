@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Loader2, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
+import { Check, Loader2, CreditCard, MessageCircle, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { loadBookingMemory } from '@/lib/bookingMemory';
+import { BottomSheet } from '@/components/household/BottomSheet';
 
 /**
  * "Put your house on autopilot" — Airbnb-style builder and the site's
@@ -210,8 +211,8 @@ export const AutopilotBuilder: React.FC = () => {
 
         </div>
 
-        {/* Right column — summary + checkout. On desktop it sits beside the
-            ticks so the running price stays on screen, no scrolling. */}
+        {/* Right column — running total + CTA. Checkout itself slides up in a
+            sheet (below), so this panel stays calm and the price always shows. */}
         <div className="border-t lg:border-t-0 border-border/50 bg-secondary/30 p-4 lg:p-5 lg:flex lg:flex-col lg:justify-center">
           <AnimatePresence>
             {bundled && (
@@ -225,102 +226,144 @@ export const AutopilotBuilder: React.FC = () => {
               </motion.p>
             )}
           </AnimatePresence>
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className="text-[11px] text-muted-foreground">
-                {selected.length === 0
-                  ? 'Nothing ticked yet'
-                  : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'away' ? ` · ${weeks}wk` : ''}`}
-              </p>
-              <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
-                {selected.length === 0 ? '—' : euro(totalCents)}
-                {selected.length > 0 && (
-                  <span className="text-sm font-semibold text-muted-foreground">
-                    {mode === 'ongoing' ? '/mo' : ' total'}
-                  </span>
-                )}
-              </p>
-              {mode === 'ongoing' && selected.length > 0 && (
-                <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">
-                  ≈ {euro(perWeekCents)}/week · about {euro(perDayCents)}/day
-                </p>
-              )}
-            </div>
-            <p className="text-[10px] text-muted-foreground text-right leading-relaxed pb-1">
-              Same trusted helper<br />Pause or cancel anytime
+
+          <div className="mb-4">
+            <p className="text-[11px] text-muted-foreground">
+              {selected.length === 0
+                ? 'Nothing ticked yet'
+                : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'ongoing' ? ' · billed monthly' : ` · ${weeks}wk`}`}
             </p>
+            <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
+              {selected.length === 0 ? '—' : euro(totalCents)}
+              {selected.length > 0 && (
+                <span className="text-sm font-semibold text-muted-foreground">
+                  {mode === 'ongoing' ? '/mo' : ' total'}
+                </span>
+              )}
+            </p>
+            {/* Value frame — the same monthly price expressed per day/week, so it
+                reads small beside a big figure. Honest: it's billed monthly (the
+                figure above); this is just that price divided out, prefixed "≈". */}
+            {mode === 'ongoing' && selected.length > 0 && (
+              <p className="mt-1.5 text-[12px] font-semibold text-sage-dark tabular-nums">
+                ≈ {euro(perDayCents)}/day · {euro(perWeekCents)}/week
+              </p>
+            )}
           </div>
 
-          {!open ? (
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setOpen(true)}
-              disabled={selected.length === 0}
-              className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
-            >
-              <CreditCard size={17} />
-              {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'} {selected.length > 0 && `· ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
-            </motion.button>
-          ) : (
-            <form onSubmit={handleCheckout} className="space-y-2">
-              <input
-                type="text" value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="Your name" required autoFocus
-                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Phone number" required
-                  className="flex-1 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <input
-                  type="text" value={city} onChange={(e) => setCity(e.target.value)}
-                  placeholder="Area (e.g. Galway)"
-                  className="flex-1 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading || !name.trim() || !phone.trim()}
-                className="w-full py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading
-                  ? <><Loader2 size={16} className="animate-spin" />Opening secure checkout…</>
-                  : <><CreditCard size={16} />Pay {euro(totalCents)}{mode === 'ongoing' ? '/mo' : ''} — card · Apple Pay · Google Pay</>}
-              </button>
-              {error && <p className="text-center text-[11px] text-destructive">{error}</p>}
-            </form>
-          )}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setOpen(true)}
+            disabled={selected.length === 0}
+            className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
+          >
+            <CreditCard size={17} />
+            {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && ` · ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
+          </motion.button>
 
-          {/* Risk reversal — the same guarantee one-off bookings carry */}
-          <p className="mt-2.5 text-center text-[11px] text-muted-foreground">
-            Not happy after the first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
+          {/* Risk reversal — visible before they commit */}
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+            Not happy after your first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
           </p>
 
           {/* Lower-commitment off-ramp — a monthly plan is a big first ask, so
               send hesitant visitors back to the one-off booking in the hero */}
-          {!open && (
-            <a
-              href="#book"
-              className="mt-2.5 flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Not ready for a plan?{' '}
-              <span className="font-semibold text-foreground/70 underline underline-offset-2">Book a single visit →</span>
-            </a>
-          )}
-
           <a
-            href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            href="#book"
+            className="mt-2 flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            <MessageCircle size={11} /> Questions first? WhatsApp us
+            Not ready for a plan?{' '}
+            <span className="font-semibold text-foreground/70 underline underline-offset-2">Book a single visit →</span>
           </a>
         </div>
       </div>
+
+      {/* Checkout slides up from the bottom — keeps the builder uncluttered and
+          puts the short form on its own focused screen (fits one mobile view). */}
+      <AnimatePresence>
+        {open && (
+          <BottomSheet onClose={() => { if (!loading) setOpen(false); }} label="Start your autopilot">
+            <div className="px-5 pb-7 pt-1">
+              {/* Header — what you're starting + the price, so context carries in */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="min-w-0">
+                  <h3
+                    className="text-xl font-bold text-foreground"
+                    style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}
+                  >
+                    {mode === 'ongoing' ? 'Start your autopilot' : 'Cover your trip'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {selected.length} service{selected.length > 1 ? 's' : ''} ·{' '}
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {euro(totalCents)}{mode === 'ongoing' ? '/mo' : ' total'}
+                    </span>
+                    {mode === 'ongoing' && selected.length > 0 && (
+                      <span className="tabular-nums"> · ≈ {euro(perDayCents)}/day</span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { if (!loading) setOpen(false); }}
+                  className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center hover:bg-foreground/12 transition-colors flex-shrink-0 mt-0.5"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4 text-foreground/60" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCheckout} className="space-y-3">
+                <input
+                  type="text" value={name} onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name" required autoFocus
+                  className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone number" required
+                    className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                  />
+                  <input
+                    type="text" value={city} onChange={(e) => setCity(e.target.value)}
+                    placeholder="Area"
+                    className="w-28 flex-shrink-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                  />
+                </div>
+
+                <motion.button
+                  type="submit"
+                  whileTap={{ scale: 0.97 }}
+                  disabled={loading || !name.trim() || !phone.trim()}
+                  className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
+                >
+                  {loading
+                    ? <><Loader2 size={16} className="animate-spin" /> Opening secure checkout…</>
+                    : <><CreditCard size={16} /> Pay {euro(totalCents)}{mode === 'ongoing' ? '/mo' : ''}</>}
+                </motion.button>
+
+                {error && <p className="text-center text-[12px] text-destructive">{error}</p>}
+
+                <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
+                  Secure Stripe checkout · card, Apple Pay or Google Pay · cancel anytime
+                </p>
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Not happy after your first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
+                </p>
+                <a
+                  href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 pt-0.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <MessageCircle size={12} className="text-[#25D366]" /> Questions first? WhatsApp us
+                </a>
+              </form>
+            </div>
+          </BottomSheet>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
