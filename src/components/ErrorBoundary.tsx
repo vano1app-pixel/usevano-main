@@ -105,12 +105,6 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
-  goTo = (path: string) => {
-    // Reset state before navigating so the user doesn't stay stuck in the boundary.
-    this.setState({ hasError: false, message: '', transient: false, staleChunk: false });
-    window.location.href = path;
-  };
-
   render() {
     // Transient errors: render children normally on the recovery tick — the
     // crashed commit has been replaced by whichever DOM mutator won.
@@ -140,24 +134,6 @@ export class ErrorBoundary extends Component<Props, State> {
               className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
             >
               Back to home
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-            <span className="text-muted-foreground">or</span>
-            <button
-              type="button"
-              onClick={() => this.goTo('/students')}
-              className="rounded-lg px-3 py-1.5 font-medium text-primary hover:bg-primary/5"
-            >
-              Browse freelancers
-            </button>
-            <span className="text-muted-foreground/50">·</span>
-            <button
-              type="button"
-              onClick={() => this.goTo('/hire')}
-              className="rounded-lg px-3 py-1.5 font-medium text-primary hover:bg-primary/5"
-            >
-              Hire someone
             </button>
           </div>
         </div>

@@ -24,7 +24,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { isEmailVerified, resolvePostGoogleAuthDestination } from '@/lib/authSession';
 import { ensureProfileAfterAuth } from '@/lib/googleOAuth';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
-import { hasPendingHireBrief } from '@/lib/hireFlow';
 
 const MAGIC_LINK_PENDING_KEY = 'vano_magiclink_pending';
 const MAGIC_LINK_USER_TYPE_KEY = 'vano_magiclink_user_type';
@@ -129,8 +128,7 @@ export function hasMagicLinkPending(): boolean {
 }
 
 /**
- * Mirrors tryFinishGoogleOAuthRedirect but for magic-link. Runs on Landing
- * mount (alongside the Google variant). Returns a status object so callers
+ * Runs on Landing mount after a magic-link click. Returns a status object so callers
  * can surface a real toast if the finish step fails — the old boolean return
  * meant a thrown profile-setup error became an indistinguishable "nothing
  * happened", which the user experienced as "I can't log in".
@@ -155,12 +153,6 @@ export async function tryFinishMagicLinkRedirect(
     await ensureProfileAfterAuth(session, userType);
     clearMagicLinkIntent();
 
-    // Same post-auth routing as Google: if a hire brief is queued, resume
-    // that flow; otherwise send them to their natural landing page.
-    if (hasPendingHireBrief()) {
-      navigate('/hire', { replace: true });
-      return { status: 'routed' };
-    }
     const path = await resolvePostGoogleAuthDestination(session.user.id);
     navigate(path, { replace: true });
     return { status: 'routed' };
