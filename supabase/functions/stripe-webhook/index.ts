@@ -593,6 +593,27 @@ async function handlePlanSubscriptionDeleted(
   );
 }
 
+// Quick-book bookings carry customer_name='Guest' until payment, because the
+// name was always meant to come from Stripe — backfill it the moment the
+// checkout session tells us. Write-once: only replaces the 'Guest' literal.
+async function backfillGuestName(
+  supabase: SupabaseClient,
+  session: StripeCheckoutSession,
+  bookingId: string,
+): Promise<void> {
+  try {
+    const name = session.customer_details?.name?.trim();
+    if (!name || name.length < 2) return;
+    await supabase
+      .from('household_bookings')
+      .update({ customer_name: name.slice(0, 120) })
+      .eq('id', bookingId)
+      .eq('customer_name', 'Guest');
+  } catch (e) {
+    console.warn('[stripe-webhook] guest name backfill failed (non-fatal)', e);
+  }
+}
+
 // --- Handler: household checkout.session.completed -----------------------
 // Two payment flows land here:
 //   1. Legacy pay-first: booking sits at awaiting_payment until the customer
@@ -622,6 +643,11 @@ async function handleHouseholdCheckoutCompleted(
     .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents')
     .maybeSingle();
 
+  // Quick-book stores customer_name='Guest' (pay-after-accept means Stripe
+  // never named them at booking time). The card just told us who they are —
+  // backfill so helpers, chat and emails show a real name. Best-effort.
+  await backfillGuestName(supabase, session, bookingId);
+
   if (error) {
     console.error('[stripe-webhook] household booking flip failed', error);
     return new Response('DB error', { status: 500 });
@@ -640,7 +666,8 @@ async function handleHouseholdCheckoutCompleted(
       const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
       const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
       const trackUrl = `${siteUrl}/track/${bookingId}`;
-      const name = (flipped as { customer_name?: string }).customer_name || 'there';
+      const rawName = (flipped as { customer_name?: string }).customer_name;
+      const name = rawName && rawName !== 'Guest' ? rawName : 'there';
       const category = (flipped as { category?: string }).category || 'your job';
       const when = (flipped as { scheduled_date?: string }).scheduled_date || '';
 
@@ -820,6 +847,8 @@ async function handleHouseholdPostAcceptPayment(
     .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents, status')
     .maybeSingle();
 
+  await backfillGuestName(supabase, session, bookingId);
+
   if (error) {
     console.error('[stripe-webhook] post-accept payment stamp failed', error);
     return new Response('DB error', { status: 500 });
@@ -864,14 +893,14 @@ async function handleHouseholdPostAcceptPayment(
     <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">Payment received ✓</p>
   </div>
   <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${b.customer_name ?? 'there'},</p>
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there'},</p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> is fully confirmed — helper booked, payment sorted. Nothing more to do. You'll get a message (with a live map) when your helper is on the way.</p>
     <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Track your booking →</a>
     <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${b.customer_name ?? 'there'}, payment received — your ${catLabel} is fully confirmed. Track: ${trackUrl}. Ref: ${ref}`,
+            text: `Hi ${b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there'}, payment received — your ${catLabel} is fully confirmed. Track: ${trackUrl}. Ref: ${ref}`,
           }),
         });
       } catch (e) {

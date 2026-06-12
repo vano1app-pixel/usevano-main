@@ -321,7 +321,8 @@ serve(async (req) => {
     const siteUrl    = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
     const trackUrl   = `${siteUrl}/track/${booking_id}`;
     const catLabel   = CATEGORY_LABELS[booking.category as string] ?? String(booking.category);
-    const custName   = String(booking.customer_name || 'there');
+    const rawCustName = String(booking.customer_name || '');
+    const custName   = rawCustName && rawCustName !== 'Guest' ? rawCustName : 'there';
     const ref        = booking_id.slice(-8).toUpperCase();
 
     const dateStr = booking.scheduled_date === 'today' ? 'today'
