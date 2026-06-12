@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from 'react';
 import { captureException } from '@/lib/observability';
 import { isChunkLoadError } from '@/lib/lazyWithRetry';
+import { reloadToLatest } from '@/lib/reloadToLatest';
 
 interface Props {
   children: ReactNode;
@@ -101,8 +102,10 @@ export class ErrorBoundary extends Component<Props, State> {
   handleReload = () => {
     // Most catastrophic-fallback errors (stale chunk after a deploy,
     // wedged provider state, transient SDK init failure) clear on a
-    // fresh page load. Offer it as the primary recovery path.
-    window.location.reload();
+    // fresh page load — but only if that load actually fetches the new
+    // deploy. Promote the waiting service worker (or drop a wedged one)
+    // before reloading so the old precache can't re-serve this crash.
+    void reloadToLatest();
   };
 
   render() {

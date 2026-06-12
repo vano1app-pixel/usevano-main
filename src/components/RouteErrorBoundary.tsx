@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from 'react';
 import { captureException } from '@/lib/observability';
 import { isChunkLoadError } from '@/lib/lazyWithRetry';
+import { reloadToLatest } from '@/lib/reloadToLatest';
 
 // Mirrors ErrorBoundary.tsx's transient list. These are DOM reconciliation
 // races that surface on fast route changes (framer-motion reaching into a
@@ -89,10 +90,11 @@ export class RouteErrorBoundary extends Component<Props, State> {
   }
 
   handleReload = () => {
-    // Hard reload: most page-level crashes are caused by a stale
-    // chunk (post-deploy) or a bad SDK state, both of which fix
-    // themselves on a fresh JS download.
-    window.location.reload();
+    // Most page-level crashes are a stale chunk (post-deploy) or bad SDK
+    // state. A bare location.reload() isn't enough for the stale case —
+    // the old service worker re-serves the old shell and the user lands
+    // straight back on this card. Promote/clear the SW first.
+    void reloadToLatest();
   };
 
   render() {
