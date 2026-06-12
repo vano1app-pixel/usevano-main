@@ -1,4 +1,5 @@
 import { lazy, type ComponentType } from 'react';
+import { reloadToLatest } from '@/lib/reloadToLatest';
 
 /**
  * Wrapper around React.lazy() that auto-recovers from stale chunk URLs.
@@ -77,7 +78,10 @@ export function lazyWithRetry<T extends ComponentType<unknown>>(
       } catch {
         throw err;
       }
-      window.location.reload();
+      // Promote the waiting service worker before reloading — a plain
+      // reload lets the OLD service worker serve the OLD precached shell
+      // again, which re-fails the same import and burns the loop guard.
+      void reloadToLatest();
       // The reload races React's render — return a thenable that
       // resolves only when the page actually unloads. (Throwing here
       // would surface the error boundary before the reload completes.)
