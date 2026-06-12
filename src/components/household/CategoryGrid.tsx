@@ -9,6 +9,7 @@ import { teamWhatsAppHref } from '@/lib/contact';
 import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
+import { deriveArea } from '@/lib/areaFromAddress';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -184,13 +185,15 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
       : null,
   );
   const [city,     setCity]    = useState<string>(remembered?.city ?? 'Galway');
+  // True once the area came from the address geocoder — hides the manual chips
+  const [cityAuto, setCityAuto] = useState(false);
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
 
   function forgetMe() {
     clearBookingMemory();
-    setPhone(''); setAddress(''); setCoords(null); setCity('Galway');
+    setPhone(''); setAddress(''); setCoords(null); setCity('Galway'); setCityAuto(false);
     setPrefilled(false);
   }
 
@@ -431,7 +434,13 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 value={address}
                 coords={coords}
                 error={false}
-                onAddress={(addr, lat, lng) => { setAddress(addr); setCoords({ lat, lng }); }}
+                onAddress={(addr, lat, lng, locality) => {
+                  setAddress(addr);
+                  setCoords({ lat, lng });
+                  // Eircode/address already knows the area — don't make them pick
+                  const area = deriveArea(locality, { lat, lng });
+                  if (area) { setCity(area); setCityAuto(true); }
+                }}
                 onTextChange={(t) => { setAddress(t); setCoords(null); }}
                 onBlur={() => {}}
                 placeholder="Address or Eircode…"
@@ -440,24 +449,43 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </div>
 
-            {/* City chips */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your city</p>
-              <div className="flex flex-wrap gap-2">
-                {SUPPORTED_CITIES.map(c => (
-                  <motion.button
-                    key={c}
-                    type="button"
-                    onClick={() => setCity(c)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(city === c)}
-                  >
-                    {c}
-                  </motion.button>
-                ))}
+            {/* Area — auto-detected from the address; chips only as fallback */}
+            {cityAuto ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+                <p className="text-sm text-foreground/75 min-w-0 truncate">
+                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
+                  <span className="text-muted-foreground text-xs"> · from your address</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCityAuto(false)}
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                >
+                  Change
+                </button>
               </div>
-            </div>
+            ) : (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
+                <div className="flex flex-wrap gap-2">
+                  {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
+                    ? [...SUPPORTED_CITIES]
+                    : [city, ...SUPPORTED_CITIES]
+                  ).map(c => (
+                    <motion.button
+                      key={c}
+                      type="button"
+                      onClick={() => setCity(c)}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                      className={chip(city === c)}
+                    >
+                      {c}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Price summary + CTA */}
             <div className="space-y-2.5 pt-1">

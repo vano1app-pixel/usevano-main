@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { AddressPicker } from '@/components/household/AddressPicker';
+import { deriveArea, type AddressLocality } from '@/lib/areaFromAddress';
 
 const errorAnim = {
   initial: { opacity: 0, y: -4, height: 0 },
@@ -101,8 +102,13 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
   };
   const hasErrors = errors.name || errors.address || errors.phone || errors.city;
 
-  function handleAddress(address: string, lat: number, lng: number) {
-    onChange({ customerAddress: address, customerLat: lat, customerLng: lng });
+  function handleAddress(address: string, lat: number, lng: number, locality?: AddressLocality) {
+    // The Eircode/address already knows the area — fill the city for them
+    const area = deriveArea(locality, { lat, lng });
+    onChange({
+      customerAddress: address, customerLat: lat, customerLng: lng,
+      ...(area ? { customerCity: area } : {}),
+    });
     setCoords({ lat, lng });
   }
 
@@ -245,7 +251,12 @@ export const ConfirmStep: React.FC<StepProps> = ({ data, onChange }) => {
               <SelectValue placeholder="Select your city" />
             </SelectTrigger>
             <SelectContent>
-              {SUPPORTED_CITIES.map((c) => (
+              {/* A derived area (e.g. Sligo) may sit outside the core list —
+                  include it so the Select can display the auto-filled value */}
+              {(data.customerCity && !(SUPPORTED_CITIES as readonly string[]).includes(data.customerCity)
+                ? [data.customerCity, ...SUPPORTED_CITIES]
+                : [...SUPPORTED_CITIES]
+              ).map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
             </SelectContent>
