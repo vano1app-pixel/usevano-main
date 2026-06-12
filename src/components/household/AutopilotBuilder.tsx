@@ -320,17 +320,28 @@ export const AutopilotBuilder: React.FC = () => {
                   placeholder="Your name" required autoFocus
                   className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                 />
-                <div className="flex gap-2">
-                  <input
-                    type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Phone number" required
-                    className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
-                  />
-                  <input
-                    type="text" value={city} onChange={(e) => setCity(e.target.value)}
-                    placeholder="Area"
-                    className="w-28 flex-shrink-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
-                  />
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Phone number" required
+                      className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                    />
+                    {/* Eircode pinpoints the home in 7 chars — far better than a
+                        vague "area" for a recurring in-home visit, and it fits the
+                        checkout's short location field. Sent as `city` (stored as
+                        plan_city metadata); the full address is confirmed on the
+                        WhatsApp scheduling call. An area name is still accepted so
+                        we never block someone who doesn't know their Eircode. */}
+                    <input
+                      type="text" value={city} onChange={(e) => setCity(e.target.value)}
+                      placeholder="Eircode or area"
+                      className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                    />
+                  </div>
+                  <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">
+                    Your Eircode helps us match your nearest helper — we confirm the full address by WhatsApp.
+                  </p>
                 </div>
 
                 <motion.button
