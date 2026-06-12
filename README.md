@@ -1,6 +1,6 @@
 # VANO
 
-**VANO** is same-day home help in Galway — book a trusted, ID-verified student for cleaning, groceries, garden work, dog walks, moving and more. Book one job in seconds, or put the house on **autopilot** with a monthly plan.
+**VANO** is same-day home help in Galway — book a trusted, ID-verified student for cleaning, groceries, garden work, dog walks, moving and more. Book one job in seconds, or put the house on **autopilot** with a weekly or monthly plan.
 
 **Live:** [vanojobs.com](https://vanojobs.com)
 
@@ -14,7 +14,7 @@
 3. Track the booking live, rate your helper after
 
 ### House Autopilot (the flagship offer)
-Tick the jobs you never want to think about again — cleaning, groceries, garden, bins — and one trusted helper handles them weekly. Two modes: **ongoing monthly** (subscription) or **while I'm away** (one-off cover for a trip). 10% bundle discount on 3+ services.
+Tick the jobs you never want to think about again — cleaning, laundry, garden, bins — and one trusted helper handles them weekly. Two modes: **ongoing** (subscription, billed weekly or monthly — monthly saves ~10%) or **while I'm away** (one-off cover for a trip). 10% bundle discount on 3+ services.
 
 ### For helpers (students)
 1. Apply on **/join** with photo, categories and area

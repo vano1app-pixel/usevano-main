@@ -59,7 +59,7 @@ export const HomePlans: React.FC = () => {
           {/* Entry anchor — the default selection opens high; this keeps
               the floor visible so the offer never reads as expensive */}
           <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white/75">
-            Plans from €19/mo
+            From €5/week · pay weekly or monthly
           </p>
         </div>
 
