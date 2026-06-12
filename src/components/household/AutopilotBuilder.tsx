@@ -1,0 +1,332 @@
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, Loader2, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { teamWhatsAppHref } from '@/lib/contact';
+import { loadBookingMemory } from '@/lib/bookingMemory';
+
+/**
+ * "Put your house on autopilot" — Airbnb-style builder and the site's
+ * flagship offer. Tick the jobs you want, watch the price build, pick
+ * dates: ongoing monthly (subscription) or while-you're-away cover
+ * (one-off for the date range). Prices here are display only — the
+ * create-autopilot-checkout function recomputes everything server-side.
+ */
+
+type Mode = 'ongoing' | 'away';
+
+interface Service {
+  key: string;
+  emoji: string;
+  label: string;
+  desc: string;
+  monthlyCents: number;
+  weeklyCents: number;
+  ongoingOnly?: boolean;
+}
+
+// Mirrors create-autopilot-checkout — keep in sync.
+const SERVICES: Service[] = [
+  { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '2-hour visit, every week',        monthlyCents: 11900, weeklyCents: 2800 },
+  { key: 'grocery',  emoji: '🛒', label: 'Grocery collection',   desc: 'Order online — we deliver it',    monthlyCents: 4900,  weeklyCents: 1200 },
+  { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',        desc: 'Kept tidy, week in week out',     monthlyCents: 5900,  weeklyCents: 1400 },
+  { key: 'dog',      emoji: '🐕', label: 'Dog walks',            desc: 'A proper walk, every week',       monthlyCents: 4500,  weeklyCents: 1100 },
+  { key: 'bins',     emoji: '🗑️', label: 'Bins & house check',   desc: 'Out, back in, quick look around', monthlyCents: 1900,  weeklyCents: 500 },
+  { key: 'plants',   emoji: '🪴', label: 'Plants & post',        desc: 'Watered, post cleared',           monthlyCents: 1500,  weeklyCents: 400 },
+  { key: 'oddjobs',  emoji: '🔧', label: 'Odd-jobs hour',        desc: 'One handyman hour a month',       monthlyCents: 1800,  weeklyCents: 0, ongoingOnly: true },
+];
+
+const PRESETS: { key: string; label: string; emoji: string; mode: Mode; services: string[]; popular?: boolean }[] = [
+  { key: 'parent',  label: 'For a parent',   emoji: '💚', mode: 'ongoing', services: ['grocery', 'garden', 'bins'] },
+  { key: 'full',    label: 'Full autopilot', emoji: '✨', mode: 'ongoing', services: ['cleaning', 'grocery', 'garden', 'bins'], popular: true },
+  { key: 'away',    label: "While I'm away", emoji: '✈️', mode: 'away',    services: ['plants', 'bins', 'garden'] },
+];
+
+const BUNDLE_MIN = 3;
+
+function euro(cents: number): string {
+  return (cents / 100) % 1 === 0 ? `€${cents / 100}` : `€${(cents / 100).toFixed(2)}`;
+}
+
+function isoPlusDays(days: number): string {
+  const d = new Date(Date.now() + days * 86400_000);
+  return d.toISOString().slice(0, 10);
+}
+
+export const AutopilotBuilder: React.FC = () => {
+  const remembered = useMemo(() => loadBookingMemory(), []);
+  const [mode, setMode] = useState<Mode>('ongoing');
+  const [picked, setPicked] = useState<string[]>(['cleaning', 'grocery', 'garden', 'bins']);
+  const [startDate, setStartDate] = useState(isoPlusDays(2));
+  const [endDate, setEndDate] = useState(isoPlusDays(9));
+  const [activePreset, setActivePreset] = useState<string | null>('full');
+
+  // Checkout
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState(remembered?.phone ?? '');
+  const [city, setCity] = useState(remembered?.city ?? '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const visible = SERVICES.filter((s) => !(mode === 'away' && s.ongoingOnly));
+  const selected = picked.filter((k) => visible.some((s) => s.key === k));
+
+  const weeks = useMemo(() => {
+    if (mode !== 'away') return 0;
+    const ms = +new Date(endDate) - +new Date(startDate);
+    if (isNaN(ms) || ms <= 0) return 1;
+    return Math.min(12, Math.max(1, Math.ceil(ms / (7 * 86400_000))));
+  }, [mode, startDate, endDate]);
+
+  const baseCents = selected.reduce((sum, k) => {
+    const s = SERVICES.find((x) => x.key === k)!;
+    return sum + (mode === 'ongoing' ? s.monthlyCents : s.weeklyCents * weeks);
+  }, 0);
+  const bundled = selected.length >= BUNDLE_MIN;
+  // Same rounding as the server so the displayed figure matches checkout
+  const totalCents = Math.round((bundled ? baseCents * 0.9 : baseCents) / 50) * 50;
+
+  function toggle(key: string) {
+    setActivePreset(null);
+    setPicked((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+  }
+
+  function applyPreset(p: typeof PRESETS[number]) {
+    setMode(p.mode);
+    setPicked(p.services);
+    setActivePreset(p.key);
+  }
+
+  async function handleCheckout(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim() || selected.length === 0 || loading) return;
+    setLoading(true); setError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('create-autopilot-checkout', {
+        body: {
+          mode,
+          services: selected,
+          start_date: startDate,
+          ...(mode === 'away' ? { end_date: endDate } : {}),
+          customer_name: name.trim(),
+          customer_phone: phone.trim(),
+          ...(city.trim() ? { city: city.trim() } : {}),
+        },
+      });
+      const url = (data as { checkout_url?: string } | null)?.checkout_url;
+      if (fnErr || !url) {
+        throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
+      }
+      window.location.href = url;
+    } catch (err: unknown) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Something went wrong — try again or WhatsApp us.');
+    }
+  }
+
+  const waText = `Hi VANO! 👋 I'm setting up house autopilot (${selected.join(', ') || 'no services yet'}) and have a question.`;
+
+  return (
+    <div className="max-w-md mx-auto">
+      {/* Presets */}
+      <div className="flex gap-2 justify-center flex-wrap mb-5">
+        {PRESETS.map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => applyPreset(p)}
+            className={cn(
+              'relative px-3.5 py-2 rounded-full border text-xs font-semibold transition-all duration-150 active:scale-[0.95]',
+              activePreset === p.key
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-white text-foreground/70 border-border hover:border-foreground/30',
+            )}
+          >
+            {p.emoji} {p.label}
+            {p.popular && activePreset !== p.key && (
+              <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-gold flex items-center justify-center">
+                <Sparkles size={8} className="text-white" />
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden">
+        {/* Mode toggle */}
+        <div className="p-1.5 m-4 mb-0 rounded-full bg-secondary/80 flex">
+          {([['ongoing', '🏠 Ongoing · monthly'], ['away', "✈️ While I'm away"]] as [Mode, string][]).map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { setMode(m); setActivePreset(null); }}
+              className={cn(
+                'flex-1 h-10 rounded-full text-[13px] font-semibold transition-all duration-200',
+                mode === m ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Service ticks */}
+        <div className="p-4 space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-1">
+            Tick what you want done
+          </p>
+          {visible.map((s) => {
+            const on = selected.includes(s.key);
+            return (
+              <motion.button
+                key={s.key}
+                type="button"
+                onClick={() => toggle(s.key)}
+                whileTap={{ scale: 0.98 }}
+                className={cn(
+                  'w-full flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors duration-150',
+                  on ? 'border-sage/50 bg-sage-light' : 'border-border/60 bg-white hover:border-foreground/20',
+                )}
+              >
+                <span className={cn(
+                  'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-150',
+                  on ? 'bg-sage border-sage' : 'border-border bg-white',
+                )}>
+                  {on && <Check size={12} className="text-white" strokeWidth={3.5} />}
+                </span>
+                <span className="text-lg flex-shrink-0" aria-hidden="true">{s.emoji}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">{s.label}</span>
+                  <span className="block text-[11px] text-muted-foreground truncate">{s.desc}</span>
+                </span>
+                <span className={cn('text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
+                  {mode === 'ongoing' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`}
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
+
+        {/* Dates */}
+        <div className="px-4 pb-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-2">
+            {mode === 'ongoing' ? 'First visit' : 'From → until'}
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={startDate}
+              min={isoPlusDays(1)}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="flex-1 h-11 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {mode === 'away' && (
+              <input
+                type="date"
+                value={endDate}
+                min={startDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1 h-11 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            )}
+          </div>
+          {mode === 'away' && (
+            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+              {weeks} week{weeks > 1 ? 's' : ''} of cover · visits spread across your trip
+            </p>
+          )}
+        </div>
+
+        {/* Total + CTA */}
+        <div className="border-t border-border/50 bg-secondary/30 p-4">
+          <AnimatePresence>
+            {bundled && (
+              <motion.p
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="text-[11px] font-semibold text-sage flex items-center gap-1 pb-1"
+              >
+                <Sparkles size={11} /> Bundle discount applied — 10% off for {BUNDLE_MIN}+ services
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <div className="flex items-end justify-between mb-3">
+            <div>
+              <p className="text-[11px] text-muted-foreground">
+                {selected.length === 0
+                  ? 'Nothing ticked yet'
+                  : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'away' ? ` · ${weeks}wk` : ''}`}
+              </p>
+              <p className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                {selected.length === 0 ? '—' : euro(totalCents)}
+                {selected.length > 0 && (
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    {mode === 'ongoing' ? '/mo' : ' total'}
+                  </span>
+                )}
+              </p>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-right leading-relaxed pb-1">
+              Same trusted helper<br />Pause or cancel anytime
+            </p>
+          </div>
+
+          {!open ? (
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setOpen(true)}
+              disabled={selected.length === 0}
+              className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
+            >
+              <CreditCard size={17} />
+              {mode === 'ongoing' ? 'Set up my autopilot' : 'Cover my trip'} {selected.length > 0 && `· ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
+            </motion.button>
+          ) : (
+            <form onSubmit={handleCheckout} className="space-y-2">
+              <input
+                type="text" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="Your name" required autoFocus
+                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Phone number" required
+                  className="flex-1 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <input
+                  type="text" value={city} onChange={(e) => setCity(e.target.value)}
+                  placeholder="Area (e.g. Galway)"
+                  className="flex-1 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !name.trim() || !phone.trim()}
+                className="w-full py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading
+                  ? <><Loader2 size={16} className="animate-spin" />Opening secure checkout…</>
+                  : <><CreditCard size={16} />Pay {euro(totalCents)}{mode === 'ongoing' ? '/mo' : ''} — card · Apple Pay · Google Pay</>}
+              </button>
+              {error && <p className="text-center text-[11px] text-destructive">{error}</p>}
+            </form>
+          )}
+
+          <a
+            href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <MessageCircle size={11} /> Questions first? WhatsApp us
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};

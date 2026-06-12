@@ -26,9 +26,13 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    emoji: '🛒', label: 'Shopping',  slug: 'shopping',
-    hint: 'Any store · delivered to your door',
-    description: 'We shop any store, follow your list, and deliver to your door.',
+    // Click & collect model — the customer orders and pays the store online,
+    // the helper collects and delivers. No helper money-handling, no list
+    // disputes; the old "we shop your list" version put students' own cash
+    // at risk and was the weakest flow on the platform.
+    emoji: '🛒', label: 'Groceries', slug: 'shopping',
+    hint: 'Order click & collect · we deliver it',
+    description: 'Order online from Tesco, Dunnes or SuperValu (click & collect). Your helper picks it up and brings it to your door — you never carry a bag.',
   },
   {
     emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',
