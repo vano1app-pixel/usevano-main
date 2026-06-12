@@ -228,26 +228,32 @@ export const AutopilotBuilder: React.FC = () => {
           </AnimatePresence>
 
           <div className="mb-4">
-            <p className="text-[11px] text-muted-foreground">
-              {selected.length === 0
-                ? 'Nothing ticked yet'
-                : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'ongoing' ? ' · billed monthly' : ` · ${weeks}wk`}`}
-            </p>
-            <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
-              {selected.length === 0 ? '—' : euro(totalCents)}
-              {selected.length > 0 && (
-                <span className="text-sm font-semibold text-muted-foreground">
-                  {mode === 'ongoing' ? '/mo' : ' total'}
-                </span>
-              )}
-            </p>
-            {/* Value frame — the same monthly price expressed per day/week, so it
-                reads small beside a big figure. Honest: it's billed monthly (the
-                figure above); this is just that price divided out, prefixed "≈". */}
-            {mode === 'ongoing' && selected.length > 0 && (
-              <p className="mt-1.5 text-[12px] font-semibold text-sage-dark tabular-nums">
-                ≈ {euro(perDayCents)}/day · {euro(perWeekCents)}/week
-              </p>
+            {selected.length === 0 ? (
+              <p className="text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground/25 tabular-nums leading-none">—</p>
+            ) : mode === 'ongoing' ? (
+              <>
+                <p className="text-[11px] text-muted-foreground">
+                  {selected.length} service{selected.length > 1 ? 's' : ''} — that's about
+                </p>
+                {/* Lead with the per-day: a big monthly figure reads as scary, so
+                    the friendly unit gets the size. The real total and "billed
+                    monthly" sit right under it — nothing is hidden. */}
+                <p className="text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground tabular-nums leading-none">
+                  {euro(perDayCents)}<span className="text-lg font-semibold text-muted-foreground">/day</span>
+                </p>
+                <p className="mt-2 text-[12px] text-muted-foreground tabular-nums">
+                  <span className="font-semibold text-foreground/70">{euro(totalCents)}/mo</span> · billed monthly · cancel anytime
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] text-muted-foreground">
+                  {selected.length} service{selected.length > 1 ? 's' : ''} · {weeks} week{weeks > 1 ? 's' : ''}
+                </p>
+                <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
+                  {euro(totalCents)}<span className="text-sm font-semibold text-muted-foreground"> total</span>
+                </p>
+              </>
             )}
           </div>
 
@@ -259,7 +265,7 @@ export const AutopilotBuilder: React.FC = () => {
             className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
           >
             <CreditCard size={17} />
-            {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && ` · ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
+            {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && (mode === 'ongoing' ? ` · ${euro(perDayCents)}/day` : ` · ${euro(totalCents)}`)}
           </motion.button>
 
           {/* Risk reversal — visible before they commit */}
