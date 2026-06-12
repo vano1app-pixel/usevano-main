@@ -3,40 +3,51 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
-import { HowItWorks } from '@/components/household/HowItWorks';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HelperCards } from '@/components/household/HelperCards';
-import { ChatFAQ } from '@/components/household/ChatFAQ';
+import { FAQSection } from '@/components/household/FAQSection';
+import { FAQS } from '@/components/household/faqData';
 import { HomePlans } from '@/components/household/HomePlans';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 
+/**
+ * Two sections sell: the hero (book one job now) and House Autopilot
+ * (never think about it again). Everything after exists purely for
+ * trust — reviews, real helpers, FAQ, booking lookup.
+ */
 const HouseholdHome: React.FC = () => {
   return (
     // Cream warm-white base — distinguishes the household platform from the
     // pure-white marketplace and reads warmer/more trustworthy for in-home services
     <div className="bg-cream">
       <SEOHead
-        title="Same-day home help in Galway & Ireland"
-        description="Book a trusted student helper in minutes. Grocery shopping, dog walking, garden, cleaning, moving help & more. Same-day service from €10. Available across Ireland."
-        keywords="home help Galway, student helpers Ireland, grocery shopping Galway, dog walking Galway, cleaning service Galway, same day help Ireland, household help Cork Dublin Limerick, VANO"
+        title="Same-day home help in Galway"
+        description="Book a trusted local student helper in minutes — cleaning, garden, dog walks, groceries, moving & more. Same-day in Galway, from €15."
+        keywords="home help Galway, cleaner Galway, dog walker Galway, garden help Galway, grocery delivery Galway, student helpers Galway, same day help Galway, VANO"
         url="https://vanojobs.com/"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: FAQS.map(f => ({
+            '@type': 'Question',
+            name: f.q,
+            acceptedAnswer: { '@type': 'Answer', text: f.a },
+          })),
+        }}
       />
       <HouseholdNav darkHero />
 
       <main>
         <HeroSection />
         <ActivityTicker />
-        <HowItWorks />
+        {/* Flagship offer — straight after the hero, nothing in between */}
+        <HomePlans />
         <ReviewCarousel />
         <HelperCards />
-        <ActivityTicker dark />
-        {/* Flagship offer — house autopilot in the navy feature slot */}
-        <HomePlans />
-        <ActivityTicker dark />
-        <ChatFAQ />
+        <FAQSection />
         <FindBookingBar />
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <section className="px-4 pb-12 bg-background">

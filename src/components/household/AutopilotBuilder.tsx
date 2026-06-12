@@ -8,10 +8,10 @@ import { loadBookingMemory } from '@/lib/bookingMemory';
 
 /**
  * "Put your house on autopilot" — Airbnb-style builder and the site's
- * flagship offer. Tick the jobs you want, watch the price build, pick
- * dates: ongoing monthly (subscription) or while-you're-away cover
- * (one-off for the date range). Prices here are display only — the
- * create-autopilot-checkout function recomputes everything server-side.
+ * flagship offer. One toggle (ongoing monthly vs while-you're-away),
+ * tick the jobs you want, watch the price build. Prices here are
+ * display only — the create-autopilot-checkout function recomputes
+ * everything server-side.
  */
 
 type Mode = 'ongoing' | 'away';
@@ -23,10 +23,9 @@ interface Service {
   desc: string;
   monthlyCents: number;
   weeklyCents: number;
-  ongoingOnly?: boolean;
 }
 
-// Mirrors create-autopilot-checkout — keep in sync.
+// Subset of create-autopilot-checkout's catalogue — keep prices in sync.
 const SERVICES: Service[] = [
   { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '2-hour visit, every week',        monthlyCents: 11900, weeklyCents: 2800 },
   { key: 'grocery',  emoji: '🛒', label: 'Grocery collection',   desc: 'Order online — we deliver it',    monthlyCents: 4900,  weeklyCents: 1200 },
@@ -34,14 +33,11 @@ const SERVICES: Service[] = [
   { key: 'dog',      emoji: '🐕', label: 'Dog walks',            desc: 'A proper walk, every week',       monthlyCents: 4500,  weeklyCents: 1100 },
   { key: 'bins',     emoji: '🗑️', label: 'Bins & house check',   desc: 'Out, back in, quick look around', monthlyCents: 1900,  weeklyCents: 500 },
   { key: 'plants',   emoji: '🪴', label: 'Plants & post',        desc: 'Watered, post cleared',           monthlyCents: 1500,  weeklyCents: 400 },
-  { key: 'oddjobs',  emoji: '🔧', label: 'Odd-jobs hour',        desc: 'One handyman hour a month',       monthlyCents: 1800,  weeklyCents: 0, ongoingOnly: true },
 ];
 
-const PRESETS: { key: string; label: string; emoji: string; mode: Mode; services: string[]; popular?: boolean }[] = [
-  { key: 'parent',  label: 'For a parent',   emoji: '💚', mode: 'ongoing', services: ['grocery', 'garden', 'bins'] },
-  { key: 'full',    label: 'Full autopilot', emoji: '✨', mode: 'ongoing', services: ['cleaning', 'grocery', 'garden', 'bins'], popular: true },
-  { key: 'away',    label: "While I'm away", emoji: '✈️', mode: 'away',    services: ['plants', 'bins', 'garden'] },
-];
+// The most popular ongoing setup — pre-ticked so the price (and bundle
+// discount) is alive the moment the section scrolls into view.
+const DEFAULT_PICKED = ['cleaning', 'grocery', 'garden', 'bins'];
 
 const BUNDLE_MIN = 3;
 
@@ -57,10 +53,9 @@ function isoPlusDays(days: number): string {
 export const AutopilotBuilder: React.FC = () => {
   const remembered = useMemo(() => loadBookingMemory(), []);
   const [mode, setMode] = useState<Mode>('ongoing');
-  const [picked, setPicked] = useState<string[]>(['cleaning', 'grocery', 'garden', 'bins']);
+  const [selected, setSelected] = useState<string[]>(DEFAULT_PICKED);
   const [startDate, setStartDate] = useState(isoPlusDays(2));
   const [endDate, setEndDate] = useState(isoPlusDays(9));
-  const [activePreset, setActivePreset] = useState<string | null>('full');
 
   // Checkout
   const [open, setOpen] = useState(false);
@@ -70,8 +65,6 @@ export const AutopilotBuilder: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const visible = SERVICES.filter((s) => !(mode === 'away' && s.ongoingOnly));
-  const selected = picked.filter((k) => visible.some((s) => s.key === k));
 
   const weeks = useMemo(() => {
     if (mode !== 'away') return 0;
@@ -89,14 +82,7 @@ export const AutopilotBuilder: React.FC = () => {
   const totalCents = Math.round((bundled ? baseCents * 0.9 : baseCents) / 50) * 50;
 
   function toggle(key: string) {
-    setActivePreset(null);
-    setPicked((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
-  }
-
-  function applyPreset(p: typeof PRESETS[number]) {
-    setMode(p.mode);
-    setPicked(p.services);
-    setActivePreset(p.key);
+    setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
   }
 
   async function handleCheckout(e: React.FormEvent) {
@@ -130,40 +116,16 @@ export const AutopilotBuilder: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto">
-      {/* Presets */}
-      <div className="flex gap-2 justify-center flex-wrap mb-5">
-        {PRESETS.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            onClick={() => applyPreset(p)}
-            className={cn(
-              'relative px-3.5 py-2 rounded-full border text-xs font-semibold transition-all duration-150 active:scale-[0.95]',
-              activePreset === p.key
-                ? 'bg-white text-navy border-white'
-                : 'bg-white/10 text-white/80 border-white/20 hover:bg-white/[0.16] hover:border-white/40',
-            )}
-          >
-            {p.emoji} {p.label}
-            {p.popular && activePreset !== p.key && (
-              <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-gold flex items-center justify-center">
-                <Sparkles size={8} className="text-white" />
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       <div className="rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden">
-        {/* Mode toggle */}
+        {/* Mode toggle — the only decision above the ticks */}
         <div className="p-1.5 m-4 mb-0 rounded-full bg-secondary/80 flex">
           {([['ongoing', '🏠 Ongoing · monthly'], ['away', "✈️ While I'm away"]] as [Mode, string][]).map(([m, label]) => (
             <button
               key={m}
               type="button"
-              onClick={() => { setMode(m); setActivePreset(null); }}
+              onClick={() => setMode(m)}
               className={cn(
-                'flex-1 h-10 rounded-full text-[13px] font-semibold transition-all duration-200',
+                'flex-1 h-11 rounded-full text-sm font-semibold transition-all duration-200',
                 mode === m ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50',
               )}
             >
@@ -177,7 +139,7 @@ export const AutopilotBuilder: React.FC = () => {
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-1">
             Tick what you want done
           </p>
-          {visible.map((s) => {
+          {SERVICES.map((s) => {
             const on = selected.includes(s.key);
             return (
               <motion.button
@@ -283,7 +245,7 @@ export const AutopilotBuilder: React.FC = () => {
               className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
             >
               <CreditCard size={17} />
-              {mode === 'ongoing' ? 'Set up my autopilot' : 'Cover my trip'} {selected.length > 0 && `· ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
+              {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'} {selected.length > 0 && `· ${euro(totalCents)}${mode === 'ongoing' ? '/mo' : ''}`}
             </motion.button>
           ) : (
             <form onSubmit={handleCheckout} className="space-y-2">
@@ -316,6 +278,11 @@ export const AutopilotBuilder: React.FC = () => {
               {error && <p className="text-center text-[11px] text-destructive">{error}</p>}
             </form>
           )}
+
+          {/* Risk reversal — the same guarantee one-off bookings carry */}
+          <p className="mt-2.5 text-center text-[11px] text-muted-foreground">
+            Not happy after the first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
+          </p>
 
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}

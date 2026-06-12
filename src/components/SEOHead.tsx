@@ -30,7 +30,7 @@ function toAbsoluteImage(image: string): string {
 export const SEOHead = ({
   title,
   description,
-  keywords = 'VANO, Ireland, Galway, freelancers, hire freelancer, gigs, local jobs, vano pay, community',
+  keywords = 'VANO, Galway, Ireland, home help, cleaning, garden help, dog walking, grocery collection, student helpers, same-day help',
   // 1200×630 PNG — the spec-compliant size / format for LinkedIn /
   // Slack / WhatsApp / Facebook / Twitter previews. The old /og.svg
   // rendered inconsistently across scrapers (many silently drop SVG).
@@ -79,7 +79,7 @@ export const SEOHead = ({
           <meta property="og:image:type" content="image/png" />
           <meta property="og:image:width" content="1200" />
           <meta property="og:image:height" content="630" />
-          <meta property="og:image:alt" content="VANO — any brief, any budget, your perfect match." />
+          <meta property="og:image:alt" content="VANO — same-day home help in Galway, from €15." />
         </>
       )}
       {type === 'article' && publishedTime && (
@@ -96,7 +96,7 @@ export const SEOHead = ({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImageAbsolute} />
       {image === '/og.png' && (
-        <meta name="twitter:image:alt" content="VANO — any brief, any budget, your perfect match." />
+        <meta name="twitter:image:alt" content="VANO — same-day home help in Galway, from €15." />
       )}
 
       {/* Structured data */}
