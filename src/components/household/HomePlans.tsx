@@ -90,9 +90,12 @@ export const HomePlans: React.FC = () => {
               </div>
             </div>
             <div className="mt-5 sm:mt-0 flex items-center justify-between sm:flex-col sm:items-end gap-3 flex-shrink-0">
-              <p className="text-white font-extrabold text-2xl tabular-nums leading-none">
-                €499<span className="text-sm font-semibold text-white/50">/mo</span>
-              </p>
+              <div className="text-left sm:text-right">
+                <p className="text-white font-extrabold text-2xl tabular-nums leading-none">
+                  €499<span className="text-sm font-semibold text-white/50">/mo</span>
+                </p>
+                <p className="text-[11px] font-medium text-white/45 tabular-nums mt-1">≈ €16/day</p>
+              </div>
               <span className="inline-flex items-center rounded-full bg-white text-navy px-5 py-2.5 text-sm font-bold">
                 Talk to us →
               </span>

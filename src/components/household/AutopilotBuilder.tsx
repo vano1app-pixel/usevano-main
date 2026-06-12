@@ -231,7 +231,7 @@ export const AutopilotBuilder: React.FC = () => {
             <p className="text-[11px] text-muted-foreground">
               {selected.length === 0
                 ? 'Nothing ticked yet'
-                : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'away' ? ` · ${weeks}wk` : ''}`}
+                : `${selected.length} service${selected.length > 1 ? 's' : ''}${mode === 'ongoing' ? ' · billed monthly' : ` · ${weeks}wk`}`}
             </p>
             <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
               {selected.length === 0 ? '—' : euro(totalCents)}
@@ -241,9 +241,12 @@ export const AutopilotBuilder: React.FC = () => {
                 </span>
               )}
             </p>
+            {/* Value frame — the same monthly price expressed per day/week, so it
+                reads small beside a big figure. Honest: it's billed monthly (the
+                figure above); this is just that price divided out, prefixed "≈". */}
             {mode === 'ongoing' && selected.length > 0 && (
-              <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">
-                ≈ {euro(perWeekCents)}/week · about {euro(perDayCents)}/day
+              <p className="mt-1.5 text-[12px] font-semibold text-sage-dark tabular-nums">
+                ≈ {euro(perDayCents)}/day · {euro(perWeekCents)}/week
               </p>
             )}
           </div>
@@ -297,7 +300,7 @@ export const AutopilotBuilder: React.FC = () => {
                       {euro(totalCents)}{mode === 'ongoing' ? '/mo' : ' total'}
                     </span>
                     {mode === 'ongoing' && selected.length > 0 && (
-                      <span className="tabular-nums"> · ≈ {euro(perWeekCents)}/wk</span>
+                      <span className="tabular-nums"> · ≈ {euro(perDayCents)}/day</span>
                     )}
                   </p>
                 </div>
