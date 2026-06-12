@@ -13,7 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // booking (tracked in booking_data.redispatch_round). After the cap, the
 // no-helper/admin fallbacks own the booking.
 
-const ROUND_CAP = 4;
+const ROUND_CAP = 3;
 const MIN_AGE_MINUTES = 20;   // give the first dispatch's TTL a head start
 const MAX_AGE_HOURS = 48;
 const BATCH = 10;
@@ -81,6 +81,9 @@ serve(async (req) => {
               id: b.id, status: 'pending', city: b.city,
               category: b.category, scheduled_date: b.scheduled_date,
               price_estimate_cents: b.price_estimate_cents,
+              // Re-dispatch rounds revive offers + web push only — repeat
+              // emails for the same job annoy helpers (owner request).
+              quiet: true,
             },
           }),
         });

@@ -277,6 +277,10 @@ serve(async (req) => {
     const payload = await req.json();
     const booking = payload?.record ?? payload;
     const { id: bookingId, city, status, category, scheduled_date, price_estimate_cents } = booking;
+    // Quiet mode (re-dispatch rounds): revive offers + web push only. No
+    // email/SMS — repeat emails for the same job annoy helpers, and the
+    // original "View & Accept" email links keep working once offers are live.
+    const quiet = booking?.quiet === true || payload?.quiet === true;
     // Students respond to money: show what they'd keep (95% of the job).
     const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
       ? Math.floor(price_estimate_cents * 0.95)
@@ -367,7 +371,7 @@ serve(async (req) => {
       const trackUrl = `${siteUrl}/track/${bookingId}`;
       const ref = bookingId.slice(-8).toUpperCase();
 
-      if (resendKey && custEmail) {
+      if (resendKey && custEmail && !quiet) {
         fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -447,6 +451,8 @@ serve(async (req) => {
     const jobUrl = `${siteUrl}/student-job/${bookingId}`;
 
     // Web push first — the only channel that reaches a pocket instantly.
+    // Sent on every round (incl. quiet re-dispatch): the tag replaces any
+    // earlier notification for the same job instead of stacking.
     {
       const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
       const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
@@ -476,7 +482,7 @@ serve(async (req) => {
 
     // SMS each helper — the offer reaches their pocket, not their inbox.
     // Email alone proved too slow (every offer expired unaccepted).
-    {
+    if (!quiet) {
       const smsBody = `VANO: ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}. First to accept gets it: ${jobUrl}`;
       await Promise.allSettled(
         (helpers as Array<{ phone?: string }>).filter((h) => h.phone).map((h) => sendSms(h.phone, smsBody)),
@@ -484,7 +490,7 @@ serve(async (req) => {
     }
 
     // Email each helper with a direct link to the specific job.
-    if (resendKey) {
+    if (!quiet && resendKey) {
       const when = scheduled_date ?? 'flexible';
 
       const emailResults = await Promise.allSettled(
@@ -530,12 +536,14 @@ serve(async (req) => {
       );
       const sent = emailResults.filter(r => r.status === 'fulfilled' && r.value).length;
       console.log(`[dispatch] emailed ${sent}/${helpers.filter((h: { email?: string }) => h.email).length} helper(s) — from: ${resendFrom}`);
+    } else if (quiet) {
+      console.log('[dispatch] quiet re-dispatch — offers revived + push only, no email/SMS');
     } else {
       console.info('[dispatch] RESEND_API_KEY not set — skipping helper notifications');
     }
 
     return new Response(
-      JSON.stringify({ dispatched: offers.length, city, bookingId, expandedSearch, notified: Boolean(resendKey) }),
+      JSON.stringify({ dispatched: offers.length, city, bookingId, expandedSearch, quiet, notified: Boolean(resendKey) }),
       { headers: { 'Content-Type': 'application/json' } },
     );
   } catch (err) {
