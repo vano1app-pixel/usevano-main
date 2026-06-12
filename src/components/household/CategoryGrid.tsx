@@ -301,13 +301,13 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         aria-hidden="true"
       />
 
-      {/* Sheet */}
+      {/* Sheet — fast slide-up, phone field already focused when it lands */}
       <motion.div
         key="sheet"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
+        transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }}
         className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
         style={{ maxHeight: '88vh', overflowY: 'auto' }}
         role="dialog"
@@ -357,65 +357,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               </div>
             )}
 
-            {/* When? */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {timeSlots.map(opt => (
-                  <motion.button
-                    key={opt}
-                    type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt, opt === 'Now')}
-                  >
-                    {opt}
-                  </motion.button>
-                ))}
-              </div>
-              {/* Book ahead — server grants 10% off scheduled bookings */}
-              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {TOMORROW_SLOTS.map(opt => (
-                  <motion.button
-                    key={opt}
-                    type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt)}
-                  >
-                    {opt}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-
-            {/* How long? */}
-            {cat.sizes && (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
-                  {cat.sizeLabel ?? 'How long?'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {cat.sizes.map(opt => (
-                    <motion.button
-                      key={opt}
-                      type="button"
-                      onClick={() => setSize(opt)}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(size === opt)}
-                    >
-                      {opt}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Phone */}
+            {/* Phone first — the sheet slides up straight onto this field.
+                Time + duration below are pre-picked, so number + address is
+                all a new visitor has to type. */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
               <input
@@ -452,6 +396,64 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </div>
+
+            {/* When? — "Now" pre-selected; chips are an optional tweak */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                {timeSlots.map(opt => (
+                  <motion.button
+                    key={opt}
+                    type="button"
+                    onClick={() => setWhen(opt)}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(when === opt, opt === 'Now')}
+                  >
+                    {opt}
+                  </motion.button>
+                ))}
+              </div>
+              {/* Book ahead — server grants 10% off scheduled bookings */}
+              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                {TOMORROW_SLOTS.map(opt => (
+                  <motion.button
+                    key={opt}
+                    type="button"
+                    onClick={() => setWhen(opt)}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className={chip(when === opt)}
+                  >
+                    {opt}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* How long? — sensible default pre-selected */}
+            {cat.sizes && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                  {cat.sizeLabel ?? 'How long?'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {cat.sizes.map(opt => (
+                    <motion.button
+                      key={opt}
+                      type="button"
+                      onClick={() => setSize(opt)}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                      className={chip(size === opt)}
+                    >
+                      {opt}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Area — auto-detected from the address; chips only as fallback */}
             {cityAuto ? (
@@ -570,7 +572,7 @@ export const CategoryGrid: React.FC = () => {
     return { cat, size, price: cents ? fmt(cents) : null };
   }, []);
 
-  // Support the vano:select-category custom event (PricingTable, WeatherNudge).
+  // Support the vano:select-category custom event (e.g. PricingTable).
   useEffect(() => {
     const handle = (e: Event) => {
       const { slug, size } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
@@ -602,12 +604,6 @@ export const CategoryGrid: React.FC = () => {
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 )}
               >
-                {/* Pulse ring */}
-                <span
-                  className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-foreground/10 animate-pulse"
-                  style={{ animationDelay: `${idx * 180}ms`, animationDuration: '3s' }}
-                  aria-hidden="true"
-                />
                 {/* Popular badge */}
                 {cat.popular && (
                   <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10">
@@ -642,19 +638,13 @@ export const CategoryGrid: React.FC = () => {
           </button>
         )}
 
-        {/* WhatsApp fallback */}
+        {/* WhatsApp fallback — one quiet line, not a competing card */}
         <button
           onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
-          className="mt-3.5 w-full rounded-2xl bg-[#25D366]/8 border border-[#25D366]/25 px-4 py-3.5 flex items-center gap-3.5 hover:bg-[#25D366]/12 active:scale-[0.98] transition-[background-color,transform] duration-150"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150"
         >
-          <span className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
-            <MessageCircle className="w-3.5 h-3.5 text-white" aria-hidden="true" />
-          </span>
-          <span className="flex-1 text-left">
-            <span className="block text-sm font-semibold text-foreground">Need something else?</span>
-            <span className="block text-xs text-muted-foreground mt-0.5">Chat to us on WhatsApp — we'll sort it</span>
-          </span>
-          <span className="text-[#25D366] text-lg font-bold leading-none">→</span>
+          <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" aria-hidden="true" />
+          Something else?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span>
         </button>
       </div>
 

@@ -3,7 +3,6 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
-import { HowItWorks } from '@/components/household/HowItWorks';
 import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HelperCards } from '@/components/household/HelperCards';
 import { ChatFAQ } from '@/components/household/ChatFAQ';
@@ -13,6 +12,11 @@ import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 
+/**
+ * Two sections sell: the hero (book one job now) and House Autopilot
+ * (never think about it again). Everything after exists purely for
+ * trust — reviews, real helpers, FAQ, booking lookup.
+ */
 const HouseholdHome: React.FC = () => {
   return (
     // Cream warm-white base — distinguishes the household platform from the
@@ -29,13 +33,10 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
-        <HowItWorks />
+        {/* Flagship offer — straight after the hero, nothing in between */}
+        <HomePlans />
         <ReviewCarousel />
         <HelperCards />
-        <ActivityTicker dark />
-        {/* Flagship offer — house autopilot in the navy feature slot */}
-        <HomePlans />
-        <ActivityTicker dark />
         <ChatFAQ />
         <FindBookingBar />
         {/* Self-hides unless this device has booked before (needs the phone) */}

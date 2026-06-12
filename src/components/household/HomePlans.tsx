@@ -48,13 +48,13 @@ export const HomePlans: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">House autopilot</p>
-          <h2 className="text-3xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
           </h2>
           <p className="text-white/55 text-base max-w-md mx-auto leading-relaxed">
-            Tick the jobs you never want to think about again. Pick your dates.
-            One trusted local student handles it — for your place, a parent's,
-            or while you're away.
+            Tick the jobs you never want to think about again.
+            One trusted local student handles them — every week,
+            or just while you're away.
           </p>
         </div>
 
@@ -65,19 +65,42 @@ export const HomePlans: React.FC = () => {
           Card, Apple Pay or Google Pay · cancel anytime · no contracts
         </p>
 
-        {/* Gift VANO */}
-        <div className="mt-8 rounded-2xl border border-gold/30 bg-gold/[0.1] p-5 sm:flex sm:items-center sm:gap-5">
-          <div className="flex items-start gap-3.5 flex-1 mb-4 sm:mb-0">
-            <span className="w-10 h-10 rounded-xl bg-gold/20 flex items-center justify-center flex-shrink-0">
-              <Gift className="w-5 h-5 text-gold" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-sm font-bold text-white">Gift a helping hand</p>
-              <p className="text-xs text-white/55 mt-0.5 leading-relaxed">
-                A spotless house for new parents. A garden day for your dad. We arrange everything — they just open the door.
+        {/* Business — proper card, the second-biggest offer in the section */}
+        <a
+          href={`${teamWhatsAppHref}?text=${encodeURIComponent(BUSINESS_WA_TEXT)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-10 block w-full rounded-3xl border border-white/12 bg-white/[0.06] p-6 sm:p-7 hover:bg-white/[0.09] hover:border-white/20 active:scale-[0.99] transition-[background-color,border-color,transform] duration-150"
+        >
+          <div className="sm:flex sm:items-center sm:gap-6">
+            <div className="flex items-start gap-4 flex-1">
+              <span className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-6 h-6 text-white" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-lg font-bold text-white">Office or business?</p>
+                <p className="text-sm text-white/55 mt-1 leading-relaxed">
+                  Dedicated contact · unlimited tasks · same-day dispatch
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 sm:mt-0 flex items-center justify-between sm:flex-col sm:items-end gap-3 flex-shrink-0">
+              <p className="text-white font-extrabold text-2xl tabular-nums leading-none">
+                €499<span className="text-sm font-semibold text-white/50">/mo</span>
               </p>
+              <span className="inline-flex items-center rounded-full bg-white text-navy px-5 py-2.5 text-sm font-bold">
+                Talk to us →
+              </span>
             </div>
           </div>
+        </a>
+
+        {/* Gift VANO — one slim row */}
+        <div className="mt-3 rounded-2xl border border-gold/25 bg-gold/[0.07] px-5 py-3.5 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <p className="flex items-center gap-2.5 flex-1 min-w-[200px] text-sm text-white/70">
+            <Gift className="w-4 h-4 text-gold flex-shrink-0" aria-hidden="true" />
+            <span><span className="font-bold text-white">Gift a helping hand</span> — we arrange it, they just open the door</span>
+          </p>
           <div className="flex gap-2 flex-shrink-0">
             {GIFT_AMOUNTS.map(amount => (
               <a
@@ -85,32 +108,13 @@ export const HomePlans: React.FC = () => {
                 href={giftWaHref(amount)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 rounded-full border border-gold/40 bg-white/5 text-sm font-semibold text-white hover:bg-gold/15 active:scale-[0.96] transition-[background-color,transform] duration-150"
+                className="px-3.5 py-1.5 rounded-full border border-gold/40 bg-white/5 text-xs font-semibold text-white hover:bg-gold/15 active:scale-[0.96] transition-[background-color,transform] duration-150"
               >
                 {amount}
               </a>
             ))}
           </div>
         </div>
-
-        {/* Business — slim banner instead of a third-of-the-grid card */}
-        <a
-          href={`${teamWhatsAppHref}?text=${encodeURIComponent(BUSINESS_WA_TEXT)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 flex items-center gap-3.5 hover:bg-white/[0.08] active:scale-[0.99] transition-[background-color,transform] duration-150"
-        >
-          <span className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-5 h-5 text-white" aria-hidden="true" />
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-bold text-white">Office or business?</span>
-            <span className="block text-xs text-white/50 mt-0.5">
-              Dedicated contact, unlimited tasks, same-day dispatch — from €499/mo
-            </span>
-          </span>
-          <span className="text-sm font-semibold text-white/60 flex-shrink-0">Talk to us →</span>
-        </a>
       </div>
     </section>
   );
