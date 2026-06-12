@@ -3,7 +3,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // "House on autopilot" builder checkout. The customer ticks services and
 // picks dates Airbnb-style; this function recomputes the price SERVER-SIDE
 // (client numbers are display only) and opens Stripe Checkout:
-//   - ongoing  → monthly subscription (metadata.household_plan='autopilot')
+//   - ongoing  → subscription, billed weekly or monthly per `billing`
+//                (metadata.household_plan='autopilot'). Weekly is the
+//                flexible tier; monthly saves ~10% vs week-by-week.
 //   - away     → one-off payment for the date range
 //                (metadata.household_plan='away-cover')
 // Both land in the existing stripe-webhook household_plan handler, which
@@ -23,19 +25,26 @@ const CORS = {
 
 // Single source of truth for autopilot pricing. The client mirrors these
 // for display; anything else sent from the browser is ignored.
+// Weekly prices sit ~10% above monthly pro-rata (monthly × 12 ÷ 52) so the
+// monthly tier genuinely "saves ~10%" — flexibility costs a little, the
+// commitment earns the discount. Weekly also prices away-cover weeks.
 const SERVICES: Record<string, { label: string; monthlyCents: number; weeklyCents: number; ongoingOnly?: boolean }> = {
-  cleaning: { label: 'Cleaning · 2-hour visit',         monthlyCents: 11900, weeklyCents: 2800 },
-  garden:   { label: 'Garden & lawn',                   monthlyCents:  5900, weeklyCents: 1400 },
-  grocery:  { label: 'Grocery collection',              monthlyCents:  4900, weeklyCents: 1200 },
-  dog:      { label: 'Dog walks · weekly',              monthlyCents:  4500, weeklyCents: 1100 },
+  cleaning: { label: 'Cleaning · 2-hour visit',         monthlyCents: 11900, weeklyCents: 3000 },
+  laundry:  { label: 'Laundry & ironing',               monthlyCents:  5900, weeklyCents: 1500 },
+  garden:   { label: 'Garden & lawn',                   monthlyCents:  5900, weeklyCents: 1500 },
+  dog:      { label: 'Dog walks · weekly',              monthlyCents:  4500, weeklyCents: 1200 },
   bins:     { label: 'Bins out & house check',          monthlyCents:  1900, weeklyCents:  500 },
   plants:   { label: 'Plants & post',                   monthlyCents:  1500, weeklyCents:  400 },
   oddjobs:  { label: 'Odd-jobs hour · monthly',         monthlyCents:  1800, weeklyCents:    0, ongoingOnly: true },
+  // Legacy — dropped from the builder, but stale PWA clients may still send it.
+  grocery:  { label: 'Grocery collection',              monthlyCents:  4900, weeklyCents: 1200 },
 };
 
 const BUNDLE_DISCOUNT_MIN_SERVICES = 3;
 const BUNDLE_DISCOUNT_FACTOR = 0.9; // −10%
 const MAX_AWAY_WEEKS = 12;
+// Floor: the smallest single pick (plants, €4/wk) must clear it.
+const MIN_TOTAL_CENTS = 400;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -48,6 +57,7 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({})) as {
       mode?: string;
+      billing?: string;
       services?: string[];
       start_date?: string;
       end_date?: string;
@@ -57,6 +67,9 @@ serve(async (req) => {
     };
 
     const mode = body.mode === 'away' ? 'away' : 'ongoing';
+    // Ongoing cadence: 'weekly' (flexible) or 'monthly' (save ~10%). Defaults
+    // to monthly so older clients that never send `billing` are unaffected.
+    const billing = mode === 'ongoing' && body.billing === 'weekly' ? 'weekly' : 'monthly';
     const name = body.customer_name?.trim();
     const phone = body.customer_phone?.trim();
     const city = body.city?.trim();
@@ -65,7 +78,11 @@ serve(async (req) => {
 
     const picked = [...new Set((body.services ?? []).filter((s) => {
       const svc = SERVICES[s];
-      return svc && !(mode === 'away' && svc.ongoingOnly);
+      if (!svc) return false;
+      if (mode === 'away' && svc.ongoingOnly) return false;
+      // Weekly billing needs a weekly price (excludes monthly-only oddjobs)
+      if (mode === 'ongoing' && billing === 'weekly' && svc.weeklyCents <= 0) return false;
+      return true;
     }))];
     if (picked.length === 0) return bad(400, 'Pick at least one service');
 
@@ -73,7 +90,10 @@ serve(async (req) => {
     let weeks = 0;
     let baseCents = 0;
     if (mode === 'ongoing') {
-      baseCents = picked.reduce((sum, s) => sum + SERVICES[s].monthlyCents, 0);
+      baseCents = picked.reduce(
+        (sum, s) => sum + (billing === 'weekly' ? SERVICES[s].weeklyCents : SERVICES[s].monthlyCents),
+        0,
+      );
     } else {
       const from = body.start_date ? new Date(body.start_date) : null;
       const to = body.end_date ? new Date(body.end_date) : null;
@@ -85,7 +105,7 @@ serve(async (req) => {
     }
     const bundled = picked.length >= BUNDLE_DISCOUNT_MIN_SERVICES;
     const totalCents = Math.round((bundled ? baseCents * BUNDLE_DISCOUNT_FACTOR : baseCents) / 50) * 50;
-    if (totalCents < 500) return bad(400, 'Selection too small');
+    if (totalCents < MIN_TOTAL_CENTS) return bad(400, 'Selection too small');
 
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
     if (!STRIPE_SECRET_KEY) return bad(503, 'Payment not configured. WhatsApp us instead: +353 89 981 7111');
@@ -94,7 +114,7 @@ serve(async (req) => {
     const planKey = mode === 'ongoing' ? 'autopilot' : 'away-cover';
     const serviceLabels = picked.map((s) => SERVICES[s].label).join(' + ');
     const config = mode === 'ongoing'
-      ? `${serviceLabels} · from ${body.start_date ?? 'asap'}${bundled ? ' · bundle −10%' : ''}`
+      ? `${serviceLabels} · billed ${billing} · from ${body.start_date ?? 'asap'}${bundled ? ' · bundle −10%' : ''}`
       : `${serviceLabels} · ${body.start_date} → ${body.end_date} (${weeks}wk)${bundled ? ' · bundle −10%' : ''}`;
 
     const common: Record<string, string> = {
@@ -115,7 +135,7 @@ serve(async (req) => {
             mode: 'subscription',
             'line_items[0][price_data][currency]': 'eur',
             'line_items[0][price_data][unit_amount]': String(totalCents),
-            'line_items[0][price_data][recurring][interval]': 'month',
+            'line_items[0][price_data][recurring][interval]': billing === 'weekly' ? 'week' : 'month',
             'line_items[0][price_data][product_data][name]': 'VANO House Autopilot',
             'line_items[0][price_data][product_data][description]': config.slice(0, 480),
             'line_items[0][quantity]': '1',

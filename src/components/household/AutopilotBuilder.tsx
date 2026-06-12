@@ -9,13 +9,15 @@ import { BottomSheet } from '@/components/household/BottomSheet';
 
 /**
  * "Put your house on autopilot" — Airbnb-style builder and the site's
- * flagship offer. One toggle (ongoing monthly vs while-you're-away),
- * tick the jobs you want, watch the price build. Prices here are
- * display only — the create-autopilot-checkout function recomputes
- * everything server-side.
+ * flagship offer. One toggle (ongoing vs while-you're-away), tick the
+ * jobs you want, watch the price build. Ongoing is billed weekly
+ * (flexible, cancel anytime) or monthly (saves ~10% vs week-by-week).
+ * Prices here are display only — the create-autopilot-checkout function
+ * recomputes everything server-side.
  */
 
 type Mode = 'ongoing' | 'away';
+type Billing = 'weekly' | 'monthly';
 
 interface Service {
   key: string;
@@ -27,18 +29,19 @@ interface Service {
 }
 
 // Subset of create-autopilot-checkout's catalogue — keep prices in sync.
+// Weekly ≈ monthly pro-rata + ~10%, so monthly reads as "commit and save".
 const SERVICES: Service[] = [
-  { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '2-hour visit, every week',        monthlyCents: 11900, weeklyCents: 2800 },
-  { key: 'grocery',  emoji: '🛒', label: 'Grocery collection',   desc: 'Order online — we deliver it',    monthlyCents: 4900,  weeklyCents: 1200 },
-  { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',        desc: 'Kept tidy, week in week out',     monthlyCents: 5900,  weeklyCents: 1400 },
-  { key: 'dog',      emoji: '🐕', label: 'Dog walks',            desc: 'A proper walk, every week',       monthlyCents: 4500,  weeklyCents: 1100 },
+  { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '2-hour visit, every week',        monthlyCents: 11900, weeklyCents: 3000 },
+  { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing',    desc: 'Washed, ironed, put away',        monthlyCents: 5900,  weeklyCents: 1500 },
+  { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',        desc: 'Kept tidy, week in week out',     monthlyCents: 5900,  weeklyCents: 1500 },
+  { key: 'dog',      emoji: '🐕', label: 'Dog walks',            desc: 'A proper walk, every week',       monthlyCents: 4500,  weeklyCents: 1200 },
   { key: 'bins',     emoji: '🗑️', label: 'Bins & house check',   desc: 'Out, back in, quick look around', monthlyCents: 1900,  weeklyCents: 500 },
   { key: 'plants',   emoji: '🪴', label: 'Plants & post',        desc: 'Watered, post cleared',           monthlyCents: 1500,  weeklyCents: 400 },
 ];
 
 // The most popular ongoing setup — pre-ticked so the price (and bundle
 // discount) is alive the moment the section scrolls into view.
-const DEFAULT_PICKED = ['cleaning', 'grocery', 'garden', 'bins'];
+const DEFAULT_PICKED = ['cleaning', 'laundry', 'garden', 'bins'];
 
 const BUNDLE_MIN = 3;
 
@@ -54,6 +57,9 @@ function isoPlusDays(days: number): string {
 export const AutopilotBuilder: React.FC = () => {
   const remembered = useMemo(() => loadBookingMemory(), []);
   const [mode, setMode] = useState<Mode>('ongoing');
+  // Weekly first — the smaller ask is the whole point of the cadence choice;
+  // the monthly toggle wears the "save €X" badge to earn the switch.
+  const [billing, setBilling] = useState<Billing>('weekly');
   const [selected, setSelected] = useState<string[]>(DEFAULT_PICKED);
   const [startDate, setStartDate] = useState(isoPlusDays(2));
   const [endDate, setEndDate] = useState(isoPlusDays(9));
@@ -74,18 +80,32 @@ export const AutopilotBuilder: React.FC = () => {
     return Math.min(12, Math.max(1, Math.ceil(ms / (7 * 86400_000))));
   }, [mode, startDate, endDate]);
 
-  const baseCents = selected.reduce((sum, k) => {
-    const s = SERVICES.find((x) => x.key === k)!;
-    return sum + (mode === 'ongoing' ? s.monthlyCents : s.weeklyCents * weeks);
-  }, 0);
   const bundled = selected.length >= BUNDLE_MIN;
   // Same rounding as the server so the displayed figure matches checkout
-  const totalCents = Math.round((bundled ? baseCents * 0.9 : baseCents) / 50) * 50;
-  // Soften the monthly sticker: visits are weekly, so show the weekly and
-  // daily equivalent of whatever's ticked. Rounded to whole euros — the
+  const finalise = (cents: number) => Math.round((bundled ? cents * 0.9 : cents) / 50) * 50;
+  const sumBy = (pick: (s: Service) => number) =>
+    selected.reduce((sum, k) => sum + pick(SERVICES.find((x) => x.key === k)!), 0);
+
+  // Both cadence totals are always live: one is the price, the other powers
+  // the "save €X" badge on the monthly toggle.
+  const weeklyTotalCents = finalise(sumBy((s) => s.weeklyCents));
+  const monthlyTotalCents = finalise(sumBy((s) => s.monthlyCents));
+  const totalCents = mode === 'away'
+    ? finalise(sumBy((s) => s.weeklyCents) * weeks)
+    : billing === 'weekly' ? weeklyTotalCents : monthlyTotalCents;
+  // What a month of week-by-week billing costs over paying monthly — whole €
+  const monthlySavesCents = Math.max(
+    0,
+    Math.round(((weeklyTotalCents * 52) / 12 - monthlyTotalCents) / 100) * 100,
+  );
+  // The friendly anchor: visits are weekly, but a per-day figure is the
+  // softest honest way to read the price. Rounded to whole euros — the
   // "≈"/"about" copy covers the rounding.
-  const perWeekCents = Math.round((totalCents * 12) / 52 / 100) * 100;
-  const perDayCents = Math.round((totalCents * 12) / 365 / 100) * 100;
+  const perDayCents = billing === 'weekly'
+    ? Math.round((totalCents * 52) / 365 / 100) * 100
+    : Math.round((totalCents * 12) / 365 / 100) * 100;
+  // Tiny picks (plants alone) round below €1/day — "<€1" beats showing €0
+  const perDayLabel = perDayCents === 0 ? '<€1' : euro(perDayCents);
 
   function toggle(key: string) {
     setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
@@ -99,6 +119,7 @@ export const AutopilotBuilder: React.FC = () => {
       const { data, error: fnErr } = await supabase.functions.invoke('create-autopilot-checkout', {
         body: {
           mode,
+          ...(mode === 'ongoing' ? { billing } : {}),
           services: selected,
           start_date: startDate,
           ...(mode === 'away' ? { end_date: endDate } : {}),
@@ -107,11 +128,16 @@ export const AutopilotBuilder: React.FC = () => {
           ...(city.trim() ? { city: city.trim() } : {}),
         },
       });
-      const url = (data as { checkout_url?: string } | null)?.checkout_url;
-      if (fnErr || !url) {
-        throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
+      const payload = data as { checkout_url?: string; total_cents?: number; error?: string } | null;
+      if (fnErr || !payload?.checkout_url) {
+        throw new Error(payload?.error || fnErr?.message || 'Something went wrong.');
       }
-      window.location.href = url;
+      // Never send anyone to a checkout that doesn't match the price on
+      // screen (e.g. this tab predates a price change on the server).
+      if (typeof payload.total_cents === 'number' && payload.total_cents !== totalCents) {
+        throw new Error('Our prices were just updated — refresh the page and try again.');
+      }
+      window.location.href = payload.checkout_url;
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong — try again or WhatsApp us.');
@@ -127,7 +153,7 @@ export const AutopilotBuilder: React.FC = () => {
         <div className="lg:border-r lg:border-border/50">
         {/* Mode toggle — the only decision above the ticks */}
         <div className="p-1.5 m-4 mb-0 rounded-full bg-secondary/80 flex">
-          {([['ongoing', '🏠 Ongoing · monthly'], ['away', "✈️ While I'm away"]] as [Mode, string][]).map(([m, label]) => (
+          {([['ongoing', '🏠 Ongoing'], ['away', "✈️ While I'm away"]] as [Mode, string][]).map(([m, label]) => (
             <button
               key={m}
               type="button"
@@ -172,7 +198,7 @@ export const AutopilotBuilder: React.FC = () => {
                   <span className="block text-[11px] text-muted-foreground truncate">{s.desc}</span>
                 </span>
                 <span className={cn('text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
-                  {mode === 'ongoing' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`}
+                  {mode === 'ongoing' && billing === 'monthly' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`}
                 </span>
               </motion.button>
             );
@@ -214,6 +240,28 @@ export const AutopilotBuilder: React.FC = () => {
         {/* Right column — running total + CTA. Checkout itself slides up in a
             sheet (below), so this panel stays calm and the price always shows. */}
         <div className="border-t lg:border-t-0 border-border/50 bg-secondary/30 p-4 lg:p-5 lg:flex lg:flex-col lg:justify-center">
+          {/* Cadence — weekly is the no-commitment way in, monthly wears the
+              live "save €X" badge so committing earns something visible */}
+          {mode === 'ongoing' && (
+            <div className="p-1 mb-3 rounded-full bg-secondary/80 flex">
+              {(['weekly', 'monthly'] as Billing[]).map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setBilling(b)}
+                  className={cn(
+                    'flex-1 h-9 rounded-full text-xs font-semibold transition-all duration-200 tabular-nums',
+                    billing === b ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50',
+                  )}
+                >
+                  {b === 'weekly'
+                    ? 'Pay weekly'
+                    : monthlySavesCents > 0 ? `Monthly · save ${euro(monthlySavesCents)}` : 'Pay monthly'}
+                </button>
+              ))}
+            </div>
+          )}
+
           <AnimatePresence>
             {bundled && (
               <motion.p
@@ -235,14 +283,17 @@ export const AutopilotBuilder: React.FC = () => {
                 <p className="text-[11px] text-muted-foreground">
                   {selected.length} service{selected.length > 1 ? 's' : ''} — that's about
                 </p>
-                {/* Lead with the per-day: a big monthly figure reads as scary, so
-                    the friendly unit gets the size. The real total and "billed
-                    monthly" sit right under it — nothing is hidden. */}
+                {/* Lead with the per-day: a big total reads as scary, so the
+                    friendly unit gets the size. The real total and billing
+                    cadence sit right under it — nothing is hidden. */}
                 <p className="text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground tabular-nums leading-none">
-                  {euro(perDayCents)}<span className="text-lg font-semibold text-muted-foreground">/day</span>
+                  {perDayLabel}<span className="text-lg font-semibold text-muted-foreground">/day</span>
                 </p>
                 <p className="mt-2 text-[12px] text-muted-foreground tabular-nums">
-                  <span className="font-semibold text-foreground/70">{euro(totalCents)}/mo</span> · billed monthly · cancel anytime
+                  <span className="font-semibold text-foreground/70">
+                    {euro(totalCents)}{billing === 'weekly' ? '/wk' : '/mo'}
+                  </span>{' '}
+                  · billed {billing} · cancel anytime
                 </p>
               </>
             ) : (
@@ -265,7 +316,7 @@ export const AutopilotBuilder: React.FC = () => {
             className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
           >
             <CreditCard size={17} />
-            {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && (mode === 'ongoing' ? ` · ${euro(perDayCents)}/day` : ` · ${euro(totalCents)}`)}
+            {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && (mode === 'ongoing' ? ` · ${perDayLabel}/day` : ` · ${euro(totalCents)}`)}
           </motion.button>
 
           {/* Risk reversal — visible before they commit */}
@@ -303,10 +354,10 @@ export const AutopilotBuilder: React.FC = () => {
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {selected.length} service{selected.length > 1 ? 's' : ''} ·{' '}
                     <span className="font-semibold text-foreground tabular-nums">
-                      {euro(totalCents)}{mode === 'ongoing' ? '/mo' : ' total'}
+                      {euro(totalCents)}{mode === 'ongoing' ? (billing === 'weekly' ? '/wk' : '/mo') : ' total'}
                     </span>
                     {mode === 'ongoing' && selected.length > 0 && (
-                      <span className="tabular-nums"> · ≈ {euro(perDayCents)}/day</span>
+                      <span className="tabular-nums"> · ≈ {perDayLabel}/day</span>
                     )}
                   </p>
                 </div>
@@ -361,7 +412,7 @@ export const AutopilotBuilder: React.FC = () => {
                 >
                   {loading
                     ? <><Loader2 size={16} className="animate-spin" /> Opening secure checkout…</>
-                    : <><CreditCard size={16} /> Pay {euro(totalCents)}{mode === 'ongoing' ? '/mo' : ''}</>}
+                    : <><CreditCard size={16} /> Pay {euro(totalCents)}{mode === 'ongoing' ? (billing === 'weekly' ? '/wk' : '/mo') : ''}</>}
                 </motion.button>
 
                 {error && <p className="text-center text-[12px] text-destructive">{error}</p>}
