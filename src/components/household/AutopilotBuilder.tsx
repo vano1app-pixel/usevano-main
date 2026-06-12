@@ -284,9 +284,9 @@ export const AutopilotBuilder: React.FC = () => {
       <AnimatePresence>
         {open && (
           <BottomSheet onClose={() => { if (!loading) setOpen(false); }} label="Start your autopilot">
-            <div className="px-5 pb-7 pt-1">
+            <div className="px-5 pb-5 pt-0.5">
               {/* Header — what you're starting + the price, so context carries in */}
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-3">
                 <div className="min-w-0">
                   <h3
                     className="text-xl font-bold text-foreground"
@@ -314,18 +314,21 @@ export const AutopilotBuilder: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleCheckout} className="space-y-3">
+              {/* No autoFocus — on mobile it pops the keyboard the instant the
+                  sheet opens and shoves the Pay button off-screen. Let the whole
+                  sheet land first; the user taps a field when ready. */}
+              <form onSubmit={handleCheckout} className="space-y-2.5">
                 <input
                   type="text" value={name} onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name" required autoFocus
-                  className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                  placeholder="Your name" required
+                  className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                 />
                 <div>
                   <div className="flex gap-2">
                     <input
                       type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
                       placeholder="Phone number" required
-                      className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                      className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                     />
                     {/* Eircode pinpoints the home in 7 chars — far better than a
                         vague "area" for a recurring in-home visit, and it fits the
@@ -336,11 +339,11 @@ export const AutopilotBuilder: React.FC = () => {
                     <input
                       type="text" value={city} onChange={(e) => setCity(e.target.value)}
                       placeholder="Eircode or area"
-                      className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                      className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                     />
                   </div>
-                  <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">
-                    Your Eircode helps us match your nearest helper — we confirm the full address by WhatsApp.
+                  <p className="mt-1 px-0.5 text-[11px] text-muted-foreground">
+                    Eircode helps us find your door — full address confirmed by WhatsApp.
                   </p>
                 </div>
 
@@ -348,7 +351,7 @@ export const AutopilotBuilder: React.FC = () => {
                   type="submit"
                   whileTap={{ scale: 0.97 }}
                   disabled={loading || !name.trim() || !phone.trim()}
-                  className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
+                  className="w-full h-12 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
                 >
                   {loading
                     ? <><Loader2 size={16} className="animate-spin" /> Opening secure checkout…</>
@@ -358,10 +361,7 @@ export const AutopilotBuilder: React.FC = () => {
                 {error && <p className="text-center text-[12px] text-destructive">{error}</p>}
 
                 <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
-                  Secure Stripe checkout · card, Apple Pay or Google Pay · cancel anytime
-                </p>
-                <p className="text-center text-[11px] text-muted-foreground">
-                  Not happy after your first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
+                  Secure checkout · cancel anytime · <span className="font-semibold text-foreground/70">full refund after your first visit</span>
                 </p>
                 <a
                   href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
