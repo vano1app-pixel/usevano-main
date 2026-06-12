@@ -53,6 +53,7 @@ const PwaUpdateToast = lazy(() =>
 
 import type { TransitionVariant } from "./components/PageTransition";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
+import { captureReferralFromUrl } from "@/lib/referral";
 
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'rise';
@@ -68,6 +69,8 @@ const App = () => {
 
   useEffect(() => {
     const t = window.setTimeout(() => markChunkLoadRecovered(), 10_000);
+    // Friend referral links land with ?ref=CODE — keep it for checkout
+    captureReferralFromUrl();
     return () => window.clearTimeout(t);
   }, []);
 

@@ -7,6 +7,7 @@ import { SUPPORTED_CITIES } from '@/lib/cities';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
+import { getReferralCode } from '@/lib/referral';
 
 interface ExtraCategory {
   emoji:       string;
@@ -114,6 +115,7 @@ const chip = (active: boolean) => cn(
 
 const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onClose }) => {
   const remembered = useMemo(() => loadBookingMemory(), []);
+  const referralCode = useMemo(() => getReferralCode(), []);
   const [size,    setSize]    = useState(DEFAULT_SIZE[cat.slug] ?? cat.sizes[0]);
   const [phone,   setPhone]   = useState(remembered?.phone ?? '');
   const [city,    setCity]    = useState(remembered?.city ?? 'Galway');
@@ -181,6 +183,7 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
           customer_phone: phoneClean,
           customer_email: null,
           city,
+          ...(referralCode ? { referral_code: referralCode } : {}),
         }},
       );
       if (fnErr || !data?.checkout_url) {
@@ -314,6 +317,13 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
               </div>
             )}
 
+            {referralCode && (
+              <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
+                <span aria-hidden="true">🎁</span>
+                €5 friend discount applies at checkout on your first booking
+              </p>
+            )}
+
             {/* CTAs */}
             <div className="space-y-2.5">
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
@@ -342,7 +352,7 @@ const Sheet: React.FC<{ cat: ExtraCategory; onClose: () => void }> = ({ cat, onC
 
             {error && <p className="text-center text-xs text-destructive">{error}</p>}
             <p className="text-center text-[11px] text-muted-foreground">
-              Stripe secure checkout · paid upfront · money back guarantee
+              Stripe secure checkout · Apple Pay &amp; Google Pay · money back guarantee
             </p>
           </form>
         </div>

@@ -52,6 +52,22 @@ function formEncode(obj: Record<string, string>): string {
     .join('&');
 }
 
+// Same normalization as get-referral-code / stripe-webhook — referral rows
+// are keyed on E.164 so "087 123 4567" and "+353871234567" are one customer.
+function normalizeE164(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-()]/g, '').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+
 const VALID_CATEGORIES = [
   // CategoryGrid originals
   'shopping', 'dog-walk', 'garden', 'moving', 'cleaning', 'tutoring',
@@ -271,7 +287,7 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code } = body;
 
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
       return bad(400, 'Invalid category');
@@ -309,6 +325,73 @@ serve(async (req) => {
       if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
     }
 
+    // ── Referral programme (give €5, get €5) ──────────────────────────────
+    // Two mutually exclusive discounts, at most one per booking:
+    //   welcome — first-ever booking arriving through a friend's ?ref link
+    //   redeem  — referrer spending a credit a friend earned them
+    // Every step is best-effort: any error here zeroes the discount and the
+    // booking proceeds at full price. Helper pay is based on
+    // price_estimate_cents, which the discount NEVER touches — the €5 rides
+    // a Stripe coupon, funded by the platform.
+    const normalizedPhone = normalizeE164(customer_phone);
+    let referralWelcome: { code: string; referrerPhone: string } | null = null;
+    let redeemRow: { id: string; credit_cents: number } | null = null;
+
+    if (!isMonthlyPlan && normalizedPhone) {
+      try {
+        const rawRef = typeof referral_code === 'string' ? referral_code.trim().toUpperCase() : '';
+        if (rawRef && /^[A-Z0-9]{4,12}$/.test(rawRef)) {
+          const { data: codeRow } = await supabase
+            .from('household_referral_codes')
+            .select('code, phone')
+            .eq('code', rawRef)
+            .maybeSingle();
+          if (codeRow && (codeRow.phone as string) !== normalizedPhone) {
+            const phoneForms = [...new Set([customer_phone.trim(), normalizedPhone])];
+            const { count: priorBookings } = await supabase
+              .from('household_bookings')
+              .select('id', { count: 'exact', head: true })
+              .in('customer_phone', phoneForms)
+              .not('status', 'in', '(awaiting_payment,cancelled)');
+            const { data: priorReferral } = await supabase
+              .from('household_referrals')
+              .select('id')
+              .eq('referee_phone', normalizedPhone)
+              .maybeSingle();
+            if ((priorBookings ?? 0) === 0 && !priorReferral) {
+              referralWelcome = { code: codeRow.code as string, referrerPhone: codeRow.phone as string };
+            }
+          }
+        }
+        if (!referralWelcome) {
+          const { data: earned } = await supabase
+            .from('household_referrals')
+            .select('id, credit_cents')
+            .eq('referrer_phone', normalizedPhone)
+            .eq('status', 'earned')
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (earned) redeemRow = { id: earned.id as string, credit_cents: (earned.credit_cents as number) ?? 500 };
+        }
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] referral lookup skipped', e);
+        referralWelcome = null;
+        redeemRow = null;
+      }
+    }
+
+    const baseTotalCents = priceCents + serviceFeeCents;
+    let referralDiscountCents = referralWelcome ? 500 : redeemRow ? Math.min(redeemRow.credit_cents, 500) : 0;
+    // Keep the charged total at least €1 so we never trip Stripe's minimum,
+    // and don't bother with sub-€1 discounts.
+    referralDiscountCents = Math.min(referralDiscountCents, Math.max(0, baseTotalCents - 100));
+    if (referralDiscountCents < 100) {
+      referralDiscountCents = 0;
+      referralWelcome = null;
+      redeemRow = null;
+    }
+
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
       .insert({
@@ -341,7 +424,13 @@ serve(async (req) => {
           note:          typeof note === 'string' ? note.trim() : null,
           source:        'task_showcase',
           service_fee_cents: serviceFeeCents,
-          total_cents:       priceCents + serviceFeeCents,
+          // What the customer is actually charged (after referral discount).
+          // price_estimate_cents stays the full job price for helper-side math.
+          total_cents:       baseTotalCents - referralDiscountCents,
+          ...(referralDiscountCents > 0 ? {
+            referral_discount_cents: referralDiscountCents,
+            referral_kind: referralWelcome ? 'welcome' : 'redeem',
+          } : {}),
         },
       })
       .select('id')
@@ -357,6 +446,70 @@ serve(async (req) => {
       req.headers.get('origin') ||
       Deno.env.get('SITE_URL') ||
       'https://vanojobs.com';
+
+    // Materialize the referral: pending row for a welcome discount, then an
+    // ad-hoc Stripe coupon. If any step fails we roll the discount back to
+    // zero (and remove the pending row) rather than block the checkout.
+    let referralWelcomeId: string | null = null;
+    let couponId: string | null = null;
+    if (referralDiscountCents > 0) {
+      if (referralWelcome && normalizedPhone) {
+        try {
+          const { data: refRow, error: refErr } = await supabase
+            .from('household_referrals')
+            .insert({
+              code: referralWelcome.code,
+              referrer_phone: referralWelcome.referrerPhone,
+              referee_phone: normalizedPhone,
+              referee_booking_id: bookingId,
+              credit_cents: 500,
+              status: 'pending',
+            })
+            .select('id')
+            .single();
+          if (refErr) console.warn('[create-household-payment-checkout] referral row insert failed', refErr);
+          referralWelcomeId = (refRow?.id as string | undefined) ?? null;
+        } catch (e) {
+          console.warn('[create-household-payment-checkout] referral row insert threw', e);
+        }
+        if (!referralWelcomeId) referralDiscountCents = 0;
+      }
+
+      if (referralDiscountCents > 0) {
+        try {
+          const couponResp = await fetch('https://api.stripe.com/v1/coupons', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formEncode({
+              amount_off: String(referralDiscountCents),
+              currency: 'eur',
+              duration: 'once',
+              name: referralWelcome ? 'Friend discount' : 'Referral credit',
+            }),
+          });
+          if (couponResp.ok) {
+            couponId = ((await couponResp.json()) as { id: string }).id;
+          } else {
+            console.warn('[create-household-payment-checkout] coupon create failed', await couponResp.text());
+          }
+        } catch (e) {
+          console.warn('[create-household-payment-checkout] coupon create threw', e);
+        }
+        if (!couponId) {
+          referralDiscountCents = 0;
+          if (referralWelcomeId) {
+            await supabase.from('household_referrals')
+              .delete()
+              .eq('id', referralWelcomeId)
+              .eq('status', 'pending');
+            referralWelcomeId = null;
+          }
+        }
+      }
+    }
 
     const checkoutParams: Record<string, string> = {
       mode: 'payment',
@@ -386,6 +539,9 @@ serve(async (req) => {
       success_url: `${origin}/track/${bookingId}?paid=true`,
       cancel_url: `${origin}/`,
       'metadata[household_booking_id]': bookingId,
+      ...(couponId ? { 'discounts[0][coupon]': couponId } : {}),
+      ...(referralWelcomeId ? { 'metadata[referral_welcome_id]': referralWelcomeId } : {}),
+      ...(redeemRow && referralDiscountCents > 0 ? { 'metadata[redeem_referral_id]': redeemRow.id } : {}),
       client_reference_id: bookingId,
     };
 
@@ -401,6 +557,12 @@ serve(async (req) => {
     if (!stripeResp.ok) {
       const text = await stripeResp.text();
       console.error('[create-household-payment-checkout] stripe error', stripeResp.status, text);
+      if (referralWelcomeId) {
+        await supabase.from('household_referrals')
+          .delete()
+          .eq('id', referralWelcomeId)
+          .eq('status', 'pending');
+      }
       await supabase.from('household_bookings').delete().eq('id', bookingId);
       return bad(502, 'Payment provider error. Please try again.');
     }

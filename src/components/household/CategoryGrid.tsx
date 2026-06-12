@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
+import { getReferralCode } from '@/lib/referral';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -148,15 +149,21 @@ const chip = (active: boolean, accent?: boolean) => cn(
 // ─── Bottom sheet ─────────────────────────────────────────────────────────
 
 interface SheetProps {
-  cat:       Category;
-  onClose:   () => void;
+  cat:          Category;
+  onClose:      () => void;
+  /** Pre-select a size (e.g. the "book your usual" shortcut). */
+  initialSize?: string;
 }
 
-const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
+const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const timeSlots  = useMemo(() => getTimeSlots(), []);
   const remembered = useMemo(() => loadBookingMemory(), []);
+  const referralCode = useMemo(() => getReferralCode(), []);
   const [when,     setWhen]    = useState('Now');
-  const [size,     setSize]    = useState(DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '');
+  const [size,     setSize]    = useState(
+    (initialSize && cat.sizes?.includes(initialSize) ? initialSize : null)
+      ?? DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '',
+  );
   const [phone,    setPhone]   = useState(remembered?.phone ?? '');
   const [address,  setAddress] = useState(remembered?.address ?? '');
   const [coords,   setCoords]  = useState<{ lat: number; lng: number } | null>(
@@ -237,6 +244,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
           customer_address: address.trim(),
           ...(coords ? { customer_lat: coords.lat, customer_lng: coords.lng } : {}),
           city,
+          ...(referralCode ? { referral_code: referralCode } : {}),
         }},
       );
       if (fnErr || !data?.checkout_url) {
@@ -247,6 +255,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
         address: address.trim(),
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
         city,
+        lastCategory: cat.slug,
+        lastSize:     size,
       });
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
@@ -427,6 +437,13 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
                 </div>
               )}
 
+              {referralCode && (
+                <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
+                  <span aria-hidden="true">🎁</span>
+                  €5 friend discount applies at checkout on your first booking
+                </p>
+              )}
+
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
                 <Button
                   type="submit"
@@ -454,7 +471,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 
             {error && <p className="text-center text-xs text-destructive">{error}</p>}
             <p className="text-center text-[11px] text-muted-foreground">
-              Stripe secure checkout · paid upfront · money back guarantee
+              Stripe secure checkout · Apple Pay &amp; Google Pay · money back guarantee
             </p>
           </form>
         </div>
@@ -466,17 +483,28 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose }) => {
 // ─── Main grid ────────────────────────────────────────────────────────────
 
 export const CategoryGrid: React.FC = () => {
-  const [selectedCat, setSelectedCat] = useState<Category | null>(null);
+  const [selected, setSelected] = useState<{ cat: Category; size?: string } | null>(null);
 
-  const openSheet = useCallback((cat: Category) => setSelectedCat(cat), []);
-  const closeSheet = useCallback(() => setSelectedCat(null), []);
+  const openSheet = useCallback((cat: Category, size?: string) => setSelected({ cat, size }), []);
+  const closeSheet = useCallback(() => setSelected(null), []);
+
+  // One-tap rebook: last booked job from this device
+  const usual = useMemo(() => {
+    const mem = loadBookingMemory();
+    if (!mem?.lastCategory) return null;
+    const cat = CATEGORIES.find(c => c.slug === mem.lastCategory);
+    if (!cat) return null;
+    const size = mem.lastSize && cat.sizes?.includes(mem.lastSize) ? mem.lastSize : undefined;
+    const cents = getPriceCents(cat.slug, size ?? DEFAULT_SIZE[cat.slug] ?? '');
+    return { cat, size, price: cents ? fmt(cents) : null };
+  }, []);
 
   // Support the vano:select-category custom event from TaskShowcase etc.
   useEffect(() => {
     const handle = (e: Event) => {
-      const slug = (e as CustomEvent<{ slug: string }>).detail.slug;
+      const { slug, size } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
       const cat = CATEGORIES.find(c => c.slug === slug);
-      if (cat) openSheet(cat);
+      if (cat) openSheet(cat, size);
     };
     window.addEventListener('vano:select-category', handle);
     return () => window.removeEventListener('vano:select-category', handle);
@@ -524,6 +552,25 @@ export const CategoryGrid: React.FC = () => {
           })}
         </div>
 
+        {/* One-tap rebook — remembers the last job booked on this device */}
+        {usual && (
+          <button
+            onClick={() => openSheet(usual.cat, usual.size)}
+            className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left hover:bg-sage/14 active:scale-[0.98] transition-[background-color,transform] duration-150"
+          >
+            <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-foreground leading-snug">
+                Book your usual{usual.price ? ` — ${usual.price}` : ''}
+              </span>
+              <span className="block text-xs text-muted-foreground mt-0.5 truncate">
+                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details already filled in
+              </span>
+            </span>
+            <span className="text-sage text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+          </button>
+        )}
+
         {/* WhatsApp fallback */}
         <button
           onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
@@ -542,8 +589,8 @@ export const CategoryGrid: React.FC = () => {
 
       {/* Bottom sheet portal-style — rendered outside the grid */}
       <AnimatePresence>
-        {selectedCat && (
-          <Sheet cat={selectedCat} onClose={closeSheet} />
+        {selected && (
+          <Sheet cat={selected.cat} initialSize={selected.size} onClose={closeSheet} />
         )}
       </AnimatePresence>
     </>

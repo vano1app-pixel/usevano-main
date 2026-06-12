@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useHelperCount } from '@/hooks/useHelperCount';
 import { CategoryGrid } from './CategoryGrid';
 import { WeatherNudge } from './WeatherNudge';
+import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 
 const TRUST = [
   { icon: ShieldCheck, text: 'Every student is screened before their first job' },
@@ -48,6 +49,8 @@ export const HeroSection: React.FC = () => {
 
           {/* ── Left column — pitch ── */}
           <div className="mb-8 lg:mb-0 lg:pt-4">
+
+            <ReferralWelcomeBanner />
 
             {/* Live pill */}
             <motion.div

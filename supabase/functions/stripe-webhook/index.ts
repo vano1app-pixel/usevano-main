@@ -536,6 +536,38 @@ async function handleHouseholdCheckoutCompleted(
     }
   })();
 
+  // Referral bookkeeping — fire and forget, never blocks payment handling.
+  //   referral_welcome_id → the referee just paid their first booking, so the
+  //                         referrer's €5 flips pending → earned (spendable).
+  //   redeem_referral_id  → the referrer just spent an earned €5 on this
+  //                         booking, so it flips earned → redeemed.
+  // Both filters include the expected current status, making replays no-ops.
+  const referralPromise = (async () => {
+    try {
+      const nowIso = new Date().toISOString();
+      const welcomeId = session.metadata?.referral_welcome_id;
+      if (welcomeId) {
+        const { error: refErr } = await supabase
+          .from('household_referrals')
+          .update({ status: 'earned', earned_at: nowIso })
+          .eq('id', welcomeId)
+          .eq('status', 'pending');
+        if (refErr) console.warn('[stripe-webhook] referral earn flip failed', refErr);
+      }
+      const redeemId = session.metadata?.redeem_referral_id;
+      if (redeemId) {
+        const { error: redeemErr } = await supabase
+          .from('household_referrals')
+          .update({ status: 'redeemed', redeemed_at: nowIso, redeemed_booking_id: bookingId })
+          .eq('id', redeemId)
+          .eq('status', 'earned');
+        if (redeemErr) console.warn('[stripe-webhook] referral redeem flip failed', redeemErr);
+      }
+    } catch (e) {
+      console.warn('[stripe-webhook] referral bookkeeping error (non-fatal)', e);
+    }
+  })();
+
   const runtime = (globalThis as unknown as {
     EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
   }).EdgeRuntime;
@@ -543,6 +575,7 @@ async function handleHouseholdCheckoutCompleted(
     runtime.waitUntil(emailPromise);
     runtime.waitUntil(adminNotifyPromise);
     runtime.waitUntil(dispatchPromise);
+    runtime.waitUntil(referralPromise);
   }
 
   return new Response(

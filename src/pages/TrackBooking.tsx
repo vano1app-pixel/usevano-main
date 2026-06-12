@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
+import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -767,6 +768,10 @@ const TrackBooking = () => {
             )}
           </div>
         )}
+
+        {/* Give €5, get €5 — the post-booking wait is the highest-intent
+            sharing moment; renders only when this device has booking memory */}
+        <ReferralShareCard className="mt-8" />
       </main>
 
       {/* Live map panel */}

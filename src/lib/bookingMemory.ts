@@ -16,6 +16,9 @@ export interface BookingMemory {
   lat?:     number;
   lng?:     number;
   city?:    string;
+  /** Last booked job — powers the one-tap "book your usual" shortcut. */
+  lastCategory?: string;
+  lastSize?:     string;
   savedAt:  number;
 }
 
