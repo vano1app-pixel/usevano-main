@@ -33,6 +33,31 @@ function page(title: string, body: string, accent = '#4a7c59'): Response {
   return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
 
+// Escape DB-sourced values before they land in the result HTML. City is already
+// allow-listed at booking time, so this is belt-and-braces against any future
+// path that writes a less-constrained value — never render raw.
+const esc = (s: string | null | undefined): string =>
+  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// Best-effort email → existing auth user id. Lets a helper who already had an
+// account (e.g. they once booked as a customer) but whose helper row was never
+// linked still claim in one tap, instead of being bounced to the login page.
+// Bounded page scan; returns null (→ login fallback) if not found.
+async function findUserIdByEmail(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+): Promise<string | null> {
+  const target = email.trim().toLowerCase();
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    if (error || !data?.users?.length) return null;
+    const hit = data.users.find((u) => (u.email ?? '').toLowerCase() === target);
+    if (hit) return hit.id;
+    if (data.users.length < 200) return null; // last page reached
+  }
+  return null;
+}
+
 serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -72,7 +97,7 @@ serve(async (req) => {
       mine = ownOffer?.status === 'accepted';
     }
     return mine
-      ? page('You\'ve got this one ✅', `This <strong>${catLabel}</strong>${booking.city ? ` in ${booking.city}` : ''} is already yours.<br><br><a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open the job →</a>`)
+      ? page('You\'ve got this one ✅', `This <strong>${catLabel}</strong>${booking.city ? ` in ${esc(booking.city)}` : ''} is already yours.<br><br><a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open the job →</a>`)
       : page('Already taken', `Sorry — another helper grabbed this <strong>${catLabel}</strong> first. There are usually more jobs waiting:<br><br><a href="${siteUrl}/student-dashboard" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">See open jobs →</a>`, '#6b7280');
   }
 
@@ -97,6 +122,13 @@ serve(async (req) => {
           const { data: created, error: createErr } = await supabase.auth.admin.createUser(createArgs as never);
           if (!createErr && created?.user?.id) {
             userId = created.user.id;
+          } else if (createErr && helper.email) {
+            // createUser failed — almost always because the email is already
+            // registered. Recover by linking that existing account so the
+            // one-tap claim still works for returning users.
+            userId = await findUserIdByEmail(supabase, helper.email);
+          }
+          if (userId) {
             await supabase.from('household_helpers').update({ user_id: userId }).eq('id', helper.id);
           }
         }
@@ -143,5 +175,5 @@ serve(async (req) => {
   }).catch(() => {});
 
   console.log(`[accept-job] booking ${bookingId} claimed by helper ${helperId} (user ${userId})`);
-  return page('You\'ve got the job! 🎉', `You\'ve claimed the <strong>${catLabel}</strong>${booking.city ? ` in ${booking.city}` : ''}. We\'ve let the customer know.<br><br>Open the app for the address and details:<br><br><a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open the job →</a>`);
+  return page('You\'ve got the job! 🎉', `You\'ve claimed the <strong>${catLabel}</strong>${booking.city ? ` in ${esc(booking.city)}` : ''}. We\'ve let the customer know.<br><br>Open the app for the address and details:<br><br><a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open the job →</a>`);
 });
