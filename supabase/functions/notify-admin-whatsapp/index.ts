@@ -184,16 +184,22 @@ serve(async (req) => {
       contactPhone = helper_phone;
 
     } else if (type === 'no_helpers') {
-      const { customer_name, customer_phone, customer_email, category, scheduled_date, city, price_euros, booking_id, stage, offers_sent } = body;
+      const { customer_name, customer_phone, customer_email, category, scheduled_date, city, price_euros, booking_id, stage, offers_sent, attempt, waiting_minutes } = body;
+      const n = Number(attempt) || 0;
+      // Escalating siren — more alarm bells as a job sits unresolved, so a
+      // repeat page reads as more urgent than the first.
+      const sirens = '🚨'.repeat(Math.min(Math.max(n, 1), 3));
+      const reminderTag = n > 1 ? ` (reminder #${n})` : '';
+      const waitLine = Number(waiting_minutes) > 0 ? `\nWaiting: ${waiting_minutes} min — customer still expecting this.` : '';
       const stageLine = stage === 'none_available'
         ? 'No approved/available helpers matched this job — needs manual cover NOW.'
         : stage === 'expired'
         ? `Pending with no acceptance${offers_sent ? ` (${offers_sent} offer(s) expired)` : ''} — needs manual action.`
         : 'Still searching — no helper yet.';
-      subject = `🚨 No helper — ${cat(category)} in ${city ?? '?'} — ${ref(booking_id)}`;
+      subject = `${sirens} No helper${reminderTag} — ${cat(category)} in ${city ?? '?'} — ${ref(booking_id)}`;
       message =
-        `🚨 *No helper found!*\n` +
-        `${stageLine}\n` +
+        `${sirens} *No helper found${reminderTag}!*\n` +
+        `${stageLine}${waitLine}\n` +
         `Job: ${cat(category)}\nCustomer: ${customer_name ?? 'Guest'}\n` +
         `Phone: ${customer_phone ?? 'not provided'}\nEmail: ${customer_email ?? 'not provided'}\n` +
         `City: ${city ?? '—'}\nWhen: ${scheduled_date ?? 'flexible'}\n` +
