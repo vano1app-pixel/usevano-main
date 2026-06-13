@@ -183,6 +183,23 @@ serve(async (req) => {
         `They're waiting on approval: ${siteUrl}/household-admin`;
       contactPhone = helper_phone;
 
+    } else if (type === 'no_helpers') {
+      const { customer_name, customer_phone, customer_email, category, scheduled_date, city, price_euros, booking_id, stage, offers_sent } = body;
+      const stageLine = stage === 'none_available'
+        ? 'No approved/available helpers matched this job — needs manual cover NOW.'
+        : stage === 'expired'
+        ? `Pending with no acceptance${offers_sent ? ` (${offers_sent} offer(s) expired)` : ''} — needs manual action.`
+        : 'Still searching — no helper yet.';
+      subject = `🚨 No helper — ${cat(category)} in ${city ?? '?'} — ${ref(booking_id)}`;
+      message =
+        `🚨 *No helper found!*\n` +
+        `${stageLine}\n` +
+        `Job: ${cat(category)}\nCustomer: ${customer_name ?? 'Guest'}\n` +
+        `Phone: ${customer_phone ?? 'not provided'}\nEmail: ${customer_email ?? 'not provided'}\n` +
+        `City: ${city ?? '—'}\nWhen: ${scheduled_date ?? 'flexible'}\n` +
+        `Price: €${price_euros ?? '?'}\nRef: ${ref(booking_id)}`;
+      contactPhone = customer_phone;
+
     } else if (typeof body?.message === 'string' && body.message.trim()) {
       // Generic passthrough — unknown senders never lose a message to a 400
       subject = body.subject ?? `VANO admin ping — ${type ?? 'message'}`;

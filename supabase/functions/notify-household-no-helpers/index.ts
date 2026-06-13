@@ -1,35 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Fires once per booking when a paid job has been pending for 30+ minutes
-// with no helper assigned. Reassures the customer and pings admin so they
-// can manually sort it out or find a helper.
+// Fires once per booking when a job has been pending past the alert window
+// (NO_HELPERS_ALERT_MINUTES, default 10 min) with no helper assigned. Reassures
+// the customer and pings admin (WhatsApp + email via notify-admin-whatsapp) so
+// they can manually sort it out or find a helper.
 //
-// Schedule: every 30 minutes in Supabase dashboard
-//   Edge Functions → notify-household-no-helpers → Schedule → */30 * * * *
+// Schedule: every few minutes in Supabase dashboard
+//   Edge Functions → notify-household-no-helpers → Schedule → */5 * * * *
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
 };
-
-async function sendWhatsApp(to: string, body: string): Promise<void> {
-  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const authToken  = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const from       = Deno.env.get('TWILIO_FROM_NUMBER') || Deno.env.get('TWILIO_WA_FROM');
-  if (!accountSid || !authToken || !from) return;
-  await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ From: `whatsapp:${from}`, To: `whatsapp:${to}`, Body: body }).toString(),
-    },
-  ).catch(() => {});
-}
 
 serve(async (_req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -37,12 +20,14 @@ serve(async (_req) => {
   const resendKey   = Deno.env.get('RESEND_API_KEY')?.trim();
   const from        = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
   const siteUrl     = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
-  const adminWa     = Deno.env.get('ADMIN_WA_NUMBER') || '+353899817111';
 
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // Bookings that are still pending after 30 minutes AND haven't had this email yet
-  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  // Bookings that are still pending after the alert window AND haven't had this
+  // email yet. 10 min default keeps same-day jobs moving; override with
+  // NO_HELPERS_ALERT_MINUTES.
+  const alertMinutes = Number(Deno.env.get('NO_HELPERS_ALERT_MINUTES')) || 10;
+  const alertCutoff  = new Date(Date.now() - alertMinutes * 60 * 1000).toISOString();
 
   const { data: bookings, error } = await supabase
     .from('household_bookings')
@@ -50,7 +35,7 @@ serve(async (_req) => {
     .eq('status', 'pending')
     .is('student_id', null)
     .is('no_helpers_email_sent_at', null)
-    .lt('created_at', thirtyMinutesAgo);
+    .lt('created_at', alertCutoff);
 
   if (error) {
     console.error('[no-helpers] query error', error);
@@ -65,7 +50,6 @@ serve(async (_req) => {
     const ref       = String(b.id).slice(-8).toUpperCase();
     const trackUrl  = `${siteUrl}/track/${b.id}`;
     const waLink    = 'https://wa.me/353899817111';
-    const priceStr  = b.price_estimate_cents ? `€${(b.price_estimate_cents / 100).toFixed(0)}` : '?';
 
     // ── Customer email ──────────────────────────────────────────────────────
     if (resendKey && b.customer_email) {
@@ -106,19 +90,26 @@ serve(async (_req) => {
       if (!res.ok) console.warn('[no-helpers] Resend error', b.id, res.status);
     }
 
-    // ── Admin WhatsApp — urgent ping so you can act manually ───────────────
-    const adminMsg =
-      `⚠️ *No helper found yet!*\n` +
-      `Job: ${catLabel}\n` +
-      `Customer: ${custName}\n` +
-      `Phone: ${b.customer_phone ?? '—'}\n` +
-      `Email: ${b.customer_email ?? '—'}\n` +
-      `City: ${b.city ?? '—'}\n` +
-      `When: ${b.scheduled_date ?? 'Flexible'}\n` +
-      `Paid: ${priceStr}\n` +
-      `Ref: ${ref}\n` +
-      `Pending 30+ min — needs manual action`;
-    await sendWhatsApp(adminWa, adminMsg);
+    // ── Admin alert — urgent ping so you can act manually ──────────────────
+    // Routed through notify-admin-whatsapp: WhatsApp + guaranteed email fallback
+    // + a tap-to-call link to the customer. Fire-and-forget so a Twilio/Resend
+    // hiccup can never stop the cron from marking this booking handled.
+    fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'no_helpers',
+        stage: 'expired',
+        customer_name: custName,
+        customer_phone: b.customer_phone,
+        customer_email: b.customer_email,
+        category: b.category,
+        city: b.city,
+        scheduled_date: b.scheduled_date,
+        price_euros: b.price_estimate_cents ? (b.price_estimate_cents / 100).toFixed(2) : undefined,
+        booking_id: b.id,
+      }),
+    }).catch(() => {});
 
     // Mark sent so this never fires twice for the same booking
     await supabase

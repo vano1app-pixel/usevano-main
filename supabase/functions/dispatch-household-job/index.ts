@@ -360,9 +360,9 @@ serve(async (req) => {
 
       const { data: fullBooking } = await supabase
         .from('household_bookings')
-        .select('customer_name, customer_email')
+        .select('customer_name, customer_email, customer_phone, scheduled_date')
         .eq('id', bookingId)
-        .maybeSingle() as { data: { customer_name?: string; customer_email?: string } | null };
+        .maybeSingle() as { data: { customer_name?: string; customer_email?: string; customer_phone?: string; scheduled_date?: string } | null };
 
       const custEmail = fullBooking?.customer_email;
       const custName = fullBooking?.customer_name && fullBooking.customer_name !== 'Guest'
@@ -405,16 +405,26 @@ serve(async (req) => {
         }).catch(() => {});
       }
 
-      const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
-      if (resendKey && adminEmail) {
-        fetch('https://api.resend.com/emails', {
+      // Instant admin escalation — WhatsApp + guaranteed email fallback + a
+      // tap-to-call link to the customer, via the canonical notify-admin-whatsapp
+      // function (fixes the old plain-email-only ping that could silently vanish).
+      // Fire-and-forget: an alert failure must never break dispatch.
+      if (!quiet) {
+        fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            from: resendFrom,
-            to: [adminEmail],
-            subject: `🚨 No helpers found — ${catLabel} in ${city ?? '?'} — ${ref}`,
-            text: `No helpers available for booking ${ref}.\nCategory: ${catLabel}\nCity: ${city ?? '—'}\nBooking ID: ${bookingId}\nCustomer: ${custName} (${custEmail ?? '—'})\n\nACTION NEEDED: manually find a helper or issue refund.`,
+            type: 'no_helpers',
+            stage: 'none_available',
+            customer_name: fullBooking?.customer_name,
+            customer_phone: fullBooking?.customer_phone,
+            customer_email: custEmail,
+            category,
+            city,
+            scheduled_date: fullBooking?.scheduled_date,
+            price_euros: typeof price_estimate_cents === 'number' && price_estimate_cents > 0
+              ? (price_estimate_cents / 100).toFixed(2) : undefined,
+            booking_id: bookingId,
           }),
         }).catch(() => {});
       }
