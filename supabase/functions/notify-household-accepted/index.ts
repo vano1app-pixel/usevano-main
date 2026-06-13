@@ -127,24 +127,37 @@ serve(async (req) => {
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey     = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) return bad(401, 'Invalid session');
+    // Internal service-role path: accept-job (one-tap link) has already claimed
+    // the booking server-side and can't present a user JWT. Trust it only when
+    // the bearer IS the service-role key AND it flags itself; the assigned
+    // student is then read from the booking row, not from a session.
+    const isInternal = req.headers.get('x-internal-accept') === '1' &&
+      authHeader === `Bearer ${serviceKey}`;
+
+    let callerUserId: string | null = null;
+    if (!isInternal) {
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !user) return bad(401, 'Invalid session');
+      callerUserId = user.id;
+    }
 
     const { booking_id } = await req.json().catch(() => ({})) as { booking_id?: string };
     if (!booking_id) return bad(400, 'booking_id required');
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Only proceed if this user is actually the assigned student
-    const { data: booking } = await supabase
+    // For a user call, only proceed if this user is the assigned student. For
+    // the internal path, load by id (student_id was just set by accept-job).
+    let bookingQuery = supabase
       .from('household_bookings')
       .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, time_slot, student_id, price_estimate_cents, booking_data, paid_at, stripe_checkout_url')
-      .eq('id', booking_id)
-      .eq('student_id', user.id)
-      .maybeSingle() as { data: Record<string, unknown> | null };
+      .eq('id', booking_id);
+    if (!isInternal) bookingQuery = bookingQuery.eq('student_id', callerUserId!);
+
+    const { data: booking } = await bookingQuery.maybeSingle() as { data: Record<string, unknown> | null };
 
     if (!booking) return bad(404, 'Booking not found or not assigned to you');
 

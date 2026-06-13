@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { signAcceptToken } from "../_shared/acceptToken.ts";
 
 // Triggered by create-household-payment-checkout when a booking goes live,
 // and by the redispatch-stale-jobs cron when all offers have expired.
@@ -472,6 +473,24 @@ serve(async (req) => {
     const catLabel = CATEGORY_LABELS[category] ?? 'Household help';
     const jobUrl = `${siteUrl}/student-job/${bookingId}`;
 
+    // One-tap accept links — a signed, expiring, per-helper link that claims the
+    // job in a single tap with no login (see accept-job + _shared/acceptToken).
+    // Removes the #1 reason offers get missed: friction. Falls back to jobUrl if
+    // signing ever fails so a helper always has a working link.
+    const expEpoch = Math.floor(Date.parse(expiresAt) / 1000);
+    const acceptUrlByHelper = new Map<string, string>();
+    await Promise.all(
+      (helpers as Array<{ id: string; user_id?: string }>).map(async (h) => {
+        try {
+          const tok = await signAcceptToken({ b: bookingId, h: h.id, u: h.user_id ?? null, e: expEpoch });
+          acceptUrlByHelper.set(h.id, `${supabaseUrl}/functions/v1/accept-job?t=${tok}`);
+        } catch {
+          acceptUrlByHelper.set(h.id, jobUrl);
+        }
+      }),
+    );
+    const acceptUrlFor = (id: string) => acceptUrlByHelper.get(id) ?? jobUrl;
+
     // Web push first — the only channel that reaches a pocket instantly.
     // Sent on every round (incl. quiet re-dispatch): the tag replaces any
     // earlier notification for the same job instead of stacking.
@@ -509,10 +528,11 @@ serve(async (req) => {
     // brand-new job. Only the repeat *email* is suppressed on quiet rounds.
     {
       const reminderPrefix = quiet ? 'Still open ⏰ ' : '';
-      const smsBody = `VANO: ${reminderPrefix}${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}. First to accept gets it: ${jobUrl}`;
-      const phoneHelpers = (helpers as Array<{ phone?: string }>).filter((h) => h.phone);
+      const lead = `VANO: ${reminderPrefix}${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}.`;
+      const phoneHelpers = (helpers as Array<{ id: string; phone?: string }>).filter((h) => h.phone);
       const phoneResults = await Promise.allSettled(
-        phoneHelpers.map((h) => notifyHelperPhone(h.phone, smsBody)),
+        // Per-helper one-tap link: tapping claims the job, no login.
+        phoneHelpers.map((h) => notifyHelperPhone(h.phone, `${lead} Tap to accept (first gets it): ${acceptUrlFor(h.id)}`)),
       );
       const waOk  = phoneResults.filter((r) => r.status === 'fulfilled' && r.value.whatsapp).length;
       const smsOk = phoneResults.filter((r) => r.status === 'fulfilled' && r.value.sms).length;
@@ -528,6 +548,7 @@ serve(async (req) => {
           .filter((h) => h.email)
           .map(async (h) => {
             const firstName = h.name.split(' ')[0];
+            const acceptUrl = acceptUrlFor(h.id);
             const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;">
@@ -538,7 +559,7 @@ serve(async (req) => {
     ${earnCents ? `<p style="margin:0 0 4px;color:#111827;font-size:26px;font-weight:800;">Earn €${(earnCents / 100).toFixed(2)}</p>` : ''}
     <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city ?? 'Ireland'}</p>
     <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · First to accept gets it · expires in ${OFFER_TTL_MINUTES} min</p>
-    <a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">View &amp; Accept →</a>
+    <a href="${acceptUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Accept in one tap →</a>
   </div>
 </div>
 </body></html>`;
@@ -552,7 +573,7 @@ serve(async (req) => {
                   ? `Earn €${(earnCents / 100).toFixed(2)} — ${catLabel} in ${city ?? 'your area'}`
                   : `New VANO job — ${catLabel} in ${city ?? 'your area'}`,
                 html,
-                text: `Hi ${firstName}! ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}, when: ${when}. First to accept gets it: ${jobUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
+                text: `Hi ${firstName}! ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}, when: ${when}. Tap to accept (first gets it): ${acceptUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
               }),
             });
             if (!res.ok) {
