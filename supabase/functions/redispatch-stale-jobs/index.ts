@@ -81,8 +81,9 @@ serve(async (req) => {
               id: b.id, status: 'pending', city: b.city,
               category: b.category, scheduled_date: b.scheduled_date,
               price_estimate_cents: b.price_estimate_cents,
-              // Re-dispatch rounds revive offers + web push only — repeat
-              // emails for the same job annoy helpers (owner request).
+              // Re-dispatch rounds revive offers + re-ping pocket channels
+              // (push + WhatsApp + SMS) so missed offers get a second chance.
+              // Only the repeat email is suppressed (reads as spam).
               quiet: true,
             },
           }),

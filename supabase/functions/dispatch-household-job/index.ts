@@ -9,8 +9,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   2. If none found → fall back to ALL helpers on the platform with matching category.
 //   3. If still none → email customer "we're on it, WhatsApp us if urgent" (NO auto-refund).
 //
-// Notification channels per helper: web push (instant, pocket), email, and
-// WhatsApp/SMS via Twilio when configured.
+// Notification channels per helper: web push (instant, pocket), WhatsApp and
+// SMS via Twilio (independent — both fire when configured), and email. Pocket
+// channels (push + WhatsApp + SMS) re-fire on every re-dispatch round so a
+// missed offer is chased down; only the repeat email is suppressed.
 //
 // Re-dispatch safety: stale pending offers (past expires_at) are expired first
 // so the idempotency check doesn't block re-runs after the TTL window — and
@@ -210,38 +212,10 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
   return null;
 }
 
-async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
+async function twilioSend(params: Record<string, string>): Promise<boolean> {
   const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
   if (!sid || !token) return false;
-  const e164 = normalizeIrishPhone(to);
-  if (!e164) return false;
-  // WhatsApp preferred — no Irish carrier filtering, higher open rates.
-  // Set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886 (sandbox) or production number.
-  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
-  if (waFrom) {
-    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
-    try {
-      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({ To: `whatsapp:${e164}`, From: from, Body: body }).toString(),
-      });
-      if (!resp.ok) console.warn('[dispatch whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
-      else console.log(`[dispatch whatsapp] sent to ${e164}`);
-      return resp.ok;
-    } catch (e) {
-      console.warn('[dispatch whatsapp] twilio exception', e);
-      return false;
-    }
-  }
-  // SMS fallback — off until a carrier-trusted Irish number is configured.
-  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
-  const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
-  if (!from || from.startsWith('whatsapp:')) return false;
   try {
     const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: 'POST',
@@ -249,15 +223,52 @@ async function sendSms(to: string | null | undefined, body: string): Promise<boo
         Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({ To: e164, From: from, Body: body }).toString(),
+      body: new URLSearchParams(params).toString(),
     });
-    if (!resp.ok) console.warn('[dispatch sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
-    else console.log(`[dispatch sms] sent to ${e164}`);
+    if (!resp.ok) console.warn('[dispatch twilio] error', resp.status, (await resp.text()).slice(0, 200));
     return resp.ok;
   } catch (e) {
-    console.warn('[dispatch sms] twilio exception', e);
+    console.warn('[dispatch twilio] exception', e);
     return false;
   }
+}
+
+// WhatsApp — preferred pocket channel (no Irish carrier filtering, high open
+// rates). Set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886 (sandbox) or your
+// production WhatsApp sender.
+async function sendHelperWhatsApp(to: string | null | undefined, body: string): Promise<boolean> {
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  const waFrom = (Deno.env.get('TWILIO_WHATSAPP_FROM') || Deno.env.get('TWILIO_WA_FROM'))?.trim();
+  if (!waFrom) return false;
+  const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+  const ok = await twilioSend({ To: `whatsapp:${e164}`, From: from, Body: body });
+  if (ok) console.log(`[dispatch whatsapp] sent to ${e164}`);
+  return ok;
+}
+
+// SMS — independent fallback so a helper without WhatsApp (or a missed WhatsApp)
+// still gets the offer in their pocket. Off until a carrier-trusted Irish
+// number is configured (VANO_SMS_ENABLED=true + TWILIO_SMS_FROM).
+async function sendHelperSms(to: string | null | undefined, body: string): Promise<boolean> {
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!from || from.startsWith('whatsapp:')) return false;
+  const ok = await twilioSend({ To: e164, From: from, Body: body });
+  if (ok) console.log(`[dispatch sms] sent to ${e164}`);
+  return ok;
+}
+
+// Hit every configured pocket channel for one helper — WhatsApp AND SMS, in
+// parallel. Independent so one missed/unconfigured channel never loses the job.
+async function notifyHelperPhone(to: string | null | undefined, body: string): Promise<{ whatsapp: boolean; sms: boolean }> {
+  const [whatsapp, sms] = await Promise.all([
+    sendHelperWhatsApp(to, body),
+    sendHelperSms(to, body),
+  ]);
+  return { whatsapp, sms };
 }
 
 serve(async (req) => {
@@ -277,9 +288,10 @@ serve(async (req) => {
     const payload = await req.json();
     const booking = payload?.record ?? payload;
     const { id: bookingId, city, status, category, scheduled_date, price_estimate_cents } = booking;
-    // Quiet mode (re-dispatch rounds): revive offers + web push only. No
-    // email/SMS — repeat emails for the same job annoy helpers, and the
-    // original "View & Accept" email links keep working once offers are live.
+    // Quiet mode (re-dispatch rounds): revive offers + re-ping pocket channels
+    // (web push + WhatsApp + SMS) so a missed offer gets a real second chance.
+    // Only the repeat *email* is suppressed — the original "View & Accept" links
+    // keep working once offers are live, and repeat emails read as spam.
     const quiet = booking?.quiet === true || payload?.quiet === true;
     // Students respond to money: show what they'd keep (95% of the job).
     const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
@@ -490,13 +502,21 @@ serve(async (req) => {
       }
     }
 
-    // SMS each helper — the offer reaches their pocket, not their inbox.
-    // Email alone proved too slow (every offer expired unaccepted).
-    if (!quiet) {
-      const smsBody = `VANO: ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}. First to accept gets it: ${jobUrl}`;
-      await Promise.allSettled(
-        (helpers as Array<{ phone?: string }>).filter((h) => h.phone).map((h) => sendSms(h.phone, smsBody)),
+    // Pocket channels — WhatsApp + SMS — to every helper, on EVERY round
+    // (including quiet re-dispatch reminders). Web push only reaches helpers
+    // who subscribed, so before this the reminder rounds reached almost nobody
+    // and offers expired unseen. Reminders are prefixed so they don't read as a
+    // brand-new job. Only the repeat *email* is suppressed on quiet rounds.
+    {
+      const reminderPrefix = quiet ? 'Still open ⏰ ' : '';
+      const smsBody = `VANO: ${reminderPrefix}${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}. First to accept gets it: ${jobUrl}`;
+      const phoneHelpers = (helpers as Array<{ phone?: string }>).filter((h) => h.phone);
+      const phoneResults = await Promise.allSettled(
+        phoneHelpers.map((h) => notifyHelperPhone(h.phone, smsBody)),
       );
+      const waOk  = phoneResults.filter((r) => r.status === 'fulfilled' && r.value.whatsapp).length;
+      const smsOk = phoneResults.filter((r) => r.status === 'fulfilled' && r.value.sms).length;
+      console.log(`[dispatch] pocket channels${quiet ? ' (reminder)' : ''} — WhatsApp ${waOk}/${phoneHelpers.length}, SMS ${smsOk}/${phoneHelpers.length}`);
     }
 
     // Email each helper with a direct link to the specific job.
@@ -547,7 +567,7 @@ serve(async (req) => {
       const sent = emailResults.filter(r => r.status === 'fulfilled' && r.value).length;
       console.log(`[dispatch] emailed ${sent}/${helpers.filter((h: { email?: string }) => h.email).length} helper(s) — from: ${resendFrom}`);
     } else if (quiet) {
-      console.log('[dispatch] quiet re-dispatch — offers revived + push only, no email/SMS');
+      console.log('[dispatch] quiet re-dispatch — offers revived + pocket channels re-pinged (push + WhatsApp + SMS), no repeat email');
     } else {
       console.info('[dispatch] RESEND_API_KEY not set — skipping helper notifications');
     }
