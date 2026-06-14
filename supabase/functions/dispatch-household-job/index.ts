@@ -22,7 +22,9 @@ import { signAcceptToken } from "../_shared/acceptToken.ts";
 // re-dispatch could never revive an expired offer: ON CONFLICT DO NOTHING
 // left every offer dead and jobs quietly stranded.)
 
-const MAX_OFFERS = 10;
+// Fan out to everyone matching, not just a handful — first to accept wins, so
+// wider reach = faster claims. Capped only as a runaway safety valve.
+const MAX_OFFERS = Number(Deno.env.get('DISPATCH_MAX_OFFERS')) || 50;
 // Helpers are notified by email only, and every offer sent so far expired
 // unaccepted at the old 20-minute TTL — students simply don't see email that
 // fast. 60 min keeps urgency but gives a realistic window, and still fits
@@ -469,6 +471,27 @@ serve(async (req) => {
     }
 
     console.log(`[dispatch] offered booking ${bookingId} to ${offers.length} helper(s)${expandedSearch ? ' (platform-wide)' : ` in ${city}`}`);
+
+    // Ping the owner's WhatsApp on every NEW job (not quiet re-dispatch rounds)
+    // so you see a worker is being found in real time — same canonical channel
+    // as the no-helper alert (WhatsApp + guaranteed email fallback).
+    if (!quiet) {
+      fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'job_dispatched',
+          category,
+          city,
+          scheduled_date,
+          worker_count: offers.length,
+          expanded: expandedSearch,
+          price_euros: typeof price_estimate_cents === 'number' && price_estimate_cents > 0
+            ? (price_estimate_cents / 100).toFixed(2) : undefined,
+          booking_id: bookingId,
+        }),
+      }).catch(() => {});
+    }
 
     const catLabel = CATEGORY_LABELS[category] ?? 'Household help';
     const jobUrl = `${siteUrl}/student-job/${bookingId}`;

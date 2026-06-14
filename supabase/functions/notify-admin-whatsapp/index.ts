@@ -183,6 +183,15 @@ serve(async (req) => {
         `They're waiting on approval: ${siteUrl}/household-admin`;
       contactPhone = helper_phone;
 
+    } else if (type === 'job_dispatched') {
+      const { category, city, scheduled_date, price_euros, worker_count, expanded, booking_id } = body;
+      subject = `📣 New job — finding a worker — ${cat(category)} in ${city ?? '?'} — ${ref(booking_id)}`;
+      message =
+        `📣 *New job — finding a worker*\n` +
+        `Job: ${cat(category)}\nCity: ${city ?? '—'}${expanded ? ' (platform-wide — none local)' : ''}\n` +
+        `When: ${scheduled_date ?? 'flexible'}\nValue: €${price_euros ?? '?'}\n` +
+        `Sent to: ${worker_count ?? '?'} worker(s) — first to accept wins\nRef: ${ref(booking_id)}`;
+
     } else if (type === 'no_helpers') {
       const { customer_name, customer_phone, customer_email, category, scheduled_date, city, price_euros, booking_id, stage, offers_sent, attempt, waiting_minutes } = body;
       const n = Number(attempt) || 0;
