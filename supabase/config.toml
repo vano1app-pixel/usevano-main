@@ -1,6 +1,11 @@
 project_id = "puomfwjtpvqedwxjxogh"
 
 [functions]
+  # One-tap accept link tapped by a helper from WhatsApp/SMS/email — no JWT to
+  # send. Auth is the HMAC-signed, expiring token in the URL (see accept-job +
+  # _shared/acceptToken), verified inside the function.
+  [functions.accept-job]
+    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.check-achievements]

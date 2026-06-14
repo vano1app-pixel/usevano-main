@@ -1,35 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Fires once per booking when a paid job has been pending for 30+ minutes
-// with no helper assigned. Reassures the customer and pings admin so they
-// can manually sort it out or find a helper.
+// Booking watchdog / dead-man's switch. Runs on a short cron and, for every
+// job still pending+unassigned past the alert window, PAGES the owner on
+// WhatsApp+email — and keeps re-paging on an escalating cadence until the
+// booking leaves 'pending' (a helper accepts, or it's cancelled). A one-shot
+// alert can be missed; a repeating pager can't. The customer reassurance email
+// is still sent only once.
 //
-// Schedule: every 30 minutes in Supabase dashboard
-//   Edge Functions → notify-household-no-helpers → Schedule → */30 * * * *
+//   NO_HELPERS_ALERT_MINUTES   first page after this many min pending (default 10)
+//   ADMIN_ALERT_REPEAT_MINUTES re-page interval until resolved      (default 10)
+//
+// Schedule: run frequently so re-pages land on time
+//   Edge Functions → notify-household-no-helpers → Schedule → */5 * * * *
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
 };
-
-async function sendWhatsApp(to: string, body: string): Promise<void> {
-  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const authToken  = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const from       = Deno.env.get('TWILIO_FROM_NUMBER') || Deno.env.get('TWILIO_WA_FROM');
-  if (!accountSid || !authToken || !from) return;
-  await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ From: `whatsapp:${from}`, To: `whatsapp:${to}`, Body: body }).toString(),
-    },
-  ).catch(() => {});
-}
 
 serve(async (_req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -37,27 +25,33 @@ serve(async (_req) => {
   const resendKey   = Deno.env.get('RESEND_API_KEY')?.trim();
   const from        = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
   const siteUrl     = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
-  const adminWa     = Deno.env.get('ADMIN_WA_NUMBER') || '+353899817111';
 
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // Bookings that are still pending after 30 minutes AND haven't had this email yet
-  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  // First page after alertMinutes pending; re-page every repeatMinutes after
+  // that until the booking is no longer pending. No schema change — the page
+  // cadence is tracked in booking_data (last_admin_alert_at / admin_alert_count).
+  const alertMinutes  = Number(Deno.env.get('NO_HELPERS_ALERT_MINUTES')) || 10;
+  const repeatMinutes = Number(Deno.env.get('ADMIN_ALERT_REPEAT_MINUTES')) || 10;
+  const now           = Date.now();
+  const alertCutoff   = new Date(now - alertMinutes * 60 * 1000).toISOString();
 
+  // NOTE: deliberately NOT filtering on no_helpers_email_sent_at — every still-
+  // pending booking is re-evaluated each run so the owner page can repeat.
   const { data: bookings, error } = await supabase
     .from('household_bookings')
-    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents, created_at')
+    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents, created_at, no_helpers_email_sent_at, booking_data')
     .eq('status', 'pending')
     .is('student_id', null)
-    .is('no_helpers_email_sent_at', null)
-    .lt('created_at', thirtyMinutesAgo);
+    .lt('created_at', alertCutoff);
 
   if (error) {
-    console.error('[no-helpers] query error', error);
+    console.error('[watchdog] query error', error);
     return new Response('DB error', { status: 500 });
   }
 
-  let handled = 0;
+  let customerEmails = 0;
+  let adminPages = 0;
 
   for (const b of (bookings ?? [])) {
     const catLabel  = CATEGORY_LABELS[b.category as string] ?? String(b.category);
@@ -65,10 +59,9 @@ serve(async (_req) => {
     const ref       = String(b.id).slice(-8).toUpperCase();
     const trackUrl  = `${siteUrl}/track/${b.id}`;
     const waLink    = 'https://wa.me/353899817111';
-    const priceStr  = b.price_estimate_cents ? `€${(b.price_estimate_cents / 100).toFixed(0)}` : '?';
 
-    // ── Customer email ──────────────────────────────────────────────────────
-    if (resendKey && b.customer_email) {
+    // ── Customer reassurance email — ONCE per booking ─────────────────────────
+    if (!b.no_helpers_email_sent_at && resendKey && b.customer_email) {
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;">
@@ -103,35 +96,59 @@ serve(async (_req) => {
           text: `Hi ${custName}, we're still finding your helper for ${catLabel}. Takes a little longer today. Message us on WhatsApp: ${waLink}. Ref: ${ref}`,
         }),
       });
-      if (!res.ok) console.warn('[no-helpers] Resend error', b.id, res.status);
+      if (!res.ok) console.warn('[watchdog] customer Resend error', b.id, res.status);
+      else customerEmails++;
+      await supabase
+        .from('household_bookings')
+        .update({ no_helpers_email_sent_at: new Date().toISOString() })
+        .eq('id', b.id);
     }
 
-    // ── Admin WhatsApp — urgent ping so you can act manually ───────────────
-    const adminMsg =
-      `⚠️ *No helper found yet!*\n` +
-      `Job: ${catLabel}\n` +
-      `Customer: ${custName}\n` +
-      `Phone: ${b.customer_phone ?? '—'}\n` +
-      `Email: ${b.customer_email ?? '—'}\n` +
-      `City: ${b.city ?? '—'}\n` +
-      `When: ${b.scheduled_date ?? 'Flexible'}\n` +
-      `Paid: ${priceStr}\n` +
-      `Ref: ${ref}\n` +
-      `Pending 30+ min — needs manual action`;
-    await sendWhatsApp(adminWa, adminMsg);
+    // ── Owner page — REPEATING escalation until the booking is resolved ───────
+    const bd          = (b.booking_data ?? {}) as Record<string, unknown>;
+    const lastAlertMs = bd.last_admin_alert_at ? Date.parse(String(bd.last_admin_alert_at)) : 0;
+    const attempts    = Number(bd.admin_alert_count) || 0;
+    const duePage     = !lastAlertMs || (now - lastAlertMs) >= repeatMinutes * 60 * 1000;
+    if (!duePage) continue;
 
-    // Mark sent so this never fires twice for the same booking
+    const waitingMinutes = Math.max(0, Math.round((now - Date.parse(String(b.created_at))) / 60000));
+    const attempt        = attempts + 1;
+
+    // Routed through notify-admin-whatsapp: WhatsApp + guaranteed email fallback
+    // + a tap-to-call link to the customer. Fire-and-forget so a Twilio/Resend
+    // hiccup can never stop the watchdog from recording the page.
+    fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'no_helpers',
+        stage: 'expired',
+        attempt,
+        waiting_minutes: waitingMinutes,
+        customer_name: b.customer_name,
+        customer_phone: b.customer_phone,
+        customer_email: b.customer_email,
+        category: b.category,
+        city: b.city,
+        scheduled_date: b.scheduled_date,
+        price_euros: b.price_estimate_cents ? (b.price_estimate_cents / 100).toFixed(2) : undefined,
+        booking_id: b.id,
+      }),
+    }).catch(() => {});
+
+    // Record this page so the next one waits a full interval (merge to preserve
+    // redispatch_round and anything else already in booking_data).
     await supabase
       .from('household_bookings')
-      .update({ no_helpers_email_sent_at: new Date().toISOString() })
+      .update({ booking_data: { ...bd, last_admin_alert_at: new Date(now).toISOString(), admin_alert_count: attempt } })
       .eq('id', b.id);
 
-    handled++;
+    adminPages++;
   }
 
-  console.log(`[no-helpers] handled ${handled} / checked ${(bookings ?? []).length}`);
+  console.log(`[watchdog] checked ${(bookings ?? []).length} pending · customer emails ${customerEmails} · owner pages ${adminPages}`);
   return new Response(
-    JSON.stringify({ ok: true, handled, checked: (bookings ?? []).length }),
+    JSON.stringify({ ok: true, checked: (bookings ?? []).length, customerEmails, adminPages }),
     { headers: { 'Content-Type': 'application/json' } },
   );
 });

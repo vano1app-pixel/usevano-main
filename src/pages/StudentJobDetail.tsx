@@ -88,6 +88,32 @@ function googleMapsUrl(address: string) {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
 }
 
+// "What needs doing" — the task specifics the customer entered, surfaced from
+// booking_data per category so the worker knows the job before/after claiming.
+function jobDetailLines(category: string, d: Record<string, unknown>): { label: string; value: string }[] {
+  const lines: { label: string; value: string }[] = [];
+  const add = (label: string, v: unknown) => {
+    if (v === undefined || v === null || v === '') return;
+    const value = Array.isArray(v) ? v.filter(Boolean).join(', ') : String(v);
+    if (value.trim()) lines.push({ label, value: value.trim() });
+  };
+  switch (category) {
+    case 'shopping':
+      add('Store', d.store); add('Shopping list', d.shoppingList); break;
+    case 'dog-walk':
+      add('Dogs', d.dogCount); add('Walk length', d.walkDuration); break;
+    case 'garden':
+      add('Tasks', d.gardenTasks); add('Time needed', d.gardenDuration); break;
+    case 'moving':
+      add('Helpers needed', d.helperCount); add('Duration', d.movingDuration);
+      add('From', d.fromAddress); add('To', d.toAddress); add('Details', d.movingDescription); break;
+    case 'cleaning':
+      add('Tasks', d.cleaningTasks); add('Time needed', d.cleaningDuration); break;
+  }
+  add('Notes', d.description);
+  return lines;
+}
+
 function formatPhone(raw: string): string {
   const d = raw.replace(/\D/g, '');
   if (d.startsWith('353') && d.length >= 12) return `+353 ${d.slice(3, 5)} ${d.slice(5, 8)} ${d.slice(8)}`;
@@ -471,6 +497,22 @@ const StudentJobDetail = () => {
               </div>
             )}
           </div>
+
+          {/* What needs doing — the task specifics from booking_data */}
+          {(() => {
+            const lines = jobDetailLines(booking.category, booking.booking_data ?? {});
+            return lines.length > 0 ? (
+              <div className="space-y-1.5 pt-3 mt-3 border-t border-border/40">
+                <p className="text-xs font-semibold text-foreground uppercase tracking-wide">What needs doing</p>
+                {lines.map((l, i) => (
+                  <div key={i} className="flex gap-2 text-sm">
+                    <span className="text-muted-foreground flex-shrink-0">{l.label}:</span>
+                    <span className="text-foreground break-words">{l.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })()}
         </div>
 
         {/* Customer location map — shown whenever we have coords */}
