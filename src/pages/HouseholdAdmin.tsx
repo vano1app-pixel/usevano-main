@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Loader2, RefreshCw, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import SystemHealthPanel from '@/components/household/SystemHealthPanel';
 
 const ADMIN_EMAIL = 'vano1app@gmail.com';
 
@@ -78,7 +79,7 @@ export default function HouseholdAdmin() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'bookings' | 'students' | 'payouts'>('bookings');
+  const [tab, setTab] = useState<'bookings' | 'students' | 'payouts' | 'health'>('bookings');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [helpers, setHelpers] = useState<Helper[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -225,6 +226,7 @@ export default function HouseholdAdmin() {
     { id: 'bookings' as const, label: `Bookings (${bookings.length})` },
     { id: 'students' as const, label: `Students (${helpers.length})` },
     { id: 'payouts'  as const, label: `Payouts${pendingPayouts.length > 0 ? ` (${pendingPayouts.length})` : ''}` },
+    { id: 'health'   as const, label: 'Health' },
   ];
 
   return (
@@ -465,6 +467,9 @@ export default function HouseholdAdmin() {
             )}
           </>
         )}
+
+        {/* ── Health tab ── */}
+        {tab === 'health' && <SystemHealthPanel />}
       </div>
     </div>
   );
