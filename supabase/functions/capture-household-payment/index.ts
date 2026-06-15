@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendHouseholdPush } from "../_shared/householdPush.ts";
 
 // Helper marks a job complete. Payment was already captured upfront at
 // checkout, so this flips status, records the payout, and notifies the
@@ -25,6 +26,12 @@ function buildCorsHeaders(req: Request) {
 }
 function isOriginAllowed(req: Request) { return !req.headers.get('Origin') || matchOrigin(req) !== null; }
 
+function formEncode(obj: Record<string, string>): string {
+  return Object.entries(obj)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+}
+
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   const bad = (status: number, error: string) =>
@@ -37,6 +44,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
@@ -64,7 +72,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at')
+      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id')
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
@@ -101,11 +109,76 @@ serve(async (req) => {
     const priceCents = booking.price_estimate_cents ?? 0;
     const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
 
-    // Auto-release on completion: the payout is approved for payout the moment
-    // the job is marked done — no manual review step. (Household helpers are
-    // paid out via Revolut, so this flags it ready rather than moving money.)
-    await supabase.from('household_payouts').insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'released', released_at: new Date().toISOString() });
+    // Record the payout as 'pending'. If the helper has finished Stripe
+    // Connect onboarding we fire an automatic Transfer below and flip it
+    // to 'transferred'; otherwise it stays 'pending' and the
+    // release-household-payouts cron sweeps it once they onboard. Helpers
+    // can work with no payout setup — their earnings are simply held.
+    const { data: payoutRow } = await supabase
+      .from('household_payouts')
+      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending' })
+      .select('id')
+      .single();
     await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'completed', note: 'Job completed.' });
+
+    // Best-effort web push to the customer — single completion choke-point, so
+    // this covers both the "mark done" and admin/cron completion paths.
+    void sendHouseholdPush(bookingId, 'completed');
+
+    // ── Best-effort automatic payout ─────────────────────────────────────
+    // Mirrors release-vano-payment's Stripe Transfer. Wrapped so it can
+    // NEVER block job completion: any failure leaves the payout 'pending'
+    // for the cron to retry. source_transaction is only valid for a real
+    // PaymentIntent (pi_…); for a Checkout Session id (cs_…) or a missing
+    // intent we transfer from the platform balance instead.
+    try {
+      const payoutId = payoutRow?.id as string | undefined;
+      if (payoutId && studentCents > 0 && STRIPE_SECRET_KEY) {
+        const { data: helperRow } = await supabase
+          .from('household_helpers')
+          .select('stripe_account_id, stripe_payouts_enabled')
+          .eq('user_id', callerId)
+          .maybeSingle();
+        const destination = helperRow?.stripe_account_id as string | null | undefined;
+        const ready = !!helperRow?.stripe_payouts_enabled;
+
+        if (ready && destination) {
+          const intentId = (booking as Record<string, unknown>).stripe_payment_intent_id as string | null | undefined;
+          const transferParams: Record<string, string> = {
+            amount: String(studentCents),
+            currency: 'eur',
+            destination,
+            'metadata[vano_household_payout_id]': payoutId,
+          };
+          if (intentId && intentId.startsWith('pi_')) transferParams.source_transaction = intentId;
+
+          const transferResp = await fetch('https://api.stripe.com/v1/transfers', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Idempotency-Key': `vano_household_payout_${payoutId}`,
+            },
+            body: formEncode(transferParams),
+          });
+
+          if (transferResp.ok) {
+            const transfer = await transferResp.json() as { id: string };
+            await supabase
+              .from('household_payouts')
+              .update({ status: 'transferred', stripe_transfer_id: transfer.id, released_at: new Date().toISOString() })
+              .eq('id', payoutId);
+          } else {
+            const text = await transferResp.text().catch(() => '');
+            console.error('[capture-household-payment] transfer failed — leaving payout pending', transferResp.status, text.slice(0, 300));
+          }
+        } else {
+          console.log('[capture-household-payment] helper not onboarded — payout held pending', { payoutId, ready, hasDestination: !!destination });
+        }
+      }
+    } catch (payoutErr) {
+      console.error('[capture-household-payment] auto-payout errored — payout left pending', payoutErr);
+    }
 
     const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
     const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';

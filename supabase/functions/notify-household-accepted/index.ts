@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendHouseholdPush } from "../_shared/householdPush.ts";
 
 // Called by StudentDashboard after a helper claims a booking.
 // Pay-after-accept: creates the Stripe Checkout session for the booking
@@ -175,6 +176,9 @@ serve(async (req) => {
     if (!existingAccepted) {
       await supabase.from('household_job_updates').insert({ booking_id, status: 'accepted' });
     }
+
+    // Best-effort web push to the customer's browser — never blocks the flow.
+    void sendHouseholdPush(booking_id, 'accepted');
 
     // ── Pay-after-accept: create the Stripe Checkout session now ──────────────────
     // A helper is confirmed, so this is the moment the customer pays.

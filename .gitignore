@@ -31,3 +31,7 @@ dist-ssr
 
 .vercel
 .env*.local
+
+# Claude Code local files / agent worktrees (harness-managed, never commit)
+.claude/worktrees/
+.claude/settings.local.json

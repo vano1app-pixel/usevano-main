@@ -110,15 +110,22 @@ serve(async (req) => {
     return ok || sms;
   };
 
-  const escalateAdmin = async (b: Booking): Promise<boolean> => {
+  const escalateAdmin = async (b: Booking, kind: 'unconfirmed' | 'stuck_arrived' = 'unconfirmed'): Promise<boolean> => {
     if (!resendKey || !adminEmail) return false;
     const helper = await helperFirstName(b.student_id);
     const cat = CATEGORY_LABELS[b.category ?? 'other'] ?? 'job';
     const ref = b.id.slice(-8).toUpperCase();
+    const contact = `${b.customer_name ?? '—'}, ${b.customer_phone ?? '—'}, ${b.customer_email ?? '—'}`;
+    const subject = kind === 'stuck_arrived'
+      ? `⚠️ Helper stuck at arrival — follow up (${ref})`
+      : `⏳ Unconfirmed job — follow up (${ref})`;
+    const text = kind === 'stuck_arrived'
+      ? `${helper} marked themselves as arrived for a ${cat} but hasn't started (the arrival code was never entered) after a while.\nCustomer: ${contact}\nCheck in with both sides: ${siteUrl}/track/${b.id}\nRef: ${ref}`
+      : `${helper} marked a ${cat} finished but the customer (${contact}) hasn't confirmed after the reminder.\nThe helper is unpaid until it's confirmed.\nFollow up / mark complete: ${siteUrl}/track/${b.id}\nRef: ${ref}`;
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [adminEmail], subject: `⏳ Unconfirmed job — follow up (${ref})`, text: `${helper} marked a ${cat} finished but the customer (${b.customer_name ?? '—'}, ${b.customer_phone ?? '—'}, ${b.customer_email ?? '—'}) hasn't confirmed after the reminder.\nThe helper is unpaid until it's confirmed.\nFollow up / mark complete: ${siteUrl}/track/${b.id}\nRef: ${ref}` }),
+      body: JSON.stringify({ from, to: [adminEmail], subject, text }),
     });
     return res.ok;
   };
@@ -143,6 +150,23 @@ serve(async (req) => {
     // ── Cron sweep ──
     const nowIso = new Date().toISOString();
     let reminded = 0, escalated = 0;
+
+    // Stage 0: helper marked 'arrived' but never started (arrival code never
+    // entered) for a while — alert admin once so someone can nudge both sides.
+    const arrivedCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: stuckArrived } = await supabase.from('household_bookings')
+      .select(cols)
+      .eq('status', 'arrived')
+      .not('paid_at', 'is', null)
+      .not('arrived_at', 'is', null)
+      .lt('arrived_at', arrivedCutoff)
+      .is('completion_escalated_at', null)
+      .limit(50) as { data: Booking[] | null };
+    for (const b of stuckArrived ?? []) {
+      await escalateAdmin(b, 'stuck_arrived');
+      await supabase.from('household_bookings').update({ completion_escalated_at: new Date().toISOString() }).eq('id', b.id);
+      escalated++;
+    }
 
     // Stage 1: job looks done (helper finished OR timer elapsed) and not yet reminded.
     const { data: toRemind } = await supabase.from('household_bookings')

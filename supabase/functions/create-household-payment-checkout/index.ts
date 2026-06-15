@@ -427,6 +427,32 @@ serve(async (req) => {
       } : {}),
     };
 
+    // Resolve the address once, and geocode server-side when the client didn't
+    // supply coordinates (e.g. the customer typed the address), so the tracking
+    // map has a location to show. Best-effort — never blocks the booking.
+    const resolvedAddress =
+      typeof customer_address === 'string' && customer_address.trim() ? customer_address.trim()
+      : typeof note === 'string' && note.trim() ? note.trim()
+      : 'Not provided';
+    let custLat = typeof customer_lat === 'number' && isFinite(customer_lat) ? customer_lat : null;
+    let custLng = typeof customer_lng === 'number' && isFinite(customer_lng) ? customer_lng : null;
+    if ((custLat === null || custLng === null) && resolvedAddress !== 'Not provided') {
+      try {
+        const q = [resolvedAddress, typeof city === 'string' ? city : null, 'Ireland'].filter(Boolean).join(', ');
+        const geoResp = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ie&q=${encodeURIComponent(q)}`,
+          { headers: { 'User-Agent': 'VANO/1.0 (vanojobs.com)' } },
+        );
+        if (geoResp.ok) {
+          const hits = await geoResp.json().catch(() => []);
+          const hit = Array.isArray(hits) ? hits[0] : null;
+          const lat = hit ? parseFloat(hit.lat) : NaN;
+          const lng = hit ? parseFloat(hit.lon) : NaN;
+          if (isFinite(lat) && isFinite(lng)) { custLat = lat; custLng = lng; }
+        }
+      } catch (e) { console.warn('[create-household-payment-checkout] geocode failed', e); }
+    }
+
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
       .insert({
@@ -440,13 +466,8 @@ serve(async (req) => {
         customer_name: customer_name.trim(),
         // Prefer the dedicated address field (quick-book sheet sends it);
         // fall back to the legacy note-as-address behaviour.
-        customer_address:
-          typeof customer_address === 'string' && customer_address.trim() ? customer_address.trim()
-          : typeof note === 'string' && note.trim() ? note.trim()
-          : 'Not provided',
-        ...(typeof customer_lat === 'number' && typeof customer_lng === 'number' &&
-            isFinite(customer_lat) && isFinite(customer_lng)
-          ? { customer_lat, customer_lng } : {}),
+        customer_address: resolvedAddress,
+        ...(custLat !== null && custLng !== null ? { customer_lat: custLat, customer_lng: custLng } : {}),
         ...(typeof city === 'string' && city.trim() ? { city: city.trim() } : {}),
         customer_phone: customer_phone.trim(),
         ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
