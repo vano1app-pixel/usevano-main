@@ -154,12 +154,12 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
-  // Cleaning — hour labels must match the CategoryGrid sheet (€16/hr × 1–8h)
+  // Cleaning — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
   if (category === 'cleaning' || category === 'outdoor-cleaning') {
     const map: Record<string, number> = {
       // time-based (CategoryGrid)
-      '1 hour': 1600,  '2 hours': 3200, '3 hours': 4800,  '4 hours': 6400,
-      '5 hours': 8000, '6 hours': 9600, '7 hours': 11200, '8 hours': 12800,
+      '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
+      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
       // area-based (TaskShowcase)
       'Small area':  2200,
       'Medium area': 3800,
@@ -238,11 +238,11 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       'College / Uni':  3800,
     };
     const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
-    // CategoryGrid quick-book sends plain hour labels — €15/hr × 1–8h, must match the sheet
+    // CategoryGrid quick-book sends plain hour labels — €18/hr × 1–8h, must match the sheet
     if (!rate[sizeLabel]) {
       const hourMap: Record<string, number> = {
-        '1 hour': 1500,  '2 hours': 3000, '3 hours': 4500,  '4 hours': 6000,
-        '5 hours': 7500, '6 hours': 9000, '7 hours': 10500, '8 hours': 12000,
+        '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
+        '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
       };
       return hourMap[sizeLabel] ?? null;
     }
@@ -323,10 +323,10 @@ serve(async (req) => {
     // quoted price here, plus a 15% student-side cut taken off the price at
     // completion (PLATFORM_FEE_BPS in capture-household-payment). Combined
     // that's ~22.5% of the quoted price (~21% of what the customer pays) —
-    // NOT the 12.5% an older comment claimed. NOTE: the 15% cut leaves the
-    // time-based €16/hr cleaning and €15/hr quick-book tutoring rates below
-    // the €14.15/hr minimum wage net to the student; the per-hour rates need
-    // a lift (or a smaller cut) — tracked separately.
+    // NOT the 12.5% an older comment claimed. Every time-based labour rate
+    // is now €18/hr (cleaning, tutoring, garden, moving), so the 15% cut
+    // still nets the student €15.30/hr — clear of the €14.15/hr 2026
+    // minimum wage.
     const SERVICE_FEE_PCT  = 0.075;
     const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 

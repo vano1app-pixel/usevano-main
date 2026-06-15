@@ -63,8 +63,8 @@ function computePriceCents(data: BookingData, isExpress: boolean): number {
       return perHelper * helpers;
     }
     case 'cleaning': {
-      const prices: Record<string, number> = { '1hr': 1600, '2hr': 3200, '3hr': 4800 };
-      return prices[data.cleaningDuration ?? '1hr'] ?? 1600;
+      const prices: Record<string, number> = { '1hr': 1800, '2hr': 3600, '3hr': 5400 };
+      return prices[data.cleaningDuration ?? '1hr'] ?? 1800;
     }
     case 'other':
       // flat = €15 short task; hourly = €25 (reflects ~1.5hr open-ended task)

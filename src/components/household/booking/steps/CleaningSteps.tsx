@@ -68,9 +68,9 @@ export const CleaningTasksStep: React.FC<StepProps> = ({ data, onChange, onNext 
 
 export const CleaningDurationStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
   const options = [
-    { id: '1hr' as const, label: '1 hour',  price: '€16', sub: 'Quick freshen-up'       },
-    { id: '2hr' as const, label: '2 hours', price: '€32', sub: 'Full clean of main rooms' },
-    { id: '3hr' as const, label: '3 hours', price: '€48', sub: 'Deep clean throughout'   },
+    { id: '1hr' as const, label: '1 hour',  price: '€18', sub: 'Quick freshen-up'       },
+    { id: '2hr' as const, label: '2 hours', price: '€36', sub: 'Full clean of main rooms' },
+    { id: '3hr' as const, label: '3 hours', price: '€54', sub: 'Deep clean throughout'   },
   ];
 
   return (
