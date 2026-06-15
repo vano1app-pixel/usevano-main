@@ -105,19 +105,16 @@ serve(async (req) => {
       return json(200, { ok: true, verified: false });
     }
 
-    // job_ends_at is the timed countdown the screens show (timed jobs only).
-    // auto_complete_at is the backstop deadline the cron uses if the customer
-    // never confirms: timed = booked time + 3h grace, one-off = 24h from start.
+    // Timed jobs get a job_ends_at so the screens can show a countdown. The job
+    // is NEVER auto-completed — the customer must mark it complete to pay the
+    // helper. The timer is just a guide for both sides.
     const nowMs = Date.now();
     const mins = isTimedCategory(booking.category) ? bookedDurationMinutes(booking.category, booking.booking_data) : null;
     const jobEndsAt = mins ? new Date(nowMs + mins * 60_000).toISOString() : null;
-    const TIMED_GRACE_MS = 3 * 60 * 60 * 1000;
-    const ONE_OFF_BACKSTOP_MS = 24 * 60 * 60 * 1000;
-    const autoCompleteAt = new Date(nowMs + (mins ? mins * 60_000 + TIMED_GRACE_MS : ONE_OFF_BACKSTOP_MS)).toISOString();
 
     const { error: verifyErr } = await supabase
       .from('household_bookings')
-      .update({ arrival_verified_at: new Date(nowMs).toISOString(), status: 'in_progress', job_ends_at: jobEndsAt, auto_complete_at: autoCompleteAt })
+      .update({ arrival_verified_at: new Date(nowMs).toISOString(), status: 'in_progress', job_ends_at: jobEndsAt })
       .eq('id', bookingId)
       .eq('student_id', callerId)
       .eq('status', 'arrived');

@@ -3,8 +3,8 @@
 -- When a timed job (cleaning, tutoring, garden, moving) starts, household-arrival
 -- stamps job_ends_at = start + the booked duration. The helper and customer
 -- screens count down to it; once it's up, the customer rates + marks the job
--- complete (see the auto_complete_at backstop in the later migration for the
--- ghosting-customer case). One-off jobs leave this null.
+-- complete to pay the helper. The job is never auto-completed — the timer is
+-- only a guide. One-off jobs leave this null.
 
 ALTER TABLE public.household_bookings
   ADD COLUMN IF NOT EXISTS job_ends_at TIMESTAMPTZ;
