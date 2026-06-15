@@ -54,7 +54,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, status, student_id, stripe_payment_intent_id, price_estimate_cents, customer_name, customer_email, category, city, scheduled_date')
+      .select('id, status, student_id, stripe_payment_intent_id, price_estimate_cents, customer_name, customer_email, category, city, scheduled_date, paid_at')
       .eq('id', booking_id)
       .maybeSingle();
 
@@ -93,17 +93,54 @@ serve(async (req) => {
 
     // ── customer_cancel ─────────────────────────────────────────────────────
     if (type === 'customer_cancel') {
-      if (b.status !== 'pending') {
-        return bad(409, 'Can only cancel before a helper has accepted. Message your helper to discuss.');
+      // Self-serve cancel is allowed right up until the helper starts the job.
+      // Once it's in_progress/completed the helper is already working — those
+      // route to the manual "message us" path.
+      const CANCELLABLE = ['pending', 'accepted', 'on_way', 'arrived'];
+      if (!CANCELLABLE.includes(b.status as string)) {
+        return bad(409, 'Your helper has already started — message us to sort out a cancellation.');
       }
 
-      const refundOk = await stripeRefund();
-      if (!refundOk && (b.stripe_payment_intent_id as string | null)?.startsWith('pi_')) {
-        return bad(502, 'Refund failed. Please contact us on WhatsApp: +353 89 981 7111');
+      const isPaid = !!b.paid_at;
+      const hasRealIntent = (b.stripe_payment_intent_id as string | null)?.startsWith('pi_') ?? false;
+
+      // If paid via a real payment intent, refund first — only cancel on success.
+      // Unpaid bookings (no paid_at, or only a checkout session id) cancel directly.
+      let refundOk = false;
+      if (isPaid && hasRealIntent) {
+        refundOk = await stripeRefund();
+        if (!refundOk) {
+          return bad(502, "We couldn't process your refund automatically. Please contact us on WhatsApp: +353 89 981 7111");
+        }
       }
 
       await supabase.from('household_bookings').update({ status: 'cancelled' }).eq('id', booking_id);
       await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: 'Customer cancelled.' });
+
+      // If a helper was assigned, notify them so their live-subscribed screen
+      // and pocket are updated. 'cancelled' isn't a valid push status, so this
+      // is the job_update above (drives the realtime subscription) plus a
+      // best-effort email/SMS via household_helpers. Never blocks the cancel.
+      const assignedId = b.student_id as string | null;
+      if (assignedId) {
+        const { data: helperRow } = await supabase
+          .from('household_helpers')
+          .select('name, email, phone')
+          .eq('user_id', assignedId)
+          .maybeSingle() as { data: { name?: string; email?: string | null; phone?: string | null } | null };
+        const helperFirst = helperRow?.name ? helperRow.name.split(' ')[0] : 'there';
+        if (resendKey && helperRow?.email) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from, to: [helperRow.email],
+              subject: `Booking cancelled — ${catLabel} (${ref})`,
+              text: `Hi ${helperFirst}, the ${catLabel} you were assigned has been cancelled by the customer, so you're no longer needed for it. More jobs are waiting: ${siteUrl}/student-dashboard`,
+            }),
+          }).catch(() => {});
+        }
+      }
 
       if (resendKey && custEmail) {
         fetch('https://api.resend.com/emails', {
@@ -119,13 +156,13 @@ serve(async (req) => {
   </div>
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> booking has been cancelled. A full refund has been issued and should appear on your card within 5–7 business days.</p>
+    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> booking has been cancelled.${refundOk ? ' A full refund has been issued and should appear on your card within 5–7 business days.' : ' You weren\'t charged.'}</p>
     <p style="margin:0 0 0;color:#374151;font-size:15px;">Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${custName}, your VANO ${catLabel} (${ref}) has been cancelled. Full refund issued (5–7 days). Questions? WhatsApp +353 89 981 7111`,
+            text: `Hi ${custName}, your VANO ${catLabel} (${ref}) has been cancelled.${refundOk ? ' Full refund issued (5–7 days).' : " You weren't charged."} Questions? WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {});
       }

@@ -187,6 +187,9 @@ const StudentJobDetail = () => {
   const [arrivalCode, setArrivalCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [codeError, setCodeError] = useState(false);
+  // "Customer not available" — start the job without the arrival code.
+  const [skipConfirm, setSkipConfirm] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   // Timed-job countdown (display only — the customer marks the job done)
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [finishing, setFinishing] = useState(false);
@@ -414,6 +417,29 @@ const StudentJobDetail = () => {
     }
   };
 
+  // "Customer not available" — start the job without the arrival code. Only
+  // for a helper who's at the address and genuinely can't reach the customer;
+  // the customer and admin are notified. Carries job_ends_at back like verify.
+  const handleStartWithoutCode = async () => {
+    if (!bookingId || skipping) return;
+    setSkipping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: 'start_without_code' },
+      });
+      if (error) throw error;
+      setBooking((b) => b ? { ...b, status: 'in_progress', arrival_verified_at: new Date().toISOString(), job_ends_at: data?.job_ends_at ?? null } : b);
+      setSkipConfirm(false);
+      setArrivalCode('');
+      microCelebrate();
+      toast({ title: 'Job started', description: "The customer has been notified that you started without their code." });
+    } catch (err) {
+      toast({ title: 'Could not start job', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setSkipping(false);
+    }
+  };
+
   // Timed jobs show a live countdown; completion itself is the customer's call
   // (they tap "mark complete" once the time's up), so this just ticks the clock.
   useEffect(() => {
@@ -455,6 +481,32 @@ const StudentJobDetail = () => {
     } finally {
       setReleasing(false);
       setReleaseConfirm(false);
+    }
+  };
+
+  // Re-prompt for location after a denial/failure. getCurrentPosition will
+  // re-trigger the browser prompt if the user has since allowed it (or cleared
+  // the block); on success we clear the banner and resume the live watch so the
+  // customer's map fills in. Best-effort — a fresh denial just re-shows the card.
+  const handleEnableLocation = async () => {
+    if (!('geolocation' in navigator) || !bookingId) return;
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }),
+      );
+      // Push the position immediately so the map updates without waiting for the watch.
+      lastLocationPushRef.current = Date.now();
+      void hdb.from('household_bookings').update({
+        worker_lat: pos.coords.latitude,
+        worker_lng: pos.coords.longitude,
+        worker_location_updated_at: new Date().toISOString(),
+      }).eq('id', bookingId);
+      setLocationDenied(false);
+      startLocationWatch(bookingId);
+      toast({ title: 'Location on', description: 'The customer can now see you on the map.' });
+    } catch {
+      setLocationDenied(true);
+      toast({ title: "Location still blocked", description: 'Allow location for this site in your browser settings, then try again.', variant: 'destructive' });
     }
   };
 
@@ -761,6 +813,10 @@ const StudentJobDetail = () => {
                 </li>
               ))}
             </ol>
+            <p className="mt-3 flex items-start gap-1.5 text-[11px] text-foreground/60 leading-relaxed">
+              <Navigation size={12} className="text-sage flex-shrink-0 mt-0.5" />
+              When you head out, you'll share live location so the customer can track you.
+            </p>
           </motion.div>
         )}
 
@@ -776,14 +832,33 @@ const StudentJobDetail = () => {
           </motion.div>
         )}
 
-        {/* Location denied — the customer's map is blank and the helper should know */}
+        {/* Location denied — prominent + actionable. The customer's live map is
+            blank, so make turning it back on a one-tap action (re-prompts the
+            browser; on success we resume the live watch). */}
         {locationDenied && booking.status === 'on_way' && (
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-4 dark:bg-amber-950/20 dark:border-amber-800/40">
-            <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-foreground/80 leading-relaxed">
-              Location is off, so the customer can't see you on their map. Allow location access in your browser settings, then reload this page.
-            </p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 mb-4 dark:bg-amber-950/20 dark:border-amber-800/50"
+          >
+            <div className="flex items-start gap-2.5 mb-3">
+              <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                <Navigation size={16} className="text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground leading-tight">Turn on location</p>
+                <p className="text-xs text-foreground/75 leading-relaxed mt-0.5">
+                  Turn on location so your customer can see you on the map — they're expecting it.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => void handleEnableLocation()}
+              className="w-full h-11 rounded-full bg-amber-500 text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
+            >
+              <Navigation size={15} /> Enable location
+            </button>
+          </motion.div>
         )}
 
         {/* Waiting for the customer to pay (pay-after-accept). Block starting
@@ -793,6 +868,7 @@ const StudentJobDetail = () => {
             <AlertTriangle size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-foreground/80 leading-relaxed">
               Waiting for the customer to pay. You'll be able to start the job once their payment lands — we've sent them the link and they can also pay from their tracking screen.
+              {' '}If they don't pay soon you'll be automatically freed up for other jobs.
             </p>
           </div>
         )}
@@ -859,6 +935,42 @@ const StudentJobDetail = () => {
             >
               {verifying ? <Loader2 size={16} className="animate-spin" /> : 'Confirm & start job'}
             </motion.button>
+
+            {/* Customer not available — lower-emphasis escape hatch for when the
+                helper is at the address but can't reach the customer. */}
+            {!skipConfirm ? (
+              <button
+                onClick={() => setSkipConfirm(true)}
+                className="mt-3 w-full text-xs text-muted-foreground py-1.5 underline underline-offset-2 text-center"
+              >
+                Customer not available?
+              </button>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 p-3"
+              >
+                <p className="text-xs text-foreground/80 leading-relaxed mb-3">
+                  Only do this if you're at the address and can't reach them — they'll be notified.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSkipConfirm(false)}
+                    className="flex-1 h-9 rounded-lg bg-secondary text-xs font-semibold transition-colors hover:bg-secondary/70"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => void handleStartWithoutCode()}
+                    disabled={skipping}
+                    className="flex-1 h-9 rounded-lg bg-amber-500 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 transition-opacity"
+                  >
+                    {skipping ? <Loader2 size={14} className="animate-spin" /> : 'Start without code'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
 
