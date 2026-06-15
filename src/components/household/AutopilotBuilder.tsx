@@ -30,11 +30,19 @@ interface Service {
 
 // Subset of create-autopilot-checkout's catalogue — keep prices in sync.
 // Weekly ≈ monthly pro-rata + ~10%, so monthly reads as "commit and save".
+//
+// Each price assumes a CAPPED visit time so it pays a helper above the
+// Irish minimum wage (€14.15/hr, 2026) on BOTH billing modes and still
+// leaves Vano a margin. Don't lengthen the scope without re-pricing:
+//   cleaning 90min · laundry 45min · garden 45min · dog 30min ·
+//   bins 15min · plants 10min  →  ~€18–24/hr gross per visit.
+// (Monthly is ~10% cheaper per week, so it's the binding constraint:
+//  e.g. cleaning €119/mo = €27.46/wk ÷ 1.5h = €18.31/hr.)
 const SERVICES: Service[] = [
-  { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '2-hour visit, every week',        monthlyCents: 11900, weeklyCents: 3000 },
+  { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '90-min refresh, every week',       monthlyCents: 11900, weeklyCents: 3000 },
   { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing',    desc: 'Washed, ironed, put away',        monthlyCents: 5900,  weeklyCents: 1500 },
   { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',        desc: 'Kept tidy, week in week out',     monthlyCents: 5900,  weeklyCents: 1500 },
-  { key: 'dog',      emoji: '🐕', label: 'Dog walks',            desc: 'A proper walk, every week',       monthlyCents: 4500,  weeklyCents: 1200 },
+  { key: 'dog',      emoji: '🐕', label: 'Dog walks',            desc: 'A good 30-min walk, every week',  monthlyCents: 4500,  weeklyCents: 1200 },
   { key: 'bins',     emoji: '🗑️', label: 'Bins & house check',   desc: 'Out, back in, quick look around', monthlyCents: 1900,  weeklyCents: 500 },
   { key: 'plants',   emoji: '🪴', label: 'Plants & post',        desc: 'Watered, post cleared',           monthlyCents: 1500,  weeklyCents: 400 },
 ];

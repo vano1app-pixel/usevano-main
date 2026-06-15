@@ -29,7 +29,7 @@ const CORS = {
 // monthly tier genuinely "saves ~10%" — flexibility costs a little, the
 // commitment earns the discount. Weekly also prices away-cover weeks.
 const SERVICES: Record<string, { label: string; monthlyCents: number; weeklyCents: number; ongoingOnly?: boolean }> = {
-  cleaning: { label: 'Cleaning · 2-hour visit',         monthlyCents: 11900, weeklyCents: 3000 },
+  cleaning: { label: 'Cleaning · 90-min refresh',       monthlyCents: 11900, weeklyCents: 3000 },
   laundry:  { label: 'Laundry & ironing',               monthlyCents:  5900, weeklyCents: 1500 },
   garden:   { label: 'Garden & lawn',                   monthlyCents:  5900, weeklyCents: 1500 },
   dog:      { label: 'Dog walks · weekly',              monthlyCents:  4500, weeklyCents: 1200 },
