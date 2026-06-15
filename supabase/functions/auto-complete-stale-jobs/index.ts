@@ -33,6 +33,9 @@ serve(async (_req) => {
       .eq('status', 'in_progress')
       .not('auto_complete_at', 'is', null)
       .lt('auto_complete_at', nowIso)
+      // Only auto-pay jobs the customer actually paid for. Unpaid stale jobs are
+      // left for the unpaid-booking reminders / ops, never auto-released.
+      .not('paid_at', 'is', null)
       .limit(BATCH_LIMIT) as { data: { id: string }[] | null; error: unknown };
 
     if (error) {

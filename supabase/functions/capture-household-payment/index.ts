@@ -64,7 +64,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city')
+      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at')
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
@@ -73,6 +73,12 @@ serve(async (req) => {
     if (!isInternal && booking.student_id !== authedUserId) return bad(403, 'Not the assigned student');
     if (!booking.student_id) return bad(409, 'No helper assigned to this job');
     if (!['accepted','on_way','arrived','in_progress'].includes(booking.status)) return bad(409, `Cannot complete in status: ${booking.status}`);
+    // Pay-before-payout guard: helpers accept jobs before the customer pays
+    // (pay-after-accept), so never complete + auto-release a payout for a job
+    // that hasn't been paid. Free/zero-price bookings (none today) are exempt.
+    if (((booking.price_estimate_cents as number | null) ?? 0) > 0 && !booking.paid_at) {
+      return bad(409, 'Payment not received yet — this job can be completed once the customer has paid.');
+    }
 
     const callerId = booking.student_id as string;
 

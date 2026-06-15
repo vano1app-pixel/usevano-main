@@ -694,6 +694,9 @@ const TrackBooking = () => {
               </motion.div>
             );
           }
+          // Don't offer "mark complete" (which pays the helper) until the
+          // booking is paid — the pay-to-confirm card above prompts that first.
+          if (!booking.paid_at) return null;
           return (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
