@@ -739,8 +739,10 @@ const StudentJobDetail = () => {
           </div>
         )}
 
-        {/* I've reached — generates the customer's arrival code */}
-        {mine && booking.status === 'on_way' && (
+        {/* I've reached — generates the customer's arrival code. Available from
+            'accepted' too, so a helper who's already on site (or skipped the
+            "on my way" step) can still start the arrival-code handshake. */}
+        {mine && (booking.status === 'accepted' || booking.status === 'on_way') && (
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => void handleReached()}

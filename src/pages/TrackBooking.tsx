@@ -106,7 +106,7 @@ const customerDestIcon = L.divIcon({
 
 function FitBoundsOrFollow({
   helperLat, helperLng, customerLat, customerLng,
-}: { helperLat: number; helperLng: number; customerLat: number | null; customerLng: number | null }) {
+}: { helperLat: number | null; helperLng: number | null; customerLat: number | null; customerLng: number | null }) {
   const map = useMap();
   const fitted = useRef(false);
   // The map lives in a spring-animated panel, so its size isn't final on mount.
@@ -116,17 +116,25 @@ function FitBoundsOrFollow({
     return () => clearTimeout(t);
   }, [map]);
   useEffect(() => {
-    if (!fitted.current && customerLat && customerLng) {
+    const hasHelper = helperLat != null && helperLng != null;
+    const hasCustomer = customerLat != null && customerLng != null;
+    if (!fitted.current && hasHelper && hasCustomer) {
+      // Both points known — frame the helper and the job together.
       map.fitBounds(
-        L.latLngBounds([[helperLat, helperLng], [customerLat, customerLng]]),
+        L.latLngBounds([[helperLat!, helperLng!], [customerLat!, customerLng!]]),
         { padding: [44, 44], maxZoom: 16, animate: false },
       );
       fitted.current = true;
-    } else {
-      map.setView([helperLat, helperLng], map.getZoom(), { animate: true, duration: 0.8 });
+    } else if (hasHelper) {
+      map.setView([helperLat!, helperLng!], map.getZoom(), { animate: true, duration: 0.8 });
+    } else if (hasCustomer) {
+      // No live helper position yet — just centre on the job location so the
+      // customer always has a map to look at.
+      map.setView([customerLat!, customerLng!], 15, { animate: false });
+      fitted.current = true;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [helperLat, helperLng]);
+  }, [helperLat, helperLng, customerLat, customerLng]);
   return null;
 }
 
@@ -465,7 +473,15 @@ const TrackBooking = () => {
   const isPending    = booking.status === 'pending' || booking.status === 'awaiting_payment';
   const isCompleted  = booking.status === 'completed';
   const isCancelled  = booking.status === 'cancelled';
-  const showMapPanel = booking.status === 'on_way' && booking.worker_lat && booking.worker_lng;
+  // The customer should always have a map during an active job: show the
+  // helper's live position when they're sharing it, otherwise centre on the job
+  // location itself (so the map is never just blank if GPS isn't shared yet).
+  const helperLoc    = booking.worker_lat != null && booking.worker_lng != null;
+  const customerLoc  = booking.customer_lat != null && booking.customer_lng != null;
+  const jobActive    = ['accepted', 'on_way', 'arrived', 'in_progress'].includes(booking.status);
+  const showMapPanel = jobActive && (helperLoc || customerLoc);
+  const mapLat = (helperLoc ? booking.worker_lat : booking.customer_lat) as number;
+  const mapLng = (helperLoc ? booking.worker_lng : booking.customer_lng) as number;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -988,8 +1004,8 @@ const TrackBooking = () => {
         <ReferralShareCard className="mt-8" />
       </main>
 
-      {/* Live map panel */}
-      {showMapPanel && booking.worker_lat && booking.worker_lng && (
+      {/* Map panel — helper's live position when shared, else the job location */}
+      {showMapPanel && (
         <div className={cn(
           'fixed inset-x-0 z-30 flex justify-center px-4',
           booking.student_id && !isCompleted && !isCancelled && userId ? 'bottom-[68px]' : 'bottom-0 pb-safe',
@@ -1004,23 +1020,33 @@ const TrackBooking = () => {
               <div className="flex items-center gap-2">
                 <Navigation size={13} className="text-sage flex-shrink-0" />
                 <span className="text-sm font-semibold text-foreground">
-                  {distanceKm !== null
-                    ? `${distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`} away`
-                    : 'Helper on the way'}
+                  {helperLoc && booking.status === 'on_way'
+                    ? (distanceKm !== null
+                        ? `${distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`} away`
+                        : 'Helper on the way')
+                    : booking.status === 'arrived'
+                    ? 'Helper has arrived'
+                    : booking.status === 'in_progress'
+                    ? 'Job in progress'
+                    : helperLoc
+                    ? 'Helper on the way'
+                    : 'Job location'}
                 </span>
-                {distanceKm !== null && (
+                {helperLoc && booking.status === 'on_way' && distanceKm !== null && (
                   <span className="text-xs text-muted-foreground">
                     · ~{Math.max(1, Math.round(distanceKm * 3))} min
                   </span>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground flex-shrink-0">
-                {formatLocationAge(locationAge)}
-              </span>
+              {helperLoc && booking.status === 'on_way' && (
+                <span className="text-xs text-muted-foreground flex-shrink-0">
+                  {formatLocationAge(locationAge)}
+                </span>
+              )}
             </div>
             <div style={{ height: 200 }}>
               <MapContainer
-                center={[booking.worker_lat, booking.worker_lng]}
+                center={[mapLat, mapLng]}
                 zoom={14}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
@@ -1029,13 +1055,15 @@ const TrackBooking = () => {
                 dragging={false}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <Marker position={[booking.worker_lat, booking.worker_lng]} icon={helperMarkerIcon} />
-                {booking.customer_lat && booking.customer_lng && (
-                  <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerDestIcon} />
+                {helperLoc && (
+                  <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMarkerIcon} />
+                )}
+                {customerLoc && (
+                  <Marker position={[booking.customer_lat as number, booking.customer_lng as number]} icon={customerDestIcon} />
                 )}
                 <FitBoundsOrFollow
-                  helperLat={booking.worker_lat}
-                  helperLng={booking.worker_lng}
+                  helperLat={booking.worker_lat ?? null}
+                  helperLng={booking.worker_lng ?? null}
                   customerLat={booking.customer_lat ?? null}
                   customerLng={booking.customer_lng ?? null}
                 />
