@@ -217,6 +217,31 @@ export const JoinAsHelper: React.FC = () => {
               <p className="text-muted-foreground text-sm leading-relaxed mb-6">
                 We'll text you when a job near you comes in. Keep an eye on your phone.
               </p>
+
+              {/* Optional payout setup prompt — helpers can start working with
+                  no payout setup (earnings are held and released automatically
+                  once they connect), so this is a soft nudge with a clear skip. */}
+              <div className="rounded-2xl border border-sage/30 bg-background p-4 text-left mb-6">
+                <p className="text-sm font-semibold text-foreground mb-1">Set up payouts to get paid</p>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                  Add your bank account or Revolut (any IBAN works) and you'll be paid automatically after each job. You can do this later — your earnings are held safely until you do.
+                </p>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/student-dashboard?tab=earnings"
+                    className="flex-1 h-10 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center"
+                  >
+                    Set up payouts
+                  </a>
+                  <a
+                    href="/student-dashboard"
+                    className="flex-1 h-10 rounded-full bg-secondary text-foreground text-xs font-semibold flex items-center justify-center"
+                  >
+                    Skip for now
+                  </a>
+                </div>
+              </div>
+
               <p className="text-xs text-muted-foreground">
                 Questions? WhatsApp us at{' '}
                 <a href="https://wa.me/353899817111" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">

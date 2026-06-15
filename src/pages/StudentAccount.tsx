@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
+import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
 import logo from '@/assets/logo.png';
 
@@ -77,6 +78,19 @@ const StudentAccount = () => {
 
   const [helper,  setHelper]  = useState<HelperRow | null>(null);
   const [loading, setLoading] = useState(false); // no initial load needed — wait for phone gate
+  // Auth user id, if this helper is signed in. The payout card needs an
+  // authenticated session (its DB reads are RLS-gated on auth.uid()), so
+  // we only show it when one exists. Phone-gated-only helpers (no auth
+  // session) simply don't see the card here.
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setAuthUserId(data.session?.user?.id ?? null);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const [bio,          setBio]          = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -541,6 +555,14 @@ const StudentAccount = () => {
               </div>
             </div>
           </section>
+
+          {/* Automatic payouts — only for signed-in helpers (RLS-gated reads) */}
+          {authUserId && (
+            <section>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Payouts</p>
+              <HouseholdHelperVanoPayCard userId={authUserId} />
+            </section>
+          )}
 
           {/* Jobs */}
           <section>

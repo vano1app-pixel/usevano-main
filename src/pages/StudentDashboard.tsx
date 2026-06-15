@@ -5,6 +5,7 @@ import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
+import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import logo from '@/assets/logo.png';
@@ -105,7 +106,15 @@ const StudentDashboard = () => {
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, loading: pushLoading, subscribe: pushSubscribe } = usePushNotifications();
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'available' | 'mine' | 'earnings'>('available');
+  // Honor ?tab=earnings (e.g. the post-signup "set up payouts" link) and
+  // ?payout=done|refresh (Stripe Connect onboarding return) by opening
+  // straight on the Earnings tab where the payout card lives.
+  const initialTab = (() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'earnings' || params.get('payout')) return 'earnings' as const;
+    return 'available' as const;
+  })();
+  const [tab, setTab] = useState<'available' | 'mine' | 'earnings'>(initialTab);
   const [availableJobs, setAvailableJobs] = useState<Booking[]>([]);
   const [myJobs, setMyJobs] = useState<Booking[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -679,6 +688,13 @@ const StudentDashboard = () => {
             {/* Earnings tab */}
             {tab === 'earnings' && (
               <div className="pb-10">
+                {/* Automatic payouts — Stripe Connect setup / status */}
+                {userId && (
+                  <div className="mb-6">
+                    <HouseholdHelperVanoPayCard userId={userId} />
+                  </div>
+                )}
+
                 {/* Summary cards */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="rounded-2xl bg-sage-light border border-sage/20 p-4">
