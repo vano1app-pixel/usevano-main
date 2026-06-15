@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { getHouseholdPriceCents, HOURLY_RATE_CENTS } from '../householdPricing';
 
 // Household one-off pricing — the wage floor that justifies each TIME-BASED
 // hourly rate. A student is paid (price − 15% platform cut) at completion
@@ -53,5 +54,32 @@ describe('household time-based rates pay above minimum wage', () => {
     expect(studentGets).toBe(1530);
     expect(vanoTake).toBe(405);
     expect(vanoTake / rate).toBeCloseTo(0.225, 3);
+  });
+});
+
+// The canonical frontend price source (householdPricing.ts) must match the
+// server's computePriceCents (create-household-payment-checkout). Browser code
+// can't import the Deno function, so these expected values ARE the contract —
+// if the server changes a price, change it here too and this test stays green.
+describe('shared price source matches the server', () => {
+  it('all four time-based labour rates are €18/hr', () => {
+    for (const slug of ['garden', 'moving', 'cleaning', 'tutoring']) {
+      expect(HOURLY_RATE_CENTS[slug]).toBe(1800);
+    }
+  });
+
+  it('prices each category/size exactly as computePriceCents does', () => {
+    expect(getHouseholdPriceCents('shopping', '')).toBe(1500);   // flat laundry
+    expect(getHouseholdPriceCents('dog-walk', '30 min')).toBe(1500);
+    expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
+    expect(getHouseholdPriceCents('cleaning', '2 hours')).toBe(3600);
+    expect(getHouseholdPriceCents('tutoring', '1 hour')).toBe(1800);
+    expect(getHouseholdPriceCents('garden', '8 hours')).toBe(14400);
+    expect(getHouseholdPriceCents('moving', '4+ hours')).toBe(7200); // client now matches server
+  });
+
+  it('returns null for an unpriceable combination', () => {
+    expect(getHouseholdPriceCents('unknown', '1 hour')).toBeNull();
+    expect(getHouseholdPriceCents('cleaning', 'not a duration')).toBeNull();
   });
 });

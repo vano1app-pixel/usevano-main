@@ -19,7 +19,6 @@
 type RouteKey =
   | 'auth'
   | 'join'
-  | 'book'
   | 'track'
   | 'student-dashboard'
   | 'helper-profile';
@@ -27,7 +26,6 @@ type RouteKey =
 const routeImports: Record<RouteKey, () => Promise<unknown>> = {
   auth:               () => import('@/pages/Auth'),
   join:               () => import('@/pages/JoinAsHelper'),
-  book:               () => import('@/pages/BookingFlow'),
   track:              () => import('@/pages/TrackBooking'),
   'student-dashboard': () => import('@/pages/StudentDashboard'),
   'helper-profile':   () => import('@/pages/HelperProfile'),

@@ -10,6 +10,7 @@ import { AddressPicker } from '@/components/household/AddressPicker';
 import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
+import { getHouseholdPriceCents } from '@/lib/householdPricing';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -79,21 +80,9 @@ const DEFAULT_SIZE: Record<string, string> = {
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
 
-function getPriceCents(slug: string, size: string): number | null {
-  if (slug === 'shopping') return 1500;
-  if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
-  const map: Record<string, number> = {
-    'garden|1 hour': 1800,   'garden|2 hours': 3600,   'garden|3 hours': 5400,  'garden|4 hours': 7200,
-    'garden|5 hours': 9000,  'garden|6 hours': 10800,  'garden|7 hours': 12600, 'garden|8 hours': 14400,
-    'moving|1 hour': 1800,   'moving|2 hours': 3600,   'moving|3 hours': 5400,  'moving|4 hours': 7200,
-    'moving|5 hours': 9000,  'moving|6 hours': 10800,  'moving|7 hours': 12600, 'moving|8 hours': 14400,
-    'cleaning|1 hour': 1800, 'cleaning|2 hours': 3600,  'cleaning|3 hours': 5400, 'cleaning|4 hours': 7200,
-    'cleaning|5 hours': 9000, 'cleaning|6 hours': 10800, 'cleaning|7 hours': 12600, 'cleaning|8 hours': 14400,
-    'tutoring|1 hour': 1800, 'tutoring|2 hours': 3600,  'tutoring|3 hours': 5400, 'tutoring|4 hours': 7200,
-    'tutoring|5 hours': 9000, 'tutoring|6 hours': 10800, 'tutoring|7 hours': 12600, 'tutoring|8 hours': 14400,
-  };
-  return map[`${slug}|${size}`] ?? null;
-}
+// Delegates to the shared price source so the sheet, the cards and the
+// marketing table never disagree — see src/lib/householdPricing.ts.
+const getPriceCents = getHouseholdPriceCents;
 
 function fmt(cents: number): string {
   const eur = cents / 100;

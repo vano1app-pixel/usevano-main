@@ -3,15 +3,18 @@ import { CheckCircle2, CreditCard, Loader2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { hourlyRateLabel } from '@/lib/householdPricing';
 
 // ─── Pay-per-job prices (matches the 6 bookable categories) ──────────────
+// Hourly rates come from the shared price source so this table can never
+// advertise a rate the booking sheet doesn't charge — see householdPricing.ts.
 const PRICES = [
-  { emoji: '🛒', slug: 'shopping',  label: 'Shopping',    price: 'from €15'    },
-  { emoji: '🐕', slug: 'dog-walk',  label: 'Dog walking', price: '€15–€20'     },
-  { emoji: '🌿', slug: 'garden',    label: 'Garden work', price: 'from €18/hr' },
-  { emoji: '📦', slug: 'moving',    label: 'Moving help', price: 'from €18/hr' },
-  { emoji: '🧹', slug: 'cleaning',  label: 'Cleaning',    price: 'from €18/hr' },
-  { emoji: '📚', slug: 'tutoring',  label: 'Tutoring',    price: 'from €18/hr' },
+  { emoji: '🛒', slug: 'shopping',  label: 'Shopping',    price: 'from €15'             },
+  { emoji: '🐕', slug: 'dog-walk',  label: 'Dog walking', price: '€15–€20'              },
+  { emoji: '🌿', slug: 'garden',    label: 'Garden work', price: hourlyRateLabel('garden')!   },
+  { emoji: '📦', slug: 'moving',    label: 'Moving help', price: hourlyRateLabel('moving')!   },
+  { emoji: '🧹', slug: 'cleaning',  label: 'Cleaning',    price: hourlyRateLabel('cleaning')! },
+  { emoji: '📚', slug: 'tutoring',  label: 'Tutoring',    price: hourlyRateLabel('tutoring')! },
 ];
 
 // ─── Airbnb tiers ──────────────────────────────────────────────────────────
