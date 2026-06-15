@@ -60,7 +60,7 @@ interface ChatMessage {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Shopping run',
+  shopping: 'Laundry',
   'dog-walk': 'Dog walk',
   garden: 'Garden help',
   moving: 'Moving help',
@@ -164,10 +164,8 @@ const StudentJobDetail = () => {
   const [arrivalCode, setArrivalCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [codeError, setCodeError] = useState(false);
-  // Timed-job countdown → auto-complete
-  const [completing, setCompleting] = useState(false);
+  // Timed-job countdown (display only — the customer marks the job done)
   const [nowTick, setNowTick] = useState(() => Date.now());
-  const autoCompleteFired = useRef(false);
   // Set when the browser refuses geolocation while on_way — the customer's
   // live map silently shows nothing, so the helper deserves to know.
   const [locationDenied, setLocationDenied] = useState(false);
@@ -366,42 +364,12 @@ const StudentJobDetail = () => {
     }
   };
 
-  // Complete the job + capture payout. Fired automatically when a timed job's
-  // countdown reaches zero — completion is no longer a manual helper tap.
-  const completeJob = async () => {
-    if (!bookingId || completing) return;
-    setCompleting(true);
-    try {
-      const { error } = await supabase.functions.invoke('capture-household-payment', { body: { booking_id: bookingId } });
-      if (error) throw error;
-      stopLocationWatch();
-      setBooking((b) => b ? { ...b, status: 'completed' } : b);
-      toast({ title: 'Job complete — you’ve been paid out ✅' });
-    } catch (err) {
-      autoCompleteFired.current = false; // let the next tick retry
-      toast({ title: 'Could not complete job', description: getUserFriendlyError(err), variant: 'destructive' });
-    } finally {
-      setCompleting(false);
-    }
-  };
-
-  // Timed jobs auto-complete when the booked time runs out. Tick every second
-  // for the countdown UI and fire completion once at zero.
+  // Timed jobs show a live countdown; completion itself is the customer's call
+  // (they tap "mark complete" once the time's up), so this just ticks the clock.
   useEffect(() => {
     if (booking?.status !== 'in_progress' || !booking.job_ends_at) return;
-    const endMs = new Date(booking.job_ends_at).getTime();
-    const tick = () => {
-      const now = Date.now();
-      setNowTick(now);
-      if (now >= endMs && !autoCompleteFired.current) {
-        autoCompleteFired.current = true;
-        void completeJob();
-      }
-    };
-    tick();
-    const id = setInterval(tick, 1000);
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking?.status, booking?.job_ends_at]);
 
   const handleRelease = async () => {
@@ -618,22 +586,35 @@ const StudentJobDetail = () => {
           })()}
         </div>
 
-        {/* Customer location map — shown whenever we have coords */}
+        {/* Customer location map + directions — so the helper can see the job
+            location and tap straight through to turn-by-turn navigation. */}
         {booking.customer_lat && booking.customer_lng && (
-          <div className="rounded-2xl overflow-hidden border border-border/60 mb-4" style={{ height: 200 }}>
-            <MapContainer
-              center={[booking.customer_lat, booking.customer_lng]}
-              zoom={15}
-              style={{ height: '100%', width: '100%' }}
-              zoomControl={false}
-              attributionControl={false}
-              dragging={false}
-              scrollWheelZoom={false}
-              doubleClickZoom={false}
-            >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
-            </MapContainer>
+          <div className="mb-4">
+            <div className="rounded-2xl overflow-hidden border border-border/60" style={{ height: 200 }}>
+              <MapContainer
+                center={[booking.customer_lat, booking.customer_lng]}
+                zoom={15}
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={false}
+                attributionControl={false}
+                dragging={false}
+                scrollWheelZoom={false}
+                doubleClickZoom={false}
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
+              </MapContainer>
+            </div>
+            {mine && !isComplete && !isCancelled && (
+              <a
+                href={googleMapsUrl(booking.customer_address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 w-full h-11 rounded-full bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-secondary/70 transition-colors"
+              >
+                <Navigation size={15} /> Get directions
+              </a>
+            )}
           </div>
         )}
 
@@ -691,7 +672,7 @@ const StudentJobDetail = () => {
                 ['1', 'The customer is being asked to pay now — that locks the booking in.'],
                 ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
                 ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
-                ['4', 'Timed jobs finish automatically when the clock runs out; quick jobs finish when the customer taps “Mark done” — either way you’re paid instantly.'],
+                ['4', 'Timed jobs run a countdown; when the work’s done the customer rates you and taps “Mark complete” — and you’re paid instantly.'],
               ].map(([n, text]) => (
                 <li key={n} className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-sage text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
@@ -787,22 +768,22 @@ const StudentJobDetail = () => {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="rounded-2xl border border-sage/25 bg-sage-light p-5 mb-6 text-center"
           >
-            {booking.job_ends_at ? (
+            {booking.job_ends_at && new Date(booking.job_ends_at).getTime() > nowTick ? (
               <>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Job in progress</p>
                 <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
                   {formatCountdown(new Date(booking.job_ends_at).getTime() - nowTick)}
                 </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {completing ? 'Wrapping up and releasing your payment…' : 'Auto-completes and pays you when the timer ends.'}
-                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">left on the booked time</p>
               </>
             ) : (
               <>
                 <CheckCircle2 size={24} className="text-sage mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-sm font-semibold text-foreground">Job underway</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {booking.job_ends_at ? "Time's up — finish up" : 'Job underway'}
+                </p>
                 <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  When you're done, the customer taps “Mark done” to confirm — you’ll be paid the moment they do.
+                  The customer confirms the job's done from their screen — you’re paid the moment they do.
                 </p>
               </>
             )}

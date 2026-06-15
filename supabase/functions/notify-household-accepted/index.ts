@@ -93,7 +93,7 @@ const CORS = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
   handyman: 'Handyman', plumbing: 'Plumbing help',
   'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',

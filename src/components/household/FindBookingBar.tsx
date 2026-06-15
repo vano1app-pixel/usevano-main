@@ -15,7 +15,7 @@ interface BookingResult {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Shopping run', 'grocery-shopping': 'Grocery shopping',
+  shopping: 'Laundry', 'grocery-shopping': 'Grocery shopping',
   'dog-walk': 'Dog walk', 'dog-walking': 'Dog walking',
   garden: 'Garden help', 'lawn-mowing': 'Lawn mowing',
   moving: 'Moving help', 'moving-help': 'Moving help',

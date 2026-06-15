@@ -22,7 +22,7 @@ const errorAnim = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping:  'Shopping run',
+  shopping:  'Laundry',
   'dog-walk': 'Dog walk',
   garden:    'Garden work',
   moving:    'Moving help',

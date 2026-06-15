@@ -134,7 +134,7 @@ const STATUS_ORDER: UpdateStatus[] = ['accepted', 'on_way', 'arrived', 'in_progr
 
 function formatCategory(cat: string): string {
   const map: Record<string, string> = {
-    shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+    shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
     moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'Other task',
   };
   return map[cat] ?? cat;
@@ -354,16 +354,24 @@ const TrackBooking = () => {
     return () => clearInterval(id);
   }, [booking?.status, booking?.job_ends_at]);
 
-  // One-off jobs: the customer confirms the work is finished, which completes
-  // the booking and auto-releases the helper's payout.
+  // The customer confirms the work is finished — completes the booking and
+  // auto-releases the helper's payout. Any rating chosen on the same card is
+  // submitted alongside (best-effort).
   const handleMarkDone = async () => {
     if (!bookingId || markingDone) return;
     setMarkingDone(true);
     try {
       const { error } = await supabase.functions.invoke('complete-household-job', { body: { booking_id: bookingId } });
       if (error) throw error;
+      if (selectedRating > 0) {
+        try {
+          await supabase.functions.invoke('rate-household-booking', { body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined } });
+          if (typeof localStorage !== 'undefined') localStorage.setItem(`vano_rated_${bookingId}`, '1');
+          setAlreadyRated(true);
+        } catch { /* rating is best-effort — don't block completion */ }
+      }
       setBooking((b) => b ? { ...b, status: 'completed' } : b);
-      toast({ title: 'Marked as done', description: 'Thanks! Your helper has been paid.' });
+      toast({ title: 'All done — thanks!', description: 'Your helper has been paid.' });
     } catch {
       toast({ title: 'Could not mark done', description: 'Please try again, or WhatsApp +353 89 981 7111', variant: 'destructive' });
     } finally {
@@ -656,25 +664,31 @@ const TrackBooking = () => {
           </motion.div>
         )}
 
-        {/* Job in progress — timed jobs show a countdown that auto-completes;
-            one-off jobs give the customer a "mark done" button */}
-        {booking.status === 'in_progress' && (
-          isTimedCategory(booking.category) && booking.job_ends_at ? (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
-              className="mt-4 rounded-2xl border border-sage/30 bg-sage-light p-5 text-center"
-            >
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                {helperName ? `${helperName} is working` : 'Job in progress'}
-              </p>
-              <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
-                {formatCountdown(new Date(booking.job_ends_at).getTime() - nowTick)}
-              </p>
-              <p className="text-xs text-muted-foreground">left on your booked time</p>
-            </motion.div>
-          ) : (
+        {/* Job in progress. Timed jobs count down to the booked end time; once
+            that's up (and for one-off jobs straight away) the customer gets a
+            rate + "mark complete" card that confirms the job and pays the helper. */}
+        {booking.status === 'in_progress' && (() => {
+          const endMs = booking.job_ends_at ? new Date(booking.job_ends_at).getTime() : 0;
+          const counting = isTimedCategory(booking.category) && booking.job_ends_at && endMs > nowTick;
+          if (counting) {
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+                className="mt-4 rounded-2xl border border-sage/30 bg-sage-light p-5 text-center"
+              >
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  {helperName ? `${helperName} is working` : 'Job in progress'}
+                </p>
+                <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
+                  {formatCountdown(endMs - nowTick)}
+                </p>
+                <p className="text-xs text-muted-foreground">left on your booked time</p>
+              </motion.div>
+            );
+          }
+          return (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -682,21 +696,38 @@ const TrackBooking = () => {
               className="mt-4 rounded-2xl border-2 border-sage/40 bg-sage-light p-5 text-center"
             >
               <p className="font-bold text-foreground text-sm">
-                {helperName ? `Is ${helperName} all done?` : 'Is the job all done?'}
+                {helperName ? `How was ${helperName}?` : 'How did it go?'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1 mb-4 leading-relaxed">
-                Tap below once the work is finished — this confirms it and pays your helper.
+              <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
+                {booking.job_ends_at
+                  ? 'Your booked time is up. Rate your helper and confirm to release their payment.'
+                  : 'Once the work is finished, rate your helper and confirm — this releases their payment.'}
               </p>
+              <div className="flex gap-1 justify-center mb-4">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onMouseEnter={() => setHoverRating(n)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setSelectedRating(n)}
+                    className="p-1 transition-transform active:scale-90"
+                    aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                  >
+                    <Star size={26} className={cn('transition-colors', n <= (hoverRating || selectedRating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')} />
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={() => void handleMarkDone()}
                 disabled={markingDone}
                 className="w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
               >
-                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Mark as done</>}
+                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Mark complete &amp; pay{helperName ? ` ${helperName}` : ''}</>}
               </button>
+              <p className="text-center text-[11px] text-muted-foreground mt-2">Rating is optional — you can confirm without it.</p>
             </motion.div>
-          )
-        )}
+          );
+        })()}
 
         {/* Status area */}
         <div className="mt-6">

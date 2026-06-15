@@ -1,11 +1,11 @@
 // Job-type helpers shared by the helper (StudentJobDetail) and customer
 // (TrackBooking) screens. Mirrors supabase/functions/_shared/householdJob.ts.
 //
-// Timed jobs run a countdown from the booked duration and auto-complete when it
-// ends. One-off jobs are completed by the household tapping "mark done".
+// Only cleaning, tutoring, garden and moving are "timed" (booked by the hour).
+// Laundry and dog-walk are one-off and finish when the household marks them done.
 
 export const TIMED_CATEGORIES = new Set([
-  'cleaning', 'tutoring', 'garden', 'moving', 'handyman', 'wait-delivery',
+  'cleaning', 'tutoring', 'garden', 'moving',
 ]);
 
 export function isTimedCategory(category: string): boolean {

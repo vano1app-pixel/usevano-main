@@ -17,7 +17,7 @@ function formEncode(obj: Record<string, string>): string {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
 };
 

@@ -1,23 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Scheduled sweep that auto-completes timed jobs (cleaning, garden, moving —
-// the ones with a booked duration) whose job_ends_at has passed. Completion
-// goes through capture-household-payment's internal path, which flips the
-// booking to completed and records the now auto-released payout. This is the
-// reliable backstop: the helper/customer screens also fire completion when
-// their countdown hits zero, but the sweep guarantees it even if no device is
-// open.
+// Safety backstop that auto-completes timed jobs (cleaning, garden, moving,
+// tutoring) the customer never confirmed. Normally the customer taps "mark
+// complete" on the tracking page once the booked time is up; this sweep only
+// steps in once a job is well past its end time (GRACE_HOURS) so a helper isn't
+// left unpaid by a customer who closed the app. Completion goes through
+// capture-household-payment's internal path (flip to completed + auto-released
+// payout).
 //
-// Invoked by Supabase cron (suggested cadence: every 1–5 minutes). The query
-// is bounded by household_bookings_job_ends_at_idx. Per-row failures are
-// logged but never abort the batch.
+// Invoked by Supabase cron (suggested cadence: every 10–15 minutes). The query
+// is bounded by household_bookings_job_ends_at_idx. Per-row failures are logged
+// but never abort the batch.
 //
 // verify_jwt = false — only the scheduler or an operator with the service key
 // should hit it; an external call would just complete jobs that are already
-// due (same outcome as waiting for the next run).
+// well overdue (same outcome as waiting for the next run).
 
 const BATCH_LIMIT = 50;
+// How long after the booked end time to wait before auto-completing on the
+// customer's behalf. Gives them a clear window to rate + confirm themselves.
+const GRACE_HOURS = 3;
 
 serve(async (_req) => {
   try {
@@ -25,13 +28,13 @@ serve(async (_req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const nowIso = new Date().toISOString();
+    const cutoffIso = new Date(Date.now() - GRACE_HOURS * 60 * 60 * 1000).toISOString();
     const { data: due, error } = await supabase
       .from('household_bookings')
       .select('id')
       .eq('status', 'in_progress')
       .not('job_ends_at', 'is', null)
-      .lt('job_ends_at', nowIso)
+      .lt('job_ends_at', cutoffIso)
       .limit(BATCH_LIMIT) as { data: { id: string }[] | null; error: unknown };
 
     if (error) {

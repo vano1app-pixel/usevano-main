@@ -63,7 +63,7 @@ interface Payout {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Shopping run',
+  shopping: 'Laundry',
   'dog-walk': 'Dog walk',
   garden: 'Garden help',
   moving: 'Moving help',
