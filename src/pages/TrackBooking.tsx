@@ -107,6 +107,12 @@ function FitBoundsOrFollow({
 }: { helperLat: number; helperLng: number; customerLat: number | null; customerLng: number | null }) {
   const map = useMap();
   const fitted = useRef(false);
+  // The map lives in a spring-animated panel, so its size isn't final on mount.
+  // Invalidate once layout settles so tiles don't come up gray.
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 300);
+    return () => clearTimeout(t);
+  }, [map]);
   useEffect(() => {
     if (!fitted.current && customerLat && customerLng) {
       map.fitBounds(

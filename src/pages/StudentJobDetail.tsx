@@ -11,9 +11,21 @@ import { getUserFriendlyError } from '@/lib/errorMessages';
 import { microCelebrate } from '@/lib/celebrate';
 import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import logo from '@/assets/logo.png';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+
+// Leaflet reads the container size on mount. Inside the app's PageTransition
+// the map mounts mid-animation, so without this it renders as gray tiles until
+// something forces a redraw. Invalidating once the layout settles fixes it.
+function MapAutoResize() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 300);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
 
 // Fix default Leaflet marker icons broken by bundlers
 const customerIcon = L.divIcon({
@@ -350,7 +362,9 @@ const StudentJobDetail = () => {
       });
       if (error) throw error;
       if (data?.verified) {
-        setBooking((b) => b ? { ...b, status: 'in_progress', arrival_verified_at: new Date().toISOString() } : b);
+        // Carry job_ends_at back from the server so the timed countdown shows
+        // immediately (this screen has no realtime subscription to refetch it).
+        setBooking((b) => b ? { ...b, status: 'in_progress', arrival_verified_at: new Date().toISOString(), job_ends_at: data.job_ends_at ?? null } : b);
         setArrivalCode('');
         microCelebrate();
         toast({ title: 'Code confirmed — job started! ⏱️' });
@@ -603,6 +617,7 @@ const StudentJobDetail = () => {
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
+                <MapAutoResize />
               </MapContainer>
             </div>
             {mine && !isComplete && !isCancelled && (
