@@ -1,26 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Safety backstop that auto-completes timed jobs (cleaning, garden, moving,
-// tutoring) the customer never confirmed. Normally the customer taps "mark
-// complete" on the tracking page once the booked time is up; this sweep only
-// steps in once a job is well past its end time (GRACE_HOURS) so a helper isn't
-// left unpaid by a customer who closed the app. Completion goes through
+// Safety backstop that auto-completes any in-progress job the customer never
+// confirmed. Completion is normally the customer's call (they rate + tap "mark
+// complete" on the tracking page), but this sweep steps in once a job passes
+// its auto_complete_at deadline so a helper isn't left unpaid by a customer who
+// closed the app. Set at job start by household-arrival: timed jobs get their
+// booked time + a short grace, one-off jobs get 24h. Completion goes through
 // capture-household-payment's internal path (flip to completed + auto-released
 // payout).
 //
 // Invoked by Supabase cron (suggested cadence: every 10–15 minutes). The query
-// is bounded by household_bookings_job_ends_at_idx. Per-row failures are logged
-// but never abort the batch.
+// is bounded by household_bookings_auto_complete_at_idx. Per-row failures are
+// logged but never abort the batch.
 //
 // verify_jwt = false — only the scheduler or an operator with the service key
 // should hit it; an external call would just complete jobs that are already
-// well overdue (same outcome as waiting for the next run).
+// overdue (same outcome as waiting for the next run).
 
 const BATCH_LIMIT = 50;
-// How long after the booked end time to wait before auto-completing on the
-// customer's behalf. Gives them a clear window to rate + confirm themselves.
-const GRACE_HOURS = 3;
 
 serve(async (_req) => {
   try {
@@ -28,17 +26,17 @@ serve(async (_req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const cutoffIso = new Date(Date.now() - GRACE_HOURS * 60 * 60 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
     const { data: due, error } = await supabase
       .from('household_bookings')
       .select('id')
       .eq('status', 'in_progress')
-      .not('job_ends_at', 'is', null)
-      .lt('job_ends_at', cutoffIso)
+      .not('auto_complete_at', 'is', null)
+      .lt('auto_complete_at', nowIso)
       .limit(BATCH_LIMIT) as { data: { id: string }[] | null; error: unknown };
 
     if (error) {
-      console.error('[auto-complete-timed-jobs] query failed', error);
+      console.error('[auto-complete-stale-jobs] query failed', error);
       return new Response(JSON.stringify({ error: 'query_failed' }), { status: 500 });
     }
 
@@ -55,11 +53,11 @@ serve(async (_req) => {
         });
         if (resp.ok) { completed++; } else {
           failed++;
-          console.warn('[auto-complete-timed-jobs] capture failed', row.id, resp.status, (await resp.text().catch(() => '')).slice(0, 200));
+          console.warn('[auto-complete-stale-jobs] capture failed', row.id, resp.status, (await resp.text().catch(() => '')).slice(0, 200));
         }
       } catch (err) {
         failed++;
-        console.error('[auto-complete-timed-jobs] capture threw', row.id, err);
+        console.error('[auto-complete-stale-jobs] capture threw', row.id, err);
       }
     }
 
@@ -67,7 +65,7 @@ serve(async (_req) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('[auto-complete-timed-jobs] unhandled', err);
+    console.error('[auto-complete-stale-jobs] unhandled', err);
     return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500 });
   }
 });
