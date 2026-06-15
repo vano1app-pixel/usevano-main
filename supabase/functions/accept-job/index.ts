@@ -23,21 +23,28 @@ const CATEGORY_LABELS: Record<string, string> = {
   'wait-delivery': 'Wait for delivery', other: 'General help',
 };
 
-function page(title: string, body: string, accent = '#4a7c59'): Response {
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — VANO</title></head>
-<body style="margin:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:440px;margin:48px auto;background:#fff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;">
-  <div style="background:${accent};padding:28px 32px;"><p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${title}</p></div>
-  <div style="padding:26px 32px;color:#374151;font-size:15px;line-height:1.6;">${body}</div>
-</div></body></html>`;
-  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-}
+// Result is shown by redirecting into the SPA's public /accepted route rather
+// than returning inline HTML. A redirect renders reliably in every browser and
+// in-app webview, whereas some in-app browsers ignore the text/html content-type
+// and display the markup as raw source (the bug this replaces). The page reads
+// `status` (+ optional job/cat/city) from the query string — see
+// src/pages/JobAccepted.tsx.
+type AcceptStatus = 'claimed' | 'mine' | 'taken' | 'expired' | 'notfound' | 'login';
 
-// Escape DB-sourced values before they land in the result HTML. City is already
-// allow-listed at booking time, so this is belt-and-braces against any future
-// path that writes a less-constrained value — never render raw.
-const esc = (s: string | null | undefined): string =>
-  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function redirect(
+  siteUrl: string,
+  status: AcceptStatus,
+  opts: { job?: string; cat?: string; city?: string | null } = {},
+): Response {
+  const params = new URLSearchParams({ status });
+  if (opts.job) params.set('job', opts.job);
+  if (opts.cat) params.set('cat', opts.cat);
+  if (opts.city) params.set('city', opts.city);
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `${siteUrl}/accepted?${params.toString()}` },
+  });
+}
 
 // Best-effort email → existing auth user id. Lets a helper who already had an
 // account (e.g. they once booked as a customer) but whose helper row was never
@@ -67,11 +74,10 @@ serve(async (req) => {
   const token = new URL(req.url).searchParams.get('t') ?? '';
   const payload = await verifyAcceptToken(token);
   if (!payload) {
-    return page('Link expired', `This accept link has expired or is invalid. Open the app to see jobs that are still available:<br><br><a href="${siteUrl}/student-dashboard" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open VANO →</a>`, '#6b7280');
+    return redirect(siteUrl, 'expired');
   }
 
   const { b: bookingId, h: helperId } = payload;
-  const jobUrl = `${siteUrl}/student-job/${bookingId}`;
 
   // Booking must still be open.
   const { data: booking } = await supabase
@@ -80,7 +86,7 @@ serve(async (req) => {
     .eq('id', bookingId)
     .maybeSingle() as { data: { id: string; status: string; student_id: string | null; category: string; city: string | null } | null };
 
-  if (!booking) return page('Job not found', 'We couldn\'t find this job — it may have been removed.', '#6b7280');
+  if (!booking) return redirect(siteUrl, 'notfound');
   const catLabel = CATEGORY_LABELS[booking.category] ?? 'job';
 
   if (booking.status !== 'pending' || booking.student_id) {
@@ -97,8 +103,8 @@ serve(async (req) => {
       mine = ownOffer?.status === 'accepted';
     }
     return mine
-      ? page('You\'ve got this one ✅', `This <strong>${catLabel}</strong>${booking.city ? ` in ${esc(booking.city)}` : ''} is already yours.<br><br><a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open the job →</a>`)
-      : page('Already taken', `Sorry — another helper grabbed this <strong>${catLabel}</strong> first. There are usually more jobs waiting:<br><br><a href="${siteUrl}/student-dashboard" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">See open jobs →</a>`, '#6b7280');
+      ? redirect(siteUrl, 'mine', { job: bookingId, cat: catLabel, city: booking.city })
+      : redirect(siteUrl, 'taken', { cat: catLabel });
   }
 
   // Resolve the helper's auth user id — provision one if they don't have an
@@ -141,7 +147,7 @@ serve(async (req) => {
   if (!userId) {
     // Couldn't auto-provision (no email/phone, or it already exists) — let them
     // claim the normal way after a quick login.
-    return page('Almost there', `Tap below and log in to grab this <strong>${catLabel}</strong> — it\'s still open:<br><br><a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open &amp; accept →</a>`, '#b45309');
+    return redirect(siteUrl, 'login', { job: bookingId, cat: catLabel });
   }
 
   // Atomic claim — only one helper can flip pending → accepted.
@@ -155,7 +161,7 @@ serve(async (req) => {
     .maybeSingle();
 
   if (!claimed) {
-    return page('Already taken', `Sorry — another helper grabbed this <strong>${catLabel}</strong> a moment ago. More jobs are waiting:<br><br><a href="${siteUrl}/student-dashboard" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">See open jobs →</a>`, '#6b7280');
+    return redirect(siteUrl, 'taken', { cat: catLabel });
   }
 
   // Mark this helper's offer accepted (best-effort; supabase returns {error}
@@ -175,5 +181,5 @@ serve(async (req) => {
   }).catch(() => {});
 
   console.log(`[accept-job] booking ${bookingId} claimed by helper ${helperId} (user ${userId})`);
-  return page('You\'ve got the job! 🎉', `You\'ve claimed the <strong>${catLabel}</strong>${booking.city ? ` in ${esc(booking.city)}` : ''}. We\'ve let the customer know.<br><br>Open the app for the address and details:<br><br><a href="${jobUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;">Open the job →</a>`);
+  return redirect(siteUrl, 'claimed', { job: bookingId, cat: catLabel, city: booking.city });
 });
