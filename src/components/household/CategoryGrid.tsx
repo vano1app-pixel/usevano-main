@@ -26,13 +26,13 @@ interface Category {
 
 const CATEGORIES: Category[] = [
   {
-    // Click & collect model — the customer orders and pays the store online,
-    // the helper collects and delivers. No helper money-handling, no list
-    // disputes; the old "we shop your list" version put students' own cash
-    // at risk and was the weakest flow on the platform.
-    emoji: '🛒', label: 'Groceries', slug: 'shopping',
-    hint: 'Order click & collect · we deliver it',
-    description: 'Order online from Tesco, Dunnes or SuperValu (click & collect). Your helper picks it up and brings it to your door — you never carry a bag.',
+    // Laundry: the helper collects, washes/dries/folds and returns it. Flat
+    // rate, one-off — finishes when the customer marks it done. Slug stays
+    // 'shopping' so existing bookings, pricing and the DB category all keep
+    // working; only the customer-facing wording changed.
+    emoji: '🧺', label: 'Laundry', slug: 'shopping',
+    hint: 'Collected, washed & returned folded',
+    description: 'Your helper collects your laundry, washes, dries and folds it, and brings it back to your door — fresh and sorted.',
   },
   {
     emoji: '🐕', label: 'Dog walk',  slug: 'dog-walk',

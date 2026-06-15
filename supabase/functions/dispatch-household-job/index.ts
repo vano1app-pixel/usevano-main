@@ -32,7 +32,7 @@ const MAX_OFFERS = Number(Deno.env.get('DISPATCH_MAX_OFFERS')) || 50;
 const OFFER_TTL_MINUTES = 60;
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Shopping run',
+  shopping: 'Laundry',
   'dog-walk': 'Dog walk',
   garden: 'Garden help',
   moving: 'Moving help',

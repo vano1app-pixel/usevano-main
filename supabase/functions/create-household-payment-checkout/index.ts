@@ -255,7 +255,7 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
 }
 
 const CATEGORY_LABELS: Record<Category, string> = {
-  shopping:             'Shopping run',
+  shopping:             'Laundry',
   'grocery-shopping':   'Grocery shopping',
   'dog-walk':           'Dog walk',
   'dog-walking':        'Dog walking',

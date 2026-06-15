@@ -76,7 +76,7 @@ function computePriceCents(data: BookingData, isExpress: boolean): number {
 
 function categoryLabel(cat: string): string {
   const labels: Record<string, string> = {
-    shopping: 'Shopping run',
+    shopping: 'Laundry',
     'dog-walk': 'Dog walk',
     garden: 'Garden help',
     moving: 'Moving help',

@@ -2,17 +2,30 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuthContext';
-import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Loader2, Send, CheckCircle2, Navigation, AlertTriangle, Zap, KeyRound } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { microCelebrate } from '@/lib/celebrate';
+import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import logo from '@/assets/logo.png';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+
+// Leaflet reads the container size on mount. Inside the app's PageTransition
+// the map mounts mid-animation, so without this it renders as gray tiles until
+// something forces a redraw. Invalidating once the layout settles fixes it.
+function MapAutoResize() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 300);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
 
 // Fix default Leaflet marker icons broken by bundlers
 const customerIcon = L.divIcon({
@@ -44,6 +57,13 @@ interface Booking {
   customer_lng: number | null;
   price_estimate_cents: number | null;
   booking_data: Record<string, unknown>;
+  // Set once the helper enters the customer's arrival code. The code itself is
+  // deliberately NOT fetched here — it lives only on the customer's screen.
+  arrival_verified_at: string | null;
+  // For timed jobs: the booked-time countdown end (a guide; never auto-completes).
+  job_ends_at: string | null;
+  // Set when the helper taps "I've finished" — asks the customer to confirm.
+  helper_finished_at: string | null;
 }
 
 interface ChatMessage {
@@ -54,7 +74,7 @@ interface ChatMessage {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Shopping run',
+  shopping: 'Laundry',
   'dog-walk': 'Dog walk',
   garden: 'Garden help',
   moving: 'Moving help',
@@ -121,12 +141,12 @@ function formatPhone(raw: string): string {
   return raw;
 }
 
-// Status machine: what action advances the job
+// Status machine: only the "I'm on my way" step is a generic advance button.
+// on_way → arrived and arrived → in_progress run through the arrival-code flow
+// ("I've reached" + code entry). Completion is never a helper tap and never
+// automatic — the customer marks the job complete to pay the helper.
 const NEXT_STATUS: Partial<Record<JobStatus, { status: UpdateStatus; label: string }>> = {
-  accepted:    { status: 'on_way',      label: "I'm on my way" },
-  on_way:      { status: 'arrived',     label: 'I arrived'     },
-  arrived:     { status: 'in_progress', label: 'Starting job'  },
-  in_progress: { status: 'completed',   label: 'Job complete'  },
+  accepted: { status: 'on_way', label: "I'm on my way" },
 };
 
 // How often (ms) to push location updates to Supabase while on the way
@@ -152,6 +172,14 @@ const StudentJobDetail = () => {
   const [releaseConfirm, setReleaseConfirm] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  // Arrival-code handshake
+  const [reaching, setReaching] = useState(false);
+  const [arrivalCode, setArrivalCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [codeError, setCodeError] = useState(false);
+  // Timed-job countdown (display only — the customer marks the job done)
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const [finishing, setFinishing] = useState(false);
   // Set when the browser refuses geolocation while on_way — the customer's
   // live map silently shows nothing, so the helper deserves to know.
   const [locationDenied, setLocationDenied] = useState(false);
@@ -181,7 +209,11 @@ const StudentJobDetail = () => {
       if (!cancelled) setUserId(uid);
 
       const [bookingRes, msgRes] = await Promise.all([
-        hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
+        // Explicit columns — never select arrival_code, so the customer's code
+        // can't be read out of the helper's app and the handshake stays honest.
+        hdb.from('household_bookings')
+          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, booking_data, arrival_verified_at, job_ends_at, helper_finished_at')
+          .eq('id', bookingId).maybeSingle(),
         hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
       ]);
 
@@ -299,6 +331,78 @@ const StudentJobDetail = () => {
     setClaiming(false);
     microCelebrate();
     toast({ title: '🎉 Job claimed!', description: 'The customer is being asked to pay to confirm you.' });
+  };
+
+  // "I've reached" — ask the server to generate the arrival code (shown only on
+  // the customer's screen) and move the job to 'arrived'. Stops location sharing.
+  const handleReached = async () => {
+    if (!bookingId || reaching) return;
+    setReaching(true);
+    try {
+      const { error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: 'request' },
+      });
+      if (error) throw error;
+      stopLocationWatch();
+      setBooking((b) => b ? { ...b, status: 'arrived' } : b);
+      toast({ title: "You're at the door", description: 'Ask the customer for their 4-digit code, then enter it to start.' });
+    } catch (err) {
+      toast({ title: 'Could not mark arrival', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setReaching(false);
+    }
+  };
+
+  // Helper types the code the customer reads out. A match starts the job.
+  const handleVerifyCode = async () => {
+    if (!bookingId || verifying || arrivalCode.length !== 4) return;
+    setVerifying(true);
+    setCodeError(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('household-arrival', {
+        body: { booking_id: bookingId, action: 'verify', code: arrivalCode },
+      });
+      if (error) throw error;
+      if (data?.verified) {
+        // Carry job_ends_at back from the server so the timed countdown shows
+        // immediately (this screen has no realtime subscription to refetch it).
+        setBooking((b) => b ? { ...b, status: 'in_progress', arrival_verified_at: new Date().toISOString(), job_ends_at: data.job_ends_at ?? null } : b);
+        setArrivalCode('');
+        microCelebrate();
+        toast({ title: 'Code confirmed — job started! ⏱️' });
+      } else {
+        setCodeError(true);
+      }
+    } catch (err) {
+      toast({ title: 'Could not confirm code', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Timed jobs show a live countdown; completion itself is the customer's call
+  // (they tap "mark complete" once the time's up), so this just ticks the clock.
+  useEffect(() => {
+    if (booking?.status !== 'in_progress' || !booking.job_ends_at) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [booking?.status, booking?.job_ends_at]);
+
+  // "I've finished" — flags the job done and asks the customer to confirm.
+  // Does NOT pay the helper; the customer still has to mark complete.
+  const handleFinished = async () => {
+    if (!bookingId || finishing) return;
+    setFinishing(true);
+    try {
+      const { error } = await supabase.functions.invoke('household-arrival', { body: { booking_id: bookingId, action: 'finished' } });
+      if (error) throw error;
+      setBooking((b) => b ? { ...b, helper_finished_at: new Date().toISOString() } : b);
+      toast({ title: 'Marked as finished', description: "We've asked the customer to confirm so you get paid." });
+    } catch (err) {
+      toast({ title: 'Could not mark finished', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setFinishing(false);
+    }
   };
 
   const handleRelease = async () => {
@@ -515,22 +619,36 @@ const StudentJobDetail = () => {
           })()}
         </div>
 
-        {/* Customer location map — shown whenever we have coords */}
+        {/* Customer location map + directions — so the helper can see the job
+            location and tap straight through to turn-by-turn navigation. */}
         {booking.customer_lat && booking.customer_lng && (
-          <div className="rounded-2xl overflow-hidden border border-border/60 mb-4" style={{ height: 200 }}>
-            <MapContainer
-              center={[booking.customer_lat, booking.customer_lng]}
-              zoom={15}
-              style={{ height: '100%', width: '100%' }}
-              zoomControl={false}
-              attributionControl={false}
-              dragging={false}
-              scrollWheelZoom={false}
-              doubleClickZoom={false}
-            >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
-            </MapContainer>
+          <div className="mb-4">
+            <div className="rounded-2xl overflow-hidden border border-border/60" style={{ height: 200 }}>
+              <MapContainer
+                center={[booking.customer_lat, booking.customer_lng]}
+                zoom={15}
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={false}
+                attributionControl={false}
+                dragging={false}
+                scrollWheelZoom={false}
+                doubleClickZoom={false}
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
+                <MapAutoResize />
+              </MapContainer>
+            </div>
+            {mine && !isComplete && !isCancelled && (
+              <a
+                href={googleMapsUrl(booking.customer_address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 w-full h-11 rounded-full bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-secondary/70 transition-colors"
+              >
+                <Navigation size={15} /> Get directions
+              </a>
+            )}
           </div>
         )}
 
@@ -587,8 +705,8 @@ const StudentJobDetail = () => {
               {[
                 ['1', 'The customer is being asked to pay now — that locks the booking in.'],
                 ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
-                ['3', 'Tap “I arrived” at the door — location sharing stops automatically.'],
-                ['4', 'Tap “Starting job”, do your thing, then “Job complete” to get paid.'],
+                ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
+                ['4', 'Timed jobs run a countdown; when the work’s done the customer rates you and taps “Mark complete” — and you’re paid instantly.'],
               ].map(([n, text]) => (
                 <li key={n} className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-sage text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
@@ -619,6 +737,109 @@ const StudentJobDetail = () => {
               Location is off, so the customer can't see you on their map. Allow location access in your browser settings, then reload this page.
             </p>
           </div>
+        )}
+
+        {/* I've reached — generates the customer's arrival code */}
+        {mine && booking.status === 'on_way' && (
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => void handleReached()}
+            disabled={reaching}
+            className="w-full h-14 rounded-full bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2 mb-6 hover:bg-primary/90 disabled:opacity-50 transition-[background-color,opacity] duration-150"
+          >
+            {reaching ? <Loader2 size={18} className="animate-spin" /> : <><MapPin size={18} />I've reached</>}
+          </motion.button>
+        )}
+
+        {/* Arrival code entry — the customer reads out the 4-digit code on their
+            screen and the helper types it here to start the job */}
+        {mine && booking.status === 'arrived' && !booking.arrival_verified_at && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-2xl border border-sage/30 bg-sage-light p-5 mb-6"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <KeyRound size={16} className="text-sage flex-shrink-0" />
+              <p className="font-bold text-foreground text-sm">Enter the customer's code</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+              Ask the customer for the 4-digit code on their screen, then type it in to start the job.
+            </p>
+            <input
+              inputMode="numeric"
+              pattern="\d*"
+              maxLength={4}
+              value={arrivalCode}
+              onChange={(e) => { setArrivalCode(e.target.value.replace(/\D/g, '').slice(0, 4)); setCodeError(false); }}
+              placeholder="0000"
+              className={cn(
+                'w-full h-14 rounded-xl bg-background border text-center text-2xl font-bold tracking-[0.5em] tabular-nums focus:outline-none focus:ring-2 focus:ring-ring',
+                codeError ? 'border-destructive' : 'border-border/60',
+              )}
+            />
+            {codeError && (
+              <p className="text-xs text-destructive mt-2">That code didn't match — double-check with the customer.</p>
+            )}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => void handleVerifyCode()}
+              disabled={verifying || arrivalCode.length !== 4}
+              className="mt-4 w-full h-12 rounded-full bg-sage text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {verifying ? <Loader2 size={16} className="animate-spin" /> : 'Confirm & start job'}
+            </motion.button>
+          </motion.div>
+        )}
+
+        {/* Job underway — timed jobs show a countdown (a guide, nothing auto-
+            completes). The helper flags "I've finished"; the customer confirms
+            to release payment. */}
+        {mine && booking.status === 'in_progress' && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-2xl border border-sage/25 bg-sage-light p-5 mb-6 text-center"
+          >
+            {booking.helper_finished_at ? (
+              <>
+                <CheckCircle2 size={24} className="text-sage mx-auto mb-1.5" strokeWidth={1.5} />
+                <p className="text-sm font-semibold text-foreground">Marked as finished</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Waiting for the customer to confirm — you’re paid the moment they do. We’ve nudged them.
+                </p>
+              </>
+            ) : (
+              <>
+                {booking.job_ends_at && new Date(booking.job_ends_at).getTime() > nowTick ? (
+                  <>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Job in progress</p>
+                    <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
+                      {formatCountdown(new Date(booking.job_ends_at).getTime() - nowTick)}
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-4">left on the booked time</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-foreground">{booking.job_ends_at ? "Time's up" : 'Job underway'}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 mb-4 leading-relaxed">
+                      When you’re done, tap below — the customer confirms and you’re paid.
+                    </p>
+                  </>
+                )}
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => void handleFinished()}
+                  disabled={finishing}
+                  className="w-full h-12 rounded-full bg-sage text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+                >
+                  {finishing ? <Loader2 size={16} className="animate-spin" /> : "I've finished"}
+                </motion.button>
+              </>
+            )}
+          </motion.div>
         )}
 
         {/* Status action button */}

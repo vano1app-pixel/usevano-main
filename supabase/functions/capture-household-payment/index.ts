@@ -34,17 +34,27 @@ serve(async (req) => {
   if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: userErr } = await authClient.auth.getUser();
-    if (userErr || !user) return bad(401, 'Unauthorized');
-    const callerId = user.id;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
+
+    // Internal completion: the household "mark done" path and the timed-job
+    // cron sweep complete jobs server-side and can't present a helper JWT.
+    // Trust it only when the bearer IS the service-role key and it flags
+    // itself; the assigned helper is then read from the booking row.
+    const isInternal = req.headers.get('x-internal-complete') === '1' &&
+      authHeader === `Bearer ${serviceKey}`;
+
+    let authedUserId: string | null = null;
+    if (!isInternal) {
+      const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+      const { data: { user }, error: userErr } = await authClient.auth.getUser();
+      if (userErr || !user) return bad(401, 'Unauthorized');
+      authedUserId = user.id;
+    }
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
@@ -54,12 +64,23 @@ serve(async (req) => {
 
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city')
+      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at')
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
-    if (booking.student_id !== callerId) return bad(403, 'Not the assigned student');
+    // User path: the caller must be the assigned helper. Internal path: the
+    // helper is whoever the booking is assigned to.
+    if (!isInternal && booking.student_id !== authedUserId) return bad(403, 'Not the assigned student');
+    if (!booking.student_id) return bad(409, 'No helper assigned to this job');
     if (!['accepted','on_way','arrived','in_progress'].includes(booking.status)) return bad(409, `Cannot complete in status: ${booking.status}`);
+    // Pay-before-payout guard: helpers accept jobs before the customer pays
+    // (pay-after-accept), so never complete + auto-release a payout for a job
+    // that hasn't been paid. Free/zero-price bookings (none today) are exempt.
+    if (((booking.price_estimate_cents as number | null) ?? 0) > 0 && !booking.paid_at) {
+      return bad(409, 'Payment not received yet — this job can be completed once the customer has paid.');
+    }
+
+    const callerId = booking.student_id as string;
 
     // Idempotency: if payout already exists this job was already completed.
     const { count: existingPayout } = await supabase
@@ -80,13 +101,16 @@ serve(async (req) => {
     const priceCents = booking.price_estimate_cents ?? 0;
     const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
 
-    await supabase.from('household_payouts').insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending' });
+    // Auto-release on completion: the payout is approved for payout the moment
+    // the job is marked done — no manual review step. (Household helpers are
+    // paid out via Revolut, so this flags it ready rather than moving money.)
+    await supabase.from('household_payouts').insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'released', released_at: new Date().toISOString() });
     await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'completed', note: 'Job completed.' });
 
     const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
     const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
     const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
-    const catLabels: Record<string,string> = { shopping:'Shopping run','dog-walk':'Dog walk',garden:'Garden help',moving:'Moving help',cleaning:'Cleaning',tutoring:'Tutoring',other:'General help' };
+    const catLabels: Record<string,string> = { shopping:'Laundry','dog-walk':'Dog walk',garden:'Garden help',moving:'Moving help',cleaning:'Cleaning',tutoring:'Tutoring',other:'General help' };
     const catLabel = catLabels[(booking as Record<string,unknown>).category as string] ?? 'job';
     const custName = String((booking as Record<string,unknown>).customer_name ?? 'there');
     const custEmail = (booking as Record<string,unknown>).customer_email as string|null;

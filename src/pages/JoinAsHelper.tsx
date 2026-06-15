@@ -46,7 +46,7 @@ const TUTOR_SUBJECTS = [
 const TUTOR_LEVELS = ['Primary', 'Junior Cert', 'Leaving Cert', 'Third Level'];
 
 const JOBS = [
-  { emoji: '🛒', label: 'Shopping runs' },
+  { emoji: '🛒', label: 'Laundrys' },
   { emoji: '🐕', label: 'Dog walks' },
   { emoji: '🌿', label: 'Garden work' },
   { emoji: '📦', label: 'Moving help' },
@@ -182,7 +182,7 @@ export const JoinAsHelper: React.FC = () => {
                 Earn money between lectures
               </h1>
               <p className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-sm mx-auto">
-                Pick up flexible household jobs in your city. Shopping runs, dog walks, cleaning, garden work — you choose what you take on.
+                Pick up flexible household jobs in your city. Laundrys, dog walks, cleaning, garden work — you choose what you take on.
               </p>
 
               {/* Stat chips */}

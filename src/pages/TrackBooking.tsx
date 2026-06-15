@@ -8,6 +8,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
+import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -40,6 +41,13 @@ interface Booking {
   /** Pay-after-accept: set by notify-household-accepted when a helper claims */
   stripe_checkout_url: string | null;
   paid_at: string | null;
+  /** Arrival handshake: shown to the customer to read out to the helper */
+  arrival_code: string | null;
+  arrival_verified_at: string | null;
+  /** Timed jobs: the booked-time countdown end (a guide; never auto-completes) */
+  job_ends_at: string | null;
+  /** Set when the helper taps "I've finished" — surfaces the confirm card early */
+  helper_finished_at: string | null;
   booking_data: {
     service_fee_cents?: number;
     referral_discount_cents?: number;
@@ -101,6 +109,12 @@ function FitBoundsOrFollow({
 }: { helperLat: number; helperLng: number; customerLat: number | null; customerLng: number | null }) {
   const map = useMap();
   const fitted = useRef(false);
+  // The map lives in a spring-animated panel, so its size isn't final on mount.
+  // Invalidate once layout settles so tiles don't come up gray.
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 300);
+    return () => clearTimeout(t);
+  }, [map]);
   useEffect(() => {
     if (!fitted.current && customerLat && customerLng) {
       map.fitBounds(
@@ -128,7 +142,7 @@ const STATUS_ORDER: UpdateStatus[] = ['accepted', 'on_way', 'arrived', 'in_progr
 
 function formatCategory(cat: string): string {
   const map: Record<string, string> = {
-    shopping: 'Shopping run', 'dog-walk': 'Dog walk', garden: 'Garden help',
+    shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
     moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'Other task',
   };
   return map[cat] ?? cat;
@@ -186,6 +200,10 @@ const TrackBooking = () => {
   // Cancel state
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // "Mark done" (one-off jobs) + live timer tick (timed jobs)
+  const [markingDone, setMarkingDone] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   // Rating state
   const [hoverRating, setHoverRating] = useState(0);
@@ -336,6 +354,38 @@ const TrackBooking = () => {
     }, 15_000);
     return () => clearInterval(id);
   }, []);
+
+  // Tick once a second while a timed job is running, for the countdown UI.
+  useEffect(() => {
+    if (booking?.status !== 'in_progress' || !booking.job_ends_at) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [booking?.status, booking?.job_ends_at]);
+
+  // The customer confirms the work is finished — completes the booking and
+  // auto-releases the helper's payout. Any rating chosen on the same card is
+  // submitted alongside (best-effort).
+  const handleMarkDone = async () => {
+    if (!bookingId || markingDone) return;
+    setMarkingDone(true);
+    try {
+      const { error } = await supabase.functions.invoke('complete-household-job', { body: { booking_id: bookingId } });
+      if (error) throw error;
+      if (selectedRating > 0) {
+        try {
+          await supabase.functions.invoke('rate-household-booking', { body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined } });
+          if (typeof localStorage !== 'undefined') localStorage.setItem(`vano_rated_${bookingId}`, '1');
+          setAlreadyRated(true);
+        } catch { /* rating is best-effort — don't block completion */ }
+      }
+      setBooking((b) => b ? { ...b, status: 'completed' } : b);
+      toast({ title: 'All done — thanks!', description: 'Your helper has been paid.' });
+    } catch {
+      toast({ title: 'Could not mark done', description: 'Please try again, or WhatsApp +353 89 981 7111', variant: 'destructive' });
+    } finally {
+      setMarkingDone(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!bookingId || cancelling) return;
@@ -600,6 +650,99 @@ const TrackBooking = () => {
             })()}
           </motion.div>
         )}
+
+        {/* Arrival code — the helper tapped "I've reached"; read this out to them
+            so they can start the job. Disappears once they've entered it. */}
+        {booking.status === 'arrived' && booking.arrival_code && !booking.arrival_verified_at && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 rounded-2xl border-2 border-sage/40 bg-sage-light p-5 text-center"
+          >
+            <p className="font-bold text-foreground text-sm">
+              {helperName ? `${helperName} is at your door 👋` : 'Your helper is here 👋'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
+              Read this code to your helper so they can start the job:
+            </p>
+            <p className="text-[2.5rem] leading-none font-extrabold tracking-[0.3em] tabular-nums text-sage">
+              {booking.arrival_code}
+            </p>
+          </motion.div>
+        )}
+
+        {/* Job in progress. Timed jobs count down to the booked end time; once
+            that's up (and for one-off jobs straight away) the customer gets a
+            rate + "mark complete" card that confirms the job and pays the helper. */}
+        {booking.status === 'in_progress' && (() => {
+          const endMs = booking.job_ends_at ? new Date(booking.job_ends_at).getTime() : 0;
+          // Show the countdown for a running timed job — unless the helper has
+          // already flagged they're finished, in which case jump to confirm.
+          const counting = isTimedCategory(booking.category) && booking.job_ends_at && endMs > nowTick && !booking.helper_finished_at;
+          if (counting) {
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+                className="mt-4 rounded-2xl border border-sage/30 bg-sage-light p-5 text-center"
+              >
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  {helperName ? `${helperName} is working` : 'Job in progress'}
+                </p>
+                <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
+                  {formatCountdown(endMs - nowTick)}
+                </p>
+                <p className="text-xs text-muted-foreground">left on your booked time</p>
+              </motion.div>
+            );
+          }
+          // Don't offer "mark complete" (which pays the helper) until the
+          // booking is paid — the pay-to-confirm card above prompts that first.
+          if (!booking.paid_at) return null;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+              className="mt-4 rounded-2xl border-2 border-sage/40 bg-sage-light p-5 text-center"
+            >
+              <p className="font-bold text-foreground text-sm">
+                {helperName ? `How was ${helperName}?` : 'How did it go?'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
+                {booking.helper_finished_at
+                  ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm to release their payment.`
+                  : booking.job_ends_at
+                    ? 'Your booked time is up. Rate your helper and confirm to release their payment.'
+                    : 'Once the work is finished, rate your helper and confirm — this releases their payment.'}
+              </p>
+              <div className="flex gap-1 justify-center mb-4">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onMouseEnter={() => setHoverRating(n)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setSelectedRating(n)}
+                    className="p-1 transition-transform active:scale-90"
+                    aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                  >
+                    <Star size={26} className={cn('transition-colors', n <= (hoverRating || selectedRating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')} />
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => void handleMarkDone()}
+                disabled={markingDone}
+                className="w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+              >
+                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Mark complete &amp; pay{helperName ? ` ${helperName}` : ''}</>}
+              </button>
+              <p className="text-center text-[11px] text-muted-foreground mt-2">Rating is optional — you can confirm without it.</p>
+            </motion.div>
+          );
+        })()}
 
         {/* Status area */}
         <div className="mt-6">
