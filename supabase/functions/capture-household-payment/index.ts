@@ -34,17 +34,27 @@ serve(async (req) => {
   if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: userErr } = await authClient.auth.getUser();
-    if (userErr || !user) return bad(401, 'Unauthorized');
-    const callerId = user.id;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
+
+    // Internal completion: the household "mark done" path and the timed-job
+    // cron sweep complete jobs server-side and can't present a helper JWT.
+    // Trust it only when the bearer IS the service-role key and it flags
+    // itself; the assigned helper is then read from the booking row.
+    const isInternal = req.headers.get('x-internal-complete') === '1' &&
+      authHeader === `Bearer ${serviceKey}`;
+
+    let authedUserId: string | null = null;
+    if (!isInternal) {
+      const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+      const { data: { user }, error: userErr } = await authClient.auth.getUser();
+      if (userErr || !user) return bad(401, 'Unauthorized');
+      authedUserId = user.id;
+    }
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
@@ -58,8 +68,13 @@ serve(async (req) => {
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
-    if (booking.student_id !== callerId) return bad(403, 'Not the assigned student');
+    // User path: the caller must be the assigned helper. Internal path: the
+    // helper is whoever the booking is assigned to.
+    if (!isInternal && booking.student_id !== authedUserId) return bad(403, 'Not the assigned student');
+    if (!booking.student_id) return bad(409, 'No helper assigned to this job');
     if (!['accepted','on_way','arrived','in_progress'].includes(booking.status)) return bad(409, `Cannot complete in status: ${booking.status}`);
+
+    const callerId = booking.student_id as string;
 
     // Idempotency: if payout already exists this job was already completed.
     const { count: existingPayout } = await supabase

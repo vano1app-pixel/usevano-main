@@ -57,3 +57,12 @@ project_id = "puomfwjtpvqedwxjxogh"
   # HomePlans self-serve monthly subscriptions — same anonymous customer pattern.
   [functions.create-plan-checkout]
     verify_jwt = false
+  # Customer taps "mark done" on the tracking page to finish a one-off job.
+  # Anonymous customers (no account) must reach it; gated by booking status,
+  # same model as customer_cancel in cancel-household-booking.
+  [functions.complete-household-job]
+    verify_jwt = false
+  # Cron sweep that auto-completes timed jobs past their job_ends_at. Hit by
+  # the Supabase scheduler with the service-role key; no user JWT to verify.
+  [functions.auto-complete-timed-jobs]
+    verify_jwt = false

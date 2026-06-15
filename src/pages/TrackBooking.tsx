@@ -8,6 +8,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
+import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -43,6 +44,8 @@ interface Booking {
   /** Arrival handshake: shown to the customer to read out to the helper */
   arrival_code: string | null;
   arrival_verified_at: string | null;
+  /** Timed jobs: when the booked time runs out and the job auto-completes */
+  job_ends_at: string | null;
   booking_data: {
     service_fee_cents?: number;
     referral_discount_cents?: number;
@@ -189,6 +192,10 @@ const TrackBooking = () => {
   // Cancel state
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // "Mark done" (one-off jobs) + live timer tick (timed jobs)
+  const [markingDone, setMarkingDone] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   // Rating state
   const [hoverRating, setHoverRating] = useState(0);
@@ -339,6 +346,30 @@ const TrackBooking = () => {
     }, 15_000);
     return () => clearInterval(id);
   }, []);
+
+  // Tick once a second while a timed job is running, for the countdown UI.
+  useEffect(() => {
+    if (booking?.status !== 'in_progress' || !booking.job_ends_at) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [booking?.status, booking?.job_ends_at]);
+
+  // One-off jobs: the customer confirms the work is finished, which completes
+  // the booking and auto-releases the helper's payout.
+  const handleMarkDone = async () => {
+    if (!bookingId || markingDone) return;
+    setMarkingDone(true);
+    try {
+      const { error } = await supabase.functions.invoke('complete-household-job', { body: { booking_id: bookingId } });
+      if (error) throw error;
+      setBooking((b) => b ? { ...b, status: 'completed' } : b);
+      toast({ title: 'Marked as done', description: 'Thanks! Your helper has been paid.' });
+    } catch {
+      toast({ title: 'Could not mark done', description: 'Please try again, or WhatsApp +353 89 981 7111', variant: 'destructive' });
+    } finally {
+      setMarkingDone(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!bookingId || cancelling) return;
@@ -623,6 +654,48 @@ const TrackBooking = () => {
               {booking.arrival_code}
             </p>
           </motion.div>
+        )}
+
+        {/* Job in progress — timed jobs show a countdown that auto-completes;
+            one-off jobs give the customer a "mark done" button */}
+        {booking.status === 'in_progress' && (
+          isTimedCategory(booking.category) && booking.job_ends_at ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+              className="mt-4 rounded-2xl border border-sage/30 bg-sage-light p-5 text-center"
+            >
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                {helperName ? `${helperName} is working` : 'Job in progress'}
+              </p>
+              <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
+                {formatCountdown(new Date(booking.job_ends_at).getTime() - nowTick)}
+              </p>
+              <p className="text-xs text-muted-foreground">left on your booked time</p>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+              className="mt-4 rounded-2xl border-2 border-sage/40 bg-sage-light p-5 text-center"
+            >
+              <p className="font-bold text-foreground text-sm">
+                {helperName ? `Is ${helperName} all done?` : 'Is the job all done?'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4 leading-relaxed">
+                Tap below once the work is finished — this confirms it and pays your helper.
+              </p>
+              <button
+                onClick={() => void handleMarkDone()}
+                disabled={markingDone}
+                className="w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+              >
+                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Mark as done</>}
+              </button>
+            </motion.div>
+          )
         )}
 
         {/* Status area */}

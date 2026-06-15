@@ -9,6 +9,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { microCelebrate } from '@/lib/celebrate';
+import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import logo from '@/assets/logo.png';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -47,6 +48,8 @@ interface Booking {
   // Set once the helper enters the customer's arrival code. The code itself is
   // deliberately NOT fetched here — it lives only on the customer's screen.
   arrival_verified_at: string | null;
+  // For timed jobs: when the booked time runs out and the job auto-completes.
+  job_ends_at: string | null;
 }
 
 interface ChatMessage {
@@ -124,12 +127,13 @@ function formatPhone(raw: string): string {
   return raw;
 }
 
-// Status machine: what action advances the job. on_way → arrived and
-// arrived → in_progress are handled by the dedicated arrival-code flow
-// (the "I've reached" button + code entry), not this generic advance button.
+// Status machine: only the "I'm on my way" step is a generic advance button.
+// on_way → arrived and arrived → in_progress run through the arrival-code flow
+// ("I've reached" + code entry). Completion is no longer a helper tap: timed
+// jobs auto-complete on the timer and one-off jobs are marked done by the
+// household.
 const NEXT_STATUS: Partial<Record<JobStatus, { status: UpdateStatus; label: string }>> = {
-  accepted:    { status: 'on_way',    label: "I'm on my way" },
-  in_progress: { status: 'completed', label: 'Job complete'  },
+  accepted: { status: 'on_way', label: "I'm on my way" },
 };
 
 // How often (ms) to push location updates to Supabase while on the way
@@ -160,6 +164,10 @@ const StudentJobDetail = () => {
   const [arrivalCode, setArrivalCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [codeError, setCodeError] = useState(false);
+  // Timed-job countdown → auto-complete
+  const [completing, setCompleting] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const autoCompleteFired = useRef(false);
   // Set when the browser refuses geolocation while on_way — the customer's
   // live map silently shows nothing, so the helper deserves to know.
   const [locationDenied, setLocationDenied] = useState(false);
@@ -192,7 +200,7 @@ const StudentJobDetail = () => {
         // Explicit columns — never select arrival_code, so the customer's code
         // can't be read out of the helper's app and the handshake stays honest.
         hdb.from('household_bookings')
-          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, booking_data, arrival_verified_at')
+          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, booking_data, arrival_verified_at, job_ends_at')
           .eq('id', bookingId).maybeSingle(),
         hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
       ]);
@@ -357,6 +365,44 @@ const StudentJobDetail = () => {
       setVerifying(false);
     }
   };
+
+  // Complete the job + capture payout. Fired automatically when a timed job's
+  // countdown reaches zero — completion is no longer a manual helper tap.
+  const completeJob = async () => {
+    if (!bookingId || completing) return;
+    setCompleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('capture-household-payment', { body: { booking_id: bookingId } });
+      if (error) throw error;
+      stopLocationWatch();
+      setBooking((b) => b ? { ...b, status: 'completed' } : b);
+      toast({ title: 'Job complete — you’ve been paid out ✅' });
+    } catch (err) {
+      autoCompleteFired.current = false; // let the next tick retry
+      toast({ title: 'Could not complete job', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  // Timed jobs auto-complete when the booked time runs out. Tick every second
+  // for the countdown UI and fire completion once at zero.
+  useEffect(() => {
+    if (booking?.status !== 'in_progress' || !booking.job_ends_at) return;
+    const endMs = new Date(booking.job_ends_at).getTime();
+    const tick = () => {
+      const now = Date.now();
+      setNowTick(now);
+      if (now >= endMs && !autoCompleteFired.current) {
+        autoCompleteFired.current = true;
+        void completeJob();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking?.status, booking?.job_ends_at]);
 
   const handleRelease = async () => {
     if (!bookingId || releasing) return;
@@ -645,7 +691,7 @@ const StudentJobDetail = () => {
                 ['1', 'The customer is being asked to pay now — that locks the booking in.'],
                 ['2', "When you head out, tap “I'm on my way”. Directions open and the customer sees you on a live map until you arrive."],
                 ['3', 'At the door, tap “I’ve reached”, ask the customer for their 4-digit code, and enter it to start.'],
-                ['4', 'Do the job, then tap “Job complete” to get paid.'],
+                ['4', 'Timed jobs finish automatically when the clock runs out; quick jobs finish when the customer taps “Mark done” — either way you’re paid instantly.'],
               ].map(([n, text]) => (
                 <li key={n} className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-sage text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
@@ -729,6 +775,37 @@ const StudentJobDetail = () => {
             >
               {verifying ? <Loader2 size={16} className="animate-spin" /> : 'Confirm & start job'}
             </motion.button>
+          </motion.div>
+        )}
+
+        {/* Job underway — timed jobs show a live countdown and auto-complete;
+            one-off jobs wait for the customer to mark them done */}
+        {mine && booking.status === 'in_progress' && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-2xl border border-sage/25 bg-sage-light p-5 mb-6 text-center"
+          >
+            {booking.job_ends_at ? (
+              <>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Job in progress</p>
+                <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
+                  {formatCountdown(new Date(booking.job_ends_at).getTime() - nowTick)}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {completing ? 'Wrapping up and releasing your payment…' : 'Auto-completes and pays you when the timer ends.'}
+                </p>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={24} className="text-sage mx-auto mb-1.5" strokeWidth={1.5} />
+                <p className="text-sm font-semibold text-foreground">Job underway</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  When you're done, the customer taps “Mark done” to confirm — you’ll be paid the moment they do.
+                </p>
+              </>
+            )}
           </motion.div>
         )}
 

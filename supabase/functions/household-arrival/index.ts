@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isTimedCategory, bookedDurationMinutes } from "../_shared/householdJob.ts";
 
 // Arrival-code handshake for the household flow.
 //
@@ -65,9 +66,9 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, arrival_code, arrival_verified_at')
+      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null } | null; error: unknown };
+      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null } | null; error: unknown };
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
@@ -104,16 +105,21 @@ serve(async (req) => {
       return json(200, { ok: true, verified: false });
     }
 
+    // Timed jobs with a booked duration get an end time so they auto-complete.
+    const nowMs = Date.now();
+    const mins = isTimedCategory(booking.category) ? bookedDurationMinutes(booking.category, booking.booking_data) : null;
+    const jobEndsAt = mins ? new Date(nowMs + mins * 60_000).toISOString() : null;
+
     const { error: verifyErr } = await supabase
       .from('household_bookings')
-      .update({ arrival_verified_at: new Date().toISOString(), status: 'in_progress' })
+      .update({ arrival_verified_at: new Date(nowMs).toISOString(), status: 'in_progress', job_ends_at: jobEndsAt })
       .eq('id', bookingId)
       .eq('student_id', callerId)
       .eq('status', 'arrived');
     if (verifyErr) { console.error('[household-arrival] verify update failed', verifyErr); return bad(500, 'Could not confirm code'); }
 
     await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'in_progress', note: 'Arrival code confirmed — job started.' });
-    return json(200, { ok: true, verified: true, status: 'in_progress' });
+    return json(200, { ok: true, verified: true, status: 'in_progress', job_ends_at: jobEndsAt });
   } catch (err) {
     console.error('[household-arrival] unhandled', err);
     return bad(500, 'Unexpected error');
