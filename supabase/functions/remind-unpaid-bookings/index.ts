@@ -287,9 +287,166 @@ serve(async (_req) => {
     reminded++;
   }
 
-  console.log(`[unpaid] checked ${(bookings ?? []).length} accepted-unpaid · reminded ${reminded} · links regenerated ${generated} · released ${cancelled}`);
+  // ── RELEASE + CANCEL sweep ───────────────────────────────────────────────
+  //
+  // The reminder loop above only handles 'accepted'. Two further unpaid
+  // outcomes are handled here, both best-effort and idempotent (the UPDATE
+  // WHERE clauses re-check status + paid_at so a re-run can never touch a row
+  // that already moved on, and never touches paid or in_progress/completed):
+  //
+  //   RELEASE — an assigned helper is committed to a job the customer hasn't
+  //     paid for. After RELEASE_AFTER_HOURS (default 2h) since the pay request
+  //     we free the helper (student_id→NULL, status→pending), clear the stale
+  //     pay link, note it, tell the helper, and re-dispatch to find someone
+  //     else. This recovers the booking instead of killing it.
+  //
+  //   CANCEL — a booking that's been unpaid since creation for
+  //     CANCEL_AFTER_HOURS (default 24h) and never progressed past on_way is
+  //     given up on entirely (status→cancelled + note).
+  //
+  // Re-dispatch loop prevention: RELEASE sets status='pending' and expires open
+  // offers, exactly like helper_release in cancel-household-booking, so
+  // dispatch-household-job's own idempotency (skip if non-expired offers exist)
+  // applies. A released-then-reaccepted-then-unpaid booking can be released
+  // again — that's intended (each release re-opens the search), but the 24h
+  // CANCEL backstop guarantees it can't churn forever.
+  const releaseAfterHours = Number(Deno.env.get('UNPAID_RELEASE_AFTER_HOURS')) || 2;
+  const cancelAfterHours  = Number(Deno.env.get('UNPAID_CANCEL_AFTER_HOURS'))  || 24;
+  const SWEEP_LIMIT = 50;
+  let released = 0, swept_cancelled = 0;
+
+  // RELEASE: assigned + unpaid + priced, pay requested over RELEASE_AFTER_HOURS ago.
+  const releaseCutoff = new Date(now - releaseAfterHours * 60 * 60 * 1000).toISOString();
+  const { data: releaseCandidates } = await supabase
+    .from('household_bookings')
+    .select('id, customer_name, customer_email, customer_phone, category, city, student_id, price_estimate_cents, payment_requested_at, scheduled_date, booking_data')
+    .in('status', ['accepted', 'on_way'])
+    .not('student_id', 'is', null)
+    .is('paid_at', null)
+    .gt('price_estimate_cents', 0)
+    .not('payment_requested_at', 'is', null)
+    .lt('payment_requested_at', releaseCutoff)
+    .order('payment_requested_at', { ascending: true })
+    .limit(SWEEP_LIMIT) as { data: Array<Record<string, unknown>> | null };
+
+  // Batch-load helper contact info for the release notification.
+  const relStudentIds = [...new Set((releaseCandidates ?? []).map((b) => b.student_id).filter(Boolean))] as string[];
+  const relHelperByUser = new Map<string, { first: string; email: string | null; phone: string | null }>();
+  if (relStudentIds.length) {
+    const { data: relHelpers } = await supabase
+      .from('household_helpers')
+      .select('user_id, name, email, phone')
+      .in('user_id', relStudentIds) as { data: Array<{ user_id: string; name: string | null; email: string | null; phone: string | null }> | null };
+    for (const h of relHelpers ?? []) {
+      if (h.user_id) relHelperByUser.set(h.user_id, {
+        first: (String(h.name ?? '').split(' ')[0] || 'Your helper'),
+        email: h.email, phone: h.phone,
+      });
+    }
+  }
+
+  for (const b of releaseCandidates ?? []) {
+    const id = String(b.id);
+    const ref = id.slice(-8).toUpperCase();
+    const catLabel = CATEGORY_LABELS[b.category as string] ?? 'job';
+    const helper = b.student_id ? relHelperByUser.get(b.student_id as string) : undefined;
+    const helperFirst = helper?.first ?? 'Your helper';
+
+    // Free the helper + reset to pending. Guarded so a paid/progressed row is
+    // never touched (idempotent across re-runs).
+    const { data: freed } = await supabase
+      .from('household_bookings')
+      .update({
+        student_id: null,
+        status: 'pending',
+        stripe_checkout_url: null,
+        payment_requested_at: null,
+        worker_lat: null,
+        worker_lng: null,
+        worker_location_updated_at: null,
+      })
+      .eq('id', id)
+      .in('status', ['accepted', 'on_way'])
+      .not('student_id', 'is', null)
+      .is('paid_at', null)
+      .select('id, customer_name, customer_email, customer_phone, category, city, scheduled_date, price_estimate_cents')
+      .maybeSingle() as { data: Record<string, unknown> | null };
+    if (!freed) continue; // paid or moved on between query and now
+
+    void supabase.from('household_job_updates').insert({
+      booking_id: id, status: 'cancelled',
+      note: 'Helper released automatically — customer did not pay in time. Finding another helper.',
+    });
+
+    // Notify the released helper (best-effort, same channels as the timeout path).
+    if (helper?.phone) void sendCustomerSms(helper.phone, `VANO: the ${catLabel} you accepted has been freed up — the customer didn't pay in time, so you're no longer assigned. More jobs are waiting in the app.`);
+    if (resendKey && helper?.email) {
+      void fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from, to: [helper.email],
+          subject: `Job freed up — payment wasn't completed (${ref})`,
+          text: `Hi ${helperFirst}, the ${catLabel} you accepted has been released because the customer didn't complete payment in time, so you're no longer assigned. There are more jobs waiting: ${siteUrl}/student-dashboard`,
+        }),
+      }).catch(() => {});
+    }
+
+    // Expire open offers so re-dispatch isn't blocked by its idempotency check.
+    await supabase
+      .from('household_job_offers')
+      .update({ status: 'expired' })
+      .eq('booking_id', id)
+      .eq('status', 'pending');
+
+    // Re-dispatch to other helpers — await + log non-2xx (best-effort).
+    try {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record: { ...freed, status: 'pending', student_id: null }, quiet: false }),
+      });
+      if (!resp.ok) console.warn('[unpaid] re-dispatch non-2xx', id, resp.status, (await resp.text()).slice(0, 160));
+    } catch (e) {
+      console.warn('[unpaid] re-dispatch threw', id, e);
+    }
+
+    released++;
+  }
+
+  // CANCEL: unpaid since creation for CANCEL_AFTER_HOURS, still in an early
+  // (non-final, non-in_progress) status. Guarded so paid/in_progress/completed
+  // rows are never touched.
+  const cancelCutoff = new Date(now - cancelAfterHours * 60 * 60 * 1000).toISOString();
+  const { data: cancelCandidates } = await supabase
+    .from('household_bookings')
+    .select('id')
+    .is('paid_at', null)
+    .in('status', ['pending', 'accepted', 'on_way'])
+    .lt('created_at', cancelCutoff)
+    .order('created_at', { ascending: true })
+    .limit(SWEEP_LIMIT) as { data: Array<{ id: string }> | null };
+
+  for (const b of cancelCandidates ?? []) {
+    const { data: done } = await supabase
+      .from('household_bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', b.id)
+      .is('paid_at', null)
+      .in('status', ['pending', 'accepted', 'on_way'])
+      .select('id')
+      .maybeSingle() as { data: { id: string } | null };
+    if (!done) continue; // paid or progressed between query and now
+    void supabase.from('household_job_updates').insert({
+      booking_id: b.id, status: 'cancelled',
+      note: 'Cancelled automatically — unpaid for over 24 hours.',
+    });
+    swept_cancelled++;
+  }
+
+  console.log(`[unpaid] checked ${(bookings ?? []).length} accepted-unpaid · reminded ${reminded} · links regenerated ${generated} · timeout-cancelled ${cancelled} · released ${released} · swept-cancelled ${swept_cancelled}`);
   return new Response(
-    JSON.stringify({ ok: true, checked: (bookings ?? []).length, reminded, generated, cancelled }),
+    JSON.stringify({ ok: true, checked: (bookings ?? []).length, reminded, generated, cancelled, released, swept_cancelled }),
     { headers: { 'Content-Type': 'application/json' } },
   );
 });
