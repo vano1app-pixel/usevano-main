@@ -96,7 +96,16 @@ export function HouseholdHelperVanoPayCard({ userId: userIdProp, className }: Pr
       } else if (row.stripe_payouts_enabled) {
         setStatus('enabled');
       } else {
+        // Account exists but the readiness flag isn't set yet (e.g. the
+        // account.updated webhook isn't wired). Confirm directly with Stripe
+        // so a helper who's finished onboarding sees "Active" immediately.
         setStatus('pending');
+        try {
+          const { data: sync } = await supabase.functions.invoke('household-helper-connect-link', { body: { check_only: true } });
+          if (!cancelled && (sync as { stripe_payouts_enabled?: boolean } | null)?.stripe_payouts_enabled) {
+            setStatus('enabled');
+          }
+        } catch { /* keep pending — they can finish setup from the card */ }
       }
     })();
     return () => { cancelled = true; };

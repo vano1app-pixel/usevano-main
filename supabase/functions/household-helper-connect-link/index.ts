@@ -76,6 +76,34 @@ serve(async (req) => {
       return bad(404, 'No helper account found for this user. Apply to join VANO first.');
     }
 
+    // Status-sync mode: the payout card calls this with { check_only: true }
+    // after the helper returns from onboarding to confirm readiness directly
+    // with Stripe (so it shows "active" even if the account.updated webhook
+    // isn't wired up). It never creates an account or onboarding link.
+    const reqBody = await req.json().catch(() => ({}));
+    if (reqBody?.check_only === true) {
+      let enabled = !!helper.stripe_payouts_enabled;
+      const existingAccount = helper.stripe_account_id as string | null;
+      if (existingAccount && !enabled) {
+        try {
+          const acctResp = await fetch(`https://api.stripe.com/v1/accounts/${existingAccount}`, {
+            headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+          });
+          if (acctResp.ok) {
+            const acct = await acctResp.json() as { payouts_enabled?: boolean };
+            enabled = !!acct.payouts_enabled;
+            if (enabled) {
+              await supabase.from('household_helpers').update({ stripe_payouts_enabled: true }).eq('user_id', userId);
+            }
+          }
+        } catch (_e) { /* non-fatal — card falls back to its cached state */ }
+      }
+      return new Response(
+        JSON.stringify({ stripe_account_id: helper.stripe_account_id ?? null, stripe_payouts_enabled: enabled }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const origin =
       req.headers.get('origin') ||
       Deno.env.get('SITE_URL') ||

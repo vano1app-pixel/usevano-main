@@ -65,7 +65,26 @@ serve(async (_req) => {
           .eq('user_id', studentId)
           .maybeSingle();
         const destination = helper?.stripe_account_id as string | null | undefined;
-        if (!helper?.stripe_payouts_enabled || !destination) { skipped++; continue; }
+        if (!destination) { skipped++; continue; }
+
+        // Confirm the account is payout-ready. We check Stripe directly (not
+        // just the cached flag) so earnings release even if the account.updated
+        // webhook isn't wired up — and backfill the flag so the helper's payout
+        // card reflects reality.
+        let ready = !!helper?.stripe_payouts_enabled;
+        if (!ready) {
+          const acctResp = await fetch(`https://api.stripe.com/v1/accounts/${destination}`, {
+            headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+          });
+          if (acctResp.ok) {
+            const acct = await acctResp.json() as { payouts_enabled?: boolean };
+            ready = !!acct.payouts_enabled;
+            if (ready) {
+              await supabase.from('household_helpers').update({ stripe_payouts_enabled: true }).eq('user_id', studentId);
+            }
+          }
+        }
+        if (!ready) { skipped++; continue; }
 
         // source_transaction only valid for a real PaymentIntent.
         const { data: booking } = await supabase
