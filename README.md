@@ -4,6 +4,8 @@
 
 **Live:** [vanojobs.com](https://vanojobs.com)
 
+**New here?** Read [`CLAUDE.md`](CLAUDE.md) — architecture orientation, the booking flow, the pricing rules, and what still needs improving.
+
 ---
 
 ## How it works
@@ -43,7 +45,6 @@ Tick the jobs you never want to think about again — cleaning, laundry, garden,
 src/
 ├── pages/                   # Route-level page components
 │   ├── HouseholdHome.tsx     # Homepage — hero booking card, House Autopilot, trust sections
-│   ├── BookingFlow.tsx       # Multi-step booking flow (/book/:category)
 │   ├── TrackBooking.tsx      # Live booking tracking (/track/:bookingId)
 │   ├── JoinAsHelper.tsx      # Helper application
 │   ├── StudentDashboard.tsx  # Helper dashboard — job offers, earnings
@@ -58,13 +59,13 @@ src/
 │   ├── ui/                   # shadcn/ui primitives
 │   └── household/            # Homepage + booking components
 │       ├── HeroSection.tsx    # Dark hero with booking card
-│       ├── CategoryGrid.tsx   # Category cards + quick-book bottom sheet
+│       ├── CategoryGrid.tsx   # Category cards + quick-book sheet — THE booking flow
 │       ├── AutopilotBuilder.tsx # Tick-the-jobs subscription builder
 │       ├── HomePlans.tsx      # Autopilot section + business/gift offers
 │       └── ...                # Reviews, helpers carousel, FAQ, ticker, nav, footer
 │
-├── hooks/                   # useAuthSession, useHelperCount, …
-├── lib/                     # bookingMemory, contact, cities, referral, …
+├── hooks/                   # useAuthContext, useHelperCount, …
+├── lib/                     # householdPricing (price source of truth), bookingMemory, contact, …
 ├── integrations/supabase/   # Supabase client setup
 ├── App.tsx                  # Route definitions
 ├── main.tsx                 # Entry point
@@ -145,7 +146,6 @@ Set Edge Function secrets (Stripe keys, etc.) in the Supabase dashboard.
 | Route | Page | Description |
 |-------|------|-------------|
 | `/` and `/home` | HouseholdHome | Homepage — book help, House Autopilot |
-| `/book/:category` | BookingFlow | Multi-step booking |
 | `/track/:bookingId` | TrackBooking | Live booking status |
 | `/join` | JoinAsHelper | Helper application |
 | `/student-dashboard` | StudentDashboard | Helper job offers + earnings |
