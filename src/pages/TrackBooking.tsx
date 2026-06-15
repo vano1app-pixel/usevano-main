@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -12,7 +12,7 @@ import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
@@ -54,6 +54,18 @@ interface Booking {
   } | null;
 }
 
+// VAPID key (base64url) → Uint8Array for pushManager.subscribe. Mirrors the
+// helper in usePushNotifications; inlined here because the household tracking
+// flow subscribes anonymously (keyed to booking_id, not a user account).
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -82,7 +94,12 @@ if (typeof document !== 'undefined' && !document.getElementById('vano-map-css'))
   s.id = 'vano-map-css';
   s.textContent =
     '@keyframes vano-dot-pulse{0%{transform:scale(1);opacity:.55}to{transform:scale(2.8);opacity:0}}' +
-    '.vano-dot-ring{animation:vano-dot-pulse 1.8s ease-out infinite}';
+    '.vano-dot-ring{animation:vano-dot-pulse 1.8s ease-out infinite}' +
+    // Radar sweep for the "finding your helper" state.
+    '@keyframes vano-radar{0%{transform:scale(.4);opacity:.7}80%{opacity:0}to{transform:scale(2.6);opacity:0}}' +
+    '.vano-radar-ring{animation:vano-radar 2.4s cubic-bezier(0,.55,.45,1) infinite}' +
+    '.vano-radar-ring-2{animation-delay:.8s}' +
+    '.vano-radar-ring-3{animation-delay:1.6s}';
   document.head.appendChild(s);
 }
 
@@ -103,6 +120,17 @@ const customerDestIcon = L.divIcon({
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
+
+// Invalidate the map size once layout settles (the map can mount mid-
+// animation, otherwise tiles come up gray). Used by the static search map.
+function MapAutoResize() {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 300);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
 
 function FitBoundsOrFollow({
   helperLat, helperLng, customerLat, customerLng,
@@ -180,6 +208,18 @@ function formatLocationAge(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ago`;
 }
 
+// Uber-style ETA from the live distance. The codebase approximates travel
+// minutes as distanceKm*3 (≈20 km/h door-to-door in town); reuse that so the
+// arrival clock and the "N min" label always agree.
+function etaMinutes(distanceKm: number): number {
+  return Math.max(1, Math.round(distanceKm * 3));
+}
+
+function formatArrivalClock(distanceKm: number): string {
+  const arrival = new Date(Date.now() + etaMinutes(distanceKm) * 60_000);
+  return arrival.toLocaleTimeString('en-IE', { hour: 'numeric', minute: '2-digit' });
+}
+
 const TrackBooking = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
@@ -204,6 +244,16 @@ const TrackBooking = () => {
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [locationAge, setLocationAge] = useState(0);
   const locationUpdatedAt = useRef<number>(Date.now());
+
+  // "Finding your helper" — real count of helpers we've offered the job to.
+  const [offerCount, setOfferCount] = useState<number | null>(null);
+
+  // Push notifications (per status step). Customers are usually anonymous, so
+  // subscriptions are keyed to booking_id, not a user account.
+  const pushSupported = typeof window !== 'undefined'
+    && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const [pushState, setPushState] = useState<'idle' | 'subscribing' | 'subscribed' | 'denied'>('idle');
+  const [pushDismissed, setPushDismissed] = useState(false);
 
   // Cancel state
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -370,6 +420,39 @@ const TrackBooking = () => {
     return () => clearInterval(id);
   }, [booking?.status, booking?.job_ends_at]);
 
+  // While searching, fetch (and gently poll) the real number of helpers we've
+  // offered the job to. Backed by a SECURITY DEFINER RPC so anonymous trackers
+  // can read just the count without seeing the offer rows.
+  const isSearching = booking?.status === 'pending' || booking?.status === 'awaiting_payment';
+  useEffect(() => {
+    if (!bookingId || !isSearching) return;
+    let cancelled = false;
+    const fetchCount = async () => {
+      const { data, error } = await hdb.rpc('household_offer_count', { p_booking_id: bookingId });
+      if (cancelled || error || data == null) return;
+      setOfferCount(typeof data === 'number' ? data : Number(data));
+    };
+    void fetchCount();
+    const id = setInterval(fetchCount, 12_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [bookingId, isSearching]);
+
+  // Reflect any existing push subscription so we don't re-prompt a customer
+  // who already opted in on this device.
+  useEffect(() => {
+    if (!pushSupported) return;
+    if (Notification.permission === 'denied') { setPushState('denied'); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!cancelled && sub) setPushState('subscribed');
+      } catch { /* SW not ready — leave idle */ }
+    })();
+    return () => { cancelled = true; };
+  }, [pushSupported]);
+
   // The customer confirms the work is finished — completes the booking and
   // auto-releases the helper's payout. Any rating chosen on the same card is
   // submitted alongside (best-effort).
@@ -433,6 +516,42 @@ const TrackBooking = () => {
     }
   };
 
+  // Subscribe this device to push updates for the booking. Stores the
+  // subscription keyed to booking_id (the customer is usually anonymous).
+  // Best-effort throughout — any failure just leaves the prompt as-is.
+  const enablePush = async () => {
+    if (!bookingId || !pushSupported || pushState === 'subscribing') return;
+    setPushState('subscribing');
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setPushState(perm === 'denied' ? 'denied' : 'idle'); return; }
+
+      const { data, error } = await supabase.functions.invoke<{ publicKey?: string }>('get-vapid-key');
+      if (error || !data?.publicKey) { setPushState('idle'); return; }
+
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(data.publicKey) as BufferSource,
+        });
+      }
+      const json = sub.toJSON();
+      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) { setPushState('idle'); return; }
+      await hdb.from('household_push_subscriptions').insert({
+        booking_id: bookingId,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      });
+      setPushState('subscribed');
+      toast({ title: "You're all set", description: "We'll ping you when your helper's on the move." });
+    } catch {
+      setPushState('idle');
+    }
+  };
+
   const sendMessage = async () => {
     if (!draft.trim() || !bookingId || !userId) return;
     setSending(true);
@@ -479,7 +598,11 @@ const TrackBooking = () => {
   const helperLoc    = booking.worker_lat != null && booking.worker_lng != null;
   const customerLoc  = booking.customer_lat != null && booking.customer_lng != null;
   const jobActive    = ['accepted', 'on_way', 'arrived', 'in_progress'].includes(booking.status);
-  const showMapPanel = jobActive && (helperLoc || customerLoc);
+  // While the helper is on the way (or just arrived), promote the map to a big
+  // hero near the top — the Uber/Deliveroo "watch them approach" moment. Other
+  // active states keep the compact fixed bottom panel.
+  const showHeroMap  = ['on_way', 'arrived'].includes(booking.status) && (helperLoc || customerLoc);
+  const showMapPanel = jobActive && !showHeroMap && (helperLoc || customerLoc);
   const mapLat = (helperLoc ? booking.worker_lat : booking.customer_lat) as number;
   const mapLng = (helperLoc ? booking.worker_lng : booking.customer_lng) as number;
 
@@ -561,6 +684,117 @@ const TrackBooking = () => {
             </div>
           )}
         </div>
+
+        {/* Hero live-tracking map — the prominent "watch your helper approach"
+            view while they're on the way. Helper + destination markers, a line
+            between them, distance + ETA + live freshness. Falls back to the job
+            location when GPS isn't shared yet (matches the always-show-a-map
+            behaviour of the bottom panel). */}
+        {showHeroMap && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 rounded-2xl overflow-hidden border border-border/60 shadow-lg"
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border/40">
+              <div className="flex items-center gap-2 min-w-0">
+                <Navigation size={15} className="text-sage flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground leading-tight truncate">
+                    {booking.status === 'arrived'
+                      ? `${helperName ?? 'Your helper'} has arrived`
+                      : helperLoc && distanceKm !== null
+                        ? `Arriving ~${formatArrivalClock(distanceKm)} · ${etaMinutes(distanceKm)} min`
+                        : `${helperName ?? 'Your helper'} is on the way`}
+                  </p>
+                  {booking.status === 'on_way' && helperLoc && distanceKm !== null && (
+                    <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                      {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m away` : `${distanceKm.toFixed(1)} km away`}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {helperLoc && booking.status === 'on_way' && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
+                  <span className={cn('w-1.5 h-1.5 rounded-full', locationAge < 30 ? 'bg-sage animate-pulse' : 'bg-muted-foreground/40')} />
+                  {formatLocationAge(locationAge)}
+                </span>
+              )}
+            </div>
+            <div style={{ height: 300 }}>
+              <MapContainer
+                center={[mapLat, mapLng]}
+                zoom={14}
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={false}
+                attributionControl={false}
+                scrollWheelZoom={false}
+                dragging={false}
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {helperLoc && customerLoc && (
+                  <Polyline
+                    positions={[
+                      [booking.worker_lat as number, booking.worker_lng as number],
+                      [booking.customer_lat as number, booking.customer_lng as number],
+                    ]}
+                    pathOptions={{ color: '#4a7c59', weight: 3, opacity: 0.7, dashArray: '8 8' }}
+                  />
+                )}
+                {helperLoc && (
+                  <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMarkerIcon} />
+                )}
+                {customerLoc && (
+                  <Marker position={[booking.customer_lat as number, booking.customer_lng as number]} icon={customerDestIcon} />
+                )}
+                <FitBoundsOrFollow
+                  helperLat={booking.worker_lat ?? null}
+                  helperLng={booking.worker_lng ?? null}
+                  customerLat={booking.customer_lat ?? null}
+                  customerLng={booking.customer_lng ?? null}
+                />
+              </MapContainer>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Get notified — once a helper is confirmed, offer browser push so the
+            customer doesn't have to keep the tab open. Anonymous-friendly
+            (keyed to booking_id). Graceful when unsupported or denied. */}
+        {booking.student_id && pushSupported && !isCompleted && !isCancelled
+          && pushState !== 'subscribed' && pushState !== 'denied' && !pushDismissed && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-secondary/30 px-4 py-3"
+          >
+            <div className="w-9 h-9 rounded-full bg-sage/15 flex items-center justify-center flex-shrink-0">
+              <Bell size={16} className="text-sage" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground leading-tight">Get notified</p>
+              <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+                We'll ping you when {helperName ?? 'your helper'} is on the way and arrives.
+              </p>
+            </div>
+            <button
+              onClick={() => void enablePush()}
+              disabled={pushState === 'subscribing'}
+              className="flex-shrink-0 h-9 px-4 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {pushState === 'subscribing' ? <Loader2 size={14} className="animate-spin" /> : 'Turn on'}
+            </button>
+            <button
+              onClick={() => setPushDismissed(true)}
+              aria-label="Dismiss"
+              className="flex-shrink-0 text-muted-foreground -mr-1"
+            >
+              <X size={15} />
+            </button>
+          </motion.div>
+        )}
 
         {/* Pay-after-accept: a helper is confirmed but the booking is unpaid.
             The email/WhatsApp pay link doesn't reach phone-only customers
@@ -775,14 +1009,61 @@ const TrackBooking = () => {
         <div className="mt-6">
           {isPending && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="rounded-2xl bg-sage-light border border-sage/20 p-5">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
-                  <p className="text-sm font-semibold text-foreground">Finding your helper</p>
+              {/* Uber-style live search: a radar sweep over the job location
+                  (or a generic pulse when we have no coordinates), a real count
+                  of helpers notified, and a calm reassurance line. Transitions
+                  to the helper card automatically when status flips to accepted. */}
+              <div className="relative overflow-hidden rounded-2xl bg-sage-light border border-sage/20 p-5">
+                <div className="relative flex flex-col items-center text-center">
+                  {/* Radar over a faint map of the job location when we have it */}
+                  <div className="relative w-full h-36 mb-4 rounded-xl overflow-hidden">
+                    {customerLoc ? (
+                      <MapContainer
+                        center={[booking.customer_lat as number, booking.customer_lng as number]}
+                        zoom={14}
+                        style={{ height: '100%', width: '100%' }}
+                        zoomControl={false}
+                        attributionControl={false}
+                        scrollWheelZoom={false}
+                        dragging={false}
+                        doubleClickZoom={false}
+                      >
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <MapAutoResize />
+                      </MapContainer>
+                    ) : (
+                      <div className="absolute inset-0 bg-sage/10" />
+                    )}
+                    {/* Pulse / radar rings, centred */}
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <div className="relative w-16 h-16">
+                        <div className="vano-radar-ring absolute inset-0 rounded-full bg-sage/30" />
+                        <div className="vano-radar-ring vano-radar-ring-2 absolute inset-0 rounded-full bg-sage/30" />
+                        <div className="vano-radar-ring vano-radar-ring-3 absolute inset-0 rounded-full bg-sage/30" />
+                        <div className="absolute inset-[38%] rounded-full bg-sage shadow-[0_2px_10px_rgba(74,124,89,.5)]" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
+                    <p className="text-sm font-semibold text-foreground">Finding your helper</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {offerCount && offerCount > 0
+                      ? `${offerCount} helper${offerCount === 1 ? '' : 's'} nearby notified · usually matched within minutes`
+                      : 'Notifying helpers near you… usually matched within minutes'}
+                  </p>
+
+                  {/* Subtle indeterminate progress to keep it feeling alive */}
+                  <div className="mt-4 w-full h-1 rounded-full bg-sage/15 overflow-hidden">
+                    <motion.div
+                      className="h-full w-1/3 rounded-full bg-sage/70"
+                      animate={{ x: ['-110%', '320%'] }}
+                      transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity }}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  We're on it — you'll get a text with your helper's name and photo within minutes.
-                </p>
               </div>
 
               {/* Customer cancel */}

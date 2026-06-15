@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isTimedCategory, bookedDurationMinutes } from "../_shared/householdJob.ts";
+import { sendHouseholdPush } from "../_shared/householdPush.ts";
 
 // Arrival-code handshake for the household flow.
 //
@@ -94,6 +95,11 @@ serve(async (req) => {
       if (updErr) { console.error('[household-arrival] request update failed', updErr); return bad(500, 'Could not mark arrival'); }
 
       await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'arrived', note: 'Helper reached the address — awaiting arrival code.' });
+
+      // Best-effort web push to the customer — only on the first arrival, not
+      // on a code re-request (status already 'arrived'). Never blocks the flow.
+      if (booking.status !== 'arrived') void sendHouseholdPush(bookingId, 'arrived');
+
       return json(200, { ok: true, status: 'arrived' });
     }
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendHouseholdPush } from "../_shared/householdPush.ts";
 
 // Helper marks a job complete. Payment was already captured upfront at
 // checkout, so this flips status, records the payout, and notifies the
@@ -106,6 +107,10 @@ serve(async (req) => {
     // paid out via Revolut, so this flags it ready rather than moving money.)
     await supabase.from('household_payouts').insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'released', released_at: new Date().toISOString() });
     await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'completed', note: 'Job completed.' });
+
+    // Best-effort web push to the customer — single completion choke-point, so
+    // this covers both the "mark done" and admin/cron completion paths.
+    void sendHouseholdPush(bookingId, 'completed');
 
     const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
     const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';

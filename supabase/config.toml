@@ -67,3 +67,8 @@ project_id = "puomfwjtpvqedwxjxogh"
   # by household-arrival; never moves money. No user JWT to verify.
   [functions.remind-confirm-completion]
     verify_jwt = false
+  # Best-effort web push to a household customer's browser on each status step.
+  # Called server-to-server with the service-role key from the transition
+  # functions; never blocks the flow. No user JWT to verify.
+  [functions.send-household-push]
+    verify_jwt = false

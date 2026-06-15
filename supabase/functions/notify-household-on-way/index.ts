@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
+import { sendHouseholdPush } from "../_shared/householdPush.ts";
 
 // Sends the customer a "helper is on the way" email + admin WhatsApp ping.
 // Called fire-and-forget from StudentJobDetail when status advances to on_way.
@@ -54,6 +55,11 @@ serve(async (req) => {
       .maybeSingle() as { data: Record<string, string | null | number> | null };
 
     if (!booking) return ok({ ok: true, emailed: false, reason: 'booking_not_on_way' });
+
+    // Best-effort web push — fire before the no-email early-return so it still
+    // reaches phone-only customers who never gave us an email.
+    void sendHouseholdPush(booking_id, 'on_way');
+
     if (!booking.customer_email) return ok({ ok: true, emailed: false, reason: 'no_customer_email' });
 
     // Get helper name — check household_helpers first, fall back to profiles
