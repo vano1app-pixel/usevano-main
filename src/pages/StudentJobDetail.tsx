@@ -107,8 +107,15 @@ function formatDate(d: string): string {
   } catch { return d; }
 }
 
-function googleMapsUrl(address: string) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+function googleMapsUrl(address: string, lat?: number | null, lng?: number | null) {
+  const dest = (lat != null && lng != null) ? `${lat},${lng}` : encodeURIComponent(address);
+  return `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
+}
+
+function wazeUrl(address: string, lat?: number | null, lng?: number | null) {
+  return (lat != null && lng != null)
+    ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+    : `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`;
 }
 
 // "What needs doing" — the task specifics the customer entered, surfaced from
@@ -495,7 +502,7 @@ const StudentJobDetail = () => {
         }
       }
       // Open Google Maps navigation to customer's address
-      window.open(googleMapsUrl(booking.customer_address), '_blank');
+      window.open(googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng), '_blank');
       // Start live location tracking
       startLocationWatch(bookingId);
     }
@@ -614,7 +621,7 @@ const StudentJobDetail = () => {
           <div className="space-y-2 pt-3 border-t border-border/40">
             {/* Address — tappable to open Google Maps */}
             <a
-              href={googleMapsUrl(booking.customer_address)}
+              href={googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
@@ -664,20 +671,30 @@ const StudentJobDetail = () => {
                 scrollWheelZoom={false}
                 doubleClickZoom={false}
               >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
                 <Marker position={[booking.customer_lat, booking.customer_lng]} icon={customerIcon} />
                 <MapAutoResize />
               </MapContainer>
             </div>
             {mine && !isComplete && !isCancelled && (
-              <a
-                href={googleMapsUrl(booking.customer_address)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 w-full h-11 rounded-full bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-secondary/70 transition-colors"
-              >
-                <Navigation size={15} /> Get directions
-              </a>
+              <div className="mt-2 flex gap-2">
+                <a
+                  href={googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 h-11 rounded-full bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
+                >
+                  <Navigation size={15} /> Google Maps
+                </a>
+                <a
+                  href={wazeUrl(booking.customer_address, booking.customer_lat, booking.customer_lng)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 h-11 rounded-full bg-secondary text-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:bg-secondary/70 transition-colors"
+                >
+                  <Navigation size={15} /> Waze
+                </a>
+              </div>
             )}
           </div>
         )}
