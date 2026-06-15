@@ -44,8 +44,10 @@ interface Booking {
   /** Arrival handshake: shown to the customer to read out to the helper */
   arrival_code: string | null;
   arrival_verified_at: string | null;
-  /** Timed jobs: when the booked time runs out and the job auto-completes */
+  /** Timed jobs: the booked-time countdown end (a guide; never auto-completes) */
   job_ends_at: string | null;
+  /** Set when the helper taps "I've finished" — surfaces the confirm card early */
+  helper_finished_at: string | null;
   booking_data: {
     service_fee_cents?: number;
     referral_discount_cents?: number;
@@ -675,7 +677,9 @@ const TrackBooking = () => {
             rate + "mark complete" card that confirms the job and pays the helper. */}
         {booking.status === 'in_progress' && (() => {
           const endMs = booking.job_ends_at ? new Date(booking.job_ends_at).getTime() : 0;
-          const counting = isTimedCategory(booking.category) && booking.job_ends_at && endMs > nowTick;
+          // Show the countdown for a running timed job — unless the helper has
+          // already flagged they're finished, in which case jump to confirm.
+          const counting = isTimedCategory(booking.category) && booking.job_ends_at && endMs > nowTick && !booking.helper_finished_at;
           if (counting) {
             return (
               <motion.div
@@ -708,9 +712,11 @@ const TrackBooking = () => {
                 {helperName ? `How was ${helperName}?` : 'How did it go?'}
               </p>
               <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
-                {booking.job_ends_at
-                  ? 'Your booked time is up. Rate your helper and confirm to release their payment.'
-                  : 'Once the work is finished, rate your helper and confirm — this releases their payment.'}
+                {booking.helper_finished_at
+                  ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm to release their payment.`
+                  : booking.job_ends_at
+                    ? 'Your booked time is up. Rate your helper and confirm to release their payment.'
+                    : 'Once the work is finished, rate your helper and confirm — this releases their payment.'}
               </p>
               <div className="flex gap-1 justify-center mb-4">
                 {[1, 2, 3, 4, 5].map((n) => (

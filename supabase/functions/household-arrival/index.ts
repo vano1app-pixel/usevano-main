@@ -58,7 +58,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
-    const action = body?.action === 'verify' ? 'verify' : 'request';
+    const action = body?.action === 'verify' || body?.action === 'finished' ? body.action : 'request';
     const code = typeof body?.code === 'string' ? body.code.trim() : '';
     if (!bookingId) return bad(400, 'booking_id required');
 
@@ -95,6 +95,28 @@ serve(async (req) => {
 
       await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'arrived', note: 'Helper reached the address — awaiting arrival code.' });
       return json(200, { ok: true, status: 'arrived' });
+    }
+
+    if (action === 'finished') {
+      // Helper says they're done. This does NOT complete or pay — it flags the
+      // job so the customer is asked to confirm (and lets a timed job be
+      // confirmed before its timer ends). Only valid once the job has started.
+      if (booking.status !== 'in_progress') {
+        return bad(409, `Can only mark finished once the job has started (status: ${booking.status})`);
+      }
+      await supabase
+        .from('household_bookings')
+        .update({ helper_finished_at: new Date().toISOString() })
+        .eq('id', bookingId)
+        .eq('student_id', callerId)
+        .eq('status', 'in_progress');
+      // Ping the customer to confirm now (best-effort; the cron also nudges).
+      fetch(`${supabaseUrl}/functions/v1/remind-confirm-completion`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: bookingId }),
+      }).catch(() => {});
+      return json(200, { ok: true, status: 'in_progress', helper_finished: true });
     }
 
     // action === 'verify'

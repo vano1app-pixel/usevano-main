@@ -60,8 +60,10 @@ interface Booking {
   // Set once the helper enters the customer's arrival code. The code itself is
   // deliberately NOT fetched here — it lives only on the customer's screen.
   arrival_verified_at: string | null;
-  // For timed jobs: when the booked time runs out and the job auto-completes.
+  // For timed jobs: the booked-time countdown end (a guide; never auto-completes).
   job_ends_at: string | null;
+  // Set when the helper taps "I've finished" — asks the customer to confirm.
+  helper_finished_at: string | null;
 }
 
 interface ChatMessage {
@@ -178,6 +180,7 @@ const StudentJobDetail = () => {
   const [codeError, setCodeError] = useState(false);
   // Timed-job countdown (display only — the customer marks the job done)
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [finishing, setFinishing] = useState(false);
   // Set when the browser refuses geolocation while on_way — the customer's
   // live map silently shows nothing, so the helper deserves to know.
   const [locationDenied, setLocationDenied] = useState(false);
@@ -210,7 +213,7 @@ const StudentJobDetail = () => {
         // Explicit columns — never select arrival_code, so the customer's code
         // can't be read out of the helper's app and the handshake stays honest.
         hdb.from('household_bookings')
-          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, booking_data, arrival_verified_at, job_ends_at')
+          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, booking_data, arrival_verified_at, job_ends_at, helper_finished_at')
           .eq('id', bookingId).maybeSingle(),
         hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
       ]);
@@ -385,6 +388,23 @@ const StudentJobDetail = () => {
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [booking?.status, booking?.job_ends_at]);
+
+  // "I've finished" — flags the job done and asks the customer to confirm.
+  // Does NOT pay the helper; the customer still has to mark complete.
+  const handleFinished = async () => {
+    if (!bookingId || finishing) return;
+    setFinishing(true);
+    try {
+      const { error } = await supabase.functions.invoke('household-arrival', { body: { booking_id: bookingId, action: 'finished' } });
+      if (error) throw error;
+      setBooking((b) => b ? { ...b, helper_finished_at: new Date().toISOString() } : b);
+      toast({ title: 'Marked as finished', description: "We've asked the customer to confirm so you get paid." });
+    } catch (err) {
+      toast({ title: 'Could not mark finished', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setFinishing(false);
+    }
+  };
 
   const handleRelease = async () => {
     if (!bookingId || releasing) return;
@@ -774,8 +794,9 @@ const StudentJobDetail = () => {
           </motion.div>
         )}
 
-        {/* Job underway — timed jobs show a live countdown and auto-complete;
-            one-off jobs wait for the customer to mark them done */}
+        {/* Job underway — timed jobs show a countdown (a guide, nothing auto-
+            completes). The helper flags "I've finished"; the customer confirms
+            to release payment. */}
         {mine && booking.status === 'in_progress' && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -783,23 +804,40 @@ const StudentJobDetail = () => {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="rounded-2xl border border-sage/25 bg-sage-light p-5 mb-6 text-center"
           >
-            {booking.job_ends_at && new Date(booking.job_ends_at).getTime() > nowTick ? (
+            {booking.helper_finished_at ? (
               <>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Job in progress</p>
-                <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
-                  {formatCountdown(new Date(booking.job_ends_at).getTime() - nowTick)}
+                <CheckCircle2 size={24} className="text-sage mx-auto mb-1.5" strokeWidth={1.5} />
+                <p className="text-sm font-semibold text-foreground">Marked as finished</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  Waiting for the customer to confirm — you’re paid the moment they do. We’ve nudged them.
                 </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">left on the booked time</p>
               </>
             ) : (
               <>
-                <CheckCircle2 size={24} className="text-sage mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-sm font-semibold text-foreground">
-                  {booking.job_ends_at ? "Time's up — finish up" : 'Job underway'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  The customer confirms the job's done from their screen — you’re paid the moment they do.
-                </p>
+                {booking.job_ends_at && new Date(booking.job_ends_at).getTime() > nowTick ? (
+                  <>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Job in progress</p>
+                    <p className="text-[2.5rem] leading-none font-extrabold tabular-nums text-sage my-2">
+                      {formatCountdown(new Date(booking.job_ends_at).getTime() - nowTick)}
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-4">left on the booked time</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-foreground">{booking.job_ends_at ? "Time's up" : 'Job underway'}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 mb-4 leading-relaxed">
+                      When you’re done, tap below — the customer confirms and you’re paid.
+                    </p>
+                  </>
+                )}
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => void handleFinished()}
+                  disabled={finishing}
+                  className="w-full h-12 rounded-full bg-sage text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+                >
+                  {finishing ? <Loader2 size={16} className="animate-spin" /> : "I've finished"}
+                </motion.button>
               </>
             )}
           </motion.div>
