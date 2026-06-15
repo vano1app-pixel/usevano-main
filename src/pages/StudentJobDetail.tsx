@@ -143,9 +143,8 @@ function formatPhone(raw: string): string {
 
 // Status machine: only the "I'm on my way" step is a generic advance button.
 // on_way → arrived and arrived → in_progress run through the arrival-code flow
-// ("I've reached" + code entry). Completion is no longer a helper tap: timed
-// jobs auto-complete on the timer and one-off jobs are marked done by the
-// household.
+// ("I've reached" + code entry). Completion is never a helper tap and never
+// automatic — the customer marks the job complete to pay the helper.
 const NEXT_STATUS: Partial<Record<JobStatus, { status: UpdateStatus; label: string }>> = {
   accepted: { status: 'on_way', label: "I'm on my way" },
 };
