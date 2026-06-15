@@ -6,11 +6,6 @@ import { HelmetProvider } from 'react-helmet-async';
 import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import "./index.css";
-// gsapSetup is intentionally NOT imported here. It pulls GSAP +
-// ScrollTrigger + TextPlugin + Flip into the entry bundle (~150KB
-// gzipped) but only HirePage's lazy chunk and a handful of animation
-// hooks consume it — those modules import it directly so the work
-// only happens on routes that need it.
 
 window.googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
