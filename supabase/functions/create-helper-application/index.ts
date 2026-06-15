@@ -5,14 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Accepts multipart/form-data with photo file + JSON fields.
 // Inserts the helper row (or updates an existing pending application —
 // duplicate phone/email submissions update in place rather than creating
-// a second row), then redirects to a Stripe subscription checkout for
-// the €4.99/month platform membership.
-
-function formEncode(obj: Record<string, string>): string {
-  return Object.entries(obj)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-}
+// a second row). Joining is free: there is no payment step — the helper
+// goes live the moment an admin approves the application.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -173,71 +167,24 @@ serve(async (req) => {
       personally — you'll hear back <strong>within 24 hours</strong>, usually much faster.
     </p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      Make sure you complete the <strong>€4.99/month membership</strong> step — your profile only goes
-      live once that's done and you're approved.
+      Joining VANO is <strong>completely free</strong> — there's nothing to pay. Once you're approved,
+      your profile goes live and we'll start sending you jobs.
     </p>
     <p style="margin:0 0 4px;color:#374151;font-size:14px;">Questions or in a hurry?</p>
     <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;margin-top:6px;">💬 WhatsApp us</a>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. We review every application personally — you'll hear back within 24 hours. Make sure you complete the €4.99/month membership step so your profile can go live. Questions? WhatsApp +353 89 981 7111`,
+            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. We review every application personally — you'll hear back within 24 hours. Joining is completely free — there's nothing to pay. Questions? WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {/* non-critical */});
       }
     }
 
-    // Create Stripe subscription checkout for the €4.99/month membership
-    const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!STRIPE_SECRET_KEY) {
-      console.error('[create-helper-application] STRIPE_SECRET_KEY not set — cannot create checkout');
-      return new Response(JSON.stringify({ error: 'Payment not configured. Please contact us on WhatsApp.' }), {
-        status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const origin =
-      req.headers.get('origin') ||
-      Deno.env.get('SITE_URL') ||
-      'https://vanojobs.com';
-
-    const checkoutParams: Record<string, string> = {
-      mode: 'subscription',
-      'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': '499',
-      'line_items[0][price_data][recurring][interval]': 'month',
-      'line_items[0][price_data][product_data][name]': 'VANO Helper Membership',
-      'line_items[0][price_data][product_data][description]': 'Monthly membership — be listed on VANO and receive bookings',
-      'line_items[0][quantity]': '1',
-      success_url: `${origin}/join?welcome=1&name=${encodeURIComponent(name)}`,
-      cancel_url:  `${origin}/join`,
-      customer_email: email,
-      'metadata[helper_email]': email,
-      'metadata[helper_name]': name,
-      'metadata[helper_phone]': phone,
-      'metadata[helper_city]': city,
-    };
-
-    const stripeResp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formEncode(checkoutParams),
-    });
-
-    if (!stripeResp.ok) {
-      const text = await stripeResp.text();
-      console.error('[create-helper-application] stripe error', stripeResp.status, text);
-      return new Response(JSON.stringify({ error: 'Could not start payment. Please try again.' }), {
-        status: 502, headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const session = await stripeResp.json() as { id: string; url: string };
-
-    return new Response(JSON.stringify({ success: true, checkout_url: session.url }), {
+    // Joining is free — no payment step. The application is saved as
+    // 'pending'; the helper goes live the moment an admin approves it.
+    // (No checkout_url is returned, so the client shows the welcome state.)
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
 
