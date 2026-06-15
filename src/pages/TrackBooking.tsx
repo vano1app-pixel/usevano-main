@@ -732,7 +732,7 @@ const TrackBooking = () => {
                 scrollWheelZoom={false}
                 dragging={false}
               >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
                 {helperLoc && customerLoc && (
                   <Polyline
                     positions={[
@@ -1028,7 +1028,7 @@ const TrackBooking = () => {
                         dragging={false}
                         doubleClickZoom={false}
                       >
-                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
                         <MapAutoResize />
                       </MapContainer>
                     ) : (
@@ -1346,7 +1346,7 @@ const TrackBooking = () => {
                 scrollWheelZoom={false}
                 dragging={false}
               >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
                 {helperLoc && (
                   <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMarkerIcon} />
                 )}
