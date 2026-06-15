@@ -319,7 +319,14 @@ serve(async (req) => {
     // Schedule and loyalty discounts don't apply to monthly Airbnb plans
     if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
 
-    // 7.5% customer fee + 5% student-side cut = 12.5% total platform take
+    // Vano's take has two parts: a 7.5% service fee added on top of the
+    // quoted price here, plus a 15% student-side cut taken off the price at
+    // completion (PLATFORM_FEE_BPS in capture-household-payment). Combined
+    // that's ~22.5% of the quoted price (~21% of what the customer pays) —
+    // NOT the 12.5% an older comment claimed. NOTE: the 15% cut leaves the
+    // time-based €16/hr cleaning and €15/hr quick-book tutoring rates below
+    // the €14.15/hr minimum wage net to the student; the per-hour rates need
+    // a lift (or a smaller cut) — tracked separately.
     const SERVICE_FEE_PCT  = 0.075;
     const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 

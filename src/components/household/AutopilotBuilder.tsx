@@ -31,13 +31,16 @@ interface Service {
 // Subset of create-autopilot-checkout's catalogue — keep prices in sync.
 // Weekly ≈ monthly pro-rata + ~10%, so monthly reads as "commit and save".
 //
-// Each price assumes a CAPPED visit time so it pays a helper above the
-// Irish minimum wage (€14.15/hr, 2026) on BOTH billing modes and still
-// leaves Vano a margin. Don't lengthen the scope without re-pricing:
-//   cleaning 90min · laundry 45min · garden 45min · dog 30min ·
-//   bins 15min · plants 10min  →  ~€18–24/hr gross per visit.
-// (Monthly is ~10% cheaper per week, so it's the binding constraint:
-//  e.g. cleaning €119/mo = €27.46/wk ÷ 1.5h = €18.31/hr.)
+// Each price must pay a helper above the Irish minimum wage (€14.15/hr,
+// 2026) on BOTH billing modes, with margin left for Vano. Two kinds:
+//   • TIME-BASED — scoped by the clock: cleaning (90-min refresh) and
+//     dog (30-min walk). Keep the stated time or re-price.
+//   • JOB-BASED — one flat price for the task done: laundry, garden,
+//     bins, plants. Sized for a SMALL weekly job (~10–45 min); if a job
+//     balloons it's a separate one-off booking, not this plan.
+// Monthly is ~10% cheaper per week, so it's the binding case — e.g.
+// cleaning €119/mo = €27.46/wk ÷ 1.5h = €18.31/hr; the small job-based
+// tasks net ~€18–24/hr at their typical times.
 const SERVICES: Service[] = [
   { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '90-min refresh, every week',       monthlyCents: 11900, weeklyCents: 3000 },
   { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing',    desc: 'Washed, ironed, put away',        monthlyCents: 5900,  weeklyCents: 1500 },
