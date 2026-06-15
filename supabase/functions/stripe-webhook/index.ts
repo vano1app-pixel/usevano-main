@@ -312,6 +312,20 @@ async function handleAccountUpdated(
     return new Response('DB error', { status: 500 });
   }
 
+  // Household helpers carry their Connect account on household_helpers
+  // (keyed by user_id), not student_profiles. The same account id space
+  // is shared, so flip readiness there too — only the matching row (if
+  // any) updates. Non-fatal: a failure here shouldn't 500 the webhook
+  // and trigger Stripe retries for the freelancer write that succeeded.
+  const { error: helperError } = await supabase
+    .from('household_helpers')
+    .update({ stripe_payouts_enabled: ready })
+    .eq('stripe_account_id', account.id);
+
+  if (helperError) {
+    console.error('[stripe-webhook] account.updated household_helpers write failed', helperError);
+  }
+
   return new Response(JSON.stringify({ received: true, updated: 'connect_account', ready }), {
     headers: { 'Content-Type': 'application/json' },
   });
