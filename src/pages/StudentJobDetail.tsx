@@ -253,6 +253,26 @@ const StudentJobDetail = () => {
     return () => { void supabase.removeChannel(channel); };
   }, [bookingId]);
 
+  // Keep the helper's view in sync with server-side changes — the customer
+  // paying, marking complete, or an admin cancelling. Without this the screen
+  // goes stale and the helper can act on an outdated status.
+  useEffect(() => {
+    if (!bookingId) return;
+    const channel = supabase
+      .channel(`student-booking-${bookingId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'household_bookings', filter: `id=eq.${bookingId}` },
+        (payload) => {
+          const next = payload.new as Partial<Booking>;
+          setBooking((b) => (b ? { ...b, ...next } : b));
+          if (next.status === 'completed' || next.status === 'cancelled') stopLocationWatch();
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [bookingId]);
+
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -368,11 +388,15 @@ const StudentJobDetail = () => {
       if (error) throw error;
       if (data?.verified) {
         // Carry job_ends_at back from the server so the timed countdown shows
-        // immediately (this screen has no realtime subscription to refetch it).
+        // immediately.
         setBooking((b) => b ? { ...b, status: 'in_progress', arrival_verified_at: new Date().toISOString(), job_ends_at: data.job_ends_at ?? null } : b);
         setArrivalCode('');
         microCelebrate();
         toast({ title: 'Code confirmed — job started! ⏱️' });
+      } else if (data?.locked) {
+        // Too many wrong attempts — anti-brute-force lockout from the server.
+        setCodeError(true);
+        toast({ title: 'Too many attempts', description: 'Please wait a minute, then re-check the 4-digit code with the customer.', variant: 'destructive' });
       } else {
         setCodeError(true);
       }
@@ -800,7 +824,15 @@ const StudentJobDetail = () => {
               )}
             />
             {codeError && (
-              <p className="text-xs text-destructive mt-2">That code didn't match — double-check with the customer.</p>
+              <>
+                <p className="text-xs text-destructive mt-2">That code didn't match — double-check with the customer.</p>
+                <button
+                  onClick={() => { setCodeError(false); setArrivalCode(''); void handleReached(); }}
+                  className="mt-1 text-xs text-sage underline underline-offset-2"
+                >
+                  Code not working? Get a fresh one for the customer
+                </button>
+              </>
             )}
             <motion.button
               whileTap={{ scale: 0.97 }}

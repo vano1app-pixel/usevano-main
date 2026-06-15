@@ -66,9 +66,9 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data')
+      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null } | null; error: unknown };
+      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null } | null; error: unknown };
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
@@ -80,14 +80,14 @@ serve(async (req) => {
       if (!['accepted', 'on_way', 'arrived'].includes(booking.status)) {
         return bad(409, `Cannot mark arrival in status: ${booking.status}`);
       }
-      if (booking.status === 'arrived' && booking.arrival_code) {
-        return json(200, { ok: true, status: 'arrived' });
-      }
 
+      // Always (re)generate a fresh code and reset the attempt counter +
+      // arrived_at. Re-tapping is also the unlock path after too many wrong
+      // code guesses (see the verify branch below).
       const newCode = String(Math.floor(1000 + Math.random() * 9000));
       const { error: updErr } = await supabase
         .from('household_bookings')
-        .update({ arrival_code: newCode, arrival_verified_at: null, status: 'arrived' })
+        .update({ arrival_code: newCode, arrival_verified_at: null, status: 'arrived', arrival_attempts: 0, arrived_at: new Date().toISOString() })
         .eq('id', bookingId)
         .eq('student_id', callerId)
         .in('status', ['accepted', 'on_way', 'arrived']);
@@ -123,8 +123,15 @@ serve(async (req) => {
     if (booking.arrival_verified_at) return json(200, { ok: true, verified: true, status: 'in_progress' });
     if (booking.status !== 'arrived' || !booking.arrival_code) return bad(409, 'No arrival code to verify yet');
 
+    // Anti-brute-force: the 4-digit code is the proof-of-presence, so cap wrong
+    // guesses. After 5 misses we lock verification; the helper taps "I've
+    // reached" again to issue a fresh code (which resets this counter).
+    const attempts = booking.arrival_attempts ?? 0;
+    if (attempts >= 5) return json(200, { ok: true, verified: false, locked: true });
     if (!/^\d{4}$/.test(code) || code !== booking.arrival_code) {
-      return json(200, { ok: true, verified: false });
+      const nextAttempts = attempts + 1;
+      await supabase.from('household_bookings').update({ arrival_attempts: nextAttempts }).eq('id', bookingId).eq('student_id', callerId);
+      return json(200, { ok: true, verified: false, locked: nextAttempts >= 5 });
     }
 
     // Timed jobs get a job_ends_at so the screens can show a countdown. The job
@@ -136,7 +143,7 @@ serve(async (req) => {
 
     const { error: verifyErr } = await supabase
       .from('household_bookings')
-      .update({ arrival_verified_at: new Date(nowMs).toISOString(), status: 'in_progress', job_ends_at: jobEndsAt })
+      .update({ arrival_verified_at: new Date(nowMs).toISOString(), status: 'in_progress', job_ends_at: jobEndsAt, arrival_attempts: 0 })
       .eq('id', bookingId)
       .eq('student_id', callerId)
       .eq('status', 'arrived');

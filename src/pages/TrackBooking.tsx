@@ -607,6 +607,17 @@ const TrackBooking = () => {
           </motion.div>
         )}
 
+        {/* After a helper accepts there's no self-serve cancel — give a clear
+            path so the customer isn't stuck (cancel/refund is handled manually). */}
+        {['accepted', 'on_way', 'arrived'].includes(booking.status) && (
+          <a
+            href="https://wa.me/353899817111"
+            className="mt-3 block text-center text-xs text-muted-foreground underline underline-offset-2 py-2"
+          >
+            Need to cancel or change this booking? Message us
+          </a>
+        )}
+
         {/* Helper chip — links to the helper's public profile when we have one */}
         {booking.student_id && helperName && !isPending && !isCancelled && (
           <motion.div
