@@ -56,6 +56,9 @@ interface Booking {
   customer_lat: number | null;
   customer_lng: number | null;
   price_estimate_cents: number | null;
+  // Pay-after-accept: null until the customer pays. The helper shouldn't start
+  // the job (arrival code) until this is set.
+  paid_at: string | null;
   booking_data: Record<string, unknown>;
   // Set once the helper enters the customer's arrival code. The code itself is
   // deliberately NOT fetched here — it lives only on the customer's screen.
@@ -212,7 +215,7 @@ const StudentJobDetail = () => {
         // Explicit columns — never select arrival_code, so the customer's code
         // can't be read out of the helper's app and the handshake stays honest.
         hdb.from('household_bookings')
-          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, booking_data, arrival_verified_at, job_ends_at, helper_finished_at')
+          .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at')
           .eq('id', bookingId).maybeSingle(),
         hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
       ]);
@@ -542,6 +545,9 @@ const StudentJobDetail = () => {
   const isComplete = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
   const mine = !!userId && booking.student_id === userId;
+  // Pay-after-accept: don't let the helper start the job (arrival code) until
+  // the customer has paid. Zero-price jobs (none today) are exempt.
+  const needsPayment = mine && (booking.price_estimate_cents ?? 0) > 0 && !booking.paid_at;
   const isUnclaimed = booking.status === 'pending' && !booking.student_id;
   const claimedByOther = !!booking.student_id && booking.student_id !== userId;
   const earnCents = booking.price_estimate_cents ? Math.floor(booking.price_estimate_cents * 0.95) : null;
@@ -739,10 +745,22 @@ const StudentJobDetail = () => {
           </div>
         )}
 
+        {/* Waiting for the customer to pay (pay-after-accept). Block starting
+            work until then so nobody does an unpaid job. */}
+        {needsPayment && ['accepted', 'on_way', 'arrived', 'in_progress'].includes(booking.status) && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 dark:bg-amber-950/20 dark:border-amber-800/40">
+            <AlertTriangle size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground/80 leading-relaxed">
+              Waiting for the customer to pay. You'll be able to start the job once their payment lands — we've sent them the link and they can also pay from their tracking screen.
+            </p>
+          </div>
+        )}
+
         {/* I've reached — generates the customer's arrival code. Available from
             'accepted' too, so a helper who's already on site (or skipped the
-            "on my way" step) can still start the arrival-code handshake. */}
-        {mine && (booking.status === 'accepted' || booking.status === 'on_way') && (
+            "on my way" step) can still start the arrival-code handshake. Gated
+            on payment so no one starts an unpaid job. */}
+        {mine && !needsPayment && (booking.status === 'accepted' || booking.status === 'on_way') && (
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => void handleReached()}

@@ -125,9 +125,27 @@ serve(async (req) => {
     const bookingData: BookingData = { category, ...(booking_data ?? {}) };
     const priceCents = computePriceCents(bookingData, !!is_express);
 
-    // Extract customer coordinates from booking_data if provided by the address picker
-    const customerLat = typeof booking_data?.customerLat === 'number' ? booking_data.customerLat : null;
-    const customerLng = typeof booking_data?.customerLng === 'number' ? booking_data.customerLng : null;
+    // Extract customer coordinates from booking_data if the address picker
+    // captured them; otherwise geocode the typed address server-side so the
+    // tracking map always has a location (best-effort — never blocks booking).
+    let customerLat = typeof booking_data?.customerLat === 'number' ? booking_data.customerLat : null;
+    let customerLng = typeof booking_data?.customerLng === 'number' ? booking_data.customerLng : null;
+    if ((customerLat === null || customerLng === null) && customer_address?.trim()) {
+      try {
+        const q = [customer_address.trim(), city, 'Ireland'].filter(Boolean).join(', ');
+        const geoResp = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ie&q=${encodeURIComponent(q)}`,
+          { headers: { 'User-Agent': 'VANO/1.0 (vanojobs.com)' } },
+        );
+        if (geoResp.ok) {
+          const hits = await geoResp.json().catch(() => []);
+          const hit = Array.isArray(hits) ? hits[0] : null;
+          const lat = hit ? parseFloat(hit.lat) : NaN;
+          const lng = hit ? parseFloat(hit.lon) : NaN;
+          if (isFinite(lat) && isFinite(lng)) { customerLat = lat; customerLng = lng; }
+        }
+      } catch (e) { console.warn('[create-household-booking] geocode failed', e); }
+    }
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
