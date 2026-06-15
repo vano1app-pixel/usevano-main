@@ -40,6 +40,9 @@ interface Booking {
   /** Pay-after-accept: set by notify-household-accepted when a helper claims */
   stripe_checkout_url: string | null;
   paid_at: string | null;
+  /** Arrival handshake: shown to the customer to read out to the helper */
+  arrival_code: string | null;
+  arrival_verified_at: string | null;
   booking_data: {
     service_fee_cents?: number;
     referral_discount_cents?: number;
@@ -598,6 +601,27 @@ const TrackBooking = () => {
                 <div className={chipClass}>{inner}</div>
               );
             })()}
+          </motion.div>
+        )}
+
+        {/* Arrival code — the helper tapped "I've reached"; read this out to them
+            so they can start the job. Disappears once they've entered it. */}
+        {booking.status === 'arrived' && booking.arrival_code && !booking.arrival_verified_at && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-4 rounded-2xl border-2 border-sage/40 bg-sage-light p-5 text-center"
+          >
+            <p className="font-bold text-foreground text-sm">
+              {helperName ? `${helperName} is at your door 👋` : 'Your helper is here 👋'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
+              Read this code to your helper so they can start the job:
+            </p>
+            <p className="text-[2.5rem] leading-none font-extrabold tracking-[0.3em] tabular-nums text-sage">
+              {booking.arrival_code}
+            </p>
           </motion.div>
         )}
 

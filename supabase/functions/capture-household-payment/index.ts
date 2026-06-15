@@ -80,7 +80,10 @@ serve(async (req) => {
     const priceCents = booking.price_estimate_cents ?? 0;
     const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
 
-    await supabase.from('household_payouts').insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending' });
+    // Auto-release on completion: the payout is approved for payout the moment
+    // the job is marked done — no manual review step. (Household helpers are
+    // paid out via Revolut, so this flags it ready rather than moving money.)
+    await supabase.from('household_payouts').insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'released', released_at: new Date().toISOString() });
     await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'completed', note: 'Job completed.' });
 
     const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
