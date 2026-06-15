@@ -135,14 +135,15 @@ export const JoinAsHelper: React.FC = () => {
       const json = await res.json() as { success?: boolean; error?: string; checkout_url?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? 'Unknown error');
 
+      // Legacy: a checkout_url means an older paid flow — still honour it.
       if (json.checkout_url) {
         window.location.href = json.checkout_url;
         return;
       }
 
-      // No checkout URL returned — payment couldn't be started.
-      // Don't show success: the helper stays pending and won't go live.
-      setError('Something went wrong with payment — please try again or text us on WhatsApp.');
+      // Joining is free — no payment. Show the welcome state.
+      window.location.href = `/join?welcome=1&name=${encodeURIComponent(name)}`;
+      return;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       // The signup function returns specific, user-friendly messages for
@@ -211,7 +212,7 @@ export const JoinAsHelper: React.FC = () => {
                 You're in{welcomeName ? `, ${welcomeName.split(' ')[0]}` : ''}! 🎉
               </h2>
               <p className="text-muted-foreground text-sm leading-relaxed mb-2">
-                Your €4.99/month membership is confirmed. You're now part of the VANO helper team.
+                Joining VANO is completely free — there's nothing to pay. We're reviewing your application and you're now part of the helper team.
               </p>
               <p className="text-muted-foreground text-sm leading-relaxed mb-6">
                 We'll text you when a job near you comes in. Keep an eye on your phone.
