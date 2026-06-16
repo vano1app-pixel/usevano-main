@@ -183,6 +183,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+  // Field-level flags so a failed submit points at the field to fix, not just
+  // a message at the foot of the sheet
+  const [phoneError,   setPhoneError]   = useState(false);
+  const [addressError, setAddressError] = useState(false);
 
   function forgetMe() {
     clearBookingMemory();
@@ -236,9 +240,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     const phoneClean = phone.trim().replace(/\s+/g, '');
-    if (!phoneClean) { setError('Please enter your phone number.'); return; }
-    if (!/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) { setError('Please enter a valid phone number.'); return; }
-    if (!address.trim()) { setError('Please enter your address or Eircode.'); return; }
+    if (!phoneClean || !/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) {
+      setPhoneError(true);
+      setError('Please enter a valid phone number.');
+      return;
+    }
+    if (!address.trim()) {
+      setAddressError(true);
+      setError('Please add your address so your helper can find you.');
+      return;
+    }
     setLoading(true); setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
@@ -355,12 +366,15 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               <input
                 type="tel"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
+                onChange={e => { setPhone(e.target.value); if (phoneError) setPhoneError(false); if (error) setError(null); }}
                 placeholder="08x xxx xxxx"
                 autoComplete="tel"
                 autoFocus={!prefilled}
                 required
-                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                className={cn(
+                  'w-full rounded-xl border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
+                  phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
+                )}
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
             </div>
@@ -371,15 +385,17 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               <AddressPicker
                 value={address}
                 coords={coords}
-                error={false}
+                error={addressError}
                 onAddress={(addr, lat, lng, locality) => {
                   setAddress(addr);
                   setCoords({ lat, lng });
+                  if (addressError) setAddressError(false);
+                  if (error) setError(null);
                   // Eircode/address already knows the area — don't make them pick
                   const area = deriveArea(locality, { lat, lng });
                   if (area) { setCity(area); setCityAuto(true); }
                 }}
-                onTextChange={(t) => { setAddress(t); setCoords(null); }}
+                onTextChange={(t) => { setAddress(t); setCoords(null); if (addressError) setAddressError(false); if (error) setError(null); }}
                 onBlur={() => {}}
                 placeholder="Address or Eircode…"
                 showMapPreview={false}
@@ -535,6 +551,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 </Button>
               </motion.div>
 
+              {error && <p className="text-center text-xs text-destructive">{error}</p>}
+
               <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
                 A nearby helper usually replies in minutes
@@ -553,7 +571,6 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               </motion.div>
             </div>
 
-            {error && <p className="text-center text-xs text-destructive">{error}</p>}
             <p className="text-center text-[11px] text-muted-foreground">
               No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
             </p>
