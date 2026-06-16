@@ -75,6 +75,7 @@ function Card({ h }: { h: HelperRow }) {
 
 export const HelperCards: React.FC = () => {
   const [helpers, setHelpers] = useState<HelperRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -114,6 +115,7 @@ export const HelperCards: React.FC = () => {
           const shuffled = [...data].sort(() => Math.random() - 0.5);
           setHelpers(shuffled);
         }
+        setLoaded(true);
       });
   }, []);
 
@@ -126,7 +128,26 @@ export const HelperCards: React.FC = () => {
         </h2>
       </div>
 
-      {helpers.length === 0 ? (
+      {!loaded ? (
+        <div className="relative">
+          <div className="overflow-x-auto scrollbar-hide pb-4">
+            <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-[200px] sm:w-[220px]">
+                  <div className="h-full bg-card rounded-2xl border border-border/40 overflow-hidden">
+                    <div className="w-full aspect-[4/3] bg-secondary/50 animate-pulse" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3.5 w-2/3 rounded bg-secondary/60 animate-pulse" />
+                      <div className="h-3 w-full rounded bg-secondary/40 animate-pulse" />
+                      <div className="h-3 w-4/5 rounded bg-secondary/40 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : helpers.length === 0 ? (
         <div className="px-4 max-w-5xl mx-auto">
           <div className="rounded-2xl border border-dashed border-border/60 bg-secondary/30 py-12 flex flex-col items-center justify-center text-center gap-3">
             <span className="text-3xl">🎓</span>
