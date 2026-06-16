@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion, useDragControls } from 'framer-motion';
-import { MessageCircle, Loader2, X, Zap, ChevronDown, ArrowRight, Phone } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ChevronDown, ArrowRight, Phone, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -82,16 +82,20 @@ const DEFAULT_SIZE: Record<string, string> = {
 // (wash behind the title, the emoji tile's ring, the reassurance pill). The
 // CTA stays brand-sage everywhere, so the codex's "exactly one primary action
 // = sage" rule holds; these hues just give each service its own hero.
-interface Accent { wash: string; ring: string; pill: string }
+interface Accent { wash: string; ring: string; pill: string; tile: string }
 const ACCENT: Record<string, Accent> = {
-  cleaning:   { wash: 'from-sage-light',  ring: 'ring-sage/25',     pill: 'text-sage-dark ring-sage/20' },
-  shopping:   { wash: 'from-sky-100',     ring: 'ring-sky-300/50',  pill: 'text-sky-700 ring-sky-300/50' },
-  'dog-walk': { wash: 'from-amber-100',   ring: 'ring-amber-300/50',pill: 'text-amber-700 ring-amber-300/50' },
-  garden:     { wash: 'from-emerald-100', ring: 'ring-emerald-300/50', pill: 'text-emerald-700 ring-emerald-300/50' },
-  moving:     { wash: 'from-orange-100',  ring: 'ring-orange-300/50', pill: 'text-orange-700 ring-orange-300/50' },
-  tutoring:   { wash: 'from-violet-100',  ring: 'ring-violet-300/50', pill: 'text-violet-700 ring-violet-300/50' },
+  cleaning:   { wash: 'from-sage-light',  ring: 'ring-sage/25',        pill: 'text-sage-dark ring-sage/20',           tile: 'hover:border-sage/40 hover:bg-sage-light' },
+  shopping:   { wash: 'from-sky-100',     ring: 'ring-sky-300/50',     pill: 'text-sky-700 ring-sky-300/50',          tile: 'hover:border-sky-300 hover:bg-sky-50' },
+  'dog-walk': { wash: 'from-amber-100',   ring: 'ring-amber-300/50',   pill: 'text-amber-700 ring-amber-300/50',      tile: 'hover:border-amber-300 hover:bg-amber-50' },
+  garden:     { wash: 'from-emerald-100', ring: 'ring-emerald-300/50', pill: 'text-emerald-700 ring-emerald-300/50',  tile: 'hover:border-emerald-300 hover:bg-emerald-50' },
+  moving:     { wash: 'from-orange-100',  ring: 'ring-orange-300/50',  pill: 'text-orange-700 ring-orange-300/50',    tile: 'hover:border-orange-300 hover:bg-orange-50' },
+  tutoring:   { wash: 'from-violet-100',  ring: 'ring-violet-300/50',  pill: 'text-violet-700 ring-violet-300/50',    tile: 'hover:border-violet-300 hover:bg-violet-50' },
 };
 const accentFor = (slug: string): Accent => ACCENT[slug] ?? ACCENT.cleaning;
+
+// Subtle haptic on supported devices (Android/Chrome; iOS Safari ignores it).
+// Fires on chip selection so the sheet feels tactile on a phone.
+const haptic = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate?.(8); };
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
 
@@ -170,7 +174,7 @@ const OptionChip: React.FC<{
   return (
     <motion.button
       type="button"
-      onClick={onClick}
+      onClick={() => { haptic(); onClick(); }}
       whileTap={{ scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 600, damping: 22 }}
       aria-pressed={active}
@@ -246,6 +250,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   // fix, instead of only a message at the foot of the sheet.
   const [fieldError, setFieldError] = useState<'phone' | 'address' | null>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
+  // Brief "got it" beat shown on the CTA before the Stripe redirect lands.
+  const [booked, setBooked] = useState(false);
   // Book-ahead (tomorrow) chips stay tucked away until asked for — keeps the
   // default "When?" row to one line. Collapsing while a tomorrow slot is
   // picked falls back to "Now" so the visible row never looks unselected.
@@ -359,7 +365,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         lastCategory: cat.slug,
         lastSize:     size,
       });
-      window.location.href = data.checkout_url as string;
+      // Show a brief "got it" beat on the button, then hand off to Stripe.
+      const url = data.checkout_url as string;
+      setBooked(true);
+      window.setTimeout(() => { window.location.href = url; }, 320);
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -506,7 +515,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   onTextChange={(t) => { setAddress(t); setCoords(null); if (fieldError === 'address') { setFieldError(null); setError(null); } }}
                   onBlur={() => {}}
                   placeholder="Address or Eircode…"
-                  showMapPreview={false}
+                  showMapPreview
                 />
                 <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
               </motion.div>
@@ -696,12 +705,14 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
                   <Button
                     type="submit"
-                    disabled={loading || !phone.trim()}
+                    disabled={loading || booked || !phone.trim()}
                     className="group w-full rounded-full gap-2 font-semibold text-[15px] h-12 shadow-primary-glow"
                   >
-                    {loading
-                      ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                      : <><Zap className="w-4 h-4" />{ctaLabel}<ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" /></>}
+                    {booked
+                      ? <><Check className="w-4 h-4" />Got it — taking you there…</>
+                      : loading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                        : <><Zap className="w-4 h-4" />{ctaLabel}<ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" /></>}
                   </Button>
                 </motion.div>
 
@@ -760,6 +771,7 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
   const rotateX = useSpring(rx, { stiffness: 300, damping: 20 });
   const rotateY = useSpring(ry, { stiffness: 300, damping: 20 });
   const shown = cardPrice(cat);
+  const accent = accentFor(cat.slug);
 
   const handleMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (reduce) return;
@@ -784,7 +796,8 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
       className={cn(
         'relative flex flex-col items-center justify-center gap-1.5',
         'min-h-[96px] rounded-2xl px-2 py-3 border',
-        'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
+        'bg-white text-foreground border-foreground/15 shadow-sm hover:shadow-md',
+        accent.tile, // category-tinted hover — ties the grid to the themed sheet
         'transition-[background-color,border-color,box-shadow] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
       )}
@@ -851,7 +864,7 @@ export const CategoryGrid: React.FC = () => {
         {usual && (
           <button
             onClick={() => openSheet(usual.cat, usual.size)}
-            className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left shadow-sm hover:bg-sage/14 hover:shadow-md active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-150"
+            className="group mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left shadow-sm hover:bg-sage/14 hover:shadow-md active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-150"
           >
             <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
             <span className="flex-1 min-w-0">
@@ -862,7 +875,7 @@ export const CategoryGrid: React.FC = () => {
                 {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details already filled in
               </span>
             </span>
-            <span className="text-sage text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+            <span className="text-sage text-lg font-bold leading-none flex-shrink-0 transition-transform duration-300 group-hover:rotate-180" aria-hidden="true">↻</span>
           </button>
         )}
 
