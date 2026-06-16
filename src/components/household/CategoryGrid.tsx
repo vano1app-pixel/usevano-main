@@ -605,7 +605,7 @@ export const CategoryGrid: React.FC = () => {
                 className={cn(
                   'relative flex flex-col items-center justify-center gap-1.5',
                   'min-h-[96px] rounded-2xl px-2 py-3 border',
-                  'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 hover:shadow-sm',
+                  'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
                   'transition-[background-color,border-color,box-shadow] duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 )}
@@ -619,7 +619,7 @@ export const CategoryGrid: React.FC = () => {
                 <span className="text-2xl leading-none select-none" aria-hidden="true">{cat.emoji}</span>
                 <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
                 {/* Smart default price — the key info before you tap */}
-                <span className="text-[11px] font-medium text-foreground/50 leading-tight tabular-nums">{shown}</span>
+                <span className="text-[11px] font-medium text-foreground/60 leading-tight tabular-nums">{shown}</span>
               </motion.button>
             );
           })}
