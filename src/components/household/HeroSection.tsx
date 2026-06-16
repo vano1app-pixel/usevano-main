@@ -44,10 +44,14 @@ export const HeroSection: React.FC = () => {
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
-      {/* Subtle radial glow — top left, warm */}
-      <div
-        className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full opacity-20"
+      {/* Subtle radial glow — top left, warm. Breathes slowly so the hero feels
+          alive without pulling focus from the booking card. */}
+      <motion.div
+        className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full"
         style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.35) 0%, transparent 70%)' }}
+        initial={{ opacity: 0.16, scale: 1 }}
+        animate={{ opacity: [0.16, 0.26, 0.16], scale: [1, 1.08, 1] }}
+        transition={{ duration: 9, ease: 'easeInOut', repeat: Infinity }}
         aria-hidden="true"
       />
 
@@ -142,15 +146,24 @@ export const HeroSection: React.FC = () => {
 
         </div>
 
-        {/* Mobile trust strip — one glance, under the card */}
-        <ul className="lg:hidden mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        {/* Mobile trust strip — one glance, under the card; fades in last */}
+        <motion.ul
+          className="lg:hidden mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2"
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.38 } } }}
+        >
           {TRUST.map(({ icon: Icon, short }) => (
-            <li key={short} className="inline-flex items-center gap-1.5 text-xs text-white/60">
+            <motion.li
+              key={short}
+              variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+              className="inline-flex items-center gap-1.5 text-xs text-white/60"
+            >
               <Icon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
               {short}
-            </li>
+            </motion.li>
           ))}
-        </ul>
+        </motion.ul>
       </div>
     </section>
   );

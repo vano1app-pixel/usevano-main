@@ -10,6 +10,13 @@ const NAV_LINKS = [
   { label: 'Privacy',        href: '/privacy',                                                                                    external: false },
 ];
 
+// Underline that grows in from the left on hover (animated via background-size,
+// so there's no layout shift). Shared by every footer link.
+const FOOTER_LINK =
+  'inline-block py-1 text-sm text-white/60 hover:text-white ' +
+  'bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] hover:bg-[length:100%_1px] ' +
+  'transition-[background-size,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]';
+
 export const HouseholdFooter: React.FC = () => {
   return (
     <footer className="bg-navy text-white px-4 py-12">
@@ -28,14 +35,14 @@ export const HouseholdFooter: React.FC = () => {
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-block py-1 text-white/60 hover:text-white text-sm transition-colors duration-150"
+                      className={FOOTER_LINK}
                     >
                       {label}
                     </a>
                   ) : (
                     <Link
                       to={href}
-                      className="inline-block py-1 text-white/60 hover:text-white text-sm transition-colors duration-150"
+                      className={FOOTER_LINK}
                     >
                       {label}
                     </Link>
@@ -47,7 +54,10 @@ export const HouseholdFooter: React.FC = () => {
         </div>
 
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <a href="mailto:hello@vanojobs.com" className="text-white/40 hover:text-white text-xs transition-colors duration-150">
+          <a
+            href="mailto:hello@vanojobs.com"
+            className="inline-block text-xs text-white/40 hover:text-white bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] hover:bg-[length:100%_1px] transition-[background-size,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          >
             hello@vanojobs.com
           </a>
           <p className="text-white/40 text-xs">© 2026 VANO · Ireland</p>
