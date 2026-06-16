@@ -106,12 +106,9 @@ export default defineConfig(({ mode }) => ({
           "react-vendor": ["react", "react-dom", "react-router-dom"],
           // Supabase client is heavy and used everywhere — cache it separately.
           supabase: ["@supabase/supabase-js"],
-          // Animation libs only needed on animated pages (Landing, HirePage).
-          // Split so dashboard / profile / messages users don't download them.
-          animation: ["gsap", "framer-motion", "canvas-confetti"],
-          // Charts only used on BusinessDashboard — no reason to ship to
-          // anyone else. Recharts alone is ~400KB uncompressed.
-          charts: ["recharts"],
+          // Animation libs only needed on animated pages — split so dashboard /
+          // profile / messages users don't download them.
+          animation: ["framer-motion", "canvas-confetti"],
         },
       },
     },

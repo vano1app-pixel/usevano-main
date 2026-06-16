@@ -13,7 +13,6 @@ import { AuthProvider } from "@/hooks/useAuthContext";
 import { ScrollToTop } from "@/components/ScrollToTop";
 
 const HouseholdHome = lazyWithRetry(() => import("./pages/HouseholdHome"));
-const BookingFlow = lazyWithRetry(() => import("./pages/BookingFlow"));
 const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
 const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
 const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"));
@@ -58,7 +57,7 @@ import { captureReferralFromUrl } from "@/lib/referral";
 
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'rise';
-  if (path === '/home' || path === '/join' || path.startsWith('/book/') || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/') || path === '/accepted') return 'rise';
+  if (path === '/home' || path === '/join' || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/') || path === '/accepted') return 'rise';
   if (['/auth', '/helper/profile'].includes(path) || path.startsWith('/helpers/')) return 'rise';
   return 'default';
 }
@@ -92,7 +91,6 @@ const App = () => {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<P><HouseholdHome /></P>} />
             <Route path="/home" element={<P><HouseholdHome /></P>} />
-            <Route path="/book/:category" element={<P><BookingFlow /></P>} />
             <Route path="/track/:bookingId" element={<P><TrackBooking /></P>} />
             <Route path="/student-dashboard" element={<P><StudentDashboard /></P>} />
             <Route path="/student-job/:bookingId" element={<P><StudentJobDetail /></P>} />
