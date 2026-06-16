@@ -316,8 +316,12 @@ serve(async (req) => {
     }
     const isMonthlyPlan = cat.startsWith('airbnb-');
 
-    // Schedule and loyalty discounts don't apply to monthly Airbnb plans
-    if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
+    // NO customer discount may reduce priceCents: it becomes price_estimate_cents
+    // (the student's payout base), and capture-household-payment pays the student
+    // 85% of it — so a cut here comes out of their wage and can push a time-based
+    // job under minimum wage. The book-ahead (−10%) discount was removed for
+    // exactly this reason. Any future customer discount must ride a Stripe coupon
+    // on the session (like the referral credit), never this value.
 
     // Vano's take has two parts: a 7.5% service fee added on top of the
     // quoted price here, plus a 15% student-side cut taken off the price at
@@ -331,21 +335,10 @@ serve(async (req) => {
     const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 
     const supabase = createClient(supabaseUrl, serviceKey);
-    let isLoyalty = false;
-    if (!isMonthlyPlan) {
-      // Only PAID bookings count toward loyalty — bookings are now created
-      // before payment, so counting all non-cancelled rows would let spam
-      // bookings farm the every-3rd-booking discount.
-      const { count: loyaltyCount } = await supabase
-        .from('household_bookings')
-        .select('id', { count: 'exact', head: true })
-        .eq('customer_phone', customer_phone.trim())
-        .not('paid_at', 'is', null)
-        .neq('status', 'cancelled');
-      const confirmedCount = loyaltyCount ?? 0;
-      isLoyalty = (confirmedCount + 1) % 3 === 0;
-      if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
-    }
+    // Loyalty ("every 3rd booking half-price") removed — it discounted
+    // priceCents, i.e. the student's payout base, paying them as little as
+    // €7.65/hr. Kept as a constant so the stored `loyalty` flag stays valid.
+    const isLoyalty = false;
 
     // ── Referral programme (give €5, get €5) ──────────────────────────────
     // Two mutually exclusive discounts, at most one per booking:

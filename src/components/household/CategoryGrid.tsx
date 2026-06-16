@@ -137,16 +137,6 @@ function getTimeSlots(): string[] {
   return slots.slice(0, 8); // max 8 time chips
 }
 
-// Booking ahead earns the server-side 10% scheduled discount (the backend
-// has supported `scheduled: true` all along — the quick sheet just never
-// offered it). Labels are stored verbatim as scheduled_date.
-const TOMORROW_SLOTS = ['Tomorrow 9am', 'Tomorrow 12pm', 'Tomorrow 3pm', 'Tomorrow 6pm'];
-
-/** Must mirror the backend's discount math exactly: Math.round(cents * 0.9) */
-function applyScheduledDiscount(cents: number): number {
-  return Math.round(cents * 0.9);
-}
-
 // ─── WhatsApp ─────────────────────────────────────────────────────────────
 
 function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
@@ -252,15 +242,6 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const phoneRef = useRef<HTMLInputElement>(null);
   // Brief "got it" beat shown on the CTA before the Stripe redirect lands.
   const [booked, setBooked] = useState(false);
-  // Book-ahead (tomorrow) chips stay tucked away until asked for — keeps the
-  // default "When?" row to one line. Collapsing while a tomorrow slot is
-  // picked falls back to "Now" so the visible row never looks unselected.
-  const [showAhead, setShowAhead] = useState(false);
-  const toggleAhead = () => setShowAhead(prev => {
-    const next = !prev;
-    if (!next && when.startsWith('Tomorrow')) setWhen('Now');
-    return next;
-  });
   // Progressive disclosure: time / duration / area collapse into one summary
   // line so a new visitor sees only phone + address + Book. Smart defaults are
   // already set, so the summary is accurate before it's ever opened.
@@ -305,9 +286,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
 
-  const isScheduledAhead = when.startsWith('Tomorrow');
-  const baseCents  = getPriceCents(cat.slug, size);
-  const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
+  // One price, no discounts: priceCents is the student's payout base on the
+  // server, so a customer discount here would come out of their wage. Any
+  // future discount must be a Stripe coupon, never a cut to this number.
+  const priceCents = getPriceCents(cat.slug, size);
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
   const ctaLabel = [
@@ -343,7 +325,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
           category:         cat.slug,
           when_label:       when,
           size_label:       size,
-          scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
+          scheduled:        false,
           note:             '',
           customer_name:    'Guest', // name collected by Stripe at checkout
           customer_phone:   phoneClean,
@@ -553,12 +535,6 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                     </span>
                   )}
                 </div>
-                {isScheduledAhead && baseCents && (
-                  <p className="flex items-center justify-between px-4 pb-2.5 -mt-1 text-[11px]">
-                    <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
-                    <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
-                  </p>
-                )}
 
                 {/* All-in total — surfaces the 7.5% service fee upfront so the
                     Stripe checkout amount isn't a surprise. */}
@@ -590,7 +566,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                       className="overflow-hidden border-t border-foreground/8"
                     >
                       <div className="space-y-5 px-4 py-4">
-                        {/* When? — "Now" pre-selected; book-ahead behind a toggle */}
+                        {/* When? — "Now" pre-selected; later times today optional */}
                         <div>
                           <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">When?</p>
                           <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
@@ -600,37 +576,6 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                               </OptionChip>
                             ))}
                           </div>
-                          <button
-                            type="button"
-                            onClick={toggleAhead}
-                            className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-sage/30 bg-sage/8 px-3 py-1.5 text-[12px] font-semibold text-sage-dark transition-colors hover:bg-sage/14"
-                            aria-expanded={showAhead}
-                          >
-                            <span aria-hidden="true">📅</span>
-                            Book ahead &amp; save 10%
-                            <motion.span animate={{ rotate: showAhead ? 180 : 0 }} transition={{ duration: 0.2 }} className="inline-flex" aria-hidden="true">
-                              <ChevronDown className="h-3.5 w-3.5" />
-                            </motion.span>
-                          </button>
-                          <AnimatePresence initial={false}>
-                            {showAhead && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                                className="overflow-hidden"
-                              >
-                                <div className="flex gap-2.5 overflow-x-auto pb-1 pt-2.5 scrollbar-hide -mx-1 px-1">
-                                  {TOMORROW_SLOTS.map(opt => (
-                                    <OptionChip key={opt} group="when" active={when === opt} onClick={() => setWhen(opt)}>
-                                      {opt}
-                                    </OptionChip>
-                                  ))}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
                         </div>
 
                         {/* How long? — sensible default pre-selected */}
