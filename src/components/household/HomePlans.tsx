@@ -75,7 +75,7 @@ export const HomePlans: React.FC = () => {
           href={`${teamWhatsAppHref}?text=${encodeURIComponent(BUSINESS_WA_TEXT)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-10 block w-full rounded-3xl border border-white/12 bg-white/[0.06] p-6 sm:p-7 hover:bg-white/[0.09] hover:border-white/20 active:scale-[0.99] transition-[background-color,border-color,transform] duration-150"
+          className="mt-10 block w-full rounded-3xl border border-white/12 bg-white/[0.06] p-6 sm:p-7 hover:bg-white/[0.09] hover:border-white/20 hover:-translate-y-0.5 active:scale-[0.99] transition-[background-color,border-color,transform] duration-150"
         >
           <div className="sm:flex sm:items-center sm:gap-6">
             <div className="flex items-start gap-4 flex-1">
