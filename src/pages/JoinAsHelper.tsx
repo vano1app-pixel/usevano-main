@@ -10,6 +10,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
+import { Reveal } from '@/components/Reveal';
 
 
 const CATEGORY_OPTIONS = [
@@ -438,8 +439,8 @@ export const JoinAsHelper: React.FC = () => {
                         onClick={() => toggleCategory(slug)}
                         aria-pressed={active}
                         className={cn(
-                          'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium',
-                          'transition-[background-color,border-color,color] duration-150',
+                          'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium active:scale-[0.97]',
+                          'transition-[background-color,border-color,color,transform] duration-150',
                           active
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-secondary/60 border-border/50 text-foreground hover:bg-secondary hover:border-border',
@@ -547,6 +548,7 @@ export const JoinAsHelper: React.FC = () => {
         </section>
 
         {/* Job types */}
+        <Reveal>
         <section className="px-4 py-12 max-w-lg mx-auto">
           <p className="eyebrow mb-3">What you'll do</p>
           <h2 className="text-2xl font-semibold text-foreground mb-6">Jobs available right now</h2>
@@ -554,7 +556,7 @@ export const JoinAsHelper: React.FC = () => {
             {JOBS.map(({ emoji, label }) => (
               <div
                 key={label}
-                className="bg-secondary/60 rounded-2xl p-4 flex items-center gap-3"
+                className="bg-secondary/60 rounded-2xl p-4 flex items-center gap-3 transition-[transform,box-shadow,background-color] duration-200 hover:-translate-y-0.5 hover:bg-secondary hover:shadow-tinted"
               >
                 <span className="text-2xl leading-none">{emoji}</span>
                 <span className="text-sm font-medium text-foreground">{label}</span>
@@ -562,8 +564,10 @@ export const JoinAsHelper: React.FC = () => {
             ))}
           </div>
         </section>
+        </Reveal>
 
         {/* Requirements */}
+        <Reveal>
         <section className="px-4 py-12 bg-sage-light">
           <div className="max-w-lg mx-auto">
             <p className="eyebrow mb-3">What we need from you</p>
@@ -578,8 +582,10 @@ export const JoinAsHelper: React.FC = () => {
             </ul>
           </div>
         </section>
+        </Reveal>
 
         {/* How it works */}
+        <Reveal>
         <section className="px-4 py-12 max-w-lg mx-auto">
           <p className="eyebrow mb-3">How it works</p>
           <h2 className="text-2xl font-semibold text-foreground mb-6">Three steps to your first job</h2>
@@ -601,6 +607,7 @@ export const JoinAsHelper: React.FC = () => {
             ))}
           </ol>
         </section>
+        </Reveal>
       </main>
 
       <HouseholdFooter />
