@@ -8,6 +8,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
+import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import { celebrateBooking } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
@@ -496,8 +497,12 @@ const TrackBooking = () => {
         body: { booking_id: bookingId, type: 'customer_cancel' },
       });
       if (error) throw error;
+      const wasPaid = !!booking?.paid_at;
       setBooking((b) => b ? { ...b, status: 'cancelled' } : b);
-      toast({ title: 'Booking cancelled', description: 'Your refund will arrive in 5–7 business days.' });
+      toast({
+        title: 'Booking cancelled',
+        description: wasPaid ? 'Your refund will arrive in 5–7 business days.' : "You weren't charged.",
+      });
       setCancelConfirm(false);
     } catch {
       toast({ title: 'Could not cancel', description: 'Please WhatsApp us on +353 89 981 7111', variant: 'destructive' });
@@ -702,6 +707,10 @@ const TrackBooking = () => {
           )}
         </div>
 
+        {/* iOS add-to-home-screen nudge — only shows on iOS Safari when not yet
+            installed; makes web-push live updates reliable. Purely additive. */}
+        {!isCancelled && !isCompleted && <IosInstallTip />}
+
         {/* Hero live-tracking map — the prominent "watch your helper approach"
             view while they're on the way. Helper + destination markers, a line
             between them, distance + ETA + live freshness. Falls back to the job
@@ -858,14 +867,63 @@ const TrackBooking = () => {
           </motion.div>
         )}
 
-        {/* After a helper accepts there's no self-serve cancel — give a clear
-            path so the customer isn't stuck (cancel/refund is handled manually). */}
+        {/* Self-serve cancel — available right up until the helper starts the
+            job (accepted/on_way/arrived). Paid bookings get a full refund; unpaid
+            ones just cancel. Once in_progress/completed it switches to the
+            "message us" WhatsApp path below. */}
         {['accepted', 'on_way', 'arrived'].includes(booking.status) && (
+          <div className="mt-3">
+            {!cancelConfirm ? (
+              <button
+                onClick={() => setCancelConfirm(true)}
+                className="w-full text-xs text-muted-foreground py-2 underline underline-offset-2 text-center"
+              >
+                {booking.paid_at ? 'Cancel this booking?' : 'Cancel this booking'}
+              </button>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <p className="text-sm font-semibold text-foreground">Cancel this booking?</p>
+                  <button onClick={() => setCancelConfirm(false)} className="text-muted-foreground -mt-0.5 -mr-0.5">
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                  {booking.paid_at
+                    ? 'Free cancellation with full refund (before your helper starts). Your refund arrives within 5–7 business days.'
+                    : "You haven't been charged — cancelling now is free."}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCancelConfirm(false)}
+                    className="flex-1 h-10 rounded-xl bg-secondary text-sm font-semibold text-foreground transition-colors hover:bg-secondary/70"
+                  >
+                    Keep it
+                  </button>
+                  <button
+                    onClick={() => void handleCancel()}
+                    disabled={cancelling}
+                    className="flex-1 h-10 rounded-xl bg-destructive text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 transition-opacity"
+                  >
+                    {cancelling ? <Loader2 size={15} className="animate-spin" /> : 'Yes, cancel'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {/* Helper is already working — cancellation is manual from here. */}
+        {['in_progress', 'completed'].includes(booking.status) && (
           <a
             href="https://wa.me/353899817111"
             className="mt-3 block text-center text-xs text-muted-foreground underline underline-offset-2 py-2"
           >
-            Need to cancel or change this booking? Message us
+            Need to cancel? Message us
           </a>
         )}
 
@@ -1106,7 +1164,9 @@ const TrackBooking = () => {
                         </button>
                       </div>
                       <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-                        You'll receive a full refund within 5–7 business days.
+                        {booking.paid_at
+                          ? "You'll receive a full refund within 5–7 business days."
+                          : "You haven't been charged — cancelling now is free."}
                       </p>
                       <div className="flex gap-2">
                         <button

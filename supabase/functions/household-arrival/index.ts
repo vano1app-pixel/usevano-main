@@ -59,7 +59,8 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
-    const action = body?.action === 'verify' || body?.action === 'finished' ? body.action : 'request';
+    const action = (body?.action === 'verify' || body?.action === 'finished' || body?.action === 'start_without_code')
+      ? body.action : 'request';
     const code = typeof body?.code === 'string' ? body.code.trim() : '';
     if (!bookingId) return bad(400, 'booking_id required');
 
@@ -67,9 +68,9 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts')
+      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null } | null; error: unknown };
+      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null } | null; error: unknown };
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
@@ -123,6 +124,54 @@ serve(async (req) => {
         body: JSON.stringify({ booking_id: bookingId }),
       }).catch(() => {});
       return json(200, { ok: true, status: 'in_progress', helper_finished: true });
+    }
+
+    if (action === 'start_without_code') {
+      // "Customer not available" — the helper is at the address but can't reach
+      // the customer to read out the arrival code. They start the job without
+      // the proof-of-presence handshake. Guards mirror 'verify': must be at
+      // 'arrived' (they tapped "I've reached" first) and not already verified.
+      if (booking.arrival_verified_at) {
+        return json(200, { ok: true, verified: false, started: true, status: 'in_progress', job_ends_at: null });
+      }
+      if (booking.status !== 'arrived') return bad(409, `Can only start without code from 'arrived' (status: ${booking.status})`);
+
+      const nowMs = Date.now();
+      const mins = isTimedCategory(booking.category) ? bookedDurationMinutes(booking.category, booking.booking_data) : null;
+      const jobEndsAt = mins ? new Date(nowMs + mins * 60_000).toISOString() : null;
+
+      const { error: startErr } = await supabase
+        .from('household_bookings')
+        .update({ arrival_verified_at: new Date(nowMs).toISOString(), status: 'in_progress', job_ends_at: jobEndsAt, arrival_skipped: true, arrival_attempts: 0 })
+        .eq('id', bookingId)
+        .eq('student_id', callerId)
+        .eq('status', 'arrived');
+      if (startErr) { console.error('[household-arrival] start_without_code update failed', startErr); return bad(500, 'Could not start job'); }
+
+      await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'in_progress', note: 'Started without arrival code — customer not present.' });
+
+      // Customer: the 'arrived' push already fired when they tapped "I've
+      // reached"; reuse it so the tracking screen surfaces the change. Best-effort.
+      void sendHouseholdPush(bookingId, 'arrived');
+
+      // Admin: flag the unverified start so the owner can keep an eye on it.
+      // Best-effort — never block the helper's flow on the alert.
+      const catLabel = booking.category ?? 'job';
+      const ref = bookingId.slice(-8).toUpperCase();
+      void fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'arrival_unverified',
+          booking_id: bookingId,
+          category: catLabel,
+          customer_name: booking.customer_name ?? '',
+          message: `⚠️ *Started without arrival code* (${ref})\n${catLabel} for ${booking.customer_name ?? 'customer'} — helper reported the customer wasn't present and started the job without the 4-digit code.`,
+          subject: `⚠️ Job started without arrival code — ${catLabel} — ${ref}`,
+        }),
+      }).catch(() => {});
+
+      return json(200, { ok: true, verified: false, started: true, status: 'in_progress', job_ends_at: jobEndsAt });
     }
 
     // action === 'verify'
