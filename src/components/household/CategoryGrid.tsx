@@ -535,6 +535,11 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 </Button>
               </motion.div>
 
+              <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                A nearby helper usually replies in minutes
+              </p>
+
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
                 <Button
                   type="button"
@@ -629,7 +634,7 @@ export const CategoryGrid: React.FC = () => {
         {usual && (
           <button
             onClick={() => openSheet(usual.cat, usual.size)}
-            className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left hover:bg-sage/14 active:scale-[0.98] transition-[background-color,transform] duration-150"
+            className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left shadow-sm hover:bg-sage/14 hover:shadow-md active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-150"
           >
             <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
             <span className="flex-1 min-w-0">

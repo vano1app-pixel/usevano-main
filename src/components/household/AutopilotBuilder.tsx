@@ -193,8 +193,8 @@ export const AutopilotBuilder: React.FC = () => {
                 onClick={() => toggle(s.key)}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
-                  'w-full flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors duration-150',
-                  on ? 'border-sage/50 bg-sage-light' : 'border-border/60 bg-white hover:border-foreground/20',
+                  'w-full flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[background-color,border-color,box-shadow] duration-150',
+                  on ? 'border-sage bg-sage-light shadow-sm' : 'border-border/60 bg-white hover:border-foreground/25 hover:shadow-sm',
                 )}
               >
                 <span className={cn(
