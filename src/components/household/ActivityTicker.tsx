@@ -67,6 +67,7 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
     (async () => {
       try {
         const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data } = await (supabase as any)
           .from('household_bookings')
           .select('category, city, created_at')
@@ -103,6 +104,11 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
       onMouseLeave={() => setPaused(false)}
       aria-label="Recent bookings"
       aria-live="off"
+      // Feather the left/right edges so items melt in and out instead of a hard cut
+      style={{
+        WebkitMaskImage: 'linear-gradient(to right, transparent, #000 8%, #000 92%, transparent)',
+        maskImage: 'linear-gradient(to right, transparent, #000 8%, #000 92%, transparent)',
+      }}
     >
       <div
         className="flex animate-scroll-left whitespace-nowrap py-2.5"

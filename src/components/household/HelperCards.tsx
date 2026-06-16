@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
+import { cn } from '@/lib/utils';
 
 interface HelperRow {
   id:             string;
@@ -19,6 +21,11 @@ interface HelperRow {
 function Card({ h }: { h: HelperRow }) {
   const cats = (h.categories ?? []).slice(0, 3);
   const firstName = h.name.split(' ')[0];
+  // Fade the photo in once it loads instead of popping — cached images report
+  // complete on mount, so check for that or they'd stay invisible.
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  useEffect(() => { if (imgRef.current?.complete) setImgLoaded(true); }, []);
 
   return (
     <Link
@@ -29,9 +36,14 @@ function Card({ h }: { h: HelperRow }) {
       <article className="h-full bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col transition-[transform,box-shadow,border-color] duration-200 ease-out group-hover:-translate-y-1 group-hover:shadow-tinted-lg group-hover:border-border/70 group-active:scale-[0.98]">
         <div className="w-full aspect-[4/3] overflow-hidden bg-secondary/40 flex-shrink-0">
           <img
+            ref={imgRef}
             src={h.photo_url}
             alt={h.name}
-            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+            onLoad={() => setImgLoaded(true)}
+            className={cn(
+              'w-full h-full object-cover transition-[transform,opacity,filter] duration-500 ease-out group-hover:scale-[1.03]',
+              imgLoaded ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-md scale-105',
+            )}
             loading="lazy"
           />
         </div>
@@ -65,7 +77,7 @@ function Card({ h }: { h: HelperRow }) {
             </div>
           )}
           <span className="text-[11px] font-semibold text-sage opacity-0 group-hover:opacity-100 transition-opacity duration-150 hidden sm:block">
-            View profile →
+            View profile <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
           </span>
         </div>
       </article>
@@ -166,15 +178,22 @@ export const HelperCards: React.FC = () => {
       ) : (
         <div className="relative">
           {/* Left arrow */}
-          {canScrollLeft && (
-            <button
-              onClick={() => scroll('left')}
-              aria-label="Scroll left"
-              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-card border border-border/60 shadow-md hover:bg-secondary transition-colors duration-150"
-            >
-              <ChevronLeft className="w-4 h-4 text-foreground/70" />
-            </button>
-          )}
+          <AnimatePresence>
+            {canScrollLeft && (
+              <motion.button
+                key="arrow-left"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => scroll('left')}
+                aria-label="Scroll left"
+                className="absolute left-1 top-1/2 -translate-y-1/2 z-10 hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-card border border-border/60 shadow-md hover:bg-secondary transition-colors duration-150"
+              >
+                <ChevronLeft className="w-4 h-4 text-foreground/70" />
+              </motion.button>
+            )}
+          </AnimatePresence>
 
           {/* Scroll container */}
           <div
@@ -187,15 +206,22 @@ export const HelperCards: React.FC = () => {
           </div>
 
           {/* Right arrow */}
-          {canScrollRight && (
-            <button
-              onClick={() => scroll('right')}
-              aria-label="Scroll right"
-              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-card border border-border/60 shadow-md hover:bg-secondary transition-colors duration-150"
-            >
-              <ChevronRight className="w-4 h-4 text-foreground/70" />
-            </button>
-          )}
+          <AnimatePresence>
+            {canScrollRight && (
+              <motion.button
+                key="arrow-right"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => scroll('right')}
+                aria-label="Scroll right"
+                className="absolute right-1 top-1/2 -translate-y-1/2 z-10 hidden sm:flex items-center justify-center w-9 h-9 rounded-full bg-card border border-border/60 shadow-md hover:bg-secondary transition-colors duration-150"
+              >
+                <ChevronRight className="w-4 h-4 text-foreground/70" />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </section>
