@@ -22,6 +22,12 @@ self.addEventListener('message', (event: MessageEvent) => {
   }
 });
 
+// autoUpdate: take over as soon as a new deploy installs, so visitors aren't
+// left on a stale cached shell; clients.claim() below then controls open tabs.
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
