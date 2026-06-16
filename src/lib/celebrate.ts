@@ -31,3 +31,26 @@ export function microCelebrate(): void {
     disableForReducedMotion: true,
   });
 }
+
+/**
+ * Bigger, brand-coloured burst for the headline "you're booked & paid"
+ * moment on the tracking screen — a centre pop plus two side cannons a beat
+ * later. Reduced-motion safe (no-op when the user has opted out).
+ */
+export function celebrateBooking(): void {
+  if (reducedMotion()) return;
+  if (typeof window === 'undefined') return;
+  const base = {
+    spread: 70,
+    ticks: 160,
+    gravity: 1,
+    zIndex: 80,
+    colors: ['#4a7c59', '#f5b301', '#10b981', '#ffffff'],
+    disableForReducedMotion: true,
+  } as const;
+  confetti({ ...base, particleCount: 60, startVelocity: 38, origin: { x: 0.5, y: 0.3 } });
+  setTimeout(() => {
+    confetti({ ...base, particleCount: 28, angle: 60, origin: { x: 0, y: 0.65 } });
+    confetti({ ...base, particleCount: 28, angle: 120, origin: { x: 1, y: 0.65 } });
+  }, 140);
+}

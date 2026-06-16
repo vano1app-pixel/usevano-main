@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Loader2, CreditCard, MessageCircle, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,35 @@ function isoPlusDays(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Roll a cents value to a new target so the headline price feels alive when
+// services are ticked. Snaps instantly when the user prefers reduced motion.
+function useAnimatedCents(target: number): number {
+  const [val, setVal] = useState(target);
+  const fromRef = useRef(target);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      fromRef.current = target;
+      setVal(target);
+      return;
+    }
+    const from = fromRef.current;
+    if (from === target) return;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min((t - start) / 350, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = Math.round(from + (target - from) * eased);
+      setVal(v);
+      fromRef.current = v;
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return val;
+}
+
 export const AutopilotBuilder: React.FC = () => {
   const remembered = useMemo(() => loadBookingMemory(), []);
   const [mode, setMode] = useState<Mode>('ongoing');
@@ -115,8 +144,11 @@ export const AutopilotBuilder: React.FC = () => {
   const perDayCents = billing === 'weekly'
     ? Math.round((totalCents * 52) / 365 / 100) * 100
     : Math.round((totalCents * 12) / 365 / 100) * 100;
+  // Roll the headline per-day figure to its new value as services are ticked
+  // (whole-euro steps so it reads as a clean counter, not flickering cents).
+  const animPerDayCents = useAnimatedCents(perDayCents);
   // Tiny picks (plants alone) round below €1/day — "<€1" beats showing €0
-  const perDayLabel = perDayCents === 0 ? '<€1' : euro(perDayCents);
+  const perDayLabel = animPerDayCents === 0 ? '<€1' : euro(Math.round(animPerDayCents / 100) * 100);
 
   function toggle(key: string) {
     setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);

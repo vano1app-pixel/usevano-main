@@ -604,8 +604,11 @@ export const CategoryGrid: React.FC = () => {
               <motion.button
                 key={cat.slug}
                 onClick={() => openSheet(cat)}
-                whileHover={{ y: -3, scale: 1.04 }}
-                whileTap={{ scale: 0.93 }}
+                initial="rest"
+                animate="rest"
+                whileHover="hover"
+                whileTap="tap"
+                variants={{ rest: { y: 0, scale: 1 }, hover: { y: -3, scale: 1.04 }, tap: { scale: 0.93 } }}
                 transition={{ type: 'spring', stiffness: 500, damping: 28 }}
                 className={cn(
                   'relative flex flex-col items-center justify-center gap-1.5',
@@ -621,7 +624,14 @@ export const CategoryGrid: React.FC = () => {
                     Popular
                   </span>
                 )}
-                <span className="text-2xl leading-none select-none" aria-hidden="true">{cat.emoji}</span>
+                <motion.span
+                  className="text-2xl leading-none select-none"
+                  aria-hidden="true"
+                  variants={{ rest: { rotate: 0, scale: 1 }, hover: { rotate: [0, -12, 10, -7, 0], scale: 1.18 }, tap: { scale: 0.85 } }}
+                  transition={{ duration: 0.45, ease: 'easeInOut' }}
+                >
+                  {cat.emoji}
+                </motion.span>
                 <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
                 {/* Smart default price — the key info before you tap */}
                 <span className="text-[11px] font-medium text-foreground/60 leading-tight tabular-nums">{shown}</span>

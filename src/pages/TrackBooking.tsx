@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
+import { celebrateBooking } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -278,6 +279,15 @@ const TrackBooking = () => {
       setAlreadyRated(!!localStorage.getItem(`vano_rated_${bookingId}`));
     }
   }, [bookingId]);
+
+  // 🎉 Celebrate the moment they land back booked & paid (once per mount).
+  const celebratedRef = useRef(false);
+  useEffect(() => {
+    if (justPaid && !celebratedRef.current) {
+      celebratedRef.current = true;
+      celebrateBooking();
+    }
+  }, [justPaid]);
 
   // ?rate=N deep link from the completion email — pre-select that star and
   // bring the rating card into view once the booking has loaded.
