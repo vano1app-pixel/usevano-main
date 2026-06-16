@@ -153,6 +153,16 @@ const listItem: Variants = {
   show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 440, damping: 32 } },
 };
 
+// The category tiles cascade up as the booking card lands.
+const gridContainer: Variants = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.045, delayChildren: 0.06 } },
+};
+const tileItem: Variants = {
+  hidden: { opacity: 0, y: 16, scale: 0.94 },
+  show:   { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 460, damping: 30 } },
+};
+
 // ─── Chip ────────────────────────────────────────────────────────────────────
 
 interface ChipProps {
@@ -678,7 +688,7 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
       style={{ rotateX, rotateY, transformPerspective: 700 }}
       className={cn(
         'relative flex flex-col items-center justify-center gap-1.5',
-        'min-h-[96px] rounded-2xl px-2 py-3 border',
+        'w-full h-full min-h-[96px] rounded-2xl px-2 py-3 border',
         'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
         'transition-[background-color,border-color,box-shadow] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
@@ -735,12 +745,19 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
-      <div id="category-grid" aria-label="What do you need help with?">
-        <div className="grid grid-cols-3 gap-2.5">
+      <div id="category-grid" aria-label="What do you need help with?" className="scroll-mt-24">
+        <motion.div
+          className="grid grid-cols-3 gap-2.5"
+          variants={gridContainer}
+          initial="hidden"
+          animate="show"
+        >
           {CATEGORIES.map((cat) => (
-            <CategoryTile key={cat.slug} cat={cat} onOpen={() => openSheet(cat)} />
+            <motion.div key={cat.slug} variants={tileItem}>
+              <CategoryTile cat={cat} onOpen={() => openSheet(cat)} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* One-tap rebook — remembers the last job booked on this device */}
         {usual && (
