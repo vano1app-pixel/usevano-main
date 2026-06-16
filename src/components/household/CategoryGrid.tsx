@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion } from 'framer-motion';
 import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -566,6 +566,68 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
 
 // ─── Main grid ────────────────────────────────────────────────────────────
 
+// One category tile. A subtle 3D parallax tilt follows the cursor on hover
+// (desktop), composed with the lift/press + emoji wiggle. The tilt is skipped
+// for reduced-motion users; the lift/wiggle are gated by the app MotionConfig.
+const TILE_TILT_DEG = 8;
+
+const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, onOpen }) => {
+  const reduce = useReducedMotion();
+  const rx = useMotionValue(0);
+  const ry = useMotionValue(0);
+  const rotateX = useSpring(rx, { stiffness: 300, damping: 20 });
+  const rotateY = useSpring(ry, { stiffness: 300, damping: 20 });
+  const shown = cardPrice(cat);
+
+  const handleMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (reduce) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    ry.set(((e.clientX - r.left) / r.width - 0.5) * TILE_TILT_DEG * 2);
+    rx.set(-((e.clientY - r.top) / r.height - 0.5) * TILE_TILT_DEG * 2);
+  };
+  const handleLeave = () => { rx.set(0); ry.set(0); };
+
+  return (
+    <motion.button
+      onClick={onOpen}
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+      initial="rest"
+      animate="rest"
+      whileHover="hover"
+      whileTap="tap"
+      variants={{ rest: { y: 0, scale: 1 }, hover: { y: -3, scale: 1.04 }, tap: { scale: 0.93 } }}
+      transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+      style={{ rotateX, rotateY, transformPerspective: 700 }}
+      className={cn(
+        'relative flex flex-col items-center justify-center gap-1.5',
+        'min-h-[96px] rounded-2xl px-2 py-3 border',
+        'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
+        'transition-[background-color,border-color,box-shadow] duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+      )}
+    >
+      {/* Popular badge */}
+      {cat.popular && (
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10">
+          Popular
+        </span>
+      )}
+      <motion.span
+        className="text-2xl leading-none select-none"
+        aria-hidden="true"
+        variants={{ rest: { rotate: 0, scale: 1 }, hover: { rotate: [0, -12, 10, -7, 0], scale: 1.18 }, tap: { scale: 0.85 } }}
+        transition={{ duration: 0.45, ease: 'easeInOut' }}
+      >
+        {cat.emoji}
+      </motion.span>
+      <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
+      {/* Smart default price — the key info before you tap */}
+      <span className="text-[11px] font-medium text-foreground/60 leading-tight tabular-nums">{shown}</span>
+    </motion.button>
+  );
+};
+
 export const CategoryGrid: React.FC = () => {
   const [selected, setSelected] = useState<{ cat: Category; size?: string } | null>(null);
 
@@ -598,46 +660,9 @@ export const CategoryGrid: React.FC = () => {
     <>
       <div id="category-grid" aria-label="What do you need help with?">
         <div className="grid grid-cols-3 gap-2.5">
-          {CATEGORIES.map((cat, idx) => {
-            const shown = cardPrice(cat);
-            return (
-              <motion.button
-                key={cat.slug}
-                onClick={() => openSheet(cat)}
-                initial="rest"
-                animate="rest"
-                whileHover="hover"
-                whileTap="tap"
-                variants={{ rest: { y: 0, scale: 1 }, hover: { y: -3, scale: 1.04 }, tap: { scale: 0.93 } }}
-                transition={{ type: 'spring', stiffness: 500, damping: 28 }}
-                className={cn(
-                  'relative flex flex-col items-center justify-center gap-1.5',
-                  'min-h-[96px] rounded-2xl px-2 py-3 border',
-                  'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
-                  'transition-[background-color,border-color,box-shadow] duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                )}
-              >
-                {/* Popular badge */}
-                {cat.popular && (
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10">
-                    Popular
-                  </span>
-                )}
-                <motion.span
-                  className="text-2xl leading-none select-none"
-                  aria-hidden="true"
-                  variants={{ rest: { rotate: 0, scale: 1 }, hover: { rotate: [0, -12, 10, -7, 0], scale: 1.18 }, tap: { scale: 0.85 } }}
-                  transition={{ duration: 0.45, ease: 'easeInOut' }}
-                >
-                  {cat.emoji}
-                </motion.span>
-                <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
-                {/* Smart default price — the key info before you tap */}
-                <span className="text-[11px] font-medium text-foreground/60 leading-tight tabular-nums">{shown}</span>
-              </motion.button>
-            );
-          })}
+          {CATEGORIES.map((cat) => (
+            <CategoryTile key={cat.slug} cat={cat} onOpen={() => openSheet(cat)} />
+          ))}
         </div>
 
         {/* One-tap rebook — remembers the last job booked on this device */}
