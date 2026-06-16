@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion } from 'framer-motion';
-import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ChevronDown, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -138,19 +138,63 @@ function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
   return lines.join('\n');
 }
 
-// ─── Chip helper ──────────────────────────────────────────────────────────
+// ─── Animated chip + stagger ────────────────────────────────────────────────
 
-const chip = (active: boolean, accent?: boolean) => cn(
-  'px-4 py-2.5 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none',
-  'transition-[background-color,color,border-color] duration-150',
-  active
-    ? accent
-      ? 'bg-emerald-500 text-white border-emerald-500'
-      : 'bg-foreground text-background border-foreground'
-    : accent
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold'
-      : 'bg-background text-foreground border-border hover:border-foreground/30',
-);
+// A pill whose selected state is a single shared element that physically
+// slides between options (framer `layoutId`) instead of every chip swapping
+// colour in place — the segmented-control feel. The sliding highlight is
+// dropped for reduced-motion users; it just appears under the active chip.
+const OptionChip: React.FC<{
+  active:   boolean;
+  group:    string;
+  onClick:  () => void;
+  liveDot?: boolean;
+  children: React.ReactNode;
+}> = ({ active, group, onClick, liveDot, children }) => {
+  const reduce = useReducedMotion();
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+      aria-pressed={active}
+      className={cn(
+        'relative flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium',
+        'flex-shrink-0 cursor-pointer select-none border transition-colors duration-200',
+        active
+          ? 'border-transparent text-background'
+          : 'border-border bg-background text-foreground hover:border-foreground/30',
+      )}
+    >
+      {active && (
+        <motion.span
+          layoutId={reduce ? undefined : `chip-${group}`}
+          className="absolute inset-0 rounded-full bg-foreground"
+          transition={{ type: 'spring', stiffness: 480, damping: 34 }}
+        />
+      )}
+      {liveDot && (
+        <span
+          className={cn('relative z-10 h-1.5 w-1.5 rounded-full animate-pulse', active ? 'bg-emerald-300' : 'bg-emerald-500')}
+          aria-hidden="true"
+        />
+      )}
+      <span className="relative z-10">{children}</span>
+    </motion.button>
+  );
+};
+
+// Sheet content cascades in: each section rises + fades just after the one
+// above it (Emil's stagger — ~50ms apart, decorative, never blocks input).
+const sheetContainer = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.05, delayChildren: 0.12 } },
+};
+const sheetItem = {
+  hidden: { opacity: 0, y: 12 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.36, ease: [0.16, 1, 0.3, 1] as const } },
+};
 
 // ─── Bottom sheet ─────────────────────────────────────────────────────────
 
@@ -183,6 +227,15 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+  // Book-ahead (tomorrow) chips stay tucked away until asked for — keeps the
+  // default "When?" row to one line. Collapsing while a tomorrow slot is
+  // picked falls back to "Now" so the visible row never looks unselected.
+  const [showAhead, setShowAhead] = useState(false);
+  const toggleAhead = () => setShowAhead(prev => {
+    const next = !prev;
+    if (!next && when.startsWith('Tomorrow')) setWhen('Now');
+    return next;
+  });
 
   function forgetMe() {
     clearBookingMemory();
@@ -304,259 +357,291 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-foreground/15" />
-        </div>
-
-        <div className="px-5 pb-6 pt-2">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <div className="flex items-center gap-2.5 mb-0.5">
-                <span className="text-2xl leading-none" aria-hidden="true">{cat.emoji}</span>
-                <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
+        {/* Hero header — a soft branded wash, the drag handle, a big emoji
+            tile that springs in, and a one-line reassurance. Gives the sheet
+            a moment of personality instead of opening on a wall of inputs. */}
+        <div className="relative overflow-hidden rounded-t-3xl">
+          <div className="absolute inset-0 bg-gradient-to-b from-sage-light to-cream" aria-hidden="true" />
+          <div className="relative px-5 pt-3 pb-4">
+            <div className="flex justify-center mb-3">
+              <div className="w-10 h-1 rounded-full bg-foreground/15" />
+            </div>
+            <div className="flex items-start gap-3.5">
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 360, damping: 17, delay: 0.05 }}
+                className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-3xl shadow-md"
+                aria-hidden="true"
+              >
+                {cat.emoji}
+              </motion.div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="font-display text-2xl font-bold leading-tight text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
                   {cat.label}
                 </h2>
+                <p className="mt-0.5 text-sm text-foreground/60">{cat.hint}</p>
               </div>
-              <p className="text-sm text-muted-foreground ml-9">{cat.hint}</p>
+              <button
+                onClick={onClose}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-foreground/8 transition-colors hover:bg-foreground/12"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4 text-foreground/60" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center hover:bg-foreground/12 transition-colors flex-shrink-0 mt-0.5"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4 text-foreground/60" />
-            </button>
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-[12px] font-medium text-sage-dark shadow-sm ring-1 ring-sage/15">
+              <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+              Free to book — you only pay when a helper accepts
+            </div>
           </div>
+        </div>
 
-          <form onSubmit={handleBook} className="space-y-5">
-            {/* Welcome back — details remembered from the last booking */}
-            {prefilled && (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
-                <p className="text-xs text-foreground/70">
-                  <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
-                </p>
-                <button
-                  type="button"
-                  onClick={forgetMe}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-
-            {/* Phone first — the sheet slides up straight onto this field.
-                Time + duration below are pre-picked, so number + address is
-                all a new visitor has to type. */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
-              <input
-                type="tel"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="08x xxx xxxx"
-                autoComplete="tel"
-                autoFocus={!prefilled}
-                required
-                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
-            </div>
-
-            {/* Address — Eircode search or current location */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
-              <AddressPicker
-                value={address}
-                coords={coords}
-                error={false}
-                onAddress={(addr, lat, lng, locality) => {
-                  setAddress(addr);
-                  setCoords({ lat, lng });
-                  // Eircode/address already knows the area — don't make them pick
-                  const area = deriveArea(locality, { lat, lng });
-                  if (area) { setCity(area); setCityAuto(true); }
-                }}
-                onTextChange={(t) => { setAddress(t); setCoords(null); }}
-                onBlur={() => {}}
-                placeholder="Address or Eircode…"
-                showMapPreview={false}
-              />
-              <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
-            </div>
-
-            {/* When? — "Now" pre-selected; chips are an optional tweak */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {timeSlots.map(opt => (
-                  <motion.button
-                    key={opt}
+        <div className="px-5 pb-6 pt-3">
+          <form onSubmit={handleBook}>
+            <motion.div variants={sheetContainer} initial="hidden" animate="show" className="space-y-5">
+              {/* Welcome back — details remembered from the last booking */}
+              {prefilled && (
+                <motion.div variants={sheetItem} className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
+                  <p className="text-xs text-foreground/70">
+                    <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
+                  </p>
+                  <button
                     type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt, opt === 'Now')}
+                    onClick={forgetMe}
+                    className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
                   >
-                    {opt}
-                  </motion.button>
-                ))}
-              </div>
-              {/* Book ahead — server grants 10% off scheduled bookings */}
-              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {TOMORROW_SLOTS.map(opt => (
-                  <motion.button
-                    key={opt}
-                    type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt)}
-                  >
-                    {opt}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
+                    Clear
+                  </button>
+                </motion.div>
+              )}
 
-            {/* How long? — sensible default pre-selected */}
-            {cat.sizes && (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
-                  {cat.sizeLabel ?? 'How long?'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {cat.sizes.map(opt => (
-                    <motion.button
-                      key={opt}
-                      type="button"
-                      onClick={() => setSize(opt)}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(size === opt)}
-                    >
+              {/* Phone first — the sheet slides up straight onto this field.
+                  Time + duration below are pre-picked, so number + address is
+                  all a new visitor has to type. */}
+              <motion.div variants={sheetItem}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="08x xxx xxxx"
+                  autoComplete="tel"
+                  autoFocus={!prefilled}
+                  required
+                  className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
+              </motion.div>
+
+              {/* Address — Eircode search or current location */}
+              <motion.div variants={sheetItem}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
+                <AddressPicker
+                  value={address}
+                  coords={coords}
+                  error={false}
+                  onAddress={(addr, lat, lng, locality) => {
+                    setAddress(addr);
+                    setCoords({ lat, lng });
+                    // Eircode/address already knows the area — don't make them pick
+                    const area = deriveArea(locality, { lat, lng });
+                    if (area) { setCity(area); setCityAuto(true); }
+                  }}
+                  onTextChange={(t) => { setAddress(t); setCoords(null); }}
+                  onBlur={() => {}}
+                  placeholder="Address or Eircode…"
+                  showMapPreview={false}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
+              </motion.div>
+
+              {/* When? — "Now" pre-selected; book-ahead tucked behind a toggle */}
+              <motion.div variants={sheetItem}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+                <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                  {timeSlots.map(opt => (
+                    <OptionChip key={opt} group="when" active={when === opt} liveDot={opt === 'Now'} onClick={() => setWhen(opt)}>
                       {opt}
-                    </motion.button>
+                    </OptionChip>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Area — auto-detected from the address; chips only as fallback */}
-            {cityAuto ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
-                <p className="text-sm text-foreground/75 min-w-0 truncate">
-                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
-                  <span className="text-muted-foreground text-xs"> · from your address</span>
-                </p>
+                {/* Book ahead — server grants 10% off scheduled bookings. One
+                    pill keeps the upsell without a second row of clutter. */}
                 <button
                   type="button"
-                  onClick={() => setCityAuto(false)}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                  onClick={toggleAhead}
+                  className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-sage/30 bg-sage/8 px-3 py-1.5 text-[12px] font-semibold text-sage-dark transition-colors hover:bg-sage/14"
+                  aria-expanded={showAhead}
                 >
-                  Change
+                  <span aria-hidden="true">📅</span>
+                  Book ahead &amp; save 10%
+                  <motion.span animate={{ rotate: showAhead ? 180 : 0 }} transition={{ duration: 0.2 }} className="inline-flex" aria-hidden="true">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </motion.span>
                 </button>
-              </div>
-            ) : (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
-                <div className="flex flex-wrap gap-2">
-                  {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
-                    ? [...SUPPORTED_CITIES]
-                    : [city, ...SUPPORTED_CITIES]
-                  ).map(c => {
-                    // Galway-first: dispatch is live in Galway today. Other cities
-                    // read as "soon" — but a remembered or address-derived area
-                    // stays selectable so returning customers aren't locked out.
-                    const comingSoon = c !== 'Galway' && c !== city;
-                    if (comingSoon) {
-                      return (
-                        <span
-                          key={c}
-                          className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
-                        >
-                          {c} · soon
-                        </span>
-                      );
-                    }
-                    return (
-                      <motion.button
-                        key={c}
-                        type="button"
-                        onClick={() => setCity(c)}
-                        whileTap={{ scale: 0.92 }}
-                        transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                        className={chip(city === c)}
-                      >
-                        {c}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Price summary + CTA */}
-            <div className="space-y-2.5 pt-1">
-              {priceCents && (
-                <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                    <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
-                  </div>
-                  {isScheduledAhead && baseCents && (
-                    <p className="flex items-center justify-between text-[11px] mt-1">
-                      <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
-                      <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
-                    </p>
+                <AnimatePresence initial={false}>
+                  {showAhead && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex gap-2.5 overflow-x-auto pb-1 pt-2.5 scrollbar-hide -mx-1 px-1">
+                        {TOMORROW_SLOTS.map(opt => (
+                          <OptionChip key={opt} group="when" active={when === opt} onClick={() => setWhen(opt)}>
+                            {opt}
+                          </OptionChip>
+                        ))}
+                      </div>
+                    </motion.div>
                   )}
-                </div>
+                </AnimatePresence>
+              </motion.div>
+
+              {/* How long? — sensible default pre-selected */}
+              {cat.sizes && (
+                <motion.div variants={sheetItem}>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                    {cat.sizeLabel ?? 'How long?'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {cat.sizes.map(opt => (
+                      <OptionChip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
+                        {opt}
+                      </OptionChip>
+                    ))}
+                  </div>
+                </motion.div>
               )}
 
-              {referralCode && (
-                <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
-                  <span aria-hidden="true">🎁</span>
-                  Your friend's €5 comes off your first booking when you pay
+              {/* Area — auto-detected from the address; chips only as fallback */}
+              <motion.div variants={sheetItem}>
+                {cityAuto ? (
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+                    <p className="text-sm text-foreground/75 min-w-0 truncate">
+                      <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
+                      <span className="text-muted-foreground text-xs"> · from your address</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setCityAuto(false)}
+                      className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
+                        ? [...SUPPORTED_CITIES]
+                        : [city, ...SUPPORTED_CITIES]
+                      ).map(c => {
+                        // Galway-first: dispatch is live in Galway today. Other cities
+                        // read as "soon" — but a remembered or address-derived area
+                        // stays selectable so returning customers aren't locked out.
+                        const comingSoon = c !== 'Galway' && c !== city;
+                        if (comingSoon) {
+                          return (
+                            <span
+                              key={c}
+                              className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
+                            >
+                              {c} · soon
+                            </span>
+                          );
+                        }
+                        return (
+                          <OptionChip key={c} group="area" active={city === c} onClick={() => setCity(c)}>
+                            {c}
+                          </OptionChip>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Price summary + CTA */}
+              <motion.div variants={sheetItem} className="space-y-2.5 pt-1">
+                {priceCents != null && (
+                  <div className="px-4 py-3.5 rounded-2xl bg-white border border-foreground/8 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-foreground/60 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
+                      {/* Price rolls with a blur+slide swap whenever it changes —
+                          turns a silent number change into responsive feedback. */}
+                      <span className="relative flex-shrink-0 overflow-hidden leading-none">
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={priceCents}
+                            initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: -12, filter: 'blur(4px)' }}
+                            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                            className="block text-xl font-bold text-foreground tabular-nums"
+                          >
+                            {fmt(priceCents)}
+                          </motion.span>
+                        </AnimatePresence>
+                      </span>
+                    </div>
+                    {isScheduledAhead && baseCents && (
+                      <p className="flex items-center justify-between text-[11px] mt-1.5">
+                        <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
+                        <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {referralCode && (
+                  <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
+                    <span aria-hidden="true">🎁</span>
+                    Your friend's €5 comes off your first booking when you pay
+                  </p>
+                )}
+
+                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <Button
+                    type="submit"
+                    disabled={loading || !phone.trim()}
+                    className="group w-full rounded-full gap-2 font-semibold text-[15px] h-12 shadow-primary-glow"
+                  >
+                    {loading
+                      ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                      : <><Zap className="w-4 h-4" />{ctaLabel}<ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" /></>}
+                  </Button>
+                </motion.div>
+
+                <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  A nearby helper usually replies in minutes
                 </p>
-              )}
 
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                <Button
-                  type="submit"
-                  disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
-                >
-                  {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                    : <><Zap className="w-4 h-4" />{ctaLabel}</>}
-                </Button>
+                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={sendWhatsApp}
+                    className="w-full rounded-full gap-2 font-medium text-sm h-10 border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Or book via WhatsApp
+                  </Button>
+                </motion.div>
               </motion.div>
 
-              <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                A nearby helper usually replies in minutes
-              </p>
-
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={sendWhatsApp}
-                  className="w-full rounded-full gap-2 font-medium text-sm h-10 border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Or book via WhatsApp
-                </Button>
+              <motion.div variants={sheetItem}>
+                {error && <p className="text-center text-xs text-destructive mb-2">{error}</p>}
+                <p className="text-center text-[11px] text-muted-foreground">
+                  No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
+                </p>
               </motion.div>
-            </div>
-
-            {error && <p className="text-center text-xs text-destructive">{error}</p>}
-            <p className="text-center text-[11px] text-muted-foreground">
-              No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
-            </p>
+            </motion.div>
           </form>
         </div>
       </motion.div>
