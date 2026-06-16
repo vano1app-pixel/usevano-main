@@ -9,9 +9,13 @@ interface HouseholdNavProps {
   darkHero?: boolean;
 }
 
+// Nav slides down once on the first load of a session, then stays put across
+// client-side navigations — it's on every page, so replaying it would nag.
+let navIntroPlayed = false;
+
 export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) => {
   const [scrolled,  setScrolled]  = useState(false);
-  const [hidden,    setHidden]    = useState(false);
+  const [hidden,    setHidden]    = useState(!navIntroPlayed);
   const lastY = useRef(0);
 
   const handleScroll = useCallback(() => {
@@ -34,6 +38,15 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
     return () => window.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
+  // One-time slide-in entrance — reuses the same translate as the scroll-hide,
+  // so there's no competing transform. Settles to translate-y-0.
+  useEffect(() => {
+    if (navIntroPlayed) return;
+    navIntroPlayed = true;
+    const raf = requestAnimationFrame(() => setHidden(false));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const dark = darkHero && !scrolled; // on the hero, before first scroll
 
   return (
@@ -49,7 +62,7 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between h-[72px] px-5 lg:px-8 xl:px-10">
         <Link to="/home" className="flex items-center">
-          <div className="w-9 h-9 rounded-full overflow-hidden shrink-0">
+          <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 transition-transform duration-200 hover:scale-105 active:scale-95">
             <img src={logo} alt="VANO" className="w-full h-full object-cover" />
           </div>
         </Link>

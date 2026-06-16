@@ -12,6 +12,14 @@ import { getHouseholdPriceCents, HOURLY_RATE_CENTS } from '../householdPricing';
 // computePriceCents (create-household-payment-checkout). If a rate drops below
 // the wage floor this test fails — which is exactly the regression that once
 // shipped €16/hr cleaning and €15/hr tutoring under minimum wage.
+//
+// INVARIANT (learned the hard way): a customer discount must NEVER reduce the
+// student's payout base (price_estimate_cents). The old book-ahead (−10%) and
+// loyalty (−50%) discounts cut that value, paying students as little as
+// €7.65/hr — under min wage — yet this test stayed green because it only
+// checks the undiscounted base rates. Both were removed; any future customer
+// discount must be a Stripe coupon on the checkout session (like the referral
+// credit), applied AFTER the student's pay is fixed — never a cut to priceCents.
 
 const PLATFORM_FEE_BPS = 1500;        // student-side cut, capture-household-payment
 const SERVICE_FEE_BPS = 750;          // customer-side fee, create-household-payment-checkout

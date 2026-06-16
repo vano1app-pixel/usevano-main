@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Star, MapPin, ShieldCheck, ArrowLeft } from 'lucide-react';
@@ -8,9 +8,20 @@ import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS, AVAILABILITY_SLOTS } from '@/lib/helperCategories';
+import { cn } from '@/lib/utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
+
+// Sections cascade in once the profile loads — same feel as the booking sheet.
+const profileContainer = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.08, delayChildren: 0.04 } },
+};
+const profileItem = {
+  hidden: { opacity: 0, y: 14 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] as const } },
+};
 
 interface HelperRow {
   id:             string;
@@ -76,6 +87,10 @@ export const HelperPublicProfile: React.FC = () => {
   const [reviews,  setReviews]  = useState<ReviewRow[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Fade the profile photo in once it loads (cached images report complete).
+  const photoRef = useRef<HTMLImageElement>(null);
+  const [photoLoaded, setPhotoLoaded] = useState(false);
+  useEffect(() => { if (photoRef.current?.complete) setPhotoLoaded(true); }, [helper]);
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
@@ -152,17 +167,23 @@ export const HelperPublicProfile: React.FC = () => {
 
         {!loading && helper && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            variants={profileContainer}
+            initial="hidden"
+            animate="show"
             className="space-y-4"
           >
             {/* Identity card */}
-            <section className="bg-card rounded-3xl border border-border/40 shadow-tinted-lg p-6">
+            <motion.section variants={profileItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted-lg p-6">
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-secondary flex-shrink-0">
                   {helper.photo_url ? (
-                    <img src={helper.photo_url} alt={helper.name} className="w-full h-full object-cover" />
+                    <img
+                      ref={photoRef}
+                      src={helper.photo_url}
+                      alt={helper.name}
+                      onLoad={() => setPhotoLoaded(true)}
+                      className={cn('w-full h-full object-cover transition-[opacity,filter] duration-500 ease-out', photoLoaded ? 'opacity-100 blur-0' : 'opacity-0 blur-md')}
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-sage bg-sage-light">
                       {firstName.charAt(0).toUpperCase()}
@@ -224,11 +245,11 @@ export const HelperPublicProfile: React.FC = () => {
                   "{helper.bio}"
                 </p>
               )}
-            </section>
+            </motion.section>
 
             {/* What they can help with */}
             {cats.length > 0 && (
-              <section className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
+              <motion.section variants={profileItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                   {firstName} can help with
                 </p>
@@ -239,12 +260,12 @@ export const HelperPublicProfile: React.FC = () => {
                     </span>
                   ))}
                 </div>
-              </section>
+              </motion.section>
             )}
 
             {/* Availability */}
             {slots.length > 0 && (
-              <section className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
+              <motion.section variants={profileItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                   Usually available
                 </p>
@@ -255,12 +276,12 @@ export const HelperPublicProfile: React.FC = () => {
                     </span>
                   ))}
                 </div>
-              </section>
+              </motion.section>
             )}
 
             {/* Reviews */}
             {written.length > 0 && (
-              <section className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
+              <motion.section variants={profileItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
                   What customers say
                 </p>
@@ -280,11 +301,11 @@ export const HelperPublicProfile: React.FC = () => {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </motion.section>
             )}
 
             {/* Trust note + CTA */}
-            <section className="bg-sage-light rounded-3xl border border-sage/20 p-6 text-center">
+            <motion.section variants={profileItem} className="bg-sage-light rounded-3xl border border-sage/20 p-6 text-center">
               <ShieldCheck className="w-6 h-6 text-sage mx-auto mb-2" aria-hidden="true" />
               <p className="text-sm text-foreground/80 leading-relaxed max-w-sm mx-auto">
                 Every VANO helper is personally vetted before their first job.
@@ -299,7 +320,7 @@ export const HelperPublicProfile: React.FC = () => {
               <p className="text-[11px] text-muted-foreground mt-3">
                 Available helpers near you — like {firstName} — get matched to your booking in minutes.
               </p>
-            </section>
+            </motion.section>
           </motion.div>
         )}
       </main>

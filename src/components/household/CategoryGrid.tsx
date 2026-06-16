@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion } from 'framer-motion';
-import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion, useDragControls } from 'framer-motion';
+import { MessageCircle, Loader2, X, Zap, ChevronDown, ArrowRight, Phone, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -78,6 +78,25 @@ const DEFAULT_SIZE: Record<string, string> = {
   tutoring:  '1 hour',
 };
 
+// Per-category accent — a soft, decorative tint for the sheet header only
+// (wash behind the title, the emoji tile's ring, the reassurance pill). The
+// CTA stays brand-sage everywhere, so the codex's "exactly one primary action
+// = sage" rule holds; these hues just give each service its own hero.
+interface Accent { wash: string; ring: string; pill: string; tile: string }
+const ACCENT: Record<string, Accent> = {
+  cleaning:   { wash: 'from-sage-light',  ring: 'ring-sage/25',        pill: 'text-sage-dark ring-sage/20',           tile: 'hover:border-sage/40 hover:bg-sage-light' },
+  shopping:   { wash: 'from-sky-100',     ring: 'ring-sky-300/50',     pill: 'text-sky-700 ring-sky-300/50',          tile: 'hover:border-sky-300 hover:bg-sky-50' },
+  'dog-walk': { wash: 'from-amber-100',   ring: 'ring-amber-300/50',   pill: 'text-amber-700 ring-amber-300/50',      tile: 'hover:border-amber-300 hover:bg-amber-50' },
+  garden:     { wash: 'from-emerald-100', ring: 'ring-emerald-300/50', pill: 'text-emerald-700 ring-emerald-300/50',  tile: 'hover:border-emerald-300 hover:bg-emerald-50' },
+  moving:     { wash: 'from-orange-100',  ring: 'ring-orange-300/50',  pill: 'text-orange-700 ring-orange-300/50',    tile: 'hover:border-orange-300 hover:bg-orange-50' },
+  tutoring:   { wash: 'from-violet-100',  ring: 'ring-violet-300/50',  pill: 'text-violet-700 ring-violet-300/50',    tile: 'hover:border-violet-300 hover:bg-violet-50' },
+};
+const accentFor = (slug: string): Accent => ACCENT[slug] ?? ACCENT.cleaning;
+
+// Subtle haptic on supported devices (Android/Chrome; iOS Safari ignores it).
+// Fires on chip selection so the sheet feels tactile on a phone.
+const haptic = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate?.(8); };
+
 // ─── Pricing ──────────────────────────────────────────────────────────────
 
 // Delegates to the shared price source so the sheet, the cards and the
@@ -118,16 +137,6 @@ function getTimeSlots(): string[] {
   return slots.slice(0, 8); // max 8 time chips
 }
 
-// Booking ahead earns the server-side 10% scheduled discount (the backend
-// has supported `scheduled: true` all along — the quick sheet just never
-// offered it). Labels are stored verbatim as scheduled_date.
-const TOMORROW_SLOTS = ['Tomorrow 9am', 'Tomorrow 12pm', 'Tomorrow 3pm', 'Tomorrow 6pm'];
-
-/** Must mirror the backend's discount math exactly: Math.round(cents * 0.9) */
-function applyScheduledDiscount(cents: number): number {
-  return Math.round(cents * 0.9);
-}
-
 // ─── WhatsApp ─────────────────────────────────────────────────────────────
 
 function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
@@ -138,19 +147,63 @@ function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
   return lines.join('\n');
 }
 
-// ─── Chip helper ──────────────────────────────────────────────────────────
+// ─── Animated chip + stagger ────────────────────────────────────────────────
 
-const chip = (active: boolean, accent?: boolean) => cn(
-  'px-4 py-2.5 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none',
-  'transition-[background-color,color,border-color] duration-150',
-  active
-    ? accent
-      ? 'bg-emerald-500 text-white border-emerald-500'
-      : 'bg-foreground text-background border-foreground'
-    : accent
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold'
-      : 'bg-background text-foreground border-border hover:border-foreground/30',
-);
+// A pill whose selected state is a single shared element that physically
+// slides between options (framer `layoutId`) instead of every chip swapping
+// colour in place — the segmented-control feel. The sliding highlight is
+// dropped for reduced-motion users; it just appears under the active chip.
+const OptionChip: React.FC<{
+  active:   boolean;
+  group:    string;
+  onClick:  () => void;
+  liveDot?: boolean;
+  children: React.ReactNode;
+}> = ({ active, group, onClick, liveDot, children }) => {
+  const reduce = useReducedMotion();
+  return (
+    <motion.button
+      type="button"
+      onClick={() => { haptic(); onClick(); }}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+      aria-pressed={active}
+      className={cn(
+        'relative flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium',
+        'flex-shrink-0 cursor-pointer select-none border transition-colors duration-200',
+        active
+          ? 'border-transparent text-background'
+          : 'border-border bg-background text-foreground hover:border-foreground/30',
+      )}
+    >
+      {active && (
+        <motion.span
+          layoutId={reduce ? undefined : `chip-${group}`}
+          className="absolute inset-0 rounded-full bg-foreground"
+          transition={{ type: 'spring', stiffness: 480, damping: 34 }}
+        />
+      )}
+      {liveDot && (
+        <span
+          className={cn('relative z-10 h-1.5 w-1.5 rounded-full animate-pulse', active ? 'bg-emerald-300' : 'bg-emerald-500')}
+          aria-hidden="true"
+        />
+      )}
+      <span className="relative z-10">{children}</span>
+    </motion.button>
+  );
+};
+
+// Sheet content cascades in: each section rises + fades just after the one
+// above it (Emil's stagger — ~50ms apart, decorative, never blocks input).
+const sheetContainer = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.05, delayChildren: 0.12 } },
+};
+const sheetItem = {
+  hidden: { opacity: 0, y: 12 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.36, ease: [0.16, 1, 0.3, 1] as const } },
+};
 
 // ─── Bottom sheet ─────────────────────────────────────────────────────────
 
@@ -183,6 +236,22 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+  // Which field failed validation — drives a red ring on the exact input to
+  // fix, instead of only a message at the foot of the sheet.
+  const [fieldError, setFieldError] = useState<'phone' | 'address' | null>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  // Brief "got it" beat shown on the CTA before the Stripe redirect lands.
+  const [booked, setBooked] = useState(false);
+  // Progressive disclosure: time / duration / area collapse into one summary
+  // line so a new visitor sees only phone + address + Book. Smart defaults are
+  // already set, so the summary is accurate before it's ever opened.
+  const [editDetails, setEditDetails] = useState(false);
+
+  // Drag-to-dismiss — only the handle starts the drag (dragListener=false), so
+  // the scrollable body keeps scrolling normally. A flick or a long pull closes.
+  const dragControls = useDragControls();
+
+  const accent = accentFor(cat.slug);
 
   function forgetMe() {
     clearBookingMemory();
@@ -217,9 +286,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
 
-  const isScheduledAhead = when.startsWith('Tomorrow');
-  const baseCents  = getPriceCents(cat.slug, size);
-  const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
+  // One price, no discounts: priceCents is the student's payout base on the
+  // server, so a customer discount here would come out of their wage. Any
+  // future discount must be a Stripe coupon, never a cut to this number.
+  const priceCents = getPriceCents(cat.slug, size);
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
   const ctaLabel = [
@@ -236,10 +306,18 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     const phoneClean = phone.trim().replace(/\s+/g, '');
-    if (!phoneClean) { setError('Please enter your phone number.'); return; }
-    if (!/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) { setError('Please enter a valid phone number.'); return; }
-    if (!address.trim()) { setError('Please enter your address or Eircode.'); return; }
-    setLoading(true); setError(null);
+    if (!phoneClean || !/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) {
+      setFieldError('phone');
+      setError(phoneClean ? 'Please enter a valid phone number.' : 'Please enter your phone number.');
+      phoneRef.current?.focus();
+      return;
+    }
+    if (!address.trim()) {
+      setFieldError('address');
+      setError('Please enter your address or Eircode.');
+      return;
+    }
+    setLoading(true); setError(null); setFieldError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
@@ -247,7 +325,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
           category:         cat.slug,
           when_label:       when,
           size_label:       size,
-          scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
+          scheduled:        false,
           note:             '',
           customer_name:    'Guest', // name collected by Stripe at checkout
           customer_phone:   phoneClean,
@@ -269,7 +347,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         lastCategory: cat.slug,
         lastSize:     size,
       });
-      window.location.href = data.checkout_url as string;
+      // Show a brief "got it" beat on the button, then hand off to Stripe.
+      const url = data.checkout_url as string;
+      setBooked(true);
+      window.setTimeout(() => { window.location.href = url; }, 320);
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -298,265 +379,330 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         animate={{ y: 0 }}
         exit={{ y: '100%', transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] } }}
         transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.5 }}
+        onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 600) onClose(); }}
         className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
         style={{ maxHeight: '88vh', overflowY: 'auto' }}
         role="dialog"
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-foreground/15" />
-        </div>
-
-        <div className="px-5 pb-6 pt-2">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <div className="flex items-center gap-2.5 mb-0.5">
-                <span className="text-2xl leading-none" aria-hidden="true">{cat.emoji}</span>
-                <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
+        {/* Hero header — a soft per-category wash, a grab handle (drag it down
+            to dismiss), the emoji on a ringed tile that springs in, and a
+            one-line reassurance. Personality instead of a wall of inputs. */}
+        <div className={cn('relative overflow-hidden rounded-t-3xl bg-gradient-to-b to-cream', accent.wash)}>
+          {/* Grab zone — only this starts the drag, so the body still scrolls */}
+          <div
+            onPointerDown={(e) => dragControls.start(e)}
+            className="flex cursor-grab touch-none justify-center pt-3 pb-1 active:cursor-grabbing"
+          >
+            <div className="h-1 w-10 rounded-full bg-foreground/15" />
+          </div>
+          <div className="relative px-5 pb-4 pt-1">
+            <div className="flex items-start gap-3.5">
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 360, damping: 17, delay: 0.05 }}
+                className={cn('flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-3xl shadow-md ring-1', accent.ring)}
+                aria-hidden="true"
+              >
+                {cat.emoji}
+              </motion.div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="font-display text-2xl font-bold leading-tight text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
                   {cat.label}
                 </h2>
+                <p className="mt-0.5 text-sm text-foreground/60">{cat.hint}</p>
               </div>
-              <p className="text-sm text-muted-foreground ml-9">{cat.hint}</p>
+              <button
+                onClick={onClose}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-foreground/8 transition-colors hover:bg-foreground/12"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4 text-foreground/60" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center hover:bg-foreground/12 transition-colors flex-shrink-0 mt-0.5"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4 text-foreground/60" />
-            </button>
+            <div className={cn('mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-[12px] font-medium shadow-sm ring-1', accent.pill)}>
+              <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+              Free to book — you only pay when a helper accepts
+            </div>
           </div>
+        </div>
 
-          <form onSubmit={handleBook} className="space-y-5">
-            {/* Welcome back — details remembered from the last booking */}
-            {prefilled && (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
-                <p className="text-xs text-foreground/70">
-                  <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
-                </p>
-                <button
-                  type="button"
-                  onClick={forgetMe}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-
-            {/* Phone first — the sheet slides up straight onto this field.
-                Time + duration below are pre-picked, so number + address is
-                all a new visitor has to type. */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
-              <input
-                type="tel"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="08x xxx xxxx"
-                autoComplete="tel"
-                autoFocus={!prefilled}
-                required
-                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
-            </div>
-
-            {/* Address — Eircode search or current location */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
-              <AddressPicker
-                value={address}
-                coords={coords}
-                error={false}
-                onAddress={(addr, lat, lng, locality) => {
-                  setAddress(addr);
-                  setCoords({ lat, lng });
-                  // Eircode/address already knows the area — don't make them pick
-                  const area = deriveArea(locality, { lat, lng });
-                  if (area) { setCity(area); setCityAuto(true); }
-                }}
-                onTextChange={(t) => { setAddress(t); setCoords(null); }}
-                onBlur={() => {}}
-                placeholder="Address or Eircode…"
-                showMapPreview={false}
-              />
-              <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
-            </div>
-
-            {/* When? — "Now" pre-selected; chips are an optional tweak */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {timeSlots.map(opt => (
-                  <motion.button
-                    key={opt}
+        <div className="px-5 pb-6 pt-3">
+          <form onSubmit={handleBook}>
+            <motion.div variants={sheetContainer} initial="hidden" animate="show" className="space-y-5">
+              {/* Welcome back — details remembered from the last booking */}
+              {prefilled && (
+                <motion.div variants={sheetItem} className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
+                  <p className="text-xs text-foreground/70">
+                    <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
+                  </p>
+                  <button
                     type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt, opt === 'Now')}
+                    onClick={forgetMe}
+                    className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
                   >
-                    {opt}
-                  </motion.button>
-                ))}
-              </div>
-              {/* Book ahead — server grants 10% off scheduled bookings */}
-              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {TOMORROW_SLOTS.map(opt => (
-                  <motion.button
-                    key={opt}
-                    type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt)}
-                  >
-                    {opt}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
+                    Clear
+                  </button>
+                </motion.div>
+              )}
 
-            {/* How long? — sensible default pre-selected */}
-            {cat.sizes && (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
-                  {cat.sizeLabel ?? 'How long?'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {cat.sizes.map(opt => (
-                    <motion.button
-                      key={opt}
-                      type="button"
-                      onClick={() => setSize(opt)}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(size === opt)}
-                    >
-                      {opt}
-                    </motion.button>
-                  ))}
+              {/* Phone first — the sheet slides up straight onto this field.
+                  Time + duration below are pre-picked, so number + address is
+                  all a new visitor has to type. */}
+              <motion.div variants={sheetItem}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <input
+                    ref={phoneRef}
+                    type="tel"
+                    value={phone}
+                    onChange={e => { setPhone(e.target.value); if (fieldError === 'phone') { setFieldError(null); setError(null); } }}
+                    placeholder="08x xxx xxxx"
+                    autoComplete="tel"
+                    autoFocus={!prefilled}
+                    required
+                    aria-invalid={fieldError === 'phone'}
+                    className={cn(
+                      'w-full rounded-xl border bg-white pl-11 pr-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
+                      fieldError === 'phone' ? 'border-destructive ring-2 ring-destructive/30' : 'border-border focus:ring-foreground/20',
+                    )}
+                  />
                 </div>
-              </div>
-            )}
+                <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
+              </motion.div>
 
-            {/* Area — auto-detected from the address; chips only as fallback */}
-            {cityAuto ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
-                <p className="text-sm text-foreground/75 min-w-0 truncate">
-                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
-                  <span className="text-muted-foreground text-xs"> · from your address</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setCityAuto(false)}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
-                >
-                  Change
-                </button>
-              </div>
-            ) : (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
-                <div className="flex flex-wrap gap-2">
-                  {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
-                    ? [...SUPPORTED_CITIES]
-                    : [city, ...SUPPORTED_CITIES]
-                  ).map(c => {
-                    // Galway-first: dispatch is live in Galway today. Other cities
-                    // read as "soon" — but a remembered or address-derived area
-                    // stays selectable so returning customers aren't locked out.
-                    const comingSoon = c !== 'Galway' && c !== city;
-                    if (comingSoon) {
-                      return (
-                        <span
-                          key={c}
-                          className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
-                        >
-                          {c} · soon
-                        </span>
-                      );
-                    }
-                    return (
-                      <motion.button
-                        key={c}
-                        type="button"
-                        onClick={() => setCity(c)}
-                        whileTap={{ scale: 0.92 }}
-                        transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                        className={chip(city === c)}
-                      >
-                        {c}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+              {/* Address — Eircode search or current location */}
+              <motion.div variants={sheetItem}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
+                <AddressPicker
+                  value={address}
+                  coords={coords}
+                  error={fieldError === 'address'}
+                  onAddress={(addr, lat, lng, locality) => {
+                    setAddress(addr);
+                    setCoords({ lat, lng });
+                    if (fieldError === 'address') { setFieldError(null); setError(null); }
+                    // Eircode/address already knows the area — don't make them pick
+                    const area = deriveArea(locality, { lat, lng });
+                    if (area) { setCity(area); setCityAuto(true); }
+                  }}
+                  onTextChange={(t) => { setAddress(t); setCoords(null); if (fieldError === 'address') { setFieldError(null); setError(null); } }}
+                  onBlur={() => {}}
+                  placeholder="Address or Eircode…"
+                  showMapPreview
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
+              </motion.div>
 
-            {/* Price summary + CTA */}
-            <div className="space-y-2.5 pt-1">
-              {priceCents && (
-                <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                    <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
-                  </div>
-                  {isScheduledAhead && baseCents && (
-                    <p className="flex items-center justify-between text-[11px] mt-1">
-                      <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
-                      <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
+              {/* Booking details — collapsed into one summary + live-price card.
+                  A new visitor sees only phone, address and Book; "Change…"
+                  reveals time / duration / area inline. Defaults are already
+                  set, so the summary is accurate before it's ever opened. */}
+              <motion.div variants={sheetItem} className="overflow-hidden rounded-2xl border border-foreground/8 bg-white shadow-sm">
+                <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {when === 'Now' ? 'Now' : when}{size ? ` · ${size}` : ''}
                     </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {cat.label} · <span aria-hidden="true">📍</span> {city}
+                    </p>
+                  </div>
+                  {priceCents != null && (
+                    /* Price rolls with a blur+slide swap whenever it changes —
+                       turns a silent number change into responsive feedback. */
+                    <span className="relative flex-shrink-0 overflow-hidden leading-none">
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.span
+                          key={priceCents}
+                          initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
+                          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                          exit={{ opacity: 0, y: -12, filter: 'blur(4px)' }}
+                          transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                          className="block text-xl font-bold text-foreground tabular-nums"
+                        >
+                          {fmt(priceCents)}
+                        </motion.span>
+                      </AnimatePresence>
+                    </span>
                   )}
                 </div>
-              )}
 
-              {referralCode && (
-                <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
-                  <span aria-hidden="true">🎁</span>
-                  Your friend's €5 comes off your first booking when you pay
-                </p>
-              )}
+                {/* All-in total — surfaces the 7.5% service fee upfront so the
+                    Stripe checkout amount isn't a surprise. */}
+                {priceCents != null && (
+                  <p className="px-4 -mt-1 pb-3 text-[11px] text-muted-foreground">
+                    incl. 7.5% service fee — <span className="font-semibold text-foreground/75 tabular-nums">{fmt(Math.round(priceCents * 1.075))}</span> total at checkout
+                  </p>
+                )}
 
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                <Button
-                  type="submit"
-                  disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
-                >
-                  {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                    : <><Zap className="w-4 h-4" />{ctaLabel}</>}
-                </Button>
-              </motion.div>
-
-              <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                A nearby helper usually replies in minutes
-              </p>
-
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={sendWhatsApp}
-                  className="w-full rounded-full gap-2 font-medium text-sm h-10 border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                  onClick={() => setEditDetails(v => !v)}
+                  className="flex w-full items-center justify-center gap-1.5 border-t border-foreground/8 py-2.5 text-[12px] font-semibold text-foreground/55 transition-colors hover:bg-foreground/4"
+                  aria-expanded={editDetails}
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  Or book via WhatsApp
-                </Button>
-              </motion.div>
-            </div>
+                  {editDetails ? 'Done' : 'Change time, duration or area'}
+                  <motion.span animate={{ rotate: editDetails ? 180 : 0 }} transition={{ duration: 0.2 }} className="inline-flex" aria-hidden="true">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </motion.span>
+                </button>
 
-            {error && <p className="text-center text-xs text-destructive">{error}</p>}
-            <p className="text-center text-[11px] text-muted-foreground">
-              No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
-            </p>
+                <AnimatePresence initial={false}>
+                  {editDetails && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden border-t border-foreground/8"
+                    >
+                      <div className="space-y-5 px-4 py-4">
+                        {/* When? — "Now" pre-selected; later times today optional */}
+                        <div>
+                          <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">When?</p>
+                          <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                            {timeSlots.map(opt => (
+                              <OptionChip key={opt} group="when" active={when === opt} liveDot={opt === 'Now'} onClick={() => setWhen(opt)}>
+                                {opt}
+                              </OptionChip>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* How long? — sensible default pre-selected */}
+                        {cat.sizes && (
+                          <div>
+                            <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">
+                              {cat.sizeLabel ?? 'How long?'}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {cat.sizes.map(opt => (
+                                <OptionChip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
+                                  {opt}
+                                </OptionChip>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Area — auto-detected from the address; chips fallback */}
+                        {cityAuto ? (
+                          <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+                            <p className="text-sm text-foreground/75 min-w-0 truncate">
+                              <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
+                              <span className="text-muted-foreground text-xs"> · from your address</span>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setCityAuto(false)}
+                              className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
+                            <div className="flex flex-wrap gap-2">
+                              {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
+                                ? [...SUPPORTED_CITIES]
+                                : [city, ...SUPPORTED_CITIES]
+                              ).map(c => {
+                                // Galway-first: dispatch is live in Galway today. Other
+                                // cities read as "soon" — but a remembered or address-
+                                // derived area stays selectable for returning customers.
+                                const comingSoon = c !== 'Galway' && c !== city;
+                                if (comingSoon) {
+                                  return (
+                                    <span
+                                      key={c}
+                                      className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
+                                    >
+                                      {c} · soon
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <OptionChip key={c} group="area" active={city === c} onClick={() => setCity(c)}>
+                                    {c}
+                                  </OptionChip>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* CTA block */}
+              <motion.div variants={sheetItem} className="space-y-2.5">
+                {referralCode && (
+                  <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
+                    <span aria-hidden="true">🎁</span>
+                    Your friend's €5 comes off your first booking when you pay
+                  </p>
+                )}
+
+                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <Button
+                    type="submit"
+                    disabled={loading || booked || !phone.trim()}
+                    className="group w-full rounded-full gap-2 font-semibold text-[15px] h-12 shadow-primary-glow"
+                  >
+                    {booked
+                      ? <><Check className="w-4 h-4" />Got it — taking you there…</>
+                      : loading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                        : <><Zap className="w-4 h-4" />{ctaLabel}<ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" /></>}
+                  </Button>
+                </motion.div>
+
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center text-xs font-medium text-destructive"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+
+                <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  A nearby helper usually replies in minutes
+                </p>
+
+                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={sendWhatsApp}
+                    className="w-full rounded-full gap-2 font-medium text-sm h-10 border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Or book via WhatsApp
+                  </Button>
+                </motion.div>
+              </motion.div>
+
+              <motion.div variants={sheetItem}>
+                <p className="text-center text-[11px] text-muted-foreground">
+                  No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
+                </p>
+              </motion.div>
+            </motion.div>
           </form>
         </div>
       </motion.div>
@@ -578,6 +724,7 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
   const rotateX = useSpring(rx, { stiffness: 300, damping: 20 });
   const rotateY = useSpring(ry, { stiffness: 300, damping: 20 });
   const shown = cardPrice(cat);
+  const accent = accentFor(cat.slug);
 
   const handleMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (reduce) return;
@@ -602,7 +749,8 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
       className={cn(
         'relative flex flex-col items-center justify-center gap-1.5',
         'min-h-[96px] rounded-2xl px-2 py-3 border',
-        'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
+        'bg-white text-foreground border-foreground/15 shadow-sm hover:shadow-md',
+        accent.tile, // category-tinted hover — ties the grid to the themed sheet
         'transition-[background-color,border-color,box-shadow] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
       )}
@@ -669,7 +817,7 @@ export const CategoryGrid: React.FC = () => {
         {usual && (
           <button
             onClick={() => openSheet(usual.cat, usual.size)}
-            className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left shadow-sm hover:bg-sage/14 hover:shadow-md active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-150"
+            className="group mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left shadow-sm hover:bg-sage/14 hover:shadow-md active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-150"
           >
             <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
             <span className="flex-1 min-w-0">
@@ -680,7 +828,7 @@ export const CategoryGrid: React.FC = () => {
                 {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details already filled in
               </span>
             </span>
-            <span className="text-sage text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+            <span className="text-sage text-lg font-bold leading-none flex-shrink-0 transition-transform duration-300 group-hover:rotate-180" aria-hidden="true">↻</span>
           </button>
         )}
 

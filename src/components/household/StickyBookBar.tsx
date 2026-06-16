@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useHelperCount } from '@/hooks/useHelperCount';
 
@@ -11,31 +12,50 @@ function scrollToGrid(): void {
    is redundant for desktop. safe-area-bottom handles iOS home indicator notch. */
 export const StickyBookBar: React.FC = () => {
   const helperCount = useHelperCount();
+  // Stay hidden at the top — the hero already has the booking card there — and
+  // slide up once the visitor scrolls a screenful past it.
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShow(window.scrollY > window.innerHeight * 0.6);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden safe-area-bottom"
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden safe-area-bottom pointer-events-none"
       role="complementary"
       aria-label="Quick booking"
     >
-      <div className="border-t border-border/60 bg-background/96 backdrop-blur-xl px-4 py-3 flex items-center justify-between gap-4">
-        <div className="leading-tight">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
-            <p className="text-xs text-emerald-700 font-semibold">
-              {helperCount > 0 ? `${helperCount} helpers online` : 'Helpers available now'}
-            </p>
-          </div>
-          <p className="font-semibold text-foreground text-sm">From €15 · book in 30 sec</p>
-        </div>
-        <Button
-          onClick={scrollToGrid}
-          className="rounded-full px-7 font-semibold flex-shrink-0 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
-          size="default"
-        >
-          Get help today
-        </Button>
-      </div>
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ y: '110%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '110%' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+            className="pointer-events-auto border-t border-border/60 bg-background/96 backdrop-blur-xl px-4 py-3 flex items-center justify-between gap-4"
+          >
+            <div className="leading-tight">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
+                <p className="text-xs text-emerald-700 font-semibold">
+                  {helperCount > 0 ? `${helperCount} helpers online` : 'Helpers available now'}
+                </p>
+              </div>
+              <p className="font-semibold text-foreground text-sm">From €15 · book in 30 sec</p>
+            </div>
+            <Button
+              onClick={scrollToGrid}
+              className="rounded-full px-7 font-semibold flex-shrink-0 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
+              size="default"
+            >
+              Get help today
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
