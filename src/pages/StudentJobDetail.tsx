@@ -581,7 +581,9 @@ const StudentJobDetail = () => {
   const needsPayment = mine && (booking.price_estimate_cents ?? 0) > 0 && !booking.paid_at;
   const isUnclaimed = booking.status === 'pending' && !booking.student_id;
   const claimedByOther = !!booking.student_id && booking.student_id !== userId;
-  const earnCents = booking.price_estimate_cents ? Math.floor(booking.price_estimate_cents * 0.95) : null;
+  // Helper keeps the price minus Vano's 15% cut (PLATFORM_FEE_BPS = 1500 in
+  // capture-household-payment) — must match the ACTUAL payout, not 5%.
+  const earnCents = booking.price_estimate_cents ? Math.floor(booking.price_estimate_cents * 0.85) : null;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -980,7 +982,7 @@ const StudentJobDetail = () => {
           <div className="flex flex-col items-center text-center py-4 mb-6">
             <CheckCircle2 size={32} className="text-sage mb-2" strokeWidth={1.5} />
             <p className="font-semibold text-foreground">Job complete</p>
-            <p className="text-sm text-muted-foreground mt-0.5">You'll be paid shortly via Revolut.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">You'll be paid out to your bank or Revolut shortly.</p>
           </div>
         )}
 
