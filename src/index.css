@@ -293,16 +293,15 @@
   animation: page-enter-fade 150ms ease-out both;
 }
 
-/* Reduced motion */
+/* Reduced motion — honour the OS setting site-wide: neutralise continuous
+   and transition animation for anyone who asks for it. framer-motion is gated
+   separately via <MotionConfig reducedMotion="user"> in App.tsx (covers the
+   reviews ticker + entrance animations). */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .animate-shimmer,
-  .animate-shimmer-slow,
-  .animate-float,
-  .animate-pulse-ring,
-  .animate-scroll-left,
-  .animate-scroll-left-fast,
-  .animate-page-enter {
-    animation: none !important;
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }

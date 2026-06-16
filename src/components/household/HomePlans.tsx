@@ -30,7 +30,7 @@ export const HomePlans: React.FC = () => {
   }, []);
 
   return (
-    <section id="plans" className="relative bg-navy px-4 py-14">
+    <section id="plans" className="relative bg-navy px-4 py-14 scroll-mt-20">
       <div className="relative max-w-4xl mx-auto">
 
         {planSuccess && (

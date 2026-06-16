@@ -28,14 +28,14 @@ export const HouseholdFooter: React.FC = () => {
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-white/60 hover:text-white text-sm transition-colors duration-150"
+                      className="inline-block py-1 text-white/60 hover:text-white text-sm transition-colors duration-150"
                     >
                       {label}
                     </a>
                   ) : (
                     <Link
                       to={href}
-                      className="text-white/60 hover:text-white text-sm transition-colors duration-150"
+                      className="inline-block py-1 text-white/60 hover:text-white text-sm transition-colors duration-150"
                     >
                       {label}
                     </Link>
