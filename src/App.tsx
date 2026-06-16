@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
+import { MotionConfig } from "framer-motion";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { RouteSuspenseFallback } from "@/components/RouteSuspenseFallback";
@@ -75,6 +76,7 @@ const App = () => {
   }, []);
 
   return (
+    <MotionConfig reducedMotion="user">
     <AuthProvider>
     <TooltipProvider>
       <SilentErrorBoundary source="ScrollProgress"><ScrollProgress /></SilentErrorBoundary>
@@ -117,6 +119,7 @@ const App = () => {
       </Suspense>
     </TooltipProvider>
     </AuthProvider>
+    </MotionConfig>
   );
 };
 

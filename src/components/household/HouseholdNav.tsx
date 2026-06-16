@@ -59,7 +59,7 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           <Link
             to="/join"
             className={cn(
-              'flex items-center rounded-full border px-3.5 py-1.5',
+              'flex items-center rounded-full border px-4 py-2',
               'text-sm font-medium transition-colors duration-150 active:scale-[0.97] whitespace-nowrap',
               dark
                 ? 'border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50'
