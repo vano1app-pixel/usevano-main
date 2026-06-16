@@ -560,6 +560,14 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   </p>
                 )}
 
+                {/* All-in total — surfaces the 7.5% service fee upfront so the
+                    Stripe checkout amount isn't a surprise. */}
+                {priceCents != null && (
+                  <p className="px-4 -mt-1 pb-3 text-[11px] text-muted-foreground">
+                    incl. 7.5% service fee — <span className="font-semibold text-foreground/75 tabular-nums">{fmt(Math.round(priceCents * 1.075))}</span> total at checkout
+                  </p>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setEditDetails(v => !v)}
