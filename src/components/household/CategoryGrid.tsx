@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion, useDragControls } from 'framer-motion';
-import { MessageCircle, Loader2, X, Zap, ChevronDown, ArrowRight } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ChevronDown, ArrowRight, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -242,6 +242,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+  // Which field failed validation — drives a red ring on the exact input to
+  // fix, instead of only a message at the foot of the sheet.
+  const [fieldError, setFieldError] = useState<'phone' | 'address' | null>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
   // Book-ahead (tomorrow) chips stay tucked away until asked for — keeps the
   // default "When?" row to one line. Collapsing while a tomorrow slot is
   // picked falls back to "Now" so the visible row never looks unselected.
@@ -314,10 +318,18 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     const phoneClean = phone.trim().replace(/\s+/g, '');
-    if (!phoneClean) { setError('Please enter your phone number.'); return; }
-    if (!/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) { setError('Please enter a valid phone number.'); return; }
-    if (!address.trim()) { setError('Please enter your address or Eircode.'); return; }
-    setLoading(true); setError(null);
+    if (!phoneClean || !/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) {
+      setFieldError('phone');
+      setError(phoneClean ? 'Please enter a valid phone number.' : 'Please enter your phone number.');
+      phoneRef.current?.focus();
+      return;
+    }
+    if (!address.trim()) {
+      setFieldError('address');
+      setError('Please enter your address or Eircode.');
+      return;
+    }
+    setLoading(true); setError(null); setFieldError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
@@ -455,16 +467,24 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   all a new visitor has to type. */}
               <motion.div variants={sheetItem}>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="08x xxx xxxx"
-                  autoComplete="tel"
-                  autoFocus={!prefilled}
-                  required
-                  className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
-                />
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <input
+                    ref={phoneRef}
+                    type="tel"
+                    value={phone}
+                    onChange={e => { setPhone(e.target.value); if (fieldError === 'phone') { setFieldError(null); setError(null); } }}
+                    placeholder="08x xxx xxxx"
+                    autoComplete="tel"
+                    autoFocus={!prefilled}
+                    required
+                    aria-invalid={fieldError === 'phone'}
+                    className={cn(
+                      'w-full rounded-xl border bg-white pl-11 pr-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
+                      fieldError === 'phone' ? 'border-destructive ring-2 ring-destructive/30' : 'border-border focus:ring-foreground/20',
+                    )}
+                  />
+                </div>
                 <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
               </motion.div>
 
@@ -474,15 +494,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 <AddressPicker
                   value={address}
                   coords={coords}
-                  error={false}
+                  error={fieldError === 'address'}
                   onAddress={(addr, lat, lng, locality) => {
                     setAddress(addr);
                     setCoords({ lat, lng });
+                    if (fieldError === 'address') { setFieldError(null); setError(null); }
                     // Eircode/address already knows the area — don't make them pick
                     const area = deriveArea(locality, { lat, lng });
                     if (area) { setCity(area); setCityAuto(true); }
                   }}
-                  onTextChange={(t) => { setAddress(t); setCoords(null); }}
+                  onTextChange={(t) => { setAddress(t); setCoords(null); if (fieldError === 'address') { setFieldError(null); setError(null); } }}
                   onBlur={() => {}}
                   placeholder="Address or Eircode…"
                   showMapPreview={false}
@@ -684,6 +705,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   </Button>
                 </motion.div>
 
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center text-xs font-medium text-destructive"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+
                 <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
                   A nearby helper usually replies in minutes
@@ -703,7 +734,6 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               </motion.div>
 
               <motion.div variants={sheetItem}>
-                {error && <p className="text-center text-xs text-destructive mb-2">{error}</p>}
                 <p className="text-center text-[11px] text-muted-foreground">
                   No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
                 </p>
