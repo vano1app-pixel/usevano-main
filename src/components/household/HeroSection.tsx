@@ -126,7 +126,7 @@ export const HeroSection: React.FC = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-cream rounded-3xl shadow-2xl p-5 lg:p-6"
+            className="bg-cream rounded-3xl shadow-2xl p-5 lg:p-6 border border-foreground/15"
           >
             <div className="flex items-baseline justify-between gap-3 mb-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">

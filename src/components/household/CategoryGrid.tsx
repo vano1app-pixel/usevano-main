@@ -141,7 +141,7 @@ function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
 // ─── Chip helper ──────────────────────────────────────────────────────────
 
 const chip = (active: boolean, accent?: boolean) => cn(
-  'px-3.5 py-1.5 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none',
+  'px-4 py-2.5 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none',
   'transition-[background-color,color,border-color] duration-150',
   active
     ? accent
@@ -390,7 +390,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
             {/* When? — "Now" pre-selected; chips are an optional tweak */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {timeSlots.map(opt => (
                   <motion.button
                     key={opt}
@@ -406,7 +406,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
               </div>
               {/* Book ahead — server grants 10% off scheduled bookings */}
               <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {TOMORROW_SLOTS.map(opt => (
                   <motion.button
                     key={opt}
@@ -605,7 +605,7 @@ export const CategoryGrid: React.FC = () => {
                 className={cn(
                   'relative flex flex-col items-center justify-center gap-1.5',
                   'min-h-[96px] rounded-2xl px-2 py-3 border',
-                  'bg-white text-foreground hover:bg-secondary/60 border-border/60 hover:border-foreground/20 hover:shadow-sm',
+                  'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
                   'transition-[background-color,border-color,box-shadow] duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 )}
@@ -619,7 +619,7 @@ export const CategoryGrid: React.FC = () => {
                 <span className="text-2xl leading-none select-none" aria-hidden="true">{cat.emoji}</span>
                 <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
                 {/* Smart default price — the key info before you tap */}
-                <span className="text-[11px] font-medium text-foreground/50 leading-tight tabular-nums">{shown}</span>
+                <span className="text-[11px] font-medium text-foreground/60 leading-tight tabular-nums">{shown}</span>
               </motion.button>
             );
           })}
