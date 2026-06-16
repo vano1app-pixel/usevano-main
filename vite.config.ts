@@ -42,9 +42,11 @@ export default defineConfig(({ mode }) => ({
       //      keep a tab open (a real pattern for this app's mobile users) keep
       //      running stale JS forever. After multi-Google-account hang fix
       //      (#109) we need users to actually pick up new code.
-      // Risk acknowledged: some users won't tap the toast — net cost is they
-      // stay on the version they already had. Better than silent stale code.
-      registerType: "prompt",
+      // autoUpdate (was "prompt"): the prompt relied on users tapping an
+      // "Update" toast, so anyone who missed it stayed on a stale cached build
+      // — deploys looked like they "weren't going live". autoUpdate + the
+      // skipWaiting in src/sw.ts applies a new deploy automatically on next load.
+      registerType: "autoUpdate",
       includeAssets: ["favicon.png", "favicon.ico"],
       injectManifest: {
         // Precache only the essentials. The previous "**/*.{...,png,...}" glob
