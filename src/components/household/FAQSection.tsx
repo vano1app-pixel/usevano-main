@@ -37,7 +37,7 @@ export const FAQSection: React.FC = () => {
                   type="button"
                   onClick={() => setOpenIdx(open ? null : i)}
                   aria-expanded={open}
-                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
+                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-secondary/40 transition-colors duration-150"
                 >
                   <span className="text-[15px] font-semibold text-foreground leading-snug">{f.q}</span>
                   <ChevronDown
