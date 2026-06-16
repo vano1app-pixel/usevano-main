@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion, useDragControls } from 'framer-motion';
 import { MessageCircle, Loader2, X, Zap, ChevronDown, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -77,6 +77,21 @@ const DEFAULT_SIZE: Record<string, string> = {
   cleaning:  '2 hours',
   tutoring:  '1 hour',
 };
+
+// Per-category accent — a soft, decorative tint for the sheet header only
+// (wash behind the title, the emoji tile's ring, the reassurance pill). The
+// CTA stays brand-sage everywhere, so the codex's "exactly one primary action
+// = sage" rule holds; these hues just give each service its own hero.
+interface Accent { wash: string; ring: string; pill: string }
+const ACCENT: Record<string, Accent> = {
+  cleaning:   { wash: 'from-sage-light',  ring: 'ring-sage/25',     pill: 'text-sage-dark ring-sage/20' },
+  shopping:   { wash: 'from-sky-100',     ring: 'ring-sky-300/50',  pill: 'text-sky-700 ring-sky-300/50' },
+  'dog-walk': { wash: 'from-amber-100',   ring: 'ring-amber-300/50',pill: 'text-amber-700 ring-amber-300/50' },
+  garden:     { wash: 'from-emerald-100', ring: 'ring-emerald-300/50', pill: 'text-emerald-700 ring-emerald-300/50' },
+  moving:     { wash: 'from-orange-100',  ring: 'ring-orange-300/50', pill: 'text-orange-700 ring-orange-300/50' },
+  tutoring:   { wash: 'from-violet-100',  ring: 'ring-violet-300/50', pill: 'text-violet-700 ring-violet-300/50' },
+};
+const accentFor = (slug: string): Accent => ACCENT[slug] ?? ACCENT.cleaning;
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
 
@@ -236,6 +251,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
     if (!next && when.startsWith('Tomorrow')) setWhen('Now');
     return next;
   });
+  // Progressive disclosure: time / duration / area collapse into one summary
+  // line so a new visitor sees only phone + address + Book. Smart defaults are
+  // already set, so the summary is accurate before it's ever opened.
+  const [editDetails, setEditDetails] = useState(false);
+
+  // Drag-to-dismiss — only the handle starts the drag (dragListener=false), so
+  // the scrollable body keeps scrolling normally. A flick or a long pull closes.
+  const dragControls = useDragControls();
+
+  const accent = accentFor(cat.slug);
 
   function forgetMe() {
     clearBookingMemory();
@@ -351,27 +376,36 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         animate={{ y: 0 }}
         exit={{ y: '100%', transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] } }}
         transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.5 }}
+        onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 600) onClose(); }}
         className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
         style={{ maxHeight: '88vh', overflowY: 'auto' }}
         role="dialog"
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
       >
-        {/* Hero header — a soft branded wash, the drag handle, a big emoji
-            tile that springs in, and a one-line reassurance. Gives the sheet
-            a moment of personality instead of opening on a wall of inputs. */}
-        <div className="relative overflow-hidden rounded-t-3xl">
-          <div className="absolute inset-0 bg-gradient-to-b from-sage-light to-cream" aria-hidden="true" />
-          <div className="relative px-5 pt-3 pb-4">
-            <div className="flex justify-center mb-3">
-              <div className="w-10 h-1 rounded-full bg-foreground/15" />
-            </div>
+        {/* Hero header — a soft per-category wash, a grab handle (drag it down
+            to dismiss), the emoji on a ringed tile that springs in, and a
+            one-line reassurance. Personality instead of a wall of inputs. */}
+        <div className={cn('relative overflow-hidden rounded-t-3xl bg-gradient-to-b to-cream', accent.wash)}>
+          {/* Grab zone — only this starts the drag, so the body still scrolls */}
+          <div
+            onPointerDown={(e) => dragControls.start(e)}
+            className="flex cursor-grab touch-none justify-center pt-3 pb-1 active:cursor-grabbing"
+          >
+            <div className="h-1 w-10 rounded-full bg-foreground/15" />
+          </div>
+          <div className="relative px-5 pb-4 pt-1">
             <div className="flex items-start gap-3.5">
               <motion.div
                 initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
                 transition={{ type: 'spring', stiffness: 360, damping: 17, delay: 0.05 }}
-                className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-3xl shadow-md"
+                className={cn('flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-3xl shadow-md ring-1', accent.ring)}
                 aria-hidden="true"
               >
                 {cat.emoji}
@@ -390,7 +424,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 <X className="h-4 w-4 text-foreground/60" />
               </button>
             </div>
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-[12px] font-medium text-sage-dark shadow-sm ring-1 ring-sage/15">
+            <div className={cn('mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-[12px] font-medium shadow-sm ring-1', accent.pill)}>
               <Zap className="h-3.5 w-3.5" aria-hidden="true" />
               Free to book — you only pay when a helper accepts
             </div>
@@ -456,148 +490,181 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
               </motion.div>
 
-              {/* When? — "Now" pre-selected; book-ahead tucked behind a toggle */}
-              <motion.div variants={sheetItem}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
-                <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                  {timeSlots.map(opt => (
-                    <OptionChip key={opt} group="when" active={when === opt} liveDot={opt === 'Now'} onClick={() => setWhen(opt)}>
-                      {opt}
-                    </OptionChip>
-                  ))}
+              {/* Booking details — collapsed into one summary + live-price card.
+                  A new visitor sees only phone, address and Book; "Change…"
+                  reveals time / duration / area inline. Defaults are already
+                  set, so the summary is accurate before it's ever opened. */}
+              <motion.div variants={sheetItem} className="overflow-hidden rounded-2xl border border-foreground/8 bg-white shadow-sm">
+                <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {when === 'Now' ? 'Now' : when}{size ? ` · ${size}` : ''}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {cat.label} · <span aria-hidden="true">📍</span> {city}
+                    </p>
+                  </div>
+                  {priceCents != null && (
+                    /* Price rolls with a blur+slide swap whenever it changes —
+                       turns a silent number change into responsive feedback. */
+                    <span className="relative flex-shrink-0 overflow-hidden leading-none">
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.span
+                          key={priceCents}
+                          initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
+                          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                          exit={{ opacity: 0, y: -12, filter: 'blur(4px)' }}
+                          transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                          className="block text-xl font-bold text-foreground tabular-nums"
+                        >
+                          {fmt(priceCents)}
+                        </motion.span>
+                      </AnimatePresence>
+                    </span>
+                  )}
                 </div>
-                {/* Book ahead — server grants 10% off scheduled bookings. One
-                    pill keeps the upsell without a second row of clutter. */}
+                {isScheduledAhead && baseCents && (
+                  <p className="flex items-center justify-between px-4 pb-2.5 -mt-1 text-[11px]">
+                    <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
+                    <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
+                  </p>
+                )}
+
                 <button
                   type="button"
-                  onClick={toggleAhead}
-                  className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-sage/30 bg-sage/8 px-3 py-1.5 text-[12px] font-semibold text-sage-dark transition-colors hover:bg-sage/14"
-                  aria-expanded={showAhead}
+                  onClick={() => setEditDetails(v => !v)}
+                  className="flex w-full items-center justify-center gap-1.5 border-t border-foreground/8 py-2.5 text-[12px] font-semibold text-foreground/55 transition-colors hover:bg-foreground/4"
+                  aria-expanded={editDetails}
                 >
-                  <span aria-hidden="true">📅</span>
-                  Book ahead &amp; save 10%
-                  <motion.span animate={{ rotate: showAhead ? 180 : 0 }} transition={{ duration: 0.2 }} className="inline-flex" aria-hidden="true">
+                  {editDetails ? 'Done' : 'Change time, duration or area'}
+                  <motion.span animate={{ rotate: editDetails ? 180 : 0 }} transition={{ duration: 0.2 }} className="inline-flex" aria-hidden="true">
                     <ChevronDown className="h-3.5 w-3.5" />
                   </motion.span>
                 </button>
+
                 <AnimatePresence initial={false}>
-                  {showAhead && (
+                  {editDetails && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                      className="overflow-hidden"
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden border-t border-foreground/8"
                     >
-                      <div className="flex gap-2.5 overflow-x-auto pb-1 pt-2.5 scrollbar-hide -mx-1 px-1">
-                        {TOMORROW_SLOTS.map(opt => (
-                          <OptionChip key={opt} group="when" active={when === opt} onClick={() => setWhen(opt)}>
-                            {opt}
-                          </OptionChip>
-                        ))}
+                      <div className="space-y-5 px-4 py-4">
+                        {/* When? — "Now" pre-selected; book-ahead behind a toggle */}
+                        <div>
+                          <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">When?</p>
+                          <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                            {timeSlots.map(opt => (
+                              <OptionChip key={opt} group="when" active={when === opt} liveDot={opt === 'Now'} onClick={() => setWhen(opt)}>
+                                {opt}
+                              </OptionChip>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={toggleAhead}
+                            className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-sage/30 bg-sage/8 px-3 py-1.5 text-[12px] font-semibold text-sage-dark transition-colors hover:bg-sage/14"
+                            aria-expanded={showAhead}
+                          >
+                            <span aria-hidden="true">📅</span>
+                            Book ahead &amp; save 10%
+                            <motion.span animate={{ rotate: showAhead ? 180 : 0 }} transition={{ duration: 0.2 }} className="inline-flex" aria-hidden="true">
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </motion.span>
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {showAhead && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                                className="overflow-hidden"
+                              >
+                                <div className="flex gap-2.5 overflow-x-auto pb-1 pt-2.5 scrollbar-hide -mx-1 px-1">
+                                  {TOMORROW_SLOTS.map(opt => (
+                                    <OptionChip key={opt} group="when" active={when === opt} onClick={() => setWhen(opt)}>
+                                      {opt}
+                                    </OptionChip>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* How long? — sensible default pre-selected */}
+                        {cat.sizes && (
+                          <div>
+                            <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">
+                              {cat.sizeLabel ?? 'How long?'}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {cat.sizes.map(opt => (
+                                <OptionChip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
+                                  {opt}
+                                </OptionChip>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Area — auto-detected from the address; chips fallback */}
+                        {cityAuto ? (
+                          <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+                            <p className="text-sm text-foreground/75 min-w-0 truncate">
+                              <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
+                              <span className="text-muted-foreground text-xs"> · from your address</span>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setCityAuto(false)}
+                              className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
+                            <div className="flex flex-wrap gap-2">
+                              {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
+                                ? [...SUPPORTED_CITIES]
+                                : [city, ...SUPPORTED_CITIES]
+                              ).map(c => {
+                                // Galway-first: dispatch is live in Galway today. Other
+                                // cities read as "soon" — but a remembered or address-
+                                // derived area stays selectable for returning customers.
+                                const comingSoon = c !== 'Galway' && c !== city;
+                                if (comingSoon) {
+                                  return (
+                                    <span
+                                      key={c}
+                                      className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
+                                    >
+                                      {c} · soon
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <OptionChip key={c} group="area" active={city === c} onClick={() => setCity(c)}>
+                                    {c}
+                                  </OptionChip>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </motion.div>
 
-              {/* How long? — sensible default pre-selected */}
-              {cat.sizes && (
-                <motion.div variants={sheetItem}>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
-                    {cat.sizeLabel ?? 'How long?'}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {cat.sizes.map(opt => (
-                      <OptionChip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
-                        {opt}
-                      </OptionChip>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Area — auto-detected from the address; chips only as fallback */}
-              <motion.div variants={sheetItem}>
-                {cityAuto ? (
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
-                    <p className="text-sm text-foreground/75 min-w-0 truncate">
-                      <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
-                      <span className="text-muted-foreground text-xs"> · from your address</span>
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setCityAuto(false)}
-                      className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
-                    >
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
-                        ? [...SUPPORTED_CITIES]
-                        : [city, ...SUPPORTED_CITIES]
-                      ).map(c => {
-                        // Galway-first: dispatch is live in Galway today. Other cities
-                        // read as "soon" — but a remembered or address-derived area
-                        // stays selectable so returning customers aren't locked out.
-                        const comingSoon = c !== 'Galway' && c !== city;
-                        if (comingSoon) {
-                          return (
-                            <span
-                              key={c}
-                              className="px-3.5 py-1.5 rounded-full text-sm font-medium border border-border/50 text-muted-foreground/50 bg-secondary/40 flex-shrink-0 select-none"
-                            >
-                              {c} · soon
-                            </span>
-                          );
-                        }
-                        return (
-                          <OptionChip key={c} group="area" active={city === c} onClick={() => setCity(c)}>
-                            {c}
-                          </OptionChip>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-
-              {/* Price summary + CTA */}
-              <motion.div variants={sheetItem} className="space-y-2.5 pt-1">
-                {priceCents != null && (
-                  <div className="px-4 py-3.5 rounded-2xl bg-white border border-foreground/8 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-foreground/60 min-w-0 truncate">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                      {/* Price rolls with a blur+slide swap whenever it changes —
-                          turns a silent number change into responsive feedback. */}
-                      <span className="relative flex-shrink-0 overflow-hidden leading-none">
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          <motion.span
-                            key={priceCents}
-                            initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
-                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                            exit={{ opacity: 0, y: -12, filter: 'blur(4px)' }}
-                            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                            className="block text-xl font-bold text-foreground tabular-nums"
-                          >
-                            {fmt(priceCents)}
-                          </motion.span>
-                        </AnimatePresence>
-                      </span>
-                    </div>
-                    {isScheduledAhead && baseCents && (
-                      <p className="flex items-center justify-between text-[11px] mt-1.5">
-                        <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
-                        <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-
+              {/* CTA block */}
+              <motion.div variants={sheetItem} className="space-y-2.5">
                 {referralCode && (
                   <p className="flex items-center justify-center gap-1.5 text-xs text-sage-dark font-medium">
                     <span aria-hidden="true">🎁</span>
