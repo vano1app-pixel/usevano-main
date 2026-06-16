@@ -12,6 +12,7 @@ import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
+import { Reveal } from '@/components/Reveal';
 
 /**
  * Two sections sell: the hero (book one job now) and House Autopilot
@@ -46,12 +47,14 @@ const HouseholdHome: React.FC = () => {
         <ActivityTicker />
         {/* Trust first — social proof and real helper faces — so the bigger
             monthly ask below only comes once the visitor believes us */}
-        <ReviewCarousel />
-        <HelperCards />
+        <Reveal><ReviewCarousel /></Reveal>
+        <Reveal><HelperCards /></Reveal>
         {/* Flagship offer lands after trust; the navy band also anchors the
-            middle of the page between the cream sections */}
+            middle of the page between the cream sections. NOT wrapped in
+            Reveal — it contains the autopilot bottom sheet (position:fixed),
+            which a transform ancestor would re-anchor. */}
         <HomePlans />
-        <FAQSection />
+        <Reveal><FAQSection /></Reveal>
         <FindBookingBar />
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <section className="px-4 pb-12 bg-background">
