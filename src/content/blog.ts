@@ -342,6 +342,49 @@ export const BLOG_POSTS: BlogPost[] = [
       { q: "Do I need any experience?", a: "No. Most jobs — dog walks, cleaning, errands — need reliability, not experience." },
     ],
   },
+
+  {
+    slug: "meet-the-vano-team",
+    title: "Meet the Vano Team: the ATU Students Behind It",
+    summary:
+      "Vano was built by three ATU students in Galway — Ayush Puri, Cormac Hennessy and Michael Okocha — who wanted fair, flexible work for students and reliable same-day help for local households.",
+    description:
+      "Meet the team behind Vano — Ayush Puri, Cormac Hennessy and Michael Okocha, three ATU students in Galway building same-day home help with fair pay for student helpers.",
+    keywords:
+      "Vano team, who founded Vano, Vano founders, ATU students startup Galway, Ayush Puri, Cormac Hennessy, Michael Okocha, student startup Ireland",
+    eyebrow: "Our story",
+    datePublished: "2026-06-17",
+    dateModified: "2026-06-17",
+    readingMins: 3,
+    author: "The Vano Team",
+    heroGradient: "from-navy via-sage-dark to-emerald-700",
+    heroAlt: "The three ATU students who founded Vano, planning at a whiteboard in Galway",
+    tags: ["Our story", "Team", "ATU"],
+    bodyHtml: `
+<p>Vano didn't come out of a boardroom. It started with three <a href="/glossary/atu">ATU</a> students in Galway, a whiteboard, and one simple frustration: students wanted flexible work that paid properly and fit around lectures, while households around the city needed reliable help they could book the same day. Nobody was joining those two dots — so we did.</p>
+<figure><img src="/blog/team-whiteboard.jpg" alt="Ayush Puri, Cormac Hennessy and Michael Okocha — the ATU students who founded Vano — planning at a whiteboard in Galway" class="rounded-2xl" loading="lazy" /><figcaption>Mapping out Vano at ATU — customers, categories, and the all-important wage maths.</figcaption></figure>
+<h2>Who we are</h2>
+<p>We're <strong>Ayush Puri</strong>, <strong>Cormac Hennessy</strong> and <strong>Michael Okocha</strong> — three students at Atlantic Technological University in Galway who built Vano between lectures, late nights and a lot of coffee. Being students ourselves is the whole point: we know what good, flexible, fairly paid work should feel like, because we were looking for it too.</p>
+<figure><img src="/blog/team-laptop.jpg" alt="Two of Vano's founders building the platform on a laptop beside a planning whiteboard at ATU" class="rounded-2xl" loading="lazy" /><figcaption>Heads down — building the platform that dispatches jobs to nearby helpers.</figcaption></figure>
+<h2>Why we built Vano</h2>
+<p>Two problems, one platform:</p>
+<ul>
+<li><strong>For students:</strong> proper pay. Every time-based job is priced so a helper takes home <strong>€15.30/hr net</strong> — above the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a> — with no fixed rota. The full breakdown is in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</li>
+<li><strong>For households:</strong> <a href="/glossary/same-day-home-help">same-day help</a> from an <a href="/glossary/id-verified-helper">ID-verified</a> local student — cleaning, dog walks, garden, moving, errands and more — without the hassle.</li>
+</ul>
+<figure><img src="/blog/team-podcast.jpg" alt="Vano's founders recording a podcast about building a student-run startup in Galway" class="rounded-2xl" loading="lazy" /><figcaption>Telling the story — building Vano in the open.</figcaption></figure>
+<h2>Where we're going</h2>
+<p>We started in Galway because it's home, and because a student city is exactly where this works best. The plan is to keep it fair, keep it local, and keep it genuinely useful — for the students who do the work and the households who rely on them.</p>
+<p>Want to be part of it? Here's <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
+<p><a href="/join"><strong>Join Vano →</strong></a></p>
+`,
+    related: ["why-vano-fair-pay-same-day", "atu-students-earning-with-vano", "how-to-become-a-vano-helper"],
+    faqs: [
+      { q: "Who founded Vano?", a: "Vano was founded by three Atlantic Technological University (ATU) students in Galway — Ayush Puri, Cormac Hennessy and Michael Okocha." },
+      { q: "Are the people behind Vano really students?", a: "Yes. The founders are ATU students who built Vano around their own lectures — which is exactly why fair, flexible pay for student helpers is built into the platform." },
+      { q: "Where is Vano based?", a: "Vano is based in Galway, Ireland, and currently serves households and student helpers across the city." },
+    ],
+  },
 ];
 
 /** Lookup by slug — used by the route and the prerenderer. */
