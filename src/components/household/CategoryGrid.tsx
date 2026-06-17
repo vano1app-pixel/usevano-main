@@ -91,14 +91,25 @@ function fmt(cents: number): string {
   return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
 }
 
+// Short "what you get" line under the tile price — duration + the job, so the
+// scope reads human (e.g. "2-hr clean") rather than a bare number.
+const TILE_SCOPE: Record<string, string> = {
+  shopping:   'wash & fold',
+  'dog-walk': '30-min walk',
+  garden:     '2-hr tidy',
+  moving:     '2-hr move',
+  cleaning:   '2-hr clean',
+  tutoring:   '1-hr lesson',
+};
+
 // What to show on the card before tapping — bold price (the focal point) plus
-// a quiet scope line (the duration, or "per load" for the flat laundry job).
+// a quiet scope line that says what the price covers.
 function cardPriceParts(cat: Category): { price: string; scope: string } {
   const defSize = DEFAULT_SIZE[cat.slug];
   const cents = getPriceCents(cat.slug, defSize);
   return {
     price: cents === null ? 'from €15' : fmt(cents),
-    scope: defSize || 'per load',
+    scope: TILE_SCOPE[cat.slug] ?? (defSize || 'per load'),
   };
 }
 
