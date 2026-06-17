@@ -59,11 +59,11 @@ export const HomePlans: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
           </h2>
-          <ul className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-            {['Set & forget', 'One trusted student', 'Weekly or while away'].map((chip, i) => (
+          <ul className="flex flex-wrap justify-center gap-2.5">
+            {['Set & forget', 'One trusted student', 'Weekly or while away'].map((chip) => (
               <li
                 key={chip}
-                className={`flex items-center justify-center rounded-full bg-white/10 border border-white/15 px-4 py-2.5 text-sm font-semibold text-white${i === 2 ? ' col-span-2 justify-self-center' : ''}`}
+                className="inline-flex items-center rounded-full bg-white/10 border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
               >
                 {chip}
               </li>
