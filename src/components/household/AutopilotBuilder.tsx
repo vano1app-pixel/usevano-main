@@ -135,6 +135,12 @@ export const AutopilotBuilder: React.FC = () => {
   const totalCents = mode === 'away'
     ? finalise(sumBy((s) => s.weeklyCents) * weeks)
     : billing === 'weekly' ? weeklyTotalCents : monthlyTotalCents;
+  // Pre-discount subtotal + the exact € the bundle takes off, so the on-screen
+  // breakdown always sums perfectly: subtotal − discount = total.
+  const rawSubtotalCents = mode === 'away'
+    ? sumBy((s) => s.weeklyCents) * weeks
+    : billing === 'weekly' ? sumBy((s) => s.weeklyCents) : sumBy((s) => s.monthlyCents);
+  const discountCents = Math.max(0, rawSubtotalCents - totalCents);
   // What a month of week-by-week billing costs over paying monthly — whole €
   const monthlySavesCents = Math.max(
     0,
@@ -359,32 +365,48 @@ export const AutopilotBuilder: React.FC = () => {
           <div className="mb-4" aria-live="polite">
             {selected.length === 0 ? (
               <p className="text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground/25 tabular-nums leading-none">—</p>
-            ) : mode === 'ongoing' ? (
-              <>
-                <p className="text-[11px] text-muted-foreground">
-                  {selected.length} service{selected.length > 1 ? 's' : ''} — that's about
-                </p>
-                {/* Lead with the per-day: a big total reads as scary, so the
-                    friendly unit gets the size. The real total and billing
-                    cadence sit right under it — nothing is hidden. */}
-                <p className="text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground tabular-nums leading-none">
-                  {perDayLabel}<span className="text-lg font-semibold text-muted-foreground">/day</span>
-                </p>
-                <p className="mt-2 text-[12px] text-muted-foreground tabular-nums">
-                  <span className="font-semibold text-foreground/70">
-                    {euro(totalCents)}{billing === 'weekly' ? '/wk' : '/mo'}
-                  </span>{' '}
-                  · billed {billing} · cancel anytime
-                </p>
-              </>
             ) : (
               <>
-                <p className="text-[11px] text-muted-foreground">
-                  {selected.length} service{selected.length > 1 ? 's' : ''} · {weeks} week{weeks > 1 ? 's' : ''}
-                </p>
-                <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
-                  {euro(totalCents)}<span className="text-sm font-semibold text-muted-foreground"> total</span>
-                </p>
+                {/* Transparent breakdown — subtotal → bundle discount → total, so
+                    the price is never a black box: subtotal − discount = total. */}
+                {bundled ? (
+                  <>
+                    <div className="space-y-1 text-[13px] tabular-nums">
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>{selected.length} services{mode === 'away' ? ` · ${weeks} week${weeks > 1 ? 's' : ''}` : ''}</span>
+                        <span>{euro(rawSubtotalCents)}{mode === 'away' ? '' : billing === 'weekly' ? '/wk' : '/mo'}</span>
+                      </div>
+                      <div className="flex items-center justify-between font-medium text-sage">
+                        <span>Bundle 10% off · 3+ services</span>
+                        <span>−{euro(discountCents)}</span>
+                      </div>
+                    </div>
+                    <div className="my-2.5 border-t border-border/60" />
+                  </>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground mb-1">
+                    {selected.length} service{selected.length > 1 ? 's' : ''}{mode === 'away' ? ` · ${weeks} week${weeks > 1 ? 's' : ''}` : " — that's about"}
+                  </p>
+                )}
+
+                {mode === 'ongoing' ? (
+                  <>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums leading-none">
+                        {euro(totalCents)}<span className="text-base font-semibold text-muted-foreground">{billing === 'weekly' ? '/wk' : '/mo'}</span>
+                      </p>
+                      <p className="text-[12px] text-muted-foreground tabular-nums flex-shrink-0">≈ {perDayLabel}/day</p>
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">billed {billing} · cancel anytime</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                      {euro(totalCents)}<span className="text-sm font-semibold text-muted-foreground"> total</span>
+                    </p>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">for {weeks} week{weeks > 1 ? 's' : ''} · cancel anytime</p>
+                  </>
+                )}
               </>
             )}
           </div>
