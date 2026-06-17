@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Loader2, CreditCard, MessageCircle, Sparkles, X } from 'lucide-react';
+import { Check, Loader2, CreditCard, MessageCircle, Sparkles, X, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
@@ -25,7 +25,9 @@ interface Service {
   key: string;
   emoji: string;
   label: string;
-  desc: string;
+  /** Capped visit time in minutes for the timed services; undefined for the
+   *  small flat job-based ones (which show "Weekly visit" instead). */
+  mins?: number;
   monthlyCents: number;
   weeklyCents: number;
 }
@@ -44,12 +46,12 @@ interface Service {
 // cleaning €119/mo = €27.46/wk ÷ 1.5h = €18.31/hr; the small job-based
 // tasks net ~€18–24/hr at their typical times.
 const SERVICES: Service[] = [
-  { key: 'cleaning', emoji: '🧽', label: 'Cleaning',             desc: '90-min refresh, every week',       monthlyCents: 11900, weeklyCents: 3000 },
-  { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing',    desc: 'Washed, ironed, put away',        monthlyCents: 5900,  weeklyCents: 1500 },
-  { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',        desc: 'Kept tidy, week in week out',     monthlyCents: 5900,  weeklyCents: 1500 },
-  { key: 'dog',      emoji: '🐕', label: 'Dog walks',            desc: 'A good 30-min walk, every week',  monthlyCents: 4500,  weeklyCents: 1200 },
-  { key: 'bins',     emoji: '🗑️', label: 'Bins & house check',   desc: 'Out, back in, quick look around', monthlyCents: 1900,  weeklyCents: 500 },
-  { key: 'plants',   emoji: '🪴', label: 'Plants & post',        desc: 'Watered, post cleared',           monthlyCents: 1500,  weeklyCents: 400 },
+  { key: 'cleaning', emoji: '🧽', label: 'Cleaning',          mins: 90, monthlyCents: 11900, weeklyCents: 3000 },
+  { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing',           monthlyCents: 5900,  weeklyCents: 1500 },
+  { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',               monthlyCents: 5900,  weeklyCents: 1500 },
+  { key: 'dog',      emoji: '🐕', label: 'Dog walks',         mins: 30, monthlyCents: 4500,  weeklyCents: 1200 },
+  { key: 'bins',     emoji: '🗑️', label: 'Bins & house check',         monthlyCents: 1900,  weeklyCents: 500 },
+  { key: 'plants',   emoji: '🪴', label: 'Plants & post',               monthlyCents: 1500,  weeklyCents: 400 },
 ];
 
 // The most popular ongoing setup — pre-ticked so the price (and bundle
@@ -273,7 +275,10 @@ export const AutopilotBuilder: React.FC = () => {
                 <span className="text-lg flex-shrink-0" aria-hidden="true">{s.emoji}</span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-semibold text-foreground">{s.label}</span>
-                  <span className="block text-[11px] text-muted-foreground truncate">{s.desc}</span>
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    {s.mins != null && <Clock size={11} className="flex-shrink-0" aria-hidden="true" />}
+                    {s.mins != null ? `${s.mins} min · weekly` : 'Weekly visit'}
+                  </span>
                 </span>
                 <span className={cn('text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
                   {mode === 'ongoing' && billing === 'monthly' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`}
