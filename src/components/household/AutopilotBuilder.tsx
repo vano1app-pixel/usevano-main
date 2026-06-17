@@ -25,9 +25,10 @@ interface Service {
   key: string;
   emoji: string;
   label: string;
-  /** Capped visit time in minutes for the timed services; undefined for the
-   *  small flat job-based ones (which show "Weekly visit" instead). */
-  mins?: number;
+  /** Capped visit time in minutes. Every service has one, and
+   *  autopilotPayMath.test.ts guarantees the price still pays the helper at
+   *  least minimum wage for that time — even at the cheapest (monthly+bundle). */
+  mins: number;
   monthlyCents: number;
   weeklyCents: number;
 }
@@ -47,11 +48,11 @@ interface Service {
 // tasks net ~€18–24/hr at their typical times.
 const SERVICES: Service[] = [
   { key: 'cleaning', emoji: '🧽', label: 'Cleaning',          mins: 90, monthlyCents: 11900, weeklyCents: 3000 },
-  { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing',           monthlyCents: 5900,  weeklyCents: 1500 },
-  { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',               monthlyCents: 5900,  weeklyCents: 1500 },
+  { key: 'laundry',  emoji: '🧺', label: 'Laundry & ironing', mins: 45, monthlyCents: 5900,  weeklyCents: 1500 },
+  { key: 'garden',   emoji: '🌿', label: 'Garden & lawn',     mins: 45, monthlyCents: 5900,  weeklyCents: 1500 },
   { key: 'dog',      emoji: '🐕', label: 'Dog walks',         mins: 30, monthlyCents: 4500,  weeklyCents: 1200 },
-  { key: 'bins',     emoji: '🗑️', label: 'Bins & house check',         monthlyCents: 1900,  weeklyCents: 500 },
-  { key: 'plants',   emoji: '🪴', label: 'Plants & post',               monthlyCents: 1500,  weeklyCents: 400 },
+  { key: 'bins',     emoji: '🗑️', label: 'Bins & house check', mins: 10, monthlyCents: 1900,  weeklyCents: 500 },
+  { key: 'plants',   emoji: '🪴', label: 'Plants & post',     mins: 10, monthlyCents: 1500,  weeklyCents: 400 },
 ];
 
 // The most popular ongoing setup — pre-ticked so the price (and bundle
@@ -276,8 +277,8 @@ export const AutopilotBuilder: React.FC = () => {
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-semibold text-foreground">{s.label}</span>
                   <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                    {s.mins != null && <Clock size={11} className="flex-shrink-0" aria-hidden="true" />}
-                    {s.mins != null ? `${s.mins} min · weekly` : 'Weekly visit'}
+                    <Clock size={11} className="flex-shrink-0" aria-hidden="true" />
+                    {s.mins} min · weekly
                   </span>
                 </span>
                 <span className={cn('text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
