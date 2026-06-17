@@ -143,12 +143,12 @@ export const HelperCards: React.FC = () => {
             <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex-shrink-0 w-[200px] sm:w-[220px]">
-                  <div className="h-full bg-card rounded-2xl border border-border/40 overflow-hidden">
-                    <div className="w-full aspect-[4/3] bg-secondary/50 animate-pulse" />
+                  <div className="shimmer h-full bg-card rounded-2xl border border-border/40 overflow-hidden">
+                    <div className="w-full aspect-[4/3] bg-secondary/50" />
                     <div className="p-3 space-y-2">
-                      <div className="h-3.5 w-2/3 rounded bg-secondary/60 animate-pulse" />
-                      <div className="h-3 w-full rounded bg-secondary/40 animate-pulse" />
-                      <div className="h-3 w-4/5 rounded bg-secondary/40 animate-pulse" />
+                      <div className="h-3.5 w-2/3 rounded bg-secondary/60" />
+                      <div className="h-3 w-full rounded bg-secondary/40" />
+                      <div className="h-3 w-4/5 rounded bg-secondary/40" />
                     </div>
                   </div>
                 </div>
@@ -195,7 +195,7 @@ export const HelperCards: React.FC = () => {
           {/* Scroll container */}
           <div
             ref={scrollRef}
-            className="overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4"
+            className="overflow-x-auto overscroll-x-contain scrollbar-hide snap-x snap-mandatory pb-4"
           >
             <div className="flex gap-3 px-4" style={{ width: 'max-content' }}>
               {helpers.map((h) => <Card key={h.id} h={h} />)}

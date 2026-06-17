@@ -19,6 +19,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
   // Lock body scroll while open, restoring the exact scroll position on close
   useEffect(() => {
     const scrollY = window.scrollY;
+    // Remember what opened the sheet so we can hand focus back on close
+    const trigger = document.activeElement as HTMLElement | null;
     const { style } = document.body;
     const prev = { overflow: style.overflow, position: style.position, top: style.top, width: style.width };
     style.overflow = 'hidden';
@@ -31,6 +33,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
       style.top = prev.top;
       style.width = prev.width;
       window.scrollTo(0, scrollY);
+      trigger?.focus?.();
     };
   }, []);
 
@@ -64,7 +67,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
         exit={{ y: '100%', transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] } }}
         transition={{ duration: 0.44, ease: [0.32, 0.72, 0, 1] }}
         className="fixed inset-x-0 bottom-0 z-[70] mx-auto w-full sm:max-w-md bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
-        style={{ maxHeight: '90dvh', overflowY: 'auto' }}
+        style={{ maxHeight: '90dvh', overflowY: 'auto', overscrollBehavior: 'contain' }}
         role="dialog"
         aria-modal="true"
         aria-label={label}

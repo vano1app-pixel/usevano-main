@@ -252,6 +252,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   // Lock body scroll while sheet is open without changing scroll position
   useEffect(() => {
     const scrollY = window.scrollY;
+    // Hand focus back to the tile that opened the sheet when it closes
+    const trigger = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
     const prevPosition = document.body.style.position;
     const prevTop = document.body.style.top;
@@ -266,6 +268,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
       document.body.style.top = prevTop;
       document.body.style.width = prevWidth;
       window.scrollTo(0, scrollY);
+      trigger?.focus?.();
     };
   }, []);
 
@@ -373,7 +376,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
         className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
-        style={{ maxHeight: '88vh', overflowY: 'auto' }}
+        style={{ maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain' }}
         role="dialog"
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
@@ -449,6 +452,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 onChange={e => { setPhone(e.target.value); if (phoneError) setPhoneError(false); if (error) setError(null); }}
                 placeholder="08x xxx xxxx"
                 autoComplete="tel"
+                inputMode="tel"
+                enterKeyHint="go"
+                autoCapitalize="off"
+                autoCorrect="off"
                 autoFocus={!prefilled}
                 required
                 className={cn(
@@ -613,7 +620,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 <Button
                   type="submit"
                   disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
+                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12 tabular-nums"
                 >
                   {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>

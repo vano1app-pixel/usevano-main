@@ -313,6 +313,8 @@ export const JoinAsHelper: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="First and last name"
+                  autoComplete="name"
+                  autoCapitalize="words"
                   required
                   className={cn(
                     'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
@@ -375,6 +377,10 @@ export const JoinAsHelper: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  autoCapitalize="off"
+                  autoCorrect="off"
                   required
                   className={cn(
                     'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',
@@ -395,6 +401,10 @@ export const JoinAsHelper: React.FC = () => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="08x xxx xxxx"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  autoCapitalize="off"
+                  autoCorrect="off"
                   required
                   className={cn(
                     'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm',

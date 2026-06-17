@@ -265,7 +265,7 @@ export const ReviewCarousel: React.FC = () => {
               key={i}
               onClick={() => goTo(i)}
               aria-label={`Review ${i + 1}`}
-              className={`rounded-full transition-all duration-300 ${
+              className={`relative rounded-full transition-all duration-300 after:absolute after:-inset-2 after:content-[''] ${
                 i === index ? 'w-5 h-2 bg-foreground' : 'w-2 h-2 bg-border hover:bg-foreground/40 hover:scale-125'
               }`}
             />

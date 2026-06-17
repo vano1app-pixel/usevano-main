@@ -384,7 +384,7 @@ export const AutopilotBuilder: React.FC = () => {
             whileTap={{ scale: 0.97 }}
             onClick={() => setOpen(true)}
             disabled={selected.length === 0}
-            className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
+            className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity tabular-nums"
           >
             <CreditCard size={17} />
             {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && (mode === 'ongoing' ? ` · ${perDayLabel}/day` : ` · ${euro(totalCents)}`)}
@@ -448,14 +448,14 @@ export const AutopilotBuilder: React.FC = () => {
               <form onSubmit={handleCheckout} className="space-y-2.5">
                 <input
                   type="text" value={name} onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name" required
+                  placeholder="Your name" required autoComplete="name" autoCapitalize="words"
                   className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                 />
                 <div>
                   <div className="flex gap-2">
                     <input
                       type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Phone number" required
+                      placeholder="Phone number" required autoComplete="tel" inputMode="tel" autoCapitalize="off" autoCorrect="off"
                       className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                     />
                     {/* Eircode pinpoints the home in 7 chars — far better than a
@@ -466,7 +466,7 @@ export const AutopilotBuilder: React.FC = () => {
                         we never block someone who doesn't know their Eircode. */}
                     <input
                       type="text" value={city} onChange={(e) => setCity(e.target.value)}
-                      placeholder="Eircode or area"
+                      placeholder="Eircode or area" autoCapitalize="off" autoCorrect="off"
                       className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                     />
                   </div>
@@ -479,7 +479,7 @@ export const AutopilotBuilder: React.FC = () => {
                   type="submit"
                   whileTap={{ scale: 0.97 }}
                   disabled={loading || !name.trim() || !phone.trim()}
-                  className="w-full h-12 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
+                  className="w-full h-12 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity tabular-nums"
                 >
                   {loading
                     ? <><Loader2 size={16} className="animate-spin" /> Opening secure checkout…</>

@@ -92,6 +92,10 @@ export const FindBookingBar: React.FC = () => {
               onChange={e => { setPhone(e.target.value); setError(null); setResults(null); }}
               placeholder="08x xxx xxxx"
               autoComplete="tel"
+              inputMode="tel"
+              enterKeyHint="search"
+              autoCapitalize="off"
+              autoCorrect="off"
               className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150"
             />
           </div>
@@ -99,10 +103,10 @@ export const FindBookingBar: React.FC = () => {
             type="submit"
             disabled={loading || !phone.trim()}
             className={cn(
-              'group flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold',
+              'group flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-w-[92px]',
               'bg-foreground text-background',
               'hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed',
-              'transition-opacity duration-150',
+              'transition-[opacity,transform] duration-150 active:scale-[0.97]',
             )}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><span>Find</span><ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" /></>}

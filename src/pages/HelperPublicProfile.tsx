@@ -61,7 +61,7 @@ function Stars({ value }: { value: number }) {
 
 function ProfileSkeleton() {
   return (
-    <div className="animate-pulse space-y-4" aria-label="Loading profile">
+    <div className="shimmer space-y-4" aria-label="Loading profile">
       <div className="bg-card rounded-3xl border border-border/40 p-6">
         <div className="flex items-center gap-4">
           <div className="w-24 h-24 rounded-2xl bg-secondary" />

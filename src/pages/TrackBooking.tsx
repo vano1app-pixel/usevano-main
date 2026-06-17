@@ -1331,7 +1331,7 @@ const TrackBooking = () => {
         {booking.student_id && (
           <div className="mt-8">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Messages</p>
-            <div className="flex flex-col gap-2 mb-3 min-h-[80px] max-h-[320px] overflow-y-auto">
+            <div className="flex flex-col gap-2 mb-3 min-h-[80px] max-h-[320px] overflow-y-auto overscroll-contain">
               <AnimatePresence initial={false}>
                 {messages.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-6">No messages yet.</p>

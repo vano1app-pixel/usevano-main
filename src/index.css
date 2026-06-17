@@ -153,6 +153,12 @@
     color: hsl(var(--foreground));
   }
 
+  /* Brand-tinted text caret in inputs — small detail, reads intentional */
+  input,
+  textarea {
+    caret-color: hsl(var(--primary));
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -204,6 +210,19 @@
   }
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Skeleton shimmer — one soft light sweep across loading placeholders.
+     Put it on the skeleton container; the grey blocks stay as they are.
+     Reuses the @keyframes shimmer above; reduced-motion neutralises it. */
+  .shimmer { position: relative; overflow: hidden; }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.05), transparent);
+    animation: shimmer 1.5s infinite;
   }
 
   /* Double-bezel card treatment from soft-skill */
