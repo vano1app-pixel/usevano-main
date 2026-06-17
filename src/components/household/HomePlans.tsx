@@ -59,11 +59,16 @@ export const HomePlans: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
           </h2>
-          <p className="text-white/70 text-base max-w-md mx-auto leading-snug space-y-1">
-            <span className="block font-semibold text-white">Tick the jobs you never think about again.</span>
-            <span className="block">One trusted local student handles them,</span>
-            <span className="block font-semibold text-white">every week — or just while you're away.</span>
-          </p>
+          <ul className="flex flex-wrap justify-center gap-2.5 max-w-md mx-auto">
+            {['Set & forget', 'One trusted student', 'Weekly or while away'].map((chip) => (
+              <li
+                key={chip}
+                className="inline-flex items-center rounded-full bg-white/10 border border-white/15 px-4 py-2 text-sm font-semibold text-white"
+              >
+                {chip}
+              </li>
+            ))}
+          </ul>
           {/* Entry anchor — the default selection opens high; this keeps
               the floor visible so the offer never reads as expensive */}
           <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white/75">
