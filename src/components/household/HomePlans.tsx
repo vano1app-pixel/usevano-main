@@ -59,11 +59,11 @@ export const HomePlans: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
           </h2>
-          <ul className="flex flex-wrap justify-center gap-2.5 max-w-md mx-auto">
-            {['Set & forget', 'One trusted student', 'Weekly or while away'].map((chip) => (
+          <ul className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+            {['Set & forget', 'One trusted student', 'Weekly or while away'].map((chip, i) => (
               <li
                 key={chip}
-                className="inline-flex items-center rounded-full bg-white/10 border border-white/15 px-4 py-2 text-sm font-semibold text-white"
+                className={`flex items-center justify-center rounded-full bg-white/10 border border-white/15 px-4 py-2.5 text-sm font-semibold text-white${i === 2 ? ' col-span-2 justify-self-center' : ''}`}
               >
                 {chip}
               </li>
@@ -97,9 +97,16 @@ export const HomePlans: React.FC = () => {
               </span>
               <div className="min-w-0">
                 <p className="text-lg font-bold text-white">Office or business?</p>
-                <p className="text-sm text-white/55 mt-1 leading-relaxed">
-                  Dedicated contact · unlimited tasks · same-day dispatch
-                </p>
+                <ul className="flex flex-wrap gap-2 mt-2">
+                  {['Dedicated contact', 'Unlimited tasks', 'Same-day dispatch'].map((chip) => (
+                    <li
+                      key={chip}
+                      className="inline-flex items-center rounded-full bg-white/10 border border-white/15 px-3 py-1 text-xs font-semibold text-white/85"
+                    >
+                      {chip}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
             <div className="mt-5 sm:mt-0 flex items-center justify-between sm:flex-col sm:items-end gap-3 flex-shrink-0">
