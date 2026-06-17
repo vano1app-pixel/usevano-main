@@ -5,22 +5,29 @@ import { motion, type Variants } from 'framer-motion';
  * How it works — three honest steps on a clean white band. Replaced the
  * testimonial carousel: seeded reviews read as fake, so rather than fake
  * social proof this just explains the (genuinely simple) process.
- * Deliberately plain — white background, black type, numbered steps.
+ * Plain by design — white background, black type — but it springs to life
+ * on scroll so it never reads as a static block.
  */
 
 const STEPS = [
-  { n: '1', title: 'Pick a category',  body: 'Tap the help you need — cleaning, dog walk, garden, moving and more.' },
-  { n: '2', title: 'Book in seconds',  body: 'Drop your number and address. You pay nothing until a helper accepts.' },
+  { n: '1', title: 'Pick a category',   body: 'Tap the help you need — cleaning, dog walk, garden, moving and more.' },
+  { n: '2', title: 'Book in seconds',   body: 'Drop your number and address. You pay nothing until a helper accepts.' },
   { n: '3', title: 'A student does it', body: 'A trusted local student comes to your door and gets the job done.' },
 ];
 
 const container: Variants = {
   hidden: {},
-  show:   { transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
+  show:   { transition: { staggerChildren: 0.16, delayChildren: 0.05 } },
 };
-const step: Variants = {
-  hidden: { opacity: 0, y: 18 },
-  show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 420, damping: 30 } },
+// The whole step pops up together — guaranteed visible, with a little bounce.
+const stepV: Variants = {
+  hidden: { opacity: 0, y: 22, scale: 0.9 },
+  show:   { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 380, damping: 16 } },
+};
+// A one-shot ripple that rings out from each number as the step lands.
+const ringV: Variants = {
+  hidden: { scale: 1, opacity: 0 },
+  show:   { scale: 2.1, opacity: [0.4, 0], transition: { duration: 0.7, ease: 'easeOut' } },
 };
 
 export const HowItWorks: React.FC = () => {
@@ -40,9 +47,16 @@ export const HowItWorks: React.FC = () => {
           viewport={{ once: true, margin: '-80px' }}
         >
           {STEPS.map((s) => (
-            <motion.li key={s.n} variants={step} className="text-center sm:text-left">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background text-lg font-bold tabular-nums">
-                {s.n}
+            <motion.li key={s.n} variants={stepV} className="group text-center sm:text-left">
+              <span className="relative inline-flex">
+                <motion.span
+                  variants={ringV}
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-foreground/25"
+                />
+                <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background text-lg font-bold tabular-nums transition-[background-color,transform] duration-200 group-hover:bg-sage group-hover:-translate-y-0.5">
+                  {s.n}
+                </span>
               </span>
               <h3 className="mt-4 text-lg font-bold text-foreground">{s.title}</h3>
               <p className="mt-1.5 text-sm text-foreground/55 leading-relaxed max-w-xs mx-auto sm:mx-0">

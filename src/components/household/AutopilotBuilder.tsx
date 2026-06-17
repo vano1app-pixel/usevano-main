@@ -7,6 +7,7 @@ import { teamWhatsAppHref } from '@/lib/contact';
 import { loadBookingMemory } from '@/lib/bookingMemory';
 import { BottomSheet } from '@/components/household/BottomSheet';
 import { haptic } from '@/lib/haptics';
+import { microCelebrate } from '@/lib/celebrate';
 
 /**
  * "Put your house on autopilot" — Airbnb-style builder and the site's
@@ -150,6 +151,13 @@ export const AutopilotBuilder: React.FC = () => {
   const animPerDayCents = useAnimatedCents(perDayCents);
   // Tiny picks (plants alone) round below €1/day — "<€1" beats showing €0
   const perDayLabel = animPerDayCents === 0 ? '<€1' : euro(Math.round(animPerDayCents / 100) * 100);
+
+  // Pop a little confetti the moment the 3+ service bundle discount unlocks.
+  const prevBundledRef = useRef(bundled);
+  useEffect(() => {
+    if (bundled && !prevBundledRef.current) microCelebrate();
+    prevBundledRef.current = bundled;
+  }, [bundled]);
 
   function toggle(key: string) {
     setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
