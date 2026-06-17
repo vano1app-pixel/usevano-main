@@ -57,6 +57,10 @@ const PRERENDER_STYLE = `<style id="vano-prerender-style">
 .vano-pr ul.cards{list-style:none;padding:0}
 .vano-pr ul.cards li{margin:0 0 1.1rem}
 .vano-pr footer{margin-top:3rem;border-top:1px solid #e5e7eb;padding-top:1rem;font-size:.85rem;color:#6b7280}
+.vano-pr .faq{margin-top:2rem;border-bottom:1px solid #e5e7eb}
+.vano-pr details{border-top:1px solid #e5e7eb}
+.vano-pr summary{cursor:pointer;font-weight:600;padding:.7rem 0}
+.vano-pr details>p{margin:0 0 .8rem;color:#374151}
 </style>`;
 
 const topNav = `<nav class="top"><a href="/">Home</a> · <a href="/blog">Blog</a> · <a href="/glossary">Glossary</a> · <a href="/join">Join as helper</a></nav>`;
@@ -118,6 +122,7 @@ ${topNav}
 <p class="summary"><strong>Quick answer:</strong> ${escAttr(post.summary)}</p>
 ${post.bodyHtml}
 </article>
+${post.faqs.length ? `<section class="faq"><h2>Frequently asked questions</h2>${post.faqs.map((f) => `<details><summary>${escAttr(f.q)}</summary><p>${escAttr(f.a)}</p></details>`).join("")}</section>` : ""}
 ${related.length ? `<section><h2>Keep reading</h2><ul class="cards">${related.map((r) => `<li><a href="/blog/${r.slug}">${escAttr(r.title)}</a><br><span>${escAttr(r.description)}</span></li>`).join("")}</ul></section>` : ""}
 ${siteFooter}`.trim();
 
@@ -156,6 +161,19 @@ ${siteFooter}`.trim();
           { "@type": "ListItem", position: 3, name: post.title, item: url },
         ],
       },
+      ...(post.faqs.length
+        ? [
+            {
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              mainEntity: post.faqs.map((f) => ({
+                "@type": "Question",
+                name: f.q,
+                acceptedAnswer: { "@type": "Answer", text: f.a },
+              })),
+            },
+          ]
+        : []),
     ],
     rootHtml,
   };

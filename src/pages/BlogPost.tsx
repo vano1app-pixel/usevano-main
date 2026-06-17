@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { SEOHead } from "@/components/SEOHead";
 import { ContentLayout } from "@/components/content/ContentLayout";
@@ -65,6 +66,19 @@ export default function BlogPost() {
         { "@type": "ListItem", position: 3, name: post.title, item: url },
       ],
     },
+    ...(post.faqs.length > 0
+      ? [
+          {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: post.faqs.map((f) => ({
+              "@type": "Question",
+              name: f.q,
+              acceptedAnswer: { "@type": "Answer", text: f.a },
+            })),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -131,6 +145,23 @@ export default function BlogPost() {
             dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
           />
         </div>
+
+        {post.faqs.length > 0 && (
+          <section className="max-w-2xl mx-auto px-4 mt-14 pt-10 border-t border-navy/10">
+            <h2 className="font-display text-xl font-bold">Frequently asked questions</h2>
+            <div className="mt-4 border-b border-navy/10">
+              {post.faqs.map((faq) => (
+                <details key={faq.q} className="group border-t border-navy/10">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-medium text-navy [&::-webkit-details-marker]:hidden">
+                    {faq.q}
+                    <ChevronDown className="h-5 w-5 shrink-0 text-navy/40 transition-transform duration-200 group-open:rotate-180" />
+                  </summary>
+                  <p className="-mt-1 pb-4 leading-relaxed text-navy/70">{faq.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
 
         {related.length > 0 && (
           <div className="max-w-2xl mx-auto px-4 mt-14 pt-10 border-t border-navy/10">

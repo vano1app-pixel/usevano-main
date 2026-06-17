@@ -51,6 +51,8 @@ export interface BlogPost {
   bodyHtml: string;
   /** Slugs of related posts shown at the bottom. */
   related: string[];
+  /** Collapsible FAQ at the foot of the post — rendered as <details> and FAQPage JSON-LD. */
+  faqs: { q: string; a: string }[];
 }
 
 export const BLOG_POSTS: BlogPost[] = [
@@ -96,6 +98,12 @@ export const BLOG_POSTS: BlogPost[] = [
 <p><a href="/join"><strong>Join as a helper →</strong></a></p>
 `,
     related: ["how-to-become-a-vano-helper", "why-vano-fair-pay-same-day", "atu-students-earning-with-vano"],
+    faqs: [
+      { q: "What are the best part-time jobs for students in Galway?", a: "Flexible, local jobs you can do around lectures — dog walks, cleaning, garden help, moving help, errands and tutoring — without committing to a fixed weekly rota." },
+      { q: "How many hours do I have to work?", a: "None are required. There's no rota and no minimum: you accept jobs only when you're free, and pause completely during exams." },
+      { q: "Do part-time student jobs in Galway pay well?", a: "On Vano, time-based jobs are priced so you take home €15.30 an hour net — above Ireland's 2026 minimum wage of €14.15." },
+      { q: "Can I really work around my college timetable?", a: "Yes. You pick up same-day jobs in the gaps between classes, so the work fits your week instead of the other way around." },
+    ],
   },
 
   {
@@ -138,6 +146,12 @@ export const BLOG_POSTS: BlogPost[] = [
 <p><a href="/join"><strong>Start earning around your lectures →</strong></a></p>
 `,
     related: ["how-to-become-a-vano-helper", "part-time-jobs-students-galway", "why-now-galway-student-cost-of-living"],
+    faqs: [
+      { q: "How much can ATU students earn with Vano?", a: "€15.30 an hour net on time-based jobs like cleaning, garden, moving and tutoring — above the 2026 minimum wage. Job-based tasks are priced for the task." },
+      { q: "Are the jobs near the ATU Galway campus?", a: "Often, yes — many jobs are a short walk or cycle from campus around the city." },
+      { q: "Do I have to be an ATU student to join?", a: "No. University of Galway students and other locals join too; ATU students are simply a large share of helpers." },
+      { q: "When and how do I get paid?", a: "After you mark a job complete, your earnings are released to your own account through Stripe." },
+    ],
   },
 
   {
@@ -176,6 +190,11 @@ export const BLOG_POSTS: BlogPost[] = [
 <p><a href="/join"><strong>Turn your free hours into income →</strong></a></p>
 `,
     related: ["part-time-jobs-students-galway", "atu-students-earning-with-vano", "why-vano-fair-pay-same-day"],
+    faqs: [
+      { q: "Why is the cost of living so high for students in Galway?", a: "Rent, groceries, transport and going out have all risen faster than student grants and budgets, squeezing the typical week." },
+      { q: "How can students make extra money in Galway?", a: "Turn the free gaps in your week into income with flexible, fairly paid jobs that fit around study — no fixed rota to clash with lectures." },
+      { q: "Will working affect my studies?", a: "It doesn't have to. Jobs are short and local, and because there's no rota you simply stop accepting during deadline and exam weeks." },
+    ],
   },
 
   {
@@ -211,6 +230,12 @@ export const BLOG_POSTS: BlogPost[] = [
 <p><a href="/join"><strong>Join Vano →</strong></a></p>
 `,
     related: ["how-to-become-a-vano-helper", "what-vano-helpers-do", "atu-students-earning-with-vano"],
+    faqs: [
+      { q: "How much do Vano helpers take home?", a: "€15.30 an hour net on time-based jobs, after the 15% platform cut — above Ireland's €14.15 minimum wage." },
+      { q: "Is Vano safe to work through?", a: "Yes. Every helper is ID-verified, and payments are held securely by Vano Pay and released through Stripe once the job is done." },
+      { q: "Do I get a boss or a fixed schedule?", a: "Neither. You choose which jobs to accept and when — there's no manager and no rota." },
+      { q: "When does the customer pay?", a: "After you accept the job (pay-after-accept), so the money is secured before you set off." },
+    ],
   },
 
   {
@@ -258,6 +283,12 @@ export const BLOG_POSTS: BlogPost[] = [
 <p><a href="/join"><strong>Pick the jobs that suit you →</strong></a></p>
 `,
     related: ["how-to-become-a-vano-helper", "why-vano-fair-pay-same-day", "part-time-jobs-students-galway"],
+    faqs: [
+      { q: "What kind of jobs do Vano helpers do?", a: "Dog walks, cleaning, garden work, moving help, grocery collection and errands, and tutoring — short, practical home jobs around Galway." },
+      { q: "Do I have to do every type of job?", a: "No. You only do the jobs you accept, so you can stick to the tasks you like and skip the rest." },
+      { q: "How long does a typical job take?", a: "Most are short — often an hour or two — and done the same day." },
+      { q: "Is there regular work or only one-offs?", a: "Both. Some customers use Autopilot (weekly or monthly plans), which is scheduled work if you'd like something steadier." },
+    ],
   },
 
   {
@@ -295,6 +326,12 @@ export const BLOG_POSTS: BlogPost[] = [
 <p><a href="/join"><strong>Create your helper account →</strong></a></p>
 `,
     related: ["what-vano-helpers-do", "why-vano-fair-pay-same-day", "atu-students-earning-with-vano"],
+    faqs: [
+      { q: "How do I become a Vano helper?", a: "Sign up, verify your ID, connect a Stripe payout account, then accept your first nearby job. The whole thing takes minutes." },
+      { q: "Do I need to verify my identity?", a: "Yes — a one-time ID check before your first job. It's what lets customers trust the helpers they let into their homes." },
+      { q: "How soon can I start earning?", a: "Often the same week you sign up, once your ID check and payout account are set up." },
+      { q: "Do I need any experience?", a: "No. Most jobs — dog walks, cleaning, errands — need reliability, not experience." },
+    ],
   },
 ];
 
