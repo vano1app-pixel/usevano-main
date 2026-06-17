@@ -59,10 +59,10 @@ export const HomePlans: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
           </h2>
-          <p className="text-white/70 text-base max-w-md mx-auto leading-relaxed">
-            Tick the jobs you never want to think about again.
-            One trusted local student handles them — every week,
-            or just while you're away.
+          <p className="text-white/70 text-base max-w-md mx-auto leading-snug space-y-1">
+            <span className="block font-semibold text-white">Tick the jobs you never think about again.</span>
+            <span className="block">One trusted local student handles them,</span>
+            <span className="block font-semibold text-white">every week — or just while you're away.</span>
           </p>
           {/* Entry anchor — the default selection opens high; this keeps
               the floor visible so the offer never reads as expensive */}

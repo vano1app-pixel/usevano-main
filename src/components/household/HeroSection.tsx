@@ -111,10 +111,11 @@ export const HeroSection: React.FC = () => {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-white/80 text-base lg:text-lg leading-relaxed max-w-md"
+              className="text-white/70 text-base lg:text-lg leading-snug space-y-1 max-w-md"
             >
-              Trusted local students from €15. Tap a job, drop your number —
-              you pay nothing until a helper accepts.
+              <span className="block font-semibold text-white">Trusted local students, from €15.</span>
+              <span className="block">Tap a job, drop your number.</span>
+              <span className="block font-semibold text-white">You pay nothing until they accept.</span>
             </motion.p>
 
             {/* Trust — quiet rows, desktop only (mobile gets the strip below the card) */}
