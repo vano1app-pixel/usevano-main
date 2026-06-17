@@ -81,7 +81,7 @@ export default function GlossaryTerm() {
         <p className="mt-3 text-lg text-navy/70">{term.short}</p>
 
         <div
-          className="prose prose-lg mt-6 max-w-none text-navy/80 prose-headings:font-display prose-headings:text-navy prose-strong:text-navy prose-a:text-sage-dark prose-a:font-medium hover:prose-a:text-sage prose-li:marker:text-sage"
+          className="prose prose-lg mt-6 max-w-none text-navy/80 prose-headings:font-display prose-headings:text-navy prose-strong:text-navy prose-a:text-inherit prose-a:font-normal prose-a:underline prose-a:decoration-navy/25 prose-a:decoration-1 prose-a:underline-offset-2 prose-a:transition-colors hover:prose-a:text-sage-dark hover:prose-a:decoration-sage prose-li:marker:text-sage"
           dangerouslySetInnerHTML={{ __html: term.bodyHtml }}
         />
 

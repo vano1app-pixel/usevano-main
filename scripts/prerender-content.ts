@@ -48,7 +48,8 @@ const PRERENDER_STYLE = `<style id="vano-prerender-style">
 .vano-pr{max-width:760px;margin:0 auto;padding:32px 20px;font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;line-height:1.65;color:#1f2937}
 .vano-pr h1{font-size:2rem;line-height:1.2;margin:.4rem 0 1rem;color:#1a2340}
 .vano-pr h2{font-size:1.4rem;margin:2rem 0 .5rem;color:#1a2340}
-.vano-pr a{color:#3a6b4f;text-decoration:underline}
+.vano-pr a{color:inherit;text-decoration:underline;text-decoration-color:rgba(26,35,64,.28);text-underline-offset:2px}
+.vano-pr a:hover{color:#3a6b4f;text-decoration-color:#5a8a6a}
 .vano-pr .eyebrow{text-transform:uppercase;letter-spacing:.06em;font-size:.8rem;font-weight:600;color:#3a6b4f;margin:0}
 .vano-pr .meta{color:#6b7280;font-size:.9rem;margin:.25rem 0 1rem}
 .vano-pr nav.crumbs,.vano-pr nav.top{font-size:.85rem;color:#6b7280;margin-bottom:1rem}

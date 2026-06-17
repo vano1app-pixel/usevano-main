@@ -120,7 +120,7 @@ export default function BlogPost() {
           </div>
 
           <div
-            className="prose prose-lg mt-8 max-w-none text-navy/80 prose-headings:font-display prose-headings:text-navy prose-h2:mt-10 prose-h2:mb-3 prose-h2:text-2xl prose-strong:text-navy prose-a:text-sage-dark prose-a:font-medium hover:prose-a:text-sage prose-blockquote:border-l-sage prose-blockquote:text-navy/75 prose-blockquote:font-normal prose-blockquote:not-italic prose-li:marker:text-sage"
+            className="prose prose-lg mt-8 max-w-none text-navy/80 prose-headings:font-display prose-headings:text-navy prose-h2:mt-10 prose-h2:mb-3 prose-h2:text-2xl prose-strong:text-navy prose-a:text-inherit prose-a:font-normal prose-a:underline prose-a:decoration-navy/25 prose-a:decoration-1 prose-a:underline-offset-2 prose-a:transition-colors hover:prose-a:text-sage-dark hover:prose-a:decoration-sage prose-blockquote:border-l-sage prose-blockquote:text-navy/75 prose-blockquote:font-normal prose-blockquote:not-italic prose-li:marker:text-sage"
             dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
           />
         </div>
