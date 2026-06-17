@@ -202,11 +202,18 @@ export const AutopilotBuilder: React.FC = () => {
               type="button"
               onClick={() => setMode(m)}
               className={cn(
-                'flex-1 h-11 rounded-full text-sm font-semibold transition-all duration-200',
-                mode === m ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50',
+                'relative flex-1 h-11 rounded-full text-sm font-semibold transition-colors duration-200',
+                mode === m ? 'text-foreground' : 'text-foreground/50',
               )}
             >
-              {label}
+              {mode === m && (
+                <motion.span
+                  layoutId="autopilot-mode-pill"
+                  className="absolute inset-0 rounded-full bg-white shadow-sm"
+                  transition={{ type: 'spring', stiffness: 520, damping: 36, mass: 0.7 }}
+                />
+              )}
+              <span className="relative z-10">{label}</span>
             </button>
           ))}
         </div>
@@ -233,7 +240,19 @@ export const AutopilotBuilder: React.FC = () => {
                   'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-150',
                   on ? 'bg-sage border-sage' : 'border-border bg-white',
                 )}>
-                  {on && <Check size={12} className="text-white" strokeWidth={3.5} />}
+                  <AnimatePresence>
+                    {on && (
+                      <motion.span
+                        key="check"
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 600, damping: 18 }}
+                      >
+                        <Check size={12} className="text-white" strokeWidth={3.5} />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </span>
                 <span className="text-lg flex-shrink-0" aria-hidden="true">{s.emoji}</span>
                 <span className="flex-1 min-w-0">
@@ -293,13 +312,22 @@ export const AutopilotBuilder: React.FC = () => {
                   type="button"
                   onClick={() => setBilling(b)}
                   className={cn(
-                    'flex-1 h-9 rounded-full text-xs font-semibold transition-all duration-200 tabular-nums',
-                    billing === b ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50',
+                    'relative flex-1 h-9 rounded-full text-xs font-semibold transition-colors duration-200 tabular-nums',
+                    billing === b ? 'text-foreground' : 'text-foreground/50',
                   )}
                 >
-                  {b === 'weekly'
-                    ? 'Pay weekly'
-                    : monthlySavesCents > 0 ? `Monthly · save ${euro(monthlySavesCents)}` : 'Pay monthly'}
+                  {billing === b && (
+                    <motion.span
+                      layoutId="autopilot-billing-pill"
+                      className="absolute inset-0 rounded-full bg-white shadow-sm"
+                      transition={{ type: 'spring', stiffness: 520, damping: 36, mass: 0.7 }}
+                    />
+                  )}
+                  <span className="relative z-10">
+                    {b === 'weekly'
+                      ? 'Pay weekly'
+                      : monthlySavesCents > 0 ? `Monthly · save ${euro(monthlySavesCents)}` : 'Pay monthly'}
+                  </span>
                 </button>
               ))}
             </div>

@@ -172,7 +172,15 @@ function ReviewTicker({ reviews }: { reviews: Review[] }) {
   const items = [...reviews, ...reviews];
 
   return (
-    <div className="overflow-hidden" aria-hidden="true">
+    <div
+      className="overflow-hidden"
+      aria-hidden="true"
+      style={{
+        // Feather the edges so cards melt in/out instead of a hard cut
+        maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
+      }}
+    >
       <motion.div
         className="flex gap-4 py-1"
         animate={{ x: ['0%', '-50%'] }}
@@ -258,7 +266,7 @@ export const ReviewCarousel: React.FC = () => {
               onClick={() => goTo(i)}
               aria-label={`Review ${i + 1}`}
               className={`rounded-full transition-all duration-300 ${
-                i === index ? 'w-5 h-2 bg-foreground' : 'w-2 h-2 bg-border'
+                i === index ? 'w-5 h-2 bg-foreground' : 'w-2 h-2 bg-border hover:bg-foreground/40 hover:scale-125'
               }`}
             />
           ))}

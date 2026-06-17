@@ -48,8 +48,8 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
       )}
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between h-[72px] px-5 lg:px-8 xl:px-10">
-        <Link to="/home" className="flex items-center">
-          <div className="w-9 h-9 rounded-full overflow-hidden shrink-0">
+        <Link to="/home" className="flex items-center group">
+          <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
             <img src={logo} alt="VANO" className="w-full h-full object-cover" />
           </div>
         </Link>
@@ -76,12 +76,12 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
             rel="noopener noreferrer"
             aria-label="Chat on WhatsApp"
             className={cn(
-              'hidden sm:flex items-center gap-2 text-sm font-medium transition-colors duration-150 active:scale-95',
+              'group hidden sm:flex items-center gap-2 text-sm font-medium transition-colors duration-150 active:scale-95',
               dark ? 'text-white/80 hover:text-white' : 'text-foreground/80 hover:text-foreground',
             )}
           >
             <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
-            <span>WhatsApp us</span>
+            <span className="bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] group-hover:bg-[length:100%_1px] transition-[background-size] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">WhatsApp us</span>
           </a>
 
           {/* Profile / account */}
