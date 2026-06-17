@@ -10,9 +10,9 @@ import { motion, type Variants } from 'framer-motion';
  */
 
 const STEPS = [
-  { n: '1', title: 'Pick a category',   body: 'Cleaning, dog walk, garden, moving — tap what you need.' },
-  { n: '2', title: 'Book in seconds',   body: 'Drop your number. Pay nothing until a helper accepts.' },
-  { n: '3', title: 'A student does it', body: 'A vetted local student shows up and gets it done.' },
+  { n: '1', title: 'Pick a category',   lines: ['Tap what you need', 'Cleaning, dog walk, garden & more'] },
+  { n: '2', title: 'Book in seconds',   lines: ['Drop your number', 'Pay only when we find a helper'] },
+  { n: '3', title: 'A student does it', lines: ['A vetted local student', 'shows up & gets it done'] },
 ];
 
 const container: Variants = {
@@ -59,9 +59,11 @@ export const HowItWorks: React.FC = () => {
                 </span>
               </span>
               <h3 className="mt-4 text-lg font-bold text-foreground">{s.title}</h3>
-              <p className="mt-1.5 text-sm text-foreground/70 leading-relaxed max-w-xs mx-auto sm:mx-0">
-                {s.body}
-              </p>
+              <div className="mt-1.5 text-sm text-foreground/70 leading-relaxed max-w-xs mx-auto sm:mx-0">
+                {s.lines.map((line) => (
+                  <span key={line} className="block">{line}</span>
+                ))}
+              </div>
             </motion.li>
           ))}
         </motion.ol>
