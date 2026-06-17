@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 interface BottomSheetProps {
@@ -16,6 +16,8 @@ interface BottomSheetProps {
  * contents. Centred at a comfortable width on desktop, full-width on mobile.
  */
 export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, children }) => {
+  const sheetRef = useRef<HTMLDivElement>(null);
+
   // Lock body scroll while open, restoring the exact scroll position on close
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -44,6 +46,24 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
 
+  // Keep Tab focus inside the sheet while it's open (wrap at both ends)
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const f = el.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      );
+      if (f.length === 0) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    el.addEventListener('keydown', onKey);
+    return () => el.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <>
       {/* Backdrop */}
@@ -62,6 +82,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
           slide (too fast and it reads as a "pop"); the exit snaps back quicker. */}
       <motion.div
         key="sheet"
+        ref={sheetRef}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%', transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] } }}

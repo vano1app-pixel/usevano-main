@@ -22,6 +22,27 @@ const cardItem: Variants = {
   show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 440, damping: 32 } },
 };
 
+// Count a whole number up from 0 once `run` flips true (e.g. data loaded).
+function useCountUp(target: number, run: boolean, duration = 700): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!run) { setN(0); return; }
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setN(target); return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min((t - start) / duration, 1);
+      setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, run, duration]);
+  return n;
+}
+
 interface HelperRow {
   id:             string;
   name:           string;
@@ -121,6 +142,8 @@ export const HelperPublicProfile: React.FC = () => {
   const cats       = helper?.categories ?? [];
   const slots      = AVAILABILITY_SLOTS.filter(s => helper?.availability?.includes(s.id));
   const written    = reviews.filter(r => r.comment && r.comment.trim().length > 0);
+  // Tasks-done counts up once the profile loads
+  const tasksDone  = useCountUp(helper?.accepted_count ?? 0, !!helper);
 
   return (
     <div className="bg-cream min-h-screen flex flex-col">
@@ -172,7 +195,7 @@ export const HelperPublicProfile: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-secondary flex-shrink-0">
                   {helper.photo_url ? (
-                    <img src={helper.photo_url} alt={helper.name} className="w-full h-full object-cover" />
+                    <img src={helper.photo_url} alt={helper.name} decoding="async" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-sage bg-sage-light">
                       {firstName.charAt(0).toUpperCase()}
@@ -219,7 +242,7 @@ export const HelperPublicProfile: React.FC = () => {
                   </p>
                 </div>
                 <div className="py-3.5 text-center">
-                  <p className="text-base font-bold text-foreground leading-tight">{helper.accepted_count}</p>
+                  <p className="text-base font-bold text-foreground leading-tight tabular-nums">{tasksDone}</p>
                   <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
                     Task{helper.accepted_count === 1 ? '' : 's'} done
                   </p>

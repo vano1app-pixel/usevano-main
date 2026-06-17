@@ -159,6 +159,22 @@
     caret-color: hsl(var(--primary));
   }
 
+  /* iOS Safari zooms in when you focus any input under 16px, jolting the
+     layout. Force 16px on small screens so tapping a field never zooms;
+     desktop keeps the smaller, denser sizing. */
+  @media (max-width: 640px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+
+  /* Let the browser avoid leaving a single orphan word on the last line. */
+  p {
+    text-wrap: pretty;
+  }
+
   html {
     scroll-behavior: smooth;
   }

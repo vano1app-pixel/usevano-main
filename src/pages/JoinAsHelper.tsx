@@ -10,6 +10,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
+import { haptic } from '@/lib/haptics';
 
 
 const CATEGORY_OPTIONS = [
@@ -105,6 +106,7 @@ export const JoinAsHelper: React.FC = () => {
     }
     setSubmitting(true);
     setError(null);
+    haptic(12);
 
     try {
       const fd = new FormData();
@@ -207,7 +209,14 @@ export const JoinAsHelper: React.FC = () => {
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
               className="bg-sage-light rounded-2xl p-8 text-center"
             >
-              <CheckCircle className="w-12 h-12 text-sage mx-auto mb-4" />
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 14, delay: 0.1 }}
+                className="mb-4"
+              >
+                <CheckCircle className="w-12 h-12 text-sage mx-auto" />
+              </motion.div>
               <h2 className="font-bold text-foreground text-xl mb-2">
                 You're in{welcomeName ? `, ${welcomeName.split(' ')[0]}` : ''}! 🎉
               </h2>

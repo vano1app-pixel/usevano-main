@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useDragControls, useMotionValue, useSpring, useReducedMotion, type Variants } from 'framer-motion';
+import { haptic } from '@/lib/haptics';
 import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -242,6 +243,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const [addressError, setAddressError] = useState(false);
   // Drag-to-dismiss: only the handle starts the drag, so the body still scrolls
   const dragControls = useDragControls();
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   function forgetMe() {
     clearBookingMemory();
@@ -279,6 +281,24 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
 
+  // Keep Tab focus inside the sheet while it's open (wrap at both ends)
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const f = el.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      );
+      if (f.length === 0) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    el.addEventListener('keydown', onKey);
+    return () => el.removeEventListener('keydown', onKey);
+  }, []);
+
   const isScheduledAhead = when.startsWith('Tomorrow');
   const baseCents  = getPriceCents(cat.slug, size);
   const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
@@ -309,6 +329,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
       return;
     }
     setLoading(true); setError(null);
+    haptic(12); // subtle confirm tick on supported phones
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
@@ -364,6 +385,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
           Drag the handle down past a threshold (or flick) to dismiss. */}
       <motion.div
         key="sheet"
+        ref={sheetRef}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%', transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] } }}
@@ -578,7 +600,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
             <motion.div variants={listItem} className="space-y-2.5 pt-1">
               {priceCents && (
                 <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between" aria-live="polite">
                     <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
                     {/* Bouncy live price — re-keying on the amount replays the spring pop */}
                     <motion.span

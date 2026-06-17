@@ -38,6 +38,7 @@ function Card({ h }: { h: HelperRow }) {
             ref={imgRef}
             src={h.photo_url}
             alt={h.name}
+            decoding="async"
             onLoad={() => setImgLoaded(true)}
             className={`w-full h-full object-cover transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.03] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             loading="lazy"

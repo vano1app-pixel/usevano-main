@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { loadBookingMemory } from '@/lib/bookingMemory';
 import { BottomSheet } from '@/components/household/BottomSheet';
+import { haptic } from '@/lib/haptics';
 
 /**
  * "Put your house on autopilot" — Airbnb-style builder and the site's
@@ -158,6 +159,7 @@ export const AutopilotBuilder: React.FC = () => {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || selected.length === 0 || loading) return;
     setLoading(true); setError(null);
+    haptic(12);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke('create-autopilot-checkout', {
         body: {
@@ -346,7 +348,7 @@ export const AutopilotBuilder: React.FC = () => {
             )}
           </AnimatePresence>
 
-          <div className="mb-4">
+          <div className="mb-4" aria-live="polite">
             {selected.length === 0 ? (
               <p className="text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground/25 tabular-nums leading-none">—</p>
             ) : mode === 'ongoing' ? (
@@ -382,7 +384,7 @@ export const AutopilotBuilder: React.FC = () => {
           <motion.button
             type="button"
             whileTap={{ scale: 0.97 }}
-            onClick={() => setOpen(true)}
+            onClick={() => { haptic(10); setOpen(true); }}
             disabled={selected.length === 0}
             className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity tabular-nums"
           >

@@ -5,9 +5,30 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from 'react-helmet-async';
 import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { getSupabaseUrl } from "@/lib/supabaseEnv";
 import "./index.css";
 
 window.googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+
+// Warm the Supabase connection (DNS + TLS handshake) before the first query
+// fires from a React effect, so the homepage's helper count / reviews / ticker
+// data arrives a beat sooner. No-ops if the URL isn't configured.
+(() => {
+  const url = getSupabaseUrl();
+  if (!url) return;
+  try {
+    const { origin } = new URL(url);
+    for (const rel of ['preconnect', 'dns-prefetch']) {
+      const link = document.createElement('link');
+      link.rel = rel;
+      link.href = origin;
+      if (rel === 'preconnect') link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+    }
+  } catch {
+    /* malformed URL — skip */
+  }
+})();
 
 const queryClient = new QueryClient();
 
