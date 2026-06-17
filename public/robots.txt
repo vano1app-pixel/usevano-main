@@ -1,6 +1,32 @@
 # vanojobs.com — crawler rules
 # Public marketing, booking, and info pages are fully crawlable.
 # Authenticated dashboards, admin, and private areas are not.
+# AI / answer-engine crawlers are explicitly welcome on public content (GEO).
+
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+Allow: /
+Allow: /blog
+Allow: /glossary
+Allow: /join
+Disallow: /auth
+Disallow: /student-dashboard
+Disallow: /student-account
+Disallow: /student-job/
+Disallow: /household-admin
+Disallow: /admin
+Disallow: /profile
+Disallow: /messages
+Disallow: /business-dashboard
+Disallow: /hire-requests
+Disallow: /complete-profile
+Disallow: /choose-account-type
 
 User-agent: Googlebot
 Allow: /

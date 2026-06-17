@@ -2,14 +2,23 @@ import { Link } from 'react-router-dom';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { SEOHead } from '@/components/SEOHead';
 import { ArrowLeft } from 'lucide-react';
+import {
+  TEAM_CONTACT_EMAIL,
+  TEAM_PHONE_DISPLAY,
+  teamMailtoHref,
+  teamWhatsAppHref,
+  TEAM_INSTAGRAM_URL,
+  TEAM_INSTAGRAM_HANDLE,
+} from '@/lib/contact';
 
-const LAST_UPDATED = '4 April 2025';
+const LAST_UPDATED = '17 June 2026';
 
 const Privacy = () => (
   <div className="min-h-screen bg-background pb-16 md:pb-0">
     <SEOHead
-      title="Privacy Policy – VANO"
-      description="How VANO collects, uses, and protects your personal data."
+      title="Privacy Policy"
+      description="How VANO collects, uses and protects your personal data when you book same-day home help or work as a student helper in Galway, Ireland — your GDPR rights, data sharing and security."
+      keywords="VANO privacy policy, data protection Ireland, GDPR home help, student helper data privacy, Galway, personal data rights, same-day home help"
     />
     <HouseholdNav />
     <div className="mx-auto max-w-2xl lg:max-w-3xl px-4 pt-24 pb-12 sm:pt-28 md:px-8">
@@ -30,84 +39,114 @@ const Privacy = () => (
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">1. Who we are</h2>
           <p>
-            VANO (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a platform that connects businesses
-            with freelancers for local gigs in Galway, Ireland. We are the data controller for the
-            personal data we process through <strong>vano.app</strong> and related services.
+            VANO (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a platform that connects
+            households in supported areas of Ireland with local, ID-verified student Helpers for
+            same-day home tasks — for example cleaning, garden and lawn care, dog walking, shopping
+            and errands, moving help and tutoring — booked as a one-off job or as a recurring{' '}
+            <strong>House Autopilot</strong> plan. We are the data controller for the personal data we
+            process through the VANO platform. VANO is operated from Galway, Ireland.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">2. What data we collect</h2>
-          <p>We collect the following categories of personal data:</p>
-          <ul className="list-disc pl-5 space-y-1.5 mt-2">
-            <li><strong>Account information</strong> — email address, display name, and profile photo when you sign up (via email/password or Google sign-in).</li>
-            <li><strong>Profile data</strong> — bio, skills, hourly rate, portfolio links, and other details you add to your freelancer or business profile.</li>
-            <li><strong>Messages</strong> — content you send through our in-app messaging system.</li>
-            <li><strong>Uploaded content</strong> — images and files you upload for your profile, portfolio, community posts, or reviews.</li>
-            <li><strong>Usage data</strong> — pages visited, features used, device type, browser type, and IP address (collected automatically).</li>
-            <li><strong>Push notification tokens</strong> — if you opt in to push notifications.</li>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li><strong>Account information</strong> — your name, email address, phone number, profile photo, and how you sign in (email/password or Google).</li>
+            <li><strong>Booking &amp; location data</strong> — the address or <em>Eircode</em> where help is needed, the task details you provide, and approximate location used to match and dispatch nearby Helpers and to support live tracking of a job in progress.</li>
+            <li><strong>Helper verification</strong> — if you join as a Helper, identity verification (an ID check before your first job) and confirmation that you are a third-level student.</li>
+            <li><strong>Payment &amp; payout data</strong> — bookings are paid by card and processed by our payment provider, <strong>Stripe</strong>; Helper payouts are made through Stripe Connect. We do not store your full card details.</li>
+            <li><strong>Communications</strong> — messages you send through the platform, and the SMS, email and push notifications we send about your bookings (including your push token, if you opt in).</li>
+            <li><strong>Ratings &amp; reviews</strong> — feedback you leave after a job.</li>
+            <li><strong>Usage &amp; device data</strong> — pages visited, features used, device and browser type, and IP address, collected automatically for analytics and security.</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">3. How we use your data</h2>
-          <p>We use your personal data to:</p>
-          <ul className="list-disc pl-5 space-y-1.5 mt-2">
-            <li>Provide and operate the VANO platform (account creation, profiles, messaging, gig posting).</li>
-            <li>Display your profile to other users so businesses and freelancers can connect.</li>
-            <li>Send transactional emails (gig notifications, message alerts, account updates).</li>
-            <li>Send push notifications if you have opted in.</li>
-            <li>Moderate content and enforce our <Link to="/terms" className="text-primary hover:underline underline-offset-4">Terms of Service</Link>.</li>
-            <li>Improve and develop the platform based on aggregated usage patterns.</li>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>Operate the platform and your account.</li>
+            <li>Match Customers with Helpers and dispatch jobs to suitable Helpers nearby.</li>
+            <li>Show each side only the details a booking needs — for example, a Helper&apos;s first name, photo and rating to the Customer, and the job address and task details to the assigned Helper.</li>
+            <li>Take payment for bookings and pay Helpers their earnings.</li>
+            <li>Verify Helpers and keep the platform safe for everyone.</li>
+            <li>Send transactional SMS, email and push notifications about your bookings.</li>
+            <li>Provide support and honour our satisfaction guarantee.</li>
+            <li>Prevent fraud and abuse, and understand and improve the service.</li>
+            <li>Comply with our legal and regulatory obligations.</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">4. Legal basis for processing (GDPR)</h2>
-          <p>Under the General Data Protection Regulation (GDPR), we process your data on the following bases:</p>
-          <ul className="list-disc pl-5 space-y-1.5 mt-2">
-            <li><strong>Contract</strong> — processing necessary to provide the service you signed up for.</li>
-            <li><strong>Legitimate interest</strong> — platform security, fraud prevention, and service improvement.</li>
-            <li><strong>Consent</strong> — push notifications, marketing emails (where applicable). You can withdraw consent at any time.</li>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li><strong>Contract</strong> — processing necessary to provide the bookings and service you sign up for.</li>
+            <li><strong>Legitimate interests</strong> — platform security, fraud prevention, basic analytics and improving the service.</li>
+            <li><strong>Consent</strong> — push notifications, any marketing messages, and optional analytics. You can withdraw consent at any time.</li>
+            <li><strong>Legal obligation</strong> — keeping records we are required by law to retain, such as payment records.</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">5. How we share your data</h2>
-          <p>We do not sell your personal data. We share data with:</p>
+          <p>We do not sell your personal data. We share it only as needed to run the service:</p>
           <ul className="list-disc pl-5 space-y-1.5 mt-2">
-            <li><strong>Other VANO users</strong> — your public profile information, reviews, and community posts are visible to other users.</li>
-            <li><strong>Service providers</strong> — we use trusted third-party services to operate the platform:
+            <li><strong>Between Customers and Helpers</strong> — to the limited extent a booking requires (as described in section 3).</li>
+            <li><strong>Service providers</strong> — trusted processors that help us operate:
               <ul className="list-disc pl-5 space-y-1 mt-1">
-                <li>Supabase (database, authentication, file storage)</li>
-                <li>Resend (transactional email delivery)</li>
-                <li>Vercel (hosting and deployment)</li>
+                <li>Stripe — card payments and Helper payouts</li>
+                <li>Supabase — database, authentication and file storage</li>
+                <li>Vercel — hosting and delivery</li>
+                <li>PostHog — product analytics; Sentry — error monitoring</li>
+                <li>Map providers (Google Maps and OpenStreetMap) — addresses and live tracking</li>
+                <li>Our email and SMS providers — booking notifications</li>
               </ul>
             </li>
-            <li><strong>Legal requirements</strong> — if required by law, regulation, or legal process.</li>
+            <li><strong>Legal requirements</strong> — where required by law, regulation or legal process.</li>
           </ul>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">6. Data retention</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">6. International transfers</h2>
           <p>
-            We retain your personal data for as long as your account is active. If you delete your
-            account, we will remove your personal data within 30 days, except where we are legally
-            required to retain it. Anonymised or aggregated data may be retained indefinitely for
-            analytics.
+            Some of our service providers (for example Stripe, Vercel, PostHog and Sentry) may process
+            data outside the European Economic Area, including in the United States. Where they do, the
+            transfer is protected by appropriate safeguards, such as the European Commission&apos;s
+            Standard Contractual Clauses.
           </p>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">7. Your rights</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">7. Cookies, analytics and local storage</h2>
+          <p>
+            VANO uses essential cookies and browser local storage for sign-in and session management —
+            these are strictly necessary to operate the platform. We also use product analytics
+            (PostHog) and error monitoring (Sentry), which we configure to respect &quot;Do Not
+            Track&quot;, to mask the contents of form fields in any session recording, and to avoid
+            collecting unnecessary personal data. You can manage non-essential choices through our
+            cookie banner.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-3">8. Data retention</h2>
+          <p>
+            We keep your personal data for as long as your account is active. If you delete your
+            account, we remove your personal data within 30 days, except where we are legally required
+            to retain certain records (for example, transaction and tax records). Anonymised or
+            aggregated data may be retained for analytics.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-3">9. Your rights</h2>
           <p>Under GDPR, you have the right to:</p>
           <ul className="list-disc pl-5 space-y-1.5 mt-2">
             <li><strong>Access</strong> — request a copy of the personal data we hold about you.</li>
-            <li><strong>Rectification</strong> — correct inaccurate data (you can edit your profile directly).</li>
+            <li><strong>Rectification</strong> — correct inaccurate data (you can edit much of it in your profile directly).</li>
             <li><strong>Erasure</strong> — request deletion of your personal data (&quot;right to be forgotten&quot;).</li>
             <li><strong>Data portability</strong> — receive your data in a machine-readable format.</li>
-            <li><strong>Restriction</strong> — request we limit how we process your data.</li>
-            <li><strong>Object</strong> — object to processing based on legitimate interest.</li>
+            <li><strong>Restriction</strong> — ask us to limit how we process your data.</li>
+            <li><strong>Object</strong> — object to processing based on legitimate interests.</li>
             <li><strong>Withdraw consent</strong> — where processing is based on consent, withdraw it at any time.</li>
           </ul>
           <p className="mt-3">
@@ -116,36 +155,26 @@ const Privacy = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">8. Cookies and local storage</h2>
-          <p>
-            VANO uses essential cookies and browser local storage for authentication and session
-            management. These are strictly necessary to operate the platform. We do not use
-            third-party advertising cookies. If we introduce analytics cookies in the future, we will
-            update this policy and request your consent.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">9. Data security</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">10. Data security</h2>
           <p>
             We take reasonable technical and organisational measures to protect your personal data,
-            including encrypted connections (HTTPS), row-level security policies on our database,
-            and access controls on file storage. However, no method of transmission or storage is
-            100% secure.
+            including encrypted connections (HTTPS), row-level security policies on our database, and
+            access controls on file storage. However, no method of transmission or storage is 100%
+            secure.
           </p>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">10. Children</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">11. Children</h2>
           <p>
-            VANO is not intended for users under the age of 16. We do not knowingly collect
-            personal data from children. If you believe a child has provided us with personal data,
-            please contact us so we can delete it.
+            You must be at least 18 to book a job, make a payment, or work as a Helper. VANO is not
+            intended for under-18s, and we do not knowingly collect personal data from children. If you
+            believe a child has provided us with personal data, please contact us so we can delete it.
           </p>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">11. Changes to this policy</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">12. Changes to this policy</h2>
           <p>
             We may update this Privacy Policy from time to time. We will notify you of significant
             changes by posting a notice on the platform. The &quot;Last updated&quot; date at the top
@@ -154,14 +183,31 @@ const Privacy = () => (
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-3">12. Contact us</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-3">13. Contact us</h2>
           <p>
             If you have questions about this Privacy Policy or want to exercise your data rights, contact us:
           </p>
           <p className="mt-2">
+            <strong>WhatsApp:</strong>{' '}
+            <a href={teamWhatsAppHref} className="text-primary hover:underline underline-offset-4">
+              {TEAM_PHONE_DISPLAY}
+            </a>
+          </p>
+          <p className="mt-1">
             <strong>Email:</strong>{' '}
-            <a href="mailto:hello@vano.app" className="text-primary hover:underline underline-offset-4">
-              hello@vano.app
+            <a href={teamMailtoHref} className="text-primary hover:underline underline-offset-4">
+              {TEAM_CONTACT_EMAIL}
+            </a>
+          </p>
+          <p className="mt-1">
+            <strong>Instagram:</strong>{' '}
+            <a
+              href={TEAM_INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline underline-offset-4"
+            >
+              @{TEAM_INSTAGRAM_HANDLE}
             </a>
           </p>
           <p className="mt-1">
@@ -169,7 +215,16 @@ const Privacy = () => (
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
             You also have the right to lodge a complaint with the Irish Data Protection Commission (DPC)
-            at <a href="https://www.dataprotection.ie" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-4">dataprotection.ie</a>.
+            at{' '}
+            <a
+              href="https://www.dataprotection.ie"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline underline-offset-4"
+            >
+              dataprotection.ie
+            </a>
+            .
           </p>
         </section>
       </div>

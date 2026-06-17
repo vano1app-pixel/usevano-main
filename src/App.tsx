@@ -27,6 +27,10 @@ const Auth = lazyWithRetry(() => import("./pages/Auth"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const BlogIndex = lazyWithRetry(() => import("./pages/BlogIndex"));
+const BlogPost = lazyWithRetry(() => import("./pages/BlogPost"));
+const GlossaryIndex = lazyWithRetry(() => import("./pages/GlossaryIndex"));
+const GlossaryTerm = lazyWithRetry(() => import("./pages/GlossaryTerm"));
 
 const WhatsAppFloatingButton = lazy(() =>
   import("./components/WhatsAppFloatingButton").then((m) => ({
@@ -105,6 +109,10 @@ const App = () => {
             <Route path="/auth" element={<P><Auth /></P>} />
             <Route path="/privacy" element={<P><Privacy /></P>} />
             <Route path="/terms" element={<P><Terms /></P>} />
+            <Route path="/blog" element={<P><BlogIndex /></P>} />
+            <Route path="/blog/:slug" element={<P><BlogPost /></P>} />
+            <Route path="/glossary" element={<P><GlossaryIndex /></P>} />
+            <Route path="/glossary/:slug" element={<P><GlossaryTerm /></P>} />
             <Route path="*" element={<P><NotFound /></P>} />
           </Routes>
         </Suspense>

@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
 
 const NAV_LINKS = [
-  { label: 'Join as helper', href: '/join',                                                                                        external: false },
-  { label: 'Instagram',      href: 'https://instagram.com/vanojobs',                                                              external: true  },
-  { label: 'WhatsApp',       href: 'https://wa.me/353899817111',                                                                  external: true  },
-  { label: 'Terms',          href: '/terms',                                                                                      external: false },
-  { label: 'Privacy',        href: '/privacy',                                                                                    external: false },
+  { label: 'Join as helper', href: '/join',                                          external: false },
+  { label: 'Blog',           href: '/blog',                                          external: false },
+  { label: 'Glossary',       href: '/glossary',                                      external: false },
+  { label: 'Instagram',      href: 'https://instagram.com/vano.app',                 external: true  },
+  { label: 'TikTok',         href: 'https://www.tiktok.com/@gottalovevano',          external: true  },
+  { label: 'LinkedIn',       href: 'https://www.linkedin.com/in/ayush-puri-4b88b8357', external: true },
+  { label: 'WhatsApp',       href: 'https://wa.me/353899817111',                     external: true  },
+  { label: 'Terms',          href: '/terms',                                         external: false },
+  { label: 'Privacy',        href: '/privacy',                                       external: false },
 ];
 
 // Underline that grows in from the left on hover (animated via background-size,

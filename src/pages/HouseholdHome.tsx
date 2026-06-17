@@ -12,6 +12,7 @@ import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
+import { BlogTeaser } from '@/components/household/BlogTeaser';
 import { Reveal } from '@/components/Reveal';
 
 /**
@@ -62,6 +63,7 @@ const HouseholdHome: React.FC = () => {
             <ReferralShareCard />
           </div>
         </section>
+        <Reveal><BlogTeaser /></Reveal>
         <HouseholdFooter />
       </main>
 

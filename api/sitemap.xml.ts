@@ -7,6 +7,9 @@
 // budget on a graveyard. Tracking pages (/track/:id) and dashboards are
 // intentionally absent: they're private, per-customer URLs.
 
+import { BLOG_POSTS } from '../src/content/blog';
+import { GLOSSARY_TERMS } from '../src/content/glossary';
+
 type VercelReq = {
   method?: string;
   headers: Record<string, string | string[] | undefined>;
@@ -21,11 +24,31 @@ type VercelRes = {
 
 const SITE_URL = (process.env.SITE_URL || 'https://vanojobs.com').replace(/\/+$/, '');
 
-const STATIC_URLS: ReadonlyArray<{ path: string; changefreq: string; priority: string }> = [
-  { path: '/',        changefreq: 'weekly',  priority: '1.0' },
-  { path: '/join',    changefreq: 'weekly',  priority: '0.8' },
-  { path: '/privacy', changefreq: 'monthly', priority: '0.2' },
-  { path: '/terms',   changefreq: 'monthly', priority: '0.2' },
+type SitemapUrl = { path: string; changefreq: string; priority: string; lastmod?: string };
+
+const STATIC_URLS: ReadonlyArray<SitemapUrl> = [
+  { path: '/',         changefreq: 'weekly',  priority: '1.0' },
+  { path: '/join',     changefreq: 'weekly',  priority: '0.8' },
+  { path: '/blog',     changefreq: 'weekly',  priority: '0.7' },
+  { path: '/glossary', changefreq: 'monthly', priority: '0.6' },
+  { path: '/privacy',  changefreq: 'monthly', priority: '0.2' },
+  { path: '/terms',    changefreq: 'monthly', priority: '0.2' },
+];
+
+// Blog posts + glossary terms are generated from the content modules so the
+// sitemap stays in sync automatically when a post or term is added.
+const CONTENT_URLS: ReadonlyArray<SitemapUrl> = [
+  ...BLOG_POSTS.map((p) => ({
+    path: `/blog/${p.slug}`,
+    changefreq: 'monthly',
+    priority: '0.7',
+    lastmod: p.dateModified,
+  })),
+  ...GLOSSARY_TERMS.map((t) => ({
+    path: `/glossary/${t.slug}`,
+    changefreq: 'monthly',
+    priority: '0.5',
+  })),
 ];
 
 function escapeXml(s: string): string {
@@ -49,10 +72,10 @@ export default async function handler(req: VercelReq, res: VercelRes): Promise<v
   parts.push('<?xml version="1.0" encoding="UTF-8"?>');
   parts.push('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
 
-  for (const s of STATIC_URLS) {
+  for (const s of [...STATIC_URLS, ...CONTENT_URLS]) {
     parts.push('  <url>');
     parts.push(`    <loc>${escapeXml(SITE_URL + s.path)}</loc>`);
-    parts.push(`    <lastmod>${today}</lastmod>`);
+    parts.push(`    <lastmod>${s.lastmod ?? today}</lastmod>`);
     parts.push(`    <changefreq>${s.changefreq}</changefreq>`);
     parts.push(`    <priority>${s.priority}</priority>`);
     parts.push('  </url>');
