@@ -17,7 +17,7 @@ export const FAQSection: React.FC = () => {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section className="px-4 py-14">
+    <section className="px-4 py-16 lg:py-20">
       <div className="max-w-lg mx-auto">
         <p className="eyebrow mb-3">Got questions?</p>
         <h2 className="display-lg text-foreground mb-8">Quick answers</h2>

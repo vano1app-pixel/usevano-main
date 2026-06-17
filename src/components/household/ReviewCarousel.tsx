@@ -218,7 +218,7 @@ export const ReviewCarousel: React.FC = () => {
   const review = reviews[index] ?? reviews[0];
 
   return (
-    <section className="pt-16 pb-12 lg:pt-20 lg:pb-16 overflow-hidden">
+    <section className="py-16 lg:py-20 overflow-hidden">
       <div className="px-4 max-w-6xl mx-auto mb-8">
         <p className="eyebrow mb-3">Real customers · Galway</p>
         <h2 className="display-lg text-foreground">People love it</h2>

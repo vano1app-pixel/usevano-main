@@ -71,7 +71,7 @@ export const FindBookingBar: React.FC = () => {
   }
 
   return (
-    <section className="px-4 py-10 bg-background border-t border-border/40">
+    <section className="px-4 py-16 lg:py-20 bg-background border-t border-border/40">
       <div className="max-w-lg mx-auto">
         <div className="flex justify-center mb-3">
           <p className="eyebrow">Track a booking</p>
