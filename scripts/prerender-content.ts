@@ -303,7 +303,30 @@ const pages: PageSpec[] = [
 
 for (const page of pages) emit(page);
 
+// llms.txt — an emerging convention (llmstxt.org) that gives answer engines a
+// clean, curated Markdown map of the site. Generated from the same content so
+// it never drifts. Served as a static file at /llms.txt.
+const llmsTxt = [
+  "# VANO",
+  "",
+  "> Same-day home help in Galway, Ireland. Book an ID-verified student helper for cleaning, garden, dog walks, moving, errands or tutoring — or put your home on Autopilot. Helpers earn above the Irish minimum wage (€15.30/hr net on time-based jobs); customers pay only after a helper accepts.",
+  "",
+  "## Blog",
+  ...BLOG_POSTS.map((p) => `- [${p.title}](${ORIGIN}/blog/${p.slug}): ${p.summary}`),
+  "",
+  "## Glossary",
+  ...GLOSSARY_TERMS.map((t) => `- [${t.term}](${ORIGIN}/glossary/${t.slug}): ${t.short}`),
+  "",
+  "## Key pages",
+  `- [Book same-day home help](${ORIGIN}/)`,
+  `- [Join as a helper](${ORIGIN}/join)`,
+  `- [Terms of Service](${ORIGIN}/terms)`,
+  `- [Privacy Policy](${ORIGIN}/privacy)`,
+  "",
+].join("\n");
+writeFileSync(join(DIST, "llms.txt"), llmsTxt, "utf-8");
+
 console.log(
-  `✓ prerendered ${pages.length} pages → dist/{blog,glossary} ` +
+  `✓ prerendered ${pages.length} pages + llms.txt → dist/{blog,glossary} ` +
     `(${BLOG_POSTS.length} posts, ${GLOSSARY_TERMS.length} terms + 2 index pages)`,
 );
