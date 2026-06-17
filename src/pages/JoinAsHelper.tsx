@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Camera, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -439,7 +439,7 @@ export const JoinAsHelper: React.FC = () => {
                         aria-pressed={active}
                         className={cn(
                           'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium',
-                          'transition-[background-color,border-color,color] duration-150',
+                          'transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
                           active
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-secondary/60 border-border/50 text-foreground hover:bg-secondary hover:border-border',
@@ -452,9 +452,18 @@ export const JoinAsHelper: React.FC = () => {
                   })}
                 </div>
 
-                {/* Tutoring sub-fields */}
-                {categories.includes('tutoring') && (
-                  <div className="mt-4 space-y-4 bg-background/60 rounded-xl border border-border/50 p-3">
+                {/* Tutoring sub-fields — slide open when Tutoring is ticked */}
+                <AnimatePresence initial={false}>
+                  {categories.includes('tutoring') && (
+                    <motion.div
+                      key="tutoring"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 space-y-4 bg-background/60 rounded-xl border border-border/50 p-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
                         Subjects
@@ -471,7 +480,7 @@ export const JoinAsHelper: React.FC = () => {
                               )}
                               aria-pressed={active}
                               className={cn(
-                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150',
+                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.95]',
                                 active
                                   ? 'bg-primary text-primary-foreground border-primary'
                                   : 'bg-background border-border/60 text-foreground hover:border-primary/40',
@@ -499,7 +508,7 @@ export const JoinAsHelper: React.FC = () => {
                               )}
                               aria-pressed={active}
                               className={cn(
-                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150',
+                                'px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.95]',
                                 active
                                   ? 'bg-primary text-primary-foreground border-primary'
                                   : 'bg-background border-border/60 text-foreground hover:border-primary/40',
@@ -511,8 +520,10 @@ export const JoinAsHelper: React.FC = () => {
                         })}
                       </div>
                     </div>
-                  </div>
-                )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <Button
@@ -527,9 +538,18 @@ export const JoinAsHelper: React.FC = () => {
                 )}
               </Button>
 
-              {error && (
-                <p className="text-center text-xs text-destructive">{error}</p>
-              )}
+              <AnimatePresence>
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="text-center text-xs text-destructive"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+              </AnimatePresence>
 
               <p className="text-center text-xs text-muted-foreground">
                 We'll WhatsApp you within 24 hours.{' '}

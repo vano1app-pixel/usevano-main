@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { Star, MapPin, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
@@ -11,6 +11,16 @@ import { HELPER_CATEGORY_LABELS, AVAILABILITY_SLOTS } from '@/lib/helperCategori
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
+
+// Cards cascade in as the profile lands, instead of one flat fade
+const cardStagger: Variants = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+};
+const cardItem: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 440, damping: 32 } },
+};
 
 interface HelperRow {
   id:             string;
@@ -152,13 +162,13 @@ export const HelperPublicProfile: React.FC = () => {
 
         {!loading && helper && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            variants={cardStagger}
+            initial="hidden"
+            animate="show"
             className="space-y-4"
           >
             {/* Identity card */}
-            <section className="bg-card rounded-3xl border border-border/40 shadow-tinted-lg p-6">
+            <motion.section variants={cardItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted-lg p-6">
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-secondary flex-shrink-0">
                   {helper.photo_url ? (
@@ -183,7 +193,10 @@ export const HelperPublicProfile: React.FC = () => {
                     </span>
                     {helper.is_available && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                        <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        </span>
                         Available now
                       </span>
                     )}
@@ -224,12 +237,12 @@ export const HelperPublicProfile: React.FC = () => {
                   "{helper.bio}"
                 </p>
               )}
-            </section>
+            </motion.section>
 
             {/* What they can help with */}
             {cats.length > 0 && (
-              <section className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+              <motion.section variants={cardItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
+                <p className="eyebrow mb-3">
                   {firstName} can help with
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -239,13 +252,13 @@ export const HelperPublicProfile: React.FC = () => {
                     </span>
                   ))}
                 </div>
-              </section>
+              </motion.section>
             )}
 
             {/* Availability */}
             {slots.length > 0 && (
-              <section className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+              <motion.section variants={cardItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
+                <p className="eyebrow mb-3">
                   Usually available
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -255,13 +268,13 @@ export const HelperPublicProfile: React.FC = () => {
                     </span>
                   ))}
                 </div>
-              </section>
+              </motion.section>
             )}
 
             {/* Reviews */}
             {written.length > 0 && (
-              <section className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
+              <motion.section variants={cardItem} className="bg-card rounded-3xl border border-border/40 shadow-tinted p-6">
+                <p className="eyebrow mb-4">
                   What customers say
                 </p>
                 <ul className="space-y-5">
@@ -280,11 +293,11 @@ export const HelperPublicProfile: React.FC = () => {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </motion.section>
             )}
 
             {/* Trust note + CTA */}
-            <section className="bg-sage-light rounded-3xl border border-sage/20 p-6 text-center">
+            <motion.section variants={cardItem} className="bg-sage-light rounded-3xl border border-sage/20 p-6 text-center">
               <ShieldCheck className="w-6 h-6 text-sage mx-auto mb-2" aria-hidden="true" />
               <p className="text-sm text-foreground/80 leading-relaxed max-w-sm mx-auto">
                 Every VANO helper is personally vetted before their first job.
@@ -299,7 +312,7 @@ export const HelperPublicProfile: React.FC = () => {
               <p className="text-[11px] text-muted-foreground mt-3">
                 Available helpers near you — like {firstName} — get matched to your booking in minutes.
               </p>
-            </section>
+            </motion.section>
           </motion.div>
         )}
       </main>

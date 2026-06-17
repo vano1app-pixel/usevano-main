@@ -742,8 +742,15 @@ const TrackBooking = () => {
                 </div>
               </div>
               {helperLoc && booking.status === 'on_way' && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
-                  <span className={cn('w-1.5 h-1.5 rounded-full', locationAge < 30 ? 'bg-sage animate-pulse' : 'bg-muted-foreground/40')} />
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground flex-shrink-0">
+                  {locationAge < 30 ? (
+                    <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sage" />
+                    </span>
+                  ) : (
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                  )}
                   {formatLocationAge(locationAge)}
                 </span>
               )}
@@ -1061,7 +1068,7 @@ const TrackBooking = () => {
                     onMouseEnter={() => setHoverRating(n)}
                     onMouseLeave={() => setHoverRating(0)}
                     onClick={() => setSelectedRating(n)}
-                    className="p-1 transition-transform active:scale-90"
+                    className="p-1 transition-transform active:scale-90 hover:scale-110"
                     aria-label={`${n} star${n === 1 ? '' : 's'}`}
                   >
                     <Star size={26} className={cn('transition-colors', n <= (hoverRating || selectedRating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')} />
@@ -1121,7 +1128,10 @@ const TrackBooking = () => {
                   </div>
 
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
+                    <span className="relative flex h-2 w-2" aria-hidden="true">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-sage" />
+                    </span>
                     <p className="text-sm font-semibold text-foreground">Finding your helper</p>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1272,7 +1282,7 @@ const TrackBooking = () => {
                       onMouseEnter={() => setHoverRating(n)}
                       onMouseLeave={() => setHoverRating(0)}
                       onClick={() => setSelectedRating(n)}
-                      className="p-1 transition-transform active:scale-90"
+                      className="p-1 transition-transform active:scale-90 hover:scale-110"
                     >
                       <Star
                         size={28}
