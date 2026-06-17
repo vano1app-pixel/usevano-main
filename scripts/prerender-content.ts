@@ -72,6 +72,8 @@ interface PageSpec {
   description: string;
   canonical: string;
   ogType: "website" | "article";
+  /** Absolute URL of the page's share image; falls back to the default og.png. */
+  image?: string;
   jsonLd: unknown[];
   rootHtml: string;
 }
@@ -94,6 +96,10 @@ function emit(page: PageSpec): void {
   sub(/(<meta property="og:description" content=")[^"]*(")/, page.description);
   sub(/(<meta name="twitter:title" content=")[^"]*(")/, fullTitle);
   sub(/(<meta name="twitter:description" content=")[^"]*(")/, page.description);
+  if (page.image) {
+    sub(/(<meta property="og:image" content=")[^"]*(")/, page.image);
+    sub(/(<meta name="twitter:image" content=")[^"]*(")/, page.image);
+  }
 
   const headInjection = `${PRERENDER_STYLE}\n${page.jsonLd.map(ldScript).join("\n")}\n</head>`;
   html = html.replace("</head>", headInjection);
@@ -132,6 +138,7 @@ ${siteFooter}`.trim();
     description: post.description,
     canonical: url,
     ogType: "article",
+    image: `${ORIGIN}/og/blog/${post.slug}.png`,
     jsonLd: [
       {
         "@context": "https://schema.org",
@@ -147,7 +154,7 @@ ${siteFooter}`.trim();
           logo: { "@type": "ImageObject", url: `${ORIGIN}/pwa-512x512.png` },
         },
         mainEntityOfPage: { "@type": "WebPage", "@id": url },
-        image: `${ORIGIN}/og.png`,
+        image: `${ORIGIN}/og/blog/${post.slug}.png`,
         keywords: post.keywords,
         articleSection: post.tags,
         inLanguage: "en-IE",
@@ -170,6 +177,22 @@ ${siteFooter}`.trim();
                 "@type": "Question",
                 name: f.q,
                 acceptedAnswer: { "@type": "Answer", text: f.a },
+              })),
+            },
+          ]
+        : []),
+      ...(post.howTo && post.howTo.length
+        ? [
+            {
+              "@context": "https://schema.org",
+              "@type": "HowTo",
+              name: post.title,
+              description: post.summary,
+              step: post.howTo.map((s, i) => ({
+                "@type": "HowToStep",
+                position: i + 1,
+                name: s.name,
+                text: s.text,
               })),
             },
           ]

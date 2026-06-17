@@ -53,6 +53,8 @@ export interface BlogPost {
   related: string[];
   /** Collapsible FAQ at the foot of the post — rendered as <details> and FAQPage JSON-LD. */
   faqs: { q: string; a: string }[];
+  /** Optional step-by-step list — emitted as HowTo JSON-LD on genuine how-to posts. */
+  howTo?: { name: string; text: string }[];
 }
 
 export const BLOG_POSTS: BlogPost[] = [
@@ -293,6 +295,13 @@ export const BLOG_POSTS: BlogPost[] = [
 
   {
     slug: "how-to-become-a-vano-helper",
+    howTo: [
+      { name: "Sign up", text: "Create your account on the Vano join page — tell us who you are, where in Galway you're based, and the jobs you're up for." },
+      { name: "Verify your ID", text: "Complete a one-time identity check before your first job. It's what lets customers trust the helpers they let into their homes." },
+      { name: "Connect how you get paid", text: "Set up a Stripe payout account so your earnings land automatically after each completed job." },
+      { name: "Accept your first job", text: "When a nearby job is dispatched you'll get an SMS and a push notification. Check the details and pay, then accept if it suits." },
+      { name: "Do the job and get paid", text: "Find the address from the Eircode, do a great job, mark it complete, and your net earnings are released through Stripe." },
+    ],
     title: "How to Become a Vano Helper: ID Check, Getting Paid, First Job",
     summary:
       "To become a Vano helper: sign up, verify your ID, connect a Stripe payout account, then accept your first nearby job. It takes minutes and you can be earning the same week — no interview, no rota.",

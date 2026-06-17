@@ -52,7 +52,7 @@ export default function BlogPost() {
         logo: { "@type": "ImageObject", url: `${origin}/pwa-512x512.png` },
       },
       mainEntityOfPage: { "@type": "WebPage", "@id": url },
-      image: `${origin}/og.png`,
+      image: `${origin}/og/blog/${post.slug}.png`,
       keywords: post.keywords,
       articleSection: post.tags,
       inLanguage: "en-IE",
@@ -79,6 +79,22 @@ export default function BlogPost() {
           },
         ]
       : []),
+    ...(post.howTo && post.howTo.length
+      ? [
+          {
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            name: post.title,
+            description: post.summary,
+            step: post.howTo.map((s, i) => ({
+              "@type": "HowToStep",
+              position: i + 1,
+              name: s.name,
+              text: s.text,
+            })),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -88,6 +104,7 @@ export default function BlogPost() {
         description={post.description}
         keywords={post.keywords}
         url={url}
+        image={`/og/blog/${post.slug}.png`}
         type="article"
         publishedTime={post.datePublished}
         modifiedTime={post.dateModified}
