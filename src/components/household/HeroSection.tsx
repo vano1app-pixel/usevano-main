@@ -107,16 +107,21 @@ export const HeroSection: React.FC = () => {
               Same-day help,<br />booked in seconds.
             </motion.h1>
 
-            <motion.p
+            <motion.ul
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-white/70 text-base lg:text-lg leading-snug space-y-1 max-w-md"
+              className="flex flex-wrap gap-2.5"
             >
-              <span className="block font-semibold text-white">Trusted local students, from €15.</span>
-              <span className="block">Tap a job, drop your number.</span>
-              <span className="block font-semibold text-white">You pay nothing until they accept.</span>
-            </motion.p>
+              {['Trusted local students', 'From €15', 'Pay after they accept'].map((chip) => (
+                <li
+                  key={chip}
+                  className="inline-flex items-center rounded-full bg-white/10 border border-white/15 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  {chip}
+                </li>
+              ))}
+            </motion.ul>
 
             {/* Trust — quiet rows, desktop only (mobile gets the strip below the card) */}
             <ul className="hidden lg:flex flex-col gap-2.5 mt-8">
