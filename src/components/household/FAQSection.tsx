@@ -17,7 +17,7 @@ export const FAQSection: React.FC = () => {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section className="px-4 py-14">
+    <section className="px-4 py-16 lg:py-20">
       <div className="max-w-lg mx-auto">
         <p className="eyebrow mb-3">Got questions?</p>
         <h2 className="display-lg text-foreground mb-8">Quick answers</h2>
@@ -37,13 +37,13 @@ export const FAQSection: React.FC = () => {
                   type="button"
                   onClick={() => setOpenIdx(open ? null : i)}
                   aria-expanded={open}
-                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-secondary/40 transition-colors duration-150"
+                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-secondary/60 transition-colors duration-200"
                 >
                   <span className="text-[15px] font-semibold text-foreground leading-snug">{f.q}</span>
                   <ChevronDown
                     className={cn(
-                      'w-4 h-4 text-foreground/40 flex-shrink-0 transition-transform duration-200',
-                      open && 'rotate-180',
+                      'w-4 h-4 flex-shrink-0 transition-[transform,color] duration-300 ease-out',
+                      open ? 'rotate-180 text-foreground/70' : 'text-foreground/40',
                     )}
                     aria-hidden="true"
                   />
@@ -51,12 +51,22 @@ export const FAQSection: React.FC = () => {
                 <AnimatePresence initial={false}>
                   {open && (
                     <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                      key="content"
+                      initial={{ height: 0 }}
+                      animate={{ height: 'auto' }}
+                      exit={{ height: 0 }}
+                      transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
                     >
-                      <p className="px-5 pb-4 text-sm text-muted-foreground leading-relaxed">{f.a}</p>
+                      <motion.p
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.22, ease: 'easeOut', delay: 0.06 }}
+                        className="px-5 pb-4 text-sm text-muted-foreground leading-relaxed"
+                      >
+                        {f.a}
+                      </motion.p>
                     </motion.div>
                   )}
                 </AnimatePresence>

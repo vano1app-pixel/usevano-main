@@ -34,9 +34,18 @@ function useCountUp(target: number, duration = 700): number {
   return display;
 }
 
+function timeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 22) return 'Good evening';
+  return 'Working late?';
+}
+
 export const HeroSection: React.FC = () => {
   const helperCount = useHelperCount();
   const displayCount = useCountUp(helperCount);
+  const greeting = timeGreeting();
 
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop
@@ -44,10 +53,14 @@ export const HeroSection: React.FC = () => {
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
-      {/* Subtle radial glow — top left, warm */}
-      <div
-        className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full opacity-20"
+      {/* Subtle radial glow — top left, warm. Breathes slowly so the hero feels
+          alive without pulling focus from the booking card. */}
+      <motion.div
+        className="pointer-events-none absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full"
         style={{ background: 'radial-gradient(circle, hsl(43 90% 60% / 0.35) 0%, transparent 70%)' }}
+        initial={{ opacity: 0.16, scale: 1 }}
+        animate={{ opacity: [0.16, 0.26, 0.16], scale: [1, 1.08, 1] }}
+        transition={{ duration: 9, ease: 'easeInOut', repeat: Infinity }}
         aria-hidden="true"
       />
 
@@ -128,29 +141,43 @@ export const HeroSection: React.FC = () => {
             transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             className="bg-cream rounded-3xl shadow-2xl p-5 lg:p-6 border border-foreground/15"
           >
-            <div className="flex items-baseline justify-between gap-3 mb-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
-                What do you need?
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-foreground/80">
+                {greeting} <span aria-hidden="true">👋</span>
               </p>
-              {/* Surfaces the server's book-ahead discount before the sheet opens */}
-              <p className="text-[11px] font-semibold text-sage-dark whitespace-nowrap">
-                Book ahead · 10% off
-              </p>
+              <div className="flex items-baseline justify-between gap-3 mt-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
+                  What do you need?
+                </p>
+                {/* Surfaces the server's book-ahead discount before the sheet opens */}
+                <p className="text-[11px] font-semibold text-sage-dark whitespace-nowrap">
+                  Book ahead · 10% off
+                </p>
+              </div>
             </div>
             <CategoryGrid />
           </motion.div>
 
         </div>
 
-        {/* Mobile trust strip — one glance, under the card */}
-        <ul className="lg:hidden mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        {/* Mobile trust strip — one glance, under the card; fades in last */}
+        <motion.ul
+          className="lg:hidden mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2"
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.38 } } }}
+        >
           {TRUST.map(({ icon: Icon, short }) => (
-            <li key={short} className="inline-flex items-center gap-1.5 text-xs text-white/60">
+            <motion.li
+              key={short}
+              variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+              className="inline-flex items-center gap-1.5 text-xs text-white/60"
+            >
               <Icon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
               {short}
-            </li>
+            </motion.li>
           ))}
-        </ul>
+        </motion.ul>
       </div>
     </section>
   );

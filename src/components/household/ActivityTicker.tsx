@@ -67,6 +67,7 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
     (async () => {
       try {
         const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data } = await (supabase as any)
           .from('household_bookings')
           .select('category, city, created_at')
@@ -98,7 +99,12 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
     <div
       className={dark
         ? "overflow-hidden border-y border-white/10 bg-navy"
-        : "overflow-hidden border-y border-border/40 bg-cream"}
+        : "overflow-hidden border-y border-border/70 bg-cream"}
+      style={{
+        // Feather the left/right edges so items melt in and out instead of a hard cut
+        maskImage: 'linear-gradient(to right, transparent, black 6%, black 94%, transparent)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent, black 6%, black 94%, transparent)',
+      }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-label="Recent bookings"

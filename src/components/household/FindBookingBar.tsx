@@ -71,9 +71,11 @@ export const FindBookingBar: React.FC = () => {
   }
 
   return (
-    <section className="px-4 py-10 bg-background border-t border-border/40">
+    <section className="px-4 py-16 lg:py-20 bg-background border-t border-border/40">
       <div className="max-w-lg mx-auto">
-        <p className="eyebrow mb-3 text-center justify-center">Track a booking</p>
+        <div className="flex justify-center mb-3">
+          <p className="eyebrow">Track a booking</p>
+        </div>
         <h2 className="text-xl font-bold text-foreground text-center mb-1">
           Find your booking
         </h2>
@@ -82,28 +84,32 @@ export const FindBookingBar: React.FC = () => {
         </p>
 
         <form onSubmit={lookup} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+          <div className="relative flex-1 group">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within:text-foreground/60 transition-colors duration-150" />
             <input
               type="tel"
               value={phone}
               onChange={e => { setPhone(e.target.value); setError(null); setResults(null); }}
               placeholder="08x xxx xxxx"
               autoComplete="tel"
-              className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              inputMode="tel"
+              enterKeyHint="search"
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150"
             />
           </div>
           <button
             type="submit"
             disabled={loading || !phone.trim()}
             className={cn(
-              'flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold',
+              'group flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-w-[92px]',
               'bg-foreground text-background',
               'hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed',
-              'transition-opacity duration-150',
+              'transition-[opacity,transform] duration-150 active:scale-[0.97]',
             )}
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><span>Find</span><ArrowRight className="w-4 h-4" /></>}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><span>Find</span><ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" /></>}
           </button>
         </form>
 
@@ -119,10 +125,16 @@ export const FindBookingBar: React.FC = () => {
 
           {results && results.length > 1 && (
             <motion.div
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              initial="hidden" animate="show" exit={{ opacity: 0 }}
+              variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06, delayChildren: 0.03 } } }}
               className="mt-4 space-y-2"
             >
-              <p className="text-xs text-muted-foreground font-medium">Select your booking:</p>
+              <motion.p
+                variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+                className="text-xs text-muted-foreground font-medium"
+              >
+                Select your booking:
+              </motion.p>
               {results.map(b => {
                 const st = STATUS_LABEL[b.status] ?? { label: b.status, colour: 'text-muted-foreground' };
                 const cat = CATEGORY_LABELS[b.category] ?? b.category;
@@ -130,8 +142,9 @@ export const FindBookingBar: React.FC = () => {
                   ? new Date(b.scheduled_date).toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' })
                   : 'Flexible';
                 return (
-                  <button
+                  <motion.button
                     key={b.id}
+                    variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
                     onClick={() => navigate(`/track/${b.id}`)}
                     className="w-full flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left hover:bg-secondary/40 hover:border-foreground/20 transition-colors duration-150"
                   >
@@ -140,7 +153,7 @@ export const FindBookingBar: React.FC = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">{date}</p>
                     </div>
                     <span className={cn('text-xs font-semibold', st.colour)}>{st.label}</span>
-                  </button>
+                  </motion.button>
                 );
               })}
             </motion.div>

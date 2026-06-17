@@ -3,7 +3,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
-import { ReviewCarousel } from '@/components/household/ReviewCarousel';
+import { HowItWorks } from '@/components/household/HowItWorks';
 import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
 import { FAQS } from '@/components/household/faqData';
@@ -45,9 +45,9 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
-        {/* Trust first — social proof and real helper faces — so the bigger
-            monthly ask below only comes once the visitor believes us */}
-        <Reveal><ReviewCarousel /></Reveal>
+        {/* How it works (honest + simple), then real helper faces — so the
+            bigger monthly ask below only comes once the visitor gets it */}
+        <HowItWorks />
         <Reveal><HelperCards /></Reveal>
         {/* Flagship offer lands after trust; the navy band also anchors the
             middle of the page between the cream sections. NOT wrapped in
@@ -57,7 +57,7 @@ const HouseholdHome: React.FC = () => {
         <Reveal><FAQSection /></Reveal>
         <FindBookingBar />
         {/* Self-hides unless this device has booked before (needs the phone) */}
-        <section className="px-4 pb-12 bg-background">
+        <section className="px-4 pb-16 lg:pb-20 bg-background">
           <div className="max-w-lg mx-auto">
             <ReferralShareCard />
           </div>

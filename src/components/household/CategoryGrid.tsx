@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { AnimatePresence, motion, useMotionValue, useSpring, useReducedMotion } from 'framer-motion';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, useDragControls, useMotionValue, useSpring, useReducedMotion, type Variants } from 'framer-motion';
+import { haptic } from '@/lib/haptics';
 import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -138,18 +139,71 @@ function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
   return lines.join('\n');
 }
 
-// ─── Chip helper ──────────────────────────────────────────────────────────
+// ─── Motion presets ─────────────────────────────────────────────────────────
 
-const chip = (active: boolean, accent?: boolean) => cn(
-  'px-4 py-2.5 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none',
-  'transition-[background-color,color,border-color] duration-150',
-  active
-    ? accent
-      ? 'bg-emerald-500 text-white border-emerald-500'
-      : 'bg-foreground text-background border-foreground'
-    : accent
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold'
-      : 'bg-background text-foreground border-border hover:border-foreground/30',
+// Spring for the sliding selection pill — quick, lively, settles fast.
+const PILL_SPRING = { type: 'spring', stiffness: 520, damping: 34, mass: 0.7 } as const;
+
+// Staggered entrance: the sheet's fields cascade in one-by-one as it lands.
+const listContainer: Variants = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.05, delayChildren: 0.08 } },
+};
+const listItem: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 440, damping: 32 } },
+};
+
+// The category tiles cascade up as the booking card lands.
+const gridContainer: Variants = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.045, delayChildren: 0.06 } },
+};
+const tileItem: Variants = {
+  hidden: { opacity: 0, y: 16, scale: 0.94 },
+  show:   { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 460, damping: 30 } },
+};
+
+// ─── Chip ────────────────────────────────────────────────────────────────────
+
+interface ChipProps {
+  active:   boolean;
+  /** Emerald "same-day" treatment (the "Now" slot). */
+  accent?:  boolean;
+  /** Shared-element namespace — the highlight glides between chips in a group. */
+  group:    string;
+  onClick:  () => void;
+  children: React.ReactNode;
+}
+
+// A pill chip whose dark/emerald highlight is a shared layout element: when the
+// active chip in a group changes, framer morphs the highlight from the old chip
+// to the new one instead of snapping. The label rides above it.
+const Chip: React.FC<ChipProps> = ({ active, accent, group, onClick, children }) => (
+  <motion.button
+    type="button"
+    onClick={onClick}
+    whileTap={{ scale: 0.9 }}
+    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+    className={cn(
+      'relative px-4 py-2.5 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none',
+      'transition-colors duration-150',
+      active
+        ? cn('border-transparent', accent ? 'text-white' : 'text-background')
+        : accent
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold'
+          : 'bg-background text-foreground border-border hover:border-foreground/30',
+    )}
+  >
+    {active && (
+      <motion.span
+        layoutId={`pill-${group}`}
+        className={cn('absolute inset-0 rounded-full', accent ? 'bg-emerald-500' : 'bg-foreground')}
+        transition={PILL_SPRING}
+      />
+    )}
+    <span className="relative z-10">{children}</span>
+  </motion.button>
 );
 
 // ─── Bottom sheet ─────────────────────────────────────────────────────────
@@ -183,6 +237,13 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+  // Field-level flags so a failed submit points at the field to fix, not just
+  // a message at the foot of the sheet
+  const [phoneError,   setPhoneError]   = useState(false);
+  const [addressError, setAddressError] = useState(false);
+  // Drag-to-dismiss: only the handle starts the drag, so the body still scrolls
+  const dragControls = useDragControls();
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   function forgetMe() {
     clearBookingMemory();
@@ -193,6 +254,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   // Lock body scroll while sheet is open without changing scroll position
   useEffect(() => {
     const scrollY = window.scrollY;
+    // Hand focus back to the tile that opened the sheet when it closes
+    const trigger = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
     const prevPosition = document.body.style.position;
     const prevTop = document.body.style.top;
@@ -207,6 +270,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
       document.body.style.top = prevTop;
       document.body.style.width = prevWidth;
       window.scrollTo(0, scrollY);
+      trigger?.focus?.();
     };
   }, []);
 
@@ -216,6 +280,24 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
+
+  // Keep Tab focus inside the sheet while it's open (wrap at both ends)
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const f = el.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      );
+      if (f.length === 0) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    el.addEventListener('keydown', onKey);
+    return () => el.removeEventListener('keydown', onKey);
+  }, []);
 
   const isScheduledAhead = when.startsWith('Tomorrow');
   const baseCents  = getPriceCents(cat.slug, size);
@@ -236,10 +318,18 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     const phoneClean = phone.trim().replace(/\s+/g, '');
-    if (!phoneClean) { setError('Please enter your phone number.'); return; }
-    if (!/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) { setError('Please enter a valid phone number.'); return; }
-    if (!address.trim()) { setError('Please enter your address or Eircode.'); return; }
+    if (!phoneClean || !/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) {
+      setPhoneError(true);
+      setError('Please enter a valid phone number.');
+      return;
+    }
+    if (!address.trim()) {
+      setAddressError(true);
+      setError('Please add your address so your helper can find you.');
+      return;
+    }
     setLoading(true); setError(null);
+    haptic(12); // subtle confirm tick on supported phones
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
         'create-household-payment-checkout',
@@ -291,22 +381,34 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
       />
 
       {/* Sheet — slides up from the bottom of the screen; the phone field is
-          focused the moment it lands. Enter reads as a slide, exit snaps back. */}
+          focused the moment it lands. Enter reads as a slide, exit snaps back.
+          Drag the handle down past a threshold (or flick) to dismiss. */}
       <motion.div
         key="sheet"
+        ref={sheetRef}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%', transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] } }}
         transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.6 }}
+        dragSnapToOrigin
+        onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
         className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
-        style={{ maxHeight: '88vh', overflowY: 'auto' }}
+        style={{ maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain' }}
         role="dialog"
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-foreground/15" />
+        {/* Drag handle — grab and pull down to close */}
+        <div
+          onPointerDown={(e) => dragControls.start(e)}
+          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+        >
+          <div className="w-10 h-1.5 rounded-full bg-foreground/20" />
         </div>
 
         <div className="px-5 pb-6 pt-2">
@@ -314,7 +416,15 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
           <div className="flex items-start justify-between mb-5">
             <div>
               <div className="flex items-center gap-2.5 mb-0.5">
-                <span className="text-2xl leading-none" aria-hidden="true">{cat.emoji}</span>
+                <motion.span
+                  className="text-2xl leading-none"
+                  aria-hidden="true"
+                  initial={{ scale: 0, rotate: -25 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 480, damping: 12, delay: 0.18 }}
+                >
+                  {cat.emoji}
+                </motion.span>
                 <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
                   {cat.label}
                 </h2>
@@ -330,10 +440,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
             </button>
           </div>
 
-          <form onSubmit={handleBook} className="space-y-5">
+          <motion.form
+            onSubmit={handleBook}
+            className="space-y-5"
+            variants={listContainer}
+            initial="hidden"
+            animate="show"
+          >
             {/* Welcome back — details remembered from the last booking */}
             {prefilled && (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
+              <motion.div variants={listItem} className="flex items-center justify-between gap-3 rounded-xl bg-sage/8 border border-sage/25 px-3.5 py-2.5">
                 <p className="text-xs text-foreground/70">
                   <span className="font-semibold text-sage-dark">Welcome back</span> — we filled in your details
                 </p>
@@ -344,110 +460,98 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 >
                   Clear
                 </button>
-              </div>
+              </motion.div>
             )}
 
             {/* Phone first — the sheet slides up straight onto this field.
                 Time + duration below are pre-picked, so number + address is
                 all a new visitor has to type. */}
-            <div>
+            <motion.div variants={listItem}>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
               <input
                 type="tel"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
+                onChange={e => { setPhone(e.target.value); if (phoneError) setPhoneError(false); if (error) setError(null); }}
                 placeholder="08x xxx xxxx"
                 autoComplete="tel"
+                inputMode="tel"
+                enterKeyHint="go"
+                autoCapitalize="off"
+                autoCorrect="off"
                 autoFocus={!prefilled}
                 required
-                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
+                className={cn(
+                  'w-full rounded-xl border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
+                  phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
+                )}
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
-            </div>
+            </motion.div>
 
             {/* Address — Eircode search or current location */}
-            <div>
+            <motion.div variants={listItem}>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
               <AddressPicker
                 value={address}
                 coords={coords}
-                error={false}
+                error={addressError}
                 onAddress={(addr, lat, lng, locality) => {
                   setAddress(addr);
                   setCoords({ lat, lng });
+                  if (addressError) setAddressError(false);
+                  if (error) setError(null);
                   // Eircode/address already knows the area — don't make them pick
                   const area = deriveArea(locality, { lat, lng });
                   if (area) { setCity(area); setCityAuto(true); }
                 }}
-                onTextChange={(t) => { setAddress(t); setCoords(null); }}
+                onTextChange={(t) => { setAddress(t); setCoords(null); if (addressError) setAddressError(false); if (error) setError(null); }}
                 onBlur={() => {}}
                 placeholder="Address or Eircode…"
                 showMapPreview={false}
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
-            </div>
+            </motion.div>
 
             {/* When? — "Now" pre-selected; chips are an optional tweak */}
-            <div>
+            <motion.div variants={listItem}>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
               <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {timeSlots.map(opt => (
-                  <motion.button
-                    key={opt}
-                    type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt, opt === 'Now')}
-                  >
+                  <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
                     {opt}
-                  </motion.button>
+                  </Chip>
                 ))}
               </div>
               {/* Book ahead — server grants 10% off scheduled bookings */}
               <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
               <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {TOMORROW_SLOTS.map(opt => (
-                  <motion.button
-                    key={opt}
-                    type="button"
-                    onClick={() => setWhen(opt)}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                    className={chip(when === opt)}
-                  >
+                  <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
                     {opt}
-                  </motion.button>
+                  </Chip>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
             {/* How long? — sensible default pre-selected */}
             {cat.sizes && (
-              <div>
+              <motion.div variants={listItem}>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
                   {cat.sizeLabel ?? 'How long?'}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {cat.sizes.map(opt => (
-                    <motion.button
-                      key={opt}
-                      type="button"
-                      onClick={() => setSize(opt)}
-                      whileTap={{ scale: 0.92 }}
-                      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                      className={chip(size === opt)}
-                    >
+                    <Chip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
                       {opt}
-                    </motion.button>
+                    </Chip>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* Area — auto-detected from the address; chips only as fallback */}
             {cityAuto ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+              <motion.div variants={listItem} className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
                 <p className="text-sm text-foreground/75 min-w-0 truncate">
                   <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
                   <span className="text-muted-foreground text-xs"> · from your address</span>
@@ -459,9 +563,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 >
                   Change
                 </button>
-              </div>
+              </motion.div>
             ) : (
-              <div>
+              <motion.div variants={listItem}>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
                 <div className="flex flex-wrap gap-2">
                   {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
@@ -483,36 +587,47 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                       );
                     }
                     return (
-                      <motion.button
-                        key={c}
-                        type="button"
-                        onClick={() => setCity(c)}
-                        whileTap={{ scale: 0.92 }}
-                        transition={{ type: 'spring', stiffness: 600, damping: 22 }}
-                        className={chip(city === c)}
-                      >
+                      <Chip key={c} group="area" active={city === c} onClick={() => setCity(c)}>
                         {c}
-                      </motion.button>
+                      </Chip>
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* Price summary + CTA */}
-            <div className="space-y-2.5 pt-1">
+            <motion.div variants={listItem} className="space-y-2.5 pt-1">
               {priceCents && (
                 <div className="px-4 py-3 rounded-xl bg-foreground/4 border border-foreground/8">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between" aria-live="polite">
                     <span className="text-sm text-foreground/60">{cat.label} · {when === 'Now' ? 'ASAP' : when}{size ? ` · ${size}` : ''}</span>
-                    <span className="text-lg font-bold text-foreground tabular-nums">{fmt(priceCents)}</span>
+                    {/* Bouncy live price — re-keying on the amount replays the spring pop */}
+                    <motion.span
+                      key={priceCents}
+                      initial={{ scale: 0.68, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 520, damping: 16 }}
+                      className="text-lg font-bold text-foreground tabular-nums inline-block origin-right"
+                    >
+                      {fmt(priceCents)}
+                    </motion.span>
                   </div>
-                  {isScheduledAhead && baseCents && (
-                    <p className="flex items-center justify-between text-[11px] mt-1">
-                      <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
-                      <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
-                    </p>
-                  )}
+                  <AnimatePresence initial={false}>
+                    {isScheduledAhead && baseCents && (
+                      <motion.p
+                        key="book-ahead"
+                        initial={{ opacity: 0, height: 0, y: -4 }}
+                        animate={{ opacity: 1, height: 'auto', y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -4 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className="flex items-center justify-between text-[11px] mt-1 overflow-hidden"
+                      >
+                        <span className="font-semibold text-sage-dark">✓ Book-ahead discount −10%</span>
+                        <span className="text-muted-foreground line-through tabular-nums">{fmt(baseCents)}</span>
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
 
@@ -527,13 +642,24 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 <Button
                   type="submit"
                   disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12"
+                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12 tabular-nums"
                 >
                   {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                    : <><Zap className="w-4 h-4" />{ctaLabel}</>}
+                    : <>
+                        <motion.span
+                          className="inline-flex"
+                          animate={{ scale: [1, 1.18, 1] }}
+                          transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
+                        >
+                          <Zap className="w-4 h-4" />
+                        </motion.span>
+                        {ctaLabel}
+                      </>}
                 </Button>
               </motion.div>
+
+              {error && <p className="text-center text-xs text-destructive">{error}</p>}
 
               <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
@@ -551,13 +677,12 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   Or book via WhatsApp
                 </Button>
               </motion.div>
-            </div>
+            </motion.div>
 
-            {error && <p className="text-center text-xs text-destructive">{error}</p>}
-            <p className="text-center text-[11px] text-muted-foreground">
+            <motion.p variants={listItem} className="text-center text-[11px] text-muted-foreground">
               No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
-            </p>
-          </form>
+            </motion.p>
+          </motion.form>
         </div>
       </motion.div>
     </>
@@ -601,7 +726,7 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
       style={{ rotateX, rotateY, transformPerspective: 700 }}
       className={cn(
         'relative flex flex-col items-center justify-center gap-1.5',
-        'min-h-[96px] rounded-2xl px-2 py-3 border',
+        'w-full h-full min-h-[96px] rounded-2xl px-2 py-3 border',
         'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
         'transition-[background-color,border-color,box-shadow] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
@@ -609,8 +734,12 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
     >
       {/* Popular badge */}
       {cat.popular && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10">
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10 overflow-hidden">
           Popular
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 -translate-x-full animate-[shimmer_3s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"
+          />
         </span>
       )}
       <motion.span
@@ -658,12 +787,19 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
-      <div id="category-grid" aria-label="What do you need help with?">
-        <div className="grid grid-cols-3 gap-2.5">
+      <div id="category-grid" aria-label="What do you need help with?" className="scroll-mt-24">
+        <motion.div
+          className="grid grid-cols-3 gap-2.5"
+          variants={gridContainer}
+          initial="hidden"
+          animate="show"
+        >
           {CATEGORIES.map((cat) => (
-            <CategoryTile key={cat.slug} cat={cat} onOpen={() => openSheet(cat)} />
+            <motion.div key={cat.slug} variants={tileItem}>
+              <CategoryTile cat={cat} onOpen={() => openSheet(cat)} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* One-tap rebook — remembers the last job booked on this device */}
         {usual && (

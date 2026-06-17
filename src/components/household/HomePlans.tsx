@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Gift, Building2, CheckCircle2 } from 'lucide-react';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AutopilotBuilder } from '@/components/household/AutopilotBuilder';
@@ -30,7 +31,7 @@ export const HomePlans: React.FC = () => {
   }, []);
 
   return (
-    <section id="plans" className="relative bg-navy px-4 py-14 scroll-mt-20">
+    <section id="plans" className="relative bg-navy px-4 py-16 lg:py-20 scroll-mt-20">
       <div className="relative max-w-4xl mx-auto">
 
         {planSuccess && (
@@ -45,8 +46,15 @@ export const HomePlans: React.FC = () => {
           </div>
         )}
 
-        {/* Header */}
-        <div className="text-center mb-8">
+        {/* Header — eases in on scroll (only this block; the builder below owns a
+            position:fixed sheet, so it must not sit under a transform ancestor) */}
+        <motion.div
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
           <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">House autopilot</p>
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
@@ -61,7 +69,7 @@ export const HomePlans: React.FC = () => {
           <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white/75">
             From €5/week · pay weekly or monthly
           </p>
-        </div>
+        </motion.div>
 
         {/* Airbnb-style builder — tick services, pick dates, live price */}
         <AutopilotBuilder />
@@ -75,7 +83,7 @@ export const HomePlans: React.FC = () => {
           href={`${teamWhatsAppHref}?text=${encodeURIComponent(BUSINESS_WA_TEXT)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-10 block w-full rounded-3xl border border-white/12 bg-white/[0.06] p-6 sm:p-7 hover:bg-white/[0.09] hover:border-white/20 hover:-translate-y-0.5 active:scale-[0.99] transition-[background-color,border-color,transform] duration-150"
+          className="group mt-10 block w-full rounded-3xl border border-white/12 bg-white/[0.06] p-6 sm:p-7 hover:bg-white/[0.09] hover:border-white/20 hover:-translate-y-0.5 active:scale-[0.99] transition-[background-color,border-color,transform] duration-200"
         >
           <div className="sm:flex sm:items-center sm:gap-6">
             <div className="flex items-start gap-4 flex-1">
@@ -96,8 +104,9 @@ export const HomePlans: React.FC = () => {
                 </p>
                 <p className="text-[11px] font-medium text-white/45 tabular-nums mt-1">≈ €16/day</p>
               </div>
-              <span className="inline-flex items-center rounded-full bg-white text-navy px-5 py-2.5 text-sm font-bold">
-                Talk to us →
+              <span className="inline-flex items-center gap-1 rounded-full bg-white text-navy px-5 py-2.5 text-sm font-bold">
+                Talk to us
+                <span className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">→</span>
               </span>
             </div>
           </div>

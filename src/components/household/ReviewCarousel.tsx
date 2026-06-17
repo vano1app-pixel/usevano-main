@@ -172,7 +172,15 @@ function ReviewTicker({ reviews }: { reviews: Review[] }) {
   const items = [...reviews, ...reviews];
 
   return (
-    <div className="overflow-hidden" aria-hidden="true">
+    <div
+      className="overflow-hidden"
+      aria-hidden="true"
+      style={{
+        // Feather the edges so cards melt in/out instead of a hard cut
+        maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
+      }}
+    >
       <motion.div
         className="flex gap-4 py-1"
         animate={{ x: ['0%', '-50%'] }}
@@ -218,7 +226,7 @@ export const ReviewCarousel: React.FC = () => {
   const review = reviews[index] ?? reviews[0];
 
   return (
-    <section className="pt-16 pb-12 lg:pt-20 lg:pb-16 overflow-hidden">
+    <section className="py-16 lg:py-20 overflow-hidden">
       <div className="px-4 max-w-6xl mx-auto mb-8">
         <p className="eyebrow mb-3">Real customers · Galway</p>
         <h2 className="display-lg text-foreground">People love it</h2>
@@ -257,8 +265,8 @@ export const ReviewCarousel: React.FC = () => {
               key={i}
               onClick={() => goTo(i)}
               aria-label={`Review ${i + 1}`}
-              className={`rounded-full transition-all duration-300 ${
-                i === index ? 'w-5 h-2 bg-foreground' : 'w-2 h-2 bg-border'
+              className={`relative rounded-full transition-all duration-300 after:absolute after:-inset-2 after:content-[''] ${
+                i === index ? 'w-5 h-2 bg-foreground' : 'w-2 h-2 bg-border hover:bg-foreground/40 hover:scale-125'
               }`}
             />
           ))}

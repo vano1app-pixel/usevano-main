@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 interface BottomSheetProps {
@@ -16,9 +16,13 @@ interface BottomSheetProps {
  * contents. Centred at a comfortable width on desktop, full-width on mobile.
  */
 export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, children }) => {
+  const sheetRef = useRef<HTMLDivElement>(null);
+
   // Lock body scroll while open, restoring the exact scroll position on close
   useEffect(() => {
     const scrollY = window.scrollY;
+    // Remember what opened the sheet so we can hand focus back on close
+    const trigger = document.activeElement as HTMLElement | null;
     const { style } = document.body;
     const prev = { overflow: style.overflow, position: style.position, top: style.top, width: style.width };
     style.overflow = 'hidden';
@@ -31,6 +35,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
       style.top = prev.top;
       style.width = prev.width;
       window.scrollTo(0, scrollY);
+      trigger?.focus?.();
     };
   }, []);
 
@@ -40,6 +45,24 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
+
+  // Keep Tab focus inside the sheet while it's open (wrap at both ends)
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const f = el.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      );
+      if (f.length === 0) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    el.addEventListener('keydown', onKey);
+    return () => el.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <>
@@ -59,12 +82,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({ onClose, label, childr
           slide (too fast and it reads as a "pop"); the exit snaps back quicker. */}
       <motion.div
         key="sheet"
+        ref={sheetRef}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%', transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] } }}
         transition={{ duration: 0.44, ease: [0.32, 0.72, 0, 1] }}
         className="fixed inset-x-0 bottom-0 z-[70] mx-auto w-full sm:max-w-md bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
-        style={{ maxHeight: '90dvh', overflowY: 'auto' }}
+        style={{ maxHeight: '90dvh', overflowY: 'auto', overscrollBehavior: 'contain' }}
         role="dialog"
         aria-modal="true"
         aria-label={label}

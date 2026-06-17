@@ -6,6 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { loadBookingMemory } from '@/lib/bookingMemory';
 import { BottomSheet } from '@/components/household/BottomSheet';
+import { haptic } from '@/lib/haptics';
+import { microCelebrate } from '@/lib/celebrate';
 
 /**
  * "Put your house on autopilot" — Airbnb-style builder and the site's
@@ -150,6 +152,13 @@ export const AutopilotBuilder: React.FC = () => {
   // Tiny picks (plants alone) round below €1/day — "<€1" beats showing €0
   const perDayLabel = animPerDayCents === 0 ? '<€1' : euro(Math.round(animPerDayCents / 100) * 100);
 
+  // Pop a little confetti the moment the 3+ service bundle discount unlocks.
+  const prevBundledRef = useRef(bundled);
+  useEffect(() => {
+    if (bundled && !prevBundledRef.current) microCelebrate();
+    prevBundledRef.current = bundled;
+  }, [bundled]);
+
   function toggle(key: string) {
     setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
   }
@@ -158,6 +167,7 @@ export const AutopilotBuilder: React.FC = () => {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || selected.length === 0 || loading) return;
     setLoading(true); setError(null);
+    haptic(12);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke('create-autopilot-checkout', {
         body: {
@@ -202,11 +212,18 @@ export const AutopilotBuilder: React.FC = () => {
               type="button"
               onClick={() => setMode(m)}
               className={cn(
-                'flex-1 h-11 rounded-full text-sm font-semibold transition-all duration-200',
-                mode === m ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50',
+                'relative flex-1 h-11 rounded-full text-sm font-semibold transition-colors duration-200',
+                mode === m ? 'text-foreground' : 'text-foreground/50',
               )}
             >
-              {label}
+              {mode === m && (
+                <motion.span
+                  layoutId="autopilot-mode-pill"
+                  className="absolute inset-0 rounded-full bg-white shadow-sm"
+                  transition={{ type: 'spring', stiffness: 520, damping: 36, mass: 0.7 }}
+                />
+              )}
+              <span className="relative z-10">{label}</span>
             </button>
           ))}
         </div>
@@ -233,7 +250,19 @@ export const AutopilotBuilder: React.FC = () => {
                   'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-150',
                   on ? 'bg-sage border-sage' : 'border-border bg-white',
                 )}>
-                  {on && <Check size={12} className="text-white" strokeWidth={3.5} />}
+                  <AnimatePresence>
+                    {on && (
+                      <motion.span
+                        key="check"
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 600, damping: 18 }}
+                      >
+                        <Check size={12} className="text-white" strokeWidth={3.5} />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </span>
                 <span className="text-lg flex-shrink-0" aria-hidden="true">{s.emoji}</span>
                 <span className="flex-1 min-w-0">
@@ -293,13 +322,22 @@ export const AutopilotBuilder: React.FC = () => {
                   type="button"
                   onClick={() => setBilling(b)}
                   className={cn(
-                    'flex-1 h-9 rounded-full text-xs font-semibold transition-all duration-200 tabular-nums',
-                    billing === b ? 'bg-white text-foreground shadow-sm' : 'text-foreground/50',
+                    'relative flex-1 h-9 rounded-full text-xs font-semibold transition-colors duration-200 tabular-nums',
+                    billing === b ? 'text-foreground' : 'text-foreground/50',
                   )}
                 >
-                  {b === 'weekly'
-                    ? 'Pay weekly'
-                    : monthlySavesCents > 0 ? `Monthly · save ${euro(monthlySavesCents)}` : 'Pay monthly'}
+                  {billing === b && (
+                    <motion.span
+                      layoutId="autopilot-billing-pill"
+                      className="absolute inset-0 rounded-full bg-white shadow-sm"
+                      transition={{ type: 'spring', stiffness: 520, damping: 36, mass: 0.7 }}
+                    />
+                  )}
+                  <span className="relative z-10">
+                    {b === 'weekly'
+                      ? 'Pay weekly'
+                      : monthlySavesCents > 0 ? `Monthly · save ${euro(monthlySavesCents)}` : 'Pay monthly'}
+                  </span>
                 </button>
               ))}
             </div>
@@ -318,7 +356,7 @@ export const AutopilotBuilder: React.FC = () => {
             )}
           </AnimatePresence>
 
-          <div className="mb-4">
+          <div className="mb-4" aria-live="polite">
             {selected.length === 0 ? (
               <p className="text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground/25 tabular-nums leading-none">—</p>
             ) : mode === 'ongoing' ? (
@@ -354,9 +392,9 @@ export const AutopilotBuilder: React.FC = () => {
           <motion.button
             type="button"
             whileTap={{ scale: 0.97 }}
-            onClick={() => setOpen(true)}
+            onClick={() => { haptic(10); setOpen(true); }}
             disabled={selected.length === 0}
-            className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity"
+            className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity tabular-nums"
           >
             <CreditCard size={17} />
             {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && (mode === 'ongoing' ? ` · ${perDayLabel}/day` : ` · ${euro(totalCents)}`)}
@@ -420,14 +458,14 @@ export const AutopilotBuilder: React.FC = () => {
               <form onSubmit={handleCheckout} className="space-y-2.5">
                 <input
                   type="text" value={name} onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name" required
+                  placeholder="Your name" required autoComplete="name" autoCapitalize="words"
                   className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                 />
                 <div>
                   <div className="flex gap-2">
                     <input
                       type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Phone number" required
+                      placeholder="Phone number" required autoComplete="tel" inputMode="tel" autoCapitalize="off" autoCorrect="off"
                       className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                     />
                     {/* Eircode pinpoints the home in 7 chars — far better than a
@@ -438,7 +476,7 @@ export const AutopilotBuilder: React.FC = () => {
                         we never block someone who doesn't know their Eircode. */}
                     <input
                       type="text" value={city} onChange={(e) => setCity(e.target.value)}
-                      placeholder="Eircode or area"
+                      placeholder="Eircode or area" autoCapitalize="off" autoCorrect="off"
                       className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                     />
                   </div>
@@ -451,7 +489,7 @@ export const AutopilotBuilder: React.FC = () => {
                   type="submit"
                   whileTap={{ scale: 0.97 }}
                   disabled={loading || !name.trim() || !phone.trim()}
-                  className="w-full h-12 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
+                  className="w-full h-12 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity tabular-nums"
                 >
                   {loading
                     ? <><Loader2 size={16} className="animate-spin" /> Opening secure checkout…</>
