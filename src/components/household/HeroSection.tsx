@@ -34,9 +34,18 @@ function useCountUp(target: number, duration = 700): number {
   return display;
 }
 
+function timeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 22) return 'Good evening';
+  return 'Working late?';
+}
+
 export const HeroSection: React.FC = () => {
   const helperCount = useHelperCount();
   const displayCount = useCountUp(helperCount);
+  const greeting = timeGreeting();
 
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop
@@ -132,14 +141,19 @@ export const HeroSection: React.FC = () => {
             transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             className="bg-cream rounded-3xl shadow-2xl p-5 lg:p-6 border border-foreground/15"
           >
-            <div className="flex items-baseline justify-between gap-3 mb-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
-                What do you need?
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-foreground/80">
+                {greeting} <span aria-hidden="true">👋</span>
               </p>
-              {/* Surfaces the server's book-ahead discount before the sheet opens */}
-              <p className="text-[11px] font-semibold text-sage-dark whitespace-nowrap">
-                Book ahead · 10% off
-              </p>
+              <div className="flex items-baseline justify-between gap-3 mt-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
+                  What do you need?
+                </p>
+                {/* Surfaces the server's book-ahead discount before the sheet opens */}
+                <p className="text-[11px] font-semibold text-sage-dark whitespace-nowrap">
+                  Book ahead · 10% off
+                </p>
+              </div>
             </div>
             <CategoryGrid />
           </motion.div>

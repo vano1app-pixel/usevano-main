@@ -646,7 +646,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 >
                   {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                    : <><Zap className="w-4 h-4" />{ctaLabel}</>}
+                    : <>
+                        <motion.span
+                          className="inline-flex"
+                          animate={{ scale: [1, 1.18, 1] }}
+                          transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
+                        >
+                          <Zap className="w-4 h-4" />
+                        </motion.span>
+                        {ctaLabel}
+                      </>}
                 </Button>
               </motion.div>
 
@@ -725,8 +734,12 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
     >
       {/* Popular badge */}
       {cat.popular && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10">
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10 overflow-hidden">
           Popular
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 -translate-x-full animate-[shimmer_3s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"
+          />
         </span>
       )}
       <motion.span

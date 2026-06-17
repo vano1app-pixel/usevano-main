@@ -10,7 +10,7 @@ import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
-import { celebrateBooking } from '@/lib/celebrate';
+import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -289,6 +289,20 @@ const TrackBooking = () => {
       celebrateBooking();
     }
   }, [justPaid]);
+
+  // Celebrate live status changes while the page is open — the helper arriving
+  // (small) and the job completing (big). Only on a real transition, so
+  // revisiting a finished booking never re-fires confetti.
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const s = booking?.status;
+    if (!s) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = s;
+    if (prev === null || prev === s) return;
+    if (s === 'arrived') microCelebrate();
+    else if (s === 'completed') celebrateBooking();
+  }, [booking?.status]);
 
   // ?rate=N deep link from the completion email — pre-select that star and
   // bring the rating card into view once the booking has loaded.
@@ -1062,18 +1076,23 @@ const TrackBooking = () => {
                     : 'Once the work is finished, rate your helper and confirm — this releases their payment.'}
               </p>
               <div className="flex gap-1 justify-center mb-4">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    onMouseEnter={() => setHoverRating(n)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    onClick={() => setSelectedRating(n)}
-                    className="p-1 transition-transform active:scale-90 hover:scale-110"
-                    aria-label={`${n} star${n === 1 ? '' : 's'}`}
-                  >
-                    <Star size={26} className={cn('transition-colors', n <= (hoverRating || selectedRating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')} />
-                  </button>
-                ))}
+                {[1, 2, 3, 4, 5].map((n) => {
+                  const on = n <= (hoverRating || selectedRating);
+                  return (
+                    <button
+                      key={n}
+                      onMouseEnter={() => setHoverRating(n)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setSelectedRating(n)}
+                      className="p-1 active:scale-90 transition-transform"
+                      aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                    >
+                      <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
+                        <Star size={26} className={cn('transition-colors', on ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')} />
+                      </motion.span>
+                    </button>
+                  );
+                })}
               </div>
               <button
                 onClick={() => void handleMarkDone()}
@@ -1264,7 +1283,14 @@ const TrackBooking = () => {
             className="mt-8 rounded-2xl bg-sage-light border border-sage/20 p-5"
           >
             <div className="text-center mb-4">
-              <CheckCircle2 size={28} className="text-sage mx-auto mb-2" strokeWidth={1.5} />
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 13, delay: 0.15 }}
+                className="mb-2"
+              >
+                <CheckCircle2 size={28} className="text-sage mx-auto" strokeWidth={1.5} />
+              </motion.div>
               <p className="font-semibold text-foreground">All done!</p>
               <p className="text-xs text-muted-foreground mt-1">Thanks for using VANO</p>
             </div>
@@ -1276,23 +1302,25 @@ const TrackBooking = () => {
                   How was {helperName ?? 'your helper'}?
                 </p>
                 <div className="flex gap-1 justify-center mb-3">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      onMouseEnter={() => setHoverRating(n)}
-                      onMouseLeave={() => setHoverRating(0)}
-                      onClick={() => setSelectedRating(n)}
-                      className="p-1 transition-transform active:scale-90 hover:scale-110"
-                    >
-                      <Star
-                        size={28}
-                        className={cn(
-                          'transition-colors',
-                          n <= (hoverRating || selectedRating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25',
-                        )}
-                      />
-                    </button>
-                  ))}
+                  {[1, 2, 3, 4, 5].map((n) => {
+                    const on = n <= (hoverRating || selectedRating);
+                    return (
+                      <button
+                        key={n}
+                        onMouseEnter={() => setHoverRating(n)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        onClick={() => setSelectedRating(n)}
+                        className="p-1 active:scale-90 transition-transform"
+                      >
+                        <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
+                          <Star
+                            size={28}
+                            className={cn('transition-colors', on ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/25')}
+                          />
+                        </motion.span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <AnimatePresence>
                   {selectedRating > 0 && (
