@@ -91,14 +91,15 @@ function fmt(cents: number): string {
   return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
 }
 
-// What to show on the card before tapping
-function cardPrice(cat: Category): string {
+// What to show on the card before tapping — bold price (the focal point) plus
+// a quiet scope line (the duration, or "per load" for the flat laundry job).
+function cardPriceParts(cat: Category): { price: string; scope: string } {
   const defSize = DEFAULT_SIZE[cat.slug];
   const cents = getPriceCents(cat.slug, defSize);
-  if (cents === null) return 'from €15';
-  const price = fmt(cents);
-  if (!defSize) return price;
-  return `${price} · ${defSize}`;
+  return {
+    price: cents === null ? 'from €15' : fmt(cents),
+    scope: defSize || 'per load',
+  };
 }
 
 // ─── Time slots ───────────────────────────────────────────────────────────
@@ -702,7 +703,7 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
   const ry = useMotionValue(0);
   const rotateX = useSpring(rx, { stiffness: 300, damping: 20 });
   const rotateY = useSpring(ry, { stiffness: 300, damping: 20 });
-  const shown = cardPrice(cat);
+  const { price, scope } = cardPriceParts(cat);
 
   const handleMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (reduce) return;
@@ -751,8 +752,11 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
         {cat.emoji}
       </motion.span>
       <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
-      {/* Smart default price — the key info before you tap */}
-      <span className="text-[11px] font-medium text-foreground/60 leading-tight tabular-nums">{shown}</span>
+      {/* Price-forward: the bold price is the focal point; scope reads quietly beneath */}
+      <span className="flex flex-col items-center leading-none">
+        <span className="text-[15px] font-bold text-foreground tabular-nums">{price}</span>
+        <span className="mt-0.5 text-[10px] font-medium text-foreground/45">{scope}</span>
+      </span>
     </motion.button>
   );
 };
