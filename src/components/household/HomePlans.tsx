@@ -59,7 +59,7 @@ export const HomePlans: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
           </h2>
-          <p className="text-white/55 text-base max-w-md mx-auto leading-relaxed">
+          <p className="text-white/70 text-base max-w-md mx-auto leading-relaxed">
             Tick the jobs you never want to think about again.
             One trusted local student handles them — every week,
             or just while you're away.
