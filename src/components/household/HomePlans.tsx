@@ -69,11 +69,6 @@ export const HomePlans: React.FC = () => {
               </li>
             ))}
           </ul>
-          {/* Entry anchor — the default selection opens high; this keeps
-              the floor visible so the offer never reads as expensive */}
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3.5 py-1.5 text-xs font-semibold text-white/75">
-            From €5/week · pay weekly or monthly
-          </p>
         </motion.div>
 
         {/* Airbnb-style builder — tick services, pick dates, live price */}
