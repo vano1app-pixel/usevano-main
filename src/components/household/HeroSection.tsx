@@ -111,7 +111,7 @@ export const HeroSection: React.FC = () => {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-white/65 text-base lg:text-lg leading-relaxed max-w-md"
+              className="text-white/80 text-base lg:text-lg leading-relaxed max-w-md"
             >
               Trusted local students from €15. Tap a job, drop your number —
               you pay nothing until a helper accepts.
