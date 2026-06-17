@@ -21,6 +21,8 @@ export interface BlogPost {
   title: string;
   /** Meta description + card text. ~150–160 chars, one clear sentence. */
   description: string;
+  /** Punchy 1–2 sentence "quick answer" — shown as a callout and ideal for GEO. */
+  summary: string;
   /** Comma-separated keywords for the meta tag (minor signal, still worth it). */
   keywords: string;
   /** Short label above the title on the page. */
@@ -55,6 +57,8 @@ export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "part-time-jobs-students-galway",
     title: "Part-Time Jobs for Students in Galway: Why Flexible Work Wins",
+    summary:
+      "The best part-time jobs for students in Galway are flexible ones you pick up around lectures — short, local tasks like dog walks, cleaning and moving help that pay above minimum wage, with no fixed rota to clash with your timetable.",
     description:
       "Looking for part-time jobs in Galway as a student? Here's why flexible, same-day work that fits around lectures beats a fixed rota — and how to start.",
     keywords:
@@ -97,6 +101,8 @@ export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "atu-students-earning-with-vano",
     title: "How ATU Students Are Earning €15+/hr With Vano Between Lectures",
+    summary:
+      "ATU students earn €15.30 an hour (net, above Ireland's minimum wage) doing short jobs near campus — dog walks, cleaning, moving help — picked up whenever they have a gap between lectures, with payment secured before they start.",
     description:
       "ATU Galway students are picking up same-day jobs around campus and taking home €15.30/hr net. Here's how the money works and why students like it.",
     keywords:
@@ -137,6 +143,8 @@ export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "why-now-galway-student-cost-of-living",
     title: "Why Now: Galway's Student Cost-of-Living Squeeze",
+    summary:
+      "Rent and everyday costs in Galway have outpaced student budgets. The realistic fix isn't more hours in the day — it's turning the free gaps you already have into income with flexible, fairly paid work that bends around study.",
     description:
       "Rent, food and going out keep climbing in Galway. Here's an honest look at the student cost-of-living squeeze — and a flexible way to earn that fits study.",
     keywords:
@@ -173,6 +181,8 @@ export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "why-vano-fair-pay-same-day",
     title: "Why Vano: Fair Pay Above Minimum Wage, Same-Day, No Awkward Boss",
+    summary:
+      "Vano is built on three things: pay that clears Ireland's minimum wage by design (€15.30/hr net), same-day jobs you can do today, and no boss or rota — you choose what to accept. Every helper is ID-verified and paid securely through Stripe.",
     description:
       "Why choose Vano over other student work? Pay that clears minimum wage by design, same-day jobs, and no fixed boss or rota. Here's exactly how it works.",
     keywords:
@@ -206,6 +216,8 @@ export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "what-vano-helpers-do",
     title: "From Dog Walks to Moving Help: What You'll Do as a Vano Helper",
+    summary:
+      "Vano helpers do short, practical home jobs around Galway — dog walks, cleaning, garden work, moving help, errands and tutoring — choosing only the jobs they accept, with no rota and no minimum number of jobs.",
     description:
       "Wondering what the work is actually like? Here's the full range of jobs Vano helpers do in Galway — dog walks, cleaning, garden, moving, errands and tutoring.",
     keywords:
@@ -251,6 +263,8 @@ export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "how-to-become-a-vano-helper",
     title: "How to Become a Vano Helper: ID Check, Getting Paid, First Job",
+    summary:
+      "To become a Vano helper: sign up, verify your ID, connect a Stripe payout account, then accept your first nearby job. It takes minutes and you can be earning the same week — no interview, no rota.",
     description:
       "A step-by-step guide to becoming a Vano helper in Galway: sign up, verify your ID, connect payouts, and accept your first same-day job. Takes minutes.",
     keywords:

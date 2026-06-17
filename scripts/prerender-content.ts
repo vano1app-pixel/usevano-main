@@ -52,6 +52,7 @@ const PRERENDER_STYLE = `<style id="vano-prerender-style">
 .vano-pr a:hover{color:#3a6b4f;text-decoration-color:#5a8a6a}
 .vano-pr .eyebrow{text-transform:uppercase;letter-spacing:.06em;font-size:.8rem;font-weight:600;color:#3a6b4f;margin:0}
 .vano-pr .meta{color:#6b7280;font-size:.9rem;margin:.25rem 0 1rem}
+.vano-pr .summary{background:#f1f5f1;border-left:3px solid #5a8a6a;padding:.7rem 1rem;border-radius:.4rem;margin:1rem 0}
 .vano-pr nav.crumbs,.vano-pr nav.top{font-size:.85rem;color:#6b7280;margin-bottom:1rem}
 .vano-pr ul.cards{list-style:none;padding:0}
 .vano-pr ul.cards li{margin:0 0 1.1rem}
@@ -114,6 +115,7 @@ ${topNav}
 <p class="eyebrow">${escAttr(post.eyebrow)}</p>
 <h1>${escAttr(post.title)}</h1>
 <p class="meta">${fmtDate(post.datePublished)} · ${post.readingMins} min read · By ${escAttr(post.author)}</p>
+<p class="summary"><strong>Quick answer:</strong> ${escAttr(post.summary)}</p>
 ${post.bodyHtml}
 </article>
 ${related.length ? `<section><h2>Keep reading</h2><ul class="cards">${related.map((r) => `<li><a href="/blog/${r.slug}">${escAttr(r.title)}</a><br><span>${escAttr(r.description)}</span></li>`).join("")}</ul></section>` : ""}

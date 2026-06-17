@@ -41,6 +41,7 @@ export default function BlogPost() {
       "@type": "BlogPosting",
       headline: post.title,
       description: post.description,
+      abstract: post.summary,
       datePublished: post.datePublished,
       dateModified: post.dateModified,
       author: { "@type": "Organization", name: "VANO", url: `${origin}/` },
@@ -118,6 +119,12 @@ export default function BlogPost() {
               </span>
             ))}
           </div>
+
+          {/* Quick answer — readable in one glance, and the snippet AI engines lift. */}
+          <aside className="mt-8 rounded-2xl border-l-2 border-sage bg-sage/5 px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-sage-dark">Quick answer</p>
+            <p className="mt-1.5 text-navy/80 leading-relaxed">{post.summary}</p>
+          </aside>
 
           <div
             className="prose prose-lg mt-8 max-w-none text-navy/80 prose-headings:font-display prose-headings:text-navy prose-h2:mt-10 prose-h2:mb-3 prose-h2:text-2xl prose-strong:text-navy prose-a:text-inherit prose-a:font-normal prose-a:underline prose-a:decoration-navy/25 prose-a:decoration-1 prose-a:underline-offset-2 prose-a:transition-colors hover:prose-a:text-sage-dark hover:prose-a:decoration-sage prose-blockquote:border-l-sage prose-blockquote:text-navy/75 prose-blockquote:font-normal prose-blockquote:not-italic prose-li:marker:text-sage"
