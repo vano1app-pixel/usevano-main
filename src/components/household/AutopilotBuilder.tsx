@@ -20,6 +20,10 @@ import { microCelebrate } from '@/lib/celebrate';
 
 type Mode = 'ongoing' | 'away';
 type Billing = 'weekly' | 'monthly';
+// How the student gets in while the customer is away. Lockbox is the default
+// and the whole point of the trust story: the key never leaves the home, the
+// student just gets a code for the trip — so Vano never holds a key.
+type AccessMethod = 'lockbox' | 'home' | 'smartlock';
 
 interface Service {
   key: string;
@@ -60,6 +64,15 @@ const SERVICES: Service[] = [
 const DEFAULT_PICKED = ['cleaning', 'laundry', 'garden', 'bins'];
 
 const BUNDLE_MIN = 3;
+
+// Away-cover entry options. Lockbox first — it's the recommended, lowest-fuss
+// and most reassuring path (the customer keeps their key; nothing for Vano to
+// hold or insure). The server mirrors these and defaults to lockbox.
+const ACCESS: { key: AccessMethod; emoji: string; label: string; sub: string }[] = [
+  { key: 'lockbox',   emoji: '🔑', label: 'Lockbox by your door', sub: 'We fit one free · your key never leaves home' },
+  { key: 'home',      emoji: '🏠', label: "I'll be home",          sub: 'Let the student in on the first visit' },
+  { key: 'smartlock', emoji: '📲', label: 'Smart-lock code',       sub: 'Share a temporary entry code' },
+];
 
 function euro(cents: number): string {
   return (cents / 100) % 1 === 0 ? `€${cents / 100}` : `€${(cents / 100).toFixed(2)}`;
@@ -108,6 +121,8 @@ export const AutopilotBuilder: React.FC = () => {
   const [selected, setSelected] = useState<string[]>(DEFAULT_PICKED);
   const [startDate, setStartDate] = useState(isoPlusDays(2));
   const [endDate, setEndDate] = useState(isoPlusDays(9));
+  // Away-cover only. Lockbox by default — the frictionless, no-key-held path.
+  const [access, setAccess] = useState<AccessMethod>('lockbox');
 
   // Checkout
   const [open, setOpen] = useState(false);
@@ -184,7 +199,7 @@ export const AutopilotBuilder: React.FC = () => {
           ...(mode === 'ongoing' ? { billing } : {}),
           services: selected,
           start_date: startDate,
-          ...(mode === 'away' ? { end_date: endDate } : {}),
+          ...(mode === 'away' ? { end_date: endDate, access_method: access } : {}),
           customer_name: name.trim(),
           customer_phone: phone.trim(),
           ...(city.trim() ? { city: city.trim() } : {}),
@@ -318,6 +333,66 @@ export const AutopilotBuilder: React.FC = () => {
             </p>
           )}
         </div>
+
+        {/* How we get in — only matters for away-cover (nobody's home). Lockbox
+            is the default and the trust pitch: the key stays in the customer's
+            own box on their property, the student just gets a code for the trip,
+            so Vano never takes custody of a key. */}
+        {mode === 'away' && (
+          <div className="px-4 pb-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-2">
+              How we get in
+            </p>
+            <div className="space-y-2">
+              {ACCESS.map((a) => {
+                const on = access === a.key;
+                return (
+                  <motion.button
+                    key={a.key}
+                    type="button"
+                    onClick={() => setAccess(a.key)}
+                    whileTap={{ scale: 0.98 }}
+                    className={cn(
+                      'w-full flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition-[background-color,border-color,box-shadow] duration-150',
+                      on ? 'border-sage bg-sage-light shadow-sm' : 'border-border/60 bg-white hover:border-foreground/25 hover:shadow-sm',
+                    )}
+                  >
+                    <span className="text-lg flex-shrink-0" aria-hidden="true">{a.emoji}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">{a.label}</span>
+                      <span className="block text-[11px] text-muted-foreground">{a.sub}</span>
+                    </span>
+                    <span className={cn(
+                      'w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-150',
+                      on ? 'border-sage bg-sage' : 'border-border bg-white',
+                    )}>
+                      <AnimatePresence>
+                        {on && (
+                          <motion.span
+                            key="dot"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
+                            transition={{ type: 'spring', stiffness: 600, damping: 18 }}
+                            className="w-1.5 h-1.5 rounded-full bg-white"
+                          />
+                        )}
+                      </AnimatePresence>
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </div>
+            <p className="mt-2 px-1 text-[11px] text-muted-foreground leading-relaxed">
+              🔒 <span className="font-semibold text-foreground/70">Your key never leaves your home.</span>{' '}
+              {access === 'lockbox'
+                ? 'We fit a small lockbox free on the first visit — your student gets a code for the trip that you reset when you’re back.'
+                : access === 'home'
+                  ? 'You let your student in on the first visit and agree how they’ll get in for the rest.'
+                  : 'You share a temporary entry code — no key changes hands at all.'}
+            </p>
+          </div>
+        )}
 
         </div>
 
@@ -469,6 +544,12 @@ export const AutopilotBuilder: React.FC = () => {
                       <span className="tabular-nums"> · ≈ {perDayLabel}/day</span>
                     )}
                   </p>
+                  {mode === 'away' && (
+                    <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                      <span aria-hidden="true">{ACCESS.find((a) => a.key === access)?.emoji}</span>
+                      {ACCESS.find((a) => a.key === access)?.label}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"

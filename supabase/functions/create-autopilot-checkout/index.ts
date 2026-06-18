@@ -40,6 +40,16 @@ const SERVICES: Record<string, { label: string; monthlyCents: number; weeklyCent
   grocery:  { label: 'Grocery collection',              monthlyCents:  4900, weeklyCents: 1200 },
 };
 
+// How the student gets in, away-cover only. Lockbox is the default: the key
+// stays in the customer's own box on their property, so Vano never holds a key
+// (nothing to insure). Mirrors the client's ACCESS options; anything else
+// falls back to lockbox.
+const ACCESS_LABELS: Record<string, string> = {
+  lockbox: 'Lockbox — Vano fits one free (key stays at the home)',
+  home: 'Customer will be home',
+  smartlock: 'Smart-lock code',
+};
+
 const BUNDLE_DISCOUNT_MIN_SERVICES = 3;
 const BUNDLE_DISCOUNT_FACTOR = 0.9; // −10%
 const MAX_AWAY_WEEKS = 12;
@@ -64,6 +74,7 @@ serve(async (req) => {
       customer_name?: string;
       customer_phone?: string;
       city?: string;
+      access_method?: string;
     };
 
     const mode = body.mode === 'away' ? 'away' : 'ongoing';
@@ -73,6 +84,8 @@ serve(async (req) => {
     const name = body.customer_name?.trim();
     const phone = body.customer_phone?.trim();
     const city = body.city?.trim();
+    // Away-cover entry method; defaults to lockbox when missing or unknown.
+    const accessKey = body.access_method && ACCESS_LABELS[body.access_method] ? body.access_method : 'lockbox';
     if (!name || name.length < 2) return bad(400, 'Your name is required');
     if (!phone || phone.replace(/\D/g, '').length < 7) return bad(400, 'A valid phone number is required');
 
@@ -115,7 +128,7 @@ serve(async (req) => {
     const serviceLabels = picked.map((s) => SERVICES[s].label).join(' + ');
     const config = mode === 'ongoing'
       ? `${serviceLabels} · billed ${billing} · from ${body.start_date ?? 'asap'}${bundled ? ' · bundle −10%' : ''}`
-      : `${serviceLabels} · ${body.start_date} → ${body.end_date} (${weeks}wk)${bundled ? ' · bundle −10%' : ''}`;
+      : `${serviceLabels} · ${body.start_date} → ${body.end_date} (${weeks}wk) · access: ${ACCESS_LABELS[accessKey]}${bundled ? ' · bundle −10%' : ''}`;
 
     const common: Record<string, string> = {
       success_url: `${origin}/?plan=success`,
@@ -124,6 +137,7 @@ serve(async (req) => {
       'metadata[plan_customer_name]': name.slice(0, 120),
       'metadata[plan_customer_phone]': phone.slice(0, 32),
       ...(city ? { 'metadata[plan_city]': city.slice(0, 60) } : {}),
+      ...(mode === 'away' ? { 'metadata[plan_access_method]': ACCESS_LABELS[accessKey].slice(0, 200) } : {}),
       'metadata[autopilot_config]': config.slice(0, 480),
       'payment_method_types[0]': 'card',
     };
