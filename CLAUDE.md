@@ -85,16 +85,17 @@ finishes onboarding, then swept by `release-household-payouts`.
   `bun.lock`/`bun.lockb` are stale.
 
 ## What needs improving (known — not yet done)
-- **Address friction** — add a prominent one-tap "use my location" to the
-  quick-book sheet, **keeping** the Eircode/manual field as the fallback (for
-  when the customer isn't home).
-- **Legacy plans** — `create-plan-checkout` (Family / Home-Pass, €80–149/mo)
-  still advertises a "weekly 2-hour visit" (€80/mo ≈ €9/hr — under min wage if
-  still live). Retire or re-scope.
-- **Sourceless edge function** — `create-household-booking` was deleted from the
-  repo but is still deployed on Supabase; delete it in the dashboard.
-- **Lint debt** — a handful of pre-existing eslint errors in active files
-  (`any` / `prefer-const` in `HouseholdAdmin`, `useAuthContext`, a few edge
-  functions). Not blocking; worth a pass. Run `npm run lint` to see the list.
+- **Dashboard cleanup** — two orphaned edge functions are still deployed and
+  should be deleted in the Supabase dashboard: `create-household-booking` (long
+  gone from the repo) and `create-plan-checkout` (now retired to a 410 stub —
+  see below; safe to delete once no client points at it).
+- **Lint debt** — mostly cleared: `npm run lint` is down from 22 errors to 3,
+  all in `auth-email-hook` (`any`s left untouched for now). Worth a final pass.
 - **Perf** — already healthy (routes lazy-loaded, analytics deferred). No action
   unless first paint regresses.
+
+Recently shipped: the quick-book sheet already has one-tap "use my location"
+(`AddressPicker`, with the Eircode/manual field as fallback); the under-min-wage
+legacy monthly plans were retired (`create-plan-checkout` → HTTP 410, superseded
+by Autopilot); Autopilot away-cover now records the entry method
+(lockbox / be-home / smart-lock) in the booking.

@@ -6,10 +6,11 @@ import { AutopilotBuilder } from '@/components/household/AutopilotBuilder';
 import { CustomJobBuilder } from '@/components/household/CustomJobBuilder';
 
 /**
- * Monthly plans + gifting. Plans are self-serve Stripe subscriptions
- * (create-plan-checkout) — card, Apple Pay, Google Pay — with WhatsApp kept
- * as the "questions first" path. Gift vouchers and the Business plan stay
- * WhatsApp conversations.
+ * House Autopilot + "name any job" + gifting. The Autopilot builder opens a
+ * Stripe subscription (create-autopilot-checkout); the custom builder books a
+ * one-off via create-household-payment-checkout. Gift vouchers stay a WhatsApp
+ * conversation. (The old self-serve monthly plans / create-plan-checkout were
+ * retired — superseded by Autopilot, which prices every visit above min wage.)
  */
 
 const GIFT_AMOUNTS = ['€25', '€50', '€100'];
