@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
@@ -22,6 +22,15 @@ import { Reveal } from '@/components/Reveal';
  * built; FAQ and booking lookup follow.
  */
 const HouseholdHome: React.FC = () => {
+  // Gentle section-snapping (CSS in index.css) is desktop-only and scoped to
+  // this page — flag <html> while the home is mounted so it never leaks onto
+  // other routes (dashboards, checkout, etc.).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('snap-home');
+    return () => root.classList.remove('snap-home');
+  }, []);
+
   return (
     // Cream warm-white base — distinguishes the household platform from the
     // pure-white marketplace and reads warmer/more trustworthy for in-home services
@@ -47,15 +56,18 @@ const HouseholdHome: React.FC = () => {
         <HeroSection />
         <ActivityTicker />
         {/* How it works (honest + simple), then real helper faces — so the
-            bigger monthly ask below only comes once the visitor gets it */}
-        <HowItWorks />
-        <Reveal><HelperCards /></Reveal>
+            bigger monthly ask below only comes once the visitor gets it.
+            data-snap marks the major sections as gentle scroll-snap stops; a
+            plain wrapper div (no transform) is safe around HomePlans' fixed
+            bottom sheet. */}
+        <div data-snap id="how"><HowItWorks /></div>
+        <div data-snap id="helpers"><Reveal><HelperCards /></Reveal></div>
         {/* Flagship offer lands after trust; the navy band also anchors the
             middle of the page between the cream sections. NOT wrapped in
             Reveal — it contains the autopilot bottom sheet (position:fixed),
             which a transform ancestor would re-anchor. */}
-        <HomePlans />
-        <Reveal><FAQSection /></Reveal>
+        <div data-snap id="autopilot"><HomePlans /></div>
+        <div data-snap id="faq"><Reveal><FAQSection /></Reveal></div>
         <Reveal><FindBookingBar /></Reveal>
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <Reveal>

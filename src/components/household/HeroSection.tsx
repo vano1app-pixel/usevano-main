@@ -47,9 +47,20 @@ export const HeroSection: React.FC = () => {
   const displayCount = useCountUp(helperCount);
   const greeting = timeGreeting();
 
+  // Clicking the scroll cue walks to the next snap section below the hero.
+  // No explicit behaviour passed, so the global `scroll-behavior` rule wins —
+  // smooth normally, instant under prefers-reduced-motion — and scroll-padding
+  // keeps the landing clear of the fixed nav.
+  const handleScrollCue = () => {
+    const snaps = Array.from(document.querySelectorAll<HTMLElement>('[data-snap]'));
+    const hero = document.getElementById('book');
+    const next = hero ? snaps[snaps.indexOf(hero) + 1] : snaps[0];
+    (next ?? snaps.find((s) => s !== hero))?.scrollIntoView({ block: 'start' });
+  };
+
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop
-    <section id="book" className="relative overflow-hidden bg-navy px-4 pt-24 pb-12 lg:pt-20 lg:pb-16 lg:min-h-screen lg:flex lg:items-center scroll-mt-20">
+    <section id="book" data-snap className="relative overflow-hidden bg-navy px-4 pt-24 pb-12 lg:pt-20 lg:pb-16 lg:min-h-screen lg:flex lg:items-center scroll-mt-20">
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
@@ -187,19 +198,22 @@ export const HeroSection: React.FC = () => {
       </div>
 
       {/* Desktop scroll cue — once the hero settles, a gentle nudge that there's
-          more below. Decorative; fades in last so it never fights the card. */}
-      <motion.div
-        className="hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 flex-col items-center gap-1 text-white/35"
+          more below. Now a real button: click (or Enter) walks to the next
+          section. Fades in last so it never fights the card. */}
+      <motion.button
+        type="button"
+        onClick={handleScrollCue}
+        className="hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 flex-col items-center gap-1 rounded-full px-3 py-1.5 text-white/35 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.8 }}
-        aria-hidden="true"
+        aria-label="Scroll to the next section"
       >
         <span className="text-[10px] font-semibold uppercase tracking-[0.22em]">Scroll</span>
         <motion.span animate={{ y: [0, 6, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
           <ChevronDown className="w-5 h-5" />
         </motion.span>
-      </motion.div>
+      </motion.button>
     </section>
   );
 };
