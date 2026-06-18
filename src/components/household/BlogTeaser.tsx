@@ -3,57 +3,47 @@ import { Link } from 'react-router-dom';
 import { BLOG_POSTS } from '@/content/blog';
 
 /**
- * Quiet "from the blog" strip near the foot of the homepage. Deliberately
- * understated — a display-font heading and a plain list of the latest few
- * posts, no loud cards — so it aids discovery (and internal linking for SEO)
- * without competing with the booking CTA above it.
+ * A slim "from the blog" strip at the foot of the homepage. Deliberately tiny —
+ * one inline row of the latest posts — so it still aids discovery and internal
+ * linking (SEO) without taking real space from the booking flow above it. The
+ * full blog also lives in the footer nav and at /blog.
+ *
+ * Mobile shows just the newest post to stay one line; sm+ shows three.
  */
 export const BlogTeaser: React.FC = () => {
   const posts = [...BLOG_POSTS]
     .sort((a, b) => +new Date(b.datePublished) - +new Date(a.datePublished))
-    .slice(0, 4);
+    .slice(0, 3);
 
   return (
-    <section className="bg-cream px-4 py-16 lg:py-20" aria-labelledby="blog-teaser-heading">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sage-dark">From the blog</p>
-            <h2 id="blog-teaser-heading" className="mt-2 font-display text-3xl sm:text-4xl font-bold leading-tight text-navy">
-              Guides for students &amp; households
-            </h2>
-          </div>
-          <Link
-            to="/blog"
-            className="hidden sm:inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-navy/60 hover:text-sage-dark transition-colors"
-          >
-            Read the blog
-            <span aria-hidden>→</span>
-          </Link>
-        </div>
+    <section className="bg-cream border-t border-navy/10 px-4 py-6" aria-labelledby="blog-teaser-heading">
+      <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        <h2 id="blog-teaser-heading" className="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-sage-dark">
+          From the blog
+        </h2>
 
-        <ul className="mt-8 border-t border-navy/10">
-          {posts.map((post) => (
-            <li key={post.slug} className="border-b border-navy/10">
-              <Link
-                to={`/blog/${post.slug}`}
-                className="group flex items-baseline justify-between gap-6 py-4"
-              >
-                <span className="font-display text-lg font-semibold text-navy group-hover:text-sage-dark transition-colors">
-                  {post.title}
-                </span>
-                <span className="hidden sm:block shrink-0 text-xs text-navy/40">{post.readingMins} min read</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        {posts.map((post, i) => (
+          <span
+            key={post.slug}
+            className={i === 0
+              ? 'flex items-center gap-x-2.5 min-w-0'
+              : 'hidden sm:flex items-center gap-x-2.5 min-w-0'}
+          >
+            <span aria-hidden className="text-navy/20">·</span>
+            <Link
+              to={`/blog/${post.slug}`}
+              className="truncate text-sm text-navy/70 hover:text-sage-dark transition-colors"
+            >
+              {post.title}
+            </Link>
+          </span>
+        ))}
 
         <Link
           to="/blog"
-          className="mt-6 inline-flex sm:hidden items-center gap-1.5 text-sm font-semibold text-sage-dark"
+          className="ml-auto shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-navy/55 hover:text-sage-dark transition-colors"
         >
-          Read the blog
-          <span aria-hidden>→</span>
+          Read all <span aria-hidden>→</span>
         </Link>
       </div>
     </section>

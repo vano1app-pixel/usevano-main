@@ -56,13 +56,15 @@ const HouseholdHome: React.FC = () => {
             which a transform ancestor would re-anchor. */}
         <HomePlans />
         <Reveal><FAQSection /></Reveal>
-        <FindBookingBar />
+        <Reveal><FindBookingBar /></Reveal>
         {/* Self-hides unless this device has booked before (needs the phone) */}
-        <section className="px-4 pb-16 lg:pb-20 bg-background">
-          <div className="max-w-lg mx-auto">
-            <ReferralShareCard />
-          </div>
-        </section>
+        <Reveal>
+          <section className="px-4 pb-16 lg:pb-20 bg-background">
+            <div className="max-w-lg mx-auto">
+              <ReferralShareCard />
+            </div>
+          </section>
+        </Reveal>
         <Reveal><BlogTeaser /></Reveal>
         <HouseholdFooter />
       </main>

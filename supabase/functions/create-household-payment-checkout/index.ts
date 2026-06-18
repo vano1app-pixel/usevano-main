@@ -87,6 +87,8 @@ const VALID_CATEGORIES = [
   'midnight-lift',
   // Airbnb Host monthly plans
   'airbnb-essential', 'airbnb-popular', 'airbnb-premium',
+  // "Name any job" — priced by the hour at the standard €18/hr labour rate
+  'custom',
 ] as const;
 type Category = typeof VALID_CATEGORIES[number];
 
@@ -229,6 +231,17 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
     return map[sizeLabel] ?? null;
   }
 
+  // Custom "name any job" — priced purely by booked time at the €18/hr labour
+  // rate (the same hour labels the CategoryGrid sheet uses). Time-based by
+  // design: whatever the job, the hourly floor keeps it above minimum wage.
+  if (category === 'custom') {
+    const hourMap: Record<string, number> = {
+      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
+      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+    };
+    return hourMap[sizeLabel] ?? null;
+  }
+
   // Tutoring — level (sizeLabel) × duration (extraLabel)
   if (category === 'tutoring' || category === 'tutoring-grinds') {
     const rate: Record<string, number> = {
@@ -278,6 +291,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   'airbnb-essential':   'Airbnb Host Essential',
   'airbnb-popular':     'Airbnb Host Popular',
   'airbnb-premium':     'Airbnb Host Full Management',
+  custom:               'Custom job',
 };
 
 serve(async (req) => {
@@ -597,6 +611,7 @@ serve(async (req) => {
             text: [
               'New booking (unpaid — customer pays once a helper accepts).',
               `Job: ${catLabel}`,
+              ...(typeof note === 'string' && note.trim() ? [`Details: ${note.trim()}`] : []),
               `Customer: ${customer_name.trim()}`,
               `Phone: ${customer_phone.trim()}`,
               `City: ${cityVal ?? '—'}`,

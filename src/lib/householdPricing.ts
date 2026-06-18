@@ -11,13 +11,19 @@
 
 /**
  * Per-hour rate for TIME-BASED labour, in cents (quoted as €X/hr × N hours).
- * All four sit at €18/hr so a student nets ≥ €14.15/hr after the 15% cut.
+ * All sit at €18/hr so a student nets ≥ €14.15/hr after the 15% cut.
+ *
+ * `custom` is the catch-all "name any job" rate: because it's priced by the
+ * hour at the same €18/hr floor, a custom job can never undercut minimum wage,
+ * whatever the task. The market-comparison figures shown next to it in the
+ * CustomJobBuilder are display-only and never charged.
  */
 export const HOURLY_RATE_CENTS: Record<string, number> = {
   garden:   1800,
   moving:   1800,
   cleaning: 1800,
   tutoring: 1800,
+  custom:   1800,
 };
 
 /** Flat, JOB-BASED prices (one price for the task done), in cents. */

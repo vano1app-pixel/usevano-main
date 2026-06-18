@@ -2,9 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Cron: runs every 30 minutes.
-// Finds bookings that have been in 'pending' status for more than 2 hours
-// with no helper assigned, issues a full Stripe refund, flips them to
+// Finds UNPAID bookings stuck in 'pending' for more than 2 hours with no
+// helper assigned, issues a full Stripe refund (if any), flips them to
 // 'cancelled', and emails both the customer and admin.
+//
+// PAID bookings are deliberately excluded: when a helper releases a job it goes
+// back to pending with paid_at kept, and redispatch-stale-jobs keeps re-matching
+// it. We must never auto-cancel/refund a customer who has paid and still wants
+// the job done — that's handled by admin if it can't be re-matched.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -35,6 +40,7 @@ serve(async (_req) => {
     .select('id, customer_name, customer_email, category, city, price_estimate_cents, stripe_payment_intent_id')
     .eq('status', 'pending')
     .is('student_id', null)
+    .is('paid_at', null)
     .lt('created_at', cutoff);
 
   if (queryErr) {
