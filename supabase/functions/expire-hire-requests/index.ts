@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
         .from("profiles")
         .select("user_id, display_name")
         .in("user_id", freelancerIds);
-      (profs || []).forEach((p: any) => {
+      (profs || []).forEach((p: { user_id: string; display_name: string | null }) => {
         nameMap.set(p.user_id, p.display_name || "The freelancer");
       });
     }

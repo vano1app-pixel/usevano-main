@@ -45,6 +45,13 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    interface JobRow {
+      id: string; title: string; description: string | null; location: string | null;
+      hourly_rate: number | null; fixed_price: number | null; payment_type: string | null;
+      shift_date: string | null; tags: string[] | null; work_type: string | null;
+    }
+    interface AiMatch { job_id: string; match_score: number; reason?: string }
+
     // Fetch student data
     const [{ data: studentProfile }, { data: preferences }, { data: recentApps }] = await Promise.all([
       supabase.from('student_profiles').select('skills, hourly_rate, university, bio').eq('user_id', user_id).maybeSingle(),
@@ -53,11 +60,11 @@ serve(async (req) => {
     ]);
 
     // Fetch open jobs not already applied to
-    const appliedJobIds = (recentApps || []).map((a: any) => a.job_id);
-    let jobQuery = supabase.from('jobs').select('id, title, description, location, hourly_rate, fixed_price, payment_type, shift_date, tags, work_type').eq('status', 'open').order('created_at', { ascending: false }).limit(50);
+    const appliedJobIds = ((recentApps || []) as { job_id: string }[]).map((a) => a.job_id);
+    const jobQuery = supabase.from('jobs').select('id, title, description, location, hourly_rate, fixed_price, payment_type, shift_date, tags, work_type').eq('status', 'open').order('created_at', { ascending: false }).limit(50);
 
     const { data: openJobs } = await jobQuery;
-    const availableJobs = (openJobs || []).filter((j: any) => !appliedJobIds.includes(j.id));
+    const availableJobs = ((openJobs || []) as JobRow[]).filter((j) => !appliedJobIds.includes(j.id));
 
     if (availableJobs.length === 0) {
       return new Response(JSON.stringify({ matches: [] }), {
@@ -77,7 +84,7 @@ serve(async (req) => {
       max_budget: preferences?.max_budget,
     };
 
-    const jobsList = availableJobs.map((j: any) => ({
+    const jobsList = availableJobs.map((j) => ({
       id: j.id,
       title: j.title,
       description: j.description?.slice(0, 100),
@@ -154,7 +161,7 @@ serve(async (req) => {
 
     const aiData = await aiResponse.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let aiMatches: any[] = [];
+    let aiMatches: AiMatch[] = [];
     if (toolCall?.function?.arguments) {
       try {
         const parsed = JSON.parse(toolCall.function.arguments);
@@ -163,11 +170,11 @@ serve(async (req) => {
     }
 
     // Enrich with job data
-    const jobMap = new Map(availableJobs.map((j: any) => [j.id, j]));
+    const jobMap = new Map(availableJobs.map((j): [string, JobRow] => [j.id, j]));
     const enriched = aiMatches
-      .filter((m: any) => jobMap.has(m.job_id))
-      .map((m: any) => {
-        const job = jobMap.get(m.job_id);
+      .filter((m) => jobMap.has(m.job_id))
+      .map((m) => {
+        const job = jobMap.get(m.job_id)!;
         return {
           id: job.id,
           title: job.title,

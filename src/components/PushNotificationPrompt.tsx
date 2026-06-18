@@ -3,12 +3,13 @@ import { Bell, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
 import { hasUserActed } from '@/lib/userActivity';
 
 export const PushNotificationPrompt: React.FC = () => {
   const { isSupported, isSubscribed, permission, loading, subscribe } = usePushNotifications();
   const [showPrompt, setShowPrompt] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

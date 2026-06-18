@@ -32,7 +32,7 @@ serve(async (req) => {
       });
     }
 
-    const reviewText = reviews.map((r: any, i: number) => `Review ${i + 1} (${r.rating}/5): "${r.comment || 'No comment'}"`).join('\n');
+    const reviewText = reviews.map((r: { rating: number; comment: string | null }, i: number) => `Review ${i + 1} (${r.rating}/5): "${r.comment || 'No comment'}"`).join('\n');
 
     const prompt = `Summarize these reviews of a freelancer on VANO (a gig marketplace in Galway) into ONE concise line (max 15 words). Focus on their strongest qualities. Be positive and specific.
 

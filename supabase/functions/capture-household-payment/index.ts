@@ -18,7 +18,7 @@ function matchOrigin(req: Request): string | null {
   const list = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s=>s.trim().replace(/\/$/, '')).filter(Boolean);
   const allowed = list.length ? list : FALLBACK_ORIGINS;
   if (allowed.includes(n)) return n;
-  try { if (new URL(n).hostname.endsWith('-vano1app-pixels-projects.vercel.app')) return n; } catch {}
+  try { if (new URL(n).hostname.endsWith('-vano1app-pixels-projects.vercel.app')) return n; } catch { /* not a valid URL */ }
   return null;
 }
 function buildCorsHeaders(req: Request) {

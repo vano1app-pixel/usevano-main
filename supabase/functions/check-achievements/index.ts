@@ -52,7 +52,7 @@ serve(async (req) => {
       .eq('student_id', user_id)
       .eq('status', 'accepted');
 
-    const completedShifts = (apps || []).filter((a: any) => {
+    const completedShifts = (apps || []).filter((a: { jobs: { shift_date: string } | null }) => {
       return a.jobs && new Date(a.jobs.shift_date) < new Date();
     }).length;
 
@@ -64,7 +64,7 @@ serve(async (req) => {
       .order('created_at', { ascending: false });
 
     const avgRating = reviewsReceived && reviewsReceived.length > 0
-      ? reviewsReceived.reduce((s: number, r: any) => s + r.rating, 0) / reviewsReceived.length
+      ? reviewsReceived.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / reviewsReceived.length
       : 0;
 
     // Get reviews given
@@ -91,7 +91,7 @@ serve(async (req) => {
 
     // Check quick responder (confirmed_at within 1 hour of applied_at, 3+ times)
     let quickResponses = 0;
-    (apps || []).forEach((a: any) => {
+    (apps || []).forEach((a: { confirmed_at: string | null; applied_at: string | null }) => {
       if (a.confirmed_at && a.applied_at) {
         const diff = new Date(a.confirmed_at).getTime() - new Date(a.applied_at).getTime();
         if (diff <= 3600000) quickResponses++;

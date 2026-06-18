@@ -15,6 +15,7 @@
  * Backed by the `analytics_events` table (migration 20260415130000_analytics_events.sql).
  */
 import { supabase } from '@/integrations/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type TrackEvent =
   | 'hire_step_viewed'
@@ -55,9 +56,9 @@ export function track(event: TrackEvent, props: Record<string, unknown> = {}): v
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id ?? null;
-      await supabase
-        .from('analytics_events' as any)
-        .insert({ user_id: userId, event, props } as any);
+      await (supabase as unknown as SupabaseClient)
+        .from('analytics_events')
+        .insert({ user_id: userId, event, props });
     } catch {
       /* swallow — analytics must never break the app */
     }
