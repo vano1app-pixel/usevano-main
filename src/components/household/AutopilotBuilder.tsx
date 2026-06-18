@@ -391,6 +391,25 @@ export const AutopilotBuilder: React.FC = () => {
                   ? 'You let your student in on the first visit and agree how they’ll get in for the rest.'
                   : 'You share a temporary entry code — no key changes hands at all.'}
             </p>
+
+            {/* Trust block — away-cover is a hard ask (someone in your empty
+                home while you're gone), so spell out exactly what they get:
+                a student Vano picks, Vano carrying the responsibility, and
+                proof on every visit. */}
+            <div className="mt-3 rounded-2xl border border-border/50 bg-secondary/40 p-3.5 space-y-2.5">
+              {[
+                { icon: '🎓', bold: 'We choose your student', rest: 'ID-verified and matched by Vano — you never have to find, vet or chase anyone yourself.' },
+                { icon: '🛡️', bold: 'It’s on Vano, not you', rest: 'We take responsibility for every visit. Your home is left exactly as you left it.' },
+                { icon: '📸', bold: 'Proof on every visit', rest: 'A photo when the job’s done and the door’s locked — so you can switch off wherever you are.' },
+              ].map((t) => (
+                <div key={t.bold} className="flex items-start gap-2.5">
+                  <span className="text-sm flex-shrink-0 leading-5" aria-hidden="true">{t.icon}</span>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-foreground">{t.bold}.</span> {t.rest}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

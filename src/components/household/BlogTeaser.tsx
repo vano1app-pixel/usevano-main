@@ -14,12 +14,12 @@ export const BlogTeaser: React.FC = () => {
     .slice(0, 4);
 
   return (
-    <section className="bg-cream px-4 py-16 lg:py-20" aria-labelledby="blog-teaser-heading">
+    <section className="bg-cream px-4 py-11 lg:py-14" aria-labelledby="blog-teaser-heading">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sage-dark">From the blog</p>
-            <h2 id="blog-teaser-heading" className="mt-2 font-display text-3xl sm:text-4xl font-bold leading-tight text-navy">
+            <h2 id="blog-teaser-heading" className="mt-1.5 font-display text-xl sm:text-2xl font-semibold leading-tight text-navy/55">
               Guides for students &amp; households
             </h2>
           </div>
