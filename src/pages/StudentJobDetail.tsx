@@ -662,7 +662,9 @@ const StudentJobDetail = () => {
                 {CATEGORY_LABELS[booking.category] ?? booking.category}
               </p>
               <p className="text-base font-semibold text-foreground">{formatDate(booking.scheduled_date)}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">{SLOT_LABELS[booking.time_slot]}</p>
+              {booking.time_slot && (
+                <p className="text-sm text-muted-foreground mt-0.5">{SLOT_LABELS[booking.time_slot] ?? booking.time_slot}</p>
+              )}
             </div>
             {booking.price_estimate_cents && (
               <div className="text-right flex-shrink-0">
