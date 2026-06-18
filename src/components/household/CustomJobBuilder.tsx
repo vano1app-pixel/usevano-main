@@ -220,7 +220,12 @@ export const CustomJobBuilder: React.FC = () => {
         {/* Free-text detail — the recogniser reads this live and snaps it to a
             known job: the zero-cost stand-in for the AI brain. */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Or describe any job — we'll get it</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-1.5">Or describe any job — we'll get it</p>
+          {/* Tiny worked example so people know the shape to type: who they
+              are, the job, and when. Kills the "what do I even write?" pause. */}
+          <p className="text-[12px] text-muted-foreground/80 italic mb-2">
+            e.g. “Hi, I’m John — I’d like someone to cut the grass this Saturday.”
+          </p>
           <textarea
             value={jobText}
             onChange={(e) => { setJobText(e.target.value); setSelectedKey(null); if (error) setError(null); }}
