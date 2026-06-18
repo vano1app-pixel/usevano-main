@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, Building2, CheckCircle2 } from 'lucide-react';
+import { Gift, CheckCircle2 } from 'lucide-react';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { AutopilotBuilder } from '@/components/household/AutopilotBuilder';
+import { CustomJobBuilder } from '@/components/household/CustomJobBuilder';
 
 /**
  * Monthly plans + gifting. Plans are self-serve Stripe subscriptions
@@ -18,10 +19,6 @@ function giftWaHref(amount: string): string {
     `Hi VANO! 🎁 I'd like to gift a VANO voucher (${amount}) to someone — how does it work?`;
   return `${teamWhatsAppHref}?text=${encodeURIComponent(text)}`;
 }
-
-
-const BUSINESS_WA_TEXT =
-  "Hi VANO! 👋 I'm interested in the Business plan (€499/month) for my company. Can we have a chat about what's available and how it works?";
 
 export const HomePlans: React.FC = () => {
   // Stripe redirects back with ?plan=success after a completed subscription
@@ -78,46 +75,10 @@ export const HomePlans: React.FC = () => {
           Card, Apple Pay or Google Pay · cancel anytime · no contracts
         </p>
 
-        {/* Business — proper card, the second-biggest offer in the section */}
-        <a
-          href={`${teamWhatsAppHref}?text=${encodeURIComponent(BUSINESS_WA_TEXT)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group mt-10 block w-full rounded-3xl border border-white/12 bg-white/[0.06] p-6 sm:p-7 hover:bg-white/[0.09] hover:border-white/20 hover:-translate-y-0.5 active:scale-[0.99] transition-[background-color,border-color,transform] duration-200"
-        >
-          <div className="sm:flex sm:items-center sm:gap-6">
-            <div className="flex items-start gap-4 flex-1">
-              <span className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-6 h-6 text-white" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-lg font-bold text-white">Office or business?</p>
-                <ul className="flex flex-wrap gap-2 mt-2">
-                  {['Dedicated contact', 'Unlimited tasks', 'Same-day dispatch'].map((chip) => (
-                    <li
-                      key={chip}
-                      className="inline-flex items-center rounded-full bg-white/10 border border-white/15 px-3 py-1 text-xs font-semibold text-white/85"
-                    >
-                      {chip}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <div className="mt-5 sm:mt-0 flex items-center justify-between sm:flex-col sm:items-end gap-3 flex-shrink-0">
-              <div className="text-left sm:text-right">
-                <p className="text-white font-extrabold text-2xl tabular-nums leading-none">
-                  €499<span className="text-sm font-semibold text-white/50">/mo</span>
-                </p>
-                <p className="text-[11px] font-medium text-white/45 tabular-nums mt-1">≈ €16/day</p>
-              </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white text-navy px-5 py-2.5 text-sm font-bold">
-                Talk to us
-                <span className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">→</span>
-              </span>
-            </div>
-          </div>
-        </a>
+        {/* Name any job — custom, time-priced booking with a live fair-vs-market
+            comparison. Books through the one create-household-payment-checkout
+            flow, same as the quick sheet. */}
+        <CustomJobBuilder />
 
         {/* Gift VANO — one slim row */}
         <div className="mt-3 rounded-2xl border border-gold/25 bg-gold/[0.07] px-5 py-3.5 flex flex-wrap items-center gap-x-4 gap-y-3">
