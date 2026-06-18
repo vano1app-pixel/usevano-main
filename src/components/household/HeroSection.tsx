@@ -60,7 +60,7 @@ export const HeroSection: React.FC = () => {
 
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop
-    <section id="book" data-snap className="relative overflow-hidden bg-navy px-4 pt-24 pb-12 lg:pt-20 lg:pb-16 lg:min-h-screen lg:flex lg:items-center scroll-mt-20">
+    <section id="book" data-snap className="relative overflow-hidden bg-navy px-4 pt-24 pb-12 lg:pt-20 lg:pb-16 lg:min-h-screen lg:flex lg:items-center">
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 

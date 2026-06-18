@@ -342,16 +342,18 @@
 }
 
 /* ── Section snapping — household home only (toggled via .snap-home on <html>).
-   Desktop + mouse/trackpad only, and PROXIMITY rather than mandatory: it only
-   nudges you onto a section edge when you come to rest near one, so the tall
-   sections (How it works, FAQ) are never scroll-trapped mid-read. scroll-padding
-   clears the fixed 72px nav and leaves a little breathing room above each. */
+   Desktop + mouse/trackpad only. The opening three sections (hero → how it
+   works → helpers) each fill the screen and hard-snap one per scroll/gesture
+   (mandatory + snap-stop), for a showcase intro. Everything below — the tall,
+   interactive Autopilot band and the FAQ — is deliberately NOT a snap target,
+   so mandatory snap can never trap someone out of content taller than the
+   screen; it just scrolls normally. */
 @media (min-width: 1024px) and (pointer: fine) {
   html.snap-home {
-    scroll-snap-type: y proximity;
-    scroll-padding-top: 5.5rem;
+    scroll-snap-type: y mandatory;
   }
   html.snap-home [data-snap] {
     scroll-snap-align: start;
+    scroll-snap-stop: always;
   }
 }

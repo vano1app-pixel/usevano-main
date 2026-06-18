@@ -56,18 +56,19 @@ const HouseholdHome: React.FC = () => {
         <HeroSection />
         <ActivityTicker />
         {/* How it works (honest + simple), then real helper faces — so the
-            bigger monthly ask below only comes once the visitor gets it.
-            data-snap marks the major sections as gentle scroll-snap stops; a
-            plain wrapper div (no transform) is safe around HomePlans' fixed
-            bottom sheet. */}
+            bigger monthly ask below only comes once the visitor gets it. These
+            two plus the hero are the full-screen snap stops (data-snap): each
+            fills the viewport and hard-snaps one per scroll. */}
         <div data-snap id="how"><HowItWorks /></div>
         <div data-snap id="helpers"><Reveal><HelperCards /></Reveal></div>
         {/* Flagship offer lands after trust; the navy band also anchors the
-            middle of the page between the cream sections. NOT wrapped in
-            Reveal — it contains the autopilot bottom sheet (position:fixed),
-            which a transform ancestor would re-anchor. */}
-        <div data-snap id="autopilot"><HomePlans /></div>
-        <div data-snap id="faq"><Reveal><FAQSection /></Reveal></div>
+            middle of the page between the cream sections. NOT a snap target —
+            it's taller than a screen (two builders + gift), so it scrolls
+            normally rather than trapping anyone. NOT wrapped in Reveal — it
+            contains the autopilot bottom sheet (position:fixed), which a
+            transform ancestor would re-anchor. */}
+        <HomePlans />
+        <Reveal><FAQSection /></Reveal>
         <Reveal><FindBookingBar /></Reveal>
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <Reveal>
