@@ -53,6 +53,8 @@ export const CustomJobBuilder: React.FC = () => {
 
   const vanoCents = getHouseholdPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
   const marketCents = activeJob.marketHourlyCents * hours;
+  const saveCents = Math.max(0, marketCents - vanoCents);
+  const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
   const hasJob = jobText.trim().length >= 2;
 
   // Debounced AI read that auto-applies a confident result, so the right job +
@@ -145,37 +147,52 @@ export const CustomJobBuilder: React.FC = () => {
           className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent resize-none"
         />
 
-        {/* Live price, right under the box */}
+        {/* Live VANO-vs-market comparison, right under the box — the value
+            people love. Kept compact: job + duration on top, the two prices
+            side by side, and the saving spelled out underneath. */}
         {hasJob && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-sage/30 bg-sage-light/50 px-3.5 py-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-base flex-shrink-0" aria-hidden="true">{activeJob.emoji}</span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground leading-tight truncate">{activeJob.label}</p>
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  fair €18/hr{marketCents > vanoCents ? <> · <span className="line-through">{fmt(marketCents)}</span> typical</> : null}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="rounded-xl border border-sage/30 bg-sage-light/50 p-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground min-w-0">
+                <span aria-hidden="true">{activeJob.emoji}</span>
+                <span className="truncate">{activeJob.label}</span>
+              </span>
               <select
                 value={size}
                 onChange={(e) => { setSize(e.target.value); if (error) setError(null); }}
                 aria-label="How long"
-                className="rounded-lg border border-border bg-white text-xs font-medium px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                className="flex-shrink-0 rounded-lg border border-border bg-white text-xs font-medium px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-foreground/20"
               >
                 {DURATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
-              <motion.span
-                key={vanoCents}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                className="text-xl font-extrabold tabular-nums text-foreground"
-              >
-                {fmt(vanoCents)}
-              </motion.span>
             </div>
+            <div className="flex items-stretch gap-2">
+              <div className="flex-1 rounded-lg border border-sage/40 bg-white px-3 py-2 text-center shadow-sm">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
+                <motion.p
+                  key={vanoCents}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                  className="mt-0.5 text-2xl font-extrabold tabular-nums text-foreground leading-none"
+                >
+                  {fmt(vanoCents)}
+                </motion.p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
+              </div>
+              <div className="flex-1 rounded-lg border border-border/60 bg-white/50 px-3 py-2 text-center">
+                <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
+                <p className="mt-0.5 text-2xl font-bold tabular-nums text-muted-foreground/70 leading-none line-through decoration-muted-foreground/40">
+                  {fmt(marketCents)}
+                </p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">≈ €{activeJob.marketHourlyCents / 100}/hr</p>
+              </div>
+            </div>
+            {saveCents > 0 && (
+              <p className="mt-2 text-center text-[12px] font-bold text-sage-dark">
+                ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
+              </p>
+            )}
           </div>
         )}
 
