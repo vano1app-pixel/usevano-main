@@ -13,6 +13,7 @@ import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { BlogTeaser } from '@/components/household/BlogTeaser';
+import { ScrollCue } from '@/components/household/ScrollCue';
 import { Reveal } from '@/components/Reveal';
 
 /**
@@ -57,10 +58,11 @@ const HouseholdHome: React.FC = () => {
         <ActivityTicker />
         {/* How it works (honest + simple), then real helper faces — so the
             bigger monthly ask below only comes once the visitor gets it. These
-            two plus the hero are the full-screen snap stops (data-snap): each
-            fills the viewport and hard-snaps one per scroll. */}
-        <div data-snap id="how"><HowItWorks /></div>
-        <div data-snap id="helpers"><Reveal><HelperCards /></Reveal></div>
+            two plus the hero are the full-screen snap sections (data-snap):
+            each fills the viewport, gently snaps, and carries its own scroll
+            cue that walks to the next section. `relative` anchors the cue. */}
+        <div data-snap id="how" className="relative"><HowItWorks /><ScrollCue tone="dark" /></div>
+        <div data-snap id="helpers" className="relative"><Reveal><HelperCards /></Reveal><ScrollCue tone="dark" /></div>
         {/* Flagship offer lands after trust; the navy band also anchors the
             middle of the page between the cream sections. NOT a snap target —
             it's taller than a screen (two builders + gift), so it scrolls

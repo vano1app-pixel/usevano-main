@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Eye, BadgeCheck, ChevronDown } from 'lucide-react';
+import { ShieldCheck, Eye, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useHelperCount } from '@/hooks/useHelperCount';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
+import { ScrollCue } from './ScrollCue';
 
 /**
  * Hero = one job: get a category tapped. Left column is three quiet beats
@@ -46,17 +47,6 @@ export const HeroSection: React.FC = () => {
   const helperCount = useHelperCount();
   const displayCount = useCountUp(helperCount);
   const greeting = timeGreeting();
-
-  // Clicking the scroll cue walks to the next snap section below the hero.
-  // No explicit behaviour passed, so the global `scroll-behavior` rule wins —
-  // smooth normally, instant under prefers-reduced-motion — and scroll-padding
-  // keeps the landing clear of the fixed nav.
-  const handleScrollCue = () => {
-    const snaps = Array.from(document.querySelectorAll<HTMLElement>('[data-snap]'));
-    const hero = document.getElementById('book');
-    const next = hero ? snaps[snaps.indexOf(hero) + 1] : snaps[0];
-    (next ?? snaps.find((s) => s !== hero))?.scrollIntoView({ block: 'start' });
-  };
 
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop
@@ -197,23 +187,9 @@ export const HeroSection: React.FC = () => {
         </motion.ul>
       </div>
 
-      {/* Desktop scroll cue — once the hero settles, a gentle nudge that there's
-          more below. Now a real button: click (or Enter) walks to the next
-          section. Fades in last so it never fights the card. */}
-      <motion.button
-        type="button"
-        onClick={handleScrollCue}
-        className="hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 flex-col items-center gap-1 rounded-full px-3 py-1.5 text-white/35 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2, duration: 0.8 }}
-        aria-label="Scroll to the next section"
-      >
-        <span className="text-[10px] font-semibold uppercase tracking-[0.22em]">Scroll</span>
-        <motion.span animate={{ y: [0, 6, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
-          <ChevronDown className="w-5 h-5" />
-        </motion.span>
-      </motion.button>
+      {/* Desktop scroll cue — once the hero settles (delay), a gentle nudge to
+          the next section. Light tone for the navy background. */}
+      <ScrollCue tone="light" delay={1.2} />
     </section>
   );
 };
