@@ -92,7 +92,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
   { key: 'tvmount',    emoji: '📺', label: 'TV mounting & setup', group: 'Tech & home', typicalHours: 1, marketHourlyCents: 3500, popular: true,
     keywords: ['tv mount', 'tv setup', 'mount the tv', 'soundbar', 'television'], example: 'mount and set up a TV' },
   { key: 'wifi',       emoji: '📶', label: 'Wi-Fi & devices', group: 'Tech & home', typicalHours: 1, marketHourlyCents: 3000,
-    keywords: ['wifi', 'wi-fi', 'router', 'broadband', 'printer', 'set up', 'install'], example: 'sort out the Wi-Fi and printer' },
+    keywords: ['wifi', 'wi fi', 'router', 'broadband', 'printer', 'internet'], example: 'sort out the Wi-Fi and printer' },
   { key: 'techhelp',   emoji: '💻', label: 'Phone / laptop help', group: 'Tech & home', typicalHours: 1, marketHourlyCents: 3000,
     keywords: ['laptop', 'computer', 'pc', 'phone', 'tablet', 'email', 'password', 'tech help'], example: 'help getting set up on a new laptop' },
   { key: 'smarthome',  emoji: '🏡', label: 'Smart home setup', group: 'Tech & home', typicalHours: 2, marketHourlyCents: 3500,
@@ -104,7 +104,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
   { key: 'postrun',    emoji: '📮', label: 'Pharmacy / post run', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2200,
     keywords: ['pharmacy', 'post office', 'parcel', 'prescription', 'post', 'drop off'], example: 'a pharmacy and post-office run' },
   { key: 'waitin',     emoji: '⏳', label: 'Wait-in / queue', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2000,
-    keywords: ['wait', 'queue', 'wait in', 'delivery', 'let in', 'meter reader'], example: 'wait in for a delivery' },
+    keywords: ['wait', 'queue', 'wait in', 'delivery', 'meter reader'], example: 'wait in for a delivery' },
   { key: 'lift',       emoji: '🚗', label: 'Airport / station lift', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2500,
     keywords: ['lift', 'airport', 'station', 'drop', 'collect from', 'drive'], example: 'a lift to the airport' },
 
@@ -144,14 +144,19 @@ export function customJobByKey(key: string | null | undefined): CustomJob {
  * later without touching the rest of the flow.
  */
 export function matchCustomJob(text: string): CustomJob | null {
-  const t = ` ${text.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ')} `;
+  // Normalise: lowercase, and collapse every run of non-alphanumerics to a
+  // single space, so "wi-fi", "flat-pack" and "end-of-tenancy" line up with
+  // their spaced keywords.
+  const t = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
   if (t.trim().length < 2) return null;
   let best: CustomJob | null = null;
   let bestScore = 0;
   for (const job of CUSTOM_JOBS) {
     let score = 0;
     for (const kw of job.keywords) {
-      if (t.includes(kw)) score += kw.length >= 5 ? 2 : 1;
+      // Weight by keyword length, so a specific multi-word phrase ("end of
+      // tenancy") outscores a short generic one ("clean").
+      if (t.includes(kw)) score += kw.length;
     }
     if (score > bestScore) { bestScore = score; best = job; }
   }
