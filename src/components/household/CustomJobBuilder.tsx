@@ -492,7 +492,7 @@ export const CustomJobBuilder: React.FC = () => {
 
         {/* CTA */}
         <div className="space-y-2.5">
-          <motion.div whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+          <motion.div whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="relative overflow-hidden rounded-full">
             <Button
               type="submit"
               disabled={loading || !phone.trim() || !vanoCents}
@@ -502,6 +502,16 @@ export const CustomJobBuilder: React.FC = () => {
                 ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
                 : <><Zap className="w-4 h-4" />Book this job · {fmt(vanoCents)}</>}
             </Button>
+            {/* Occasional light sweep so the primary action feels alive */}
+            {!loading && !!phone.trim() && !!vanoCents && (
+              <motion.span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                initial={{ x: '-150%' }}
+                animate={{ x: '450%' }}
+                transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 3, ease: 'easeInOut' }}
+              />
+            )}
           </motion.div>
 
           {error && <p className="text-center text-xs text-destructive">{error}</p>}

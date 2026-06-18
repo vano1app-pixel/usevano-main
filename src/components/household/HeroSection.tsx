@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Eye, BadgeCheck } from 'lucide-react';
+import { ShieldCheck, Eye, BadgeCheck, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useHelperCount } from '@/hooks/useHelperCount';
 import { CategoryGrid } from './CategoryGrid';
@@ -185,6 +185,21 @@ export const HeroSection: React.FC = () => {
           ))}
         </motion.ul>
       </div>
+
+      {/* Desktop scroll cue — once the hero settles, a gentle nudge that there's
+          more below. Decorative; fades in last so it never fights the card. */}
+      <motion.div
+        className="hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 flex-col items-center gap-1 text-white/35"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.2, duration: 0.8 }}
+        aria-hidden="true"
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-[0.22em]">Scroll</span>
+        <motion.span animate={{ y: [0, 6, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
+          <ChevronDown className="w-5 h-5" />
+        </motion.span>
+      </motion.div>
     </section>
   );
 };

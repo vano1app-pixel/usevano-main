@@ -650,7 +650,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 </p>
               )}
 
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="relative overflow-hidden rounded-full">
                 <Button
                   type="submit"
                   disabled={loading || !phone.trim()}
@@ -669,6 +669,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                         {ctaLabel}
                       </>}
                 </Button>
+                {/* Occasional light sweep so the primary action feels alive */}
+                {!loading && !!phone.trim() && (
+                  <motion.span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    initial={{ x: '-150%' }}
+                    animate={{ x: '450%' }}
+                    transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 3, ease: 'easeInOut' }}
+                  />
+                )}
               </motion.div>
 
               {error && <p className="text-center text-xs text-destructive">{error}</p>}
