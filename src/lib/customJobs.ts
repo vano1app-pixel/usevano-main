@@ -66,7 +66,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
   { key: 'mowing',     emoji: '🌱', label: 'Lawn mowing', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2800, popular: true,
     keywords: ['mow', 'lawn', 'grass', 'cut the grass', 'strimm'], example: 'mow the front and back lawn' },
   { key: 'weeding',    emoji: '🌿', label: 'Weeding & garden tidy', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2800,
-    keywords: ['weed', 'weeding', 'tidy garden', 'beds', 'borders', 'planting'], example: 'weed and tidy the garden' },
+    keywords: ['weed', 'weeding', 'garden', 'gardening', 'tidy garden', 'beds', 'borders', 'planting'], example: 'weed and tidy the garden' },
   { key: 'hedge',      emoji: '✂️', label: 'Hedge & pruning', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 3000,
     keywords: ['hedge', 'trim', 'bush', 'bushes', 'prune', 'pruning', 'shrub'], example: 'trim the hedges' },
   { key: 'clearance',  emoji: '🍂', label: 'Garden clearance', group: 'Garden & outdoor', typicalHours: 3, marketHourlyCents: 3000,
@@ -90,7 +90,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
 
   // ── Tech & home ────────────────────────────────────────────────────────
   { key: 'tvmount',    emoji: '📺', label: 'TV mounting & setup', group: 'Tech & home', typicalHours: 1, marketHourlyCents: 3500, popular: true,
-    keywords: ['tv mount', 'tv setup', 'mount the tv', 'soundbar', 'television'], example: 'mount and set up a TV' },
+    keywords: ['tv', 'tv mount', 'tv setup', 'mount the tv', 'set up tv', 'soundbar', 'television'], example: 'mount and set up a TV' },
   { key: 'wifi',       emoji: '📶', label: 'Wi-Fi & devices', group: 'Tech & home', typicalHours: 1, marketHourlyCents: 3000,
     keywords: ['wifi', 'wi fi', 'router', 'broadband', 'printer', 'internet'], example: 'sort out the Wi-Fi and printer' },
   { key: 'techhelp',   emoji: '💻', label: 'Phone / laptop help', group: 'Tech & home', typicalHours: 1, marketHourlyCents: 3000,

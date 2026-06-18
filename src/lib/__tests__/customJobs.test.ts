@@ -21,12 +21,14 @@ describe('custom job recogniser — clear phrasings map to the right job', () =>
     ['degrease the oven and hob', 'oven'],
     ['mow the lawn', 'mowing'],
     ['cut the grass out the back', 'mowing'],
+    ['cut the grass this saturday', 'mowing'],
     ['trim the hedges', 'hedge'],
     ['power wash the driveway', 'powerwash'],
     ['clear the gutters', 'gutters'],
     ['help load a van on saturday', 'vanhelp'],
     ['take a load of rubbish to the dump', 'tiprun'],
     ['mount my television', 'tvmount'],
+    ['set up my tv', 'tvmount'],
     ['fix the broadband router', 'wifi'],
     ['walk my dog', 'dog'],
     ['feed the cat while away', 'petsit'],
@@ -48,6 +50,7 @@ describe('custom job recogniser — ambiguous wording lands in the right group',
     ['general tidy and hoover round', 'Cleaning'],
     ['set up smart bulbs and a doorbell', 'Tech & home'],
     ['paint and decorate the hallway', 'Home & repairs'],
+    ['do some gardening', 'Garden & outdoor'],
   ];
   for (const [phrase, group] of byGroup) {
     it(`"${phrase}" → ${group}`, () => {

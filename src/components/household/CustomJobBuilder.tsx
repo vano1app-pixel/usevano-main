@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Zap, Sparkles, Phone } from 'lucide-react';
+import { Loader2, Zap, Sparkles, Phone, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,14 +31,16 @@ import { teamTelHref, TEAM_PHONE_DISPLAY } from '@/lib/contact';
  */
 
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
+const DAYPARTS = ['Morning', 'Afternoon', 'Evening'];
 
 function fmt(cents: number): string {
   const eur = cents / 100;
   return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
 }
 
-// Today-only slots (Now + half-hour steps). Custom jobs book for today, so the
-// displayed price is always the exact, undiscounted €18/hr × hours.
+// Same-day slots (Now + half-hour steps) for the "Today" option. A custom job
+// is never given the scheduled discount, so the shown price is always the
+// exact, undiscounted €18/hr × hours — whichever day the customer picks.
 function getTodaySlots(): string[] {
   const slots = ['Now'];
   const next = new Date();
@@ -87,11 +89,19 @@ export const CustomJobBuilder: React.FC = () => {
   const remembered = useMemo(() => loadBookingMemory(), []);
   const referralCode = useMemo(() => getReferralCode(), []);
   const timeSlots = useMemo(() => getTodaySlots(), []);
+  // Local YYYY-MM-DD floor for the date picker (no past days).
+  const todayISO = useMemo(() => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }, []);
 
   const [selectedKey, setSelectedKey] = useState<string | null>('painting');
   const [jobText, setJobText] = useState('');
   const [size, setSize] = useState('2 hours');
   const [when, setWhen] = useState('Now');
+  const [day, setDay] = useState<'today' | 'tomorrow' | 'pick'>('today');
+  const [pickedDate, setPickedDate] = useState('');
   const [phone, setPhone] = useState(remembered?.phone ?? '');
   const [address, setAddress] = useState(remembered?.address ?? '');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
@@ -116,6 +126,18 @@ export const CustomJobBuilder: React.FC = () => {
 
   // Re-key the headline on the amount so it springs as hours/job change.
   const priceKey = `${vanoCents}-${marketCents}`;
+
+  // When the job is for: same-day clock times, or a future day + daypart. The
+  // price is identical either way (scheduled discount is never applied here, so
+  // the student always clears min wage); the day only enriches the booking.
+  const timeOptions = day === 'today' ? timeSlots : DAYPARTS;
+  const prettyDate = (iso: string) =>
+    iso ? new Date(`${iso}T12:00:00`).toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Pick a day';
+  const describeWhen = (): string => {
+    if (day === 'tomorrow') return `Tomorrow, ${when}`;
+    if (day === 'pick') return `${prettyDate(pickedDate)}, ${when}`;
+    return when === 'Now' ? 'Now' : `Today, ${when}`;
+  };
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
@@ -143,7 +165,7 @@ export const CustomJobBuilder: React.FC = () => {
       const { data, error: fnErr } = await supabase.functions.invoke('create-household-payment-checkout', {
         body: {
           category:         'custom',
-          when_label:       when,
+          when_label:       describeWhen(),
           size_label:       size,
           extra_label:      activeJob.label,
           scheduled:        false,
@@ -358,11 +380,36 @@ export const CustomJobBuilder: React.FC = () => {
           />
         </div>
 
-        {/* When */}
+        {/* When — same-day is the default (VANO is same-day help), but planned
+            jobs like painting or a hedge trim often want a future day, so
+            Today / Tomorrow / any date are all bookable. Price is unchanged. */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+          <div className="flex flex-wrap gap-2 mb-2.5">
+            <Pill active={day === 'today'} onClick={() => { setDay('today'); setWhen('Now'); }}>Today</Pill>
+            <Pill active={day === 'tomorrow'} onClick={() => { setDay('tomorrow'); setWhen('Afternoon'); }}>Tomorrow</Pill>
+            <label
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium border flex-shrink-0 cursor-pointer select-none transition-colors duration-150',
+                day === 'pick'
+                  ? 'bg-foreground text-background border-transparent'
+                  : 'bg-white text-foreground border-border hover:border-foreground/30',
+              )}
+            >
+              <CalendarDays size={14} aria-hidden="true" />
+              {day === 'pick' ? prettyDate(pickedDate) : 'Pick a day'}
+              <input
+                type="date"
+                min={todayISO}
+                value={day === 'pick' ? pickedDate : ''}
+                onChange={(e) => { if (e.target.value) { setPickedDate(e.target.value); setDay('pick'); setWhen('Afternoon'); } }}
+                className="sr-only"
+                aria-label="Pick a day"
+              />
+            </label>
+          </div>
           <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-            {timeSlots.map((opt) => (
+            {timeOptions.map((opt) => (
               <Pill key={opt} active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>{opt}</Pill>
             ))}
           </div>
