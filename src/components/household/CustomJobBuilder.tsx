@@ -10,6 +10,7 @@ import { loadBookingMemory, saveBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
+import { POPULAR_CUSTOM_JOBS, matchCustomJob, customJobByKey, VANO_HOURLY_CENTS } from '@/lib/customJobs';
 import { teamTelHref, TEAM_PHONE_DISPLAY } from '@/lib/contact';
 
 /**
@@ -28,29 +29,6 @@ import { teamTelHref, TEAM_PHONE_DISPLAY } from '@/lib/contact';
  * the admin emails/WhatsApp exactly like every other booking. Pay-after-accept.
  * If the auto price doesn't fit the job, the customer calls and we adjust.
  */
-
-const VANO_HOURLY_CENTS = 1800; // €18/hr — the canonical time-based labour rate
-
-interface JobType {
-  key: string;
-  emoji: string;
-  label: string;
-  /** Typical local PRO hourly rate, cents — display-only, for the comparison.
-   *  Conservative 2026 Galway lower-bounds so the saving is never overstated. */
-  marketHourlyCents: number;
-  placeholder: string;
-}
-
-const JOB_TYPES: JobType[] = [
-  { key: 'painting',  emoji: '🎨', label: 'Painting',      marketHourlyCents: 3000, placeholder: 'e.g. paint my spare bedroom' },
-  { key: 'assembly',  emoji: '🔧', label: 'Flat-pack',     marketHourlyCents: 3500, placeholder: 'e.g. build a wardrobe and a bed' },
-  { key: 'gardening', emoji: '🌿', label: 'Gardening',     marketHourlyCents: 2800, placeholder: 'e.g. clear and weed the back garden' },
-  { key: 'cleaning',  emoji: '🧽', label: 'Deep clean',    marketHourlyCents: 2500, placeholder: 'e.g. deep clean before guests arrive' },
-  { key: 'moving',    emoji: '📦', label: 'Lifting',       marketHourlyCents: 2800, placeholder: 'e.g. help load a van for an hour' },
-  { key: 'handyman',  emoji: '🛠️', label: 'Odd jobs',      marketHourlyCents: 3500, placeholder: 'e.g. hang shelves and a mirror' },
-  { key: 'errands',   emoji: '🛍️', label: 'Errands',       marketHourlyCents: 2200, placeholder: 'e.g. collect and drop a few things' },
-  { key: 'other',     emoji: '✨', label: 'Something else', marketHourlyCents: 3000, placeholder: 'Tell us exactly what you need done' },
-];
 
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
 
@@ -110,7 +88,7 @@ export const CustomJobBuilder: React.FC = () => {
   const referralCode = useMemo(() => getReferralCode(), []);
   const timeSlots = useMemo(() => getTodaySlots(), []);
 
-  const [jobKey, setJobKey] = useState('painting');
+  const [selectedKey, setSelectedKey] = useState<string | null>('painting');
   const [jobText, setJobText] = useState('');
   const [size, setSize] = useState('2 hours');
   const [when, setWhen] = useState('Now');
@@ -125,12 +103,14 @@ export const CustomJobBuilder: React.FC = () => {
   const [phoneError, setPhoneError] = useState(false);
   const [addressError, setAddressError] = useState(false);
 
-  const jobType = JOB_TYPES.find((j) => j.key === jobKey)!;
+  // The recogniser turns free text into a known job; an explicit chip tap wins.
+  const textMatch = matchCustomJob(jobText);
+  const activeJob = selectedKey ? customJobByKey(selectedKey) : (textMatch ?? customJobByKey('other'));
   const hours = Number(size.match(/^\d+/)?.[0]) || 0;
 
   // The two numbers the whole section is about: ours, and the going rate.
   const vanoCents = getHouseholdPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
-  const marketCents = jobType.marketHourlyCents * hours;
+  const marketCents = activeJob.marketHourlyCents * hours;
   const saveCents = Math.max(0, marketCents - vanoCents);
   const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
 
@@ -157,15 +137,15 @@ export const CustomJobBuilder: React.FC = () => {
     setLoading(true); setError(null);
     haptic(12);
     // The job description admin/helpers see: the customer's words, or the
-    // picked type as a fallback so it's never blank.
-    const note = jobText.trim() || jobType.label;
+    // recognised type as a fallback so it's never blank.
+    const note = jobText.trim() || activeJob.label;
     try {
       const { data, error: fnErr } = await supabase.functions.invoke('create-household-payment-checkout', {
         body: {
           category:         'custom',
           when_label:       when,
           size_label:       size,
-          extra_label:      jobType.label,
+          extra_label:      activeJob.label,
           scheduled:        false,
           note,
           customer_name:    'Guest', // name collected by Stripe at checkout
@@ -199,7 +179,7 @@ export const CustomJobBuilder: React.FC = () => {
   // anything the customer has already typed).
   useEffect(() => {
     setError(null);
-  }, [jobKey, size]);
+  }, [selectedKey, jobText, size]);
 
   return (
     <div className="mt-10 rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden">
@@ -220,29 +200,51 @@ export const CustomJobBuilder: React.FC = () => {
       </div>
 
       <form onSubmit={handleBook} className="px-5 pb-5 pt-3 sm:px-6 space-y-5">
-        {/* Job type */}
+        {/* Popular jobs — one tap fills the type and a sensible duration. The
+            free-text box below covers everything else via the recogniser. */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">What kind of job?</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Popular — or just describe it below</p>
           <div className="flex flex-wrap gap-2">
-            {JOB_TYPES.map((j) => (
-              <Pill key={j.key} active={jobKey === j.key} onClick={() => setJobKey(j.key)}>
+            {POPULAR_CUSTOM_JOBS.map((j) => (
+              <Pill
+                key={j.key}
+                active={selectedKey === j.key}
+                onClick={() => { setSelectedKey(j.key); setSize(`${j.typicalHours} hours`); }}
+              >
                 <span className="mr-1" aria-hidden="true">{j.emoji}</span>{j.label}
               </Pill>
             ))}
           </div>
         </div>
 
-        {/* Free-text detail */}
+        {/* Free-text detail — the recogniser reads this live and snaps it to a
+            known job: the zero-cost stand-in for the AI brain. */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Tell us what's needed</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Or describe any job — we'll get it</p>
           <textarea
             value={jobText}
-            onChange={(e) => setJobText(e.target.value)}
-            placeholder={jobType.placeholder}
+            onChange={(e) => { setJobText(e.target.value); setSelectedKey(null); if (error) setError(null); }}
+            placeholder={customJobByKey(selectedKey ?? 'other').example ?? 'Tell us what you need done'}
             rows={2}
             maxLength={400}
             className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150 resize-none"
           />
+          <AnimatePresence>
+            {!selectedKey && textMatch && (
+              <motion.button
+                key={textMatch.key}
+                type="button"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                onClick={() => { setSelectedKey(textMatch.key); setSize(`${textMatch.typicalHours} hours`); haptic(8); }}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sage/10 border border-sage/30 px-3 py-1.5 text-[12px] font-medium text-sage-dark hover:bg-sage/15 transition-colors"
+              >
+                <Sparkles size={12} aria-hidden="true" />
+                Looks like {textMatch.emoji} {textMatch.label} · tap to budget ~{textMatch.typicalHours} hr
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Duration */}
@@ -284,7 +286,7 @@ export const CustomJobBuilder: React.FC = () => {
               <p className="mt-1 text-3xl font-bold tracking-tight text-muted-foreground/70 tabular-nums leading-none line-through decoration-muted-foreground/40">
                 {fmt(marketCents)}
               </p>
-              <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">≈ €{jobType.marketHourlyCents / 100}/hr × {hours} hr</p>
+              <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">≈ €{activeJob.marketHourlyCents / 100}/hr × {hours} hr</p>
             </div>
           </div>
 
