@@ -10,7 +10,8 @@ import { loadBookingMemory, saveBookingMemory } from '@/lib/bookingMemory';
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
-import { POPULAR_CUSTOM_JOBS, matchCustomJob, customJobByKey, VANO_HOURLY_CENTS } from '@/lib/customJobs';
+import { POPULAR_CUSTOM_JOBS, CUSTOM_JOBS, matchCustomJob, customJobByKey, VANO_HOURLY_CENTS } from '@/lib/customJobs';
+import { parseWhenText } from '@/lib/whenParse';
 import { teamTelHref, TEAM_PHONE_DISPLAY } from '@/lib/contact';
 
 /**
@@ -112,11 +113,31 @@ export const CustomJobBuilder: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState(false);
   const [addressError, setAddressError] = useState(false);
+  // The AI brain's read of the free-text box (Gemini, via parse-custom-job),
+  // debounced. Null until it returns something usable; the instant keyword
+  // matcher below covers every moment the call is busy or unavailable.
+  const [aiParse, setAiParse] = useState<
+    { jobKey: string; hours: number; title: string; whenText: string | null; confidence: number } | null
+  >(null);
+  const [aiBusy, setAiBusy] = useState(false);
 
   // The recogniser turns free text into a known job; an explicit chip tap wins.
   const textMatch = matchCustomJob(jobText);
   const activeJob = selectedKey ? customJobByKey(selectedKey) : (textMatch ?? customJobByKey('other'));
   const hours = Number(size.match(/^\d+/)?.[0]) || 0;
+
+  // The one suggestion chip under the textarea: prefer the AI read when it's
+  // confident and concrete, otherwise the instant offline keyword match. Once a
+  // chip is picked (selectedKey set), no suggestion shows.
+  const aiPick =
+    aiParse && aiParse.jobKey !== 'other' && aiParse.confidence >= 0.45
+      ? { key: aiParse.jobKey, job: customJobByKey(aiParse.jobKey), hours: aiParse.hours, whenText: aiParse.whenText, ai: true }
+      : null;
+  const suggestion = selectedKey
+    ? null
+    : aiPick ?? (textMatch
+        ? { key: textMatch.key, job: textMatch, hours: textMatch.typicalHours, whenText: null as string | null, ai: false }
+        : null);
 
   // The two numbers the whole section is about: ours, and the going rate.
   const vanoCents = getHouseholdPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
@@ -138,6 +159,22 @@ export const CustomJobBuilder: React.FC = () => {
     if (day === 'pick') return `${prettyDate(pickedDate)}, ${when}`;
     return when === 'Now' ? 'Now' : `Today, ${when}`;
   };
+
+  // Apply a suggestion: fill the job + a sensible duration, and — if the AI
+  // pulled out a "when" — the day picker too, so one tap sets it all.
+  function applySuggestion(s: { key: string; hours: number; whenText: string | null }) {
+    setSelectedKey(s.key);
+    setSize(`${s.hours} hours`);
+    if (s.whenText) {
+      const wp = parseWhenText(s.whenText);
+      if (wp) {
+        setDay(wp.day);
+        if (wp.day === 'pick' && wp.date) setPickedDate(wp.date);
+        setWhen(wp.day === 'today' ? 'Now' : wp.daypart);
+      }
+    }
+    haptic(8);
+  }
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
@@ -203,6 +240,33 @@ export const CustomJobBuilder: React.FC = () => {
     setError(null);
   }, [selectedKey, jobText, size]);
 
+  // Ask the AI brain to read the free text, debounced, while the customer types
+  // their own description (not when a chip is picked). Fail-soft: any problem
+  // just clears the AI read and the instant keyword matcher stays in charge.
+  useEffect(() => {
+    const text = jobText.trim();
+    if (selectedKey || text.length < 6) { setAiParse(null); setAiBusy(false); return; }
+    let cancelled = false;
+    setAiBusy(true);
+    const id = window.setTimeout(async () => {
+      try {
+        const { data } = await supabase.functions.invoke('parse-custom-job', {
+          body: { text, jobs: CUSTOM_JOBS.map((j) => ({ key: j.key, label: j.label, typicalHours: j.typicalHours })) },
+        });
+        if (cancelled) return;
+        const d = data as { ok?: boolean; jobKey?: string; hours?: number; title?: string; whenText?: string | null; confidence?: number } | null;
+        setAiParse(d?.ok
+          ? { jobKey: d.jobKey!, hours: d.hours!, title: d.title ?? '', whenText: d.whenText ?? null, confidence: d.confidence ?? 0 }
+          : null);
+      } catch {
+        if (!cancelled) setAiParse(null);
+      } finally {
+        if (!cancelled) setAiBusy(false);
+      }
+    }, 650);
+    return () => { cancelled = true; window.clearTimeout(id); };
+  }, [jobText, selectedKey]);
+
   return (
     <div className="mt-10 rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden">
       {/* Header */}
@@ -256,22 +320,33 @@ export const CustomJobBuilder: React.FC = () => {
             maxLength={400}
             className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150 resize-none"
           />
-          <AnimatePresence>
-            {!selectedKey && textMatch && (
-              <motion.button
-                key={textMatch.key}
-                type="button"
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                onClick={() => { setSelectedKey(textMatch.key); setSize(`${textMatch.typicalHours} hours`); haptic(8); }}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sage/10 border border-sage/30 px-3 py-1.5 text-[12px] font-medium text-sage-dark hover:bg-sage/15 transition-colors"
-              >
-                <Sparkles size={12} aria-hidden="true" />
-                Looks like {textMatch.emoji} {textMatch.label} · tap to budget ~{textMatch.typicalHours} hr
-              </motion.button>
-            )}
-          </AnimatePresence>
+          <div className="mt-2 min-h-[28px]">
+            <AnimatePresence mode="wait">
+              {aiBusy && !suggestion ? (
+                <motion.div
+                  key="ai-busy"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground"
+                >
+                  <Loader2 size={12} className="animate-spin" aria-hidden="true" /> Reading your job…
+                </motion.div>
+              ) : suggestion ? (
+                <motion.button
+                  key={`${suggestion.key}-${suggestion.ai ? 'ai' : 'kw'}`}
+                  type="button"
+                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  onClick={() => applySuggestion(suggestion)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-sage/10 border border-sage/30 px-3 py-1.5 text-left text-[12px] font-medium text-sage-dark hover:bg-sage/15 transition-colors"
+                >
+                  <Sparkles size={12} aria-hidden="true" className="flex-shrink-0" />
+                  <span>
+                    {suggestion.ai ? 'Got it' : 'Looks like'} — {suggestion.job.emoji} {suggestion.job.label} · ~{suggestion.hours} hr
+                    {suggestion.whenText ? ` · ${suggestion.whenText}` : ''} · tap to fill
+                  </span>
+                </motion.button>
+              ) : null}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Duration */}

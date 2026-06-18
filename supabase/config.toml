@@ -47,6 +47,11 @@ project_id = "puomfwjtpvqedwxjxogh"
   # CategoryGrid quick-booking flow — same anonymous pattern.
   [functions.create-household-payment-checkout]
     verify_jwt = false
+  # "Name any job" AI brain: reads the CustomJobBuilder free-text box (Gemini)
+  # to suggest a job + duration + timing. Public, pre-auth, anonymous customers;
+  # fail-soft (never blocks). Uses GEMINI_API_KEY like the other ai-* functions.
+  [functions.parse-custom-job]
+    verify_jwt = false
   # Helper signup — no auth account needed, service-role handles photo upload + DB insert.
   [functions.create-helper-application]
     verify_jwt = false
