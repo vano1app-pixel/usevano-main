@@ -340,3 +340,20 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ── Section snapping — household home only (toggled via .snap-home on <html>).
+   Desktop + mouse/trackpad only. The opening three sections (hero → how it
+   works → helpers) each fill the screen and hard-snap one per scroll/gesture
+   (mandatory + snap-stop), for a showcase intro. Everything below — the tall,
+   interactive Autopilot band and the FAQ — is deliberately NOT a snap target,
+   so mandatory snap can never trap someone out of content taller than the
+   screen; it just scrolls normally. */
+@media (min-width: 1024px) and (pointer: fine) {
+  html.snap-home {
+    scroll-snap-type: y mandatory;
+  }
+  html.snap-home [data-snap] {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+}
