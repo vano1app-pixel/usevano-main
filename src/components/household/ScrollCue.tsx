@@ -36,9 +36,7 @@ export const ScrollCue: React.FC<{ tone?: 'light' | 'dark'; delay?: number; labe
       animate={{ opacity: 1 }}
       transition={{ delay, duration: 0.8 }}
       className={cn(
-        // On mobile the cue clears the fixed "Book" bar + iOS home indicator;
-        // on md+ (no sticky bar) it drops to the usual bottom-6.
-        'flex absolute bottom-[calc(5rem_+_env(safe-area-inset-bottom))] md:bottom-6 left-1/2 -translate-x-1/2 flex-col items-center gap-1 rounded-full px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2',
+        'hidden lg:flex absolute bottom-6 left-1/2 -translate-x-1/2 flex-col items-center gap-1 rounded-full px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2',
         tone === 'light'
           ? 'text-white/35 hover:text-white/75 focus-visible:ring-white/40'
           : 'text-foreground/30 hover:text-foreground/70 focus-visible:ring-foreground/30',
