@@ -32,7 +32,7 @@ const ringV: Variants = {
 
 export const HowItWorks: React.FC = () => {
   return (
-    <section className="bg-white pt-20 pb-16 lg:pt-28 lg:pb-20 lg:min-h-screen lg:flex lg:flex-col lg:justify-center">
+    <section className="bg-white pt-20 pb-16 lg:pt-28 lg:pb-20 min-h-[100svh] lg:flex lg:flex-col lg:justify-center">
       <div className="px-4 max-w-5xl mx-auto">
         <div className="text-center mb-10 lg:mb-14">
           <p className="eyebrow mb-3">How it works</p>
