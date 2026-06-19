@@ -124,6 +124,20 @@ export const AutopilotBuilder: React.FC = () => {
   // Away-cover only. Lockbox by default — the frictionless, no-key-held path.
   const [access, setAccess] = useState<AccessMethod>('lockbox');
 
+  // Mobile is a 2-step flow so each screen breathes: step 1 = mode + services,
+  // step 2 = when/how + price. Desktop (lg:) shows everything at once, so `step`
+  // only gates visibility on small screens.
+  const [step, setStep] = useState<1 | 2>(1);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const goStep = (s: 1 | 2) => {
+    setStep(s);
+    // Keep the top of the builder in view as the step swaps.
+    requestAnimationFrame(() => {
+      const top = rootRef.current?.getBoundingClientRect().top;
+      if (typeof top === 'number') window.scrollBy({ top: top - 88, behavior: 'smooth' });
+    });
+  };
+
   // Checkout
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -224,12 +238,12 @@ export const AutopilotBuilder: React.FC = () => {
   const waText = `Hi VANO! 👋 I'm setting up house autopilot (${selected.join(', ') || 'no services yet'}) and have a question.`;
 
   return (
-    <div className="max-w-md lg:max-w-4xl mx-auto">
+    <div ref={rootRef} className="max-w-md lg:max-w-4xl mx-auto">
       <div className="rounded-3xl border border-border/60 bg-white shadow-sm overflow-hidden lg:grid lg:grid-cols-[1fr,340px]">
         {/* Left column — configure: pick mode, tick the jobs, set the dates */}
         <div className="lg:border-r lg:border-border/50">
-        {/* Mode toggle — the only decision above the ticks */}
-        <div className="p-1.5 m-4 mb-0 rounded-full bg-secondary/80 flex">
+        {/* Mode toggle — step 1 on mobile (the only decision above the ticks) */}
+        <div className={cn('p-1.5 m-4 mb-0 rounded-full bg-secondary/80', step === 1 ? 'flex' : 'hidden', 'lg:flex')}>
           {([['ongoing', '🏠 Ongoing'], ['away', "✈️ While I'm away"]] as [Mode, string][]).map(([m, label]) => (
             <button
               key={m}
@@ -252,17 +266,14 @@ export const AutopilotBuilder: React.FC = () => {
           ))}
         </div>
 
-        {/* Service ticks — a tight 2-up grid on mobile so the whole builder
-            fits ~one phone screen; the desktop column keeps its full-width
-            rows (lg:grid-cols-1 with gap ≈ the old space-y-2). */}
-        <div className="p-3 lg:p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-2">
+        {/* Service ticks — step 1 on mobile. Full rows so the visit time AND the
+            price both show; on desktop it's the same list in the left column. */}
+        <div className={cn('p-4 space-y-2', step === 1 ? 'block' : 'hidden', 'lg:block')}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-1">
             Tick what you want done
           </p>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
           {SERVICES.map((s) => {
             const on = selected.includes(s.key);
-            const priceStr = mode === 'ongoing' && billing === 'monthly' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`;
             return (
               <motion.button
                 key={s.key}
@@ -270,7 +281,7 @@ export const AutopilotBuilder: React.FC = () => {
                 onClick={() => toggle(s.key)}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
-                  'w-full flex items-center gap-2 lg:gap-3 rounded-2xl border px-3 py-2.5 lg:px-3.5 lg:py-3 text-left transition-[background-color,border-color,box-shadow] duration-150',
+                  'w-full flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[background-color,border-color,box-shadow] duration-150',
                   on ? 'border-sage bg-sage-light shadow-sm' : 'border-border/60 bg-white hover:border-foreground/25 hover:shadow-sm',
                 )}
               >
@@ -294,29 +305,47 @@ export const AutopilotBuilder: React.FC = () => {
                 </span>
                 <span className="text-lg flex-shrink-0" aria-hidden="true">{s.emoji}</span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-[13px] lg:text-sm font-semibold text-foreground leading-tight">{s.label}</span>
-                  {/* Desktop keeps the time detail beneath the label; mobile shows
-                      the price here instead (the right-hand price is desktop-only),
-                      so the compact tile still tells you what it costs. */}
-                  <span className="hidden lg:flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <span className="block text-sm font-semibold text-foreground">{s.label}</span>
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                     <Clock size={11} className="flex-shrink-0" aria-hidden="true" />
                     {s.mins} min · weekly
                   </span>
-                  <span className={cn('lg:hidden block text-[11px] font-bold tabular-nums mt-0.5', on ? 'text-foreground' : 'text-foreground/40')}>
-                    {priceStr}
-                  </span>
                 </span>
-                <span className={cn('hidden lg:block text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
-                  {priceStr}
+                <span className={cn('text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
+                  {mode === 'ongoing' && billing === 'monthly' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`}
                 </span>
               </motion.button>
             );
           })}
-          </div>
         </div>
 
-        {/* Dates */}
-        <div className="px-4 pb-4">
+        {/* Mobile only: advance to the "when & how" step. */}
+        <div className={cn('px-4 pb-4', step === 1 ? 'block' : 'hidden', 'lg:hidden')}>
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { if (selected.length) { haptic(8); goStep(2); } }}
+            disabled={selected.length === 0}
+            className="w-full h-12 rounded-full bg-foreground text-background text-sm font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 transition-opacity"
+          >
+            Next: when &amp; how →
+          </motion.button>
+          {selected.length === 0 && (
+            <p className="text-center text-[11px] text-muted-foreground mt-2">Pick at least one job to continue</p>
+          )}
+        </div>
+
+        {/* Mobile only: back to the services step. */}
+        <button
+          type="button"
+          onClick={() => goStep(1)}
+          className={cn('px-4 pt-4 pb-1 items-center gap-1 text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors', step === 2 ? 'flex' : 'hidden', 'lg:hidden')}
+        >
+          ← Back to services
+        </button>
+
+        {/* Dates — step 2 on mobile */}
+        <div className={cn('px-4 pb-4', step === 2 ? 'block' : 'hidden', 'lg:block')}>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-2">
             {mode === 'ongoing' ? 'First visit' : 'From → until'}
           </p>
@@ -350,7 +379,7 @@ export const AutopilotBuilder: React.FC = () => {
             own box on their property, the student just gets a code for the trip,
             so Vano never takes custody of a key. */}
         {mode === 'away' && (
-          <div className="px-4 pb-4">
+          <div className={cn('px-4 pb-4', step === 2 ? 'block' : 'hidden', 'lg:block')}>
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-2">
               How we get in
             </p>
@@ -426,9 +455,9 @@ export const AutopilotBuilder: React.FC = () => {
 
         </div>
 
-        {/* Right column — running total + CTA. Checkout itself slides up in a
-            sheet (below), so this panel stays calm and the price always shows. */}
-        <div className="border-t lg:border-t-0 border-border/50 bg-secondary/30 p-4 lg:p-5 lg:flex lg:flex-col lg:justify-center">
+        {/* Right column — running total + CTA. Step 2 on mobile; always shown on
+            desktop. Checkout itself slides up in a sheet (below). */}
+        <div className={cn('border-t lg:border-t-0 border-border/50 bg-secondary/30 p-4 lg:p-5', step === 2 ? 'block' : 'hidden', 'lg:flex lg:flex-col lg:justify-center')}>
           {/* Cadence — weekly is the no-commitment way in, monthly wears the
               live "save €X" badge so committing earns something visible */}
           {mode === 'ongoing' && (
