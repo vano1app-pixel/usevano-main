@@ -29,7 +29,7 @@ export const HomePlans: React.FC = () => {
   }, []);
 
   return (
-    <section id="plans" className="relative bg-navy px-4 py-20 lg:py-28 scroll-mt-20">
+    <section id="plans" className="relative bg-navy px-4 py-14 lg:py-28 scroll-mt-20">
       {/* Soft seams — the navy band melts in and out of the cream sections
           above and below it, instead of a hard colour cut. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-cream to-transparent" aria-hidden="true" />

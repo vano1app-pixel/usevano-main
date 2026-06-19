@@ -252,13 +252,17 @@ export const AutopilotBuilder: React.FC = () => {
           ))}
         </div>
 
-        {/* Service ticks */}
-        <div className="p-4 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-1">
+        {/* Service ticks — a tight 2-up grid on mobile so the whole builder
+            fits ~one phone screen; the desktop column keeps its full-width
+            rows (lg:grid-cols-1 with gap ≈ the old space-y-2). */}
+        <div className="p-3 lg:p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 px-1 pb-2">
             Tick what you want done
           </p>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
           {SERVICES.map((s) => {
             const on = selected.includes(s.key);
+            const priceStr = mode === 'ongoing' && billing === 'monthly' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`;
             return (
               <motion.button
                 key={s.key}
@@ -266,7 +270,7 @@ export const AutopilotBuilder: React.FC = () => {
                 onClick={() => toggle(s.key)}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
-                  'w-full flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[background-color,border-color,box-shadow] duration-150',
+                  'w-full flex items-center gap-2 lg:gap-3 rounded-2xl border px-3 py-2.5 lg:px-3.5 lg:py-3 text-left transition-[background-color,border-color,box-shadow] duration-150',
                   on ? 'border-sage bg-sage-light shadow-sm' : 'border-border/60 bg-white hover:border-foreground/25 hover:shadow-sm',
                 )}
               >
@@ -290,18 +294,25 @@ export const AutopilotBuilder: React.FC = () => {
                 </span>
                 <span className="text-lg flex-shrink-0" aria-hidden="true">{s.emoji}</span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-semibold text-foreground">{s.label}</span>
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <span className="block text-[13px] lg:text-sm font-semibold text-foreground leading-tight">{s.label}</span>
+                  {/* Desktop keeps the time detail beneath the label; mobile shows
+                      the price here instead (the right-hand price is desktop-only),
+                      so the compact tile still tells you what it costs. */}
+                  <span className="hidden lg:flex items-center gap-1 text-[11px] text-muted-foreground">
                     <Clock size={11} className="flex-shrink-0" aria-hidden="true" />
                     {s.mins} min · weekly
                   </span>
+                  <span className={cn('lg:hidden block text-[11px] font-bold tabular-nums mt-0.5', on ? 'text-foreground' : 'text-foreground/40')}>
+                    {priceStr}
+                  </span>
                 </span>
-                <span className={cn('text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
-                  {mode === 'ongoing' && billing === 'monthly' ? `${euro(s.monthlyCents)}/mo` : `${euro(s.weeklyCents)}/wk`}
+                <span className={cn('hidden lg:block text-sm font-bold tabular-nums flex-shrink-0', on ? 'text-foreground' : 'text-foreground/40')}>
+                  {priceStr}
                 </span>
               </motion.button>
             );
           })}
+          </div>
         </div>
 
         {/* Dates */}
