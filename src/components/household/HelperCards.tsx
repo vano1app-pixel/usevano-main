@@ -130,7 +130,7 @@ export const HelperCards: React.FC = () => {
   }, []);
 
   return (
-    <section className="pt-20 pb-16 lg:py-20 min-h-[100svh] lg:flex lg:flex-col lg:justify-center">
+    <section className="py-16 lg:py-20 lg:min-h-screen lg:flex lg:flex-col lg:justify-center">
       <div className="px-4 max-w-5xl mx-auto mb-6">
         <p className="eyebrow mb-3">Meet the helpers</p>
         <h2 className="display-lg text-foreground">
