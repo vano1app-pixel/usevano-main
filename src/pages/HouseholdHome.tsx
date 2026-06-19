@@ -74,7 +74,7 @@ const HouseholdHome: React.FC = () => {
         <Reveal><FindBookingBar /></Reveal>
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <Reveal>
-          <section className="px-4 pb-16 lg:pb-20 bg-background">
+          <section className="px-4 pb-20 bg-background">
             <div className="max-w-lg mx-auto">
               <ReferralShareCard />
             </div>
