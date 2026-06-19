@@ -58,19 +58,9 @@ export const HomePlans: React.FC = () => {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
           <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">House autopilot</p>
-          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
+          <h2 className="text-3xl lg:text-4xl font-bold text-white" style={{ letterSpacing: '-0.02em' }}>
             Put your house on autopilot
           </h2>
-          <ul className="flex flex-wrap justify-center gap-2.5">
-            {['Set & forget', 'One trusted student', 'Weekly or while away'].map((chip) => (
-              <li
-                key={chip}
-                className="inline-flex items-center rounded-full bg-white/10 border border-white/15 px-4 py-2.5 text-sm font-semibold text-white"
-              >
-                {chip}
-              </li>
-            ))}
-          </ul>
         </motion.div>
 
         {/* Airbnb-style builder — tick services, pick dates, live price */}
