@@ -1,25 +1,16 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, CheckCircle2 } from 'lucide-react';
-import { teamWhatsAppHref } from '@/lib/contact';
+import { CheckCircle2 } from 'lucide-react';
 import { AutopilotBuilder } from '@/components/household/AutopilotBuilder';
 import { CustomJobBuilder } from '@/components/household/CustomJobBuilder';
 
 /**
- * House Autopilot + "name any job" + gifting. The Autopilot builder opens a
- * Stripe subscription (create-autopilot-checkout); the custom builder books a
- * one-off via create-household-payment-checkout. Gift vouchers stay a WhatsApp
- * conversation. (The old self-serve monthly plans / create-plan-checkout were
- * retired — superseded by Autopilot, which prices every visit above min wage.)
+ * House Autopilot + "name any job". The Autopilot builder opens a Stripe
+ * subscription (create-autopilot-checkout); the custom builder books a one-off
+ * via create-household-payment-checkout. (The old self-serve monthly plans /
+ * create-plan-checkout were retired — superseded by Autopilot, which prices
+ * every visit above min wage.)
  */
-
-const GIFT_AMOUNTS = ['€25', '€50', '€100'];
-
-function giftWaHref(amount: string): string {
-  const text =
-    `Hi VANO! 🎁 I'd like to gift a VANO voucher (${amount}) to someone — how does it work?`;
-  return `${teamWhatsAppHref}?text=${encodeURIComponent(text)}`;
-}
 
 export const HomePlans: React.FC = () => {
   // Stripe redirects back with ?plan=success after a completed subscription
@@ -74,27 +65,6 @@ export const HomePlans: React.FC = () => {
             comparison. Books through the one create-household-payment-checkout
             flow, same as the quick sheet. */}
         <CustomJobBuilder />
-
-        {/* Gift VANO — one slim row */}
-        <div className="mt-3 rounded-2xl border border-gold/25 bg-gold/[0.07] px-5 py-3.5 flex flex-wrap items-center gap-x-4 gap-y-3">
-          <p className="flex items-center gap-2.5 flex-1 min-w-[200px] text-sm text-white/70">
-            <Gift className="w-4 h-4 text-gold flex-shrink-0" aria-hidden="true" />
-            <span><span className="font-bold text-white">Gift a helping hand</span> — we arrange it, they just open the door</span>
-          </p>
-          <div className="flex gap-2 flex-shrink-0">
-            {GIFT_AMOUNTS.map(amount => (
-              <a
-                key={amount}
-                href={giftWaHref(amount)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3.5 py-1.5 rounded-full border border-gold/40 bg-white/5 text-xs font-semibold text-white hover:bg-gold/15 active:scale-[0.96] transition-[background-color,transform] duration-150"
-              >
-                {amount}
-              </a>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );

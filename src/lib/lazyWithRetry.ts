@@ -41,9 +41,16 @@ export function isChunkLoadError(err: unknown): boolean {
   return (
     // Chrome / Edge / Node module loader
     m.includes('failed to fetch dynamically imported module') ||
+    m.includes('error loading dynamically imported module') ||
     // Safari
     m.includes('importing a module script failed') ||
+    m.includes('module script failed') ||
     m.includes('unable to load script') ||
+    // iOS in-app browsers / WKWebView (Instagram, ChatGPT, Google app, etc.)
+    // reject a 404'd dynamic import with a bare "TypeError: Load failed" —
+    // the single most common stale-chunk shape on mobile, and the one that
+    // was slipping through to the generic crash card after a deploy.
+    m.includes('load failed') ||
     // Firefox during preload
     m.includes('unable to preload css') ||
     // Webpack-style error (unused with Vite but cheap to keep)
