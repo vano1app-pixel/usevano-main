@@ -341,18 +341,16 @@
   }
 }
 
-/* ── Section snapping — household home only (toggled via .snap-home on <html>).
-   Desktop + mouse/trackpad only. The opening three sections (hero → how it
-   works → helpers) each fill the screen and gently snap into place. PROXIMITY,
-   not mandatory, and no snap-stop: normal scroll/swipe always flows freely —
-   the snap only assists when you come to rest near a section edge — and the
-   hero's scroll button still walks one section at a time. Everything below
-   (the tall Autopilot band, the FAQ) is left as plain scroll. */
-@media (min-width: 1024px) and (pointer: fine) {
-  html.snap-home {
-    scroll-snap-type: y proximity;
-  }
-  html.snap-home [data-snap] {
-    scroll-snap-align: start;
-  }
+/* ── Section snapping — household home only (toggled via .snap-home on <html>),
+   on every screen size now. PROXIMITY with no snap-stop, so normal scroll/swipe
+   always flows freely — the snap only assists when you come to rest near a
+   section edge — and each cue (ScrollCue) still walks one section at a time.
+   The opening three sections fill the viewport (min-h-[100svh], so the mobile
+   address bar never clips them); the tall Autopilot band and the FAQ are left
+   as plain scroll. */
+html.snap-home {
+  scroll-snap-type: y proximity;
+}
+html.snap-home [data-snap] {
+  scroll-snap-align: start;
 }
