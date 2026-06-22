@@ -227,7 +227,10 @@ serve(async (req) => {
       const origin = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
       const params: Record<string, string> = {
         mode: 'payment',
-        success_url: `${origin}/verify-helper?id=${helperId}&paid=1`,
+        // Return to /join (a route that exists on every deploy) with paid=1;
+        // the join page forwards to /verify-helper. This avoids a 404 if the
+        // verification frontend hasn't shipped yet.
+        success_url: `${origin}/join?paid=1&id=${helperId}`,
         cancel_url: `${origin}/join`,
         'payment_method_types[0]': 'card',
         'line_items[0][price_data][currency]': 'eur',

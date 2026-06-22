@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Camera, Loader2, CheckCircle, ArrowLeft, ArrowRight, ShieldCheck, GraduationCap, BadgeCheck, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -142,6 +142,17 @@ export const JoinAsHelper: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
   const welcomeBack = params.get('welcome') === '1';
   const welcomeName = params.get('name') ?? '';
+
+  // After the €2 checkout, Stripe returns to /join?paid=1 (a route that exists
+  // on every deploy, so it never 404s); forward to the verification page.
+  useEffect(() => {
+    if (params.get('paid') !== '1') return;
+    const id = params.get('id') || (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_helper_id') : null);
+    const q = new URLSearchParams({ paid: '1' });
+    if (id) q.set('id', id);
+    window.location.replace(`/verify-helper?${q.toString()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Wizard
   const [step, setStep] = useState(0);
