@@ -74,12 +74,18 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Set when we change `query` ourselves (picked a suggestion / geolocation) so
+  // the autocomplete effect below skips that one change — otherwise it would
+  // re-search the just-committed address and pop the dropdown open again with
+  // the same address as a duplicate suggestion. Cleared on real keystrokes.
+  const skipNextSearch = useRef(false);
 
   // Sync external value changes (e.g. cleared form)
   useEffect(() => { setQuery(value); }, [value]);
 
-  // Autocomplete — debounced, Ireland only
+  // Autocomplete — debounced, Ireland only. Runs on user typing only.
   useEffect(() => {
+    if (skipNextSearch.current) { skipNextSearch.current = false; return; }
     if (query.length < 3) { setSuggestions([]); setOpen(false); return; }
     setSearching(true);
     const timer = setTimeout(async () => {
@@ -110,6 +116,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
 
   function selectSuggestion(s: NominatimResult) {
     const formatted = formatNominatimAddress(s);
+    skipNextSearch.current = true;
     setQuery(formatted);
     setSuggestions([]);
     setOpen(false);
@@ -135,6 +142,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
       );
       const result: NominatimResult = await res.json();
       const formatted = formatNominatimAddress(result);
+      skipNextSearch.current = true;
       setQuery(formatted);
       setSuggestions([]);
       setOpen(false);
@@ -177,7 +185,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         <input
           type="text"
           value={query}
-          onChange={(e) => { setQuery(e.target.value); onTextChange?.(e.target.value); }}
+          onChange={(e) => { skipNextSearch.current = false; setQuery(e.target.value); onTextChange?.(e.target.value); }}
           onBlur={onBlur}
           onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
           placeholder={placeholder}
