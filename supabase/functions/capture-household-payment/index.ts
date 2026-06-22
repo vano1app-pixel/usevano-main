@@ -43,26 +43,23 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) return bad(401, 'Unauthorized');
 
-    // Internal completion: the household "mark done" path and the timed-job
-    // cron sweep complete jobs server-side and can't present a helper JWT.
-    // Trust it only when the bearer IS the service-role key and it flags
-    // itself; the assigned helper is then read from the booking row.
+    // Completion + payout is INTERNAL ONLY. A helper must NEVER be able to
+    // complete their own job and release their own payout, so the only accepted
+    // caller is the trusted internal path: the customer's "mark done"
+    // (complete-household-job), the admin path (admin-complete-household-job)
+    // and the timed-job sweep all confirm completion server-side and re-enter
+    // here with the service-role key + the x-internal-complete flag. The
+    // assigned helper is read from the booking row. Any other caller (e.g. a
+    // helper presenting their own JWT) is refused — completion is the
+    // customer's call, not the helper's.
     const isInternal = req.headers.get('x-internal-complete') === '1' &&
       authHeader === `Bearer ${serviceKey}`;
-
-    let authedUserId: string | null = null;
-    if (!isInternal) {
-      const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-      const { data: { user }, error: userErr } = await authClient.auth.getUser();
-      if (userErr || !user) return bad(401, 'Unauthorized');
-      authedUserId = user.id;
-    }
+    if (!isInternal) return bad(403, 'Completion is confirmed by the customer, not the helper.');
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
@@ -76,9 +73,7 @@ serve(async (req) => {
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
-    // User path: the caller must be the assigned helper. Internal path: the
-    // helper is whoever the booking is assigned to.
-    if (!isInternal && booking.student_id !== authedUserId) return bad(403, 'Not the assigned student');
+    // The helper to be paid is whoever the booking is assigned to.
     if (!booking.student_id) return bad(409, 'No helper assigned to this job');
     if (!['accepted','on_way','arrived','in_progress'].includes(booking.status)) return bad(409, `Cannot complete in status: ${booking.status}`);
     // Pay-before-payout guard: helpers accept jobs before the customer pays
