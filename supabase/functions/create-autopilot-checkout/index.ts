@@ -25,6 +25,14 @@ const CORS = {
 
 // Single source of truth for autopilot pricing. The client mirrors these
 // for display; anything else sent from the browser is ignored.
+//
+// PRICE GRANDFATHERING: each subscription is created from an inline price_data
+// snapshot (see the subscription params below), so a member keeps the exact
+// price they signed up at for the life of their subscription. Editing a number
+// here only affects NEW sign-ups — never migrate an existing subscriber to a
+// new price (there is deliberately no subscriptions.update / subscription_items
+// re-pricing anywhere) or you'd break that promise.
+//
 // Weekly prices sit ~10% above monthly pro-rata (monthly × 12 ÷ 52) so the
 // monthly tier genuinely "saves ~10%" — flexibility costs a little, the
 // commitment earns the discount. Weekly also prices away-cover weeks.
