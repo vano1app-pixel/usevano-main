@@ -10,21 +10,23 @@ interface TickerItem {
 }
 
 const EMOJI: Record<string, string> = {
-  shopping:   '🛒',
+  shopping:   '🧺', // legacy slug — the bookable service is Laundry
   'dog-walk': '🐕',
   garden:     '🌿',
   moving:     '📦',
   cleaning:   '🧹',
   tutoring:   '📚',
+  custom:     '🧰',
 };
 
 const SERVICE_LABEL: Record<string, string> = {
-  shopping:   'Shopping',
+  shopping:   'Laundry', // legacy slug — the bookable service is Laundry
   'dog-walk': 'Dog walk',
   garden:     'Garden',
   moving:     'Moving help',
   cleaning:   'Cleaning',
   tutoring:   'Tutoring',
+  custom:     'Custom job',
 };
 
 // Seeds use non-round offsets so they don't feel generated.
@@ -35,7 +37,7 @@ const SEEDS: TickerItem[] = [
   { emoji: '🐕', service: 'Dog walk',    area: 'Knocknacarra',  baseMinsAgo: 19,  fetchedAt: NOW },
   { emoji: '🌿', service: 'Garden',      area: 'Renmore',       baseMinsAgo: 38,  fetchedAt: NOW },
   { emoji: '📦', service: 'Moving help', area: "Taylor's Hill", baseMinsAgo: 67,  fetchedAt: NOW },
-  { emoji: '🛒', service: 'Shopping',    area: 'Shantalla',     baseMinsAgo: 94,  fetchedAt: NOW },
+  { emoji: '🧺', service: 'Laundry',     area: 'Shantalla',     baseMinsAgo: 94,  fetchedAt: NOW },
   { emoji: '📚', service: 'Tutoring',    area: 'Westside',      baseMinsAgo: 121, fetchedAt: NOW },
   { emoji: '🧹', service: 'Cleaning',    area: 'Rahoon',        baseMinsAgo: 148, fetchedAt: NOW },
   { emoji: '🐕', service: 'Dog walk',    area: 'Salthill',      baseMinsAgo: 173, fetchedAt: NOW },

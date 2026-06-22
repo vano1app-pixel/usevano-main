@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet, MessageCircle, Phone } from 'lucide-react';
+import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, Shirt, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet, MessageCircle, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -15,7 +15,7 @@ import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
 const PROFILE_CATEGORIES = [
-  { id: 'shopping',  label: 'Shopping'  },
+  { id: 'shopping',  label: 'Laundry'   },
   { id: 'dog-walk',  label: 'Dog walk'  },
   { id: 'garden',    label: 'Garden'    },
   { id: 'moving',    label: 'Moving'    },
@@ -76,7 +76,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  shopping:  <ShoppingCart size={13} />,
+  shopping:  <Shirt size={13} />,
   'dog-walk': <PawPrint size={13} />,
   garden:    <Leaf size={13} />,
   moving:    <Package size={13} />,

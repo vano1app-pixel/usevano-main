@@ -54,8 +54,9 @@ interface Payout {
 }
 
 const CAT_LABELS: Record<string, string> = {
-  shopping: 'Shopping', 'dog-walk': 'Dog Walk', garden: 'Garden',
-  moving: 'Moving', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'Other',
+  shopping: 'Laundry', 'dog-walk': 'Dog Walk', garden: 'Garden',
+  moving: 'Moving', cleaning: 'Cleaning', tutoring: 'Tutoring',
+  custom: 'Custom', other: 'Other',
 };
 
 const STATUS_COLOURS: Record<string, string> = {
@@ -134,7 +135,6 @@ export default function HouseholdAdmin() {
       }
       await loadAll();
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const handleRefund = async (bookingId: string) => {

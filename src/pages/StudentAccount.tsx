@@ -16,7 +16,7 @@ import logo from '@/assets/logo.png';
 const hdb = supabase as any;
 
 const CATEGORIES = [
-  { id: 'shopping',  label: 'Shopping'   },
+  { id: 'shopping',  label: 'Laundry'    },
   { id: 'dog-walk',  label: 'Dog walk'   },
   { id: 'garden',    label: 'Garden'     },
   { id: 'moving',    label: 'Moving'     },
