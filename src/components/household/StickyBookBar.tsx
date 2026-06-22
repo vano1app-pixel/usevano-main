@@ -3,9 +3,18 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useHelperCount } from '@/hooks/useHelperCount';
 
-function scrollToGrid(): void {
-  const el = document.getElementById('category-grid');
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+// "Book now" drops the visitor straight into the free-text "name your job" box
+// with the cursor already in it — focus is fired inside the click gesture so the
+// mobile keyboard opens right away (the whole point: encourage typing). Falls
+// back to the category grid if the typer isn't on the page.
+function openCustomTyper(): void {
+  const el = document.getElementById('custom-job-input') as HTMLTextAreaElement | null;
+  if (!el) {
+    document.getElementById('category-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  el.focus({ preventScroll: true });
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 /* Mobile-only fixed bar. On md+ the CategoryGrid is always in view so this
@@ -42,7 +51,7 @@ export const StickyBookBar: React.FC = () => {
           <p className="font-semibold text-foreground text-sm">Book vetted help today</p>
         </div>
         <Button
-          onClick={scrollToGrid}
+          onClick={openCustomTyper}
           className="rounded-full px-7 font-semibold flex-shrink-0 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
           size="default"
         >

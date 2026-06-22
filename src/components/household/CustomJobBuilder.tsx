@@ -139,12 +139,13 @@ export const CustomJobBuilder: React.FC = () => {
       <form onSubmit={handleBook} className="space-y-3">
         {/* The box — type the job; the price drops in right underneath */}
         <textarea
+          id="custom-job-input"
           value={jobText}
           onChange={(e) => { setJobText(e.target.value); setSelectedKey(null); if (error) setError(null); }}
           placeholder="Describe your job — e.g. paint my spare bedroom"
           rows={2}
           maxLength={400}
-          className="w-full rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent resize-none"
+          className="w-full scroll-mt-28 rounded-xl border border-border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent resize-none"
         />
 
         {/* Live VANO-vs-market comparison, right under the box — the value
