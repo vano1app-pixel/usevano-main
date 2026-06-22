@@ -46,16 +46,20 @@ export const CustomJobBuilder: React.FC = () => {
   const [phoneError, setPhoneError] = useState(false);
   const [addressError, setAddressError] = useState(false);
 
-  // Instant keyword read names the job; the AI refines it below.
+  // Instant keyword read names the job; the AI refines it below. We only quote
+  // once the job is actually recognised — anything unrecognised (or gibberish)
+  // lands on the 'other' catch-all, and we deliberately show NO price for it
+  // rather than a misleading "Something else" number. `activeJob` still falls
+  // back to the catch-all so booking + safe property access keep working.
   const textMatch = matchCustomJob(jobText);
   const activeJob = selectedKey ? customJobByKey(selectedKey) : (textMatch ?? customJobByKey('other'));
+  const recognised = activeJob.key !== 'other';
   const hours = Number(size.match(/^\d+/)?.[0]) || 0;
 
   const vanoCents = getHouseholdPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
   const marketCents = activeJob.marketHourlyCents * hours;
   const saveCents = Math.max(0, marketCents - vanoCents);
   const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
-  const hasJob = jobText.trim().length >= 2;
 
   // Debounced AI read that auto-applies a confident result, so the right job +
   // duration (and therefore the price) just appear as they type. Fail-soft: any
@@ -149,9 +153,11 @@ export const CustomJobBuilder: React.FC = () => {
         />
 
         {/* Live VANO-vs-market comparison, right under the box — the value
-            people love. Kept compact: job + duration on top, the two prices
-            side by side, and the saving spelled out underneath. */}
-        {hasJob && (
+            people love. Only renders once we actually recognise the job; an
+            unrecognised / gibberish entry shows nothing here rather than a
+            misleading "Something else" price. Kept compact: job + duration on
+            top, the two prices side by side, the saving spelled out underneath. */}
+        {recognised && (
           <div className="rounded-xl border border-sage/30 bg-sage-light/50 p-3">
             <div className="flex items-center justify-between gap-2 mb-2">
               <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground min-w-0">
@@ -237,7 +243,7 @@ export const CustomJobBuilder: React.FC = () => {
         >
           {loading
             ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-            : <><Zap className="w-4 h-4" />Book{hasJob ? ` · ${fmt(vanoCents)}` : ' this job'}</>}
+            : <><Zap className="w-4 h-4" />Book{recognised ? ` · ${fmt(vanoCents)}` : ' this job'}</>}
         </Button>
 
         {error && <p className="text-center text-xs text-destructive">{error}</p>}

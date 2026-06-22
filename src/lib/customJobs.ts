@@ -13,9 +13,11 @@
 //
 // The catalogue is deliberately HUGE (140+ everyday jobs across a dozen
 // groups) so that, whatever a customer types, it lands on a real category with
-// a real price instead of the generic "Something else". The recogniser also
-// forgives single typos ("tutuor" → tutoring, "painnt" → painting), so a slip
-// of the finger never drops someone back to the catch-all.
+// a real price. The recogniser also forgives single typos ("tutuor" →
+// tutoring, "painnt" → painting), so a slip of the finger never drops someone
+// back to the catch-all. When nothing genuinely matches it returns null, and
+// the custom builder shows no price at all (rather than a misleading
+// "Something else" quote) until the job is recognised.
 //
 // Pricing is ALWAYS time-based at VANO_HOURLY_CENTS server-side, so whatever
 // the job, it can never be quoted under minimum wage.
@@ -44,7 +46,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
   { key: 'painting',   emoji: '🎨', label: 'Painting & decorating', group: 'Home & repairs', typicalHours: 3, marketHourlyCents: 3000, popular: true,
     keywords: ['paint', 'painting', 'decorat', 'emulsion', 'primer', 'wall', 'ceiling', 'skirting', 'gloss', 'undercoat'], example: 'paint my spare bedroom' },
   { key: 'assembly',   emoji: '🔧', label: 'Flat-pack & assembly', group: 'Home & repairs', typicalHours: 2, marketHourlyCents: 3500, popular: true,
-    keywords: ['flat pack', 'flatpack', 'flat-pack', 'ikea', 'assemble', 'assembly', 'wardrobe', 'bed frame', 'drawers', 'desk', 'build furniture'], example: 'build a wardrobe and a bed' },
+    keywords: ['flat pack', 'flatpack', 'flat-pack', 'ikea', 'assemble', 'assembly', 'wardrobe', 'bed frame', 'drawers', 'desk', 'build furniture', 'trampoline', 'bunk bed', 'bookcase'], example: 'build a wardrobe and a bed' },
   { key: 'mounting',   emoji: '🖼️', label: 'Mounting & hanging', group: 'Home & repairs', typicalHours: 1, marketHourlyCents: 3500, popular: true,
     keywords: ['mount', 'hang', 'shelf', 'shelves', 'bracket', 'mirror', 'picture', 'curtain', 'blind', 'tv on wall', 'coat hook', 'pictures'], example: 'hang shelves and a mirror' },
   { key: 'oddjobs',    emoji: '🛠️', label: 'Odd jobs / handyman', group: 'Home & repairs', typicalHours: 2, marketHourlyCents: 3500, popular: true,
@@ -85,6 +87,8 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['garage door', 'up and over', 'garage door spring', 'roller door'], example: 'a garage door that sticks' },
   { key: 'catflap',    emoji: '🐈', label: 'Cat flap & pet door', group: 'Home & repairs', typicalHours: 1, marketHourlyCents: 3000,
     keywords: ['cat flap', 'catflap', 'pet door', 'dog door', 'fit a flap'], example: 'fit a cat flap in the door' },
+  { key: 'bikerepair', emoji: '🚲', label: 'Bike repair & assembly', group: 'Home & repairs', typicalHours: 1, marketHourlyCents: 3000,
+    keywords: ['bike', 'bicycle', 'puncture', 'bike repair', 'fix my bike', 'bike service', 'tune my bike', 'bike build', 'assemble a bike'], example: 'fix a puncture and check the brakes' },
 
   // ── Cleaning ───────────────────────────────────────────────────────────
   { key: 'deepclean',  emoji: '🧽', label: 'Deep clean', group: 'Cleaning', typicalHours: 3, marketHourlyCents: 2500, popular: true,
@@ -138,7 +142,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
   { key: 'planting',   emoji: '🌸', label: 'Planting & beds', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2800,
     keywords: ['plant flowers', 'flowers', 'bedding plant', 'flower bed', 'bulbs', 'pots', 'hanging basket', 'window box', 'sow seeds', 'potting'], example: 'plant up some flower beds' },
   { key: 'treework',   emoji: '🌳', label: 'Tree & branch work', group: 'Garden & outdoor', typicalHours: 3, marketHourlyCents: 3500,
-    keywords: ['tree', 'branch', 'branches', 'tree cutting', 'fallen tree', 'limb', 'log up', 'firewood'], example: 'cut back some overhanging branches' },
+    keywords: ['tree', 'branch', 'branches', 'tree cutting', 'fallen tree', 'limb', 'log up', 'firewood', 'stump', 'tree surgery'], example: 'cut back some overhanging branches' },
   { key: 'leafclear',  emoji: '🍁', label: 'Leaf clearing & raking', group: 'Garden & outdoor', typicalHours: 2, marketHourlyCents: 2600,
     keywords: ['leaf', 'leaves', 'autumn leaves', 'raking', 'rake', 'sweep leaves'], example: 'rake up all the autumn leaves' },
   { key: 'snow',       emoji: '❄️', label: 'Snow & ice clearing', group: 'Garden & outdoor', typicalHours: 1, marketHourlyCents: 2500,
@@ -162,13 +166,13 @@ export const CUSTOM_JOBS: CustomJob[] = [
 
   // ── Moving & lifting ───────────────────────────────────────────────────
   { key: 'vanhelp',    emoji: '📦', label: 'Loading / van help', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2800, popular: true,
-    keywords: ['move', 'moving', 'load', 'van', 'lift', 'lifting', 'boxes', 'carry', 'man with a van'], example: 'help load a van' },
+    keywords: ['move', 'moving', 'load', 'van', 'lift', 'lifting', 'boxes', 'carry', 'man with a van', 'man and van', 'removals'], example: 'help load a van' },
   { key: 'housemove',  emoji: '🏠', label: 'House move help', group: 'Moving & lifting', typicalHours: 4, marketHourlyCents: 2800,
     keywords: ['house move', 'full move', 'relocate', 'moving house', 'flat move', 'house removal'], example: 'help moving to a new place' },
   { key: 'furniture',  emoji: '🛋️', label: 'Furniture shifting', group: 'Moving & lifting', typicalHours: 1, marketHourlyCents: 2800,
     keywords: ['furniture', 'sofa', 'shift', 'rearrange', 'wardrobe move', 'heavy'], example: 'shift a sofa upstairs' },
   { key: 'tiprun',     emoji: '🚛', label: 'Tip / dump run', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 3000,
-    keywords: ['dump', 'tip run', 'rubbish', 'junk', 'haul', 'disposal', 'skip', 'clear out'], example: 'take a load to the dump' },
+    keywords: ['dump', 'tip run', 'rubbish', 'junk', 'haul', 'disposal', 'skip', 'clear out', 'rubbish removal', 'junk removal', 'waste removal'], example: 'take a load to the dump' },
   { key: 'packing',    emoji: '🗃️', label: 'Packing & boxing', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2500,
     keywords: ['packing', 'pack', 'wrap', 'box up', 'bubble wrap', 'pack up'], example: 'pack up the kitchen' },
   { key: 'storage',    emoji: '🔐', label: 'Storage unit help', group: 'Moving & lifting', typicalHours: 2, marketHourlyCents: 2800,
@@ -227,6 +231,8 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['grocery', 'groceries', 'weekly shop', 'food shop', 'big shop', 'supermarket', 'aldi', 'lidl', 'tesco', 'dunnes'], example: 'do my weekly grocery shop' },
   { key: 'dryclean',   emoji: '👔', label: 'Dry-cleaning drop & collect', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
     keywords: ['dry cleaning', 'dry clean', 'dry cleaner', 'suit clean', 'alterations drop'], example: 'drop and collect the dry cleaning' },
+  { key: 'sewing',     emoji: '🧵', label: 'Sewing & alterations', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2500,
+    keywords: ['sewing', 'alteration', 'alterations', 'take up trousers', 'take in a dress', 'hemming', 'sew on a button', 'dressmaking', 'mend clothes', 'clothes repair', 'shorten curtains', 'shorten trousers'], example: 'hemming and a few alterations' },
   { key: 'returns',    emoji: '↩️', label: 'Parcel returns', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
     keywords: ['return parcel', 'drop returns', 'return to shop', 'send back', 'returns run', 'an post return'], example: 'drop off a few parcel returns' },
   { key: 'formfilling', emoji: '📝', label: 'Forms & paperwork help', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2500,
@@ -252,11 +258,11 @@ export const CUSTOM_JOBS: CustomJob[] = [
 
   // ── Care & family ──────────────────────────────────────────────────────
   { key: 'babysitting', emoji: '🍼', label: 'Babysitting & childminding', group: 'Care & family', typicalHours: 3, marketHourlyCents: 2200, popular: true,
-    keywords: ['babysit', 'babysitting', 'childmind', 'child minding', 'childminder', 'mind the kids', 'mind my kids', 'sitter', 'minder', 'watch the kids'], example: 'babysit two kids on Friday evening' },
+    keywords: ['babysit', 'babysitting', 'childmind', 'child minding', 'childminder', 'mind the kids', 'mind my kids', 'sitter', 'minder', 'watch the kids', 'nanny', 'au pair'], example: 'babysit two kids on Friday evening' },
   { key: 'companionship', emoji: '🫂', label: 'Companionship visit', group: 'Care & family', typicalHours: 2, marketHourlyCents: 2200,
     keywords: ['companion', 'companionship', 'company', 'chat', 'visit elderly', 'befriend', 'someone to talk', 'keep company'], example: 'a companionship visit for my nan' },
   { key: 'elderlyhelp', emoji: '👵', label: 'Help for an older person', group: 'Care & family', typicalHours: 2, marketHourlyCents: 2500,
-    keywords: ['elderly', 'senior', 'granny', 'grandad', 'grandmother', 'grandfather', 'help my mum', 'help my dad', 'older person', 'pensioner'], example: 'help my elderly mum around the house' },
+    keywords: ['elderly', 'senior', 'granny', 'grandad', 'grandmother', 'grandfather', 'help my mum', 'help my dad', 'older person', 'pensioner', 'home help', 'carer'], example: 'help my elderly mum around the house' },
   { key: 'schoolrun',  emoji: '🎒', label: 'School run & collection', group: 'Care & family', typicalHours: 1, marketHourlyCents: 2200,
     keywords: ['school', 'kids', 'school run', 'collect the kids', 'collect kids', 'pick up the kids', 'drop kids', 'pick up from school', 'school pickup', 'creche run', 'after school'], example: 'collect the kids from school' },
   { key: 'mealprep',   emoji: '🍲', label: 'Meal prep & cooking', group: 'Care & family', typicalHours: 2, marketHourlyCents: 2600,
@@ -268,7 +274,7 @@ export const CUSTOM_JOBS: CustomJob[] = [
 
   // ── Lessons & tutoring ─────────────────────────────────────────────────
   { key: 'tutoring',   emoji: '📓', label: 'Tutoring & grinds', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500, popular: true,
-    keywords: ['tutor', 'tutoring', 'tuition', 'grind', 'grinds', 'exam', 'leaving cert', 'junior cert', 'homework', 'study help', 'extra help'], example: 'grinds for my Leaving Cert son' },
+    keywords: ['tutor', 'tutoring', 'tuition', 'grind', 'grinds', 'exam', 'leaving cert', 'junior cert', 'homework', 'study help', 'extra help', 'study', 'after school help'], example: 'grinds for my Leaving Cert son' },
   { key: 'maths',      emoji: '➗', label: 'Maths tutoring', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500,
     keywords: ['maths', 'math', 'algebra', 'calculus', 'maths grind', 'trigonometry', 'fractions', 'project maths'], example: 'maths grinds once a week' },
   { key: 'englishtut', emoji: '✍️', label: 'English & essay tutoring', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500,

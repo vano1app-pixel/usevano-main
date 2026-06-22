@@ -71,6 +71,19 @@ describe('custom job recogniser — clear phrasings map to the right job', () =>
     ['feed the hens and clean the coop', 'chickens'],
     ['deliver flyers around the estate', 'flyering'],
     ['serving staff for a function', 'eventstaff'],
+    // Newly added categories + keyword synonyms — these now price instead of
+    // dropping to "Something else"
+    ['fix a puncture on my bike', 'bikerepair'],
+    ['assemble a bike', 'bikerepair'],
+    ['some alterations to a dress', 'sewing'],
+    ['sew on a button for me', 'sewing'],
+    ['man and van for a few boxes', 'vanhelp'],
+    ['book a junk removal', 'tiprun'],
+    ['put up a trampoline', 'assembly'],
+    ['cut down a tree stump', 'treework'],
+    ['a nanny for the evening', 'babysitting'],
+    ['home help for my nan', 'elderlyhelp'],
+    ['help me study for the mocks', 'tutoring'],
   ];
   for (const [phrase, key] of exact) {
     it(`"${phrase}" → ${key}`, () => {
