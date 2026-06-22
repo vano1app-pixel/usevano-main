@@ -36,6 +36,21 @@ serve(async (req) => {
     const tutorLevels   = JSON.parse((formData.get('tutor_levels')   as string | null) ?? '[]') as string[];
     const photo      = formData.get('photo') as File | null;
 
+    // Fields added by the redesigned multi-step join form. Structured ones the
+    // platform already reads (areas_served, availability) go to their columns;
+    // the rest are kept together in application_data (see the migration).
+    const dob          = (formData.get('dob')           as string | null)?.trim() || null;
+    const college      = (formData.get('college')       as string | null)?.trim() || null;
+    const course       = (formData.get('course')        as string | null)?.trim() || null;
+    const year         = (formData.get('year')          as string | null)?.trim() || null;
+    const transport    = (formData.get('transport')     as string | null)?.trim() || null;
+    const studentEmail = (formData.get('student_email') as string | null)?.trim().toLowerCase() || null;
+    const areas        = JSON.parse((formData.get('areas')        as string | null) ?? '[]') as string[];
+    const availability = JSON.parse((formData.get('availability') as string | null) ?? '[]') as string[];
+    const rightToWork   = (formData.get('right_to_work')  as string | null) === 'true';
+    const consentVerify = (formData.get('consent_verify') as string | null) === 'true';
+    const agreeTerms    = (formData.get('agree_terms')    as string | null) === 'true';
+
     if (!name || !email || !phone || !city || categories.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -111,6 +126,22 @@ serve(async (req) => {
       ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
         ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
         : {}),
+      ...(areas.length > 0 ? { areas_served: areas } : {}),
+      ...(availability.length > 0 ? { availability } : {}),
+      application_data: {
+        dob,
+        college,
+        course,
+        year,
+        transport,
+        student_email: studentEmail,
+        // Verification is not wired yet — these record the applicant's consent
+        // and what still needs checking (student email + Stripe Identity).
+        consents: { right_to_work: rightToWork, verify: consentVerify, terms: agreeTerms },
+        student_email_verified: false,
+        id_verified: false,
+        submitted_at: new Date().toISOString(),
+      },
     };
 
     const { error: saveError } = pendingExisting
@@ -137,6 +168,9 @@ serve(async (req) => {
           tutor_subjects: tutorSubjects,
           tutor_levels: tutorLevels,
           photo_url: publicUrl,
+          college,
+          student_email: studentEmail,
+          areas,
         }),
       }).catch(() => {/* non-critical */});
     }
