@@ -144,9 +144,11 @@ serve(async (req) => {
       },
     };
 
-    const { error: saveError } = pendingExisting
-      ? await supabase.from('household_helpers').update(helperFields).eq('id', pendingExisting.id)
-      : await supabase.from('household_helpers').insert({ user_id: null, ...helperFields });
+    const saved = pendingExisting
+      ? await supabase.from('household_helpers').update(helperFields).eq('id', pendingExisting.id).select('id').maybeSingle()
+      : await supabase.from('household_helpers').insert({ user_id: null, ...helperFields }).select('id').maybeSingle();
+    const saveError = saved.error;
+    const helperId = pendingExisting?.id ?? (saved.data as { id: string } | null)?.id ?? null;
 
     if (saveError) {
       console.error('[create-helper-application] save failed', saveError);
@@ -218,7 +220,7 @@ serve(async (req) => {
     // Joining is free — no payment step. The application is saved as
     // 'pending'; the helper goes live the moment an admin approves it.
     // (No checkout_url is returned, so the client shows the welcome state.)
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, helper_id: helperId }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
 

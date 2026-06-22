@@ -274,11 +274,21 @@ export const JoinAsHelper: React.FC = () => {
         body: fd,
       });
 
-      const json = await res.json() as { success?: boolean; error?: string; checkout_url?: string };
+      const json = await res.json() as { success?: boolean; error?: string; checkout_url?: string; helper_id?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? 'Unknown error');
 
       if (json.checkout_url) { window.location.href = json.checkout_url; return; }
-      window.location.href = `/join?welcome=1&name=${encodeURIComponent(name)}`;
+
+      // Hand off to the verification flow (confirm student email + ID check).
+      try {
+        if (json.helper_id) localStorage.setItem('vano_helper_id', json.helper_id);
+        localStorage.setItem('vano_helper_name', name.trim());
+        if (studentEmail.trim()) localStorage.setItem('vano_student_email', studentEmail.trim().toLowerCase());
+      } catch { /* localStorage may be unavailable — the query params still carry id + name */ }
+      const q = new URLSearchParams();
+      if (json.helper_id) q.set('id', json.helper_id);
+      if (name.trim()) q.set('name', name.trim());
+      window.location.href = `/verify-helper?${q.toString()}`;
       return;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

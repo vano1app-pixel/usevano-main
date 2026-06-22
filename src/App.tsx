@@ -20,6 +20,7 @@ const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"))
 const JobAccepted = lazyWithRetry(() => import("./pages/JobAccepted"));
 const StudentAccount = lazyWithRetry(() => import("./pages/StudentAccount"));
 const JoinAsHelper = lazyWithRetry(() => import("./pages/JoinAsHelper"));
+const VerifyHelper = lazyWithRetry(() => import("./pages/VerifyHelper"));
 const HelperProfile = lazyWithRetry(() => import("./pages/HelperProfile"));
 const HelperPublicProfile = lazyWithRetry(() => import("./pages/HelperPublicProfile"));
 const HouseholdAdmin = lazyWithRetry(() => import("./pages/HouseholdAdmin"));
@@ -103,6 +104,7 @@ const App = () => {
             <Route path="/accepted" element={<P><JobAccepted /></P>} />
             <Route path="/student-account" element={<P><StudentAccount /></P>} />
             <Route path="/join" element={<P><JoinAsHelper /></P>} />
+            <Route path="/verify-helper" element={<P><VerifyHelper /></P>} />
             <Route path="/helper/profile" element={<P><HelperProfile /></P>} />
             <Route path="/helpers/:id" element={<P><HelperPublicProfile /></P>} />
             <Route path="/household-admin" element={<P><HouseholdAdmin /></P>} />
