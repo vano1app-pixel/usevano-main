@@ -7,7 +7,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // (same scheme as stripe-webhook).
 //
 // Handles:
-//   identity.verification_session.verified        → id_verified = true
+//   identity.verification_session.verified        → id_verified = true, and the
+//                                                    helper's name (+ DOB) are
+//                                                    locked to the verified ID
 //   identity.verification_session.requires_input  → identity_status = 'requires_input'
 //   identity.verification_session.canceled        → identity_status = 'canceled'
 //
@@ -91,7 +93,44 @@ serve(async (req) => {
       : 'processing';
 
     const update: Record<string, unknown> = { identity_status: status };
-    if (status === 'verified') update.id_verified = true;
+    if (status === 'verified') {
+      update.id_verified = true;
+      // Lock the profile name to what's verified on the ID (and record the DOB).
+      // verified_outputs is redacted unless expanded, so retrieve the session.
+      try {
+        const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+        if (stripeKey && sessionId) {
+          const r = await fetch(
+            `https://api.stripe.com/v1/identity/verification_sessions/${sessionId}?expand[]=verified_outputs`,
+            { headers: { Authorization: `Bearer ${stripeKey}` } },
+          );
+          if (r.ok) {
+            const vs = await r.json() as {
+              verified_outputs?: {
+                name?: { first_name?: string; last_name?: string };
+                dob?: { day?: number; month?: number; year?: number };
+              };
+            };
+            const vo = vs.verified_outputs;
+            const fullName = [vo?.name?.first_name, vo?.name?.last_name]
+              .map((s) => (s ?? '').trim()).filter(Boolean).join(' ');
+            if (fullName) update.name = fullName;
+            const d = vo?.dob;
+            if (d?.year && d?.month && d?.day) {
+              const dob = `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
+              // Merge into application_data without clobbering the rest of it.
+              const { data: cur } = await supabase.from('household_helpers').select('application_data').eq('id', helperId).maybeSingle();
+              const appData = ((cur as { application_data?: Record<string, unknown> } | null)?.application_data) ?? {};
+              update.application_data = { ...appData, id_dob: dob };
+            }
+          } else {
+            console.error('[stripe-identity-webhook] verified_outputs retrieve failed', r.status);
+          }
+        }
+      } catch (e) {
+        console.error('[stripe-identity-webhook] verified_outputs error', e);
+      }
+    }
     const { error } = await supabase.from('household_helpers').update(update).eq('id', helperId);
     if (error) console.error('[stripe-identity-webhook] update failed', error);
 
