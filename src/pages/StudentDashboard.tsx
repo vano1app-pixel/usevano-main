@@ -130,6 +130,8 @@ const StudentDashboard = () => {
   const [helperCity, setHelperCity] = useState<string | null>(null);
   const [helperCategories, setHelperCategories] = useState<string[]>([]);
   const [togglingAvailable, setTogglingAvailable] = useState(false);
+  const [autopilotOptIn, setAutopilotOptIn] = useState<boolean | null>(null);
+  const [togglingAutopilot, setTogglingAutopilot] = useState(false);
   const [helperName, setHelperName] = useState<string | null>(null);
   const [helperPhoto, setHelperPhoto] = useState<string | null>(null);
   const [helperBio,   setHelperBio]   = useState<string | null>(null);
@@ -179,7 +181,7 @@ const StudentDashboard = () => {
       setUserId(uid);
 
       // Load helper profile first so we can filter jobs by city + categories
-      const HELPER_SELECT = 'id, name, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count';
+      const HELPER_SELECT = 'id, name, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in';
       let { data: helperRow } = await hdb
         .from('household_helpers')
         .select(HELPER_SELECT)
@@ -209,6 +211,7 @@ const StudentDashboard = () => {
         setHelperPhoto((helperRow.photo_url as string | null) ?? null);
         setHelperBio((helperRow.bio as string | null) ?? null);
         setHelperAvailability((helperRow.availability as string[] | null) ?? []);
+        setAutopilotOptIn((helperRow.autopilot_opt_in as boolean | null) ?? false);
         const avgRating = (helperRow.average_rating as number | null) ?? null;
         const ratingCount = (helperRow.rating_count as number) ?? 0;
         if (avgRating !== null && ratingCount > 0) {
@@ -222,6 +225,27 @@ const StudentDashboard = () => {
     void run();
     return () => { cancelled = true; };
   }, [navigate, loadData]);
+
+  // Autopilot claim result — accept-autopilot-plan redirects here with
+  // ?autopilot=claimed|mine|taken|expired|gone. Toast it once, then strip it
+  // so it doesn't re-fire on refresh.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const a = params.get('autopilot');
+    if (!a) return;
+    const messages: Record<string, { title: string; description?: string; variant?: 'destructive' }> = {
+      claimed: { title: "🎉 You're their regular now!", description: "We'll be in touch to schedule your first visit." },
+      mine:    { title: 'Already yours', description: 'You had already claimed this regular client.' },
+      taken:   { title: 'Just missed it', description: 'Another helper claimed this one first.', variant: 'destructive' },
+      expired: { title: 'That offer expired', description: 'The link is no longer valid.', variant: 'destructive' },
+      gone:    { title: 'No longer available', description: 'That plan is no longer active.', variant: 'destructive' },
+    };
+    const m = messages[a];
+    if (m) toast(m);
+    params.delete('autopilot');
+    const qs = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+  }, [toast]);
 
   const toggleAvailable = async () => {
     if (!helperId || helperAvailable === null || togglingAvailable) return;
@@ -239,6 +263,26 @@ const StudentDashboard = () => {
       if (next) toast({ title: "You're live", description: 'New jobs near you will reach you first.' });
     }
     setTogglingAvailable(false);
+  };
+
+  const toggleAutopilot = async () => {
+    if (!helperId || autopilotOptIn === null || togglingAutopilot) return;
+    setTogglingAutopilot(true);
+    const next = !autopilotOptIn;
+    const { error } = await hdb
+      .from('household_helpers')
+      .update({ autopilot_opt_in: next })
+      .eq('id', helperId);
+    if (!error) {
+      setAutopilotOptIn(next);
+      haptic(next ? 16 : 8);
+      toast(next
+        ? { title: "You're in for regulars 🔁", description: "We'll offer you weekly/monthly House Autopilot clients — first to claim keeps them." }
+        : { title: 'Opted out of regulars', description: "You won't be offered new House Autopilot clients." });
+    } else {
+      toast({ title: 'Could not update', description: 'Please try again.', variant: 'destructive' });
+    }
+    setTogglingAutopilot(false);
   };
 
   const acceptJob = async (jobId: string) => {
@@ -543,6 +587,25 @@ const StudentDashboard = () => {
               <Zap size={11} className="text-amber-500 flex-shrink-0" />
               Go available so new jobs reach you faster
             </p>
+          )}
+          {autopilotOptIn !== null && (
+            <button
+              onClick={() => void toggleAutopilot()}
+              disabled={togglingAutopilot}
+              aria-pressed={autopilotOptIn}
+              className={cn(
+                'mt-3 w-full flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors duration-150',
+                autopilotOptIn ? 'bg-sage/10 border-sage/30' : 'bg-secondary/60 border-border hover:border-border/80',
+              )}
+            >
+              <span className={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border text-xs leading-none transition-colors', autopilotOptIn ? 'bg-sage border-sage text-white' : 'border-border bg-background text-transparent')}>
+                {togglingAutopilot ? <Loader2 size={11} className="animate-spin text-foreground" /> : '✓'}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-foreground">🔁 Open to regular clients</span>
+                <span className="block text-xs text-muted-foreground leading-snug">Get matched with weekly/monthly House Autopilot homes — first to claim keeps them.</span>
+              </span>
+            </button>
           )}
         </div>
 

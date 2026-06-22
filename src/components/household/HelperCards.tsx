@@ -123,6 +123,7 @@ export const HelperCards: React.FC = () => {
       .from('household_helpers')
       .select('id, name, photo_url, city, age, bio, categories, average_rating, accepted_count, id_verified')
       .eq('status', 'approved')
+      .eq('show_on_homepage', true)
       .not('photo_url', 'is', null)
       .neq('photo_url', '')
       .limit(20)
