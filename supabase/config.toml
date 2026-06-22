@@ -55,6 +55,17 @@ project_id = "puomfwjtpvqedwxjxogh"
   # Helper signup — no auth account needed, service-role handles photo upload + DB insert.
   [functions.create-helper-application]
     verify_jwt = false
+  # Helper verification — student-email OTP + Stripe Identity. The OTP pair and
+  # the identity-session creator are called by the (account-less) applicant, so
+  # no user JWT; the webhook is authenticated by its Stripe-Signature header.
+  [functions.send-student-email-otp]
+    verify_jwt = false
+  [functions.verify-student-email-otp]
+    verify_jwt = false
+  [functions.create-identity-verification]
+    verify_jwt = false
+  [functions.stripe-identity-webhook]
+    verify_jwt = false
   # HomePlans self-serve monthly subscriptions — same anonymous customer pattern.
   [functions.create-plan-checkout]
     verify_jwt = false
