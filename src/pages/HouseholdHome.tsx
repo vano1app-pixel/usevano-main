@@ -3,7 +3,6 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HeroSection } from '@/components/household/HeroSection';
 import { ActivityTicker } from '@/components/household/ActivityTicker';
-import { TrustBand } from '@/components/household/TrustBand';
 import { HowItWorks } from '@/components/household/HowItWorks';
 import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
@@ -57,9 +56,6 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
-        {/* Trust band — the proof that backs the hero's promise (vetting +
-            "you see them first" + risk-free), placed where doubt peaks. */}
-        <TrustBand />
         {/* How it works (honest + simple), then real helper faces — so the
             bigger monthly ask below only comes once the visitor gets it. These
             two plus the hero are the full-screen snap sections (data-snap):
