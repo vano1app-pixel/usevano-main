@@ -2,12 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
 
-// Helper marks a job complete. Payment was already captured upfront at
-// checkout, so this flips status, records the payout, and notifies the
-// customer (with a one-tap rating ask), admin and WhatsApp.
+// Completes a household job and releases the helper's payout. INTERNAL ONLY —
+// the customer's "mark done" (complete-household-job), the admin path
+// (admin-complete-household-job) and the timed-job sweep all re-enter here over
+// the service-role path once completion is confirmed; a helper can never reach
+// it directly. Payment was captured upfront at checkout, so this flips status →
+// completed, records the payout (and fires the Stripe Connect transfer if the
+// helper is onboarded), then notifies the customer (one-tap rating ask), admin
+// and WhatsApp.
 //
-// NOTE: kept in sync with the deployed version (CORS inlined, no Stripe
-// call). If you edit this, redeploy — the GitHub auto-deploy is disabled.
+// If you edit this, redeploy — the GitHub auto-deploy is disabled.
 
 const FALLBACK_ORIGINS = ['https://vanojobs.com','https://www.vanojobs.com','http://localhost:5173','http://localhost:4173'];
 const ALLOWED_HEADERS = 'authorization, x-client-info, apikey, content-type';
