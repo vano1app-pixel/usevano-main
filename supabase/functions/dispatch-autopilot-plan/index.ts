@@ -3,20 +3,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Auto-match a House Autopilot subscription to opted-in helpers.
 //
-// Fired fire-and-forget by stripe-webhook the moment a new plan subscription
-// lands (and callable again by admin to re-offer). INTERNAL ONLY — the caller
-// must present the service-role key.
+// Fired by a DB trigger (pg_net) the moment a new plan subscription row is
+// inserted, and callable by admin to re-offer. INTERNAL ONLY — two trusted
+// callers: the service-role key (Bearer), or the DB trigger, which can't hold
+// the service key so it sends a random shared secret stored in private_config.
 //
 // Finds approved + available helpers in the plan's city who opted in to
-// Autopilot work, records an offer for each, and pings them (WhatsApp + email)
-// with a signed one-tap claim link. First to claim becomes the regular (see
-// accept-autopilot-plan). City-level match: the subscription doesn't store
-// structured services, so the helper sees the plan's config and self-selects.
+// Autopilot, records an offer for each, pings them (WhatsApp + email) with a
+// signed one-tap claim link. First to claim becomes the regular (see
+// accept-autopilot-plan). City-level match: the sub has no structured services,
+// so the helper sees the plan's config and self-selects. Idempotent: skips if
+// the plan already has pending offers.
 
 const MAX_OFFERS = Number(Deno.env.get('AUTOPILOT_MAX_OFFERS')) || 25;
 const OFFER_TTL_HOURS = 48; // a regular-client offer isn't same-day urgent
 
-// ── Signed claim token (same HMAC scheme as accept-job's _shared/acceptToken) ──
 function secretKey(): string {
   return (Deno.env.get('ACCEPT_LINK_SECRET')?.trim()) || (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
 }
@@ -34,7 +35,6 @@ async function signPlanToken(payload: { p: string; h: string; e: number }): Prom
   return `${part}.${b64urlEncode(await hmac(part))}`;
 }
 
-// ── Twilio WhatsApp (no-op unless configured) ──
 function normalizeIrishPhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const c = raw.replace(/[\s\-().]/g, '').trim();
@@ -67,17 +67,26 @@ serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, serviceKey);
 
-  // Internal-only: the caller must be the service-role key (stripe-webhook / admin).
-  if ((req.headers.get('Authorization') ?? '') !== `Bearer ${serviceKey}`) {
-    return new Response('Unauthorized', { status: 401 });
+  // Internal-only. Trusted callers: the service-role key (Bearer), or the DB
+  // trigger presenting the random shared secret from private_config.
+  const auth = req.headers.get('Authorization') ?? '';
+  let authed = auth === `Bearer ${serviceKey}`;
+  if (!authed) {
+    const provided = req.headers.get('x-internal-secret');
+    if (provided) {
+      const { data } = await supabase.from('private_config').select('value').eq('key', 'autopilot_dispatch_secret').maybeSingle();
+      const expected = (data as { value?: string } | null)?.value;
+      authed = !!expected && expected === provided;
+    }
   }
+  if (!authed) return new Response('Unauthorized', { status: 401 });
 
   try {
     const { plan_id } = await req.json().catch(() => ({})) as { plan_id?: string };
     if (!plan_id) return new Response('plan_id required', { status: 400 });
 
-    const supabase = createClient(supabaseUrl, serviceKey);
     const { data: plan } = await supabase
       .from('household_plan_subscriptions')
       .select('id, plan, city, config, customer_name, status, assigned_helper_id')
@@ -88,6 +97,14 @@ serve(async (req) => {
     if (!plan) return new Response(JSON.stringify({ ok: false, reason: 'not_found' }), { headers: { 'Content-Type': 'application/json' } });
     if (plan.status !== 'active' || plan.assigned_helper_id) {
       return new Response(JSON.stringify({ ok: true, skipped: true }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Idempotent: don't re-notify if this plan already has live offers.
+    const { count: existingOffers } = await supabase
+      .from('autopilot_plan_offers').select('id', { count: 'exact', head: true })
+      .eq('plan_id', plan_id).eq('status', 'pending');
+    if (existingOffers && existingOffers > 0) {
+      return new Response(JSON.stringify({ ok: true, skipped: 'already_offered' }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     // Approved + available helpers who opted in to Autopilot, in the plan's city
@@ -105,7 +122,6 @@ serve(async (req) => {
     if (helpers.length === 0) helpers = await pick(false);
 
     if (helpers.length === 0) {
-      // Nobody opted in yet — leave it for the admin to assign manually.
       return new Response(JSON.stringify({ ok: true, offered: 0, noHelpers: true }), { headers: { 'Content-Type': 'application/json' } });
     }
 
