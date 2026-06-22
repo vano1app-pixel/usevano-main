@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Eye, BadgeCheck } from 'lucide-react';
+import { ShieldCheck, Eye, CreditCard, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useHelperCount } from '@/hooks/useHelperCount';
 import { useCountUp } from '@/hooks/useCountUp';
@@ -8,16 +8,17 @@ import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ScrollCue } from './ScrollCue';
 
 /**
- * Hero = one job: get a category tapped. Left column is three quiet beats
- * (live proof → promise → guarantee), right column is the booking card.
+ * Hero = one job: get a category tapped. Left column carries a few quiet
+ * trust one-liners (icon + label), right column is the booking card.
  * No weather nudges, no pill cards — anything that competes with the
  * card for attention was cut.
  */
 
 const TRUST = [
-  { icon: ShieldCheck, text: 'Every helper screened before their first job', short: 'Screened helpers' },
-  { icon: Eye,         text: 'See their name and photo before they arrive',  short: 'See who’s coming' },
-  { icon: BadgeCheck,  text: 'Money back if it isn’t right — no questions',  short: 'Money-back guarantee' },
+  { icon: ShieldCheck, text: 'ID-verified & vetted',  short: 'ID-verified & vetted' },
+  { icon: Eye,         text: 'You see them first',    short: 'You see them first' },
+  { icon: CreditCard,  text: 'Protected payment',     short: 'Protected payment' },
+  { icon: BadgeCheck,  text: 'Money-back guarantee',  short: 'Money-back guarantee' },
 ];
 
 function timeGreeting(): string {
