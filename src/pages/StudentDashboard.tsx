@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check } from 'lucide-react';
+import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -471,7 +471,10 @@ const StudentDashboard = () => {
         <div className="w-16" />
       </header>
 
-      <main className="pt-16 max-w-sm mx-auto px-4">
+      {/* Phone-width on mobile (the app feel), widening into a real desktop
+          dashboard on large screens so jobs tile instead of stacking in a
+          thin ribbon. */}
+      <main className="pt-16 max-w-sm lg:max-w-5xl mx-auto px-4 lg:px-8">
         {/* Page title */}
         <div className="pt-6 pb-4">
           <div className="flex items-start justify-between gap-3">
@@ -517,7 +520,7 @@ const StudentDashboard = () => {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="mb-4 rounded-2xl border border-sage/30 bg-sage-light p-4"
+            className="mb-4 rounded-2xl border border-sage/30 bg-sage-light p-4 lg:max-w-2xl"
           >
             <div className="flex items-start gap-3">
               <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">🔔</span>
@@ -544,7 +547,7 @@ const StudentDashboard = () => {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-secondary rounded-2xl mb-5">
+        <div className="flex gap-1 p-1 bg-secondary rounded-2xl mb-5 lg:max-w-sm">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -586,16 +589,20 @@ const StudentDashboard = () => {
             {tab === 'available' && (
               <div className="pb-10">
                 {availableJobs.length === 0 ? (
-                  <EmptyState message="No open jobs right now. Check back soon." />
+                  <EmptyState
+                    icon={<Inbox size={24} strokeWidth={1.5} />}
+                    title="All quiet for now"
+                    message="New jobs near you land here the moment they're booked. Keep alerts on to be first."
+                  />
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {availableJobs.map((job, i) => (
                       <motion.div
                         key={job.id}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className="rounded-2xl border border-border/60 bg-background p-4"
+                        className="flex flex-col h-full rounded-2xl border border-border/60 bg-background p-4"
                       >
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div>
@@ -631,7 +638,7 @@ const StudentDashboard = () => {
                         <button
                           onClick={() => void acceptJob(job.id)}
                           disabled={accepting === job.id}
-                          className="w-full h-11 rounded-xl bg-sage text-white font-semibold text-sm transition-[background-color,opacity] duration-150 hover:bg-sage-dark disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
+                          className="mt-auto w-full h-11 rounded-xl bg-sage text-white font-semibold text-sm transition-[background-color,opacity] duration-150 hover:bg-sage-dark disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
                         >
                           {accepting === job.id ? (
                             <Loader2 size={16} className="animate-spin" />
@@ -648,9 +655,13 @@ const StudentDashboard = () => {
             {tab === 'mine' && (
               <div className="pb-10">
                 {myJobs.length === 0 ? (
-                  <EmptyState message="No active jobs. Accept one from the available tab." />
+                  <EmptyState
+                    icon={<Sparkles size={24} strokeWidth={1.5} />}
+                    title="No active jobs"
+                    message="Jobs you accept show up here. Grab one from the Available tab to get started."
+                  />
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {myJobs.map((job, i) => (
                       <motion.div
                         key={job.id}
@@ -660,7 +671,7 @@ const StudentDashboard = () => {
                       >
                         <button
                           onClick={() => navigate(`/student-job/${job.id}`)}
-                          className="w-full rounded-2xl border border-border/60 bg-background p-4 text-left transition-colors hover:bg-secondary/40 active:scale-[0.99]"
+                          className="w-full h-full rounded-2xl border border-border/60 bg-background p-4 text-left transition-colors hover:bg-secondary/40 active:scale-[0.99]"
                         >
                           <div className="flex items-start justify-between gap-3 mb-2">
                             <div>
@@ -687,7 +698,7 @@ const StudentDashboard = () => {
 
             {/* Earnings tab */}
             {tab === 'earnings' && (
-              <div className="pb-10">
+              <div className="pb-10 lg:max-w-2xl">
                 {/* Automatic payouts — Stripe Connect setup / status */}
                 {userId && (
                   <div className="mb-6">
@@ -713,7 +724,11 @@ const StudentDashboard = () => {
 
                 {/* Payout list */}
                 {payouts.length === 0 ? (
-                  <EmptyState message="No earnings yet. Complete jobs to get paid." />
+                  <EmptyState
+                    icon={<Wallet size={24} strokeWidth={1.5} />}
+                    title="No earnings yet"
+                    message="Finish your first job and your payouts will appear here."
+                  />
                 ) : (
                   <div className="rounded-2xl border border-border/60 overflow-hidden">
                     {payouts.map((p, i) => (
@@ -1102,12 +1117,13 @@ const StatusPill = ({ status }: { status: string }) => {
   );
 };
 
-const EmptyState = ({ message }: { message: string }) => (
+const EmptyState = ({ icon, title, message }: { icon?: React.ReactNode; title?: string; message: string }) => (
   <div className="flex flex-col items-center justify-center py-16 text-center">
-    <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mb-3">
-      <CheckCircle2 size={22} className="text-muted-foreground/40" strokeWidth={1.5} />
+    <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-3.5 text-muted-foreground/45">
+      {icon ?? <CheckCircle2 size={24} strokeWidth={1.5} />}
     </div>
-    <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">{message}</p>
+    {title && <p className="text-sm font-semibold text-foreground mb-1">{title}</p>}
+    <p className="text-sm text-muted-foreground max-w-[230px] leading-relaxed">{message}</p>
   </div>
 );
 
