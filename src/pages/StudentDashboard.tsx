@@ -179,11 +179,24 @@ const StudentDashboard = () => {
       setUserId(uid);
 
       // Load helper profile first so we can filter jobs by city + categories
-      const { data: helperRow } = await hdb
+      const HELPER_SELECT = 'id, name, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count';
+      let { data: helperRow } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count')
+        .select(HELPER_SELECT)
         .eq('user_id', uid)
         .maybeSingle();
+
+      // First sign-in after approval: this account isn't linked to a helper row
+      // yet. Link it by the verified email, then re-read. Non-blocking.
+      if (!helperRow && !cancelled) {
+        try {
+          const { data: linkRes } = await supabase.functions.invoke('link-helper-account');
+          if ((linkRes as { linked?: boolean } | null)?.linked) {
+            const retry = await hdb.from('household_helpers').select(HELPER_SELECT).eq('user_id', uid).maybeSingle();
+            helperRow = retry.data;
+          }
+        } catch { /* non-blocking — dashboard still loads available jobs */ }
+      }
 
       const city = (helperRow?.city as string | null) ?? null;
       const categories = (helperRow?.categories as string[] | null) ?? [];

@@ -89,6 +89,18 @@ serve(async (req) => {
   if (!booking) return redirect(siteUrl, 'notfound');
   const catLabel = CATEGORY_LABELS[booking.category] ?? 'job';
 
+  // Defence-in-depth: a one-tap token is only ever issued to an APPROVED helper
+  // (dispatch filters on status='approved'), but a helper can be suspended,
+  // cancelled or removed after their offer went out. Re-check at claim time so a
+  // stale link from a since-removed/blocked helper can't claim a job. A missing
+  // row (deleted helper) is treated the same. 'expired' reads honestly as "this
+  // link no longer works".
+  const { data: helperRow } = await supabase
+    .from('household_helpers').select('status').eq('id', helperId).maybeSingle() as { data: { status: string } | null };
+  if (!helperRow || helperRow.status !== 'approved') {
+    return redirect(siteUrl, 'expired');
+  }
+
   if (booking.status !== 'pending' || booking.student_id) {
     // "Mine" if the token's user matches, or this helper's own offer is the one
     // that was accepted (covers helpers who had no user_id in the token).

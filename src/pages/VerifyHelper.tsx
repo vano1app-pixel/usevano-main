@@ -113,6 +113,7 @@ const VerifyHelper: React.FC = () => {
     if (!helperId) return;
     setIdState('starting'); setIdError(null);
     const { data, error } = await supabase.functions.invoke('create-identity-verification', { body: { helper_id: helperId } });
+    if ((data as { already_verified?: boolean } | null)?.already_verified) { setIdState('verified'); return; }
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
       setIdError((data as { error?: string } | null)?.error || 'Could not start the ID check. Try again.');

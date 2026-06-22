@@ -1,0 +1,14 @@
+-- Fix the homepage "Meet the helpers" section rendering its empty
+-- "Be the first helper" state even though approved helpers exist.
+--
+-- anon (logged-out visitors) has COLUMN-LEVEL SELECT grants on
+-- household_helpers — a deliberate privacy design so the public can never read
+-- email / phone / application_data (which now holds the ID DOB) / Stripe ids.
+-- When the "ID-verified" trust badge was added, HelperCards (homepage) and
+-- TrackBooking (live tracking) began selecting id_verified, a column anon was
+-- never granted, so PostgREST rejected the whole query ("permission denied for
+-- column id_verified") and the section fell back to the empty state.
+--
+-- id_verified is a public trust signal (safe to expose). Grant it to anon so
+-- the cards and tracking helper chip load again.
+GRANT SELECT (id_verified) ON public.household_helpers TO anon;

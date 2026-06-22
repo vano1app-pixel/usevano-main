@@ -449,6 +449,7 @@ async function handleHouseholdPlanSubscribed(
         city,
         stripe_subscription_id: session.subscription ?? null,
         stripe_customer_id: session.customer ?? null,
+        config: session.metadata?.autopilot_config ?? null,
         status: 'active',
       }, { onConflict: 'stripe_subscription_id', ignoreDuplicates: true });
     if (insErr) console.warn('[stripe-webhook] plan subscription insert failed', insErr);
@@ -543,6 +544,29 @@ async function handleHouseholdPlanSubscribed(
       });
     } catch (e) {
       console.warn('[stripe-webhook] plan admin whatsapp error', e);
+    }
+
+    // Auto-match: offer this plan to opted-in helpers (first to claim becomes
+    // the regular). Fire-and-forget — admin scheduling stays the fallback, and
+    // dispatch-autopilot-plan no-ops if nobody has opted in yet.
+    try {
+      if (session.subscription) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const { data: planRow } = await supabase
+          .from('household_plan_subscriptions').select('id')
+          .eq('stripe_subscription_id', session.subscription).maybeSingle();
+        const planId = (planRow as { id?: string } | null)?.id;
+        if (planId) {
+          await fetch(`${supabaseUrl}/functions/v1/dispatch-autopilot-plan`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_id: planId }),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[stripe-webhook] autopilot dispatch error', e);
     }
   })();
 
