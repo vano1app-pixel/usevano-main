@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
 
@@ -15,6 +15,7 @@ interface HelperRow {
   categories:     string[] | null;
   average_rating: number | null;
   accepted_count: number;
+  id_verified?: boolean | null;
 }
 
 function Card({ h }: { h: HelperRow }) {
@@ -58,6 +59,11 @@ function Card({ h }: { h: HelperRow }) {
                 </span>
               ) : null}
             </div>
+            {h.id_verified && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sage mt-1">
+                <ShieldCheck className="w-3 h-3" aria-hidden="true" /> ID-verified
+              </span>
+            )}
             {h.bio ? (
               <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{h.bio}</p>
             ) : (
@@ -115,7 +121,7 @@ export const HelperCards: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('household_helpers')
-      .select('id, name, photo_url, city, age, bio, categories, average_rating, accepted_count')
+      .select('id, name, photo_url, city, age, bio, categories, average_rating, accepted_count, id_verified')
       .eq('status', 'approved')
       .not('photo_url', 'is', null)
       .neq('photo_url', '')

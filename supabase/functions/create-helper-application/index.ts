@@ -5,8 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Accepts multipart/form-data with photo file + JSON fields.
 // Inserts the helper row (or updates an existing pending application —
 // duplicate phone/email submissions update in place rather than creating
-// a second row). Joining is free: there is no payment step — the helper
-// goes live the moment an admin approves the application.
+// a second row). Verification + the €2 fee happen on /verify-helper; the
+// helper auto-approves once student email, ID and payment all pass (DB trigger).
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +35,21 @@ serve(async (req) => {
     const tutorSubjects = JSON.parse((formData.get('tutor_subjects') as string | null) ?? '[]') as string[];
     const tutorLevels   = JSON.parse((formData.get('tutor_levels')   as string | null) ?? '[]') as string[];
     const photo      = formData.get('photo') as File | null;
+
+    // Fields added by the redesigned multi-step join form. Structured ones the
+    // platform already reads (areas_served, availability) go to their columns;
+    // the rest are kept together in application_data (see the migration).
+    const dob          = (formData.get('dob')           as string | null)?.trim() || null;
+    const college      = (formData.get('college')       as string | null)?.trim() || null;
+    const course       = (formData.get('course')        as string | null)?.trim() || null;
+    const year         = (formData.get('year')          as string | null)?.trim() || null;
+    const transport    = (formData.get('transport')     as string | null)?.trim() || null;
+    const studentEmail = (formData.get('student_email') as string | null)?.trim().toLowerCase() || null;
+    const areas        = JSON.parse((formData.get('areas')        as string | null) ?? '[]') as string[];
+    const availability = JSON.parse((formData.get('availability') as string | null) ?? '[]') as string[];
+    const rightToWork   = (formData.get('right_to_work')  as string | null) === 'true';
+    const consentVerify = (formData.get('consent_verify') as string | null) === 'true';
+    const agreeTerms    = (formData.get('agree_terms')    as string | null) === 'true';
 
     if (!name || !email || !phone || !city || categories.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -111,11 +126,27 @@ serve(async (req) => {
       ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
         ? { tutor_subjects: tutorSubjects, tutor_levels: tutorLevels }
         : {}),
+      ...(areas.length > 0 ? { areas_served: areas } : {}),
+      ...(availability.length > 0 ? { availability } : {}),
+      application_data: {
+        dob,
+        college,
+        course,
+        year,
+        transport,
+        student_email: studentEmail,
+        // Consent snapshot at apply time. The live verification state lives in
+        // the dedicated columns (student_email_verified, id_verified, signup_paid).
+        consents: { right_to_work: rightToWork, verify: consentVerify, terms: agreeTerms },
+        submitted_at: new Date().toISOString(),
+      },
     };
 
-    const { error: saveError } = pendingExisting
-      ? await supabase.from('household_helpers').update(helperFields).eq('id', pendingExisting.id)
-      : await supabase.from('household_helpers').insert({ user_id: null, ...helperFields });
+    const saved = pendingExisting
+      ? await supabase.from('household_helpers').update(helperFields).eq('id', pendingExisting.id).select('id').maybeSingle()
+      : await supabase.from('household_helpers').insert({ user_id: null, ...helperFields }).select('id').maybeSingle();
+    const saveError = saved.error;
+    const helperId = pendingExisting?.id ?? (saved.data as { id: string } | null)?.id ?? null;
 
     if (saveError) {
       console.error('[create-helper-application] save failed', saveError);
@@ -137,6 +168,9 @@ serve(async (req) => {
           tutor_subjects: tutorSubjects,
           tutor_levels: tutorLevels,
           photo_url: publicUrl,
+          college,
+          student_email: studentEmail,
+          areas,
         }),
       }).catch(() => {/* non-critical */});
     }
@@ -163,28 +197,25 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${firstName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      Thanks for applying to be a VANO helper in <strong>${city}</strong>. We review every application
-      personally — you'll hear back <strong>within 24 hours</strong>, usually much faster.
-    </p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      Joining VANO is <strong>completely free</strong> — there's nothing to pay. Once you're approved,
-      your profile goes live and we'll start sending you jobs.
+      Thanks for applying to be a VANO helper in <strong>${city}</strong>. Finish the three quick
+      steps on the next screen — confirm your student email, verify your ID, and pay the €2 fee —
+      and your profile goes live automatically.
     </p>
     <p style="margin:0 0 4px;color:#374151;font-size:14px;">Questions or in a hurry?</p>
     <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;margin-top:6px;">💬 WhatsApp us</a>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. We review every application personally — you'll hear back within 24 hours. Joining is completely free — there's nothing to pay. Questions? WhatsApp +353 89 981 7111`,
+            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. Finish the three quick steps on the next screen — confirm your student email, verify your ID, and pay the €2 fee — and your profile goes live automatically. Questions? WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {/* non-critical */});
       }
     }
 
-    // Joining is free — no payment step. The application is saved as
-    // 'pending'; the helper goes live the moment an admin approves it.
-    // (No checkout_url is returned, so the client shows the welcome state.)
-    return new Response(JSON.stringify({ success: true }), {
+    // Saved as 'pending'. The client moves to /verify-helper, which holds the
+    // three gates — confirm student email, verify ID (Stripe Identity), pay the
+    // €2 fee — and the helper auto-approves once all three pass (DB trigger).
+    return new Response(JSON.stringify({ success: true, helper_id: helperId }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
 

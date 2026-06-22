@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check } from 'lucide-react';
+import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet, MessageCircle, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useCountUp } from '@/hooks/useCountUp';
+import { haptic } from '@/lib/haptics';
+import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
 import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
@@ -215,7 +218,13 @@ const StudentDashboard = () => {
       .from('household_helpers')
       .update({ is_available: next })
       .eq('id', helperId);
-    if (!error) setHelperAvailable(next);
+    if (!error) {
+      setHelperAvailable(next);
+      // Going on-duty is the helper's most important action — confirm it with
+      // a haptic tap (firmer when going live) and a short reassurance toast.
+      haptic(next ? 16 : 8);
+      if (next) toast({ title: "You're live", description: 'New jobs near you will reach you first.' });
+    }
     setTogglingAvailable(false);
   };
 
@@ -471,7 +480,10 @@ const StudentDashboard = () => {
         <div className="w-16" />
       </header>
 
-      <main className="pt-16 max-w-sm mx-auto px-4">
+      {/* Phone-width on mobile (the app feel), widening into a real desktop
+          dashboard on large screens so jobs tile instead of stacking in a
+          thin ribbon. */}
+      <main className="pt-16 max-w-sm lg:max-w-5xl mx-auto px-4 lg:px-8">
         {/* Page title */}
         <div className="pt-6 pb-4">
           <div className="flex items-start justify-between gap-3">
@@ -484,7 +496,7 @@ const StudentDashboard = () => {
                 onClick={() => void toggleAvailable()}
                 disabled={togglingAvailable}
                 className={cn(
-                  'mt-1 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all duration-200 flex-shrink-0',
+                  'mt-1 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all duration-200 flex-shrink-0 active:scale-95',
                   helperAvailable
                     ? 'bg-sage/10 text-sage border-sage/30'
                     : 'bg-secondary text-muted-foreground border-border',
@@ -492,11 +504,22 @@ const StudentDashboard = () => {
               >
                 {togglingAvailable ? (
                   <Loader2 size={11} className="animate-spin" />
+                ) : helperAvailable ? (
+                  // Live: a "breathing" dot with a ping ring, springing in the
+                  // moment the helper flips on (re-keyed so it pops on toggle).
+                  <motion.span
+                    key="on"
+                    initial={{ scale: 0.3 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 520, damping: 16 }}
+                    className="relative flex h-2 w-2 flex-shrink-0"
+                    aria-hidden="true"
+                  >
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-75 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-sage" />
+                  </motion.span>
                 ) : (
-                  <span className={cn(
-                    'w-2 h-2 rounded-full flex-shrink-0',
-                    helperAvailable ? 'bg-sage animate-pulse' : 'bg-muted-foreground/40',
-                  )} />
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground/40 flex-shrink-0" aria-hidden="true" />
                 )}
                 {helperAvailable ? 'Available' : 'Off duty'}
               </button>
@@ -517,7 +540,7 @@ const StudentDashboard = () => {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="mb-4 rounded-2xl border border-sage/30 bg-sage-light p-4"
+            className="mb-4 rounded-2xl border border-sage/30 bg-sage-light p-4 lg:max-w-2xl"
           >
             <div className="flex items-start gap-3">
               <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">🔔</span>
@@ -544,7 +567,7 @@ const StudentDashboard = () => {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-secondary rounded-2xl mb-5">
+        <div className="flex gap-1 p-1 bg-secondary rounded-2xl mb-5 lg:max-w-sm">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -586,16 +609,20 @@ const StudentDashboard = () => {
             {tab === 'available' && (
               <div className="pb-10">
                 {availableJobs.length === 0 ? (
-                  <EmptyState message="No open jobs right now. Check back soon." />
+                  <EmptyState
+                    icon={<Inbox size={24} strokeWidth={1.5} />}
+                    title="All quiet for now"
+                    message="New jobs near you land here the moment they're booked. Keep alerts on to be first."
+                  />
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {availableJobs.map((job, i) => (
                       <motion.div
                         key={job.id}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className="rounded-2xl border border-border/60 bg-background p-4"
+                        className="flex flex-col h-full rounded-2xl border border-border/60 bg-background p-4"
                       >
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div>
@@ -631,7 +658,7 @@ const StudentDashboard = () => {
                         <button
                           onClick={() => void acceptJob(job.id)}
                           disabled={accepting === job.id}
-                          className="w-full h-11 rounded-xl bg-sage text-white font-semibold text-sm transition-[background-color,opacity] duration-150 hover:bg-sage-dark disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
+                          className="mt-auto w-full h-11 rounded-xl bg-sage text-white font-semibold text-sm transition-[background-color,opacity] duration-150 hover:bg-sage-dark disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
                         >
                           {accepting === job.id ? (
                             <Loader2 size={16} className="animate-spin" />
@@ -648,9 +675,13 @@ const StudentDashboard = () => {
             {tab === 'mine' && (
               <div className="pb-10">
                 {myJobs.length === 0 ? (
-                  <EmptyState message="No active jobs. Accept one from the available tab." />
+                  <EmptyState
+                    icon={<Sparkles size={24} strokeWidth={1.5} />}
+                    title="No active jobs"
+                    message="Jobs you accept show up here. Grab one from the Available tab to get started."
+                  />
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {myJobs.map((job, i) => (
                       <motion.div
                         key={job.id}
@@ -660,7 +691,7 @@ const StudentDashboard = () => {
                       >
                         <button
                           onClick={() => navigate(`/student-job/${job.id}`)}
-                          className="w-full rounded-2xl border border-border/60 bg-background p-4 text-left transition-colors hover:bg-secondary/40 active:scale-[0.99]"
+                          className="w-full h-full rounded-2xl border border-border/60 bg-background p-4 text-left transition-colors hover:bg-secondary/40 active:scale-[0.99]"
                         >
                           <div className="flex items-start justify-between gap-3 mb-2">
                             <div>
@@ -687,7 +718,7 @@ const StudentDashboard = () => {
 
             {/* Earnings tab */}
             {tab === 'earnings' && (
-              <div className="pb-10">
+              <div className="pb-10 lg:max-w-2xl">
                 {/* Automatic payouts — Stripe Connect setup / status */}
                 {userId && (
                   <div className="mb-6">
@@ -695,25 +726,16 @@ const StudentDashboard = () => {
                   </div>
                 )}
 
-                {/* Summary cards */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="rounded-2xl bg-sage-light border border-sage/20 p-4">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Paid out</p>
-                    <p className="text-2xl font-bold text-foreground tabular-nums">
-                      €{(totalEarned / 100).toFixed(0)}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-secondary border border-border/40 p-4">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Pending</p>
-                    <p className="text-2xl font-bold text-foreground tabular-nums">
-                      €{(pendingEarned / 100).toFixed(0)}
-                    </p>
-                  </div>
-                </div>
+                {/* Summary cards — totals count up each time the tab opens */}
+                <EarningsSummary paidCents={totalEarned} pendingCents={pendingEarned} />
 
                 {/* Payout list */}
                 {payouts.length === 0 ? (
-                  <EmptyState message="No earnings yet. Complete jobs to get paid." />
+                  <EmptyState
+                    icon={<Wallet size={24} strokeWidth={1.5} />}
+                    title="No earnings yet"
+                    message="Finish your first job and your payouts will appear here."
+                  />
                 ) : (
                   <div className="rounded-2xl border border-border/60 overflow-hidden">
                     {payouts.map((p, i) => (
@@ -784,6 +806,27 @@ const StudentDashboard = () => {
             </motion.div>
           </AnimatePresence>
         )}
+
+        {/* Need a hand? — straight to a real person, prefilled. */}
+        <div className="mt-8 mb-6 rounded-2xl border border-border/60 bg-background p-4 lg:max-w-2xl">
+          <p className="text-sm font-semibold text-foreground mb-0.5">Need a hand?</p>
+          <p className="text-xs text-muted-foreground mb-3">We're real people in Galway — text or call and we'll help.</p>
+          <div className="flex items-center gap-2">
+            <a
+              href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, I'm a helper${helperName ? ` (${helperName})` : ''} and need a hand.`)}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex-1 h-10 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#25D366]/8 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" /> WhatsApp us
+            </a>
+            <a
+              href={teamTelHref}
+              className="flex-1 h-10 rounded-full border border-border text-foreground text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-secondary transition-colors"
+            >
+              <Phone className="w-4 h-4" /> Call us
+            </a>
+          </div>
+        </div>
       </main>
 
       {/* Hidden file inputs for photo selection */}
@@ -1102,12 +1145,32 @@ const StatusPill = ({ status }: { status: string }) => {
   );
 };
 
-const EmptyState = ({ message }: { message: string }) => (
-  <div className="flex flex-col items-center justify-center py-16 text-center">
-    <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mb-3">
-      <CheckCircle2 size={22} className="text-muted-foreground/40" strokeWidth={1.5} />
+// Earnings totals that count up from zero. Mounted only while the Earnings
+// tab is open, so the tick-up replays each time the helper visits it.
+const EarningsSummary = ({ paidCents, pendingCents }: { paidCents: number; pendingCents: number }) => {
+  const paid = useCountUp(Math.round(paidCents / 100));
+  const pending = useCountUp(Math.round(pendingCents / 100));
+  return (
+    <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="rounded-2xl bg-sage-light border border-sage/20 p-4">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Paid out</p>
+        <p className="text-2xl font-bold text-foreground tabular-nums">€{paid}</p>
+      </div>
+      <div className="rounded-2xl bg-secondary border border-border/40 p-4">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Pending</p>
+        <p className="text-2xl font-bold text-foreground tabular-nums">€{pending}</p>
+      </div>
     </div>
-    <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">{message}</p>
+  );
+};
+
+const EmptyState = ({ icon, title, message }: { icon?: React.ReactNode; title?: string; message: string }) => (
+  <div className="flex flex-col items-center justify-center py-16 text-center">
+    <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-3.5 text-muted-foreground/45">
+      {icon ?? <CheckCircle2 size={24} strokeWidth={1.5} />}
+    </div>
+    {title && <p className="text-sm font-semibold text-foreground mb-1">{title}</p>}
+    <p className="text-sm text-muted-foreground max-w-[230px] leading-relaxed">{message}</p>
   </div>
 );
 

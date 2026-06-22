@@ -1049,6 +1049,18 @@ const StudentJobDetail = () => {
           </motion.button>
         )}
 
+        {/* Safety — report a problem during a live job (straight to a person) */}
+        {mine && !isComplete && !isCancelled && (
+          <a
+            href={`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO, I need help with a job I'm on${booking?.id ? ` (ref ${booking.id.slice(-8).toUpperCase()})` : ''}.`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="-mt-2 mb-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+          >
+            <AlertTriangle size={13} className="flex-shrink-0" /> Report a problem
+          </a>
+        )}
+
         {/* Release-job option — only for the helper who owns the job */}
         {mine && !isComplete && !isCancelled && (
           <div className="mb-6">

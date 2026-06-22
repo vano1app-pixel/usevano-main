@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -238,6 +238,7 @@ const TrackBooking = () => {
     photo_url: string | null;
     average_rating: number | null;
     accepted_count: number;
+    id_verified: boolean;
   } | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -385,7 +386,7 @@ const TrackBooking = () => {
     const fetch_ = async () => {
       const { data: helper } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, average_rating, rating_avg, accepted_count')
+        .select('id, name, photo_url, average_rating, rating_avg, accepted_count, id_verified')
         .eq('user_id', studentId)
         .maybeSingle();
       if (cancelled) return;
@@ -396,6 +397,7 @@ const TrackBooking = () => {
           photo_url: helper.photo_url || null,
           average_rating: helper.average_rating ?? helper.rating_avg ?? null,
           accepted_count: helper.accepted_count ?? 0,
+          id_verified: !!helper.id_verified,
         });
         return;
       }
@@ -858,7 +860,7 @@ const TrackBooking = () => {
               {helperName ? `${helperName} is confirmed — secure your booking` : 'Helper confirmed — secure your booking'}
             </p>
             <p className="text-foreground/65 text-xs mt-1 leading-relaxed">
-              Pay now to lock in your helper. No cash needed on the day.
+              Pay now to lock in your helper — your payment's protected until the job's confirmed done, money back if it's not right. No cash needed on the day.
             </p>
             {(() => {
               const price = booking.price_estimate_cents ?? 0;
@@ -938,6 +940,19 @@ const TrackBooking = () => {
           </div>
         )}
 
+        {/* Safety — report a problem at any point during an active job. Goes
+            straight to a person on WhatsApp with the booking ref attached. */}
+        {['accepted', 'on_way', 'arrived', 'in_progress'].includes(booking.status) && (
+          <a
+            href={`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO, I need help with my booking${bookingId ? ` (ref ${bookingId.slice(-8).toUpperCase()})` : ''}.`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
+          >
+            <ShieldAlert size={13} className="flex-shrink-0" /> Report a problem
+          </a>
+        )}
+
         {/* Helper is already working — cancellation is manual from here. */}
         {['in_progress', 'completed'].includes(booking.status) && (
           <a
@@ -973,6 +988,11 @@ const TrackBooking = () => {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground font-medium">Your helper</p>
                     <p className="text-sm font-semibold text-foreground leading-tight">{helperName}</p>
+                    {helperCard?.id_verified && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sage mt-0.5">
+                        <ShieldCheck className="w-3 h-3" aria-hidden="true" /> ID-verified
+                      </span>
+                    )}
                     {helperCard && (helperCard.average_rating || helperCard.accepted_count > 0) && (
                       <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                         {helperCard.average_rating ? (
