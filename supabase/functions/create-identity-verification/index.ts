@@ -31,8 +31,36 @@ serve(async (req) => {
     if (!helper_id) return json(400, { error: 'Missing helper id.' });
 
     const { data: helper } = await supabase
-      .from('household_helpers').select('id, name').eq('id', helper_id).maybeSingle();
+      .from('household_helpers')
+      .select('id, name, id_verified, identity_session_id')
+      .eq('id', helper_id).maybeSingle() as {
+        data: { id: string; name: string | null; id_verified: boolean | null; identity_session_id: string | null } | null;
+      };
     if (!helper) return json(404, { error: 'Application not found.' });
+
+    // Already verified — never start (or pay Stripe for) another session.
+    if (helper.id_verified) return json(200, { success: true, already_verified: true });
+
+    // Reuse an in-flight session instead of minting a new (paid ~€1) one on
+    // every retry / page reload — this is also the rate-limit. Stripe returns a
+    // usable hosted `url` while the session still needs the applicant; if it's
+    // already verified we short-circuit, and anything terminal (canceled / no
+    // url) falls through to a fresh session below.
+    if (helper.identity_session_id) {
+      try {
+        const r = await fetch(
+          `https://api.stripe.com/v1/identity/verification_sessions/${helper.identity_session_id}`,
+          { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } },
+        );
+        if (r.ok) {
+          const s = await r.json() as { status?: string; url?: string };
+          if (s.status === 'verified') return json(200, { success: true, already_verified: true });
+          if (s.url) return json(200, { success: true, url: s.url, reused: true });
+        }
+      } catch (e) {
+        console.warn('[create-identity-verification] reuse check failed — creating fresh', e);
+      }
+    }
 
     const origin = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
 
