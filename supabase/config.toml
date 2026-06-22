@@ -98,3 +98,12 @@ project_id = "puomfwjtpvqedwxjxogh"
   # cadence: */15 * * * *.
   [functions.release-household-payouts]
     verify_jwt = false
+
+  # House Autopilot helper matching. dispatch-autopilot-plan is called by
+  # stripe-webhook with the service-role key (internal-only check inside);
+  # accept-autopilot-plan is the helper's one-tap claim link (HMAC token in the
+  # URL, same scheme as accept-job) — neither receives a user JWT.
+  [functions.dispatch-autopilot-plan]
+    verify_jwt = false
+  [functions.accept-autopilot-plan]
+    verify_jwt = false

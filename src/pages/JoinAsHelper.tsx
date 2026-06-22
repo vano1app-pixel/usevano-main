@@ -121,6 +121,8 @@ export const JoinAsHelper: React.FC = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [tutorSubjects, setTutorSubjects] = useState<string[]>([]);
   const [tutorLevels, setTutorLevels] = useState<string[]>([]);
+  // Opt-in to recurring "House Autopilot" clients (regular weekly/monthly work).
+  const [autopilotOptIn, setAutopilotOptIn] = useState(false);
 
   // Step 3 — consent
   const [agreeChecks, setAgreeChecks] = useState(false);
@@ -195,6 +197,7 @@ export const JoinAsHelper: React.FC = () => {
       fd.append('phone', phone.trim());
       fd.append('city', city);
       fd.append('categories', JSON.stringify(categories));
+      fd.append('autopilot', String(autopilotOptIn));
       fd.append('tutor_subjects', JSON.stringify(tutorSubjects));
       fd.append('tutor_levels', JSON.stringify(tutorLevels));
       fd.append('college', college);
@@ -442,6 +445,23 @@ export const JoinAsHelper: React.FC = () => {
                       </AnimatePresence>
                       <p className="text-[11px] text-muted-foreground mt-3">Areas you cover and when you're free — you'll set those in your dashboard after you're in.</p>
                     </div>
+
+                    {/* House Autopilot opt-in — recurring regular clients */}
+                    <button
+                      type="button"
+                      onClick={() => setAutopilotOptIn(v => !v)}
+                      aria-pressed={autopilotOptIn}
+                      className={cn(
+                        'w-full flex items-start gap-3 rounded-xl px-3.5 py-3 text-left border transition-[background-color,border-color] duration-150',
+                        autopilotOptIn ? 'bg-primary/10 border-primary' : 'bg-secondary/60 border-border/50 hover:border-border',
+                      )}
+                    >
+                      <span className={cn('mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border text-xs leading-none transition-colors', autopilotOptIn ? 'bg-primary border-primary text-primary-foreground' : 'border-border bg-background text-transparent')}>✓</span>
+                      <span>
+                        <span className="block text-sm font-semibold text-foreground">🔁 Open to regular clients (House Autopilot)</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">Get matched with weekly/monthly regulars — the same home each visit, steadier income. Optional, and you can change it anytime in your dashboard.</span>
+                      </span>
+                    </button>
                   </>
                 )}
 

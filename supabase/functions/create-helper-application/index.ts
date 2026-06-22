@@ -50,6 +50,8 @@ serve(async (req) => {
     const rightToWork   = (formData.get('right_to_work')  as string | null) === 'true';
     const consentVerify = (formData.get('consent_verify') as string | null) === 'true';
     const agreeTerms    = (formData.get('agree_terms')    as string | null) === 'true';
+    // Opt-in to recurring "House Autopilot" clients (regular weekly/monthly work).
+    const autopilotOptIn = (formData.get('autopilot') as string | null) === 'true';
 
     if (!name || !email || !phone || !city || categories.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -121,6 +123,7 @@ serve(async (req) => {
       photo_url: publicUrl,
       categories,
       status: 'pending',
+      autopilot_opt_in: autopilotOptIn,
       ...(age !== null && !isNaN(age) ? { age } : {}),
       ...(bioRaw ? { bio: bioRaw } : {}),
       ...(categories.includes('tutoring') && (tutorSubjects.length > 0 || tutorLevels.length > 0)
