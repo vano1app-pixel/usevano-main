@@ -95,24 +95,17 @@ serve(async (req) => {
     const { error } = await supabase.from('household_helpers').update(update).eq('id', helperId);
     if (error) console.error('[stripe-identity-webhook] update failed', error);
 
-    // Auto-approve once the ID check passes — but only a still-pending
-    // application, so a verified ID never revives a suspended/rejected helper
-    // or re-touches one that's already approved. This removes the manual
-    // approval step: passing verification = live.
+    // The DB trigger flips pending → approved once student email, ID and the €2
+    // fee are all done (it never touches suspended/rejected/approved rows). If
+    // verifying ID just completed the set, notify the helper.
     if (status === 'verified') {
-      const { data: approved } = await supabase
-        .from('household_helpers')
-        .update({ status: 'approved' })
-        .eq('id', helperId)
-        .eq('status', 'pending')
-        .select('id')
-        .maybeSingle();
-      if ((approved as { id?: string } | null)?.id) {
+      const { data: row } = await supabase.from('household_helpers').select('status').eq('id', helperId).maybeSingle();
+      if ((row as { status?: string } | null)?.status === 'approved') {
         fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ helper_id: helperId }),
-        }).catch(() => {/* non-critical — the status flip is what matters */});
+        }).catch(() => {/* non-critical */});
       }
     }
 

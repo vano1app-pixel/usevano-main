@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Camera, Loader2, CheckCircle, ArrowLeft, ArrowRight, ShieldCheck, GraduationCap, BadgeCheck, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,20 +12,16 @@ import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { haptic } from '@/lib/haptics';
 
+// Exactly the six services customers can book (CategoryGrid). Slug 'shopping'
+// is the laundry slug customer-side; label matches so helpers see what
+// customers see.
 const CATEGORY_OPTIONS = [
-  // 'shopping' is the laundry slug customer-side — keep the label in step with
-  // what customers actually book (CategoryGrid renames shopping → Laundry).
-  { emoji: '🧺', label: 'Laundry & errands',     slug: 'shopping'           },
-  { emoji: '🐕', label: 'Dog walking',           slug: 'dog-walk'           },
-  { emoji: '🌿', label: 'Garden work',           slug: 'garden'             },
-  { emoji: '📦', label: 'Moving help',           slug: 'moving'             },
-  { emoji: '🧹', label: 'Cleaning',              slug: 'cleaning'           },
-  { emoji: '📚', label: 'Tutoring',              slug: 'tutoring'           },
-  { emoji: '🔨', label: 'Handyman',              slug: 'handyman'           },
-  { emoji: '🔧', label: 'Plumbing help',         slug: 'plumbing'           },
-  { emoji: '🪑', label: 'Furniture assembly',    slug: 'furniture-assembly' },
-  { emoji: '💻', label: 'Tech help',             slug: 'tech-help'          },
-  { emoji: '📦', label: 'Wait for delivery',     slug: 'wait-delivery'      },
+  { emoji: '🧺', label: 'Laundry',  slug: 'shopping'  },
+  { emoji: '🐕', label: 'Dog walk', slug: 'dog-walk'  },
+  { emoji: '🌿', label: 'Garden',   slug: 'garden'    },
+  { emoji: '📦', label: 'Moving',   slug: 'moving'    },
+  { emoji: '🧹', label: 'Cleaning', slug: 'cleaning'  },
+  { emoji: '📚', label: 'Tutoring', slug: 'tutoring'  },
 ];
 
 const STATS = [
@@ -143,17 +139,6 @@ export const JoinAsHelper: React.FC = () => {
   const welcomeBack = params.get('welcome') === '1';
   const welcomeName = params.get('name') ?? '';
 
-  // After the €2 checkout, Stripe returns to /join?paid=1 (a route that exists
-  // on every deploy, so it never 404s); forward to the verification page.
-  useEffect(() => {
-    if (params.get('paid') !== '1') return;
-    const id = params.get('id') || (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_helper_id') : null);
-    const q = new URLSearchParams({ paid: '1' });
-    if (id) q.set('id', id);
-    window.location.replace(`/verify-helper?${q.toString()}`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Wizard
   const [step, setStep] = useState(0);
 
@@ -207,7 +192,7 @@ export const JoinAsHelper: React.FC = () => {
   }
 
   const step1Valid = !!photo && !!name.trim() && age !== null && age >= 18 && age <= 100 && EMAIL_RE.test(email.trim()) && PHONE_RE.test(phone.trim());
-  const step2Valid = !!college;
+  const step2Valid = !!college && EMAIL_RE.test(studentEmail.trim());
   const step3Valid = !!city && categories.length > 0;
   const step4Valid = rightToWork && consentVerify && agreeTerms;
 
@@ -220,7 +205,10 @@ export const JoinAsHelper: React.FC = () => {
       if (!EMAIL_RE.test(email.trim())) return 'Please enter a valid email.';
       if (!PHONE_RE.test(phone.trim())) return 'Please enter a valid phone number.';
     }
-    if (s === 1 && !college) return 'Please choose where you study.';
+    if (s === 1) {
+      if (!college) return 'Please choose where you study.';
+      if (!EMAIL_RE.test(studentEmail.trim())) return 'Please add your college email — we verify it at sign-up.';
+    }
     if (s === 2) {
       if (!city) return 'Please choose your city.';
       if (categories.length === 0) return 'Please pick at least one job type.';
@@ -285,19 +273,16 @@ export const JoinAsHelper: React.FC = () => {
         body: fd,
       });
 
-      const json = await res.json() as { success?: boolean; error?: string; checkout_url?: string; helper_id?: string };
+      const json = await res.json() as { success?: boolean; error?: string; helper_id?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? 'Unknown error');
 
-      // Persist for the verification step first — this survives the Stripe
-      // round-trip so the verify page still has the helper id + student email.
+      // Persist for the verification step (id + student-email prefill), then
+      // move to /verify-helper — the three gates (email, ID, €2) live there.
       try {
         if (json.helper_id) localStorage.setItem('vano_helper_id', json.helper_id);
         localStorage.setItem('vano_helper_name', name.trim());
         if (studentEmail.trim()) localStorage.setItem('vano_student_email', studentEmail.trim().toLowerCase());
-      } catch { /* localStorage may be unavailable — the query params still carry id + name */ }
-
-      // €2 sign-up fee — pay first; Stripe returns to /verify-helper on success.
-      if (json.checkout_url) { window.location.href = json.checkout_url; return; }
+      } catch { /* localStorage may be unavailable — query params still carry id + name */ }
 
       const q = new URLSearchParams();
       if (json.helper_id) q.set('id', json.helper_id);
@@ -523,9 +508,9 @@ export const JoinAsHelper: React.FC = () => {
                       </div>
 
                       <div>
-                        <span className={labelClass}>College email <span className="normal-case font-normal">(for instant verification)</span></span>
-                        <input type="email" value={studentEmail} onChange={e => setStudentEmail(e.target.value)} placeholder="you@universityofgalway.ie" inputMode="email" autoCapitalize="off" autoCorrect="off" className={inputClass} />
-                        <p className="text-[11px] text-muted-foreground mt-1.5">We'll email a code to confirm you're a student. No college email? You can verify with your student ID later.</p>
+                        <span className={labelClass}>College email</span>
+                        <input type="email" value={studentEmail} onChange={e => setStudentEmail(e.target.value)} placeholder="you@universityofgalway.ie" inputMode="email" autoCapitalize="off" autoCorrect="off" required className={inputClass} />
+                        <p className="text-[11px] text-muted-foreground mt-1.5">We email a code to confirm you're a student — please use your official college address.</p>
                       </div>
 
                       <div>

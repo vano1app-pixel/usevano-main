@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet } from 'lucide-react';
+import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet, MessageCircle, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCountUp } from '@/hooks/useCountUp';
 import { haptic } from '@/lib/haptics';
+import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
 import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
@@ -805,6 +806,27 @@ const StudentDashboard = () => {
             </motion.div>
           </AnimatePresence>
         )}
+
+        {/* Need a hand? — straight to a real person, prefilled. */}
+        <div className="mt-8 mb-6 rounded-2xl border border-border/60 bg-background p-4 lg:max-w-2xl">
+          <p className="text-sm font-semibold text-foreground mb-0.5">Need a hand?</p>
+          <p className="text-xs text-muted-foreground mb-3">We're real people in Galway — text or call and we'll help.</p>
+          <div className="flex items-center gap-2">
+            <a
+              href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, I'm a helper${helperName ? ` (${helperName})` : ''} and need a hand.`)}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex-1 h-10 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#25D366]/8 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" /> WhatsApp us
+            </a>
+            <a
+              href={teamTelHref}
+              className="flex-1 h-10 rounded-full border border-border text-foreground text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-secondary transition-colors"
+            >
+              <Phone className="w-4 h-4" /> Call us
+            </a>
+          </div>
+        </div>
       </main>
 
       {/* Hidden file inputs for photo selection */}

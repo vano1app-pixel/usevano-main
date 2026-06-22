@@ -1,34 +1,39 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, ShieldCheck, CheckCircle2, Loader2, ArrowRight, Lock } from 'lucide-react';
+import { Mail, ShieldCheck, CreditCard, CheckCircle2, Loader2, ArrowRight, Lock, MessageCircle, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { haptic } from '@/lib/haptics';
+import { celebrateBooking } from '@/lib/celebrate';
+import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
 
 type EmailState = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified';
 type IdState = 'idle' | 'starting' | 'submitted' | 'verified';
+type PayState = 'idle' | 'confirming' | 'paying' | 'paid';
 
 const inputClass =
   'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150';
 
 /**
- * Post-application verification: confirm the student's college email (OTP) and
- * run a Stripe Identity ID + selfie check. This is what makes the homepage's
- * "ID-checked & vetted" promise real. Reachable straight after applying (id in
- * the URL / localStorage) and re-openable later.
+ * Post-application verification — the three gates that get a helper live:
+ *   1. confirm their college email (OTP)
+ *   2. verify ID (Stripe Identity, document + selfie)
+ *   3. pay the €2 sign-up fee
+ * Passing all three auto-approves them (DB trigger). This is what makes the
+ * homepage's "ID-checked & vetted" promise real.
  */
 const VerifyHelper: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
   const helperId = params.get('id') || (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_helper_id') : null);
   const name = params.get('name') || (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_helper_name') : null);
   const returnedFromIdCheck = params.get('id_check') === 'done';
-  const paid = params.get('paid') === '1';
+  const paymentSession = params.get('sp'); // Stripe Checkout session id on return
 
   const [email, setEmail] = useState(
     (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_student_email') : '') || '',
@@ -40,14 +45,17 @@ const VerifyHelper: React.FC = () => {
   const [idState, setIdState] = useState<IdState>(returnedFromIdCheck ? 'submitted' : 'idle');
   const [idError, setIdError] = useState<string | null>(null);
 
-  // Reflect any verification already on file (e.g. revisiting the page).
+  const [payState, setPayState] = useState<PayState>(paymentSession ? 'confirming' : 'idle');
+  const [payError, setPayError] = useState<string | null>(null);
+
+  // Reflect any progress already on file (revisiting / returning from Stripe).
   useEffect(() => {
     if (!helperId) return;
     let cancelled = false;
     (async () => {
       const { data } = await hdb
         .from('household_helpers')
-        .select('student_email_verified, id_verified, identity_status')
+        .select('student_email_verified, id_verified, identity_status, signup_paid')
         .eq('id', helperId)
         .maybeSingle();
       if (cancelled || !data) return;
@@ -56,9 +64,22 @@ const VerifyHelper: React.FC = () => {
       else if (data.identity_status === 'processing' || data.identity_status === 'requires_input') {
         setIdState((s) => (s === 'verified' ? s : 'submitted'));
       }
+      if (data.signup_paid) setPayState('paid');
     })();
     return () => { cancelled = true; };
   }, [helperId]);
+
+  // Confirm the €2 payment when Stripe returns with a session id.
+  useEffect(() => {
+    if (!helperId || !paymentSession) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.functions.invoke('confirm-signup-payment', { body: { helper_id: helperId, session_id: paymentSession } });
+      if (cancelled) return;
+      setPayState((data as { paid?: boolean } | null)?.paid ? 'paid' : 'idle');
+    })();
+    return () => { cancelled = true; };
+  }, [helperId, paymentSession]);
 
   const sendCode = useCallback(async () => {
     if (!helperId) return;
@@ -101,11 +122,30 @@ const VerifyHelper: React.FC = () => {
     window.location.href = url;
   }, [helperId]);
 
-  const bothDone = emailState === 'verified' && idState === 'verified';
+  const startPayment = useCallback(async () => {
+    if (!helperId) return;
+    setPayState('paying'); setPayError(null);
+    const { data, error } = await supabase.functions.invoke('create-signup-payment', { body: { helper_id: helperId } });
+    if ((data as { already_paid?: boolean } | null)?.already_paid) { setPayState('paid'); return; }
+    const url = (data as { url?: string } | null)?.url;
+    if (error || !url) {
+      setPayError((data as { error?: string } | null)?.error || 'Could not open checkout. Try again.');
+      setPayState('idle');
+      return;
+    }
+    window.location.href = url;
+  }, [helperId]);
+
+  // All three done → celebrate once.
+  const allDone = emailState === 'verified' && idState === 'verified' && payState === 'paid';
+  const celebrated = useRef(false);
+  useEffect(() => {
+    if (allDone && !celebrated.current) { celebrated.current = true; haptic(20); celebrateBooking(); }
+  }, [allDone]);
 
   return (
     <>
-      <SEOHead title="Verify your helper account — VANO" description="Confirm your student email and verify your ID to start picking up jobs." noindex />
+      <SEOHead title="Verify your helper account — VANO" description="Confirm your student email, verify your ID and pay the €2 fee to start picking up jobs." noindex />
       <HouseholdNav />
 
       <main className="pt-28 pb-20 px-4">
@@ -118,15 +158,9 @@ const VerifyHelper: React.FC = () => {
             <h1 className="display-lg text-foreground mb-2">
               {name ? `Nearly there, ${name.split(' ')[0]}` : 'Nearly there'}
             </h1>
-            <p className="text-muted-foreground leading-relaxed mb-4">
-              Two quick checks keep VANO trusted — they're why customers feel safe letting a helper into their home. Customers only ever see verified helpers.
+            <p className="text-muted-foreground leading-relaxed mb-8">
+              Three quick steps get you live. They're why customers feel safe letting a helper into their home — and they only ever see verified helpers.
             </p>
-            {paid && (
-              <div className="mb-8 inline-flex items-center gap-1.5 rounded-full bg-sage/10 border border-sage/25 px-3 py-1.5 text-xs font-semibold text-sage-dark">
-                <CheckCircle2 className="w-3.5 h-3.5" /> €2 sign-up fee paid
-              </div>
-            )}
-            {!paid && <div className="mb-8" />}
           </motion.div>
 
           {!helperId ? (
@@ -138,12 +172,7 @@ const VerifyHelper: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {/* Step 1 — student email */}
-              <VerifyCard
-                icon={<Mail className="w-5 h-5" />}
-                step="1"
-                title="Confirm your student email"
-                done={emailState === 'verified'}
-              >
+              <VerifyCard icon={<Mail className="w-5 h-5" />} step="1" title="Confirm your student email" done={emailState === 'verified'}>
                 {emailState === 'verified' ? (
                   <p className="text-sm text-muted-foreground">Verified — you're confirmed as a student. 🎓</p>
                 ) : (
@@ -179,14 +208,9 @@ const VerifyHelper: React.FC = () => {
               </VerifyCard>
 
               {/* Step 2 — ID check */}
-              <VerifyCard
-                icon={<ShieldCheck className="w-5 h-5" />}
-                step="2"
-                title="Verify your ID"
-                done={idState === 'verified'}
-              >
+              <VerifyCard icon={<ShieldCheck className="w-5 h-5" />} step="2" title="Verify your ID" done={idState === 'verified'}>
                 {idState === 'verified' ? (
-                  <p className="text-sm text-muted-foreground">Your ID is verified. You're good to go. ✅</p>
+                  <p className="text-sm text-muted-foreground">Your ID is verified. ✅</p>
                 ) : idState === 'submitted' ? (
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">Thanks — we're confirming your ID (usually instant). You can close this; we'll text you when you're cleared.</p>
@@ -203,30 +227,63 @@ const VerifyHelper: React.FC = () => {
                 )}
               </VerifyCard>
 
-              {/* Payout nudge + onward */}
-              <div className="rounded-2xl border border-sage/30 bg-sage-light p-4">
-                <p className="text-sm font-semibold text-foreground mb-1">Set up payouts</p>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                  Add your bank or Revolut (any IBAN) to get paid automatically after each job. You can do this anytime — earnings are held safely until you do.
-                </p>
-                <div className="flex items-center gap-2">
-                  <a href="/student-dashboard?tab=earnings" className="flex-1 h-10 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center">Set up payouts</a>
-                  <a href="/student-dashboard" className="flex-1 h-10 rounded-full bg-secondary text-foreground text-xs font-semibold flex items-center justify-center">Go to dashboard</a>
-                </div>
-              </div>
+              {/* Step 3 — €2 fee */}
+              <VerifyCard icon={<CreditCard className="w-5 h-5" />} step="3" title="Pay your €2 sign-up fee" done={payState === 'paid'}>
+                {payState === 'paid' ? (
+                  <p className="text-sm text-muted-foreground">Paid — thank you. 💚</p>
+                ) : payState === 'confirming' ? (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Confirming your payment…</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    <p className="text-sm text-muted-foreground leading-relaxed">A one-off €2 keeps VANO genuine — it's how we know everyone here actually wants to help. Card, Apple Pay or Google Pay.</p>
+                    {payError && <p className="text-xs text-destructive">{payError}</p>}
+                    <Button onClick={() => void startPayment()} disabled={payState === 'paying'} className="w-full rounded-full font-semibold gap-2">
+                      {payState === 'paying' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : 'Pay €2 to join'}
+                    </Button>
+                  </div>
+                )}
+              </VerifyCard>
 
-              {bothDone && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-4 text-center">
-                  <CheckCircle2 className="w-8 h-8 text-sage mx-auto mb-1.5" />
-                  <p className="text-sm font-semibold text-foreground">You're fully verified 🎉</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Jobs near you will start coming through.</p>
+              {allDone && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
+                  <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
+                  <p className="text-base font-bold text-foreground">You're verified and in 🎉</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">Jobs near you will start coming through. Set yourself Available to get them first.</p>
+                  <a href="/student-dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">Go to my dashboard <ArrowRight className="w-4 h-4" /></a>
                 </motion.div>
               )}
 
-              <p className="text-center text-xs text-muted-foreground pt-1">
-                Questions? WhatsApp us at{' '}
-                <a href="https://wa.me/353899817111" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">+353 89 981 7111</a>
-              </p>
+              {/* Payout nudge */}
+              {!allDone && (
+                <div className="rounded-2xl border border-sage/30 bg-sage-light p-4">
+                  <p className="text-sm font-semibold text-foreground mb-1">Set up payouts</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                    Add your bank or Revolut (any IBAN) to get paid automatically after each job. You can do this anytime — earnings are held safely until you do.
+                  </p>
+                  <a href="/student-dashboard?tab=earnings" className="inline-flex h-10 items-center justify-center rounded-full bg-sage text-white text-xs font-semibold px-5">Set up payouts</a>
+                </div>
+              )}
+
+              {/* Need a hand? — straight to a person */}
+              <div className="rounded-2xl border border-border/60 bg-background p-4">
+                <p className="text-sm font-semibold text-foreground mb-0.5">Stuck on anything?</p>
+                <p className="text-xs text-muted-foreground mb-3">We're real people in Galway — text or call and we'll sort it.</p>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, I'm signing up as a helper${name ? ` (${name})` : ''} and need a hand with verification.`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex-1 h-10 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#25D366]/8 transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" /> WhatsApp us
+                  </a>
+                  <a
+                    href={teamTelHref}
+                    className="flex-1 h-10 rounded-full border border-border text-foreground text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-secondary transition-colors"
+                  >
+                    <Phone className="w-4 h-4" /> Call us
+                  </a>
+                </div>
+              </div>
             </div>
           )}
         </div>

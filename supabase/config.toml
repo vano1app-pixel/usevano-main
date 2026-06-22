@@ -66,6 +66,12 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.stripe-identity-webhook]
     verify_jwt = false
+  # €2 sign-up fee — opened and confirmed by the (account-less) applicant on
+  # the verify page, so no user JWT.
+  [functions.create-signup-payment]
+    verify_jwt = false
+  [functions.confirm-signup-payment]
+    verify_jwt = false
   # HomePlans self-serve monthly subscriptions — same anonymous customer pattern.
   [functions.create-plan-checkout]
     verify_jwt = false

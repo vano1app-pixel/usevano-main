@@ -26,7 +26,9 @@ serve(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
   try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, serviceKey);
     const { helper_id, code } = await req.json() as { helper_id?: string; code?: string };
     const cleanCode = code?.trim();
     if (!helper_id || !cleanCode || !/^\d{6}$/.test(cleanCode)) {
@@ -60,6 +62,16 @@ serve(async (req) => {
       .from('household_helpers').update({ student_email_verified: true }).eq('id', helper_id);
     if (updErr) { console.error('[verify-student-email-otp] update failed', updErr); return json(500, { error: 'Could not save verification.' }); }
     await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+
+    // If that completed all three gates, the DB trigger approved them — notify.
+    const { data: row } = await supabase.from('household_helpers').select('status').eq('id', helper_id).maybeSingle();
+    if ((row as { status?: string } | null)?.status === 'approved') {
+      fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ helper_id }),
+      }).catch(() => {/* non-critical */});
+    }
 
     return json(200, { success: true, verified: true });
   } catch (err) {
