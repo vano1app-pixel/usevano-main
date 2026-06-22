@@ -858,7 +858,7 @@ const TrackBooking = () => {
               {helperName ? `${helperName} is confirmed — secure your booking` : 'Helper confirmed — secure your booking'}
             </p>
             <p className="text-foreground/65 text-xs mt-1 leading-relaxed">
-              Pay now to lock in your helper. No cash needed on the day.
+              Pay now to lock in your helper — your payment's protected until the job's confirmed done, money back if it's not right. No cash needed on the day.
             </p>
             {(() => {
               const price = booking.price_estimate_cents ?? 0;

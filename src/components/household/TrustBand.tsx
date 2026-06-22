@@ -12,10 +12,10 @@ import { motion, type Variants } from 'framer-motion';
  */
 
 const PILLARS = [
-  { icon: ShieldCheck, title: 'ID-checked & vetted',   line: 'Every helper is verified before their first job.' },
-  { icon: Eye,         title: 'You see them first',    line: 'Name, photo and rating before they arrive.' },
-  { icon: CreditCard,  title: 'Pay only when matched', line: 'No upfront payment — pay once a helper accepts.' },
-  { icon: BadgeCheck,  title: 'Money-back guarantee',  line: "Not right? We'll fix it or refund you." },
+  { icon: ShieldCheck, title: 'ID-verified & vetted', line: 'Every helper passes an ID + selfie check before their first job.' },
+  { icon: Eye,         title: 'You see them first',   line: 'Name, photo and rating before they arrive.' },
+  { icon: CreditCard,  title: 'Protected payment',    line: "Pay only after a helper accepts — protected until the job's done." },
+  { icon: BadgeCheck,  title: 'Money-back guarantee', line: "Not right? We'll make it right or refund you." },
 ];
 
 const container: Variants = {
@@ -32,6 +32,9 @@ export const TrustBand: React.FC = () => (
     <div className="max-w-5xl mx-auto">
       <div className="text-center mb-10">
         <span className="eyebrow">Booked with confidence</span>
+        <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+          Every helper is ID-verified, and your booking is protected from the moment you request to the moment it's done.
+        </p>
       </div>
 
       <motion.ul

@@ -702,7 +702,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
             </motion.div>
 
             <motion.p variants={listItem} className="text-center text-[11px] text-muted-foreground">
-              No payment now — pay securely (card, Apple Pay, Google Pay) once your helper accepts · money back guarantee
+              No payment now — you're charged only when a helper accepts, and they're paid only once you confirm it's done. Card, Apple Pay or Google Pay · money-back guarantee
             </motion.p>
           </motion.form>
         </div>

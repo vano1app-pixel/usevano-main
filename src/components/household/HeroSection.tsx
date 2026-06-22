@@ -101,7 +101,7 @@ export const HeroSection: React.FC = () => {
               transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="text-white/70 text-base sm:text-lg leading-relaxed max-w-md"
             >
-              Vetted local students — see their name, photo and rating before they arrive.
+              ID-verified local students — see their name, photo and rating before they arrive.
             </motion.p>
 
             {/* Trust — quiet rows, desktop only (mobile gets the strip below the card) */}

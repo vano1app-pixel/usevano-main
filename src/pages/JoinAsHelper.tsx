@@ -753,6 +753,26 @@ export const JoinAsHelper: React.FC = () => {
           </div>
         </section>
 
+        {/* Your safety too — VANO protects the helper as well as the household */}
+        <section className="px-4 py-12 max-w-lg mx-auto">
+          <p className="eyebrow mb-3">Your safety comes first too</p>
+          <h2 className="text-2xl font-semibold text-foreground mb-6">We look after you on every job</h2>
+          <ul className="space-y-3">
+            {[
+              'You choose every job — see the customer and the task before you accept.',
+              'Your live location is only shared while a job is on, never before or after.',
+              'An arrival code confirms you’re at the right door before you start.',
+              'Guaranteed pay — your earnings are held and released to you automatically.',
+              'One tap to reach us if anything ever feels off.',
+            ].map((t) => (
+              <li key={t} className="flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-sage flex-shrink-0 mt-0.5" />
+                <span className="text-foreground text-base leading-relaxed">{t}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         {/* How it works */}
         <section className="px-4 py-12 max-w-lg mx-auto">
           <p className="eyebrow mb-3">How it works</p>
