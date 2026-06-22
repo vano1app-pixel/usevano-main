@@ -28,6 +28,7 @@ const VerifyHelper: React.FC = () => {
   const helperId = params.get('id') || (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_helper_id') : null);
   const name = params.get('name') || (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_helper_name') : null);
   const returnedFromIdCheck = params.get('id_check') === 'done';
+  const paid = params.get('paid') === '1';
 
   const [email, setEmail] = useState(
     (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_student_email') : '') || '',
@@ -117,9 +118,15 @@ const VerifyHelper: React.FC = () => {
             <h1 className="display-lg text-foreground mb-2">
               {name ? `Nearly there, ${name.split(' ')[0]}` : 'Nearly there'}
             </h1>
-            <p className="text-muted-foreground leading-relaxed mb-8">
+            <p className="text-muted-foreground leading-relaxed mb-4">
               Two quick checks keep VANO trusted — they're why customers feel safe letting a helper into their home. Customers only ever see verified helpers.
             </p>
+            {paid && (
+              <div className="mb-8 inline-flex items-center gap-1.5 rounded-full bg-sage/10 border border-sage/25 px-3 py-1.5 text-xs font-semibold text-sage-dark">
+                <CheckCircle2 className="w-3.5 h-3.5" /> €2 sign-up fee paid
+              </div>
+            )}
+            {!paid && <div className="mb-8" />}
           </motion.div>
 
           {!helperId ? (

@@ -70,9 +70,19 @@ serve(async (req) => {
       return new Response(JSON.stringify({ received: true, ignored: true }), { headers: { 'Content-Type': 'application/json' } });
     }
 
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const helperId = obj.metadata?.helper_id ?? null;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
     const sessionId = obj.id ?? null;
+    let helperId = obj.metadata?.helper_id ?? null;
+    if (!helperId && sessionId) {
+      const { data } = await supabase.from('household_helpers').select('id').eq('identity_session_id', sessionId).maybeSingle();
+      helperId = (data as { id?: string } | null)?.id ?? null;
+    }
+    if (!helperId) {
+      return new Response(JSON.stringify({ received: true, unmatched: true }), { headers: { 'Content-Type': 'application/json' } });
+    }
 
     const status =
       type === 'identity.verification_session.verified' ? 'verified'
@@ -82,11 +92,29 @@ serve(async (req) => {
 
     const update: Record<string, unknown> = { identity_status: status };
     if (status === 'verified') update.id_verified = true;
-
-    let q = supabase.from('household_helpers').update(update);
-    q = helperId ? q.eq('id', helperId) : q.eq('identity_session_id', sessionId);
-    const { error } = await q;
+    const { error } = await supabase.from('household_helpers').update(update).eq('id', helperId);
     if (error) console.error('[stripe-identity-webhook] update failed', error);
+
+    // Auto-approve once the ID check passes — but only a still-pending
+    // application, so a verified ID never revives a suspended/rejected helper
+    // or re-touches one that's already approved. This removes the manual
+    // approval step: passing verification = live.
+    if (status === 'verified') {
+      const { data: approved } = await supabase
+        .from('household_helpers')
+        .update({ status: 'approved' })
+        .eq('id', helperId)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
+      if ((approved as { id?: string } | null)?.id) {
+        fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ helper_id: helperId }),
+        }).catch(() => {/* non-critical — the status flip is what matters */});
+      }
+    }
 
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {

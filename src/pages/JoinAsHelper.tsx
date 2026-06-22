@@ -277,14 +277,17 @@ export const JoinAsHelper: React.FC = () => {
       const json = await res.json() as { success?: boolean; error?: string; checkout_url?: string; helper_id?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? 'Unknown error');
 
-      if (json.checkout_url) { window.location.href = json.checkout_url; return; }
-
-      // Hand off to the verification flow (confirm student email + ID check).
+      // Persist for the verification step first — this survives the Stripe
+      // round-trip so the verify page still has the helper id + student email.
       try {
         if (json.helper_id) localStorage.setItem('vano_helper_id', json.helper_id);
         localStorage.setItem('vano_helper_name', name.trim());
         if (studentEmail.trim()) localStorage.setItem('vano_student_email', studentEmail.trim().toLowerCase());
       } catch { /* localStorage may be unavailable — the query params still carry id + name */ }
+
+      // €2 sign-up fee — pay first; Stripe returns to /verify-helper on success.
+      if (json.checkout_url) { window.location.href = json.checkout_url; return; }
+
       const q = new URLSearchParams();
       if (json.helper_id) q.set('id', json.helper_id);
       if (name.trim()) q.set('name', name.trim());
@@ -358,7 +361,7 @@ export const JoinAsHelper: React.FC = () => {
                 Application in{welcomeName ? `, ${welcomeName.split(' ')[0]}` : ''}! 🎉
               </h2>
               <p className="text-muted-foreground text-sm leading-relaxed mb-5">
-                Joining VANO is completely free. Two quick steps finish your sign-up and get you live faster:
+                Two quick steps finish your sign-up and get you live faster:
               </p>
 
               {/* Next steps — verification (scaffolded backend) */}

@@ -5,8 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Accepts multipart/form-data with photo file + JSON fields.
 // Inserts the helper row (or updates an existing pending application —
 // duplicate phone/email submissions update in place rather than creating
-// a second row). Joining is free: there is no payment step — the helper
-// goes live the moment an admin approves the application.
+// a second row). Signup charges a €2 fee via Stripe Checkout; the helper
+// auto-approves once their ID check passes (stripe-identity-webhook).
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -203,7 +203,7 @@ serve(async (req) => {
       personally — you'll hear back <strong>within 24 hours</strong>, usually much faster.
     </p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      Joining VANO is <strong>completely free</strong> — there's nothing to pay. Once you're approved,
+      There's a one-off <strong>€2 sign-up fee</strong>. Once it's paid and you're verified,
       your profile goes live and we'll start sending you jobs.
     </p>
     <p style="margin:0 0 4px;color:#374151;font-size:14px;">Questions or in a hurry?</p>
@@ -211,16 +211,48 @@ serve(async (req) => {
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. We review every application personally — you'll hear back within 24 hours. Joining is completely free — there's nothing to pay. Questions? WhatsApp +353 89 981 7111`,
+            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. There's a one-off €2 sign-up fee; once it's paid and you're verified, your profile goes live and we'll start sending you jobs. Questions? WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {/* non-critical */});
       }
     }
 
-    // Joining is free — no payment step. The application is saved as
-    // 'pending'; the helper goes live the moment an admin approves it.
-    // (No checkout_url is returned, so the client shows the welcome state.)
-    return new Response(JSON.stringify({ success: true, helper_id: helperId }), {
+    // €2 sign-up fee — open a Stripe Checkout and hand the URL back. The client
+    // redirects here before verification (form → pay → verify). Falls back to
+    // free (no checkout_url) only if Stripe isn't configured, so signup never
+    // hard-breaks on a missing key.
+    let checkoutUrl: string | null = null;
+    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
+    if (stripeKey && helperId) {
+      const origin = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
+      const params: Record<string, string> = {
+        mode: 'payment',
+        success_url: `${origin}/verify-helper?id=${helperId}&paid=1`,
+        cancel_url: `${origin}/join`,
+        'payment_method_types[0]': 'card',
+        'line_items[0][price_data][currency]': 'eur',
+        'line_items[0][price_data][unit_amount]': '200',
+        'line_items[0][price_data][product_data][name]': 'VANO helper sign-up',
+        'line_items[0][quantity]': '1',
+        'metadata[type]': 'helper_signup',
+        'metadata[helper_id]': helperId,
+        ...(email ? { customer_email: email } : {}),
+      };
+      try {
+        const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${stripeKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(params).toString(),
+        });
+        if (resp.ok) { const s = await resp.json() as { url?: string }; checkoutUrl = s.url ?? null; }
+        else console.error('[create-helper-application] signup checkout failed', resp.status, (await resp.text()).slice(0, 200));
+      } catch (e) { console.error('[create-helper-application] signup checkout error', e); }
+    }
+
+    // The application is saved as 'pending'. The client redirects to the €2
+    // checkout (if any), then to /verify-helper; the helper auto-approves once
+    // their ID check passes (stripe-identity-webhook).
+    return new Response(JSON.stringify({ success: true, helper_id: helperId, checkout_url: checkoutUrl }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
 
