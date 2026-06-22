@@ -85,9 +85,10 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
 
   // Autocomplete — debounced, Ireland only. Runs on user typing only.
   useEffect(() => {
-    if (skipNextSearch.current) { skipNextSearch.current = false; return; }
-    if (query.length < 3) { setSuggestions([]); setOpen(false); return; }
+    if (skipNextSearch.current) { skipNextSearch.current = false; setSearching(false); return; }
+    if (query.length < 3) { setSuggestions([]); setOpen(false); setSearching(false); return; }
     setSearching(true);
+    let ignore = false; // drop this run's response if a newer query supersedes it
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(
@@ -95,12 +96,13 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
           { headers: { 'Accept-Language': 'en' } },
         );
         const results: NominatimResult[] = await res.json();
+        if (ignore) return;
         setSuggestions(results);
         setOpen(results.length > 0);
       } catch { /* network error — ignore */ }
-      finally { setSearching(false); }
+      finally { if (!ignore) setSearching(false); }
     }, 380);
-    return () => clearTimeout(timer);
+    return () => { ignore = true; clearTimeout(timer); };
   }, [query]);
 
   // Close dropdown on outside click
