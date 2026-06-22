@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ShieldCheck, Eye, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useHelperCount } from '@/hooks/useHelperCount';
+import { useCountUp } from '@/hooks/useCountUp';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ScrollCue } from './ScrollCue';
@@ -18,22 +19,6 @@ const TRUST = [
   { icon: Eye,         text: 'See their name and photo before they arrive',  short: 'See who’s coming' },
   { icon: BadgeCheck,  text: 'Money back if it isn’t right — no questions',  short: 'Money-back guarantee' },
 ];
-
-function useCountUp(target: number, duration = 700): number {
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    if (target === 0) return;
-    const start = Date.now();
-    const tick = () => {
-      const p = Math.min((Date.now() - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      setDisplay(Math.round(target * ease));
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, [target, duration]);
-  return display;
-}
 
 function timeGreeting(): string {
   const h = new Date().getHours();

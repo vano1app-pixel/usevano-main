@@ -8,6 +8,8 @@ import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useCountUp } from '@/hooks/useCountUp';
+import { haptic } from '@/lib/haptics';
 import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
@@ -215,7 +217,13 @@ const StudentDashboard = () => {
       .from('household_helpers')
       .update({ is_available: next })
       .eq('id', helperId);
-    if (!error) setHelperAvailable(next);
+    if (!error) {
+      setHelperAvailable(next);
+      // Going on-duty is the helper's most important action — confirm it with
+      // a haptic tap (firmer when going live) and a short reassurance toast.
+      haptic(next ? 16 : 8);
+      if (next) toast({ title: "You're live", description: 'New jobs near you will reach you first.' });
+    }
     setTogglingAvailable(false);
   };
 
@@ -487,7 +495,7 @@ const StudentDashboard = () => {
                 onClick={() => void toggleAvailable()}
                 disabled={togglingAvailable}
                 className={cn(
-                  'mt-1 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all duration-200 flex-shrink-0',
+                  'mt-1 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all duration-200 flex-shrink-0 active:scale-95',
                   helperAvailable
                     ? 'bg-sage/10 text-sage border-sage/30'
                     : 'bg-secondary text-muted-foreground border-border',
@@ -495,11 +503,22 @@ const StudentDashboard = () => {
               >
                 {togglingAvailable ? (
                   <Loader2 size={11} className="animate-spin" />
+                ) : helperAvailable ? (
+                  // Live: a "breathing" dot with a ping ring, springing in the
+                  // moment the helper flips on (re-keyed so it pops on toggle).
+                  <motion.span
+                    key="on"
+                    initial={{ scale: 0.3 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 520, damping: 16 }}
+                    className="relative flex h-2 w-2 flex-shrink-0"
+                    aria-hidden="true"
+                  >
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-75 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-sage" />
+                  </motion.span>
                 ) : (
-                  <span className={cn(
-                    'w-2 h-2 rounded-full flex-shrink-0',
-                    helperAvailable ? 'bg-sage animate-pulse' : 'bg-muted-foreground/40',
-                  )} />
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground/40 flex-shrink-0" aria-hidden="true" />
                 )}
                 {helperAvailable ? 'Available' : 'Off duty'}
               </button>
@@ -706,21 +725,8 @@ const StudentDashboard = () => {
                   </div>
                 )}
 
-                {/* Summary cards */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="rounded-2xl bg-sage-light border border-sage/20 p-4">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Paid out</p>
-                    <p className="text-2xl font-bold text-foreground tabular-nums">
-                      €{(totalEarned / 100).toFixed(0)}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-secondary border border-border/40 p-4">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Pending</p>
-                    <p className="text-2xl font-bold text-foreground tabular-nums">
-                      €{(pendingEarned / 100).toFixed(0)}
-                    </p>
-                  </div>
-                </div>
+                {/* Summary cards — totals count up each time the tab opens */}
+                <EarningsSummary paidCents={totalEarned} pendingCents={pendingEarned} />
 
                 {/* Payout list */}
                 {payouts.length === 0 ? (
@@ -1114,6 +1120,25 @@ const StatusPill = ({ status }: { status: string }) => {
     <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0', s.className)}>
       {s.label}
     </span>
+  );
+};
+
+// Earnings totals that count up from zero. Mounted only while the Earnings
+// tab is open, so the tick-up replays each time the helper visits it.
+const EarningsSummary = ({ paidCents, pendingCents }: { paidCents: number; pendingCents: number }) => {
+  const paid = useCountUp(Math.round(paidCents / 100));
+  const pending = useCountUp(Math.round(pendingCents / 100));
+  return (
+    <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="rounded-2xl bg-sage-light border border-sage/20 p-4">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Paid out</p>
+        <p className="text-2xl font-bold text-foreground tabular-nums">€{paid}</p>
+      </div>
+      <div className="rounded-2xl bg-secondary border border-border/40 p-4">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Pending</p>
+        <p className="text-2xl font-bold text-foreground tabular-nums">€{pending}</p>
+      </div>
+    </div>
   );
 };
 
