@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-const SEED = 3;
-
 // Module-level cache: HeroSection and StickyBookBar both show this number on
 // the same page — one head-count request serves both (and any remount).
 let cachedCount: number | null = null;
@@ -14,10 +12,13 @@ function fetchHelperCount(): Promise<number | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inflight = (supabase as any)
       .from('household_helpers')
-      // count by id — anon no longer has SELECT on every column, so * would 403
+      // Honest "helpers online" = approved + available helpers. Count by id —
+      // anon doesn't have SELECT on every column, so * would 403.
       .select('id', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .eq('is_available', true)
       .then(({ count }: { count: number | null }) => {
-        if (count !== null) cachedCount = Math.max(5, count * 2 + SEED);
+        if (count !== null) cachedCount = count;
         inflight = null;
         return cachedCount;
       })
