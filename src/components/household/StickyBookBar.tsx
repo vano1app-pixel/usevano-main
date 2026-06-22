@@ -39,14 +39,14 @@ export const StickyBookBar: React.FC = () => {
               {helperCount > 0 ? `${helperCount} helpers online` : 'Helpers available now'}
             </p>
           </div>
-          <p className="font-semibold text-foreground text-sm">From €15 · book in 30 sec</p>
+          <p className="font-semibold text-foreground text-sm">Book vetted help today</p>
         </div>
         <Button
           onClick={scrollToGrid}
           className="rounded-full px-7 font-semibold flex-shrink-0 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
           size="default"
         >
-          Get help today
+          Book now
         </Button>
       </div>
     </motion.div>
