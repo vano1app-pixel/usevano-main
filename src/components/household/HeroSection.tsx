@@ -90,8 +90,19 @@ export const HeroSection: React.FC = () => {
               transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               className="display-xl text-white mb-4"
             >
-              Same-day help,<br />booked in seconds.
+              Same-day help,<br />from someone you trust.
             </motion.h1>
+
+            {/* Subline — backs the "someone you trust" promise with the core
+                differentiator: you see the helper before they arrive. */}
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="text-white/70 text-base sm:text-lg leading-relaxed max-w-md"
+            >
+              Vetted local students — see their name, photo and rating before they arrive.
+            </motion.p>
 
             {/* Trust — quiet rows, desktop only (mobile gets the strip below the card) */}
             <ul className="hidden lg:flex flex-col gap-2.5 mt-8">
