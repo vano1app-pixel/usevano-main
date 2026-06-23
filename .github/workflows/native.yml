@@ -1,0 +1,84 @@
+name: Native build check
+
+# Proves BOTH native apps still compile from a clean checkout — so you learn
+# your iOS build broke without owning a Mac. Web typecheck/test/build lives in
+# ci.yml; this is the heavier native half, on a tighter trigger because macOS
+# runner minutes cost ~10x. No secrets required (iOS builds for the simulator,
+# which needs no code signing; Android builds the debug variant).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Dummy Supabase creds so the client instantiates during `vite build`
+  # (no network calls happen) — mirrors ci.yml.
+  VITE_SUPABASE_URL: http://ci.local.supabase.co
+  VITE_SUPABASE_PUBLISHABLE_KEY: ci-anon-key
+
+jobs:
+  android:
+    name: Android — debug build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      # The runner ships a recent Android SDK; make sure the compileSdk
+      # platform (see android/variables.gradle) is present — non-fatal.
+      - name: Ensure Android SDK platform
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" >/dev/null 2>&1 || true
+      - name: Build debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+  ios:
+    name: iOS — unsigned build
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+      # Simulator SDK builds need no code signing — this just proves it compiles.
+      - name: Build (no signing)
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build

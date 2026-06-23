@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, LocateFixed, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentPosition, isPermissionDenied } from '@/lib/native/geolocation';
 
 // Shared address picker — Nominatim autocomplete (Ireland only, handles
 // eircodes) + "use my current location" via browser geolocation with
@@ -117,15 +118,10 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   }
 
   async function locateMe() {
-    if (!('geolocation' in navigator)) {
-      toast({ title: 'Location not supported on this device', variant: 'destructive' });
-      return;
-    }
     setLocating(true);
     try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, enableHighAccuracy: true }),
-      );
+      // Native app uses @capacitor/geolocation; web uses the browser API.
+      const pos = await getCurrentPosition({ timeout: 10000, enableHighAccuracy: true });
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
@@ -140,10 +136,10 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
       setOpen(false);
       onAddress(formatted, lat, lng, result.address);
     } catch (err) {
-      const isDenied = err instanceof GeolocationPositionError && err.code === 1;
+      const isDenied = isPermissionDenied(err);
       toast({
         title: isDenied ? 'Location access denied' : 'Could not get your location',
-        description: isDenied ? 'Allow location access in your browser settings.' : 'Type your address instead.',
+        description: isDenied ? 'Allow location access in your settings.' : 'Type your address instead.',
         variant: 'destructive',
       });
     } finally {

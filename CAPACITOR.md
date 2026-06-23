@@ -45,7 +45,22 @@ Then build/run/submit from Xcode / Android Studio as normal.
 | URL scheme (Android) | `android/app/src/main/AndroidManifest.xml` → intent-filter |
 
 Plugins installed: `@capacitor/app`, `@capacitor/browser`,
-`@capacitor/status-bar`, `@capacitor/splash-screen`.
+`@capacitor/status-bar`, `@capacitor/splash-screen`, `@capacitor/geolocation`.
+
+**Native geolocation** is wired: `src/lib/native/geolocation.ts` bridges to
+`@capacitor/geolocation` on native (and falls back to the browser API on web), so
+"use my location" (AddressPicker) and the helper's live job tracking
+(StudentJobDetail) work inside the app. Permission strings are declared in
+`Info.plist` (`NSLocationWhenInUseUsageDescription`) and `AndroidManifest.xml`
+(`ACCESS_FINE/COARSE_LOCATION`).
+
+**Continuous integration** (`.github/workflows/`):
+- `ci.yml` (existing) — web typecheck/test/lint/build on every push + PR.
+- `native.yml` — proves the **iOS and Android apps still compile** on PRs to
+  `main` (iOS on a macOS runner, so you catch iOS breakage without a Mac). No
+  secrets needed.
+- `mobile-release.yml` — manual trigger; builds **signed** artifacts and uploads
+  iOS to TestFlight. Needs signing secrets (see that file's header + below).
 
 Inside the native app these web-only bits are automatically suppressed: the PWA
 install banner, the iOS "Add to Home Screen" tip, the web push prompt, and the
@@ -151,15 +166,34 @@ allow-list (manual step 1).
 
 ---
 
+## Releasing through CI (build iOS without a Mac)
+
+`mobile-release.yml` is a **manual** workflow (Actions tab → Mobile release → Run
+workflow) that builds signed artifacts and uploads iOS to TestFlight. Add these
+**repo secrets** (Settings → Secrets and variables → Actions) first:
+
+| Platform | Secrets |
+|---|---|
+| Both | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` |
+| iOS | `IOS_DIST_CERT_P12_BASE64`, `IOS_DIST_CERT_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64`, `IOS_PROVISIONING_PROFILE_NAME`, `IOS_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_API_KEY_P8_BASE64` |
+| Android | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` |
+
+`base64` a file with `base64 -i file` (macOS) / `base64 -w0 file` (Linux). The iOS
+cert/profile come from your Apple Developer account; the App Store Connect API key
+(`.p8`) from App Store Connect → Users and Access → Integrations → App Store
+Connect API. Generate an Android upload keystore once with `keytool`.
+
+> Signed CI is fiddly to get exactly right first time — check the first run's logs
+> for profile-name / export-method mismatches. If you'd rather not wrangle Apple
+> signing in YAML, **[Codemagic](https://codemagic.io)** auto-detects Capacitor,
+> manages signing in its UI, and publishes to both stores — a `codemagic.yaml`
+> would replace `mobile-release.yml`. Say the word and I'll add one.
+
 ## Known follow-ups (optional, not blockers)
 
 - **Native push notifications** — the web push prompt is hidden on native. For
   real native push, add `@capacitor/push-notifications` + APNs (iOS) / FCM
   (Android) and bridge to the existing notification backend.
-- **"Use my location"** — `navigator.geolocation` doesn't work in iOS WKWebView
-  without a bridge. The manual Eircode/address field (the existing fallback)
-  still works. To enable native location: add `@capacitor/geolocation`, the iOS
-  `NSLocationWhenInUseUsageDescription` string, and Android location permissions.
 - **Top safe area on iOS** — handled by a native-only CSS pad
   (`html.native-app body { padding-top: env(safe-area-inset-top) }`). Verify on a
   notched device; if the strip clashes with a full-bleed hero, move the pad onto
