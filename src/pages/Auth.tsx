@@ -12,6 +12,7 @@ import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } f
 import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
+import { isNativeApp } from '@/lib/platform';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
@@ -153,6 +154,30 @@ const Auth = () => {
     setLoading(true);
     try {
       setGoogleOAuthIntent(isLogin ? null : userType);
+
+      // Native app: Google rejects OAuth inside an embedded webview
+      // (disallowed_useragent), so we ask Supabase for the auth URL without
+      // redirecting and open it in the system browser (SFSafariViewController /
+      // Chrome Custom Tab — both allowed by Google). The deep-link listener in
+      // src/lib/native/initNativeAuth.ts catches the return trip and finishes.
+      if (isNativeApp()) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: getAuthRedirectUrl(),
+            skipBrowserRedirect: true,
+            queryParams: { access_type: 'offline', prompt: 'select_account' },
+          },
+        });
+        if (error) throw error;
+        if (data?.url) {
+          const { Browser } = await import('@capacitor/browser');
+          await Browser.open({ url: data.url });
+        }
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

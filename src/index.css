@@ -228,6 +228,17 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /* Native (Capacitor) only: inside the iOS app the webview sits under the
+     status bar / notch, and the app otherwise handles only the bottom inset.
+     Pad the top by the safe area so the header doesn't hide under the clock.
+     env() is 0 on Android (status bar is non-overlay there) and the class is
+     absent on the web, so this is inert everywhere except the iOS app. If the
+     white strip ever clashes with a full-bleed hero, move this onto the page
+     header instead. The class is set in src/lib/native/initNativeApp.ts. */
+  html.native-app body {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
   /* Skeleton shimmer — one soft light sweep across loading placeholders.
      Put it on the skeleton container; the grey blocks stay as they are.
      Reuses the @keyframes shimmer above; reduced-motion neutralises it. */
