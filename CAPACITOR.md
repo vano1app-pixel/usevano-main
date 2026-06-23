@@ -59,8 +59,8 @@ Plugins installed: `@capacitor/app`, `@capacitor/browser`,
 - `native.yml` — proves the **iOS and Android apps still compile** on PRs to
   `main` (iOS on a macOS runner, so you catch iOS breakage without a Mac). No
   secrets needed.
-- `mobile-release.yml` — manual trigger; builds **signed** artifacts and uploads
-  iOS to TestFlight. Needs signing secrets (see that file's header + below).
+- `codemagic.yaml` — the cloud build/sign/publish setup for both stores (no Mac
+  needed). Beginner walkthrough in `SHIPPING.md`.
 
 Inside the native app these web-only bits are automatically suppressed: the PWA
 install banner, the iOS "Add to Home Screen" tip, the web push prompt, and the
@@ -121,8 +121,8 @@ Info.plist / AndroidManifest scheme edits (or just change the scheme strings too
    details, support URL), attach the build, submit for review.
 
 > Apple privacy: declare data collection (auth email, analytics via PostHog,
-> crash logs via Sentry) in **App Privacy**. The app uses no native location/
-> camera/contacts permissions in this first build (see "Known follow-ups").
+> crash logs via Sentry) in **App Privacy**, and that the app uses **location**
+> (for "use my location" + live job tracking — `NSLocationWhenInUseUsageDescription`).
 
 ## Android — build & submit (Android Studio)
 
@@ -166,28 +166,18 @@ allow-list (manual step 1).
 
 ---
 
-## Releasing through CI (build iOS without a Mac)
+## Releasing (build iOS without a Mac) — Codemagic
 
-`mobile-release.yml` is a **manual** workflow (Actions tab → Mobile release → Run
-workflow) that builds signed artifacts and uploads iOS to TestFlight. Add these
-**repo secrets** (Settings → Secrets and variables → Actions) first:
+The friendly path for someone without a Mac is **[Codemagic](https://codemagic.io)**:
+a cloud service that builds, signs, and uploads the apps for you. The config is
+`codemagic.yaml` (iOS + Android workflows); signing/credentials are set up in the
+Codemagic website, not in the repo.
 
-| Platform | Secrets |
-|---|---|
-| Both | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` |
-| iOS | `IOS_DIST_CERT_P12_BASE64`, `IOS_DIST_CERT_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64`, `IOS_PROVISIONING_PROFILE_NAME`, `IOS_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_API_KEY_P8_BASE64` |
-| Android | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` |
+👉 **Full beginner, click-by-click instructions: see [`SHIPPING.md`](./SHIPPING.md).**
 
-`base64` a file with `base64 -i file` (macOS) / `base64 -w0 file` (Linux). The iOS
-cert/profile come from your Apple Developer account; the App Store Connect API key
-(`.p8`) from App Store Connect → Users and Access → Integrations → App Store
-Connect API. Generate an Android upload keystore once with `keytool`.
-
-> Signed CI is fiddly to get exactly right first time — check the first run's logs
-> for profile-name / export-method mismatches. If you'd rather not wrangle Apple
-> signing in YAML, **[Codemagic](https://codemagic.io)** auto-detects Capacitor,
-> manages signing in its UI, and publishes to both stores — a `codemagic.yaml`
-> would replace `mobile-release.yml`. Say the word and I'll add one.
+`.github/workflows/native.yml` still runs free, no-secret build checks (it just
+proves both apps compile, including iOS on a macOS runner) — keep it; it doesn't
+release anything.
 
 ## Known follow-ups (optional, not blockers)
 
