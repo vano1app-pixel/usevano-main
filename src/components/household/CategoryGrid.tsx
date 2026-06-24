@@ -69,6 +69,15 @@ const CATEGORIES: Category[] = [
   },
 ];
 
+// The hero quick-book grid is deliberately short: the three strongest, highest-
+// repeat services, with the flagship (Cleaning, our "Popular") sitting in the
+// middle so its badge anchors the row. Everything else (garden, moving,
+// tutoring, painting…) lives one tap away in the custom job builder, reached via
+// the "more" button below. The other categories stay in CATEGORIES above so the
+// sheet still resolves them for returning customers ("book your usual") and any
+// deep link.
+const HERO_SLUGS = ['shopping', 'cleaning', 'dog-walk'] as const;
+
 // Smart defaults — most common booking for each service
 const DEFAULT_SIZE: Record<string, string> = {
   shopping:  '',
@@ -788,6 +797,23 @@ export const CategoryGrid: React.FC = () => {
   const openSheet = useCallback((cat: Category, size?: string) => setSelected({ cat, size }), []);
   const closeSheet = useCallback(() => setSelected(null), []);
 
+  // The four headline tiles, in hero order. Everything else is one tap away in
+  // the custom builder below — see HERO_SLUGS.
+  const heroCategories = useMemo(
+    () => HERO_SLUGS.map(slug => CATEGORIES.find(c => c.slug === slug)).filter(Boolean) as Category[],
+    [],
+  );
+
+  // "More services" → scroll the custom job builder into view and focus its box,
+  // so garden / moving / tutoring / anything-else is a single tap from the hero.
+  const goToCustomBuilder = useCallback(() => {
+    const el = document.getElementById('custom-job-input') as HTMLTextAreaElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Wait for the smooth scroll before focusing so the page doesn't jump
+    window.setTimeout(() => el.focus({ preventScroll: true }), 450);
+  }, []);
+
   // One-tap rebook: last booked job from this device
   const usual = useMemo(() => {
     const mem = loadBookingMemory();
@@ -819,11 +845,37 @@ export const CategoryGrid: React.FC = () => {
           initial="hidden"
           animate="show"
         >
-          {CATEGORIES.map((cat) => (
+          {heroCategories.map((cat) => (
             <motion.div key={cat.slug} variants={tileItem}>
               <CategoryTile cat={cat} onOpen={() => openSheet(cat)} />
             </motion.div>
           ))}
+
+          {/* "More services" — a full-width row under the three tiles that jumps
+              to the custom job builder, where garden / moving / tutoring /
+              painting & anything else are priced and bookable. Dashed + roomier
+              than a tile so it reads as "everything else", not a fourth service. */}
+          <motion.div variants={tileItem} className="col-span-3">
+            <button
+              type="button"
+              onClick={goToCustomBuilder}
+              className={cn(
+                'group relative flex flex-col items-center justify-center gap-0.5 text-center',
+                'w-full rounded-2xl px-3 py-3.5 border border-dashed',
+                'bg-secondary/40 text-foreground border-foreground/25 hover:bg-secondary/70 hover:border-foreground/40 shadow-sm hover:shadow-md',
+                'transition-[background-color,border-color,box-shadow] duration-150 active:scale-[0.98]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+              )}
+            >
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold leading-tight">
+                Something else? Name any job
+                <span aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-0.5">→</span>
+              </span>
+              <span className="text-[11px] font-medium text-foreground/55">
+                Painting, garden, moving, tutoring & more — fair €18/hr
+              </span>
+            </button>
+          </motion.div>
         </motion.div>
 
         {/* One-tap rebook — remembers the last job booked on this device */}
@@ -851,7 +903,7 @@ export const CategoryGrid: React.FC = () => {
           className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150"
         >
           <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" aria-hidden="true" />
-          Something else?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span>
+          Prefer to chat?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span>
         </button>
       </div>
 
