@@ -87,8 +87,6 @@ const VALID_CATEGORIES = [
   'midnight-lift',
   // Airbnb Host monthly plans
   'airbnb-essential', 'airbnb-popular', 'airbnb-premium',
-  // Painting & decorating — quick-book tile, priced by the hour at €18/hr
-  'painting',
   // "Name any job" — priced by the hour at the standard €18/hr labour rate
   'custom',
 ] as const;
@@ -231,16 +229,6 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       'Far (10 km+)':        2800,
     };
     return map[sizeLabel] ?? null;
-  }
-
-  // Painting & decorating — quick-book tile, time-based at the €18/hr labour
-  // rate (same hour labels as the CategoryGrid sheet), so it clears min wage.
-  if (category === 'painting') {
-    const hourMap: Record<string, number> = {
-      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
-    };
-    return hourMap[sizeLabel] ?? null;
   }
 
   // Custom "name any job" — priced purely by booked time at the €18/hr labour

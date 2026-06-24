@@ -23,7 +23,6 @@ export const HOURLY_RATE_CENTS: Record<string, number> = {
   moving:   1800,
   cleaning: 1800,
   tutoring: 1800,
-  painting: 1800,
   custom:   1800,
 };
 

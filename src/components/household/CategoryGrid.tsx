@@ -67,20 +67,16 @@ const CATEGORIES: Category[] = [
     description: 'One-to-one at your home. Any subject — Maths, science, languages.',
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
   },
-  {
-    emoji: '🎨', label: 'Painting',  slug: 'painting',
-    hint: 'Walls, ceilings & woodwork · you supply paint',
-    description: 'Walls, ceilings, skirting and trim — prep, cutting-in and rolling. You supply the paint, your helper brings the elbow grease.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
-  },
 ];
 
-// The hero quick-book grid is deliberately short: four headline services, in
-// this order. Everything else (garden, moving, tutoring…) lives one tap away in
-// the custom job builder, reached via the "more" button below the grid. The
-// other categories stay in CATEGORIES above so the sheet still resolves them for
-// returning customers ("book your usual") and any deep link.
-const HERO_SLUGS = ['shopping', 'cleaning', 'dog-walk', 'painting'] as const;
+// The hero quick-book grid is deliberately short: the three strongest, highest-
+// repeat services, with the flagship (Cleaning, our "Popular") sitting in the
+// middle so its badge anchors the row. Everything else (garden, moving,
+// tutoring, painting…) lives one tap away in the custom job builder, reached via
+// the "more" button below. The other categories stay in CATEGORIES above so the
+// sheet still resolves them for returning customers ("book your usual") and any
+// deep link.
+const HERO_SLUGS = ['shopping', 'cleaning', 'dog-walk'] as const;
 
 // Smart defaults — most common booking for each service
 const DEFAULT_SIZE: Record<string, string> = {
@@ -90,7 +86,6 @@ const DEFAULT_SIZE: Record<string, string> = {
   moving:    '2 hours',
   cleaning:  '2 hours',
   tutoring:  '1 hour',
-  painting:  '3 hours',
 };
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
@@ -114,7 +109,6 @@ const TILE_SCOPE: Record<string, string> = {
   moving:     '2-hr move',
   cleaning:   '2-hr clean',
   tutoring:   '1-hr lesson',
-  painting:   '3-hr paint',
 };
 
 // What to show on the card before tapping — bold price (the focal point) plus
@@ -857,28 +851,28 @@ export const CategoryGrid: React.FC = () => {
             </motion.div>
           ))}
 
-          {/* "More services" — fills the rest of the last row and jumps to the
-              custom job builder, where garden / moving / tutoring & anything
-              else are priced and bookable. Spans the two free cells so the
-              3-col grid stays balanced with four tiles. */}
-          <motion.div variants={tileItem} className="col-span-2">
+          {/* "More services" — a full-width row under the three tiles that jumps
+              to the custom job builder, where garden / moving / tutoring /
+              painting & anything else are priced and bookable. Dashed + roomier
+              than a tile so it reads as "everything else", not a fourth service. */}
+          <motion.div variants={tileItem} className="col-span-3">
             <button
               type="button"
               onClick={goToCustomBuilder}
               className={cn(
-                'group relative flex flex-col items-center justify-center gap-1 text-center',
-                'w-full h-full min-h-[96px] rounded-2xl px-3 py-3 border border-dashed',
+                'group relative flex flex-col items-center justify-center gap-0.5 text-center',
+                'w-full rounded-2xl px-3 py-3.5 border border-dashed',
                 'bg-secondary/40 text-foreground border-foreground/25 hover:bg-secondary/70 hover:border-foreground/40 shadow-sm hover:shadow-md',
                 'transition-[background-color,border-color,box-shadow] duration-150 active:scale-[0.98]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
               )}
             >
-              <span className="text-sm font-semibold leading-tight">
-                Garden, moving, tutoring &amp; more
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-foreground/55">
-                Name any job — fair €18/hr
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold leading-tight">
+                Something else? Name any job
                 <span aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-0.5">→</span>
+              </span>
+              <span className="text-[11px] font-medium text-foreground/55">
+                Painting, garden, moving, tutoring & more — fair €18/hr
               </span>
             </button>
           </motion.div>
@@ -909,7 +903,7 @@ export const CategoryGrid: React.FC = () => {
           className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150"
         >
           <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" aria-hidden="true" />
-          Something else?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span>
+          Prefer to chat?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span>
         </button>
       </div>
 
