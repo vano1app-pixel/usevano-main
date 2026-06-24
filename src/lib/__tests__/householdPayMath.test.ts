@@ -28,6 +28,7 @@ const TIME_BASED_HOURLY_RATES: Record<string, number> = {
   tutoring: 1800,
   garden:   1800,
   moving:   1800,
+  painting: 1800, // quick-book painting tile — same €18/hr labour floor
   custom:   1800, // "name any job" — same hourly floor, so it can't go sub-wage
   handyman: 2500,
   plumbing: 3000,
@@ -64,7 +65,7 @@ describe('household time-based rates pay above minimum wage', () => {
 // if the server changes a price, change it here too and this test stays green.
 describe('shared price source matches the server', () => {
   it('all time-based labour rates (incl. custom) are €18/hr', () => {
-    for (const slug of ['garden', 'moving', 'cleaning', 'tutoring', 'custom']) {
+    for (const slug of ['garden', 'moving', 'cleaning', 'tutoring', 'painting', 'custom']) {
       expect(HOURLY_RATE_CENTS[slug]).toBe(1800);
     }
   });
@@ -75,6 +76,7 @@ describe('shared price source matches the server', () => {
     expect(getHouseholdPriceCents('dog-walk', '1 hour')).toBe(2000);
     expect(getHouseholdPriceCents('cleaning', '2 hours')).toBe(3600);
     expect(getHouseholdPriceCents('tutoring', '1 hour')).toBe(1800);
+    expect(getHouseholdPriceCents('painting', '3 hours')).toBe(5400);
     expect(getHouseholdPriceCents('garden', '8 hours')).toBe(14400);
     expect(getHouseholdPriceCents('moving', '4+ hours')).toBe(7200); // client now matches server
     // Custom "name any job" — €18/hr × N, matching the server's hour map
