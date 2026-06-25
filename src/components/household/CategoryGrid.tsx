@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useDragControls, useMotionValue, useSpring, useReducedMotion, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -418,7 +418,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         dragElastic={{ top: 0, bottom: 0.6 }}
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
+        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl"
         style={{ maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain' }}
         role="dialog"
         aria-modal="true"
@@ -658,6 +658,14 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                   Your friend's €5 comes off your first booking when you pay
                 </p>
               )}
+
+              {/* Risk-reversal at the decision point — the single most reassuring
+                  fact (you don't pay until a helper accepts) sits right above the
+                  CTA, not buried in the fine print beneath it. */}
+              <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
+                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                No payment until a helper accepts · money-back guarantee
+              </p>
 
               <motion.div
                 whileHover={{ scale: 1.015 }}
