@@ -54,6 +54,7 @@ interface Booking {
     service_fee_cents?: number;
     referral_discount_cents?: number;
   } | null;
+  created_at: string;
 }
 
 // VAPID key (base64url) → Uint8Array for pushManager.subscribe. Mirrors the
@@ -265,6 +266,10 @@ const TrackBooking = () => {
   // "Mark done" (one-off jobs) + live timer tick (timed jobs)
   const [markingDone, setMarkingDone] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  // Minutes the booking has waited for a helper (drives the time-aware pending
+  // copy below). placedCelebratedRef gates the one-shot "fresh placement" pop.
+  const [pendingMin, setPendingMin] = useState(0);
+  const placedCelebratedRef = useRef(false);
 
   // Rating state
   const [hoverRating, setHoverRating] = useState(0);
@@ -281,6 +286,29 @@ const TrackBooking = () => {
       setAlreadyRated(!!localStorage.getItem(`vano_rated_${bookingId}`));
     }
   }, [bookingId]);
+
+  // How long the booking has waited for a helper, so the "finding your helper"
+  // copy stops pretending it's always "within minutes" and reflects the team
+  // escalation the backend really does once offers expire (redispatch-stale-jobs
+  // / no-helper-fallback).
+  useEffect(() => {
+    if (booking?.status !== 'pending' || !booking?.created_at) { setPendingMin(0); return; }
+    const compute = () => setPendingMin(Math.max(0, Math.floor((Date.now() - new Date(booking.created_at).getTime()) / 60000)));
+    compute();
+    const id = window.setInterval(compute, 20000);
+    return () => window.clearInterval(id);
+  }, [booking?.status, booking?.created_at]);
+
+  // Celebrate a *fresh* placement (booking under ~90s old) once — acknowledges
+  // the submit without re-firing when revisiting an older pending booking.
+  useEffect(() => {
+    if (placedCelebratedRef.current) return;
+    if (booking?.status === 'pending' && booking?.created_at
+        && (Date.now() - new Date(booking.created_at).getTime()) < 90_000) {
+      placedCelebratedRef.current = true;
+      microCelebrate();
+    }
+  }, [booking?.status, booking?.created_at]);
 
   // 🎉 Celebrate the moment they land back booked & paid (once per mount).
   const celebratedRef = useRef(false);
@@ -1181,18 +1209,41 @@ const TrackBooking = () => {
                     </div>
                   </div>
 
+                  {/* Fresh placements get a quick "received" acknowledgement;
+                      after a few minutes the copy escalates to match what the
+                      backend is really doing (re-dispatch → team). */}
+                  {pendingMin < 3 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 mb-2">
+                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Booking received
+                    </span>
+                  )}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="relative flex h-2 w-2" aria-hidden="true">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-75 animate-ping" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-sage" />
                     </span>
-                    <p className="text-sm font-semibold text-foreground">Finding your helper</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {pendingMin >= 10 ? 'Our team is on it' : pendingMin >= 3 ? 'Still searching' : 'Finding your helper'}
+                    </p>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {offerCount && offerCount > 0
-                      ? `${offerCount} helper${offerCount === 1 ? '' : 's'} nearby notified · usually matched within minutes`
-                      : 'Notifying helpers near you… usually matched within minutes'}
+                    {pendingMin >= 10
+                      ? "Taking a little longer than usual — our Galway team is now finding someone for you. We'll WhatsApp you the moment they're confirmed."
+                      : pendingMin >= 3
+                        ? 'Pinging more helpers near you — hang tight, this can take a few minutes.'
+                        : offerCount && offerCount > 0
+                          ? `${offerCount} helper${offerCount === 1 ? '' : 's'} nearby notified · usually matched within minutes`
+                          : 'Notifying helpers near you… usually matched within minutes'}
                   </p>
+                  {pendingMin >= 10 && (
+                    <a
+                      href={`https://wa.me/353899817111?text=${encodeURIComponent("Hi VANO, I'm still waiting on a helper for my booking. Can you help?")}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold px-4 py-2 hover:bg-[#25D366]/8 transition-colors"
+                    >
+                      <span aria-hidden="true">💬</span> Message the team
+                    </a>
+                  )}
 
                   {/* Subtle indeterminate progress to keep it feeling alive */}
                   <div className="mt-4 w-full h-1 rounded-full bg-sage/15 overflow-hidden">
@@ -1399,6 +1450,22 @@ const TrackBooking = () => {
               className="mt-4 flex items-center justify-center gap-1.5 w-full h-11 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
             >
               Book another job <span aria-hidden="true">→</span>
+            </Link>
+
+            {/* One-off → recurring: at the moment trust peaks (a job just went
+                well), bridge the customer into Autopilot — the LTV unlock. */}
+            <Link
+              to="/home#plans"
+              className="mt-2.5 flex items-center gap-3 w-full rounded-2xl border border-sage/30 bg-white/60 px-4 py-3 text-left hover:border-sage/50 hover:bg-white transition-colors duration-150 group"
+            >
+              <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">💚</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-foreground leading-snug">
+                  Loved {helperName ?? 'your helper'}? Put your home on autopilot
+                </span>
+                <span className="block text-xs text-muted-foreground mt-0.5">Same help every week · cancel anytime</span>
+              </span>
+              <span className="text-sage font-bold flex-shrink-0 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true">→</span>
             </Link>
           </motion.div>
         )}
