@@ -653,7 +653,7 @@ const TrackBooking = () => {
         <div className="w-8" />
       </header>
 
-      <main className={cn('pt-14 max-w-sm mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
+      <main className={cn('pt-14 max-w-sm md:max-w-lg mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
 
         {/* Payment success banner */}
         <AnimatePresence>
@@ -1243,7 +1243,10 @@ const TrackBooking = () => {
             <div className="rounded-2xl bg-destructive/5 border border-destructive/20 p-5">
               <p className="text-sm font-semibold text-foreground">Booking cancelled</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Your refund will appear within 5–7 business days. Questions? WhatsApp{' '}
+                {booking.paid_at
+                  ? 'Your refund will appear within 5–7 business days. '
+                  : "You weren't charged — with VANO you only pay once a helper accepts. "}
+                Questions? WhatsApp{' '}
                 <a href="https://wa.me/353899817111" className="text-primary underline">+353 89 981 7111</a>
               </p>
             </div>
@@ -1372,6 +1375,16 @@ const TrackBooking = () => {
                 Thanks for your feedback! ⭐
               </p>
             )}
+
+            {/* Repeat is the cheapest growth — give a just-completed, happy
+                customer a one-tap path straight back into the booking flow,
+                instead of dead-ending at "refer a friend". */}
+            <Link
+              to="/home#category-grid"
+              className="mt-4 flex items-center justify-center gap-1.5 w-full h-11 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
+            >
+              Book another job <span aria-hidden="true">→</span>
+            </Link>
           </motion.div>
         )}
 
@@ -1441,7 +1454,7 @@ const TrackBooking = () => {
             initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="w-full max-w-sm bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full max-w-sm md:max-w-lg bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
           >
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
               <div className="flex items-center gap-2">
@@ -1503,7 +1516,7 @@ const TrackBooking = () => {
       {/* Chat input */}
       {booking.student_id && !isCompleted && !isCancelled && userId && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
-          <div className="max-w-sm mx-auto flex items-center gap-2">
+          <div className="max-w-sm md:max-w-lg mx-auto flex items-center gap-2">
             <input
               type="text"
               value={draft}

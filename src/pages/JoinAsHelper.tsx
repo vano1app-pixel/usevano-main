@@ -27,7 +27,9 @@ const CATEGORY_OPTIONS = [
 const STATS = [
   { value: '€12–€65', label: 'per job' },
   { value: 'Flexible', label: 'your hours' },
-  { value: 'Per job', label: 'paid to your account' },
+  // Hourly anchor — the clearest student value prop, and a direct counter to
+  // "is €12 even worth my time?". Backed by the ≥min-wage floor (CLAUDE.md).
+  { value: '~€15/hr', label: 'typical rate' },
 ];
 
 const REQUIREMENTS = [
