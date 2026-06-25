@@ -1077,7 +1077,22 @@ const TrackBooking = () => {
           }
           // Don't offer "mark complete" (which pays the helper) until the
           // booking is paid — the pay-to-confirm card above prompts that first.
-          if (!booking.paid_at) return null;
+          if (!booking.paid_at) {
+            // The pay card above only renders when a checkout link exists; if it
+            // doesn't yet, don't leave the customer staring at a blank screen
+            // mid-job — reassure them there's nothing to do right now.
+            if (booking.stripe_checkout_url) return null;
+            return (
+              <div className="mt-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 text-center">
+                <p className="text-sm font-semibold text-foreground">
+                  {helperName ? `${helperName} is on the job` : 'Your helper is on the job'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Nothing to do right now — you'll confirm it's done and pay once they finish.
+                </p>
+              </div>
+            );
+          }
           return (
             <motion.div
               initial={{ opacity: 0, y: 10 }}

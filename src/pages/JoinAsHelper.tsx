@@ -35,6 +35,7 @@ const STATS = [
 const REQUIREMENTS = [
   'Third-level student — verified by your college email',
   '18 or over, with a valid photo ID',
+  'A one-off €2 to verify you — covers your Stripe ID check',
   'Living in a city we serve',
   'Friendly, reliable and up for it',
 ];
@@ -148,8 +149,9 @@ export const JoinAsHelper: React.FC = () => {
     setError(null);
   }
 
-  const step1Valid = !!photo && !!name.trim() && !!college && EMAIL_RE.test(email.trim()) && PHONE_RE.test(phone.trim());
-  const step2Valid = !!city && categories.length > 0;
+  // Per-step validity is enforced in goNext() (validateStep), which surfaces the
+  // specific missing field — so the Continue button stays tappable instead of
+  // sitting greyed-out with no explanation.
   const step3Valid = agreeChecks && agreeTerms;
 
   function validateStep(s: number): string | null {
@@ -512,7 +514,6 @@ export const JoinAsHelper: React.FC = () => {
                 <Button
                   type="button"
                   onClick={goNext}
-                  disabled={(step === 0 && !step1Valid) || (step === 1 && !step2Valid)}
                   className="flex-1 rounded-full font-semibold gap-1.5 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
                 >
                   Continue<ArrowRight className="w-4 h-4" />
