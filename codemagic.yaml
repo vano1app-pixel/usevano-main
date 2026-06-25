@@ -85,7 +85,10 @@ workflows:
         script: cd android && ./gradlew bundleRelease
     artifacts:
       - android/app/build/outputs/**/*.aab
-    publishing:
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal   # safest first track; promote to production in Play Console
+    # For your first release: download the .aab artifact above and upload it by
+    # hand in Play Console (see SHIPPING.md). Auto-publishing to Google Play can
+    # be added later — it needs a Play service account:
+    #   publishing:
+    #     google_play:
+    #       credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+    #       track: internal
