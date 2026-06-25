@@ -104,7 +104,7 @@ function fmt(cents: number): string {
 // Short "what you get" line under the tile price — duration + the job, so the
 // scope reads human (e.g. "2-hr clean") rather than a bare number.
 const TILE_SCOPE: Record<string, string> = {
-  shopping:   'wash & fold',
+  shopping:   '1 wash & fold',
   'dog-walk': '30-min walk',
   garden:     '2-hr tidy',
   moving:     '2-hr move',
