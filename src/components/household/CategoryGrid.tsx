@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useDragControls, useMotionValue, useSpring, useReducedMotion, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -325,6 +325,12 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
+  // Live field validity — drives the small green ✓ next to each label as it's
+  // filled. Quiet reassurance at the highest-friction step (a stranger typing
+  // their number + address for in-home help).
+  const phoneValid = /^\+?[\d\s\-().]{7,15}$/.test(phone.trim().replace(/\s+/g, ''));
+  const addressValid = !!address.trim();
+
   const ctaLabel = [
     `Book ${cat.label}`,
     size || null,
@@ -488,7 +494,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 Time + duration below are pre-picked, so number + address is
                 all a new visitor has to type. */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+                Your phone
+                <AnimatePresence>
+                  {phoneValid && (
+                    <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
+                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </p>
               <input
                 type="tel"
                 value={phone}
@@ -511,7 +526,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
 
             {/* Address — Eircode search or current location */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+                Where?
+                <AnimatePresence>
+                  {addressValid && (
+                    <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
+                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </p>
               <AddressPicker
                 value={address}
                 coords={coords}

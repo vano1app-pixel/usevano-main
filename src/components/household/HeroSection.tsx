@@ -103,7 +103,12 @@ export const HeroSection: React.FC = () => {
               transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               className="display-xl text-white mb-4"
             >
-              Same-day help,<br />from someone you trust.
+              Same-day help,<br />from someone you{' '}
+              <span className="relative inline-block">
+                trust
+                {/* Gold underline draws the eye to the core promise word */}
+                <span aria-hidden="true" className="absolute left-0 right-0 -bottom-1 h-[3px] rounded-full bg-gold/90" />
+              </span>.
             </motion.h1>
 
             {/* Subline — backs the "someone you trust" promise with the core
@@ -148,14 +153,15 @@ export const HeroSection: React.FC = () => {
               <p className="text-sm font-semibold text-foreground/80">
                 {greeting} <span aria-hidden="true">👋</span>
               </p>
-              <div className="flex items-baseline justify-between gap-3 mt-1">
+              <div className="flex items-center justify-between gap-3 mt-1">
                 <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
                   What do you need?
                 </p>
-                {/* Surfaces the server's book-ahead discount before the sheet opens */}
-                <p className="text-[11px] font-semibold text-sage-dark whitespace-nowrap">
+                {/* Surfaces the server's book-ahead discount as a real deal pill,
+                    not grey text — discounts only convert if they register. */}
+                <span className="inline-flex items-center rounded-full bg-sage/12 border border-sage/25 px-2.5 py-1 text-[11px] font-bold text-sage-dark whitespace-nowrap">
                   Book ahead · 10% off
-                </p>
+                </span>
               </div>
             </div>
             <CategoryGrid />
