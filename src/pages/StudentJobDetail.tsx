@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { microCelebrate } from '@/lib/celebrate';
 import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
+import { getCurrentPosition, watchPosition, clearWatch, isPermissionDenied, type WatchId } from '@/lib/native/geolocation';
 import logo from '@/assets/logo.png';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -199,7 +200,9 @@ const StudentJobDetail = () => {
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   // Geolocation watch handle — kept while status is on_way
-  const watchIdRef = useRef<number | null>(null);
+  const watchIdRef = useRef<WatchId | null>(null);
+  // Guards the async gap while a native watch is being set up (prevents double-watch)
+  const watchStartingRef = useRef(false);
   // Timestamp of last DB location push — throttles writes
   const lastLocationPushRef = useRef<number>(0);
 
@@ -247,7 +250,7 @@ const StudentJobDetail = () => {
 
   // Clear the geolocation watch on unmount
   useEffect(() => {
-    return () => stopLocationWatch();
+    return () => { void stopLocationWatch(); };
   }, []);
 
   useEffect(() => {
@@ -295,41 +298,47 @@ const StudentJobDetail = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function startLocationWatch(bid: string) {
-    if (!('geolocation' in navigator)) return;
-    if (watchIdRef.current !== null) return; // already watching
-
+  async function startLocationWatch(bid: string) {
+    if (watchIdRef.current !== null || watchStartingRef.current) return; // already watching / starting
+    watchStartingRef.current = true;
     setSharingLocation(true);
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const now = Date.now();
-        if (now - lastLocationPushRef.current < LOCATION_UPDATE_INTERVAL_MS) return;
-        lastLocationPushRef.current = now;
-        hdb.from('household_bookings').update({
-          worker_lat: pos.coords.latitude,
-          worker_lng: pos.coords.longitude,
-          worker_location_updated_at: new Date().toISOString(),
-        }).eq('id', bid).then(() => {/* fire and forget */});
-      },
-      (err) => {
-        // Permission denied means the customer's live map shows nothing —
-        // surface it instead of failing silently.
-        if (err.code === err.PERMISSION_DENIED) {
-          setLocationDenied(true);
-          stopLocationWatch();
-        }
-      },
-      { enableHighAccuracy: true, maximumAge: 5000 },
-    );
-    watchIdRef.current = id;
+    try {
+      // Native app uses @capacitor/geolocation; web uses the browser API.
+      const id = await watchPosition(
+        (pos) => {
+          const now = Date.now();
+          if (now - lastLocationPushRef.current < LOCATION_UPDATE_INTERVAL_MS) return;
+          lastLocationPushRef.current = now;
+          hdb.from('household_bookings').update({
+            worker_lat: pos.coords.latitude,
+            worker_lng: pos.coords.longitude,
+            worker_location_updated_at: new Date().toISOString(),
+          }).eq('id', bid).then(() => {/* fire and forget */});
+        },
+        (err) => {
+          // Permission denied means the customer's live map shows nothing —
+          // surface it instead of failing silently.
+          if (isPermissionDenied(err)) {
+            setLocationDenied(true);
+            void stopLocationWatch();
+          }
+        },
+        { enableHighAccuracy: true, maximumAge: 5000 },
+      );
+      if (id !== null) watchIdRef.current = id;
+      else setSharingLocation(false); // couldn't start (denied) — onError already fired
+    } finally {
+      watchStartingRef.current = false;
+    }
   }
 
-  function stopLocationWatch() {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
+  async function stopLocationWatch() {
+    const id = watchIdRef.current;
+    watchIdRef.current = null;
     setSharingLocation(false);
+    if (id !== null) {
+      try { await clearWatch(id); } catch { /* best effort */ }
+    }
   }
 
   // Claim straight from this page — the dispatch email deep-links here, so
@@ -489,11 +498,9 @@ const StudentJobDetail = () => {
   // the block); on success we clear the banner and resume the live watch so the
   // customer's map fills in. Best-effort — a fresh denial just re-shows the card.
   const handleEnableLocation = async () => {
-    if (!('geolocation' in navigator) || !bookingId) return;
+    if (!bookingId) return;
     try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }),
-      );
+      const pos = await getCurrentPosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
       // Push the position immediately so the map updates without waiting for the watch.
       lastLocationPushRef.current = Date.now();
       void hdb.from('household_bookings').update({
@@ -540,18 +547,15 @@ const StudentJobDetail = () => {
     const bookingUpdate: Record<string, unknown> = { status: next.status };
 
     if (next.status === 'on_way') {
-      // Get initial location snapshot, then start continuous watch
-      if ('geolocation' in navigator) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000, maximumAge: 10000 }),
-          );
-          bookingUpdate.worker_lat = pos.coords.latitude;
-          bookingUpdate.worker_lng = pos.coords.longitude;
-          lastLocationPushRef.current = Date.now();
-        } catch {
-          // Denied — proceed without location
-        }
+      // Get initial location snapshot, then start continuous watch.
+      // Native app uses @capacitor/geolocation; web uses the browser API.
+      try {
+        const pos = await getCurrentPosition({ timeout: 6000, maximumAge: 10000 });
+        bookingUpdate.worker_lat = pos.coords.latitude;
+        bookingUpdate.worker_lng = pos.coords.longitude;
+        lastLocationPushRef.current = Date.now();
+      } catch {
+        // Denied — proceed without location
       }
       // Open Google Maps navigation to customer's address
       window.open(googleMapsUrl(booking.customer_address, booking.customer_lat, booking.customer_lng), '_blank');

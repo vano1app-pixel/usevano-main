@@ -1,5 +1,17 @@
+import { isNativeApp } from '@/lib/platform';
+
 /** Production hostname — all public URLs and auth redirects should resolve here (see VITE_SITE_URL). */
 export const SITE_ORIGIN_DEFAULT = 'https://vanojobs.com';
+
+/**
+ * Custom URL scheme the NATIVE app returns to after OAuth / magic-link.
+ * Registered in ios/App/App/Info.plist (CFBundleURLTypes) and android's
+ * AndroidManifest.xml (intent-filter); handled by the appUrlOpen listener in
+ * src/lib/native/initNativeAuth.ts. This MUST be added to Supabase →
+ * Authentication → URL Configuration → Redirect URLs, otherwise Supabase
+ * refuses the redirect and native sign-in fails.
+ */
+export const NATIVE_AUTH_REDIRECT = 'com.vanojobs.app://auth-callback';
 
 /** Force apex `vanojobs.com` so OAuth / redirects match Supabase URL config when env or DNS uses `www`. */
 function normalizeVanojobsOrigin(url: string): string {
@@ -38,8 +50,13 @@ export function getSiteOrigin(): string {
  * `signInWithOtp({ options: { emailRedirectTo } })`. Must match a URL in
  * Supabase → Authentication → URL Configuration → Redirect URLs.
  * Production: `https://vanojobs.com` (site root; session is restored from the URL hash on load).
+ *
+ * Native (Capacitor) app: returns the custom URL scheme instead, so OAuth and
+ * magic-link round-trips re-enter the app rather than the website. The web
+ * behaviour below is unchanged — `isNativeApp()` is false on the web and in tests.
  */
 export function getAuthRedirectUrl(): string {
+  if (isNativeApp()) return NATIVE_AUTH_REDIRECT;
   return getSiteOrigin();
 }
 

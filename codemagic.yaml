@@ -1,0 +1,94 @@
+# Codemagic build config for VANO — https://codemagic.io
+#
+# Codemagic is a "cloud Mac/Android builder": it builds your app in the cloud,
+# signs it, and sends it to Apple / Google for you. This is the no-Mac path to
+# the iPhone App Store.
+#
+# 👉 Follow SHIPPING.md for the click-by-click setup. The short version of what
+#    you do ONCE in the Codemagic *website* (not in this file):
+#      • Sign up at codemagic.io and connect this GitHub repo.
+#      • Teams → Integrations → App Store Connect: add a key named exactly
+#        "VANO App Store Connect" (this lets it upload to Apple).
+#      • Add an environment variable GROUP named "vano_env" containing your
+#        production VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.
+#      • (Android) Code signing → upload your keystore, reference name "vano_keystore".
+#        Add a Google Play service account for auto-publishing (optional at first).
+#
+# Then in Codemagic press "Start new build" and pick a workflow below.
+
+workflows:
+  # ───────────────────────────── iPhone ──────────────────────────────────────
+  ios-release:
+    name: VANO — iPhone (App Store / TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: VANO App Store Connect
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.vanojobs.app
+      groups:
+        - vano_env
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build the web app
+        script: npm run build
+      - name: Sync into the iOS project
+        script: npx cap sync ios
+      - name: Fetch Apple signing files
+        script: xcode-project use-profiles
+      - name: Build signed .ipa
+        script: |
+          xcode-project build-ipa \
+            --project "ios/App/App.xcodeproj" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true   # lands in TestFlight; promote to the store from App Store Connect
+
+  # ───────────────────────────── Android ─────────────────────────────────────
+  # Optional — the easiest first Android build is Android Studio on your own PC
+  # (see SHIPPING.md). Use this workflow once you want hands-off Play releases.
+  android-release:
+    name: VANO — Android (Google Play)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - vano_keystore
+      groups:
+        - vano_env
+      node: 22
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build the web app
+        script: npm run build
+      - name: Sync into the Android project
+        script: npx cap sync android
+      - name: Wire the keystore into Gradle
+        script: |
+          cat > "$CM_BUILD_DIR/android/keystore.properties" <<EOF
+          storeFile=$CM_KEYSTORE_PATH
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          keyPassword=$CM_KEY_PASSWORD
+          EOF
+      - name: Build signed .aab
+        script: cd android && ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+    # For your first release: download the .aab artifact above and upload it by
+    # hand in Play Console (see SHIPPING.md). Auto-publishing to Google Play can
+    # be added later — it needs a Play service account:
+    #   publishing:
+    #     google_play:
+    #       credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+    #       track: internal

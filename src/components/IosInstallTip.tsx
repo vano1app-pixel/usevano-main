@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Share, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isNativeApp } from '@/lib/platform';
 
 // A small, dismissible nudge shown ONLY on iOS Safari when the app isn't
 // already installed (running standalone). iOS has no beforeinstallprompt, so
@@ -12,6 +13,10 @@ const DISMISS_KEY = 'vano-ios-install-tip-dismissed';
 
 function shouldShow(): boolean {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  // Inside the native app the user already installed from the store — and
+  // navigator.standalone is false in a Capacitor webview, so without this guard
+  // we'd wrongly nag App Store users to "Add to Home Screen".
+  if (isNativeApp()) return false;
   const ua = navigator.userAgent || '';
   const isIos = /iPhone|iPad|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream;
   if (!isIos) return false;

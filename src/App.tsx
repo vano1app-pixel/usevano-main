@@ -60,6 +60,8 @@ const PwaUpdateToast = lazy(() =>
 import type { TransitionVariant } from "./components/PageTransition";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 import { captureReferralFromUrl } from "@/lib/referral";
+import { isNativeApp } from "@/lib/platform";
+import { initNativeApp } from "@/lib/native/initNativeApp";
 
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'rise';
@@ -78,6 +80,12 @@ const App = () => {
     // Friend referral links land with ?ref=CODE — keep it for checkout
     captureReferralFromUrl();
     return () => window.clearTimeout(t);
+  }, []);
+
+  // Native (Capacitor) shell only: status bar, splash, OAuth deep links.
+  // No-ops on the web — see src/lib/native/initNativeApp.ts.
+  useEffect(() => {
+    void initNativeApp();
   }, []);
 
   return (
@@ -123,9 +131,16 @@ const App = () => {
       <Suspense fallback={null}>
         <SilentErrorBoundary source="WhatsAppFloatingButton"><WhatsAppFloatingButton /></SilentErrorBoundary>
         <SilentErrorBoundary source="CookieConsentBanner"><CookieConsentBanner /></SilentErrorBoundary>
-        <SilentErrorBoundary source="PWAInstallBanner"><PWAInstallBanner /></SilentErrorBoundary>
-        <SilentErrorBoundary source="PushNotificationPrompt"><PushNotificationPrompt /></SilentErrorBoundary>
-        <SilentErrorBoundary source="PwaUpdateToast"><PwaUpdateToast /></SilentErrorBoundary>
+        {/* Web-only: "install" / "add to home screen" prompts and the web
+            service-worker auto-updater are meaningless (or would hang) inside
+            the native app, which updates via the App Store / Play Store. */}
+        {!isNativeApp() && (
+          <>
+            <SilentErrorBoundary source="PWAInstallBanner"><PWAInstallBanner /></SilentErrorBoundary>
+            <SilentErrorBoundary source="PushNotificationPrompt"><PushNotificationPrompt /></SilentErrorBoundary>
+            <SilentErrorBoundary source="PwaUpdateToast"><PwaUpdateToast /></SilentErrorBoundary>
+          </>
+        )}
       </Suspense>
     </TooltipProvider>
     </AuthProvider>
