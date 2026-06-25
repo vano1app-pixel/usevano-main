@@ -766,8 +766,8 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
       transition={{ type: 'spring', stiffness: 500, damping: 28 }}
       style={{ rotateX, rotateY, transformPerspective: 700 }}
       className={cn(
-        'relative flex flex-col items-center justify-center gap-1.5',
-        'w-full h-full min-h-[96px] rounded-2xl px-2 py-3 border',
+        'relative flex flex-col items-center justify-center gap-2',
+        'w-full h-full min-h-[118px] rounded-2xl px-2 py-4 border',
         // Raised tap targets, not flat white boxes: a soft resting shadow lifts
         // each tile off the cream card, and hover tints the border + shadow sage
         // so the tile reads as the booking action, not a neutral panel.
@@ -791,18 +791,18 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
         </span>
       )}
       <motion.span
-        className="text-2xl leading-none select-none"
+        className="text-3xl leading-none select-none"
         aria-hidden="true"
         variants={{ rest: { rotate: 0, scale: 1 }, hover: { rotate: [0, -12, 10, -7, 0], scale: 1.18 }, tap: { scale: 0.85 } }}
         transition={{ duration: 0.45, ease: 'easeInOut' }}
       >
         {cat.emoji}
       </motion.span>
-      <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
+      <span className="text-sm font-semibold leading-tight text-center">{cat.label}</span>
       {/* Price-forward: the bold price is the focal point; scope reads quietly beneath */}
       <span className="flex flex-col items-center leading-none">
-        <span className="text-[15px] font-bold text-foreground tabular-nums">{price}</span>
-        <span className="mt-0.5 text-[10px] font-medium text-foreground/45">{scope}</span>
+        <span className="text-[17px] font-bold text-foreground tabular-nums">{price}</span>
+        <span className="mt-0.5 text-[11px] font-medium text-foreground/45">{scope}</span>
       </span>
     </motion.button>
   );
@@ -868,29 +868,24 @@ export const CategoryGrid: React.FC = () => {
             </motion.div>
           ))}
 
-          {/* "More services" — a full-width row under the three tiles that jumps
-              to the custom job builder, where garden / moving / tutoring /
-              painting & anything else are priced and bookable. Dashed + roomier
-              than a tile so it reads as "everything else", not a fourth service. */}
+          {/* "More services" — kept deliberately small so the three headline
+              tiles own the card. One slim dashed line that jumps to the custom
+              job builder (garden / moving / tutoring / painting & anything else
+              are priced and bookable there). */}
           <motion.div variants={tileItem} className="col-span-3">
             <button
               type="button"
               onClick={goToCustomBuilder}
               className={cn(
-                'group relative flex flex-col items-center justify-center gap-0.5 text-center',
-                'w-full rounded-2xl px-3 py-3.5 border border-dashed',
-                'bg-secondary/40 text-foreground border-foreground/25 hover:bg-secondary/70 hover:border-foreground/40 shadow-sm hover:shadow-md',
-                'transition-[background-color,border-color,box-shadow] duration-150 active:scale-[0.98]',
+                'group flex w-full items-center justify-center gap-1.5 text-center',
+                'rounded-xl px-3 py-2 border border-dashed',
+                'bg-secondary/30 text-foreground/70 border-foreground/20 hover:bg-secondary/60 hover:text-foreground hover:border-foreground/35',
+                'transition-[background-color,border-color,color] duration-150 active:scale-[0.98]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
               )}
             >
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold leading-tight">
-                Something else? Name any job
-                <span aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-0.5">→</span>
-              </span>
-              <span className="text-[11px] font-medium text-foreground/55">
-                Painting, garden, moving, tutoring & more — fair €18/hr
-              </span>
+              <span className="text-xs font-semibold leading-none">Something else? Name any job</span>
+              <span aria-hidden="true" className="text-xs transition-transform duration-150 group-hover:translate-x-0.5">→</span>
             </button>
           </motion.div>
         </motion.div>
