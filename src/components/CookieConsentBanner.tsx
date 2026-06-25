@@ -29,11 +29,14 @@ export const CookieConsentBanner: React.FC = () => {
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ y: -80, opacity: 0 }}
+          initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -80, opacity: 0 }}
+          exit={{ y: 80, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="pointer-events-auto fixed top-20 sm:top-24 left-3 right-3 sm:left-1/2 sm:right-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 z-[2500]"
+          /* Bottom-anchored so it never covers the hero headline / value prop on
+             load. Bottom-left on desktop so it clears the centred booking sheet.
+             Essential-only + no tracking, so it doesn't need to block. */
+          className="pointer-events-auto fixed bottom-4 left-3 right-3 sm:left-5 sm:right-auto sm:bottom-5 sm:max-w-sm z-[2500]"
         >
           <div className="relative rounded-2xl border border-border bg-card/95 p-4 shadow-lg shadow-black/10 backdrop-blur-md">
             <button

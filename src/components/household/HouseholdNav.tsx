@@ -55,15 +55,14 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Join as a helper */}
+          {/* Join as a helper — a quiet text link, not a button: on a customer
+              homepage the booking action (the hero card) should own attention,
+              not helper recruitment. */}
           <Link
             to="/join"
             className={cn(
-              'flex items-center rounded-full border px-4 py-2',
-              'text-sm font-medium transition-colors duration-150 active:scale-[0.97] whitespace-nowrap',
-              dark
-                ? 'border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50'
-                : 'border-foreground/25 bg-foreground/5 text-foreground/80 hover:text-foreground hover:border-foreground/40 hover:bg-foreground/10',
+              'inline-flex items-center px-2 py-2 text-sm font-medium transition-colors duration-150 whitespace-nowrap',
+              dark ? 'text-white/70 hover:text-white' : 'text-foreground/60 hover:text-foreground',
             )}
           >
             Join as a helper
