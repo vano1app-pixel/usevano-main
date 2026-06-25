@@ -30,7 +30,7 @@ workflows:
         bundle_identifier: com.vanojobs.app
       groups:
         - vano_env
-      node: 20
+      node: 22
       xcode: latest
     scripts:
       - name: Install dependencies
@@ -65,7 +65,7 @@ workflows:
         - vano_keystore
       groups:
         - vano_env
-      node: 20
+      node: 22
     scripts:
       - name: Install dependencies
         script: npm ci
