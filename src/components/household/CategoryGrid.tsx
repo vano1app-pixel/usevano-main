@@ -659,11 +659,21 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 </p>
               )}
 
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="relative overflow-hidden rounded-full">
+              <motion.div
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className={cn(
+                  'relative overflow-hidden rounded-full transition-shadow duration-300',
+                  // The glow only lights up once the form can actually submit, so
+                  // a disabled button never sits there glowing.
+                  phone.trim() && !loading ? 'shadow-primary-glow' : '',
+                )}
+              >
                 <Button
                   type="submit"
                   disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12 tabular-nums"
+                  className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
                 >
                   {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
@@ -758,7 +768,14 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
       className={cn(
         'relative flex flex-col items-center justify-center gap-1.5',
         'w-full h-full min-h-[96px] rounded-2xl px-2 py-3 border',
-        'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
+        // Raised tap targets, not flat white boxes: a soft resting shadow lifts
+        // each tile off the cream card, and hover tints the border + shadow sage
+        // so the tile reads as the booking action, not a neutral panel.
+        'bg-white text-foreground shadow-[0_2px_8px_-3px_hsl(var(--shadow-color)/0.14)]',
+        'hover:border-sage/45 hover:shadow-[0_10px_24px_-8px_hsl(var(--sage)/0.38)]',
+        // The flagship (Cleaning) wears a quiet sage anchor so the eye lands on
+        // the recommended choice first.
+        cat.popular ? 'border-sage/50 bg-sage/[0.04]' : 'border-foreground/12',
         'transition-[background-color,border-color,box-shadow] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
       )}

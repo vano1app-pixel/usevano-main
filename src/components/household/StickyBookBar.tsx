@@ -52,7 +52,7 @@ export const StickyBookBar: React.FC = () => {
         </div>
         <Button
           onClick={openCustomTyper}
-          className="rounded-full px-7 font-semibold flex-shrink-0 hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
+          className="rounded-full px-7 font-semibold flex-shrink-0 bg-primary hover:bg-primary shadow-primary-glow hover:-translate-y-px transition-[transform,box-shadow] duration-150"
           size="default"
         >
           Book now
