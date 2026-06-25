@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
-import { sendMagicLink } from '@/lib/magicLink';
 import { haptic } from '@/lib/haptics';
 import { celebrateBooking } from '@/lib/celebrate';
 import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
@@ -48,24 +47,6 @@ const VerifyHelper: React.FC = () => {
 
   const [payState, setPayState] = useState<PayState>(paymentSession ? 'confirming' : 'idle');
   const [payError, setPayError] = useState<string | null>(null);
-
-  // Post-verification sign-in: a verified helper has a household_helpers row but
-  // no Supabase session yet, so /student-dashboard (which requires one) used to
-  // bounce them to the wrong-product /auth login. A magic link signs them in;
-  // link-helper-account then bonds the account to their helper row by email and
-  // resolvePostGoogleAuthDestination routes them to /student-dashboard.
-  const [signInState, setSignInState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  const [signInMsg, setSignInMsg] = useState<string | null>(null);
-
-  const openDashboard = useCallback(async () => {
-    const clean = (email || '').trim().toLowerCase();
-    if (!clean) { setSignInState('error'); setSignInMsg('Confirm your student email above first.'); return; }
-    setSignInState('sending'); setSignInMsg(null);
-    const res = await sendMagicLink(clean, 'student', false);
-    if (!res.ok) { setSignInState('error'); setSignInMsg(res.message ?? 'Could not send the link. Try again.'); return; }
-    haptic(12);
-    setSignInState('sent');
-  }, [email]);
 
   // Reflect any progress already on file (revisiting / returning from Stripe).
   useEffect(() => {
@@ -268,23 +249,8 @@ const VerifyHelper: React.FC = () => {
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
                   <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
                   <p className="text-base font-bold text-foreground">You're verified and in 🎉</p>
-                  {signInState === 'sent' ? (
-                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                      Check <span className="font-semibold text-foreground">{email}</span> — tap the link to open your dashboard. No password; it signs you straight in.
-                    </p>
-                  ) : (
-                    <>
-                      <p className="text-xs text-muted-foreground mt-1 mb-4">Jobs near you will start coming through. Sign in to set yourself Available and get them first.</p>
-                      {signInMsg && <p className="text-xs text-destructive mb-2">{signInMsg}</p>}
-                      <button
-                        onClick={() => void openDashboard()}
-                        disabled={signInState === 'sending'}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold disabled:opacity-60"
-                      >
-                        {signInState === 'sending' ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</> : <>Open my dashboard <ArrowRight className="w-4 h-4" /></>}
-                      </button>
-                    </>
-                  )}
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">Jobs near you will start coming through. Set yourself Available to get them first.</p>
+                  <a href="/student-dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">Go to my dashboard <ArrowRight className="w-4 h-4" /></a>
                 </motion.div>
               )}
 
