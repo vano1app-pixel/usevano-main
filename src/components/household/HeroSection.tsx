@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShieldCheck, Eye, CreditCard, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useHelperCount } from '@/hooks/useHelperCount';
+import { useHelperCount, REASSURING_MIN } from '@/hooks/useHelperCount';
 import { useCountUp } from '@/hooks/useCountUp';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
@@ -30,9 +30,20 @@ function timeGreeting(): string {
 }
 
 export const HeroSection: React.FC = () => {
-  const helperCount = useHelperCount();
+  const { count: helperCount, ready: helperReady } = useHelperCount();
   const displayCount = useCountUp(helperCount);
   const greeting = timeGreeting();
+
+  // What the live pill says, read through a nervous first-timer's eyes: they
+  // take a yes/no off it, not a statistic. So show a real count only once it's
+  // genuinely reassuring; below that, an honest availability line that never
+  // advertises thin supply (a specific small number reads worse than none).
+  const showLiveCount = helperReady && helperCount >= REASSURING_MIN;
+  const presenceLabel = showLiveCount
+    ? `${displayCount} helpers online · Galway`
+    : helperCount >= 1
+      ? 'Helpers available · Galway'
+      : 'Same-day help in Galway';
 
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop
@@ -66,8 +77,9 @@ export const HeroSection: React.FC = () => {
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="mb-5"
             >
-              {displayCount === 0 ? (
-                /* Skeleton shimmer while count loads */
+              {!helperReady ? (
+                /* Skeleton shimmer only while the head-count request is genuinely
+                   in flight — never a stuck shimmer when supply is just thin. */
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5 overflow-hidden relative">
                   <span className="w-2 h-2 rounded-full bg-emerald-400/40 flex-shrink-0" aria-hidden="true" />
                   <span className="w-36 h-3 rounded-full bg-emerald-400/20 relative overflow-hidden">
@@ -78,7 +90,7 @@ export const HeroSection: React.FC = () => {
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" aria-hidden="true" />
                   <span className="text-xs font-semibold text-emerald-300 tracking-wide">
-                    {displayCount} helpers online · Galway
+                    {presenceLabel}
                   </span>
                 </div>
               )}
