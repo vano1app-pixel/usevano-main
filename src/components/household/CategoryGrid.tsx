@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useDragControls, useMotionValue, useSpring, useReducedMotion, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -12,6 +12,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
+import { isValidPhone } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -325,6 +326,12 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   const priceCents = baseCents && isScheduledAhead ? applyScheduledDiscount(baseCents) : baseCents;
   const priceLabel = priceCents ? fmt(priceCents) : null;
 
+  // Live field validity — drives the small green ✓ next to each label as it's
+  // filled. Quiet reassurance at the highest-friction step (a stranger typing
+  // their number + address for in-home help).
+  const phoneValid = isValidPhone(phone);
+  const addressValid = !!address.trim();
+
   const ctaLabel = [
     `Book ${cat.label}`,
     size || null,
@@ -339,7 +346,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     const phoneClean = phone.trim().replace(/\s+/g, '');
-    if (!phoneClean || !/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) {
+    if (!isValidPhone(phone)) {
       setPhoneError(true);
       setError('Please enter a valid phone number.');
       return;
@@ -418,7 +425,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
         dragElastic={{ top: 0, bottom: 0.6 }}
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom"
+        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl"
         style={{ maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain' }}
         role="dialog"
         aria-modal="true"
@@ -488,7 +495,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 Time + duration below are pre-picked, so number + address is
                 all a new visitor has to type. */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your phone</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+                Your phone
+                <AnimatePresence>
+                  {phoneValid && (
+                    <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
+                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </p>
               <input
                 type="tel"
                 value={phone}
@@ -511,7 +527,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
 
             {/* Address — Eircode search or current location */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Where?</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+                Where?
+                <AnimatePresence>
+                  {addressValid && (
+                    <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
+                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </p>
               <AddressPicker
                 value={address}
                 coords={coords}
@@ -659,11 +684,29 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 </p>
               )}
 
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="relative overflow-hidden rounded-full">
+              {/* Risk-reversal at the decision point — the single most reassuring
+                  fact (you don't pay until a helper accepts) sits right above the
+                  CTA, not buried in the fine print beneath it. */}
+              <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
+                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                No payment until a helper accepts · money-back guarantee
+              </p>
+
+              <motion.div
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className={cn(
+                  'relative overflow-hidden rounded-full transition-shadow duration-300',
+                  // The glow only lights up once the form can actually submit, so
+                  // a disabled button never sits there glowing.
+                  phone.trim() && !loading ? 'shadow-primary-glow' : '',
+                )}
+              >
                 <Button
                   type="submit"
                   disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-[15px] h-12 tabular-nums"
+                  className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
                 >
                   {loading
                     ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
@@ -756,9 +799,16 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
       transition={{ type: 'spring', stiffness: 500, damping: 28 }}
       style={{ rotateX, rotateY, transformPerspective: 700 }}
       className={cn(
-        'relative flex flex-col items-center justify-center gap-1.5',
-        'w-full h-full min-h-[96px] rounded-2xl px-2 py-3 border',
-        'bg-white text-foreground hover:bg-secondary/60 border-foreground/15 hover:border-foreground/30 shadow-sm hover:shadow-md',
+        'relative flex flex-col items-center justify-center gap-2',
+        'w-full h-full min-h-[118px] rounded-2xl px-2 py-4 border',
+        // Raised tap targets, not flat white boxes: a soft resting shadow lifts
+        // each tile off the cream card, and hover tints the border + shadow sage
+        // so the tile reads as the booking action, not a neutral panel.
+        'bg-white text-foreground shadow-[0_2px_8px_-3px_hsl(var(--shadow-color)/0.14)]',
+        'hover:border-sage/45 hover:shadow-[0_10px_24px_-8px_hsl(var(--sage)/0.38)]',
+        // The flagship (Cleaning) wears a quiet sage anchor so the eye lands on
+        // the recommended choice first.
+        cat.popular ? 'border-sage/50 bg-sage/[0.04]' : 'border-foreground/12',
         'transition-[background-color,border-color,box-shadow] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
       )}
@@ -774,18 +824,18 @@ const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, on
         </span>
       )}
       <motion.span
-        className="text-2xl leading-none select-none"
+        className="text-3xl leading-none select-none"
         aria-hidden="true"
         variants={{ rest: { rotate: 0, scale: 1 }, hover: { rotate: [0, -12, 10, -7, 0], scale: 1.18 }, tap: { scale: 0.85 } }}
         transition={{ duration: 0.45, ease: 'easeInOut' }}
       >
         {cat.emoji}
       </motion.span>
-      <span className="text-[13px] font-semibold leading-tight text-center">{cat.label}</span>
+      <span className="text-sm font-semibold leading-tight text-center">{cat.label}</span>
       {/* Price-forward: the bold price is the focal point; scope reads quietly beneath */}
       <span className="flex flex-col items-center leading-none">
-        <span className="text-[15px] font-bold text-foreground tabular-nums">{price}</span>
-        <span className="mt-0.5 text-[10px] font-medium text-foreground/45">{scope}</span>
+        <span className="text-[17px] font-bold text-foreground tabular-nums">{price}</span>
+        <span className="mt-0.5 text-[11px] font-medium text-foreground/45">{scope}</span>
       </span>
     </motion.button>
   );
@@ -851,29 +901,24 @@ export const CategoryGrid: React.FC = () => {
             </motion.div>
           ))}
 
-          {/* "More services" — a full-width row under the three tiles that jumps
-              to the custom job builder, where garden / moving / tutoring /
-              painting & anything else are priced and bookable. Dashed + roomier
-              than a tile so it reads as "everything else", not a fourth service. */}
+          {/* "More services" — kept deliberately small so the three headline
+              tiles own the card. One slim dashed line that jumps to the custom
+              job builder (garden / moving / tutoring / painting & anything else
+              are priced and bookable there). */}
           <motion.div variants={tileItem} className="col-span-3">
             <button
               type="button"
               onClick={goToCustomBuilder}
               className={cn(
-                'group relative flex flex-col items-center justify-center gap-0.5 text-center',
-                'w-full rounded-2xl px-3 py-3.5 border border-dashed',
-                'bg-secondary/40 text-foreground border-foreground/25 hover:bg-secondary/70 hover:border-foreground/40 shadow-sm hover:shadow-md',
-                'transition-[background-color,border-color,box-shadow] duration-150 active:scale-[0.98]',
+                'group flex w-full items-center justify-center gap-1.5 text-center',
+                'rounded-xl px-3 py-2 border border-dashed',
+                'bg-secondary/30 text-foreground/70 border-foreground/20 hover:bg-secondary/60 hover:text-foreground hover:border-foreground/35',
+                'transition-[background-color,border-color,color] duration-150 active:scale-[0.98]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
               )}
             >
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold leading-tight">
-                Something else? Name any job
-                <span aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-0.5">→</span>
-              </span>
-              <span className="text-[11px] font-medium text-foreground/55">
-                Painting, garden, moving, tutoring & more — fair €18/hr
-              </span>
+              <span className="text-xs font-semibold leading-none">Something else? Name any job</span>
+              <span aria-hidden="true" className="text-xs transition-transform duration-150 group-hover:translate-x-0.5">→</span>
             </button>
           </motion.div>
         </motion.div>

@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
-import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
+import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
@@ -54,6 +54,7 @@ interface Booking {
     service_fee_cents?: number;
     referral_discount_cents?: number;
   } | null;
+  created_at: string;
 }
 
 // VAPID key (base64url) → Uint8Array for pushManager.subscribe. Mirrors the
@@ -265,6 +266,11 @@ const TrackBooking = () => {
   // "Mark done" (one-off jobs) + live timer tick (timed jobs)
   const [markingDone, setMarkingDone] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  // Minutes the booking has waited for a helper (drives the time-aware pending
+  // copy below). placedCelebratedRef gates the one-shot "fresh placement" pop.
+  const [pendingMin, setPendingMin] = useState(0);
+  const placedCelebratedRef = useRef(false);
+  const waitTier = pendingWaitTier(pendingMin);
 
   // Rating state
   const [hoverRating, setHoverRating] = useState(0);
@@ -281,6 +287,29 @@ const TrackBooking = () => {
       setAlreadyRated(!!localStorage.getItem(`vano_rated_${bookingId}`));
     }
   }, [bookingId]);
+
+  // How long the booking has waited for a helper, so the "finding your helper"
+  // copy stops pretending it's always "within minutes" and reflects the team
+  // escalation the backend really does once offers expire (redispatch-stale-jobs
+  // / no-helper-fallback).
+  useEffect(() => {
+    if (booking?.status !== 'pending' || !booking?.created_at) { setPendingMin(0); return; }
+    const compute = () => setPendingMin(Math.max(0, Math.floor((Date.now() - new Date(booking.created_at).getTime()) / 60000)));
+    compute();
+    const id = window.setInterval(compute, 20000);
+    return () => window.clearInterval(id);
+  }, [booking?.status, booking?.created_at]);
+
+  // Celebrate a *fresh* placement (booking under ~90s old) once — acknowledges
+  // the submit without re-firing when revisiting an older pending booking.
+  useEffect(() => {
+    if (placedCelebratedRef.current) return;
+    if (booking?.status === 'pending' && booking?.created_at
+        && (Date.now() - new Date(booking.created_at).getTime()) < 90_000) {
+      placedCelebratedRef.current = true;
+      microCelebrate();
+    }
+  }, [booking?.status, booking?.created_at]);
 
   // 🎉 Celebrate the moment they land back booked & paid (once per mount).
   const celebratedRef = useRef(false);
@@ -653,7 +682,7 @@ const TrackBooking = () => {
         <div className="w-8" />
       </header>
 
-      <main className={cn('pt-14 max-w-sm mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
+      <main className={cn('pt-14 max-w-sm md:max-w-lg mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
 
         {/* Payment success banner */}
         <AnimatePresence>
@@ -1077,7 +1106,22 @@ const TrackBooking = () => {
           }
           // Don't offer "mark complete" (which pays the helper) until the
           // booking is paid — the pay-to-confirm card above prompts that first.
-          if (!booking.paid_at) return null;
+          if (!booking.paid_at) {
+            // The pay card above only renders when a checkout link exists; if it
+            // doesn't yet, don't leave the customer staring at a blank screen
+            // mid-job — reassure them there's nothing to do right now.
+            if (booking.stripe_checkout_url) return null;
+            return (
+              <div className="mt-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 text-center">
+                <p className="text-sm font-semibold text-foreground">
+                  {helperName ? `${helperName} is on the job` : 'Your helper is on the job'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Nothing to do right now — you'll confirm it's done and pay once they finish.
+                </p>
+              </div>
+            );
+          }
           return (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -1166,18 +1210,41 @@ const TrackBooking = () => {
                     </div>
                   </div>
 
+                  {/* Fresh placements get a quick "received" acknowledgement;
+                      after a few minutes the copy escalates to match what the
+                      backend is really doing (re-dispatch → team). */}
+                  {waitTier === 'fresh' && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 mb-2">
+                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Booking received
+                    </span>
+                  )}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="relative flex h-2 w-2" aria-hidden="true">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-75 animate-ping" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-sage" />
                     </span>
-                    <p className="text-sm font-semibold text-foreground">Finding your helper</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {waitTier === 'team' ? 'Our team is on it' : waitTier === 'searching' ? 'Still searching' : 'Finding your helper'}
+                    </p>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {offerCount && offerCount > 0
-                      ? `${offerCount} helper${offerCount === 1 ? '' : 's'} nearby notified · usually matched within minutes`
-                      : 'Notifying helpers near you… usually matched within minutes'}
+                    {waitTier === 'team'
+                      ? "Taking a little longer than usual — our Galway team is now finding someone for you. We'll WhatsApp you the moment they're confirmed."
+                      : waitTier === 'searching'
+                        ? 'Pinging more helpers near you — hang tight, this can take a few minutes.'
+                        : offerCount && offerCount > 0
+                          ? `${offerCount} helper${offerCount === 1 ? '' : 's'} nearby notified · usually matched within minutes`
+                          : 'Notifying helpers near you… usually matched within minutes'}
                   </p>
+                  {waitTier === 'team' && (
+                    <a
+                      href={`https://wa.me/353899817111?text=${encodeURIComponent("Hi VANO, I'm still waiting on a helper for my booking. Can you help?")}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/40 text-[#25D366] text-xs font-semibold px-4 py-2 hover:bg-[#25D366]/8 transition-colors"
+                    >
+                      <span aria-hidden="true">💬</span> Message the team
+                    </a>
+                  )}
 
                   {/* Subtle indeterminate progress to keep it feeling alive */}
                   <div className="mt-4 w-full h-1 rounded-full bg-sage/15 overflow-hidden">
@@ -1243,7 +1310,10 @@ const TrackBooking = () => {
             <div className="rounded-2xl bg-destructive/5 border border-destructive/20 p-5">
               <p className="text-sm font-semibold text-foreground">Booking cancelled</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Your refund will appear within 5–7 business days. Questions? WhatsApp{' '}
+                {booking.paid_at
+                  ? 'Your refund will appear within 5–7 business days. '
+                  : "You weren't charged — with VANO you only pay once a helper accepts. "}
+                Questions? WhatsApp{' '}
                 <a href="https://wa.me/353899817111" className="text-primary underline">+353 89 981 7111</a>
               </p>
             </div>
@@ -1372,6 +1442,32 @@ const TrackBooking = () => {
                 Thanks for your feedback! ⭐
               </p>
             )}
+
+            {/* Repeat is the cheapest growth — give a just-completed, happy
+                customer a one-tap path straight back into the booking flow,
+                instead of dead-ending at "refer a friend". */}
+            <Link
+              to="/home#category-grid"
+              className="mt-4 flex items-center justify-center gap-1.5 w-full h-11 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:-translate-y-px hover:shadow-primary-glow transition-[transform,box-shadow] duration-150"
+            >
+              Book another job <span aria-hidden="true">→</span>
+            </Link>
+
+            {/* One-off → recurring: at the moment trust peaks (a job just went
+                well), bridge the customer into Autopilot — the LTV unlock. */}
+            <Link
+              to="/home#plans"
+              className="mt-2.5 flex items-center gap-3 w-full rounded-2xl border border-sage/30 bg-white/60 px-4 py-3 text-left hover:border-sage/50 hover:bg-white transition-colors duration-150 group"
+            >
+              <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">💚</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-foreground leading-snug">
+                  Loved {helperName ?? 'your helper'}? Put your home on autopilot
+                </span>
+                <span className="block text-xs text-muted-foreground mt-0.5">Same help every week · cancel anytime</span>
+              </span>
+              <span className="text-sage font-bold flex-shrink-0 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true">→</span>
+            </Link>
           </motion.div>
         )}
 
@@ -1441,7 +1537,7 @@ const TrackBooking = () => {
             initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="w-full max-w-sm bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full max-w-sm md:max-w-lg bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
           >
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
               <div className="flex items-center gap-2">
@@ -1503,7 +1599,7 @@ const TrackBooking = () => {
       {/* Chat input */}
       {booking.student_id && !isCompleted && !isCancelled && userId && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
-          <div className="max-w-sm mx-auto flex items-center gap-2">
+          <div className="max-w-sm md:max-w-lg mx-auto flex items-center gap-2">
             <input
               type="text"
               value={draft}

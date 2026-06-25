@@ -58,6 +58,7 @@ interface HelperRow {
   rating_avg:     number | null;
   rating_count:   number;
   created_at:     string;
+  id_verified:    boolean | null;
 }
 
 interface ReviewRow {
@@ -115,7 +116,7 @@ export const HelperPublicProfile: React.FC = () => {
     (async () => {
       const { data } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, city, age, bio, categories, availability, is_available, accepted_count, average_rating, rating_avg, rating_count, created_at')
+        .select('id, name, photo_url, city, age, bio, categories, availability, is_available, accepted_count, average_rating, rating_avg, rating_count, created_at, id_verified')
         .eq('id', id)
         .eq('status', 'approved')
         .maybeSingle();
@@ -214,6 +215,13 @@ export const HelperPublicProfile: React.FC = () => {
                     <span className="inline-flex items-center gap-1 rounded-full bg-sage-light text-sage-dark text-[11px] font-semibold px-2.5 py-1">
                       <ShieldCheck className="w-3 h-3" /> Vetted by VANO
                     </span>
+                    {/* The card the customer just clicked promised "ID-verified" —
+                        the deeper trust page must match it, not show less. */}
+                    {helper.id_verified && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1">
+                        <ShieldCheck className="w-3 h-3" /> ID-verified
+                      </span>
+                    )}
                     {helper.is_available && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1">
                         <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
@@ -241,11 +249,22 @@ export const HelperPublicProfile: React.FC = () => {
                     {helper.rating_count > 0 ? `${helper.rating_count} rating${helper.rating_count === 1 ? '' : 's'}` : 'Rating'}
                   </p>
                 </div>
-                <div className="py-3.5 text-center">
-                  <p className="text-base font-bold text-foreground leading-tight tabular-nums">{tasksDone}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                    Task{helper.accepted_count === 1 ? '' : 's'} done
-                  </p>
+                <div className="py-3.5 text-center flex flex-col items-center justify-center">
+                  {helper.accepted_count > 0 ? (
+                    <>
+                      <p className="text-base font-bold text-foreground leading-tight tabular-nums">{tasksDone}</p>
+                      <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                        Task{helper.accepted_count === 1 ? '' : 's'} done
+                      </p>
+                    </>
+                  ) : (
+                    /* A brand-new helper has 0 jobs — show vetting credibility
+                       instead of a hollow "0" that reads as an empty profile. */
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-sage" aria-hidden="true" />
+                      <p className="text-[11px] text-muted-foreground font-medium mt-1">Vetted</p>
+                    </>
+                  )}
                 </div>
                 <div className="py-3.5 text-center">
                   <p className="text-base font-bold text-foreground leading-tight">

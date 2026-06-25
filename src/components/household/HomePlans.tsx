@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import { AutopilotBuilder } from '@/components/household/AutopilotBuilder';
@@ -19,6 +19,20 @@ export const HomePlans: React.FC = () => {
     catch { return false; }
   }, []);
 
+  // Stripe returns to /?plan=success (no hash), so the homepage lands at the
+  // top and this confirmation sits a few screens down — unseen, right after
+  // money left the customer's account. Pull it into view on mount so the
+  // subscription visibly succeeded. (Delay lets the lazy section settle first.)
+  const successRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!planSuccess) return;
+    const t = window.setTimeout(
+      () => successRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+      300,
+    );
+    return () => window.clearTimeout(t);
+  }, [planSuccess]);
+
   return (
     <section id="plans" className="relative bg-navy px-4 py-20 lg:py-28 scroll-mt-20">
       {/* Soft seams — the navy band melts in and out of the cream sections
@@ -28,7 +42,7 @@ export const HomePlans: React.FC = () => {
       <div className="relative max-w-4xl mx-auto">
 
         {planSuccess && (
-          <div className="mb-8 rounded-2xl border border-sage/40 bg-sage/15 px-5 py-4 flex items-start gap-3">
+          <div ref={successRef} className="mb-8 rounded-2xl border border-sage/40 bg-sage/15 px-5 py-4 flex items-start gap-3">
             <CheckCircle2 className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
             <div>
               <p className="font-semibold text-white text-sm">You're all set! 🎉</p>

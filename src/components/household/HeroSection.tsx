@@ -2,6 +2,7 @@ import React from 'react';
 import { ShieldCheck, Eye, CreditCard, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useHelperCount } from '@/hooks/useHelperCount';
+import { helperPresenceTier } from '@/lib/helperPresence';
 import { useCountUp } from '@/hooks/useCountUp';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
@@ -30,9 +31,19 @@ function timeGreeting(): string {
 }
 
 export const HeroSection: React.FC = () => {
-  const helperCount = useHelperCount();
+  const { count: helperCount, ready: helperReady } = useHelperCount();
   const displayCount = useCountUp(helperCount);
   const greeting = timeGreeting();
+
+  // What the live pill says, read through a nervous first-timer's eyes: they
+  // take a yes/no off it, not a statistic. So show a real count only once it's
+  // genuinely reassuring; below that, an honest availability line that never
+  // advertises thin supply (a specific small number reads worse than none).
+  const presenceTier = helperPresenceTier(helperCount, helperReady);
+  const presenceLabel =
+    presenceTier === 'count'      ? `${displayCount} helpers online · Galway`
+    : presenceTier === 'available' ? 'Helpers available · Galway'
+    : 'Same-day help in Galway'; // 'loading' is handled by the skeleton branch
 
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop
@@ -66,8 +77,9 @@ export const HeroSection: React.FC = () => {
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="mb-5"
             >
-              {displayCount === 0 ? (
-                /* Skeleton shimmer while count loads */
+              {!helperReady ? (
+                /* Skeleton shimmer only while the head-count request is genuinely
+                   in flight — never a stuck shimmer when supply is just thin. */
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5 overflow-hidden relative">
                   <span className="w-2 h-2 rounded-full bg-emerald-400/40 flex-shrink-0" aria-hidden="true" />
                   <span className="w-36 h-3 rounded-full bg-emerald-400/20 relative overflow-hidden">
@@ -78,7 +90,7 @@ export const HeroSection: React.FC = () => {
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-3 py-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" aria-hidden="true" />
                   <span className="text-xs font-semibold text-emerald-300 tracking-wide">
-                    {displayCount} helpers online · Galway
+                    {presenceLabel}
                   </span>
                 </div>
               )}
@@ -91,7 +103,12 @@ export const HeroSection: React.FC = () => {
               transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               className="display-xl text-white mb-4"
             >
-              Same-day help,<br />from someone you trust.
+              Same-day help,<br />from someone you{' '}
+              <span className="relative inline-block">
+                trust
+                {/* Gold underline draws the eye to the core promise word */}
+                <span aria-hidden="true" className="absolute left-0 right-0 -bottom-1 h-[3px] rounded-full bg-gold/90" />
+              </span>.
             </motion.h1>
 
             {/* Subline — backs the "someone you trust" promise with the core
@@ -105,15 +122,18 @@ export const HeroSection: React.FC = () => {
               ID-verified local students — see their name, photo and rating before they arrive.
             </motion.p>
 
-            {/* Trust — quiet rows, desktop only (mobile gets the strip below the card) */}
-            <ul className="hidden lg:flex flex-col gap-2.5 mt-8">
+            {/* Trust — the differentiator, given real weight: bordered glass
+                chips with brighter type, in a 2×2 cluster, instead of the
+                whisper-grey rows they used to be. Desktop only (mobile gets the
+                strip below the card). */}
+            <ul className="hidden lg:grid grid-cols-2 gap-2.5 mt-8 max-w-md">
               {TRUST.map(({ icon: Icon, text }, i) => (
                 <motion.li
                   key={text}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.24 + i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex items-center gap-2.5 text-sm text-white/70"
+                  className="flex items-center gap-2.5 rounded-xl bg-white/[0.06] border border-white/10 px-3.5 py-2.5 text-sm font-medium text-white/90"
                 >
                   <Icon className="w-4 h-4 text-emerald-400 flex-shrink-0" aria-hidden="true" />
                   {text}
@@ -133,14 +153,15 @@ export const HeroSection: React.FC = () => {
               <p className="text-sm font-semibold text-foreground/80">
                 {greeting} <span aria-hidden="true">👋</span>
               </p>
-              <div className="flex items-baseline justify-between gap-3 mt-1">
+              <div className="flex items-center justify-between gap-3 mt-1">
                 <p className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
                   What do you need?
                 </p>
-                {/* Surfaces the server's book-ahead discount before the sheet opens */}
-                <p className="text-[11px] font-semibold text-sage-dark whitespace-nowrap">
+                {/* Surfaces the server's book-ahead discount as a real deal pill,
+                    not grey text — discounts only convert if they register. */}
+                <span className="inline-flex items-center rounded-full bg-sage/12 border border-sage/25 px-2.5 py-1 text-[11px] font-bold text-sage-dark whitespace-nowrap">
                   Book ahead · 10% off
-                </p>
+                </span>
               </div>
             </div>
             <CategoryGrid />
@@ -148,9 +169,11 @@ export const HeroSection: React.FC = () => {
 
         </div>
 
-        {/* Mobile trust strip — one glance, under the card; fades in last */}
+        {/* Mobile trust strip — one glance, under the card; fades in last.
+            Chips (not bare grey text) so the guarantees still carry weight on
+            the small screen. */}
         <motion.ul
-          className="lg:hidden mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2"
+          className="lg:hidden mt-6 flex flex-wrap items-center justify-center gap-2"
           initial="hidden"
           animate="show"
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.38 } } }}
@@ -159,7 +182,7 @@ export const HeroSection: React.FC = () => {
             <motion.li
               key={short}
               variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
-              className="inline-flex items-center gap-1.5 text-xs text-white/60"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/10 px-2.5 py-1 text-xs font-medium text-white/85"
             >
               <Icon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
               {short}
