@@ -7,15 +7,10 @@ let cachedCount = 0;
 let resolved = false;
 let inflight: Promise<void> | null = null;
 
-/**
- * Below this, a literal "N helpers online" reads as a *thin* marketplace to a
- * first-time customer — "two people, in all of Galway?" — which manufactures
- * the exact "will anyone actually come?" fear we're trying to kill. So under
- * this floor we show a qualitative availability signal instead of the number.
- * Raise it as supply grows; once it's comfortably cleared, the real count is
- * the stronger social proof and shows automatically.
- */
-export const REASSURING_MIN = 5;
+// REASSURING_MIN + the pill tier logic live in a pure module (helperPresence)
+// so they're unit-tested without dragging in the Supabase client. Re-exported
+// here so existing `@/hooks/useHelperCount` imports keep working.
+export { REASSURING_MIN } from '@/lib/helperPresence';
 
 export interface HelperPresence {
   /** Approved + available helper count. 0 until/unless the request resolves. */

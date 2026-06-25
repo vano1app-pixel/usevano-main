@@ -12,6 +12,20 @@ export function isTimedCategory(category: string): boolean {
   return TIMED_CATEGORIES.has(category);
 }
 
+// How the "finding your helper" copy escalates as a booking waits — mirrors
+// what the backend actually does (re-dispatch, then team/no-helper-fallback)
+// instead of pretending it's always "within minutes":
+//   fresh     (< 3 min)  — just placed, helpers being notified
+//   searching (3–10 min) — re-pinging more helpers nearby
+//   team      (≥ 10 min) — the Galway team is now finding someone
+export type PendingWaitTier = 'fresh' | 'searching' | 'team';
+
+export function pendingWaitTier(minutesWaiting: number): PendingWaitTier {
+  if (minutesWaiting >= 10) return 'team';
+  if (minutesWaiting >= 3) return 'searching';
+  return 'fresh';
+}
+
 // "1:23:45" or "4:09" (drops the hours segment under an hour). Clamps at zero.
 export function formatCountdown(msRemaining: number): string {
   const total = Math.max(0, Math.floor(msRemaining / 1000));

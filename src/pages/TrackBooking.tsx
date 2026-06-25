@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
-import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
+import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
@@ -270,6 +270,7 @@ const TrackBooking = () => {
   // copy below). placedCelebratedRef gates the one-shot "fresh placement" pop.
   const [pendingMin, setPendingMin] = useState(0);
   const placedCelebratedRef = useRef(false);
+  const waitTier = pendingWaitTier(pendingMin);
 
   // Rating state
   const [hoverRating, setHoverRating] = useState(0);
@@ -1212,7 +1213,7 @@ const TrackBooking = () => {
                   {/* Fresh placements get a quick "received" acknowledgement;
                       after a few minutes the copy escalates to match what the
                       backend is really doing (re-dispatch → team). */}
-                  {pendingMin < 3 && (
+                  {waitTier === 'fresh' && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 mb-2">
                       <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Booking received
                     </span>
@@ -1223,19 +1224,19 @@ const TrackBooking = () => {
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-sage" />
                     </span>
                     <p className="text-sm font-semibold text-foreground">
-                      {pendingMin >= 10 ? 'Our team is on it' : pendingMin >= 3 ? 'Still searching' : 'Finding your helper'}
+                      {waitTier === 'team' ? 'Our team is on it' : waitTier === 'searching' ? 'Still searching' : 'Finding your helper'}
                     </p>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {pendingMin >= 10
+                    {waitTier === 'team'
                       ? "Taking a little longer than usual — our Galway team is now finding someone for you. We'll WhatsApp you the moment they're confirmed."
-                      : pendingMin >= 3
+                      : waitTier === 'searching'
                         ? 'Pinging more helpers near you — hang tight, this can take a few minutes.'
                         : offerCount && offerCount > 0
                           ? `${offerCount} helper${offerCount === 1 ? '' : 's'} nearby notified · usually matched within minutes`
                           : 'Notifying helpers near you… usually matched within minutes'}
                   </p>
-                  {pendingMin >= 10 && (
+                  {waitTier === 'team' && (
                     <a
                       href={`https://wa.me/353899817111?text=${encodeURIComponent("Hi VANO, I'm still waiting on a helper for my booking. Can you help?")}`}
                       target="_blank" rel="noopener noreferrer"

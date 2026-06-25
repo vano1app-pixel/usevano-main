@@ -12,6 +12,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
+import { isValidPhone } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -328,7 +329,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   // Live field validity — drives the small green ✓ next to each label as it's
   // filled. Quiet reassurance at the highest-friction step (a stranger typing
   // their number + address for in-home help).
-  const phoneValid = /^\+?[\d\s\-().]{7,15}$/.test(phone.trim().replace(/\s+/g, ''));
+  const phoneValid = isValidPhone(phone);
   const addressValid = !!address.trim();
 
   const ctaLabel = [
@@ -345,7 +346,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     const phoneClean = phone.trim().replace(/\s+/g, '');
-    if (!phoneClean || !/^\+?[\d\s\-().]{7,15}$/.test(phoneClean)) {
+    if (!isValidPhone(phone)) {
       setPhoneError(true);
       setError('Please enter a valid phone number.');
       return;

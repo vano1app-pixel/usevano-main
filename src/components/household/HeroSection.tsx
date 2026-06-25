@@ -1,7 +1,8 @@
 import React from 'react';
 import { ShieldCheck, Eye, CreditCard, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useHelperCount, REASSURING_MIN } from '@/hooks/useHelperCount';
+import { useHelperCount } from '@/hooks/useHelperCount';
+import { helperPresenceTier } from '@/lib/helperPresence';
 import { useCountUp } from '@/hooks/useCountUp';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
@@ -38,12 +39,11 @@ export const HeroSection: React.FC = () => {
   // take a yes/no off it, not a statistic. So show a real count only once it's
   // genuinely reassuring; below that, an honest availability line that never
   // advertises thin supply (a specific small number reads worse than none).
-  const showLiveCount = helperReady && helperCount >= REASSURING_MIN;
-  const presenceLabel = showLiveCount
-    ? `${displayCount} helpers online · Galway`
-    : helperCount >= 1
-      ? 'Helpers available · Galway'
-      : 'Same-day help in Galway';
+  const presenceTier = helperPresenceTier(helperCount, helperReady);
+  const presenceLabel =
+    presenceTier === 'count'      ? `${displayCount} helpers online · Galway`
+    : presenceTier === 'available' ? 'Helpers available · Galway'
+    : 'Same-day help in Galway'; // 'loading' is handled by the skeleton branch
 
   return (
     // Natural height on mobile (no stretched gaps); full-screen centred on desktop

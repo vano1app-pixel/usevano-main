@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { useHelperCount, REASSURING_MIN } from '@/hooks/useHelperCount';
+import { useHelperCount } from '@/hooks/useHelperCount';
+import { helperPresenceTier } from '@/lib/helperPresence';
 
 // "Book now" drops the visitor straight into the free-text "name your job" box
 // with the cursor already in it — focus is fired inside the click gesture so the
@@ -45,7 +46,7 @@ export const StickyBookBar: React.FC = () => {
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" aria-hidden="true" />
             <p className="text-xs text-emerald-700 font-semibold">
-              {helperReady && helperCount >= REASSURING_MIN ? `${helperCount} helpers online` : 'Helpers available now'}
+              {helperPresenceTier(helperCount, helperReady) === 'count' ? `${helperCount} helpers online` : 'Helpers available now'}
             </p>
           </div>
           <p className="font-semibold text-foreground text-sm">Book vetted help today</p>
