@@ -898,14 +898,13 @@ export const CategoryGrid: React.FC = () => {
                 )}
                 {suggestions.map((s) => {
                   const isOther = s.key === 'other';
-                  const from = getPriceCents('custom', `${Math.min(8, Math.max(1, s.typicalHours))} hours`);
                   return (
                     <li key={s.key}>
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => chooseJob(s)}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-secondary/70 transition-colors"
+                        className="group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-secondary/70 transition-colors"
                       >
                         <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
                         <span className="flex-1 min-w-0">
@@ -916,9 +915,8 @@ export const CategoryGrid: React.FC = () => {
                             {isOther ? 'Tell us exactly what you need' : s.group}
                           </span>
                         </span>
-                        {!isOther && from != null && (
-                          <span className="flex-shrink-0 text-xs font-bold text-foreground/70 tabular-nums">from {fmt(from)}</span>
-                        )}
+                        {/* Price stays hidden until they pick — then it drops in below */}
+                        <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
                       </button>
                     </li>
                   );
