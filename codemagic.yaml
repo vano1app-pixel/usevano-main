@@ -31,6 +31,7 @@ workflows:
       groups:
         - vano_env
       node: 22
+      java: 21
       xcode: latest
     scripts:
       - name: Install dependencies
@@ -66,6 +67,7 @@ workflows:
       groups:
         - vano_env
       node: 22
+      java: 21
     scripts:
       - name: Install dependencies
         script: npm ci
