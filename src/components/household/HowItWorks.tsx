@@ -10,9 +10,9 @@ import { motion, type Variants } from 'framer-motion';
  */
 
 const STEPS = [
-  { n: '1', title: 'Pick a category',   lines: ['Tap what you need', 'When & where'] },
-  { n: '2', title: 'Book in seconds',   lines: ['Drop your number', 'Pay only when we find a helper'] },
-  { n: '3', title: 'A vetted student does it', lines: ['Shows up & does the job', 'Gets paid at the end'] },
+  { n: '1', title: 'Search what you need', lines: ['Type any job', 'See a fair price'] },
+  { n: '2', title: 'Book in seconds',      lines: ['Drop your number', 'Pay only when a helper accepts'] },
+  { n: '3', title: 'A vetted student does it', lines: ['Shows up & does the job', "Paid only when you're happy"] },
 ];
 
 const container: Variants = {
