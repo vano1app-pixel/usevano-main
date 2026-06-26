@@ -234,7 +234,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   const referralCode = useMemo(() => getReferralCode(), []);
   const [when,     setWhen]    = useState('Now');
   const [size,     setSize]    = useState(
-    (initialSize && cat.sizes?.includes(initialSize) ? initialSize : null)
+    // Honour the caller's size even when no size chips are shown (custom jobs
+    // already pick the duration on the first page, so the sheet doesn't re-ask).
+    (initialSize && (!cat.sizes || cat.sizes.includes(initialSize)) ? initialSize : null)
       ?? DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '',
   );
   const [phone,    setPhone]   = useState(remembered?.phone ?? '');
@@ -823,14 +825,15 @@ export const CategoryGrid: React.FC = () => {
     if (!job) return;
     const label = job.label;
     const note = query.trim() || label;
+    // No `sizes` on purpose — the duration was already chosen on the first page
+    // (the price card), so the sheet must not ask "How long?" again. The chosen
+    // size rides through as initialSize.
     const customCat: Category = {
       emoji: job.emoji,
       label,
       slug: 'custom',
       hint: 'A vetted student, matched to your job',
       description: note,
-      sizeLabel: 'How long?',
-      sizes: isShortVisit(job.key) ? SHORT_DURATIONS : DURATIONS,
     };
     openSheet(customCat, { size, note, extraLabel: label });
   }, [job, query, size, openSheet]);
