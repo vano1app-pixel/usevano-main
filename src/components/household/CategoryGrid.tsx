@@ -12,7 +12,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
-import { CUSTOM_JOBS, matchCustomJob, customJobByKey, VANO_HOURLY_CENTS } from '@/lib/customJobs';
+import { searchCustomJobs, VANO_HOURLY_CENTS, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
@@ -71,11 +71,11 @@ const CATEGORIES: Category[] = [
   },
 ];
 
-// The front door is now ONE text box: "what do you need?" (Uber-style). The
-// CATEGORIES above still power the booking sheet for returning customers ("book
-// your usual"), deep links and the vano:select-category event — they're just no
-// longer the way IN. Everything typed prices through the canonical custom rate
-// (€18/hr, src/lib/customJobs.ts) with a live market comparison.
+// The front door is now ONE centered search bar: type → matching jobs drop down
+// → pick one → see the VANO-vs-market price. The CATEGORIES above still power
+// the booking sheet for returning customers ("book your usual"), deep links and
+// the vano:select-category event — they're just no longer the way IN. Everything
+// prices through the canonical custom rate (€18/hr, src/lib/customJobs.ts).
 
 // How long the job takes — drives the custom hourly price + the comparison.
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
@@ -95,18 +95,6 @@ const HINTS = [
   'fix a leaky tap',
 ];
 
-// Quick-picks under the box — tap to fill it (and light up the price). Each key
-// is a real entry in CUSTOM_JOBS, so customJobByKey resolves its market rate.
-const QUICK_PICKS: { key: string; label: string; emoji: string; fill: string }[] = [
-  { key: 'clean',    label: 'Cleaning', emoji: '🧽', fill: 'Clean my house' },
-  { key: 'dog',      label: 'Dog walk', emoji: '🐕', fill: 'Walk the dog' },
-  { key: 'mowing',   label: 'Mow lawn', emoji: '🌱', fill: 'Mow the lawn' },
-  { key: 'tvmount',  label: 'Mount TV', emoji: '📺', fill: 'Mount and set up a TV' },
-  { key: 'painting', label: 'Painting', emoji: '🎨', fill: 'Paint a room' },
-  { key: 'vanhelp',  label: 'Moving',   emoji: '📦', fill: 'Help load a van' },
-  { key: 'ironing',  label: 'Laundry',  emoji: '🧺', fill: 'A basket of ironing' },
-  { key: 'tutoring', label: 'Grinds',   emoji: '📓', fill: 'Grinds / tutoring' },
-];
 
 // Smart defaults — most common booking for each service
 const DEFAULT_SIZE: Record<string, string> = {
@@ -775,13 +763,14 @@ type Selection = { cat: Category; size?: string; note?: string; extraLabel?: str
 export const CategoryGrid: React.FC = () => {
   const [selected, setSelected] = useState<Selection | null>(null);
 
-  // The typed job + the resolved match. selectedKey is set when a quick-pick is
-  // tapped or the AI parser lands a confident result; otherwise the instant
-  // keyword matcher reads the free text.
-  const [jobText, setJobText] = useState('');
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // Search query + the job picked from the dropdown. Typing again clears the
+  // pick so the dropdown reopens; `open` controls the dropdown visibility.
+  const [query, setQuery] = useState('');
+  const [job, setJob] = useState<CustomJob | null>(null);
   const [size, setSize] = useState('2 hours');
   const [hintIdx, setHintIdx] = useState(0);
+  const [open, setOpen] = useState(false);
+  const blurTimer = useRef<number | null>(null);
 
   const openSheet = useCallback(
     (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string }) =>
@@ -793,60 +782,39 @@ export const CategoryGrid: React.FC = () => {
   // Rotate the placeholder hint while the box is empty — so a blank field always
   // suggests something to type. Stops the moment they start typing.
   useEffect(() => {
-    if (jobText) return;
+    if (query) return;
     const id = window.setInterval(() => setHintIdx((i) => (i + 1) % HINTS.length), 2600);
     return () => window.clearInterval(id);
-  }, [jobText]);
+  }, [query]);
 
-  // Live price — the instant keyword read names the job; the AI refines it below.
+  // Typeahead suggestions for the dropdown, and the price for the picked job.
   // Pricing is the canonical custom rate (€18/hr) so it can never go under min
-  // wage, with the matched job's typical market rate shown beside it.
-  const textMatch = matchCustomJob(jobText);
-  const activeJob = selectedKey ? customJobByKey(selectedKey) : (textMatch ?? customJobByKey('other'));
+  // wage, with the picked job's typical market rate shown beside it.
+  const suggestions = useMemo(() => searchCustomJobs(query, 6), [query]);
   const hours = Number(size.match(/^\d+/)?.[0]) || 0;
   const vanoCents = getPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
-  const marketCents = activeJob.marketHourlyCents * hours;
+  const marketCents = (job?.marketHourlyCents ?? 0) * hours;
   const saveCents = Math.max(0, marketCents - vanoCents);
   const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
-  const hasJob = jobText.trim().length >= 2 || !!selectedKey;
 
-  // Debounced AI read that auto-applies a confident result, so the right job +
-  // duration (and the price) just appear as they type. Fail-soft: any problem
-  // leaves the instant keyword matcher in charge.
-  useEffect(() => {
-    const text = jobText.trim();
-    if (selectedKey || text.length < 6) return;
-    let cancelled = false;
-    const id = window.setTimeout(async () => {
-      try {
-        const { data } = await supabase.functions.invoke('parse-custom-job', {
-          body: { text, jobs: CUSTOM_JOBS.map((j) => ({ key: j.key, label: j.label, typicalHours: j.typicalHours })) },
-        });
-        if (cancelled) return;
-        const d = data as { ok?: boolean; jobKey?: string; hours?: number; confidence?: number } | null;
-        if (d?.ok && d.jobKey && d.jobKey !== 'other' && (d.confidence ?? 0) >= 0.45) {
-          setSelectedKey(d.jobKey);
-          if (d.hours) setSize(`${Math.min(8, Math.max(1, Math.round(d.hours)))} hours`);
-        }
-      } catch { /* keyword matcher stays in charge */ }
-    }, 650);
-    return () => { cancelled = true; window.clearTimeout(id); };
-  }, [jobText, selectedKey]);
-
-  // Tapping a quick-pick fills the box and names the job, so the price is alive
-  // instantly — no typing needed.
-  const pickChip = useCallback((c: typeof QUICK_PICKS[number]) => {
-    setSelectedKey(c.key);
-    setJobText(c.fill);
+  // Pick a job from the dropdown — fills the bar, sets a sensible default
+  // duration and reveals the price. ("Something else" keeps whatever they typed.)
+  const chooseJob = useCallback((j: CustomJob) => {
+    setJob(j);
+    if (j.key !== 'other') setQuery(j.label);
+    setSize(`${Math.min(8, Math.max(1, j.typicalHours))} hours`);
+    setOpen(false);
+    if (blurTimer.current) window.clearTimeout(blurTimer.current);
   }, []);
 
-  // Hand the resolved job to the booking sheet (phone / address / when) as a
+  // Hand the picked job to the booking sheet (phone / address / when) as a
   // custom booking — the ONE create-household-payment-checkout flow.
   const goBook = useCallback(() => {
-    const label = activeJob.label;
-    const note = jobText.trim() || label;
+    if (!job) return;
+    const label = job.label;
+    const note = query.trim() || label;
     const customCat: Category = {
-      emoji: activeJob.emoji,
+      emoji: job.emoji,
       label,
       slug: 'custom',
       hint: 'A vetted student, matched to your job',
@@ -855,7 +823,7 @@ export const CategoryGrid: React.FC = () => {
       sizes: DURATIONS,
     };
     openSheet(customCat, { size, note, extraLabel: label });
-  }, [activeJob, jobText, size, openSheet]);
+  }, [job, query, size, openSheet]);
 
   // One-tap rebook: last booked job from this device
   const usual = useMemo(() => {
@@ -881,169 +849,168 @@ export const CategoryGrid: React.FC = () => {
 
   return (
     <>
-      <div id="category-grid" aria-label="What do you need help with?" className="scroll-mt-24">
-        {/* The one front door — type the job, the fair price drops in underneath */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-          {/* ChatGPT-style search bar — icon, free text, send arrow. Enter submits;
-              the price drops in underneath as they type. */}
-          <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-white pl-3.5 pr-2 py-2 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-foreground/20 focus-within:border-transparent">
-            <Search className="w-5 h-5 text-muted-foreground/45 mb-2 flex-shrink-0" aria-hidden="true" />
-            <textarea
+      <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl scroll-mt-24">
+        {/* Big centered search bar — type, pick a job from the dropdown, see the price */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative"
+        >
+          <div className="flex items-center gap-2.5 rounded-2xl bg-white border border-black/5 shadow-2xl px-4 h-14 sm:h-16 focus-within:ring-2 focus-within:ring-gold/60 transition-shadow">
+            <Search className="w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
+            <input
               id="custom-job-input"
-              value={jobText}
-              onChange={(e) => { setJobText(e.target.value); setSelectedKey(null); }}
-              onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 120)}px`; }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (hasJob) goBook(); } }}
-              placeholder={`Type what you need — e.g. ${HINTS[hintIdx]}`}
-              rows={1}
-              maxLength={400}
-              aria-label="Describe what you need done"
-              className="flex-1 min-w-0 resize-none bg-transparent py-2 text-base placeholder:text-muted-foreground/45 focus:outline-none scroll-mt-28"
+              type="text"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (suggestions[0]) chooseJob(suggestions[0]); } else if (e.key === 'Escape') { setOpen(false); } }}
+              placeholder={`Try "${HINTS[hintIdx]}"…`}
+              autoComplete="off"
+              aria-label="Search for what you need done"
+              className="flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
             />
             <button
               type="button"
-              onClick={() => { if (hasJob) goBook(); }}
-              disabled={!hasJob}
-              aria-label="See price and book"
-              className="mb-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background disabled:opacity-30 transition-[opacity,transform] duration-150 active:scale-90"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { if (suggestions[0]) chooseJob(suggestions[0]); }}
+              aria-label="Search"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-90"
             >
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-          <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">
-            Type anything — get a fair price instantly. You only pay once a helper accepts.
-          </p>
 
-          {/* Live VANO-vs-market comparison — the value people love */}
-          <AnimatePresence initial={false}>
-            {hasJob && (
-              <motion.div
-                key="price"
-                initial={{ opacity: 0, height: 0, y: -6 }}
-                animate={{ opacity: 1, height: 'auto', y: 0 }}
-                exit={{ opacity: 0, height: 0, y: -6 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                className="overflow-hidden"
+          {/* Dropdown — matching jobs to pick from */}
+          <AnimatePresence>
+            {open && !job && suggestions.length > 0 && (
+              <motion.ul
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 shadow-2xl text-left"
               >
-                <div className="mt-3 rounded-xl border border-sage/30 bg-sage-light/50 p-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground min-w-0">
-                      <span aria-hidden="true">{activeJob.emoji}</span>
-                      <span className="truncate">{activeJob.label}</span>
-                    </span>
-                    <select
-                      value={size}
-                      onChange={(e) => setSize(e.target.value)}
-                      aria-label="How long"
-                      className="flex-shrink-0 rounded-lg border border-border bg-white text-xs font-medium px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-foreground/20"
-                    >
-                      {DURATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex-1 rounded-lg border border-sage/40 bg-white px-3 py-2 text-center shadow-sm">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
-                      <motion.p
-                        key={vanoCents}
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                        className="mt-0.5 text-2xl font-extrabold tabular-nums text-foreground leading-none"
+                {query.trim().length < 2 && (
+                  <li className="px-3 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/35">Popular right now</li>
+                )}
+                {suggestions.map((s) => {
+                  const isOther = s.key === 'other';
+                  const from = getPriceCents('custom', `${Math.min(8, Math.max(1, s.typicalHours))} hours`);
+                  return (
+                    <li key={s.key}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => chooseJob(s)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-secondary/70 transition-colors"
                       >
-                        {fmt(vanoCents)}
-                      </motion.p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
-                    </div>
-                    <div className="flex-1 rounded-lg border border-border/60 bg-white/50 px-3 py-2 text-center">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
-                      <p className="mt-0.5 text-2xl font-bold tabular-nums text-muted-foreground/70 leading-none line-through decoration-muted-foreground/40">
-                        {fmt(marketCents)}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">≈ €{activeJob.marketHourlyCents / 100}/hr</p>
-                    </div>
-                  </div>
-                  {saveCents > 0 && (
-                    <p className="mt-2 text-center text-[12px] font-bold text-sage-dark">
-                      ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
-                    </p>
-                  )}
-                </div>
-              </motion.div>
+                        <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-semibold text-foreground truncate">
+                            {isOther ? `Book “${query.trim() || 'something else'}”` : s.label}
+                          </span>
+                          <span className="block text-[11px] text-muted-foreground truncate">
+                            {isOther ? 'Tell us exactly what you need' : s.group}
+                          </span>
+                        </span>
+                        {!isOther && from != null && (
+                          <span className="flex-shrink-0 text-xs font-bold text-foreground/70 tabular-nums">from {fmt(from)}</span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </motion.ul>
             )}
           </AnimatePresence>
 
-          {/* Primary action — go to the short booking sheet (phone / address / when) */}
-          <motion.div
-            whileHover={{ scale: 1.015 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            className={cn('relative mt-3 overflow-hidden rounded-full transition-shadow duration-300', hasJob ? 'shadow-primary-glow' : '')}
-          >
-            <Button
-              type="button"
-              onClick={goBook}
-              disabled={!hasJob}
-              className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
-            >
-              <Zap className="w-4 h-4" />
-              {hasJob ? `Book · ${fmt(vanoCents)}` : 'Book help'}
-            </Button>
-          </motion.div>
+          {/* Picked a job → VANO-vs-market price, the time above (like the custom box) */}
+          <AnimatePresence initial={false}>
+            {job && (
+              <motion.div
+                key="price"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                className="mt-3 rounded-2xl border border-black/5 bg-white p-4 shadow-2xl text-left"
+              >
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">
+                    <span className="text-lg" aria-hidden="true">{job.emoji}</span>
+                    <span className="truncate">{job.label}</span>
+                  </span>
+                  <select
+                    value={size}
+                    onChange={(e) => setSize(e.target.value)}
+                    aria-label="How long"
+                    className="flex-shrink-0 rounded-lg border border-border bg-white text-xs font-semibold px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                  >
+                    {DURATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
+                    <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
+                      {fmt(vanoCents)}
+                    </motion.p>
+                    <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
+                  </div>
+                  <div className="flex-1 rounded-xl border border-border/60 px-3 py-2.5 text-center">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
+                    <p className="mt-0.5 text-3xl font-bold tabular-nums text-muted-foreground/60 leading-none line-through decoration-muted-foreground/40">
+                      {fmt(marketCents)}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">≈ €{job.marketHourlyCents / 100}/hr</p>
+                  </div>
+                </div>
+                {saveCents > 0 && (
+                  <p className="mt-2.5 text-center text-[12px] font-bold text-sage-dark">
+                    ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
+                  </p>
+                )}
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="mt-3">
+                  <Button type="button" onClick={goBook} className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary shadow-primary-glow">
+                    <Zap className="w-4 h-4" />
+                    Book · {fmt(vanoCents)}
+                  </Button>
+                </motion.div>
+                <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
-
-        {/* Secondary: tap a category to fill the box, so people know what they can ask for */}
-        <div className="mt-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/35 mb-2">Or pick a category</p>
-          <div className="flex flex-wrap gap-2">
-            {QUICK_PICKS.map((c) => {
-              const active = selectedKey === c.key;
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => pickChip(c)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-[background-color,border-color,color] duration-150 active:scale-[0.97]',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                    active
-                      ? 'border-transparent bg-foreground text-background'
-                      : 'bg-white text-foreground/80 border-border hover:border-foreground/30 hover:text-foreground',
-                  )}
-                >
-                  <span aria-hidden="true">{c.emoji}</span>
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* One-tap rebook — remembers the last job booked on this device */}
         {usual && (
           <button
             onClick={() => openSheet(usual.cat, { size: usual.size })}
-            className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left shadow-sm hover:bg-sage/14 hover:shadow-md active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-150"
+            className="mt-3 w-full rounded-2xl bg-white/10 border border-white/15 px-4 py-3 flex items-center gap-3 text-left backdrop-blur-sm hover:bg-white/15 active:scale-[0.98] transition-[background-color,transform] duration-150"
           >
             <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
             <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-foreground leading-snug">
+              <span className="block text-sm font-semibold text-white leading-snug">
                 Book your usual{usual.price ? ` — ${usual.price}` : ''}
               </span>
-              <span className="block text-xs text-muted-foreground mt-0.5 truncate">
+              <span className="block text-xs text-white/55 mt-0.5 truncate">
                 {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details already filled in
               </span>
             </span>
-            <span className="text-sage text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+            <span className="text-gold text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
           </button>
         )}
 
-        {/* WhatsApp fallback — one quiet line, not a competing card */}
+        {/* WhatsApp fallback — one quiet line on the dark hero */}
         <button
           onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-[13px] text-white/55 hover:text-white/85 transition-colors duration-150"
         >
           <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" aria-hidden="true" />
-          Prefer to chat?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span>
+          Prefer to chat?<span className="font-semibold text-white/85 underline underline-offset-2">WhatsApp us</span>
         </button>
       </div>
 
