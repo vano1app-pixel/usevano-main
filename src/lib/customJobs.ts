@@ -353,6 +353,20 @@ const OTHER = CUSTOM_JOBS.find((j) => j.key === 'other')!;
 
 export const POPULAR_CUSTOM_JOBS = CUSTOM_JOBS.filter((j) => j.popular);
 
+// Short, visit-style jobs that suit a 30-/45-min booking (priced from €12)
+// rather than a one-hour minimum — dog walks, let-outs, bins, key-drops,
+// quick errands. Everything else is booked by the hour.
+const SHORT_VISIT_KEYS = new Set<string>([
+  'dog', 'puppy', 'petsit', 'littertray', 'smallpets', 'chickens', 'watering',
+  'binclean', 'keyholder', 'postrun', 'returns', 'libraryrun', 'recycling',
+  'charityshop', 'dryclean', 'lift', 'waitin',
+]);
+
+/** True for quick visit jobs that should offer sub-hour (30/45 min) booking. */
+export function isShortVisit(key: string | null | undefined): boolean {
+  return !!key && SHORT_VISIT_KEYS.has(key);
+}
+
 /** Look a job up by key, falling back to the catch-all so callers never crash. */
 export function customJobByKey(key: string | null | undefined): CustomJob {
   return CUSTOM_JOBS.find((j) => j.key === key) ?? OTHER;

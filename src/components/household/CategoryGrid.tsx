@@ -12,7 +12,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
-import { searchCustomJobs, VANO_HOURLY_CENTS, type CustomJob } from '@/lib/customJobs';
+import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
@@ -79,6 +79,8 @@ const CATEGORIES: Category[] = [
 
 // How long the job takes — drives the custom hourly price + the comparison.
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
+// Short visit jobs (dog walk, bins, key-drop…) can be booked sub-hour, from €12.
+const SHORT_DURATIONS = ['30 min', '45 min', '1 hour', '2 hours'];
 
 // Rotating placeholder examples — the box hints what you can ask for, so a blank
 // field never leaves a first-timer wondering what to type.
@@ -770,7 +772,9 @@ export const CategoryGrid: React.FC = () => {
   const [size, setSize] = useState('2 hours');
   const [hintIdx, setHintIdx] = useState(0);
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0); // highlighted dropdown row (keyboard nav)
   const blurTimer = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const openSheet = useCallback(
     (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string }) =>
@@ -791,18 +795,24 @@ export const CategoryGrid: React.FC = () => {
   // Pricing is the canonical custom rate (€18/hr) so it can never go under min
   // wage, with the picked job's typical market rate shown beside it.
   const suggestions = useMemo(() => searchCustomJobs(query, 6), [query]);
-  const hours = Number(size.match(/^\d+/)?.[0]) || 0;
+  const shortVisit = isShortVisit(job?.key);
+  const durationOptions = shortVisit ? SHORT_DURATIONS : DURATIONS;
+  // Hours as a number, including sub-hour visits (0.5 / 0.75)
+  const hours = size === '30 min' ? 0.5 : size === '45 min' ? 0.75 : (Number(size.match(/^\d+/)?.[0]) || 0);
   const vanoCents = getPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
   const marketCents = (job?.marketHourlyCents ?? 0) * hours;
   const saveCents = Math.max(0, marketCents - vanoCents);
   const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
+  // Sub-hour visits hit the €12 floor, so a pro-rated market rate would read as
+  // "more expensive" — show the Vano price alone for those, full comparison at 1h+.
+  const showComparison = hours >= 1 && marketCents > 0;
 
   // Pick a job from the dropdown — fills the bar, sets a sensible default
   // duration and reveals the price. ("Something else" keeps whatever they typed.)
   const chooseJob = useCallback((j: CustomJob) => {
     setJob(j);
     if (j.key !== 'other') setQuery(j.label);
-    setSize(`${Math.min(8, Math.max(1, j.typicalHours))} hours`);
+    setSize(isShortVisit(j.key) ? '30 min' : `${Math.min(8, Math.max(1, j.typicalHours))} hours`);
     setOpen(false);
     if (blurTimer.current) window.clearTimeout(blurTimer.current);
   }, []);
@@ -820,7 +830,7 @@ export const CategoryGrid: React.FC = () => {
       hint: 'A vetted student, matched to your job',
       description: note,
       sizeLabel: 'How long?',
-      sizes: DURATIONS,
+      sizes: isShortVisit(job.key) ? SHORT_DURATIONS : DURATIONS,
     };
     openSheet(customCat, { size, note, extraLabel: label });
   }, [job, query, size, openSheet]);
@@ -860,22 +870,39 @@ export const CategoryGrid: React.FC = () => {
           <div className="flex items-center gap-2.5 rounded-2xl bg-white border border-black/5 shadow-2xl px-4 h-14 sm:h-16 focus-within:ring-2 focus-within:ring-gold/60 transition-shadow">
             <Search className="w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
             <input
+              ref={inputRef}
               id="custom-job-input"
               type="text"
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); }}
+              onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); setActiveIndex(0); }}
               onFocus={() => setOpen(true)}
               onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (suggestions[0]) chooseJob(suggestions[0]); } else if (e.key === 'Escape') { setOpen(false); } }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1)); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); }
+                else if (e.key === 'Enter') { e.preventDefault(); const pick = suggestions[activeIndex] ?? suggestions[0]; if (pick) chooseJob(pick); }
+                else if (e.key === 'Escape') { setOpen(false); }
+              }}
               placeholder={`Try "${HINTS[hintIdx]}"…`}
               autoComplete="off"
               aria-label="Search for what you need done"
               className="flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
             />
+            {query && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setQuery(''); setJob(null); setActiveIndex(0); setOpen(true); inputRef.current?.focus(); }}
+                aria-label="Clear"
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { if (suggestions[0]) chooseJob(suggestions[0]); }}
+              onClick={() => { const pick = suggestions[activeIndex] ?? suggestions[0]; if (pick) chooseJob(pick); }}
               aria-label="Search"
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-90"
             >
@@ -896,15 +923,20 @@ export const CategoryGrid: React.FC = () => {
                 {query.trim().length < 2 && (
                   <li className="px-3 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/35">Popular right now</li>
                 )}
-                {suggestions.map((s) => {
+                {suggestions.map((s, i) => {
                   const isOther = s.key === 'other';
+                  const active = i === activeIndex;
                   return (
                     <li key={s.key}>
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
+                        onMouseEnter={() => setActiveIndex(i)}
                         onClick={() => chooseJob(s)}
-                        className="group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-secondary/70 transition-colors"
+                        className={cn(
+                          'group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                          active ? 'bg-secondary' : 'hover:bg-secondary/70',
+                        )}
                       >
                         <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
                         <span className="flex-1 min-w-0">
@@ -947,29 +979,43 @@ export const CategoryGrid: React.FC = () => {
                     aria-label="How long"
                     className="flex-shrink-0 rounded-lg border border-border bg-white text-xs font-semibold px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-foreground/20"
                   >
-                    {DURATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    {durationOptions.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
-                <div className="flex items-stretch gap-2">
-                  <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
+                {showComparison ? (
+                  <>
+                    <div className="flex items-stretch gap-2">
+                      <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
+                        <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
+                          {fmt(vanoCents)}
+                        </motion.p>
+                        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
+                      </div>
+                      <div className="flex-1 rounded-xl border border-border/60 px-3 py-2.5 text-center">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
+                        <p className="mt-0.5 text-3xl font-bold tabular-nums text-muted-foreground/60 leading-none line-through decoration-muted-foreground/40">
+                          {fmt(marketCents)}
+                        </p>
+                        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">≈ €{job.marketHourlyCents / 100}/hr</p>
+                      </div>
+                    </div>
+                    {saveCents > 0 && (
+                      <p className="mt-2.5 text-center text-[12px] font-bold text-sage-dark">
+                        ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  /* Short visit — single fair price (the €12 floor makes a pro-rated
+                     market comparison misleading, so we don't show one). */
+                  <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair flat price</p>
                     <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
                       {fmt(vanoCents)}
                     </motion.p>
-                    <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">Quick {size} visit</p>
                   </div>
-                  <div className="flex-1 rounded-xl border border-border/60 px-3 py-2.5 text-center">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
-                    <p className="mt-0.5 text-3xl font-bold tabular-nums text-muted-foreground/60 leading-none line-through decoration-muted-foreground/40">
-                      {fmt(marketCents)}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">≈ €{job.marketHourlyCents / 100}/hr</p>
-                  </div>
-                </div>
-                {saveCents > 0 && (
-                  <p className="mt-2.5 text-center text-[12px] font-bold text-sage-dark">
-                    ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
-                  </p>
                 )}
                 <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="mt-3">
                   <Button type="button" onClick={goBook} className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary shadow-primary-glow">
@@ -978,6 +1024,7 @@ export const CategoryGrid: React.FC = () => {
                   </Button>
                 </motion.div>
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
+                <p className="mt-1 text-center text-[11px] font-semibold text-sage-dark">💡 Need it another day? Book ahead at the next step &amp; save 10%.</p>
               </motion.div>
             )}
           </AnimatePresence>

@@ -42,9 +42,23 @@ function hoursFromLabel(size: string): number | null {
  * priceable. Mirrors computePriceCents for the categories the quick-book
  * sheet offers (dog walk is a flat 30-min / 1-hour walk, not an hourly rate).
  */
+/**
+ * Booking minimum (cents) for short custom visits. €18/hr × 0.5 = €9 would be
+ * too small to be worth a student's trip (or our cut), so a half-hour job is
+ * floored to €12. The student still clears minimum wage (keeps 85% = €10.20 for
+ * 30 min ≈ €20/hr). Mirrors the server's custom hour map.
+ */
+export const MIN_BOOKING_CENTS = 1200;
+
 export function getHouseholdPriceCents(slug: string, size: string): number | null {
   if (slug in FLAT_PRICE_CENTS) return FLAT_PRICE_CENTS[slug];
   if (slug === 'dog-walk') return size === '30 min' ? 1500 : 2000;
+  // Custom "name any job" supports short half-/three-quarter-hour visits for
+  // quick jobs (dog walk, bins, key-drop…), floored at the booking minimum.
+  if (slug === 'custom') {
+    if (size === '30 min') return MIN_BOOKING_CENTS;                 // €18/hr × 0.5 = €9 → floored to €12
+    if (size === '45 min') return Math.max(1350, MIN_BOOKING_CENTS); // €18/hr × 0.75 = €13.50
+  }
   const rate = HOURLY_RATE_CENTS[slug];
   if (rate) {
     const hours = hoursFromLabel(size);
