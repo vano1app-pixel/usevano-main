@@ -232,10 +232,13 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
   }
 
   // Custom "name any job" — priced purely by booked time at the €18/hr labour
-  // rate (the same hour labels the CategoryGrid sheet uses). Time-based by
-  // design: whatever the job, the hourly floor keeps it above minimum wage.
+  // rate (the same hour labels the CategoryGrid sheet uses). Short visits
+  // (30/45 min) are offered for quick jobs and floored to the €12 booking
+  // minimum. Time-based by design: whatever the job, the floor keeps it above
+  // minimum wage. MUST mirror getHouseholdPriceCents in src/lib/householdPricing.ts.
   if (category === 'custom') {
     const hourMap: Record<string, number> = {
+      '30 min': 1200, '45 min': 1350, // €18/hr × 0.5/0.75, floored at €12
       '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
       '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
     };

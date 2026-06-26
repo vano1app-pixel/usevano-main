@@ -81,6 +81,16 @@ describe('shared price source matches the server', () => {
     expect(getHouseholdPriceCents('custom', '1 hour')).toBe(1800);
     expect(getHouseholdPriceCents('custom', '3 hours')).toBe(5400);
     expect(getHouseholdPriceCents('custom', '8 hours')).toBe(14400);
+    // Short custom visits — €12 booking minimum (floored), matching the server
+    expect(getHouseholdPriceCents('custom', '30 min')).toBe(1200);
+    expect(getHouseholdPriceCents('custom', '45 min')).toBe(1350);
+  });
+
+  it('a short custom visit still clears minimum wage after the cut', () => {
+    // €12 for 30 min → student keeps 85% = €10.20 for half an hour ≈ €20.40/hr
+    const halfHour = getHouseholdPriceCents('custom', '30 min')!;
+    const studentNetPerHour = Math.floor((halfHour * (10000 - PLATFORM_FEE_BPS)) / 10000) * 2;
+    expect(studentNetPerHour).toBeGreaterThanOrEqual(MIN_WAGE_CENTS_PER_HOUR);
   });
 
   it('returns null for an unpriceable combination', () => {

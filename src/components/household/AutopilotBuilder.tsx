@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Loader2, CreditCard, MessageCircle, Sparkles, X, Clock } from 'lucide-react';
+import { Check, Loader2, Send, MessageCircle, Sparkles, X, Clock, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
@@ -12,10 +12,17 @@ import { microCelebrate } from '@/lib/celebrate';
 /**
  * "Put your house on autopilot" — Airbnb-style builder and the site's
  * flagship offer. One toggle (ongoing vs while-you're-away), tick the
- * jobs you want, watch the price build. Ongoing is billed weekly
- * (flexible, cancel anytime) or monthly (saves ~10% vs week-by-week).
- * Prices here are display only — the create-autopilot-checkout function
- * recomputes everything server-side.
+ * jobs you want, watch the price build. Ongoing reads weekly (flexible)
+ * or monthly (saves ~10% vs week-by-week).
+ *
+ * CONCIERGE, not instant-pay (deliberate, while supply is still thin): a
+ * recurring subscription is a recurring PROMISE, and per-visit fulfilment is
+ * still scheduled by hand. So this no longer charges up front — it sends the
+ * full selection (plan, services, dates, quote) to the team via
+ * notify-admin-whatsapp and we set it up + take payment over WhatsApp once we
+ * can guarantee the slot. The prices shown are an honest quote, display only.
+ * To re-enable instant Stripe checkout later, point handleRequest back at the
+ * (still-deployed) create-autopilot-checkout function.
  */
 
 type Mode = 'ongoing' | 'away';
@@ -138,13 +145,15 @@ export const AutopilotBuilder: React.FC = () => {
     });
   };
 
-  // Checkout
+  // Concierge request (no upfront payment — the team confirms & schedules over WhatsApp)
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState(remembered?.phone ?? '');
   const [city, setCity] = useState(remembered?.city ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True once the request has been sent — swaps the sheet to a confirmation view
+  const [submitted, setSubmitted] = useState(false);
 
 
   const weeks = useMemo(() => {
@@ -201,41 +210,62 @@ export const AutopilotBuilder: React.FC = () => {
     setSelected((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
   }
 
-  async function handleCheckout(e: React.FormEvent) {
+  // Human-readable summary of the current selection — shared by the admin ping
+  // and the customer's WhatsApp fallback so both carry the same context.
+  const pickedLabels = selected
+    .map((k) => SERVICES.find((s) => s.key === k)?.label)
+    .filter(Boolean)
+    .join(', ');
+
+  async function handleRequest(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || selected.length === 0 || loading) return;
     setLoading(true); setError(null);
     haptic(12);
+
+    // No money moves here — we hand the full selection to the team and they
+    // confirm + take payment over WhatsApp once the slot is guaranteed.
+    const cadence = mode === 'ongoing'
+      ? `Ongoing · billed ${billing}`
+      : `While away · ${weeks} week${weeks > 1 ? 's' : ''}`;
+    const priceLine = mode === 'ongoing'
+      ? `${euro(totalCents)}/${billing === 'weekly' ? 'wk' : 'mo'} · ≈ ${perDayLabel}/day`
+      : `${euro(totalCents)} total`;
+    const whenLine = mode === 'ongoing'
+      ? `First visit: ${startDate}`
+      : `From ${startDate} → ${endDate}`;
+    const accessLine = mode === 'away'
+      ? `\nAccess: ${ACCESS.find((a) => a.key === access)?.label ?? access}`
+      : '';
+    const message =
+      `🏠 *New House Autopilot request!*\n` +
+      `Plan: ${cadence}\n` +
+      `Services: ${pickedLabels}\n` +
+      `Quote (on site): ${priceLine}\n` +
+      `${whenLine}${accessLine}\n` +
+      `Name: ${name.trim()}\nPhone: ${phone.trim()}\n` +
+      `Eircode/area: ${city.trim() || 'not given'}\n\n` +
+      `⚠️ No payment taken — WhatsApp them to confirm details & schedule the first visit.`;
+    const subject = `🏠 Autopilot request — ${name.trim()}${city.trim() ? ` (${city.trim()})` : ''}`;
+
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('create-autopilot-checkout', {
-        body: {
-          mode,
-          ...(mode === 'ongoing' ? { billing } : {}),
-          services: selected,
-          start_date: startDate,
-          ...(mode === 'away' ? { end_date: endDate, access_method: access } : {}),
-          customer_name: name.trim(),
-          customer_phone: phone.trim(),
-          ...(city.trim() ? { city: city.trim() } : {}),
-        },
+      const { error: fnErr } = await supabase.functions.invoke('notify-admin-whatsapp', {
+        body: { type: 'autopilot_lead', subject, message, contact_phone: phone.trim() },
       });
-      const payload = data as { checkout_url?: string; total_cents?: number; error?: string } | null;
-      if (fnErr || !payload?.checkout_url) {
-        throw new Error(payload?.error || fnErr?.message || 'Something went wrong.');
-      }
-      // Never send anyone to a checkout that doesn't match the price on
-      // screen (e.g. this tab predates a price change on the server).
-      if (typeof payload.total_cents === 'number' && payload.total_cents !== totalCents) {
-        throw new Error('Our prices were just updated — refresh the page and try again.');
-      }
-      window.location.href = payload.checkout_url;
+      if (fnErr) throw new Error(fnErr.message || 'Could not send your request.');
+      microCelebrate();
+      setSubmitted(true);
+      setLoading(false);
     } catch (err: unknown) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Something went wrong — try again or WhatsApp us.');
     }
   }
 
-  const waText = `Hi VANO! 👋 I'm setting up house autopilot (${selected.join(', ') || 'no services yet'}) and have a question.`;
+  const waText =
+    `Hi VANO! 👋 I'd like to set up House Autopilot — ` +
+    `${mode === 'ongoing' ? `ongoing (${billing})` : `away-cover (${weeks} week${weeks > 1 ? 's' : ''})`}: ` +
+    `${pickedLabels || 'no services picked yet'}.`;
 
   return (
     <div ref={rootRef} className="max-w-md lg:max-w-4xl mx-auto">
@@ -554,17 +584,17 @@ export const AutopilotBuilder: React.FC = () => {
           <motion.button
             type="button"
             whileTap={{ scale: 0.97 }}
-            onClick={() => { haptic(10); setOpen(true); }}
+            onClick={() => { haptic(10); setError(null); setSubmitted(false); setOpen(true); }}
             disabled={selected.length === 0}
             className="w-full h-13 py-3.5 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-opacity tabular-nums"
           >
-            <CreditCard size={17} />
-            {mode === 'ongoing' ? 'Start my autopilot' : 'Cover my trip'}{selected.length > 0 && (mode === 'ongoing' ? ` · ${perDayLabel}/day` : ` · ${euro(totalCents)}`)}
+            <Sparkles size={17} />
+            {mode === 'ongoing' ? 'Set up my autopilot' : 'Plan my away-cover'}{selected.length > 0 && (mode === 'ongoing' ? ` · ${perDayLabel}/day` : ` · ${euro(totalCents)}`)}
           </motion.button>
 
-          {/* Risk reversal — visible before they commit */}
+          {/* No upfront charge — this is a request; we confirm before any money moves */}
           <p className="mt-3 text-center text-[11px] text-muted-foreground">
-            Not happy after your first visit? <span className="font-semibold text-foreground/70">Full refund — no questions.</span>
+            No payment now — <span className="font-semibold text-foreground/70">we'll WhatsApp you to confirm &amp; schedule.</span>
           </p>
 
           {/* Lower-commitment off-ramp — a monthly plan is a big first ask, so
@@ -579,20 +609,59 @@ export const AutopilotBuilder: React.FC = () => {
         </div>
       </div>
 
-      {/* Checkout slides up from the bottom — keeps the builder uncluttered and
-          puts the short form on its own focused screen (fits one mobile view). */}
+      {/* Request form slides up from the bottom — keeps the builder uncluttered
+          and puts the short form on its own focused screen (fits one mobile view). */}
       <AnimatePresence>
         {open && (
-          <BottomSheet onClose={() => { if (!loading) setOpen(false); }} label="Start your autopilot">
+          <BottomSheet onClose={() => { if (!loading) setOpen(false); }} label={submitted ? 'Request received' : 'Set up your autopilot'}>
             <div className="px-5 pb-5 pt-0.5">
-              {/* Header — what you're starting + the price, so context carries in */}
+              {submitted ? (
+                /* Confirmation — the request is in. Reassure, and offer a direct
+                   WhatsApp line for anyone who'd rather not wait for our ping. */
+                <div className="py-3 text-center">
+                  <motion.div
+                    initial={{ scale: 0.6, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 480, damping: 16 }}
+                    className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-sage-light"
+                  >
+                    <CheckCircle2 className="h-8 w-8 text-sage" />
+                  </motion.div>
+                  <h3
+                    className="text-xl font-bold text-foreground"
+                    style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}
+                  >
+                    Request received 🎉
+                  </h3>
+                  <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground leading-relaxed">
+                    We'll WhatsApp you within the hour to confirm the details, match your regular helper and schedule your first visit.{' '}
+                    <span className="font-semibold text-foreground/70">No payment until then.</span>
+                  </p>
+                  <a
+                    href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 py-3 text-sm font-bold text-white hover:opacity-95 transition-opacity"
+                  >
+                    <MessageCircle size={16} /> Message us now instead
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="mt-2 w-full rounded-full py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <>
+              {/* Header — what you're requesting + the quote, so context carries in */}
               <div className="flex items-start justify-between mb-3">
                 <div className="min-w-0">
                   <h3
                     className="text-xl font-bold text-foreground"
                     style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}
                   >
-                    {mode === 'ongoing' ? 'Start your autopilot' : 'Cover your trip'}
+                    {mode === 'ongoing' ? 'Set up your autopilot' : 'Set up your away-cover'}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {selected.length} service{selected.length > 1 ? 's' : ''} ·{' '}
@@ -621,9 +690,9 @@ export const AutopilotBuilder: React.FC = () => {
               </div>
 
               {/* No autoFocus — on mobile it pops the keyboard the instant the
-                  sheet opens and shoves the Pay button off-screen. Let the whole
+                  sheet opens and shoves the button off-screen. Let the whole
                   sheet land first; the user taps a field when ready. */}
-              <form onSubmit={handleCheckout} className="space-y-2.5">
+              <form onSubmit={handleRequest} className="space-y-2.5">
                 <input
                   type="text" value={name} onChange={(e) => setName(e.target.value)}
                   placeholder="Your name" required autoComplete="name" autoCapitalize="words"
@@ -637,11 +706,10 @@ export const AutopilotBuilder: React.FC = () => {
                       className="flex-1 min-w-0 rounded-xl border border-border bg-white px-4 py-2.5 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-transparent transition-[border-color,box-shadow] duration-150"
                     />
                     {/* Eircode pinpoints the home in 7 chars — far better than a
-                        vague "area" for a recurring in-home visit, and it fits the
-                        checkout's short location field. Sent as `city` (stored as
-                        plan_city metadata); the full address is confirmed on the
-                        WhatsApp scheduling call. An area name is still accepted so
-                        we never block someone who doesn't know their Eircode. */}
+                        vague "area" for a recurring in-home visit. Included in the
+                        request we send the team; the full address is confirmed on
+                        the WhatsApp scheduling call. An area name is still accepted
+                        so we never block someone who doesn't know their Eircode. */}
                     <input
                       type="text" value={city} onChange={(e) => setCity(e.target.value)}
                       placeholder="Eircode or area" autoCapitalize="off" autoCorrect="off"
@@ -660,14 +728,14 @@ export const AutopilotBuilder: React.FC = () => {
                   className="w-full h-12 rounded-full bg-foreground text-background text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity tabular-nums"
                 >
                   {loading
-                    ? <><Loader2 size={16} className="animate-spin" /> Opening secure checkout…</>
-                    : <><CreditCard size={16} /> Pay {euro(totalCents)}{mode === 'ongoing' ? (billing === 'weekly' ? '/wk' : '/mo') : ''}</>}
+                    ? <><Loader2 size={16} className="animate-spin" /> Sending your request…</>
+                    : <><Send size={16} /> Request my autopilot</>}
                 </motion.button>
 
                 {error && <p className="text-center text-[12px] text-destructive">{error}</p>}
 
                 <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
-                  Secure checkout · cancel anytime · <span className="font-semibold text-foreground/70">full refund after your first visit</span>
+                  No payment now · we'll WhatsApp you to confirm &amp; schedule · <span className="font-semibold text-foreground/70">cancel anytime</span>
                 </p>
                 <a
                   href={`${teamWhatsAppHref}?text=${encodeURIComponent(waText)}`}
@@ -677,6 +745,8 @@ export const AutopilotBuilder: React.FC = () => {
                   <MessageCircle size={12} className="text-[#25D366]" /> Questions first? WhatsApp us
                 </a>
               </form>
+                </>
+              )}
             </div>
           </BottomSheet>
         )}

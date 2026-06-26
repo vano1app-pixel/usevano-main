@@ -353,6 +353,20 @@ const OTHER = CUSTOM_JOBS.find((j) => j.key === 'other')!;
 
 export const POPULAR_CUSTOM_JOBS = CUSTOM_JOBS.filter((j) => j.popular);
 
+// Short, visit-style jobs that suit a 30-/45-min booking (priced from €12)
+// rather than a one-hour minimum — dog walks, let-outs, bins, key-drops,
+// quick errands. Everything else is booked by the hour.
+const SHORT_VISIT_KEYS = new Set<string>([
+  'dog', 'puppy', 'petsit', 'littertray', 'smallpets', 'chickens', 'watering',
+  'binclean', 'keyholder', 'postrun', 'returns', 'libraryrun', 'recycling',
+  'charityshop', 'dryclean', 'lift', 'waitin',
+]);
+
+/** True for quick visit jobs that should offer sub-hour (30/45 min) booking. */
+export function isShortVisit(key: string | null | undefined): boolean {
+  return !!key && SHORT_VISIT_KEYS.has(key);
+}
+
 /** Look a job up by key, falling back to the catch-all so callers never crash. */
 export function customJobByKey(key: string | null | undefined): CustomJob {
   return CUSTOM_JOBS.find((j) => j.key === key) ?? OTHER;
@@ -438,4 +452,42 @@ export function matchCustomJob(text: string): CustomJob | null {
     if (score > bestScore) { bestScore = score; best = job; }
   }
   return bestScore > 0 ? best : null;
+}
+
+/**
+ * Typeahead search — the dropdown behind the hero search bar. Returns the best
+ * N matching jobs (not just one), so a customer types "clean" and sees Standard
+ * clean, Deep clean, End-of-tenancy, Oven & kitchen… to pick from. Short/empty
+ * input returns the popular jobs as starter suggestions. "Something else" is
+ * always appended as a fallback so anything is bookable.
+ */
+export function searchCustomJobs(text: string, limit = 6): CustomJob[] {
+  const norm = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (norm.length < 2) return POPULAR_CUSTOM_JOBS.filter((j) => j.key !== 'other').slice(0, limit);
+
+  const t = ` ${norm} `;
+  const words = norm.split(' ').filter((w) => w.length >= 3);
+
+  const scored: { job: CustomJob; score: number }[] = [];
+  for (const job of CUSTOM_JOBS) {
+    if (job.key === 'other') continue;
+    let score = 0;
+    // Label hit is a strong, intuitive signal ("clean" → every *clean* label).
+    if (job.label.toLowerCase().includes(norm)) score += 12;
+    for (const kw of job.keywords) {
+      if (t.includes(kw)) { score += kw.length * 2; continue; }
+      if (kw.length >= 4 && !kw.includes(' ')) {
+        for (const w of words) {
+          if (Math.abs(w.length - kw.length) <= 1 && editDistance(w, kw) === 1) { score += kw.length; break; }
+        }
+      }
+    }
+    if (score > 0) scored.push({ job, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+
+  const top = scored.slice(0, limit).map((s) => s.job);
+  // Always leave a "Something else" escape hatch at the foot of the list.
+  if (!top.some((j) => j.key === 'other')) top.push(OTHER);
+  return top;
 }
