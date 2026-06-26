@@ -2,14 +2,14 @@ import React, { useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import { AutopilotBuilder } from '@/components/household/AutopilotBuilder';
-import { CustomJobBuilder } from '@/components/household/CustomJobBuilder';
 
 /**
- * House Autopilot + "name any job". The Autopilot builder opens a Stripe
- * subscription (create-autopilot-checkout); the custom builder books a one-off
- * via create-household-payment-checkout. (The old self-serve monthly plans /
- * create-plan-checkout were retired — superseded by Autopilot, which prices
- * every visit above min wage.)
+ * House Autopilot — the flagship subscription offer. The "name any job" custom
+ * booking that used to sit here moved UP into the hero (it's now the single
+ * front door — see CategoryGrid), so this section is focused purely on
+ * Autopilot. Currently a concierge request (no upfront charge) while supply is
+ * thin; see AutopilotBuilder. (The old self-serve monthly plans /
+ * create-plan-checkout were retired — superseded by Autopilot.)
  */
 
 export const HomePlans: React.FC = () => {
@@ -74,11 +74,6 @@ export const HomePlans: React.FC = () => {
         <p className="text-center text-white/45 text-sm mt-5">
           No payment now · we'll WhatsApp you to set it up · cancel anytime · no contracts
         </p>
-
-        {/* Name any job — custom, time-priced booking with a live fair-vs-market
-            comparison. Books through the one create-household-payment-checkout
-            flow, same as the quick sheet. */}
-        <CustomJobBuilder />
       </div>
     </section>
   );

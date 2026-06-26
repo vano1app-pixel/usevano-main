@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { AnimatePresence, motion, useDragControls, useMotionValue, useSpring, useReducedMotion, type Variants } from 'framer-motion';
+import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -12,6 +12,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
+import { CUSTOM_JOBS, matchCustomJob, customJobByKey, VANO_HOURLY_CENTS } from '@/lib/customJobs';
 import { isValidPhone } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
@@ -70,14 +71,42 @@ const CATEGORIES: Category[] = [
   },
 ];
 
-// The hero quick-book grid is deliberately short: the three strongest, highest-
-// repeat services, with the flagship (Cleaning, our "Popular") sitting in the
-// middle so its badge anchors the row. Everything else (garden, moving,
-// tutoring, painting…) lives one tap away in the custom job builder, reached via
-// the "more" button below. The other categories stay in CATEGORIES above so the
-// sheet still resolves them for returning customers ("book your usual") and any
-// deep link.
-const HERO_SLUGS = ['shopping', 'cleaning', 'dog-walk'] as const;
+// The front door is now ONE text box: "what do you need?" (Uber-style). The
+// CATEGORIES above still power the booking sheet for returning customers ("book
+// your usual"), deep links and the vano:select-category event — they're just no
+// longer the way IN. Everything typed prices through the canonical custom rate
+// (€18/hr, src/lib/customJobs.ts) with a live market comparison.
+
+// How long the job takes — drives the custom hourly price + the comparison.
+const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
+
+// Rotating placeholder examples — the box hints what you can ask for, so a blank
+// field never leaves a first-timer wondering what to type.
+const HINTS = [
+  'mow the lawn',
+  'grinds for my son',
+  'clean the house',
+  'walk the dog',
+  'tidy the garden',
+  'mount a TV',
+  'paint the spare room',
+  'help move a sofa',
+  'an hour of ironing',
+  'fix a leaky tap',
+];
+
+// Quick-picks under the box — tap to fill it (and light up the price). Each key
+// is a real entry in CUSTOM_JOBS, so customJobByKey resolves its market rate.
+const QUICK_PICKS: { key: string; label: string; emoji: string; fill: string }[] = [
+  { key: 'clean',    label: 'Cleaning', emoji: '🧽', fill: 'Clean my house' },
+  { key: 'dog',      label: 'Dog walk', emoji: '🐕', fill: 'Walk the dog' },
+  { key: 'mowing',   label: 'Mow lawn', emoji: '🌱', fill: 'Mow the lawn' },
+  { key: 'tvmount',  label: 'Mount TV', emoji: '📺', fill: 'Mount and set up a TV' },
+  { key: 'painting', label: 'Painting', emoji: '🎨', fill: 'Paint a room' },
+  { key: 'vanhelp',  label: 'Moving',   emoji: '📦', fill: 'Help load a van' },
+  { key: 'ironing',  label: 'Laundry',  emoji: '🧺', fill: 'A basket of ironing' },
+  { key: 'tutoring', label: 'Grinds',   emoji: '📓', fill: 'Grinds / tutoring' },
+];
 
 // Smart defaults — most common booking for each service
 const DEFAULT_SIZE: Record<string, string> = {
@@ -99,28 +128,6 @@ function fmt(cents: number): string {
   const eur = cents / 100;
   // Discounted prices (10% off) aren't whole euros — show cents only then
   return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
-}
-
-// Short "what you get" line under the tile price — duration + the job, so the
-// scope reads human (e.g. "2-hr clean") rather than a bare number.
-const TILE_SCOPE: Record<string, string> = {
-  shopping:   '1 wash & fold',
-  'dog-walk': '30-min walk',
-  garden:     '2-hr tidy',
-  moving:     '2-hr move',
-  cleaning:   '2-hr clean',
-  tutoring:   '1-hr lesson',
-};
-
-// What to show on the card before tapping — bold price (the focal point) plus
-// a quiet scope line that says what the price covers.
-function cardPriceParts(cat: Category): { price: string; scope: string } {
-  const defSize = DEFAULT_SIZE[cat.slug];
-  const cents = getPriceCents(cat.slug, defSize);
-  return {
-    price: cents === null ? 'from €15' : fmt(cents),
-    scope: TILE_SCOPE[cat.slug] ?? (defSize || 'per load'),
-  };
 }
 
 // ─── Time slots ───────────────────────────────────────────────────────────
@@ -176,16 +183,6 @@ const listItem: Variants = {
   show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 440, damping: 32 } },
 };
 
-// The category tiles cascade up as the booking card lands.
-const gridContainer: Variants = {
-  hidden: {},
-  show:   { transition: { staggerChildren: 0.045, delayChildren: 0.06 } },
-};
-const tileItem: Variants = {
-  hidden: { opacity: 0, y: 16, scale: 0.94 },
-  show:   { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 460, damping: 30 } },
-};
-
 // ─── Chip ────────────────────────────────────────────────────────────────────
 
 interface ChipProps {
@@ -235,9 +232,13 @@ interface SheetProps {
   onClose:      () => void;
   /** Pre-select a size (e.g. the "book your usual" shortcut). */
   initialSize?: string;
+  /** Free-text job description (custom "name any job" path) — sent verbatim. */
+  note?:        string;
+  /** Resolved job label for a custom booking (e.g. "Painting & decorating"). */
+  extraLabel?:  string;
 }
 
-const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
+const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLabel }) => {
   const timeSlots  = useMemo(() => getTimeSlots(), []);
   const remembered = useMemo(() => loadBookingMemory(), []);
   const referralCode = useMemo(() => getReferralCode(), []);
@@ -366,7 +367,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
           when_label:       when,
           size_label:       size,
           scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
-          note:             '',
+          note:             note ?? '',
+          ...(extraLabel ? { extra_label: extraLabel } : {}),
           customer_name:    'Guest', // name collected by Stripe at checkout
           customer_phone:   phoneClean,
           customer_email:   null,
@@ -458,6 +460,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground ml-9">{cat.hint}</p>
+              {note && note.trim() && note.trim() !== cat.label && (
+                <p className="text-xs text-foreground/70 ml-9 mt-1">“{note.trim()}”</p>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -763,106 +768,94 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize }) => {
   );
 };
 
-// ─── Main grid ────────────────────────────────────────────────────────────
+// ─── Front door: type what you need ─────────────────────────────────────────
 
-// One category tile. A subtle 3D parallax tilt follows the cursor on hover
-// (desktop), composed with the lift/press + emoji wiggle. The tilt is skipped
-// for reduced-motion users; the lift/wiggle are gated by the app MotionConfig.
-const TILE_TILT_DEG = 8;
-
-const CategoryTile: React.FC<{ cat: Category; onOpen: () => void }> = ({ cat, onOpen }) => {
-  const reduce = useReducedMotion();
-  const rx = useMotionValue(0);
-  const ry = useMotionValue(0);
-  const rotateX = useSpring(rx, { stiffness: 300, damping: 20 });
-  const rotateY = useSpring(ry, { stiffness: 300, damping: 20 });
-  const { price, scope } = cardPriceParts(cat);
-
-  const handleMove = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (reduce) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    ry.set(((e.clientX - r.left) / r.width - 0.5) * TILE_TILT_DEG * 2);
-    rx.set(-((e.clientY - r.top) / r.height - 0.5) * TILE_TILT_DEG * 2);
-  };
-  const handleLeave = () => { rx.set(0); ry.set(0); };
-
-  return (
-    <motion.button
-      onClick={onOpen}
-      onMouseMove={handleMove}
-      onMouseLeave={handleLeave}
-      initial="rest"
-      animate="rest"
-      whileHover="hover"
-      whileTap="tap"
-      variants={{ rest: { y: 0, scale: 1 }, hover: { y: -3, scale: 1.04 }, tap: { scale: 0.93 } }}
-      transition={{ type: 'spring', stiffness: 500, damping: 28 }}
-      style={{ rotateX, rotateY, transformPerspective: 700 }}
-      className={cn(
-        'relative flex flex-col items-center justify-center gap-2',
-        'w-full h-full min-h-[118px] rounded-2xl px-2 py-4 border',
-        // Raised tap targets, not flat white boxes: a soft resting shadow lifts
-        // each tile off the cream card, and hover tints the border + shadow sage
-        // so the tile reads as the booking action, not a neutral panel.
-        'bg-white text-foreground shadow-[0_2px_8px_-3px_hsl(var(--shadow-color)/0.14)]',
-        'hover:border-sage/45 hover:shadow-[0_10px_24px_-8px_hsl(var(--sage)/0.38)]',
-        // The flagship (Cleaning) wears a quiet sage anchor so the eye lands on
-        // the recommended choice first.
-        cat.popular ? 'border-sage/50 bg-sage/[0.04]' : 'border-foreground/12',
-        'transition-[background-color,border-color,box-shadow] duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-      )}
-    >
-      {/* Popular badge */}
-      {cat.popular && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap z-10 overflow-hidden">
-          Popular
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 -translate-x-full animate-[shimmer_3s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"
-          />
-        </span>
-      )}
-      <motion.span
-        className="text-3xl leading-none select-none"
-        aria-hidden="true"
-        variants={{ rest: { rotate: 0, scale: 1 }, hover: { rotate: [0, -12, 10, -7, 0], scale: 1.18 }, tap: { scale: 0.85 } }}
-        transition={{ duration: 0.45, ease: 'easeInOut' }}
-      >
-        {cat.emoji}
-      </motion.span>
-      <span className="text-sm font-semibold leading-tight text-center">{cat.label}</span>
-      {/* Price-forward: the bold price is the focal point; scope reads quietly beneath */}
-      <span className="flex flex-col items-center leading-none">
-        <span className="text-[17px] font-bold text-foreground tabular-nums">{price}</span>
-        <span className="mt-0.5 text-[11px] font-medium text-foreground/45">{scope}</span>
-      </span>
-    </motion.button>
-  );
-};
+type Selection = { cat: Category; size?: string; note?: string; extraLabel?: string };
 
 export const CategoryGrid: React.FC = () => {
-  const [selected, setSelected] = useState<{ cat: Category; size?: string } | null>(null);
+  const [selected, setSelected] = useState<Selection | null>(null);
 
-  const openSheet = useCallback((cat: Category, size?: string) => setSelected({ cat, size }), []);
-  const closeSheet = useCallback(() => setSelected(null), []);
+  // The typed job + the resolved match. selectedKey is set when a quick-pick is
+  // tapped or the AI parser lands a confident result; otherwise the instant
+  // keyword matcher reads the free text.
+  const [jobText, setJobText] = useState('');
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [size, setSize] = useState('2 hours');
+  const [hintIdx, setHintIdx] = useState(0);
 
-  // The four headline tiles, in hero order. Everything else is one tap away in
-  // the custom builder below — see HERO_SLUGS.
-  const heroCategories = useMemo(
-    () => HERO_SLUGS.map(slug => CATEGORIES.find(c => c.slug === slug)).filter(Boolean) as Category[],
+  const openSheet = useCallback(
+    (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string }) =>
+      setSelected({ cat, size: opts?.size, note: opts?.note, extraLabel: opts?.extraLabel }),
     [],
   );
+  const closeSheet = useCallback(() => setSelected(null), []);
 
-  // "More services" → scroll the custom job builder into view and focus its box,
-  // so garden / moving / tutoring / anything-else is a single tap from the hero.
-  const goToCustomBuilder = useCallback(() => {
-    const el = document.getElementById('custom-job-input') as HTMLTextAreaElement | null;
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Wait for the smooth scroll before focusing so the page doesn't jump
-    window.setTimeout(() => el.focus({ preventScroll: true }), 450);
+  // Rotate the placeholder hint while the box is empty — so a blank field always
+  // suggests something to type. Stops the moment they start typing.
+  useEffect(() => {
+    if (jobText) return;
+    const id = window.setInterval(() => setHintIdx((i) => (i + 1) % HINTS.length), 2600);
+    return () => window.clearInterval(id);
+  }, [jobText]);
+
+  // Live price — the instant keyword read names the job; the AI refines it below.
+  // Pricing is the canonical custom rate (€18/hr) so it can never go under min
+  // wage, with the matched job's typical market rate shown beside it.
+  const textMatch = matchCustomJob(jobText);
+  const activeJob = selectedKey ? customJobByKey(selectedKey) : (textMatch ?? customJobByKey('other'));
+  const hours = Number(size.match(/^\d+/)?.[0]) || 0;
+  const vanoCents = getPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
+  const marketCents = activeJob.marketHourlyCents * hours;
+  const saveCents = Math.max(0, marketCents - vanoCents);
+  const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
+  const hasJob = jobText.trim().length >= 2 || !!selectedKey;
+
+  // Debounced AI read that auto-applies a confident result, so the right job +
+  // duration (and the price) just appear as they type. Fail-soft: any problem
+  // leaves the instant keyword matcher in charge.
+  useEffect(() => {
+    const text = jobText.trim();
+    if (selectedKey || text.length < 6) return;
+    let cancelled = false;
+    const id = window.setTimeout(async () => {
+      try {
+        const { data } = await supabase.functions.invoke('parse-custom-job', {
+          body: { text, jobs: CUSTOM_JOBS.map((j) => ({ key: j.key, label: j.label, typicalHours: j.typicalHours })) },
+        });
+        if (cancelled) return;
+        const d = data as { ok?: boolean; jobKey?: string; hours?: number; confidence?: number } | null;
+        if (d?.ok && d.jobKey && d.jobKey !== 'other' && (d.confidence ?? 0) >= 0.45) {
+          setSelectedKey(d.jobKey);
+          if (d.hours) setSize(`${Math.min(8, Math.max(1, Math.round(d.hours)))} hours`);
+        }
+      } catch { /* keyword matcher stays in charge */ }
+    }, 650);
+    return () => { cancelled = true; window.clearTimeout(id); };
+  }, [jobText, selectedKey]);
+
+  // Tapping a quick-pick fills the box and names the job, so the price is alive
+  // instantly — no typing needed.
+  const pickChip = useCallback((c: typeof QUICK_PICKS[number]) => {
+    setSelectedKey(c.key);
+    setJobText(c.fill);
   }, []);
+
+  // Hand the resolved job to the booking sheet (phone / address / when) as a
+  // custom booking — the ONE create-household-payment-checkout flow.
+  const goBook = useCallback(() => {
+    const label = activeJob.label;
+    const note = jobText.trim() || label;
+    const customCat: Category = {
+      emoji: activeJob.emoji,
+      label,
+      slug: 'custom',
+      hint: 'A vetted student, matched to your job',
+      description: note,
+      sizeLabel: 'How long?',
+      sizes: DURATIONS,
+    };
+    openSheet(customCat, { size, note, extraLabel: label });
+  }, [activeJob, jobText, size, openSheet]);
 
   // One-tap rebook: last booked job from this device
   const usual = useMemo(() => {
@@ -870,17 +863,17 @@ export const CategoryGrid: React.FC = () => {
     if (!mem?.lastCategory) return null;
     const cat = CATEGORIES.find(c => c.slug === mem.lastCategory);
     if (!cat) return null;
-    const size = mem.lastSize && cat.sizes?.includes(mem.lastSize) ? mem.lastSize : undefined;
-    const cents = getPriceCents(cat.slug, size ?? DEFAULT_SIZE[cat.slug] ?? '');
-    return { cat, size, price: cents ? fmt(cents) : null };
+    const memSize = mem.lastSize && cat.sizes?.includes(mem.lastSize) ? mem.lastSize : undefined;
+    const cents = getPriceCents(cat.slug, memSize ?? DEFAULT_SIZE[cat.slug] ?? '');
+    return { cat, size: memSize, price: cents ? fmt(cents) : null };
   }, []);
 
-  // Support the vano:select-category custom event (e.g. PricingTable).
+  // Support the vano:select-category custom event (e.g. a pricing page deep link).
   useEffect(() => {
     const handle = (e: Event) => {
-      const { slug, size } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
+      const { slug, size: evSize } = (e as CustomEvent<{ slug: string; size?: string }>).detail;
       const cat = CATEGORIES.find(c => c.slug === slug);
-      if (cat) openSheet(cat, size);
+      if (cat) openSheet(cat, { size: evSize });
     };
     window.addEventListener('vano:select-category', handle);
     return () => window.removeEventListener('vano:select-category', handle);
@@ -889,44 +882,146 @@ export const CategoryGrid: React.FC = () => {
   return (
     <>
       <div id="category-grid" aria-label="What do you need help with?" className="scroll-mt-24">
-        <motion.div
-          className="grid grid-cols-3 gap-2.5"
-          variants={gridContainer}
-          initial="hidden"
-          animate="show"
-        >
-          {heroCategories.map((cat) => (
-            <motion.div key={cat.slug} variants={tileItem}>
-              <CategoryTile cat={cat} onOpen={() => openSheet(cat)} />
-            </motion.div>
-          ))}
-
-          {/* "More services" — kept deliberately small so the three headline
-              tiles own the card. One slim dashed line that jumps to the custom
-              job builder (garden / moving / tutoring / painting & anything else
-              are priced and bookable there). */}
-          <motion.div variants={tileItem} className="col-span-3">
+        {/* The one front door — type the job, the fair price drops in underneath */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
+          {/* ChatGPT-style search bar — icon, free text, send arrow. Enter submits;
+              the price drops in underneath as they type. */}
+          <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-white pl-3.5 pr-2 py-2 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-foreground/20 focus-within:border-transparent">
+            <Search className="w-5 h-5 text-muted-foreground/45 mb-2 flex-shrink-0" aria-hidden="true" />
+            <textarea
+              id="custom-job-input"
+              value={jobText}
+              onChange={(e) => { setJobText(e.target.value); setSelectedKey(null); }}
+              onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 120)}px`; }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (hasJob) goBook(); } }}
+              placeholder={`Type what you need — e.g. ${HINTS[hintIdx]}`}
+              rows={1}
+              maxLength={400}
+              aria-label="Describe what you need done"
+              className="flex-1 min-w-0 resize-none bg-transparent py-2 text-base placeholder:text-muted-foreground/45 focus:outline-none scroll-mt-28"
+            />
             <button
               type="button"
-              onClick={goToCustomBuilder}
-              className={cn(
-                'group flex w-full items-center justify-center gap-1.5 text-center',
-                'rounded-xl px-3 py-2 border border-dashed',
-                'bg-secondary/30 text-foreground/70 border-foreground/20 hover:bg-secondary/60 hover:text-foreground hover:border-foreground/35',
-                'transition-[background-color,border-color,color] duration-150 active:scale-[0.98]',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-              )}
+              onClick={() => { if (hasJob) goBook(); }}
+              disabled={!hasJob}
+              aria-label="See price and book"
+              className="mb-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background disabled:opacity-30 transition-[opacity,transform] duration-150 active:scale-90"
             >
-              <span className="text-xs font-semibold leading-none">Something else? Name any job</span>
-              <span aria-hidden="true" className="text-xs transition-transform duration-150 group-hover:translate-x-0.5">→</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
+          </div>
+          <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">
+            Type anything — get a fair price instantly. You only pay once a helper accepts.
+          </p>
+
+          {/* Live VANO-vs-market comparison — the value people love */}
+          <AnimatePresence initial={false}>
+            {hasJob && (
+              <motion.div
+                key="price"
+                initial={{ opacity: 0, height: 0, y: -6 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -6 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-3 rounded-xl border border-sage/30 bg-sage-light/50 p-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground min-w-0">
+                      <span aria-hidden="true">{activeJob.emoji}</span>
+                      <span className="truncate">{activeJob.label}</span>
+                    </span>
+                    <select
+                      value={size}
+                      onChange={(e) => setSize(e.target.value)}
+                      aria-label="How long"
+                      className="flex-shrink-0 rounded-lg border border-border bg-white text-xs font-medium px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                    >
+                      {DURATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex-1 rounded-lg border border-sage/40 bg-white px-3 py-2 text-center shadow-sm">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
+                      <motion.p
+                        key={vanoCents}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                        className="mt-0.5 text-2xl font-extrabold tabular-nums text-foreground leading-none"
+                      >
+                        {fmt(vanoCents)}
+                      </motion.p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
+                    </div>
+                    <div className="flex-1 rounded-lg border border-border/60 bg-white/50 px-3 py-2 text-center">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
+                      <p className="mt-0.5 text-2xl font-bold tabular-nums text-muted-foreground/70 leading-none line-through decoration-muted-foreground/40">
+                        {fmt(marketCents)}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">≈ €{activeJob.marketHourlyCents / 100}/hr</p>
+                    </div>
+                  </div>
+                  {saveCents > 0 && (
+                    <p className="mt-2 text-center text-[12px] font-bold text-sage-dark">
+                      ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Primary action — go to the short booking sheet (phone / address / when) */}
+          <motion.div
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className={cn('relative mt-3 overflow-hidden rounded-full transition-shadow duration-300', hasJob ? 'shadow-primary-glow' : '')}
+          >
+            <Button
+              type="button"
+              onClick={goBook}
+              disabled={!hasJob}
+              className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
+            >
+              <Zap className="w-4 h-4" />
+              {hasJob ? `Book · ${fmt(vanoCents)}` : 'Book help'}
+            </Button>
           </motion.div>
         </motion.div>
+
+        {/* Secondary: tap a category to fill the box, so people know what they can ask for */}
+        <div className="mt-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/35 mb-2">Or pick a category</p>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_PICKS.map((c) => {
+              const active = selectedKey === c.key;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => pickChip(c)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-[background-color,border-color,color] duration-150 active:scale-[0.97]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                    active
+                      ? 'border-transparent bg-foreground text-background'
+                      : 'bg-white text-foreground/80 border-border hover:border-foreground/30 hover:text-foreground',
+                  )}
+                >
+                  <span aria-hidden="true">{c.emoji}</span>
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* One-tap rebook — remembers the last job booked on this device */}
         {usual && (
           <button
-            onClick={() => openSheet(usual.cat, usual.size)}
+            onClick={() => openSheet(usual.cat, { size: usual.size })}
             className="mt-3.5 w-full rounded-2xl bg-sage/8 border border-sage/30 px-4 py-3 flex items-center gap-3 text-left shadow-sm hover:bg-sage/14 hover:shadow-md active:scale-[0.98] transition-[background-color,box-shadow,transform] duration-150"
           >
             <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
@@ -955,7 +1050,13 @@ export const CategoryGrid: React.FC = () => {
       {/* Bottom sheet portal-style — rendered outside the grid */}
       <AnimatePresence>
         {selected && (
-          <Sheet cat={selected.cat} initialSize={selected.size} onClose={closeSheet} />
+          <Sheet
+            cat={selected.cat}
+            initialSize={selected.size}
+            note={selected.note}
+            extraLabel={selected.extraLabel}
+            onClose={closeSheet}
+          />
         )}
       </AnimatePresence>
     </>
