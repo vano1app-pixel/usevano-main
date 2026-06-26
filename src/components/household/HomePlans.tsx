@@ -72,7 +72,7 @@ export const HomePlans: React.FC = () => {
         <AutopilotBuilder />
 
         <p className="text-center text-white/45 text-sm mt-5">
-          Card, Apple Pay or Google Pay · cancel anytime · no contracts
+          No payment now · we'll WhatsApp you to set it up · cancel anytime · no contracts
         </p>
 
         {/* Name any job — custom, time-priced booking with a live fair-vs-market
