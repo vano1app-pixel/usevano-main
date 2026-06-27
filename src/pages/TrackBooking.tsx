@@ -1452,22 +1452,6 @@ const TrackBooking = () => {
             >
               Book another job <span aria-hidden="true">→</span>
             </Link>
-
-            {/* One-off → recurring: at the moment trust peaks (a job just went
-                well), bridge the customer into Autopilot — the LTV unlock. */}
-            <Link
-              to="/home#plans"
-              className="mt-2.5 flex items-center gap-3 w-full rounded-2xl border border-sage/30 bg-white/60 px-4 py-3 text-left hover:border-sage/50 hover:bg-white transition-colors duration-150 group"
-            >
-              <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">💚</span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-semibold text-foreground leading-snug">
-                  Loved {helperName ?? 'your helper'}? Put your home on autopilot
-                </span>
-                <span className="block text-xs text-muted-foreground mt-0.5">Same help every week · cancel anytime</span>
-              </span>
-              <span className="text-sage font-bold flex-shrink-0 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true">→</span>
-            </Link>
           </motion.div>
         )}
 

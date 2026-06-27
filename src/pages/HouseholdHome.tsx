@@ -7,7 +7,7 @@ import { HowItWorks } from '@/components/household/HowItWorks';
 import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
 import { FAQS } from '@/components/household/faqData';
-import { HomePlans } from '@/components/household/HomePlans';
+import { PopularCategories } from '@/components/household/PopularCategories';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
 import { StickyBookBar } from '@/components/household/StickyBookBar';
@@ -17,10 +17,10 @@ import { ScrollCue } from '@/components/household/ScrollCue';
 import { Reveal } from '@/components/Reveal';
 
 /**
- * Two sections sell: the hero (book one job now) and House Autopilot
- * (never think about it again). Reviews and real helper faces sit
- * between them, so the bigger monthly ask only comes once trust is
- * built; FAQ and booking lookup follow.
+ * The hero search bar (type what you need) is the one front door. Real helper
+ * faces and "how it works" build trust, then a band of the three most-booked
+ * services gives a one-tap path for people who'd rather not type; FAQ and
+ * booking lookup follow.
  */
 const HouseholdHome: React.FC = () => {
   // Gentle section-snapping (CSS in index.css) is desktop-only and scoped to
@@ -63,13 +63,11 @@ const HouseholdHome: React.FC = () => {
             cue that walks to the next section. `relative` anchors the cue. */}
         <div data-snap id="how" className="relative"><HowItWorks /><ScrollCue tone="dark" /></div>
         <div data-snap id="helpers" className="relative"><Reveal><HelperCards /></Reveal><ScrollCue tone="dark" /></div>
-        {/* Flagship offer lands after trust; the navy band also anchors the
-            middle of the page between the cream sections. NOT a snap target —
-            it's taller than a screen (two builders + gift), so it scrolls
-            normally rather than trapping anyone. NOT wrapped in Reveal — it
-            contains the autopilot bottom sheet (position:fixed), which a
-            transform ancestor would re-anchor. */}
-        <HomePlans />
+        {/* Most-booked services as one-tap tiles — lands after trust; the navy
+            band anchors the middle of the page between the cream sections. Tiles
+            dispatch vano:select-category, which the hero's CategoryGrid catches
+            to open the shared booking sheet. */}
+        <PopularCategories />
         <Reveal><FAQSection /></Reveal>
         <Reveal><FindBookingBar /></Reveal>
         {/* Self-hides unless this device has booked before (needs the phone) */}

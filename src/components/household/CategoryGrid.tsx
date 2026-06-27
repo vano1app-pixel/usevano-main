@@ -234,7 +234,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   const referralCode = useMemo(() => getReferralCode(), []);
   const [when,     setWhen]    = useState('Now');
   const [size,     setSize]    = useState(
-    (initialSize && cat.sizes?.includes(initialSize) ? initialSize : null)
+    // Honour the caller's size even when no size chips are shown (custom jobs
+    // already pick the duration on the first page, so the sheet doesn't re-ask).
+    (initialSize && (!cat.sizes || cat.sizes.includes(initialSize)) ? initialSize : null)
       ?? DEFAULT_SIZE[cat.slug] ?? cat.sizes?.[0] ?? '',
   );
   const [phone,    setPhone]   = useState(remembered?.phone ?? '');
@@ -823,14 +825,15 @@ export const CategoryGrid: React.FC = () => {
     if (!job) return;
     const label = job.label;
     const note = query.trim() || label;
+    // No `sizes` on purpose — the duration was already chosen on the first page
+    // (the price card), so the sheet must not ask "How long?" again. The chosen
+    // size rides through as initialSize.
     const customCat: Category = {
       emoji: job.emoji,
       label,
       slug: 'custom',
       hint: 'A vetted student, matched to your job',
       description: note,
-      sizeLabel: 'How long?',
-      sizes: isShortVisit(job.key) ? SHORT_DURATIONS : DURATIONS,
     };
     openSheet(customCat, { size, note, extraLabel: label });
   }, [job, query, size, openSheet]);
@@ -875,7 +878,6 @@ export const CategoryGrid: React.FC = () => {
               type="text"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); setActiveIndex(0); }}
-              onFocus={() => setOpen(true)}
               onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1)); }
@@ -910,9 +912,10 @@ export const CategoryGrid: React.FC = () => {
             </button>
           </div>
 
-          {/* Dropdown — matching jobs to pick from */}
+          {/* Dropdown — only once they've typed (≥2 chars), so tapping the empty
+              bar doesn't crowd the screen with the keyboard up */}
           <AnimatePresence>
-            {open && !job && suggestions.length > 0 && (
+            {open && !job && query.trim().length >= 2 && suggestions.length > 0 && (
               <motion.ul
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -920,9 +923,6 @@ export const CategoryGrid: React.FC = () => {
                 transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                 className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 shadow-2xl text-left"
               >
-                {query.trim().length < 2 && (
-                  <li className="px-3 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/35">Popular right now</li>
-                )}
                 {suggestions.map((s, i) => {
                   const isOther = s.key === 'other';
                   const active = i === activeIndex;

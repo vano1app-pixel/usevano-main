@@ -37,8 +37,9 @@ export const HeroSection: React.FC = () => {
     : 'Same-day help in Galway'; // 'loading' is handled by the skeleton branch
 
   return (
-    // Natural height on mobile (no stretched gaps); full-screen centred on desktop
-    <section id="book" data-snap className="relative overflow-hidden bg-navy px-4 pt-24 pb-12 lg:pt-20 lg:pb-16 lg:min-h-screen lg:flex lg:items-center">
+    // Full-height, vertically-centred hero on every screen so the search bar owns
+    // the viewport (dvh avoids the iOS browser-chrome jump). pt clears the fixed nav.
+    <section id="book" data-snap className="relative overflow-hidden bg-navy px-4 pt-24 pb-16 flex flex-col justify-center min-h-[100dvh]">
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
@@ -90,7 +91,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-xl text-white mb-4"
+          className="display-xl text-white mb-4 text-balance"
         >
           Same-day help, from someone you{' '}
           <span className="relative inline-block">
@@ -105,7 +106,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-white/70 text-base sm:text-lg leading-relaxed max-w-lg mx-auto mb-8"
+          className="text-white/70 text-base sm:text-lg leading-relaxed max-w-md mx-auto mb-8 text-pretty"
         >
           ID-verified local students — see their name, photo and rating before they arrive.
         </motion.p>
