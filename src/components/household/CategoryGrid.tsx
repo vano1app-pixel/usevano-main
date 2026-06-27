@@ -565,6 +565,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   </Chip>
                 ))}
               </div>
+              {timeSlots.length === 1 && (
+                <p className="text-[10.5px] text-muted-foreground mt-1.5">Today's slots are done — book for tomorrow below and save 10%.</p>
+              )}
               {/* Book ahead — server grants 10% off scheduled bookings */}
               <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
               <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
@@ -671,6 +674,18 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                       </motion.p>
                     )}
                   </AnimatePresence>
+                  {/* Show the 7.5% service fee up front so the number the
+                      customer agrees to here is the number Stripe charges
+                      later — no surprise at the pay link. Matches the server's
+                      serviceFeeCents = round(priceCents * 0.075). */}
+                  <div className="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-foreground/8">
+                    <span className="text-muted-foreground">+ 7.5% service fee</span>
+                    <span className="text-muted-foreground tabular-nums">{fmt(Math.round(priceCents * 0.075))}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-semibold mt-1">
+                    <span className="text-foreground/70">Total you pay</span>
+                    <span className="text-foreground tabular-nums">{fmt(priceCents + Math.round(priceCents * 0.075))}</span>
+                  </div>
                 </div>
               )}
 
@@ -697,12 +712,12 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   'relative overflow-hidden rounded-full transition-shadow duration-300',
                   // The glow only lights up once the form can actually submit, so
                   // a disabled button never sits there glowing.
-                  phone.trim() && !loading ? 'shadow-primary-glow' : '',
+                  phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
                 )}
               >
                 <Button
                   type="submit"
-                  disabled={loading || !phone.trim()}
+                  disabled={loading || !phoneValid || !addressValid}
                   className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
                 >
                   {loading
@@ -719,7 +734,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                       </>}
                 </Button>
                 {/* Occasional light sweep so the primary action feels alive */}
-                {!loading && !!phone.trim() && (
+                {!loading && phoneValid && addressValid && (
                   <motion.span
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
@@ -1024,7 +1039,7 @@ export const CategoryGrid: React.FC = () => {
                   </Button>
                 </motion.div>
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
-                <p className="mt-1 text-center text-[11px] font-semibold text-sage-dark">💡 Need it another day? Book ahead at the next step &amp; save 10%.</p>
+                <p className="mt-1 text-center text-[11px] font-semibold text-sage-dark">💡 Booking for tomorrow? Pick a time in the next step &amp; save 10%.</p>
               </motion.div>
             )}
           </AnimatePresence>

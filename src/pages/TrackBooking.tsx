@@ -211,11 +211,14 @@ function formatLocationAge(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ago`;
 }
 
-// Uber-style ETA from the live distance. The codebase approximates travel
-// minutes as distanceKm*3 (≈20 km/h door-to-door in town); reuse that so the
-// arrival clock and the "N min" label always agree.
+// Uber-style ETA from the live distance. `distanceKm` is straight-line
+// (haversine), so we apply a 1.3× road-winding factor before converting at
+// ≈20 km/h door-to-door — otherwise the clock always reads sooner than the
+// helper can actually arrive and then slips, which erodes trust. The arrival
+// clock and the "N min" label both call this, so they always agree.
+const ROAD_WINDING_FACTOR = 1.3;
 function etaMinutes(distanceKm: number): number {
-  return Math.max(1, Math.round(distanceKm * 3));
+  return Math.max(1, Math.round(distanceKm * ROAD_WINDING_FACTOR * 3));
 }
 
 function formatArrivalClock(distanceKm: number): string {
@@ -1119,6 +1122,17 @@ const TrackBooking = () => {
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                   Nothing to do right now — you'll confirm it's done and pay once they finish.
                 </p>
+                {/* Safety net: if the Stripe pay link never reaches the
+                    customer, this is their only way to avoid a dead-end at
+                    job's end. */}
+                <a
+                  href={`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO, I can't see a pay link for my booking${bookingId ? ` (ref ${bookingId.slice(-8).toUpperCase()})` : ''}.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-2 text-[11px] font-medium text-sage-dark underline underline-offset-2"
+                >
+                  Can't see a pay link? Message us
+                </a>
               </div>
             );
           }
@@ -1166,6 +1180,17 @@ const TrackBooking = () => {
                 {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Mark complete &amp; pay{helperName ? ` ${helperName}` : ''}</>}
               </button>
               <p className="text-center text-[11px] text-muted-foreground mt-2">Rating is optional — you can confirm without it.</p>
+              {/* Off-ramp before the irreversible payment release — the 24h
+                  satisfaction guarantee is useless if there's no way to flag a
+                  problem at the exact moment payment goes out. */}
+              <a
+                href={`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO, something wasn't right with my booking${bookingId ? ` (ref ${bookingId.slice(-8).toUpperCase()})` : ''}.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-[11px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Something wasn't right? Tell us first
+              </a>
             </motion.div>
           );
         })()}

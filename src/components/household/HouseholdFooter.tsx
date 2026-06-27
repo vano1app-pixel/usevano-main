@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
+import { teamWhatsAppHref } from '@/lib/contact';
 
 const NAV_LINKS = [
   { label: 'Join as helper', href: '/join',                                          external: false },
@@ -9,7 +10,9 @@ const NAV_LINKS = [
   { label: 'Instagram',      href: 'https://instagram.com/vano.app',                 external: true  },
   { label: 'TikTok',         href: 'https://www.tiktok.com/@gottalovevano',          external: true  },
   { label: 'LinkedIn',       href: 'https://www.linkedin.com/in/ayush-puri-4b88b8357', external: true },
-  { label: 'WhatsApp',       href: 'https://wa.me/353899817111',                     external: true  },
+  // Single source of truth for the team WhatsApp number (see @/lib/contact)
+  // so the footer can't drift from the nav / FAB / 404 if it ever changes.
+  { label: 'WhatsApp',       href: teamWhatsAppHref,                                  external: true  },
   { label: 'Terms',          href: '/terms',                                         external: false },
   { label: 'Privacy',        href: '/privacy',                                       external: false },
 ];

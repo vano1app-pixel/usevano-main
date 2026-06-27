@@ -567,7 +567,7 @@ export const AutopilotBuilder: React.FC = () => {
                       </p>
                       <p className="text-[12px] text-muted-foreground tabular-nums flex-shrink-0">≈ {perDayLabel}/day</p>
                     </div>
-                    <p className="mt-1.5 text-[11px] text-muted-foreground">billed {billing} · cancel anytime</p>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">{billing} once confirmed · cancel anytime</p>
                   </>
                 ) : (
                   <>

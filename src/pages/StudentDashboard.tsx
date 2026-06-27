@@ -722,9 +722,12 @@ const StudentDashboard = () => {
                             </p>
                           </div>
                           {job.price_estimate_cents && (
-                            <span className="text-lg font-bold text-foreground tabular-nums flex-shrink-0">
-                              €{(job.price_estimate_cents / 100).toFixed(0)}
-                            </span>
+                            <div className="flex flex-col items-end flex-shrink-0 leading-tight">
+                              <span className="text-lg font-bold text-foreground tabular-nums">
+                                €{(Math.floor(job.price_estimate_cents * 0.85) / 100).toFixed(2)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">you earn</span>
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">

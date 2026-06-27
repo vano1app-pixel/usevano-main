@@ -236,7 +236,7 @@ const VerifyHelper: React.FC = () => {
                   <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Confirming your payment…</p>
                 ) : (
                   <div className="space-y-2.5">
-                    <p className="text-sm text-muted-foreground leading-relaxed">A one-off €2 keeps VANO genuine — it's how we know everyone here actually wants to help. Card, Apple Pay or Google Pay.</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">A one-off €2 covers your Stripe ID verification — it's how we keep every helper on VANO ID-checked. Card, Apple Pay or Google Pay.</p>
                     {payError && <p className="text-xs text-destructive">{payError}</p>}
                     <Button onClick={() => void startPayment()} disabled={payState === 'paying'} className="w-full rounded-full font-semibold gap-2">
                       {payState === 'paying' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : 'Pay €2 to join'}
