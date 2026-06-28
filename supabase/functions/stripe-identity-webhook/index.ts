@@ -93,8 +93,19 @@ serve(async (req) => {
       : 'processing';
 
     const update: Record<string, unknown> = { identity_status: status };
+    let reinstated = false;
     if (status === 'verified') {
       update.id_verified = true;
+      update.id_grace_until = null; // ID done — no grace window left to enforce
+      // Instant-live flow: a helper goes live (and gets welcomed) on student
+      // email + €2, so finishing ID is usually a no-op for status. The exception
+      // is someone the sweep pulled to 'id_overdue' for a missing ID — finishing
+      // it puts them straight back on the platform.
+      const { data: cur } = await supabase.from('household_helpers').select('status').eq('id', helperId).maybeSingle();
+      if ((cur as { status?: string } | null)?.status === 'id_overdue') {
+        update.status = 'approved';
+        reinstated = true;
+      }
       // Lock the profile name to what's verified on the ID (and record the DOB).
       // verified_outputs is redacted unless expanded, so retrieve the session.
       try {
@@ -119,8 +130,8 @@ serve(async (req) => {
             if (d?.year && d?.month && d?.day) {
               const dob = `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
               // Merge into application_data without clobbering the rest of it.
-              const { data: cur } = await supabase.from('household_helpers').select('application_data').eq('id', helperId).maybeSingle();
-              const appData = ((cur as { application_data?: Record<string, unknown> } | null)?.application_data) ?? {};
+              const { data: appRow } = await supabase.from('household_helpers').select('application_data').eq('id', helperId).maybeSingle();
+              const appData = ((appRow as { application_data?: Record<string, unknown> } | null)?.application_data) ?? {};
               update.application_data = { ...appData, id_dob: dob };
             }
           } else {
@@ -134,18 +145,15 @@ serve(async (req) => {
     const { error } = await supabase.from('household_helpers').update(update).eq('id', helperId);
     if (error) console.error('[stripe-identity-webhook] update failed', error);
 
-    // The DB trigger flips pending → approved once student email, ID and the €2
-    // fee are all done (it never touches suspended/rejected/approved rows). If
-    // verifying ID just completed the set, notify the helper.
-    if (status === 'verified') {
-      const { data: row } = await supabase.from('household_helpers').select('status').eq('id', helperId).maybeSingle();
-      if ((row as { status?: string } | null)?.status === 'approved') {
-        fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ helper_id: helperId }),
-        }).catch(() => {/* non-critical */});
-      }
+    // Only notify when finishing ID just put a previously-pulled helper back on
+    // the platform. Helpers verifying ID within their grace window are already
+    // live and were welcomed at go-live, so we stay quiet for them.
+    if (reinstated) {
+      fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ helper_id: helperId }),
+      }).catch(() => {/* non-critical */});
     }
 
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } });

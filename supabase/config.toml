@@ -99,6 +99,14 @@ project_id = "puomfwjtpvqedwxjxogh"
   [functions.release-household-payouts]
     verify_jwt = false
 
+  # Cron sweep that pulls helpers who went live (student email + €2 done) but
+  # never finished their background ID check inside the grace window — sets them
+  # to 'id_overdue' until they complete it. Pinged by the scheduler with the anon
+  # key; idempotent and re-checks every row, so JWT verification adds nothing.
+  # Suggested cadence: daily (17 3 * * *).
+  [functions.suspend-unverified-helpers]
+    verify_jwt = false
+
   # House Autopilot helper matching. dispatch-autopilot-plan is called by
   # stripe-webhook with the service-role key (internal-only check inside);
   # accept-autopilot-plan is the helper's one-tap claim link (HMAC token in the

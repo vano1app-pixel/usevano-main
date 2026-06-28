@@ -21,12 +21,13 @@ const inputClass =
   'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150';
 
 /**
- * Post-application verification — the three gates that get a helper live:
- *   1. confirm their college email (OTP)
- *   2. verify ID (Stripe Identity, document + selfie)
- *   3. pay the €2 sign-up fee
- * Passing all three auto-approves them (DB trigger). This is what makes the
- * homepage's "ID-checked & vetted" promise real.
+ * Post-application verification. A helper goes live the moment two things are
+ * done — confirm their college email (OTP) and pay the €2 fee (DB trigger
+ * auto-approves). The ID check (Stripe Identity, document + selfie) finishes in
+ * the background: they're prompted to do it here, and a daily sweep
+ * (suspend-unverified-helpers) pulls anyone who hasn't within 3 days, so the
+ * homepage's "ID-checked & vetted" promise still holds for everyone on the
+ * platform.
  */
 const VerifyHelper: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
@@ -137,12 +138,14 @@ const VerifyHelper: React.FC = () => {
     window.location.href = url;
   }, [helperId]);
 
-  // All three done → celebrate once.
-  const allDone = emailState === 'verified' && idState === 'verified' && payState === 'paid';
+  // Live the moment student email + €2 are done — the ID check finishes in the
+  // background (with a 3-day deadline). Celebrate once, at go-live.
+  const isLive = emailState === 'verified' && payState === 'paid';
+  const idVerified = idState === 'verified';
   const celebrated = useRef(false);
   useEffect(() => {
-    if (allDone && !celebrated.current) { celebrated.current = true; haptic(20); celebrateBooking(); }
-  }, [allDone]);
+    if (isLive && !celebrated.current) { celebrated.current = true; haptic(20); celebrateBooking(); }
+  }, [isLive]);
 
   return (
     <>
@@ -160,7 +163,7 @@ const VerifyHelper: React.FC = () => {
               {name ? `Nearly there, ${name.split(' ')[0]}` : 'Nearly there'}
             </h1>
             <p className="text-muted-foreground leading-relaxed mb-8">
-              Three quick steps get you live. They're why customers feel safe letting a helper into their home — and they only ever see verified helpers.
+              Confirm your student email and pay the €2 fee and you're live today. Then a quick ID check — finish it within 3 days to keep your spot. It's why customers feel safe letting a helper into their home.
             </p>
           </motion.div>
 
@@ -219,7 +222,7 @@ const VerifyHelper: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    <p className="text-sm text-muted-foreground leading-relaxed">A 2-minute photo of your ID plus a quick selfie, secured by Stripe. We never see your documents.</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">A 2-minute photo of your ID plus a quick selfie, secured by Stripe. We never see your documents. {isLive ? 'Finish this within 3 days to stay live.' : 'You can start picking up jobs before this clears.'}</p>
                     {idError && <p className="text-xs text-destructive">{idError}</p>}
                     <Button onClick={() => void startIdCheck()} disabled={idState === 'starting'} className="w-full rounded-full font-semibold gap-2">
                       {idState === 'starting' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : <>Start ID check <ArrowRight className="w-4 h-4" /></>}
@@ -245,17 +248,26 @@ const VerifyHelper: React.FC = () => {
                 )}
               </VerifyCard>
 
-              {allDone && (
+              {isLive && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
                   <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
-                  <p className="text-base font-bold text-foreground">You're verified and in 🎉</p>
-                  <p className="text-xs text-muted-foreground mt-1 mb-4">Jobs near you will start coming through. Set yourself Available to get them first.</p>
+                  {idVerified ? (
+                    <>
+                      <p className="text-base font-bold text-foreground">You're verified and in 🎉</p>
+                      <p className="text-xs text-muted-foreground mt-1 mb-4">Jobs near you will start coming through. Set yourself Available to get them first.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-base font-bold text-foreground">You're live — jobs are on the way 🎉</p>
+                      <p className="text-xs text-muted-foreground mt-1 mb-4">One last thing: finish your ID check above within 3 days to keep your spot. It only takes 2 minutes.</p>
+                    </>
+                  )}
                   <a href="/student-dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">Go to my dashboard <ArrowRight className="w-4 h-4" /></a>
                 </motion.div>
               )}
 
               {/* Payout nudge */}
-              {!allDone && (
+              {!isLive && (
                 <div className="rounded-2xl border border-sage/30 bg-sage-light p-4">
                   <p className="text-sm font-semibold text-foreground mb-1">Set up payouts</p>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-3">
