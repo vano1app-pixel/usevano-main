@@ -21,7 +21,7 @@ const CATEGORIES = [
   { id: 'garden',    label: 'Garden'     },
   { id: 'moving',    label: 'Moving'     },
   { id: 'cleaning',  label: 'Cleaning'   },
-  { id: 'tutoring',  label: 'Tutoring'   },
+  { id: 'tutoring',  label: 'Online tutoring' },
   { id: 'other',     label: 'Other'      },
 ];
 

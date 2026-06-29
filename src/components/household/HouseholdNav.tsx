@@ -63,6 +63,18 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Bookings — desktop only (mobile has the bottom tab bar). Gives
+              desktop customers a first-class way to reach their bookings. */}
+          <Link
+            to="/bookings"
+            className={cn(
+              'hidden md:inline-flex items-center px-2 py-2 text-sm font-medium transition-colors duration-150 whitespace-nowrap',
+              dark ? 'text-white/70 hover:text-white' : 'text-foreground/60 hover:text-foreground',
+            )}
+          >
+            Bookings
+          </Link>
+
           {/* Join as a helper — a quiet text link, not a button: on a customer
               homepage the booking action (the hero card) should own attention,
               not helper recruitment. */}

@@ -14,18 +14,19 @@ import { cn } from '@/lib/utils';
 
 const TABS = [
   { to: '/home',     label: 'Home',     icon: Home,          match: (p: string) => p === '/' || p === '/home' },
-  { to: '/bookings', label: 'Bookings', icon: CalendarCheck, match: (p: string) => p.startsWith('/bookings') || p.startsWith('/track') },
+  { to: '/bookings', label: 'Bookings', icon: CalendarCheck, match: (p: string) => p.startsWith('/bookings') },
   { to: '/account',  label: 'Account',  icon: User,          match: (p: string) => p.startsWith('/account') },
 ];
 
-// Only customer-facing screens get the tab bar.
+// Only the customer "browse" screens get the tab bar. The track page is a
+// focused post-payment flow with its own fixed bottom action bars (pay,
+// confirm, chat), so it deliberately doesn't show the nav — it would collide.
 function showsNav(path: string): boolean {
   return (
     path === '/' ||
     path === '/home' ||
     path.startsWith('/bookings') ||
-    path.startsWith('/account') ||
-    path.startsWith('/track')
+    path.startsWith('/account')
   );
 }
 

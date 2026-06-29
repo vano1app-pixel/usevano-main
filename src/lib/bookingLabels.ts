@@ -1,6 +1,6 @@
 // Shared customer-facing labels for a booking's category + status, plus a date
-// formatter. Used by the track-a-booking lookup (FindBookingBar) and the
-// My Bookings page so the two never drift.
+// formatter. Used by the My Bookings page (and any other booking list) so the
+// category/status wording never drifts.
 
 export const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Laundry', 'grocery-shopping': 'Grocery shopping',
