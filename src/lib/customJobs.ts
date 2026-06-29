@@ -225,6 +225,8 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['lift', 'airport', 'station', 'drop', 'collect from', 'drive', 'run me to'], example: 'a lift to the airport' },
   { key: 'groceries',  emoji: '🛒', label: 'Weekly grocery shop', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2200,
     keywords: ['grocery', 'groceries', 'weekly shop', 'food shop', 'big shop', 'supermarket', 'aldi', 'lidl', 'tesco', 'dunnes'], example: 'do my weekly grocery shop' },
+  { key: 'mealprep',   emoji: '🍲', label: 'Meal prep & cooking', group: 'Errands & admin', typicalHours: 2, marketHourlyCents: 2600,
+    keywords: ['meal prep', 'cook', 'cooking', 'batch cook', 'prepare meals', 'make dinner', 'home cooking', 'meals for the week'], example: 'batch-cook meals for the week' },
   { key: 'dryclean',   emoji: '👔', label: 'Dry-cleaning drop & collect', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
     keywords: ['dry cleaning', 'dry clean', 'dry cleaner', 'suit clean', 'alterations drop'], example: 'drop and collect the dry cleaning' },
   { key: 'returns',    emoji: '↩️', label: 'Parcel returns', group: 'Errands & admin', typicalHours: 1, marketHourlyCents: 2000,
@@ -251,38 +253,29 @@ export const CUSTOM_JOBS: CustomJob[] = [
     keywords: ['sell online', 'donedeal', 'done deal', 'ebay', 'vinted', 'marketplace', 'adverts', 'list for sale', 'sell my'], example: 'photograph and list things to sell' },
 
   // ── Care & family ──────────────────────────────────────────────────────
-  { key: 'babysitting', emoji: '🍼', label: 'Babysitting & childminding', group: 'Care & family', typicalHours: 3, marketHourlyCents: 2200, popular: true,
-    keywords: ['babysit', 'babysitting', 'childmind', 'child minding', 'childminder', 'mind the kids', 'mind my kids', 'sitter', 'minder', 'watch the kids'], example: 'babysit two kids on Friday evening' },
-  { key: 'companionship', emoji: '🫂', label: 'Companionship visit', group: 'Care & family', typicalHours: 2, marketHourlyCents: 2200,
-    keywords: ['companion', 'companionship', 'company', 'chat', 'visit elderly', 'befriend', 'someone to talk', 'keep company'], example: 'a companionship visit for my nan' },
-  { key: 'elderlyhelp', emoji: '👵', label: 'Help for an older person', group: 'Care & family', typicalHours: 2, marketHourlyCents: 2500,
-    keywords: ['elderly', 'senior', 'granny', 'grandad', 'grandmother', 'grandfather', 'help my mum', 'help my dad', 'older person', 'pensioner'], example: 'help my elderly mum around the house' },
-  { key: 'schoolrun',  emoji: '🎒', label: 'School run & collection', group: 'Care & family', typicalHours: 1, marketHourlyCents: 2200,
-    keywords: ['school', 'kids', 'school run', 'collect the kids', 'collect kids', 'pick up the kids', 'drop kids', 'pick up from school', 'school pickup', 'creche run', 'after school'], example: 'collect the kids from school' },
-  { key: 'mealprep',   emoji: '🍲', label: 'Meal prep & cooking', group: 'Care & family', typicalHours: 2, marketHourlyCents: 2600,
-    keywords: ['meal prep', 'cook', 'cooking', 'batch cook', 'prepare meals', 'make dinner', 'home cooking', 'meals for the week'], example: 'batch-cook meals for the week' },
-  { key: 'newbaby',    emoji: '👶', label: 'New-baby / postnatal help', group: 'Care & family', typicalHours: 3, marketHourlyCents: 2600,
-    keywords: ['new baby', 'postnatal', 'post natal', 'after birth', 'newborn help', 'maternity help', 'mother and baby'], example: 'a hand around the house with a newborn' },
-  { key: 'mobility',   emoji: '🦽', label: 'Mobility & accessibility help', group: 'Care & family', typicalHours: 2, marketHourlyCents: 2500,
-    keywords: ['mobility', 'wheelchair', 'disability', 'accessible', 'help getting around', 'walking frame', 'support worker'], example: 'help someone with limited mobility' },
+  // REMOVED — childminding/babysitting, school run, new-baby/postnatal help,
+  // help for an older person, companionship visits and mobility/accessibility
+  // help all involve children or vulnerable adults. That's "relevant work"
+  // under the National Vetting Bureau (Children and Vulnerable Persons) Acts
+  // and needs Garda vetting, which Vano can't broker — so it's off the
+  // catalogue entirely. (Meal prep is a plain domestic task with no vetting
+  // requirement, so it stays — moved up under Errands & admin.)
 
-  // ── Lessons & tutoring ─────────────────────────────────────────────────
-  { key: 'tutoring',   emoji: '📓', label: 'Tutoring & grinds', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500, popular: true,
-    keywords: ['tutor', 'tutoring', 'tuition', 'grind', 'grinds', 'exam', 'leaving cert', 'junior cert', 'homework', 'study help', 'extra help'], example: 'grinds for my Leaving Cert son' },
-  { key: 'maths',      emoji: '➗', label: 'Maths tutoring', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500,
-    keywords: ['maths', 'math', 'algebra', 'calculus', 'maths grind', 'trigonometry', 'fractions', 'project maths'], example: 'maths grinds once a week' },
-  { key: 'englishtut', emoji: '✍️', label: 'English & essay tutoring', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500,
-    keywords: ['english grind', 'essay', 'reading help', 'spelling', 'comprehension', 'english tuition', 'creative writing'], example: 'help with English essays' },
-  { key: 'languages',  emoji: '🗣️', label: 'Language tutoring', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500,
-    keywords: ['french', 'spanish', 'irish', 'gaeilge', 'german', 'italian', 'language', 'oral practice', 'conversation practice'], example: 'French conversation practice' },
-  { key: 'sciencetut', emoji: '🔬', label: 'Science tutoring', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3800,
-    keywords: ['science', 'physics', 'chemistry', 'biology', 'science grind', 'lab help'], example: 'physics grinds for the Leaving Cert' },
-  { key: 'music',      emoji: '🎸', label: 'Music lessons', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 3500,
-    keywords: ['music lesson', 'guitar', 'piano lesson', 'learn piano', 'singing', 'violin', 'drums', 'instrument', 'music tuition', 'ukulele'], example: 'guitar lessons for a beginner' },
-  { key: 'coding',     emoji: '👨‍💻', label: 'Coding & computer lessons', group: 'Lessons & tutoring', typicalHours: 1, marketHourlyCents: 4000,
-    keywords: ['coding', 'programming', 'python', 'scratch', 'computer class', 'learn to code', 'javascript', 'excel lesson'], example: 'teach my kid to code in Python' },
-  { key: 'examprep',   emoji: '🧠', label: 'Exam prep & study skills', group: 'Lessons & tutoring', typicalHours: 2, marketHourlyCents: 3500,
-    keywords: ['exam prep', 'revision', 'study skills', 'mock prep', 'exam technique', 'study plan', 'cao help'], example: 'exam revision before the mocks' },
+  // ── Online tutoring (adults) ───────────────────────────────────────────
+  // Tutoring is ONLINE and adults-only (18+). In-home one-to-one with minors,
+  // and school grinds / exam prep for under-18s, are "relevant work" needing
+  // Garda vetting under the National Vetting Bureau Acts — so those are gone
+  // (maths, English, science, exam-prep removed). What's left is remote
+  // upskilling for adults: general tutoring, languages, coding, music. No
+  // in-person contact with children.
+  { key: 'tutoring',   emoji: '💻', label: 'Online tutoring (adults)', group: 'Online tutoring', typicalHours: 1, marketHourlyCents: 3500,
+    keywords: ['tutor', 'tutoring', 'tuition', 'online tutor', 'online lesson', 'online class', 'upskill', 'upskilling', 'adult learner', 'evening class', 'one to one online'], example: 'online tutoring to upskill (adults, 18+)' },
+  { key: 'languages',  emoji: '🗣️', label: 'Online language lessons (adults)', group: 'Online tutoring', typicalHours: 1, marketHourlyCents: 3500,
+    keywords: ['french', 'spanish', 'irish', 'gaeilge', 'german', 'italian', 'language', 'oral practice', 'conversation practice', 'learn a language'], example: 'online French conversation practice' },
+  { key: 'coding',     emoji: '👨‍💻', label: 'Online coding & tech lessons (adults)', group: 'Online tutoring', typicalHours: 1, marketHourlyCents: 4000,
+    keywords: ['coding', 'programming', 'python', 'learn to code', 'javascript', 'excel lesson', 'computer skills', 'spreadsheet skills', 'web development'], example: 'online Python coding lessons (adults)' },
+  { key: 'music',      emoji: '🎸', label: 'Online music lessons (adults)', group: 'Online tutoring', typicalHours: 1, marketHourlyCents: 3500,
+    keywords: ['music lesson', 'guitar', 'piano lesson', 'learn piano', 'singing', 'violin', 'drums', 'instrument', 'music tuition', 'ukulele'], example: 'online guitar lessons for a beginner' },
 
   // ── Events & seasonal ──────────────────────────────────────────────────
   { key: 'party',      emoji: '🎉', label: 'Party setup / cleanup', group: 'Events & seasonal', typicalHours: 3, marketHourlyCents: 2500,
@@ -357,7 +350,7 @@ export const POPULAR_CUSTOM_JOBS = CUSTOM_JOBS.filter((j) => j.popular);
 // Three flagship everyday services, so a first-timer sees a real, tappable
 // starting point instead of a blank box (tighter than the full popular list,
 // which is too long to read with the keyboard up). Order = what we lead with.
-export const STARTER_CUSTOM_JOBS: CustomJob[] = ['clean', 'tutoring', 'dog']
+export const STARTER_CUSTOM_JOBS: CustomJob[] = ['clean', 'oddjobs', 'dog']
   .map((k) => CUSTOM_JOBS.find((j) => j.key === k))
   .filter((j): j is CustomJob => !!j);
 

@@ -63,12 +63,9 @@ const CATEGORIES: Category[] = [
     popular: true,
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
-  {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',
-    hint: 'One-to-one · any subject at home',
-    description: 'One-to-one at your home. Any subject — Maths, science, languages.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
-  },
+  // In-home Tutoring tile removed — one-to-one teaching of minors needs Garda
+  // vetting. Tutoring is now online/adults-only and lives in the custom job
+  // catalogue (src/lib/customJobs.ts), not as a quick-book tile.
 ];
 
 // The front door is now ONE centered search bar: type → matching jobs drop down
@@ -105,7 +102,6 @@ const DEFAULT_SIZE: Record<string, string> = {
   garden:    '2 hours',
   moving:    '2 hours',
   cleaning:  '2 hours',
-  tutoring:  '1 hour',
 };
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
