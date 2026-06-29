@@ -51,6 +51,14 @@
 	     share live location while on the way to a job. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>VANO uses your location to fill in your address and to share your live location with the customer while you're on the way to a job.</string>
+	<!-- Camera + photo library: helpers add a face/profile photo during sign-up
+	     and from their account. The upload uses a file input with
+	     capture="environment", which opens the camera — without these strings
+	     iOS rejects the app / crashes when the picker is opened. -->
+	<key>NSCameraUsageDescription</key>
+	<string>VANO uses your camera so you can take a profile photo for your helper account.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>VANO lets you choose a profile photo from your library for your helper account.</string>
 	<!-- Auth deep link: Supabase redirects the OAuth / magic-link return trip to
 	     com.vanojobs.app://auth-callback, which re-opens the app. Handled by the
 	     appUrlOpen listener in src/lib/native/initNativeAuth.ts. -->
