@@ -43,7 +43,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "A verified local student who accepts and completes home jobs through Vano.",
     category: "People",
     bodyHtml: `
-<p>A <strong>Vano helper</strong> is a local, <a href="/glossary/id-verified-helper">ID-verified</a> student who picks up home jobs through the app — dog walks, cleaning, garden work, moving help, errands and tutoring. Most are students at <a href="/glossary/atu">ATU</a> or the University of Galway earning around their lectures.</p>
+<p>A <strong>Vano helper</strong> is a local, <a href="/glossary/id-verified-helper">ID-verified</a> student who picks up home jobs through the app — dog walks, cleaning, garden work, moving help, errands and online tutoring. Most are students at <a href="/glossary/atu">ATU</a> or the University of Galway earning around their lectures.</p>
 <p>Helpers aren't employees on a rota. They choose what to accept and what to skip, and they're paid <a href="/glossary/net-pay">above minimum wage</a> on time-based jobs. Want to be one? Read <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
 `,
     related: ["id-verified-helper", "flexible-work", "net-pay"],
@@ -127,7 +127,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "What a helper actually keeps after Vano's cut — €15.30/hr on time-based jobs.",
     category: "Payments",
     bodyHtml: `
-<p><strong>Net pay</strong> is the number that matters: what you actually take home after the <a href="/glossary/platform-fee">platform fee</a> comes out. On Vano's time-based jobs — cleaning, garden, moving, tutoring — that's <strong>€15.30 an hour</strong>.</p>
+<p><strong>Net pay</strong> is the number that matters: what you actually take home after the <a href="/glossary/platform-fee">platform fee</a> comes out. On Vano's time-based jobs — cleaning, garden, moving, online tutoring — that's <strong>€15.30 an hour</strong>.</p>
 <p>That figure isn't random. It's set so your take-home always lands above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15. Earnings are paid to you via <a href="/glossary/stripe-connect-payout">Stripe</a> after each job. See how students stack it up in the <a href="/blog/atu-students-earning-with-vano">ATU earnings guide</a>.</p>
 `,
     related: ["platform-fee", "minimum-wage-ireland", "stripe-connect-payout"],

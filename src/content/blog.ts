@@ -89,11 +89,11 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Garden help</strong> — mowing, weeding, bagging waste.</li>
 <li><strong>Moving help</strong> — loading, carrying, the heavy stuff.</li>
 <li><strong>Grocery collection &amp; errands</strong> — pick up a click-and-collect order and drop it to someone's door.</li>
-<li><strong>Tutoring</strong> — one-to-one in a subject you already know.</li>
+<li><strong>Online tutoring</strong> — one-to-one online with adult learners (18+), in a subject you already know.</li>
 </ul>
 <p>Most of it is local, walkable or cyclable, and finished inside an hour or two — the kind of thing you can slot between a morning lecture and an afternoon seminar.</p>
 <h2>Does the pay actually stack up?</h2>
-<p>This is where flexible work earns its keep. The problem with a lot of student jobs is the rate. On Vano, every time-based job is priced so that after our cut you take home <strong>more than the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a></strong> — currently €15.30 an hour net on cleaning, garden, moving and tutoring. That's a deliberate floor, not a happy accident. We explain exactly how that maths works in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
+<p>This is where flexible work earns its keep. The problem with a lot of student jobs is the rate. On Vano, every time-based job is priced so that after our cut you take home <strong>more than the Irish <a href="/glossary/minimum-wage-ireland">minimum wage</a></strong> — currently €15.30 an hour net on cleaning, garden, moving and online tutoring. That's a deliberate floor, not a happy accident. We explain exactly how that maths works in <a href="/blog/why-vano-fair-pay-same-day">why Vano pays above minimum wage</a>.</p>
 <p>And because of <a href="/glossary/pay-after-accept">pay-after-accept</a>, there's no chasing anyone for cash — the customer pays once you accept, and your earnings land via <a href="/glossary/stripe-connect-payout">Stripe</a> after the job's done.</p>
 <h2>Getting started</h2>
 <p>If you're an <a href="/glossary/atu">ATU</a> or University of Galway student, you can sign up, verify your ID, and start seeing nearby jobs the same week. We walk through the whole thing — verification, getting paid, your first job — in <a href="/blog/how-to-become-a-vano-helper">how to become a Vano helper</a>.</p>
@@ -101,7 +101,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "why-vano-fair-pay-same-day", "atu-students-earning-with-vano"],
     faqs: [
-      { q: "What are the best part-time jobs for students in Galway?", a: "Flexible, local jobs you can do around lectures — dog walks, cleaning, garden help, moving help, errands and tutoring — without committing to a fixed weekly rota." },
+      { q: "What are the best part-time jobs for students in Galway?", a: "Flexible, local jobs you can do around lectures — dog walks, cleaning, garden help, moving help, errands and online tutoring — without committing to a fixed weekly rota." },
       { q: "How many hours do I have to work?", a: "None are required. There's no rota and no minimum: you accept jobs only when you're free, and pause completely during exams." },
       { q: "Do part-time student jobs in Galway pay well?", a: "On Vano, time-based jobs are priced so you take home €15.30 an hour net — above Ireland's 2026 minimum wage of €14.15." },
       { q: "Can I really work around my college timetable?", a: "Yes. You pick up same-day jobs in the gaps between classes, so the work fits your week instead of the other way around." },
@@ -129,7 +129,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p><a href="/glossary/atu">ATU</a> — Atlantic Technological University — sits right in the middle of Vano's home turf in Galway, which makes its students some of our most active <a href="/glossary/vano-helper">helpers</a>. The pitch is simple: real money, earned around your timetable, on jobs a short walk or cycle from campus.</p>
 <h2>The number that matters: €15.30/hr net</h2>
-<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, moving help, tutoring — the price is set so that <em>after</em> our <a href="/glossary/platform-fee">platform cut</a>, you take home <strong>€15.30 an hour</strong>. That's above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
+<p>Most student jobs quote you a gross hourly rate and let the reality sink in later. We do it the other way around. On every <strong>time-based</strong> job — cleaning, garden work, moving help, online tutoring — the price is set so that <em>after</em> our <a href="/glossary/platform-fee">platform cut</a>, you take home <strong>€15.30 an hour</strong>. That's above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15, and it's a rule we built into the pricing on purpose.</p>
 <p>Job-based tasks (a bag of laundry, a bin run, a quick errand) are priced for the task rather than the hour, but the same principle holds: the rate has to be worth your time or students simply won't accept it.</p>
 <h2>How a typical week looks</h2>
 <p>There's no rota. You open the app when you've got a gap, see what's nearby, and take what fits:</p>
@@ -149,7 +149,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "part-time-jobs-students-galway", "why-now-galway-student-cost-of-living"],
     faqs: [
-      { q: "How much can ATU students earn with Vano?", a: "€15.30 an hour net on time-based jobs like cleaning, garden, moving and tutoring — above the 2026 minimum wage. Job-based tasks are priced for the task." },
+      { q: "How much can ATU students earn with Vano?", a: "€15.30 an hour net on time-based jobs like cleaning, garden, moving and online tutoring — above the 2026 minimum wage. Job-based tasks are priced for the task." },
       { q: "Are the jobs near the ATU Galway campus?", a: "Often, yes — many jobs are a short walk or cycle from campus around the city." },
       { q: "Do I have to be an ATU student to join?", a: "No. University of Galway students and other locals join too; ATU students are simply a large share of helpers." },
       { q: "When and how do I get paid?", a: "After you mark a job complete, your earnings are released to your own account through Stripe." },
@@ -221,7 +221,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <p>There's no shortage of ways for a student to earn a bit of money. So <em>why Vano</em>? It comes down to three things we've built in on purpose: pay that actually clears minimum wage, work you can do today, and no boss standing over a rota.</p>
 <h2>1. Pay that clears minimum wage — by design</h2>
 <p>This is the one we're proudest of. A lot of gig platforms advertise a headline rate, then quietly shave it with fees until your real take-home dips below what the law guarantees. We refuse to do that. Every <strong>time-based</strong> job on Vano is priced so that after our <a href="/glossary/platform-fee">platform cut</a>, your <a href="/glossary/net-pay">net pay</a> is <strong>€15.30 an hour</strong> — above Ireland's 2026 <a href="/glossary/minimum-wage-ireland">minimum wage</a> of €14.15.</p>
-<p>Here's the actual maths, no hand-waving: cleaning, garden, moving and tutoring are all quoted at €18/hr to the customer. We take a 15% student-side cut, which leaves €15.30 in your pocket per hour. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
+<p>Here's the actual maths, no hand-waving: cleaning, garden, moving and online tutoring are all quoted at €18/hr to the customer. We take a 15% student-side cut, which leaves €15.30 in your pocket per hour. If a rate ever dropped below the legal floor, it wouldn't ship — there's literally a test in our codebase that fails the build if it does.</p>
 <h2>2. Same-day, not "sometime next week"</h2>
 <p>Vano is built for <a href="/glossary/same-day-home-help">same-day</a> help. A customer books, the job is <a href="/glossary/job-dispatch">dispatched</a> to nearby helpers by SMS and push, and whoever accepts first gets it. For you that means you can earn <em>today</em> — open the app on a free afternoon and there may already be a job two streets away.</p>
 <h2>3. No awkward boss, no rota</h2>
@@ -244,11 +244,11 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "what-vano-helpers-do",
     title: "From Dog Walks to Moving Help: What You'll Do as a Vano Helper",
     summary:
-      "Vano helpers do short, practical home jobs around Galway — dog walks, cleaning, garden work, moving help, errands and tutoring — choosing only the jobs they accept, with no rota and no minimum number of jobs.",
+      "Vano helpers do short, practical home jobs around Galway — dog walks, cleaning, garden work, moving help, errands and online tutoring — choosing only the jobs they accept, with no rota and no minimum number of jobs.",
     description:
-      "Wondering what the work is actually like? Here's the full range of jobs Vano helpers do in Galway — dog walks, cleaning, garden, moving, errands and tutoring.",
+      "Wondering what the work is actually like? Here's the full range of jobs Vano helpers do in Galway — dog walks, cleaning, garden, moving, errands and online tutoring.",
     keywords:
-      "Vano helper jobs, student helper Galway, dog walking jobs Galway, cleaning jobs Galway students, moving help Galway, tutoring jobs Galway",
+      "Vano helper jobs, student helper Galway, dog walking jobs Galway, cleaning jobs Galway students, moving help Galway, online tutoring jobs Galway",
     eyebrow: "The work",
     datePublished: "2026-06-09",
     dateModified: "2026-06-16",
@@ -267,7 +267,7 @@ export const BLOG_POSTS: BlogPost[] = [
 <li><strong>Garden help</strong> — mowing, weeding, edging, and bagging the waste.</li>
 <li><strong>Moving help</strong> — loading, carrying and unloading. The heavy-lifting hand people need on the day.</li>
 <li><strong>Grocery collection &amp; errands</strong> — pick up a click-and-collect order or run a quick errand and drop it to the door.</li>
-<li><strong>Tutoring</strong> — one-to-one at the customer's home, in a subject you already know.</li>
+<li><strong>Online tutoring</strong> — one-to-one online with adults (18+), in a subject you already know. No in-home grinds for under-18s — that needs Garda vetting.</li>
 </ul>
 <h2>How a job runs, start to finish</h2>
 <p>The flow is the same every time, which makes it easy once you've done one:</p>
@@ -286,7 +286,7 @@ export const BLOG_POSTS: BlogPost[] = [
 `,
     related: ["how-to-become-a-vano-helper", "why-vano-fair-pay-same-day", "part-time-jobs-students-galway"],
     faqs: [
-      { q: "What kind of jobs do Vano helpers do?", a: "Dog walks, cleaning, garden work, moving help, grocery collection and errands, and tutoring — short, practical home jobs around Galway." },
+      { q: "What kind of jobs do Vano helpers do?", a: "Dog walks, cleaning, garden work, moving help, grocery collection and errands, and online tutoring — short, practical home jobs around Galway." },
       { q: "Do I have to do every type of job?", a: "No. You only do the jobs you accept, so you can stick to the tasks you like and skip the rest." },
       { q: "How long does a typical job take?", a: "Most are short — often an hour or two — and done the same day." },
       { q: "Is there regular work or only one-offs?", a: "Both. Some customers use Autopilot (weekly or monthly plans), which is scheduled work if you'd like something steadier." },
@@ -321,7 +321,7 @@ export const BLOG_POSTS: BlogPost[] = [
     bodyHtml: `
 <p>Becoming a <a href="/glossary/vano-helper">Vano helper</a> takes minutes, and you can be accepting jobs the same week. Here's exactly what happens, step by step, so there are no surprises.</p>
 <h2>Step 1 — Sign up</h2>
-<p>Head to the <a href="/join">join page</a> and create your account. You'll tell us the basics: who you are, where in Galway you're based, and the kinds of jobs you're up for — <a href="/blog/what-vano-helpers-do">dog walks, cleaning, garden, moving, errands or tutoring</a>.</p>
+<p>Head to the <a href="/join">join page</a> and create your account. You'll tell us the basics: who you are, where in Galway you're based, and the kinds of jobs you're up for — <a href="/blog/what-vano-helpers-do">dog walks, cleaning, garden, moving, errands or online tutoring</a>.</p>
 <h2>Step 2 — Verify your ID</h2>
 <p>Vano is an <a href="/glossary/id-verified-helper">ID-verified</a> platform. That single step is what lets customers feel safe letting a student into their home, and it's non-negotiable for that reason. You verify once; it protects you too, because everyone on the platform is a real, checked person.</p>
 <h2>Step 3 — Connect how you get paid</h2>

@@ -52,7 +52,7 @@ const Terms = () => (
           <p>
             VANO is a platform that connects households in supported areas of Ireland with local
             student Helpers for everyday home and errand tasks — for example cleaning, garden and
-            lawn care, dog walking, shopping and errands, moving help and tutoring. Tasks can be
+            lawn care, dog walking, shopping and errands, moving help and online tutoring. Tasks can be
             booked as a one-off job or as a recurring &quot;House Autopilot&quot; plan.
           </p>
           <p className="mt-3">
