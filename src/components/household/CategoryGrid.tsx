@@ -1220,33 +1220,10 @@ export const CategoryGrid: React.FC = () => {
           </AnimatePresence>
         </motion.div>
 
-        {/* First-timer cue — spells out the (genuinely short) flow so a new
-            visitor knows exactly what the bar does. Hidden once they engage. */}
-        {!open && !job && (
-          <motion.p
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-3.5 text-center text-[12.5px] font-medium text-white/55"
-          >
-            Type a job <span className="text-white/30 mx-1.5" aria-hidden="true">·</span>
-            see a fair price <span className="text-white/30 mx-1.5" aria-hidden="true">·</span>
-            book in under a minute
-          </motion.p>
-        )}
-
-        {/* "Your usual" now lives at the top of the search dropdown (one tap once
-            you focus the bar), so returning customers rebook without a second
-            card competing with the search box. */}
-
-        {/* WhatsApp fallback — one quiet line on the dark hero */}
-        <button
-          onClick={() => window.open(`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! I need help with something — ')}`, '_blank', 'noopener,noreferrer')}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-[13px] text-white/55 hover:text-white/85 transition-colors duration-150"
-        >
-          <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" aria-hidden="true" />
-          Prefer to chat?<span className="font-semibold text-white/85 underline underline-offset-2">WhatsApp us</span>
-        </button>
+        {/* Nothing sits directly under the bar anymore — the first-timer cue and
+            the "Prefer to chat?" line were removed so the search box is the one
+            clear thing to act on. Returning customers' "your usual" is in the
+            dropdown; WhatsApp is now a green button in the nav. */}
       </div>
 
       {/* Bottom sheet portal-style — rendered outside the grid */}
