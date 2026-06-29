@@ -1097,7 +1097,7 @@ export const CategoryGrid: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                className="surface-float absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 text-left"
+                className="surface-float absolute left-0 right-0 top-full z-[60] mt-2 max-h-[22rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 text-left"
               >
                 {/* Returning customer — last job, one tap to rebook, before typing */}
                 {!isSearching && usual && (

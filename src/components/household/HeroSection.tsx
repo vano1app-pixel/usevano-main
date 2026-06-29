@@ -39,7 +39,11 @@ export const HeroSection: React.FC = () => {
   return (
     // Full-height, vertically-centred hero on every screen so the search bar owns
     // the viewport (dvh avoids the iOS browser-chrome jump). pt clears the fixed nav.
-    <section id="book" data-snap className="relative overflow-hidden bg-navy px-4 pt-24 pb-16 flex flex-col justify-center min-h-[100dvh]">
+    <section id="book" data-snap className="relative bg-navy px-4 pt-24 pb-16 flex flex-col justify-center min-h-[100dvh]">
+      {/* Decorative background — kept in its own overflow-hidden layer so the
+          section itself never clips the search dropdown that opens below the bar
+          (previously overflow-hidden on the section cut the 3rd suggestion off). */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
       {/* Grain on dark background */}
       <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
 
@@ -65,6 +69,7 @@ export const HeroSection: React.FC = () => {
         transition={{ duration: 11, ease: 'easeInOut', repeat: Infinity, delay: 1.5 }}
         aria-hidden="true"
       />
+      </div>
 
       <div className="relative mx-auto w-full max-w-2xl text-center">
 
