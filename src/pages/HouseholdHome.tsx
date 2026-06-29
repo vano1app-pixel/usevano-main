@@ -8,7 +8,6 @@ import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
 import { FAQS } from '@/components/household/faqData';
 import { PopularCategories } from '@/components/household/PopularCategories';
-import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { BlogTeaser } from '@/components/household/BlogTeaser';
 import { ScrollCue } from '@/components/household/ScrollCue';
@@ -67,17 +66,9 @@ const HouseholdHome: React.FC = () => {
             to open the shared booking sheet. */}
         <PopularCategories />
         <Reveal><FAQSection /></Reveal>
-        {/* "Find your booking" used to live here as a phone-lookup form; it's now
-            the dedicated Bookings tab (mobile) / nav link (desktop) → /bookings,
-            so the home no longer duplicates it. */}
-        {/* Self-hides unless this device has booked before (needs the phone) */}
-        <Reveal>
-          <section className="px-4 pb-20 bg-background">
-            <div className="max-w-lg mx-auto">
-              <ReferralShareCard />
-            </div>
-          </section>
-        </Reveal>
+        {/* The "Give €5, get €5" referral card lives on the Account tab and the
+            post-booking tracking page now — not on the marketing home, where it
+            sat awkwardly between sections. */}
         <Reveal><BlogTeaser /></Reveal>
         <HouseholdFooter />
       </main>
