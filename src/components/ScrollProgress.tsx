@@ -30,27 +30,14 @@ export const ScrollProgress: React.FC = () => {
 
   if (progress === 0) return null;
 
+  // A calm, on-brand scroll indicator: a thin gold bar that simply grows with
+  // scroll position. No looping shimmer, no glow dot, no off-brand blue/green —
+  // those made it read as a perpetual "loading" bar that moved on its own.
   return (
     <div className="fixed top-0 left-0 right-0 h-[2px] z-[9999] pointer-events-none">
       <div
-        className="h-full transition-[width] duration-75 ease-out"
-        style={{
-          width: `${progress}%`,
-          background: 'linear-gradient(90deg, hsl(221 83% 53%), hsl(142 76% 36%), hsl(221 83% 53%))',
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 2s linear infinite',
-          boxShadow: '0 0 8px hsl(221 83% 53% / 0.4), 0 0 20px hsl(221 83% 53% / 0.2)',
-        }}
-      />
-      {/* Glowing dot at the leading edge */}
-      <div
-        className="absolute top-0 h-[2px] w-3 transition-[left] duration-75 ease-out"
-        style={{
-          left: `${progress}%`,
-          background: 'radial-gradient(circle, hsl(221 83% 63%) 0%, transparent 70%)',
-          filter: 'blur(1px)',
-          boxShadow: '0 0 6px 2px hsl(221 83% 53% / 0.5)',
-        }}
+        className="h-full bg-gold transition-[width] duration-100 ease-out"
+        style={{ width: `${progress}%` }}
       />
     </div>
   );
