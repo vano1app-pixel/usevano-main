@@ -91,7 +91,11 @@ const MyBookings: React.FC = () => {
       <SEOHead title="Your bookings" description="Track your VANO bookings — find a helper, follow their arrival, and see your history." url="https://vanojobs.com/bookings" />
       <HouseholdNav />
 
-      <main className="mx-auto w-full max-w-lg px-4 pt-24 pb-28">
+      {/* Mobile: content sits at the top under the nav. Desktop: the flex column
+          centres in the viewport so the short lookup/empty card lands in the
+          optical middle instead of floating over a sea of empty cream. A long
+          booking list just grows the column past the viewport and top-aligns. */}
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col px-4 pt-24 pb-28 md:justify-center md:pb-32">
         <header className="mb-6">
           <p className="eyebrow mb-3">Your account</p>
           <h1 className="display-lg text-foreground">Your bookings</h1>

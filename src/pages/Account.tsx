@@ -30,7 +30,11 @@ const Account: React.FC = () => {
       <SEOHead title="Account" description="Your VANO details, bookings and referral credit." url="https://vanojobs.com/account" />
       <HouseholdNav />
 
-      <main className="mx-auto w-full max-w-lg px-4 pt-24 pb-28">
+      {/* Mobile: top-aligned under the nav. Desktop: centre the column in the
+          viewport so the details + links sit balanced in the middle rather than
+          clinging to the top over empty cream. Grows past the viewport (and
+          top-aligns) if the content is ever taller than the screen. */}
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col px-4 pt-24 pb-28 md:justify-center md:pb-32">
         <header className="mb-6">
           <p className="eyebrow mb-3">Account</p>
           <h1 className="display-lg text-foreground">Your details</h1>
