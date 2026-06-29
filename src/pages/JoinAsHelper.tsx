@@ -274,7 +274,7 @@ export const JoinAsHelper: React.FC = () => {
 
               <div className="flex justify-center gap-3 flex-wrap mb-2">
                 {STATS.map(({ value, label }) => (
-                  <div key={label} className="bg-background border border-border/60 rounded-2xl px-4 py-3 text-center shadow-tinted-sm">
+                  <div key={label} className="surface-float bg-white border border-black/5 rounded-2xl px-4 py-3 text-center">
                     <p className="font-bold text-foreground text-lg leading-tight">{value}</p>
                     <p className="text-xs text-muted-foreground">{label}</p>
                   </div>
@@ -549,7 +549,7 @@ export const JoinAsHelper: React.FC = () => {
           <h2 className="text-2xl font-semibold text-foreground mb-6">Jobs available right now</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {JOBS.map(({ emoji, label }) => (
-              <div key={label} className="bg-secondary/60 rounded-2xl p-4 flex items-center gap-3">
+              <div key={label} className="surface-float bg-white border border-black/5 rounded-2xl p-4 flex items-center gap-3">
                 <span className="text-2xl leading-none">{emoji}</span>
                 <span className="text-sm font-medium text-foreground">{label}</span>
               </div>
