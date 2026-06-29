@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MessageCircle, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { useAuth } from '@/hooks/useAuthContext';
 import logo from '@/assets/logo.png';
 
 interface HouseholdNavProps {
@@ -10,6 +11,11 @@ interface HouseholdNavProps {
 }
 
 export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) => {
+  // Households never sign in — they book by phone (guest), so the icon takes
+  // them to their device-local account. Only a signed-in student (helper) goes
+  // to their real helper account.
+  const { userType } = useAuth();
+  const accountHref = userType === 'student' ? '/student-account' : '/account';
   const [scrolled,  setScrolled]  = useState(false);
   const [hidden,    setHidden]    = useState(false);
   const lastY = useRef(0);
@@ -103,9 +109,10 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
             <span className="bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] group-hover:bg-[length:100%_1px] transition-[background-size] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">WhatsApp us</span>
           </a>
 
-          {/* Profile / account */}
+          {/* Profile / account — household (guest) → device-local account,
+              signed-in student → their helper account. */}
           <Link
-            to="/account"
+            to={accountHref}
             aria-label="My account"
             className={cn(
               'flex items-center justify-center w-9 h-9 rounded-full',
