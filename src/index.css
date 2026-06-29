@@ -228,6 +228,17 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /* App bottom-nav slides out of the way while a modal/sheet is open (it lives
+     in its own stacking context, so it can't simply sit under the sheet). */
+  .app-bottom-nav {
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease;
+  }
+  body.vano-modal-open .app-bottom-nav {
+    transform: translateY(110%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
   /* Native (Capacitor) only: inside the iOS app the webview sits under the
      status bar / notch, and the app otherwise handles only the bottom inset.
      Pad the top by the safe area so the header doesn't hide under the clock.

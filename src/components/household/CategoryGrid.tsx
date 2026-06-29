@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -229,6 +229,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   const remembered = useMemo(() => loadBookingMemory(), []);
   const referralCode = useMemo(() => getReferralCode(), []);
   const [when,     setWhen]    = useState('Now');
+  // When + duration collapse to a single "ASAP · change" line by default —
+  // most people want it now, so we don't make them wade through time chips.
+  const [showWhen, setShowWhen] = useState(false);
   const [size,     setSize]    = useState(
     // Honour the caller's size even when no size chips are shown (custom jobs
     // already pick the duration on the first page, so the sheet doesn't re-ask).
@@ -275,7 +278,11 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = '100%';
+    // Tuck the app bottom-nav away while the sheet is up (it lives in a separate
+    // stacking context, so it would otherwise poke through over the sheet).
+    document.body.classList.add('vano-modal-open');
     return () => {
+      document.body.classList.remove('vano-modal-open');
       document.body.style.overflow = prevOverflow;
       document.body.style.position = prevPosition;
       document.body.style.top = prevTop;
@@ -551,42 +558,72 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </motion.div>
 
-            {/* When? — "Now" pre-selected; chips are an optional tweak */}
+            {/* When + duration — one quiet line by default (ASAP), because that's
+                what almost everyone wants. Tap "Change" to reveal the time and
+                duration options. Fewer decisions up front = a faster booking. */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {timeSlots.map(opt => (
-                  <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
-                    {opt}
-                  </Chip>
-                ))}
-              </div>
-              {/* Book ahead — server grants 10% off scheduled bookings */}
-              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {TOMORROW_SLOTS.map(opt => (
-                  <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
-                    {opt}
-                  </Chip>
-                ))}
-              </div>
-            </motion.div>
+              <button
+                type="button"
+                onClick={() => setShowWhen(s => !s)}
+                aria-expanded={showWhen}
+                className="w-full flex items-center justify-between rounded-xl border border-border bg-white px-4 py-3 text-left transition-colors hover:border-foreground/20"
+              >
+                <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
+                  <Clock className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
+                  <span className="font-semibold">{when === 'Now' ? 'ASAP' : when}</span>
+                  {size && <span className="text-muted-foreground truncate">· {size}</span>}
+                </span>
+                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
+              </button>
 
-            {/* How long? — sensible default pre-selected */}
-            {cat.sizes && (
-              <motion.div variants={listItem}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
-                  {cat.sizeLabel ?? 'How long?'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {cat.sizes.map(opt => (
-                    <Chip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
-                      {opt}
-                    </Chip>
-                  ))}
-                </div>
-              </motion.div>
-            )}
+              <AnimatePresence initial={false}>
+                {showWhen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+                      <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                        {timeSlots.map(opt => (
+                          <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
+                            {opt}
+                          </Chip>
+                        ))}
+                      </div>
+                      {/* Book ahead — server grants 10% off scheduled bookings */}
+                      <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+                      <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                        {TOMORROW_SLOTS.map(opt => (
+                          <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
+                            {opt}
+                          </Chip>
+                        ))}
+                      </div>
+
+                      {/* How long? — sensible default pre-selected */}
+                      {cat.sizes && (
+                        <div className="mt-4">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                            {cat.sizeLabel ?? 'How long?'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {cat.sizes.map(opt => (
+                              <Chip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
+                                {opt}
+                              </Chip>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
             {/* Area — auto-detected from the address; chips only as fallback */}
             {cityAuto ? (
