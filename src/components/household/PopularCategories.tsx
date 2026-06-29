@@ -51,7 +51,7 @@ const priceV = {
 
 export const PopularCategories: React.FC = () => {
   return (
-    <section id="popular" className="relative bg-navy px-4 py-20 lg:py-28 scroll-mt-20">
+    <section id="popular" className="relative bg-navy px-4 py-24 sm:py-28 lg:py-32 scroll-mt-20">
       {/* Soft seams — the navy band melts in and out of the cream sections above
           and below it, instead of a hard colour cut. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-cream to-transparent" aria-hidden="true" />
@@ -59,7 +59,7 @@ export const PopularCategories: React.FC = () => {
 
       <div className="relative max-w-4xl mx-auto">
         <motion.div
-          className="text-center mb-9 lg:mb-12"
+          className="text-center mb-12 lg:mb-14"
           initial={{ opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
@@ -121,7 +121,7 @@ export const PopularCategories: React.FC = () => {
           })}
         </motion.div>
 
-        <p className="text-center text-white/45 text-sm mt-7">
+        <p className="text-center text-white/45 text-sm mt-10">
           No payment until a helper accepts · money-back guarantee
         </p>
       </div>

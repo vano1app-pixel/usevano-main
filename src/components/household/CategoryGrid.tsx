@@ -931,6 +931,19 @@ export const CategoryGrid: React.FC = () => {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="relative"
         >
+          {/* Idle "tap me" pulse — a soft gold halo breathes around the bar
+              until the visitor focuses it, so it reads as the thing to act on.
+              Stops the moment they engage (focus/type/pick); reduced-motion
+              users never see it move. */}
+          {!open && !job && !query.trim() && (
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-1 rounded-[1.4rem] ring-2 ring-gold/50"
+              initial={{ opacity: 0, scale: 1 }}
+              animate={{ opacity: [0, 0.6, 0], scale: [1, 1.035, 1] }}
+              transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 1.4, ease: 'easeInOut' }}
+            />
+          )}
           <div
             className="search-shell flex items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-4 h-14 sm:h-16"
             onMouseMove={(e) => {

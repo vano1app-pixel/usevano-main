@@ -17,10 +17,10 @@ export const FAQSection: React.FC = () => {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section className="px-4 py-20">
+    <section className="px-4 pt-28 pb-24 sm:pt-32 sm:pb-28">
       <div className="max-w-lg mx-auto">
         <p className="eyebrow mb-3">Got questions?</p>
-        <h2 className="display-lg text-foreground mb-8">Quick answers</h2>
+        <h2 className="display-lg text-foreground mb-10">Quick answers</h2>
 
         <div className="space-y-2.5">
           {FAQS.map((f, i) => {
