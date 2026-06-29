@@ -37,7 +37,9 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          # Capacitor 8's Android library compiles with source release 21 —
+          # JDK 17 fails with "invalid source release: 21".
+          java-version: 21
       - run: npm ci
       - run: npm run build
       - run: npx cap sync android
