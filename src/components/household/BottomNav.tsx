@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Home, CalendarCheck, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { haptic } from '@/lib/haptics';
 
 /**
  * App-style bottom tab bar (mobile only). The single biggest "feels like an
@@ -47,7 +48,7 @@ export const BottomNav: React.FC = () => {
               <Link
                 to={to}
                 aria-current={active ? 'page' : undefined}
-                onClick={() => { if (active) window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                onClick={() => { haptic(8); if (active) window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 className="group relative flex flex-col items-center gap-1 pt-2.5 pb-1.5 select-none"
               >
                 {/* Active indicator — a short gold bar that glides between tabs */}
@@ -59,14 +60,19 @@ export const BottomNav: React.FC = () => {
                     transition={{ type: 'spring', stiffness: 520, damping: 34 }}
                   />
                 )}
-                <Icon
-                  className={cn(
-                    'w-[22px] h-[22px] transition-[color,transform] duration-200 group-active:scale-90',
-                    active ? 'text-primary' : 'text-muted-foreground',
-                  )}
-                  strokeWidth={active ? 2.4 : 2}
-                  aria-hidden="true"
-                />
+                {/* Active icon lifts + grows a touch with a spring, and dips on tap */}
+                <motion.span
+                  className="inline-flex"
+                  animate={{ scale: active ? 1.1 : 1, y: active ? -1 : 0 }}
+                  whileTap={{ scale: 0.85 }}
+                  transition={{ type: 'spring', stiffness: 520, damping: 22 }}
+                >
+                  <Icon
+                    className={cn('w-[22px] h-[22px] transition-colors duration-200', active ? 'text-primary' : 'text-muted-foreground')}
+                    strokeWidth={active ? 2.4 : 2}
+                    aria-hidden="true"
+                  />
+                </motion.span>
                 <span
                   className={cn(
                     'text-[11px] font-semibold tracking-tight transition-colors duration-200',

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Loader2, ArrowRight, CalendarCheck, Plus, RotateCw, WifiOff } from 'lucide-react';
+import { Search, ArrowRight, CalendarCheck, Plus, RotateCw, WifiOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -98,8 +98,16 @@ const MyBookings: React.FC = () => {
         </header>
 
         {loading && (
-          <div className="flex items-center justify-center py-20 text-muted-foreground">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading your bookings…
+          <div className="space-y-2.5" aria-busy="true" aria-label="Loading your bookings">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="shimmer surface-float flex items-center justify-between rounded-2xl border border-black/5 bg-white px-4 py-3.5">
+                <div className="space-y-2">
+                  <div className="h-3.5 w-32 rounded-full bg-foreground/10" />
+                  <div className="h-2.5 w-20 rounded-full bg-foreground/[0.07]" />
+                </div>
+                <div className="h-3 w-16 rounded-full bg-foreground/[0.07]" />
+              </div>
+            ))}
           </div>
         )}
 

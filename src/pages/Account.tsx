@@ -87,13 +87,13 @@ const Account: React.FC = () => {
             const inner = (
               <>
                 <span className="flex items-center gap-3">
-                  <Icon className="w-[18px] h-[18px] text-foreground/55" aria-hidden="true" />
+                  <Icon className="w-[18px] h-[18px] text-foreground/55 transition-colors group-hover/row:text-foreground/80" aria-hidden="true" />
                   <span className="text-sm font-semibold text-foreground">{label}</span>
                 </span>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40" aria-hidden="true" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 transition-transform duration-200 group-hover/row:translate-x-0.5 group-hover/row:text-muted-foreground/70" aria-hidden="true" />
               </>
             );
-            const cls = 'flex items-center justify-between px-5 py-3.5 hover:bg-secondary/50 transition-colors';
+            const cls = 'group/row flex items-center justify-between px-5 py-3.5 hover:bg-secondary/50 transition-colors active:bg-secondary/70';
             return href ? (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
             ) : (
