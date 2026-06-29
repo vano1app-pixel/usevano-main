@@ -1185,6 +1185,21 @@ export const CategoryGrid: React.FC = () => {
           </AnimatePresence>
         </motion.div>
 
+        {/* First-timer cue — spells out the (genuinely short) flow so a new
+            visitor knows exactly what the bar does. Hidden once they engage. */}
+        {!open && !job && (
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-3.5 text-center text-[12.5px] font-medium text-white/55"
+          >
+            Type a job <span className="text-white/30 mx-1.5" aria-hidden="true">·</span>
+            see a fair price <span className="text-white/30 mx-1.5" aria-hidden="true">·</span>
+            book in under a minute
+          </motion.p>
+        )}
+
         {/* "Your usual" now lives at the top of the search dropdown (one tap once
             you focus the bar), so returning customers rebook without a second
             card competing with the search box. */}
