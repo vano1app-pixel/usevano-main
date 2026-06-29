@@ -108,8 +108,15 @@ export const HeroSection: React.FC = () => {
           Same-day help, from someone you{' '}
           <span className="relative inline-block">
             trust
-            {/* Gold underline draws the eye to the core promise word */}
-            <span aria-hidden="true" className="absolute left-0 right-0 -bottom-1 h-[3px] rounded-full bg-gold/90" />
+            {/* Gold underline literally draws itself in under the promise word,
+                a beat after the headline lands — small reveal, big focus. */}
+            <motion.span
+              aria-hidden="true"
+              className="absolute left-0 right-0 -bottom-1 h-[3px] rounded-full bg-gold/90 origin-left"
+              initial={{ scaleX: 0, opacity: 0 }}
+              animate={{ scaleX: 1, opacity: 1 }}
+              transition={{ delay: 0.55, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            />
           </span>.
         </motion.h1>
 

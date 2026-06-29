@@ -42,6 +42,12 @@ const emojiV = {
   hover:  { scale: 1.22, rotate: [0, -12, 10, -6, 0] },
   tap:    { scale: 0.85 },
 };
+// The price springs up a beat after its tile lands — a tiny "ta-da" on the
+// number people actually care about. Rides the tile's hidden/show state.
+const priceV = {
+  hidden: { scale: 0.5, opacity: 0 },
+  show:   { scale: 1, opacity: 1, transition: { type: 'spring' as const, stiffness: 500, damping: 16, delay: 0.16 } },
+};
 
 export const PopularCategories: React.FC = () => {
   return (
@@ -86,7 +92,7 @@ export const PopularCategories: React.FC = () => {
                 whileHover="hover"
                 whileTap="tap"
                 transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-                className="group relative flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-white px-2 py-5 sm:px-4 sm:py-7 text-center shadow-xl ring-1 ring-black/5 transition-shadow duration-200 hover:shadow-2xl hover:ring-2 hover:ring-gold/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="tile-float group relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-black/5 bg-white px-2 py-5 sm:px-4 sm:py-7 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
               >
                 {c.popular && (
                   <span className="absolute -top-2 left-1/2 -translate-x-1/2 overflow-hidden rounded-full bg-gold px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy whitespace-nowrap">
@@ -106,9 +112,9 @@ export const PopularCategories: React.FC = () => {
                   {c.emoji}
                 </motion.span>
                 <span className="text-sm sm:text-base font-bold text-foreground mt-1">{c.label}</span>
-                <span className="text-lg sm:text-xl font-extrabold text-foreground tabular-nums leading-none">
+                <motion.span variants={priceV} className="text-lg sm:text-xl font-extrabold text-foreground tabular-nums leading-none">
                   {cents != null ? fmt(cents) : 'from €15'}
-                </span>
+                </motion.span>
                 <span className="hidden sm:block text-[11px] font-medium text-muted-foreground leading-tight">{c.scope}</span>
               </motion.button>
             );
