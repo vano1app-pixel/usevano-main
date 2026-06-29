@@ -6,6 +6,7 @@ import {
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
+import { PartnerProgramCard } from '@/components/household/PartnerProgramCard';
 import { loadBookingMemory, clearBookingMemory } from '@/lib/bookingMemory';
 import { teamWhatsAppHref } from '@/lib/contact';
 
@@ -83,6 +84,11 @@ const Account: React.FC = () => {
         {/* Referral credit — only renders for people who've booked */}
         <div className="mb-4">
           <ReferralShareCard />
+        </div>
+
+        {/* Partner program — recruit students (e.g. a union) and earn commission */}
+        <div className="mb-4">
+          <PartnerProgramCard />
         </div>
 
         {/* Links */}

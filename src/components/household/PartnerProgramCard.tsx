@@ -1,0 +1,158 @@
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Check, Copy, Share2, Users, Coins, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface PartnerInfo {
+  code:           string;
+  link:           string;
+  commission_pct: number;
+  signups:        number;
+  jobs:           number;
+  pending_cents:  number;
+  paid_cents:     number;
+  total_cents:    number;
+}
+
+const EMAIL_KEY = 'vano_partner_email';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function euros(cents: number): string {
+  const v = cents / 100;
+  return Number.isInteger(v) ? `€${v}` : `€${v.toFixed(2)}`;
+}
+
+const shareText = (link: string, pct: number) =>
+  `Earn money with VANO — sign up to do flexible student jobs (cleaning, dog walks, tutoring & more) in minutes. Use my link: ${link}`;
+
+/**
+ * "Refer students & earn" — a self-serve partner card for a student union,
+ * society, or anyone recruiting helpers. Enter an email, get a shareable code;
+ * when a student signs up with it and completes paid jobs, you earn a commission
+ * (default 5% of the job, out of VANO's cut — the student's pay is untouched).
+ * No login: codes aren't secrets, and the email just keys your earnings.
+ */
+export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className }) => {
+  const [email,   setEmail]   = useState('');
+  const [info,    setInfo]    = useState<PartnerInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+  const [copied,  setCopied]  = useState(false);
+
+  async function load(addr: string) {
+    setLoading(true); setError(null);
+    const { data, error: err } = await supabase.functions
+      .invoke<PartnerInfo>('partner-program', { body: { email: addr } });
+    setLoading(false);
+    if (err || !data?.code) { setError("Couldn't load your code — try again."); return; }
+    setInfo(data);
+    try { localStorage.setItem(EMAIL_KEY, addr); } catch { /* storage may be off */ }
+  }
+
+  // Auto-load if we already know the partner's email on this device.
+  useEffect(() => {
+    let saved = '';
+    try { saved = localStorage.getItem(EMAIL_KEY) ?? ''; } catch { /* ignore */ }
+    if (saved && EMAIL_RE.test(saved)) { setEmail(saved); void load(saved); }
+  }, []);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const addr = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(addr)) { setError('Enter a valid email.'); return; }
+    void load(addr);
+  }
+
+  async function copyLink() {
+    if (!info) return;
+    try { await navigator.clipboard.writeText(info.link); setCopied(true); setTimeout(() => setCopied(false), 1800); }
+    catch { /* clipboard blocked — link is selectable */ }
+  }
+
+  function share() {
+    if (!info) return;
+    const text = shareText(info.link, info.commission_pct);
+    if (navigator.share) navigator.share({ title: 'Refer students to VANO', text, url: info.link }).catch(() => {});
+    else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-32px' }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className={`rounded-2xl border border-gold/30 bg-gold/[0.06] p-5 ${className ?? ''}`}
+    >
+      <div className="flex items-start gap-3.5 mb-4">
+        <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">🎓</span>
+        <div>
+          <p className="text-sm font-bold text-foreground">Refer students &amp; earn</p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+            Running a student union or society? Get a code — when students you bring in complete
+            jobs, you earn {info ? `${info.commission_pct}%` : '5%'} of each job, paid out to you.
+          </p>
+        </div>
+      </div>
+
+      {!info ? (
+        <form onSubmit={submit} className="flex gap-2">
+          <input
+            type="email" inputMode="email" autoComplete="email"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
+            placeholder="you@union.ie"
+            className="flex-1 min-w-0 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent"
+          />
+          <button
+            type="submit" disabled={loading}
+            className="btn-gold flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Get my code'}
+          </button>
+        </form>
+      ) : (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Users className="w-3 h-3" />Signups</p>
+              <p className="text-lg font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.signups}</p>
+            </div>
+            <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Coins className="w-3 h-3" />Pending</p>
+              <p className="text-lg font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{euros(info.pending_cents)}</p>
+            </div>
+            <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Paid</p>
+              <p className="text-lg font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{euros(info.paid_cents)}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="flex-1 min-w-0 rounded-xl bg-white border border-border px-3 py-2.5 text-sm font-mono font-bold tracking-widest text-foreground text-center select-all">
+              {info.code}
+            </span>
+            <button
+              type="button" onClick={copyLink} aria-label="Copy referral link"
+              className="w-10 h-10 rounded-xl border border-border bg-white flex items-center justify-center hover:bg-secondary/60 active:scale-95 transition-[background-color,transform] duration-150 flex-shrink-0"
+            >
+              {copied ? <Check className="w-4 h-4 text-sage" strokeWidth={2.5} /> : <Copy className="w-4 h-4 text-foreground/60" />}
+            </button>
+            <button
+              type="button" onClick={share}
+              className="h-10 px-4 rounded-xl btn-gold text-navy text-sm font-semibold flex items-center gap-2 active:scale-95 transition-transform duration-150 flex-shrink-0"
+            >
+              <Share2 className="w-4 h-4" />Share
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2.5 text-center break-all">
+            {info.link.replace(/^https?:\/\//, '')}
+          </p>
+        </>
+      )}
+
+      {error && <p className="mt-2.5 text-xs text-destructive text-center">{error}</p>}
+    </motion.div>
+  );
+};
