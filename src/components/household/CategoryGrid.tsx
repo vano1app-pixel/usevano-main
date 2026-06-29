@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, Clock } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, Clock, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -236,6 +236,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   // it's usually auto-detected from the address, so the city chips are tucked
   // behind "Change".
   const [showArea, setShowArea] = useState(false);
+  // Returning customers see their remembered phone + address as a read-only
+  // summary (a one-tap confirm), not the full form. "Edit" reveals the fields.
+  const [editDetails, setEditDetails] = useState(false);
   const [size,     setSize]    = useState(
     // Honour the caller's size even when no size chips are shown (custom jobs
     // already pick the duration on the first page, so the sheet doesn't re-ask).
@@ -495,6 +498,34 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               </motion.div>
             )}
 
+            {/* Returning customer → one-tap confirm: show the remembered phone +
+                address as a compact summary instead of the full form. "Edit"
+                reveals the fields. New visitors always get the fields. */}
+            {prefilled && !editDetails && (
+              <motion.div variants={listItem} className="rounded-xl border border-border bg-white px-4 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1.5">
+                    <p className="flex items-center gap-2 text-sm text-foreground">
+                      <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                      <span className="font-semibold truncate">{phone || 'Add your number'}</span>
+                    </p>
+                    <p className="flex items-center gap-2 text-sm text-foreground/80">
+                      <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                      <span className="truncate">{address || 'Add your address'}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditDetails(true)}
+                    className="text-[11px] font-semibold text-sage-dark flex-shrink-0"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {(!prefilled || editDetails) && (<>
             {/* Phone first — the sheet slides up straight onto this field.
                 Time + duration below are pre-picked, so number + address is
                 all a new visitor has to type. */}
@@ -561,6 +592,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </motion.div>
+            </>)}
 
             {/* When + duration — one quiet line by default (ASAP), because that's
                 what almost everyone wants. Tap "Change" to reveal the time and
