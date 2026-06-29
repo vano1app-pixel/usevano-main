@@ -995,11 +995,11 @@ export const CategoryGrid: React.FC = () => {
           onMouseEnter={() => setActiveIndex(i)}
           onClick={() => chooseJob(s)}
           className={cn(
-            'group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+            'group/row flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors',
             active ? 'bg-secondary' : 'hover:bg-secondary/70',
           )}
         >
-          <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-border/50 bg-white text-lg leading-none shadow-sm transition-transform duration-150 group-hover/row:scale-105" aria-hidden="true">{s.emoji}</span>
           <span className="flex-1 min-w-0">
             <span className="block text-sm font-semibold text-foreground truncate">
               {isOther ? `Book “${query.trim() || 'something else'}”` : s.label}
@@ -1106,9 +1106,9 @@ export const CategoryGrid: React.FC = () => {
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); }}
-                      className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-3 py-2.5 text-left transition-colors hover:bg-sage/15"
+                      className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-2.5 py-2 text-left transition-colors hover:bg-sage/15"
                     >
-                      <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-sage/25 bg-white text-lg leading-none shadow-sm" aria-hidden="true">{usual.cat.emoji}</span>
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-semibold text-foreground truncate">
                           Your usual{usual.price ? ` · ${usual.price}` : ''}
