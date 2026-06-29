@@ -94,19 +94,18 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
             Join as a helper
           </Link>
 
-          {/* WhatsApp */}
+          {/* WhatsApp — a filled green pill so it clearly reads as "text us",
+              not just another nav link. WhatsApp brand green works on both the
+              dark hero and the light scrolled nav. */}
           <a
             href={`${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO, I need some help around the house!')}`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Chat on WhatsApp"
-            className={cn(
-              'group hidden sm:flex items-center gap-2 text-sm font-medium transition-colors duration-150 active:scale-95',
-              dark ? 'text-white/80 hover:text-white' : 'text-foreground/80 hover:text-foreground',
-            )}
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-md active:scale-95"
           >
-            <MessageCircle className="w-4 h-4" style={{ color: '#25D366' }} />
-            <span className="bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] group-hover:bg-[length:100%_1px] transition-[background-size] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">WhatsApp us</span>
+            <MessageCircle className="w-4 h-4" />
+            WhatsApp us
           </a>
 
           {/* Profile / account — household (guest) → device-local account,
