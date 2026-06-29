@@ -931,8 +931,16 @@ export const CategoryGrid: React.FC = () => {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="relative"
         >
-          <div className="search-shell flex items-center gap-2.5 rounded-2xl bg-white px-4 h-14 sm:h-16">
-            <Search className="w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
+          <div
+            className="search-shell flex items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-4 h-14 sm:h-16"
+            onMouseMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+              e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+            }}
+          >
+            <span aria-hidden="true" className="search-spotlight pointer-events-none absolute inset-0" />
+            <Search className="relative z-10 w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
             <input
               ref={inputRef}
               id="custom-job-input"
@@ -950,7 +958,7 @@ export const CategoryGrid: React.FC = () => {
               placeholder={`Try "${HINTS[hintIdx]}"…`}
               autoComplete="off"
               aria-label="Search for what you need done"
-              className="flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
+              className="relative z-10 flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
             />
             {query && (
               <button
@@ -958,7 +966,7 @@ export const CategoryGrid: React.FC = () => {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { setQuery(''); setJob(null); setActiveIndex(0); setOpen(true); inputRef.current?.focus(); }}
                 aria-label="Clear"
-                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+                className="relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -968,7 +976,7 @@ export const CategoryGrid: React.FC = () => {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }}
               aria-label="Search"
-              className="btn-gold flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
+              className="btn-gold relative z-10 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
             >
               <ArrowRight className="w-4 h-4" />
             </button>

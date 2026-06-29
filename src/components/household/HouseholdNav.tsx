@@ -47,7 +47,15 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           : 'bg-transparent border-transparent',
       )}
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between h-[72px] px-5 lg:px-8 xl:px-10">
+      <div
+        className={cn(
+          'max-w-6xl mx-auto flex items-center justify-between px-5 lg:px-8 xl:px-10',
+          'transition-[height] duration-300 ease-out-expo',
+          // Condense once you've scrolled — the bar tucks in tighter, a small
+          // cue that you've left the hero and the nav is now "in service".
+          scrolled ? 'h-[60px]' : 'h-[72px]',
+        )}
+      >
         <Link to="/home" className="flex items-center group">
           <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
             <img src={logo} alt="VANO" className="w-full h-full object-cover" />
