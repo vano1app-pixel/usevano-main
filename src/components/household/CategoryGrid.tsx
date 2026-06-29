@@ -931,7 +931,7 @@ export const CategoryGrid: React.FC = () => {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="relative"
         >
-          <div className="flex items-center gap-2.5 rounded-2xl bg-white border border-black/5 shadow-2xl px-4 h-14 sm:h-16 focus-within:ring-2 focus-within:ring-gold/60 transition-shadow">
+          <div className="search-shell flex items-center gap-2.5 rounded-2xl bg-white px-4 h-14 sm:h-16">
             <Search className="w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
             <input
               ref={inputRef}
@@ -968,7 +968,7 @@ export const CategoryGrid: React.FC = () => {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }}
               aria-label="Search"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-90"
+              className="btn-gold flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
             >
               <ArrowRight className="w-4 h-4" />
             </button>
@@ -985,7 +985,7 @@ export const CategoryGrid: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 shadow-2xl text-left"
+                className="surface-float absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 text-left"
               >
                 {/* Returning customer — last job, one tap to rebook, before typing */}
                 {!isSearching && usual && (
@@ -1043,7 +1043,7 @@ export const CategoryGrid: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                className="mt-3 rounded-2xl border border-black/5 bg-white p-4 shadow-2xl text-left"
+                className="surface-float mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
               >
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">

@@ -54,6 +54,18 @@ export const HeroSection: React.FC = () => {
         aria-hidden="true"
       />
 
+      {/* Second ambient layer — a cool sage glow drifting in from the bottom
+          right, out of phase with the warm one. Two light sources at opposite
+          corners give the flat navy real depth instead of a single hotspot. */}
+      <motion.div
+        className="pointer-events-none absolute -bottom-40 -right-32 w-[560px] h-[560px] rounded-full"
+        style={{ background: 'radial-gradient(circle, hsl(119 23% 55% / 0.28) 0%, transparent 70%)' }}
+        initial={{ opacity: 0.12, scale: 1.05 }}
+        animate={{ opacity: [0.12, 0.2, 0.12], scale: [1.05, 1, 1.05] }}
+        transition={{ duration: 11, ease: 'easeInOut', repeat: Infinity, delay: 1.5 }}
+        aria-hidden="true"
+      />
+
       <div className="relative mx-auto w-full max-w-2xl text-center">
 
         <div className="flex justify-center">
@@ -131,7 +143,7 @@ export const HeroSection: React.FC = () => {
             <motion.li
               key={short}
               variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/10 px-3 py-1.5 text-xs font-medium text-white/85"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3 py-1.5 text-xs font-medium text-white/85 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] transition-colors duration-200 hover:bg-white/[0.11]"
             >
               <Icon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
               {short}
