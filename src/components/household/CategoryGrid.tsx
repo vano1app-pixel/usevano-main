@@ -748,9 +748,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 className={cn(
                   'relative overflow-hidden rounded-full transition-shadow duration-300',
-                  // The glow only lights up once the form can actually submit, so
-                  // a disabled button never sits there glowing.
-                  phone.trim() && !loading ? 'shadow-primary-glow' : '',
+                  // The glow only lights up once the form is genuinely ready to
+                  // submit (valid phone + an address), so it's a truthful "ready"
+                  // cue rather than lighting up on the first digit.
+                  phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
                 )}
               >
                 <Button
@@ -771,8 +772,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                         {ctaLabel}
                       </>}
                 </Button>
-                {/* Occasional light sweep so the primary action feels alive */}
-                {!loading && !!phone.trim() && (
+                {/* Occasional light sweep so the primary action feels alive —
+                    only once the form is actually ready to submit */}
+                {!loading && phoneValid && addressValid && (
                   <motion.span
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
@@ -1139,7 +1141,7 @@ export const CategoryGrid: React.FC = () => {
                 </div>
                 {showComparison ? (
                   <>
-                    <div className="flex items-stretch gap-2">
+                    <div className="flex items-stretch gap-2" aria-live="polite">
                       <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
                         <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
                         <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
@@ -1164,7 +1166,7 @@ export const CategoryGrid: React.FC = () => {
                 ) : (
                   /* Short visit — single fair price (the €12 floor makes a pro-rated
                      market comparison misleading, so we don't show one). */
-                  <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center">
+                  <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center" aria-live="polite">
                     <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair flat price</p>
                     <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
                       {fmt(vanoCents)}

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Loader2, ArrowRight, CalendarCheck, Plus } from 'lucide-react';
+import { Search, Loader2, ArrowRight, CalendarCheck, Plus, RotateCw, WifiOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -47,16 +47,26 @@ const MyBookings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<BookingResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A genuine load failure (network / function down) is kept separate from a
+  // real empty result, so we never tell a customer with active bookings that
+  // they have none just because a request blipped.
+  const [loadError, setLoadError] = useState(false);
 
   const fetchBookings = useCallback(async (raw: string) => {
     const clean = raw.trim().replace(/\s+/g, '');
     if (!clean) return;
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setLoadError(false);
     const { data, error: err } = await supabase.functions.invoke<BookingResult[]>(
       'find-booking-by-phone', { body: { customer_phone: clean } },
     );
     setLoading(false);
-    if (err || !data || (data as unknown as { error?: string }).error) {
+    if (err || !data) {
+      // Transport / function failure — retryable, don't masquerade as "empty".
+      setLoadError(true);
+      return;
+    }
+    if ((data as unknown as { error?: string }).error) {
+      // The function answered but with no match for this number.
       setBookings([]);
       return;
     }
@@ -114,8 +124,25 @@ const MyBookings: React.FC = () => {
           </motion.div>
         )}
 
+        {/* Load failure — distinct from empty, with a retry */}
+        {!loading && loadError && (
+          <div className="rounded-3xl border border-border/60 bg-white surface-float p-7 text-center">
+            <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+              <WifiOff className="w-6 h-6" aria-hidden="true" />
+            </span>
+            <h2 className="text-base font-bold text-foreground">Couldn't load your bookings</h2>
+            <p className="mt-1.5 text-sm text-muted-foreground">Check your connection and try again.</p>
+            <button
+              onClick={() => phone && fetchBookings(phone)}
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 transition-colors"
+            >
+              <RotateCw className="w-4 h-4" aria-hidden="true" /> Try again
+            </button>
+          </div>
+        )}
+
         {/* Empty / no-phone — a composed state, not a blank screen */}
-        {!loading && (!bookings || bookings.length === 0) && (
+        {!loading && !loadError && (!bookings || bookings.length === 0) && (
           <div className="rounded-3xl border border-border/60 bg-white surface-float p-7 text-center">
             <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sage/10 text-sage-dark">
               <CalendarCheck className="w-6 h-6" aria-hidden="true" />

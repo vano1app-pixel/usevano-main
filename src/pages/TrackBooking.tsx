@@ -10,6 +10,7 @@ import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
+import { categoryLabel } from '@/lib/bookingLabels';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
@@ -180,11 +181,11 @@ const STATUS_STEPS: { key: UpdateStatus; label: string; detail: string }[] = [
 const STATUS_ORDER: UpdateStatus[] = ['accepted', 'on_way', 'arrived', 'in_progress', 'completed'];
 
 function formatCategory(cat: string): string {
-  const map: Record<string, string> = {
-    shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-    moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'Other task',
-  };
-  return map[cat] ?? cat;
+  // Delegate to the shared labels so the track page never shows a raw slug
+  // (e.g. "custom" for search-booked jobs → "Home help", "tutoring" →
+  // "Online tutoring"). 'other' keeps its friendlier wording.
+  if (cat === 'other') return 'Other task';
+  return categoryLabel(cat);
 }
 
 function formatTimeSlot(slot: string | null): string | null {
