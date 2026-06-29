@@ -83,7 +83,7 @@ const SHORT_DURATIONS = ['30 min', '45 min', '1 hour', '2 hours'];
 // field never leaves a first-timer wondering what to type.
 const HINTS = [
   'mow the lawn',
-  'grinds for my son',
+  'online tutoring',
   'clean the house',
   'walk the dog',
   'tidy the garden',
@@ -1036,7 +1036,8 @@ export const CategoryGrid: React.FC = () => {
             />
           )}
           <div
-            className="search-shell flex items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-4 h-14 sm:h-16"
+            className="search-shell flex cursor-text items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-4 h-14 sm:h-16 transition-shadow duration-200 hover:shadow-[0_16px_44px_-14px_rgba(0,0,0,0.3)]"
+            onClick={() => inputRef.current?.focus()}
             onMouseMove={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
               e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
@@ -1044,7 +1045,7 @@ export const CategoryGrid: React.FC = () => {
             }}
           >
             <span aria-hidden="true" className="search-spotlight pointer-events-none absolute inset-0" />
-            <Search className="relative z-10 w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
+            <Search className="relative z-10 w-5 h-5 text-foreground/70 flex-shrink-0" aria-hidden="true" />
             <input
               ref={inputRef}
               id="custom-job-input"
@@ -1059,10 +1060,10 @@ export const CategoryGrid: React.FC = () => {
                 else if (e.key === 'Enter') { e.preventDefault(); const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
                 else if (e.key === 'Escape') { setOpen(false); }
               }}
-              placeholder={`Try "${HINTS[hintIdx]}"…`}
+              placeholder={`Search for "${HINTS[hintIdx]}"…`}
               autoComplete="off"
               aria-label="Search for what you need done"
-              className="relative z-10 flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
+              className="relative z-10 flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-foreground/55 focus:outline-none"
             />
             {query && (
               <button
