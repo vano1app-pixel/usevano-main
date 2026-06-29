@@ -24,7 +24,9 @@ const EMAIL_SUBJECTS: Record<string, string> = {
   reauthentication: 'VANO — Your verification code',
 }
 
-// Template mapping
+// Template mapping. Each template has its own prop shape and is selected
+// dynamically by email type, so the registry value is intentionally loose.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic per-template props
 const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
   signup: SignupEmail,
   invite: InviteEmail,
@@ -140,7 +142,9 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
-  // Verify signature + timestamp, then parse payload.
+  // Verify signature + timestamp, then parse payload. Shape is the raw Supabase
+  // auth-hook webhook body, validated below before use.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw external webhook payload
   let payload: any
   let run_id = ''
   try {
@@ -287,8 +291,7 @@ async function handleWebhook(req: Request): Promise<Response> {
         run_id,
       }),
     )
-    // deno-lint-ignore no-explicit-any
-    const runtime = (globalThis as any).EdgeRuntime
+    const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime
     if (runtime?.waitUntil) runtime.waitUntil(finishInBackground)
     return new Response(
       JSON.stringify({ success: true }),

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MessageCircle, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { teamWhatsAppHref } from '@/lib/contact';
+import { useAuth } from '@/hooks/useAuthContext';
 import logo from '@/assets/logo.png';
 
 interface HouseholdNavProps {
@@ -10,6 +11,11 @@ interface HouseholdNavProps {
 }
 
 export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) => {
+  // Households never sign in — they book by phone (guest), so the icon takes
+  // them to their device-local account. Only a signed-in student (helper) goes
+  // to their real helper account.
+  const { userType } = useAuth();
+  const accountHref = userType === 'student' ? '/student-account' : '/account';
   const [scrolled,  setScrolled]  = useState(false);
   const [hidden,    setHidden]    = useState(false);
   const lastY = useRef(0);
@@ -47,7 +53,15 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
           : 'bg-transparent border-transparent',
       )}
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between h-[72px] px-5 lg:px-8 xl:px-10">
+      <div
+        className={cn(
+          'max-w-6xl mx-auto flex items-center justify-between px-5 lg:px-8 xl:px-10',
+          'transition-[height] duration-300 ease-out-expo',
+          // Condense once you've scrolled — the bar tucks in tighter, a small
+          // cue that you've left the hero and the nav is now "in service".
+          scrolled ? 'h-[60px]' : 'h-[72px]',
+        )}
+      >
         <Link to="/home" className="flex items-center group">
           <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
             <img src={logo} alt="VANO" className="w-full h-full object-cover" />
@@ -55,6 +69,18 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Bookings — desktop only (mobile has the bottom tab bar). Gives
+              desktop customers a first-class way to reach their bookings. */}
+          <Link
+            to="/bookings"
+            className={cn(
+              'hidden md:inline-flex items-center px-2 py-2 text-sm font-medium transition-colors duration-150 whitespace-nowrap',
+              dark ? 'text-white/70 hover:text-white' : 'text-foreground/60 hover:text-foreground',
+            )}
+          >
+            Bookings
+          </Link>
+
           {/* Join as a helper — a quiet text link, not a button: on a customer
               homepage the booking action (the hero card) should own attention,
               not helper recruitment. */}
@@ -83,9 +109,10 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
             <span className="bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] group-hover:bg-[length:100%_1px] transition-[background-size] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">WhatsApp us</span>
           </a>
 
-          {/* Profile / account */}
+          {/* Profile / account — household (guest) → device-local account,
+              signed-in student → their helper account. */}
           <Link
-            to="/student-account"
+            to={accountHref}
             aria-label="My account"
             className={cn(
               'flex items-center justify-center w-9 h-9 rounded-full',

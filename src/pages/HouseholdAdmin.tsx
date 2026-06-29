@@ -134,7 +134,6 @@ export default function HouseholdAdmin() {
       }
       await loadAll();
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const handleRefund = async (bookingId: string) => {

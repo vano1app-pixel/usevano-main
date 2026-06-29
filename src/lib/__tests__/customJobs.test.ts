@@ -56,14 +56,12 @@ describe('custom job recogniser — clear phrasings map to the right job', () =>
     ['do my weekly grocery shop', 'groceries'],
     ['wash and valet the car', 'carwash'],
     ['drop bags to the charity shop', 'charityshop'],
-    ['babysit the twins on friday', 'babysitting'],
-    ['collect the kids from school', 'schoolrun'],
     ['batch cook meals for the week', 'mealprep'],
-    ['grinds for my leaving cert son', 'tutoring'],
-    ['maths grinds once a week', 'maths'],
-    ['guitar lessons for a beginner', 'music'],
-    ['teach me the guitar', 'music'],
-    ['teach my kid to code in python', 'coding'],
+    // Online tutoring (adults) — what survived the Garda-vetting cull
+    ['online tutoring to upskill', 'tutoring'],
+    ['online french conversation practice', 'languages'],
+    ['online guitar lessons for a beginner', 'music'],
+    ['learn python coding online', 'coding'],
     ['set up a market stall for the day', 'markethelp'],
     ['tidy and tend a family grave', 'gravetend'],
     ['take the dog to the vet', 'pettransport'],
@@ -83,11 +81,10 @@ describe('custom job recogniser — a single typo still finds the job', () => {
   // The whole point of the fuzzy pass: one fat-finger slip must not drop the
   // customer back to the generic "Something else".
   const typos: Array<[string, string]> = [
-    ['tutuor my son', 'tutoring'],
+    ['need a tutuor online', 'tutoring'],
     ['painnt the spare room', 'painting'],
     ['cleen the whole house', 'clean'],
     ['gardenin out the back', 'weeding'],
-    ['babysiting on saturday', 'babysitting'],
   ];
   for (const [phrase, key] of typos) {
     it(`"${phrase}" → ${key}`, () => {
@@ -104,9 +101,7 @@ describe('custom job recogniser — ambiguous wording lands in the right group',
     ['set up smart bulbs and a doorbell', 'Tech & home'],
     ['paint and decorate the hallway', 'Home & repairs'],
     ['do some gardening', 'Garden & outdoor'],
-    ['someone to mind the kids', 'Care & family'],
-    ['help my elderly mother', 'Care & family'],
-    ['french conversation practice', 'Lessons & tutoring'],
+    ['french conversation practice', 'Online tutoring'],
     ['feed the cat and the fish', 'Pets'],
     ['hand out samples at an event', 'Business & events'],
   ];

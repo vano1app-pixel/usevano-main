@@ -12,7 +12,7 @@ import { clearGoogleOAuthIntent, hasGoogleOAuthPending, setGoogleOAuthIntent } f
 import { cn } from '@/lib/utils';
 import { getUserFriendlyError } from '@/lib/errorMessages';
 import { getAuthRedirectUrl } from '@/lib/siteUrl';
-import { isNativeApp } from '@/lib/platform';
+import { isNativeApp, getPlatform } from '@/lib/platform';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
 import { track } from '@/lib/track';
@@ -362,7 +362,13 @@ const Auth = () => {
             </div>
           )}
 
-          <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+          {/* Sign in with Apple (App Store Guideline 4.8): instead of adding a
+              second social provider, the iOS app hides Google and offers only
+              first-party email magic-link — so no third-party login service is
+              used on iOS and 4.8 doesn't apply. Google stays on web + Android. */}
+          {getPlatform() !== 'ios' && (
+            <GoogleSignInButton onClick={handleGoogleSignIn} disabled={loading} />
+          )}
 
           {/* Magic-link alternative. Critical for users who land inside an
               embedded in-app browser (Fiverr / Instagram / TikTok) where

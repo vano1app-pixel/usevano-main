@@ -24,10 +24,15 @@ const stepV: Variants = {
   hidden: { opacity: 0, y: 22, scale: 0.9 },
   show:   { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 380, damping: 16 } },
 };
-// A one-shot ripple that rings out from each number as the step lands.
+// A one-shot gold ripple that rings out from each number as the step lands.
 const ringV: Variants = {
   hidden: { scale: 1, opacity: 0 },
-  show:   { scale: 2.1, opacity: [0.4, 0], transition: { duration: 0.7, ease: 'easeOut' } },
+  show:   { scale: 2.1, opacity: [0.5, 0], transition: { duration: 0.7, ease: 'easeOut' } },
+};
+// The connector line between the three numbers draws itself left-to-right.
+const lineV: Variants = {
+  hidden: { scaleX: 0, opacity: 0 },
+  show:   { scaleX: 1, opacity: 1, transition: { duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] } },
 };
 
 export const HowItWorks: React.FC = () => {
@@ -40,21 +45,30 @@ export const HowItWorks: React.FC = () => {
         </div>
 
         <motion.ol
-          className="grid gap-10 sm:grid-cols-3 sm:gap-8"
+          className="relative grid gap-10 sm:grid-cols-3 sm:gap-8"
           variants={container}
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: '-80px' }}
         >
+          {/* Gold connector threading the three steps (desktop). Sits at the
+              vertical centre of the number row and draws in left-to-right, so
+              the section reads as a journey 1 → 2 → 3. */}
+          <motion.div
+            aria-hidden="true"
+            variants={lineV}
+            className="hidden sm:block absolute left-[8%] right-[8%] top-[22px] h-px origin-left"
+            style={{ background: 'linear-gradient(90deg, transparent, hsl(43 90% 60% / 0.55) 14%, hsl(43 90% 60% / 0.55) 86%, transparent)' }}
+          />
           {STEPS.map((s) => (
             <motion.li key={s.n} variants={stepV} className="group text-center sm:text-left">
               <span className="relative inline-flex">
                 <motion.span
                   variants={ringV}
                   aria-hidden="true"
-                  className="absolute inset-0 rounded-full bg-foreground/25"
+                  className="absolute inset-0 rounded-full bg-gold/40"
                 />
-                <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background text-lg font-bold tabular-nums transition-[background-color,transform] duration-200 group-hover:bg-sage group-hover:-translate-y-0.5">
+                <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background text-lg font-bold tabular-nums ring-2 ring-gold/30 transition-[background-color,transform,box-shadow] duration-200 group-hover:bg-sage group-hover:-translate-y-0.5 group-hover:ring-gold/60">
                   {s.n}
                 </span>
               </span>

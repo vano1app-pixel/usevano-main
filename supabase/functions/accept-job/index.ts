@@ -31,19 +31,58 @@ const CATEGORY_LABELS: Record<string, string> = {
 // src/pages/JobAccepted.tsx.
 type AcceptStatus = 'claimed' | 'mine' | 'taken' | 'expired' | 'notfound' | 'login';
 
+// The /accepted success URL. Shared so the silent-sign-in redirect_to and the
+// plain fallback always point at the same place.
+function acceptedUrl(
+  siteUrl: string,
+  status: AcceptStatus,
+  opts: { job?: string; cat?: string; city?: string | null } = {},
+): string {
+  const params = new URLSearchParams({ status });
+  if (opts.job) params.set('job', opts.job);
+  if (opts.cat) params.set('cat', opts.cat);
+  if (opts.city) params.set('city', opts.city);
+  return `${siteUrl}/accepted?${params.toString()}`;
+}
+
 function redirect(
   siteUrl: string,
   status: AcceptStatus,
   opts: { job?: string; cat?: string; city?: string | null } = {},
 ): Response {
-  const params = new URLSearchParams({ status });
-  if (opts.job) params.set('job', opts.job);
-  if (opts.cat) params.set('cat', opts.cat);
-  if (opts.city) params.set('city', opts.city);
   return new Response(null, {
     status: 303,
-    headers: { Location: `${siteUrl}/accepted?${params.toString()}` },
+    headers: { Location: acceptedUrl(siteUrl, status, opts) },
   });
+}
+
+// Best-effort silent sign-in: mint a magic link for the helper and redirect
+// THROUGH it, so the browser establishes a session before landing on `dest` —
+// the helper is signed in with no login screen after their one-tap accept, and
+// stays signed in (persisted session). Returns null if it can't (no email, or
+// auth misconfig); callers then fall back to a plain redirect, so the claim is
+// never blocked by this.
+async function signedInRedirect(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  dest: string,
+): Promise<Response | null> {
+  try {
+    const { data: u } = await supabase.auth.admin.getUserById(userId);
+    const email = u?.user?.email ?? null;
+    if (!email) return null;
+    const { data: link, error } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: { redirectTo: dest },
+    });
+    const action = (link as { properties?: { action_link?: string } } | null)?.properties?.action_link;
+    if (error || !action) return null;
+    return new Response(null, { status: 303, headers: { Location: action } });
+  } catch (e) {
+    console.warn('[accept-job] silent sign-in failed', e);
+    return null;
+  }
 }
 
 // Best-effort email → existing auth user id. Lets a helper who already had an
@@ -114,9 +153,13 @@ serve(async (req) => {
         .maybeSingle() as { data: { status: string } | null };
       mine = ownOffer?.status === 'accepted';
     }
-    return mine
-      ? redirect(siteUrl, 'mine', { job: bookingId, cat: catLabel, city: booking.city })
-      : redirect(siteUrl, 'taken', { cat: catLabel });
+    if (mine) {
+      // Their job already — still land them signed in so they can manage it.
+      const dest = acceptedUrl(siteUrl, 'mine', { job: bookingId, cat: catLabel, city: booking.city });
+      const signed = booking.student_id ? await signedInRedirect(supabase, booking.student_id, dest) : null;
+      return signed ?? redirect(siteUrl, 'mine', { job: bookingId, cat: catLabel, city: booking.city });
+    }
+    return redirect(siteUrl, 'taken', { cat: catLabel });
   }
 
   // Resolve the helper's auth user id — provision one if they don't have an
@@ -193,5 +236,11 @@ serve(async (req) => {
   }).catch(() => {});
 
   console.log(`[accept-job] booking ${bookingId} claimed by helper ${helperId} (user ${userId})`);
-  return redirect(siteUrl, 'claimed', { job: bookingId, cat: catLabel, city: booking.city });
+
+  // Land them signed in (magic-link handoff), falling back to the plain success
+  // page if it can't be minted — so they go straight from the SMS link into a
+  // logged-in dashboard with no login step, and stay signed in afterwards.
+  const dest = acceptedUrl(siteUrl, 'claimed', { job: bookingId, cat: catLabel, city: booking.city });
+  const signed = await signedInRedirect(supabase, userId, dest);
+  return signed ?? redirect(siteUrl, 'claimed', { job: bookingId, cat: catLabel, city: booking.city });
 });

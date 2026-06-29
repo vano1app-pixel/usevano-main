@@ -23,7 +23,7 @@ const FOOTER_LINK =
 
 export const HouseholdFooter: React.FC = () => {
   return (
-    <footer className="bg-navy text-white px-4 py-12">
+    <footer className="bg-navy text-white px-4 pt-12 pb-28 md:pb-12">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 mb-10">
           <Link to="/home" className="inline-block">

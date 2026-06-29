@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, Clock, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -12,7 +12,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
-import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, type CustomJob } from '@/lib/customJobs';
+import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, STARTER_CUSTOM_JOBS, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
@@ -63,12 +63,9 @@ const CATEGORIES: Category[] = [
     popular: true,
     sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours'],
   },
-  {
-    emoji: '📚', label: 'Tutoring',  slug: 'tutoring',
-    hint: 'One-to-one · any subject at home',
-    description: 'One-to-one at your home. Any subject — Maths, science, languages.',
-    sizeLabel: 'How long?', sizes: ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'],
-  },
+  // In-home Tutoring tile removed — one-to-one teaching of minors needs Garda
+  // vetting. Tutoring is now online/adults-only and lives in the custom job
+  // catalogue (src/lib/customJobs.ts), not as a quick-book tile.
 ];
 
 // The front door is now ONE centered search bar: type → matching jobs drop down
@@ -105,7 +102,6 @@ const DEFAULT_SIZE: Record<string, string> = {
   garden:    '2 hours',
   moving:    '2 hours',
   cleaning:  '2 hours',
-  tutoring:  '1 hour',
 };
 
 // ─── Pricing ──────────────────────────────────────────────────────────────
@@ -233,6 +229,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   const remembered = useMemo(() => loadBookingMemory(), []);
   const referralCode = useMemo(() => getReferralCode(), []);
   const [when,     setWhen]    = useState('Now');
+  // When + duration collapse to a single "ASAP · change" line by default —
+  // most people want it now, so we don't make them wade through time chips.
+  const [showWhen, setShowWhen] = useState(false);
+  // Area also collapses to a compact line — Galway is the only live area and
+  // it's usually auto-detected from the address, so the city chips are tucked
+  // behind "Change".
+  const [showArea, setShowArea] = useState(false);
+  // Returning customers see their remembered phone + address as a read-only
+  // summary (a one-tap confirm), not the full form. "Edit" reveals the fields.
+  const [editDetails, setEditDetails] = useState(false);
   const [size,     setSize]    = useState(
     // Honour the caller's size even when no size chips are shown (custom jobs
     // already pick the duration on the first page, so the sheet doesn't re-ask).
@@ -279,7 +285,11 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = '100%';
+    // Tuck the app bottom-nav away while the sheet is up (it lives in a separate
+    // stacking context, so it would otherwise poke through over the sheet).
+    document.body.classList.add('vano-modal-open');
     return () => {
+      document.body.classList.remove('vano-modal-open');
       document.body.style.overflow = prevOverflow;
       document.body.style.position = prevPosition;
       document.body.style.top = prevTop;
@@ -488,6 +498,34 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               </motion.div>
             )}
 
+            {/* Returning customer → one-tap confirm: show the remembered phone +
+                address as a compact summary instead of the full form. "Edit"
+                reveals the fields. New visitors always get the fields. */}
+            {prefilled && !editDetails && (
+              <motion.div variants={listItem} className="rounded-xl border border-border bg-white px-4 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1.5">
+                    <p className="flex items-center gap-2 text-sm text-foreground">
+                      <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                      <span className="font-semibold truncate">{phone || 'Add your number'}</span>
+                    </p>
+                    <p className="flex items-center gap-2 text-sm text-foreground/80">
+                      <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                      <span className="truncate">{address || 'Add your address'}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditDetails(true)}
+                    className="text-[11px] font-semibold text-sage-dark flex-shrink-0"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {(!prefilled || editDetails) && (<>
             {/* Phone first — the sheet slides up straight onto this field.
                 Time + duration below are pre-picked, so number + address is
                 all a new visitor has to type. */}
@@ -554,43 +592,74 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </motion.div>
+            </>)}
 
-            {/* When? — "Now" pre-selected; chips are an optional tweak */}
+            {/* When + duration — one quiet line by default (ASAP), because that's
+                what almost everyone wants. Tap "Change" to reveal the time and
+                duration options. Fewer decisions up front = a faster booking. */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {timeSlots.map(opt => (
-                  <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
-                    {opt}
-                  </Chip>
-                ))}
-              </div>
-              {/* Book ahead — server grants 10% off scheduled bookings */}
-              <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {TOMORROW_SLOTS.map(opt => (
-                  <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
-                    {opt}
-                  </Chip>
-                ))}
-              </div>
-            </motion.div>
+              <button
+                type="button"
+                onClick={() => setShowWhen(s => !s)}
+                aria-expanded={showWhen}
+                className="w-full flex items-center justify-between rounded-xl border border-border bg-white px-4 py-3 text-left transition-colors hover:border-foreground/20"
+              >
+                <span className="flex items-center gap-2 text-sm text-foreground min-w-0">
+                  <Clock className="w-4 h-4 flex-shrink-0 text-foreground/50" aria-hidden="true" />
+                  <span className="font-semibold">{when === 'Now' ? 'ASAP' : when}</span>
+                  {size && <span className="text-muted-foreground truncate">· {size}</span>}
+                </span>
+                <span className="text-xs font-semibold text-sage-dark flex-shrink-0">{showWhen ? 'Done' : 'Change'}</span>
+              </button>
 
-            {/* How long? — sensible default pre-selected */}
-            {cat.sizes && (
-              <motion.div variants={listItem}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
-                  {cat.sizeLabel ?? 'How long?'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {cat.sizes.map(opt => (
-                    <Chip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
-                      {opt}
-                    </Chip>
-                  ))}
-                </div>
-              </motion.div>
-            )}
+              <AnimatePresence initial={false}>
+                {showWhen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+                      <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                        {timeSlots.map(opt => (
+                          <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
+                            {opt}
+                          </Chip>
+                        ))}
+                      </div>
+                      {/* Book ahead — server grants 10% off scheduled bookings */}
+                      <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+                      <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                        {TOMORROW_SLOTS.map(opt => (
+                          <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
+                            {opt}
+                          </Chip>
+                        ))}
+                      </div>
+
+                      {/* How long? — sensible default pre-selected */}
+                      {cat.sizes && (
+                        <div className="mt-4">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                            {cat.sizeLabel ?? 'How long?'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {cat.sizes.map(opt => (
+                              <Chip key={opt} group="size" active={size === opt} onClick={() => setSize(opt)}>
+                                {opt}
+                              </Chip>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
             {/* Area — auto-detected from the address; chips only as fallback */}
             {cityAuto ? (
@@ -607,9 +676,25 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   Change
                 </button>
               </motion.div>
+            ) : !showArea ? (
+              <motion.div variants={listItem} className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+                <p className="text-sm text-foreground/75 min-w-0 truncate">
+                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowArea(true)}
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                >
+                  Change
+                </button>
+              </motion.div>
             ) : (
               <motion.div variants={listItem}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
+                  <button type="button" onClick={() => setShowArea(false)} className="text-[11px] font-semibold text-sage-dark">Done</button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
                     ? [...SUPPORTED_CITIES]
@@ -695,9 +780,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 className={cn(
                   'relative overflow-hidden rounded-full transition-shadow duration-300',
-                  // The glow only lights up once the form can actually submit, so
-                  // a disabled button never sits there glowing.
-                  phone.trim() && !loading ? 'shadow-primary-glow' : '',
+                  // The glow only lights up once the form is genuinely ready to
+                  // submit (valid phone + an address), so it's a truthful "ready"
+                  // cue rather than lighting up on the first digit.
+                  phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
                 )}
               >
                 <Button
@@ -718,8 +804,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                         {ctaLabel}
                       </>}
                 </Button>
-                {/* Occasional light sweep so the primary action feels alive */}
-                {!loading && !!phone.trim() && (
+                {/* Occasional light sweep so the primary action feels alive —
+                    only once the form is actually ready to submit */}
+                {!loading && phoneValid && addressValid && (
                   <motion.span
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
@@ -796,7 +883,36 @@ export const CategoryGrid: React.FC = () => {
   // Typeahead suggestions for the dropdown, and the price for the picked job.
   // Pricing is the canonical custom rate (€18/hr) so it can never go under min
   // wage, with the picked job's typical market rate shown beside it.
-  const suggestions = useMemo(() => searchCustomJobs(query, 6), [query]);
+  const trimmed = query.trim();
+  const isSearching = trimmed.length >= 2;
+  // Before typing → a tight set of flagship starters, shown the instant the bar
+  // is focused. While typing → the scored matches for what they typed.
+  const suggestions = useMemo(
+    () => (isSearching ? searchCustomJobs(query, 6) : STARTER_CUSTOM_JOBS),
+    [query, isSearching],
+  );
+  // Group the matches under small service-area headers once a search spans more
+  // than one area, so a long "clean" result list scans instead of blurs.
+  const grouped = useMemo(() => {
+    if (!isSearching) return null;
+    const groups: { name: string; items: CustomJob[] }[] = [];
+    for (const j of suggestions) {
+      const name = j.key === 'other' ? 'More' : j.group;
+      let g = groups.find((x) => x.name === name);
+      if (!g) { g = { name, items: [] }; groups.push(g); }
+      g.items.push(j);
+    }
+    return groups;
+  }, [suggestions, isSearching]);
+  // Only bother with headers when there's enough to organise — a 2-row result
+  // doesn't need labelling.
+  const useGroupHeaders = !!grouped && grouped.length >= 2 && suggestions.length >= 4;
+  // The order rows actually render in — grouped order when headers show, raw
+  // order otherwise. Keyboard nav + the active index must follow this exactly.
+  const displayJobs = useMemo(
+    () => (useGroupHeaders && grouped ? grouped.flatMap((g) => g.items) : suggestions),
+    [useGroupHeaders, grouped, suggestions],
+  );
   const shortVisit = isShortVisit(job?.key);
   const durationOptions = shortVisit ? SHORT_DURATIONS : DURATIONS;
   // Hours as a number, including sub-hour visits (0.5 / 0.75)
@@ -860,6 +976,42 @@ export const CategoryGrid: React.FC = () => {
     return () => window.removeEventListener('vano:select-category', handle);
   }, [openSheet]);
 
+  // One dropdown row — shared by the flat (starter) and grouped (search) lists,
+  // so keyboard highlight + tap behave identically either way. `i` is the row's
+  // position in displayJobs, which is what the keyboard nav highlights.
+  const renderRow = (s: CustomJob, i: number) => {
+    const isOther = s.key === 'other';
+    const active = i === activeIndex;
+    const sub = isOther
+      ? 'Tell us exactly what you need'
+      // When a group header already names the area, the per-row sub would just
+      // repeat it — show the example phrasing instead to earn its place.
+      : useGroupHeaders ? (s.example ?? s.group) : s.group;
+    return (
+      <li key={s.key}>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseEnter={() => setActiveIndex(i)}
+          onClick={() => chooseJob(s)}
+          className={cn(
+            'group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+            active ? 'bg-secondary' : 'hover:bg-secondary/70',
+          )}
+        >
+          <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-foreground truncate">
+              {isOther ? `Book “${query.trim() || 'something else'}”` : s.label}
+            </span>
+            <span className="block text-[11px] text-muted-foreground truncate">{sub}</span>
+          </span>
+          <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
+        </button>
+      </li>
+    );
+  };
+
   return (
     <>
       <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl scroll-mt-24">
@@ -870,25 +1022,47 @@ export const CategoryGrid: React.FC = () => {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="relative"
         >
-          <div className="flex items-center gap-2.5 rounded-2xl bg-white border border-black/5 shadow-2xl px-4 h-14 sm:h-16 focus-within:ring-2 focus-within:ring-gold/60 transition-shadow">
-            <Search className="w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
+          {/* Idle "tap me" pulse — a soft gold halo breathes around the bar
+              until the visitor focuses it, so it reads as the thing to act on.
+              Stops the moment they engage (focus/type/pick); reduced-motion
+              users never see it move. */}
+          {!open && !job && !query.trim() && (
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-1 rounded-[1.4rem] ring-2 ring-gold/50"
+              initial={{ opacity: 0, scale: 1 }}
+              animate={{ opacity: [0, 0.6, 0], scale: [1, 1.035, 1] }}
+              transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 1.4, ease: 'easeInOut' }}
+            />
+          )}
+          <div
+            className="search-shell flex items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-4 h-14 sm:h-16"
+            onMouseMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+              e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+            }}
+          >
+            <span aria-hidden="true" className="search-spotlight pointer-events-none absolute inset-0" />
+            <Search className="relative z-10 w-5 h-5 text-muted-foreground/50 flex-shrink-0" aria-hidden="true" />
             <input
               ref={inputRef}
               id="custom-job-input"
               type="text"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); setActiveIndex(0); }}
+              onFocus={() => { setOpen(true); setActiveIndex(0); }}
               onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
               onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1)); }
+                if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, displayJobs.length - 1)); }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); }
-                else if (e.key === 'Enter') { e.preventDefault(); const pick = suggestions[activeIndex] ?? suggestions[0]; if (pick) chooseJob(pick); }
+                else if (e.key === 'Enter') { e.preventDefault(); const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
                 else if (e.key === 'Escape') { setOpen(false); }
               }}
               placeholder={`Try "${HINTS[hintIdx]}"…`}
               autoComplete="off"
               aria-label="Search for what you need done"
-              className="flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
+              className="relative z-10 flex-1 min-w-0 bg-transparent text-base sm:text-lg text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
             />
             {query && (
               <button
@@ -896,7 +1070,7 @@ export const CategoryGrid: React.FC = () => {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { setQuery(''); setJob(null); setActiveIndex(0); setOpen(true); inputRef.current?.focus(); }}
                 aria-label="Clear"
-                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+                className="relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -904,55 +1078,70 @@ export const CategoryGrid: React.FC = () => {
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { const pick = suggestions[activeIndex] ?? suggestions[0]; if (pick) chooseJob(pick); }}
+              onClick={() => { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }}
               aria-label="Search"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-90"
+              className="btn-gold relative z-10 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
             >
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Dropdown — only once they've typed (≥2 chars), so tapping the empty
-              bar doesn't crowd the screen with the keyboard up */}
+          {/* Dropdown. Empty + focused → the 3 popular starters (and "your usual"
+              for returning customers) so the bar is never a blank dead-end.
+              Typing → the scored matches, grouped under service-area headers
+              once the list is long enough to benefit. */}
           <AnimatePresence>
-            {open && !job && query.trim().length >= 2 && suggestions.length > 0 && (
+            {open && !job && displayJobs.length > 0 && (
               <motion.ul
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 shadow-2xl text-left"
+                className="surface-float absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 text-left"
               >
-                {suggestions.map((s, i) => {
-                  const isOther = s.key === 'other';
-                  const active = i === activeIndex;
-                  return (
-                    <li key={s.key}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onMouseEnter={() => setActiveIndex(i)}
-                        onClick={() => chooseJob(s)}
-                        className={cn(
-                          'group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-                          active ? 'bg-secondary' : 'hover:bg-secondary/70',
-                        )}
-                      >
-                        <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-sm font-semibold text-foreground truncate">
-                            {isOther ? `Book “${query.trim() || 'something else'}”` : s.label}
-                          </span>
-                          <span className="block text-[11px] text-muted-foreground truncate">
-                            {isOther ? 'Tell us exactly what you need' : s.group}
-                          </span>
+                {/* Returning customer — last job, one tap to rebook, before typing */}
+                {!isSearching && usual && (
+                  <li>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); }}
+                      className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-3 py-2.5 text-left transition-colors hover:bg-sage/15"
+                    >
+                      <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-foreground truncate">
+                          Your usual{usual.price ? ` · ${usual.price}` : ''}
                         </span>
-                        {/* Price stays hidden until they pick — then it drops in below */}
-                        <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
-                      </button>
-                    </li>
-                  );
-                })}
+                        <span className="block text-[11px] text-muted-foreground truncate">
+                          {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved
+                        </span>
+                      </span>
+                      <span className="text-gold text-base font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+                    </button>
+                  </li>
+                )}
+
+                {/* Popular starters get one quiet label so they read as a curated set */}
+                {!isSearching && (
+                  <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+                    Popular
+                  </li>
+                )}
+
+                {useGroupHeaders && grouped ? (() => {
+                  let idx = -1;
+                  return grouped.map((g) => (
+                    <React.Fragment key={g.name}>
+                      <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+                        {g.name}
+                      </li>
+                      {g.items.map((s) => { idx += 1; return renderRow(s, idx); })}
+                    </React.Fragment>
+                  ));
+                })() : (
+                  suggestions.map((s, i) => renderRow(s, i))
+                )}
               </motion.ul>
             )}
           </AnimatePresence>
@@ -966,7 +1155,7 @@ export const CategoryGrid: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                className="mt-3 rounded-2xl border border-black/5 bg-white p-4 shadow-2xl text-left"
+                className="surface-float mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
               >
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">
@@ -984,7 +1173,7 @@ export const CategoryGrid: React.FC = () => {
                 </div>
                 {showComparison ? (
                   <>
-                    <div className="flex items-stretch gap-2">
+                    <div className="flex items-stretch gap-2" aria-live="polite">
                       <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
                         <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
                         <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
@@ -1009,7 +1198,7 @@ export const CategoryGrid: React.FC = () => {
                 ) : (
                   /* Short visit — single fair price (the €12 floor makes a pro-rated
                      market comparison misleading, so we don't show one). */
-                  <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center">
+                  <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center" aria-live="polite">
                     <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair flat price</p>
                     <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
                       {fmt(vanoCents)}
@@ -1030,24 +1219,24 @@ export const CategoryGrid: React.FC = () => {
           </AnimatePresence>
         </motion.div>
 
-        {/* One-tap rebook — remembers the last job booked on this device */}
-        {usual && (
-          <button
-            onClick={() => openSheet(usual.cat, { size: usual.size })}
-            className="mt-3 w-full rounded-2xl bg-white/10 border border-white/15 px-4 py-3 flex items-center gap-3 text-left backdrop-blur-sm hover:bg-white/15 active:scale-[0.98] transition-[background-color,transform] duration-150"
+        {/* First-timer cue — spells out the (genuinely short) flow so a new
+            visitor knows exactly what the bar does. Hidden once they engage. */}
+        {!open && !job && (
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-3.5 text-center text-[12.5px] font-medium text-white/55"
           >
-            <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-white leading-snug">
-                Book your usual{usual.price ? ` — ${usual.price}` : ''}
-              </span>
-              <span className="block text-xs text-white/55 mt-0.5 truncate">
-                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details already filled in
-              </span>
-            </span>
-            <span className="text-gold text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
-          </button>
+            Type a job <span className="text-white/30 mx-1.5" aria-hidden="true">·</span>
+            see a fair price <span className="text-white/30 mx-1.5" aria-hidden="true">·</span>
+            book in under a minute
+          </motion.p>
         )}
+
+        {/* "Your usual" now lives at the top of the search dropdown (one tap once
+            you focus the bar), so returning customers rebook without a second
+            card competing with the search box. */}
 
         {/* WhatsApp fallback — one quiet line on the dark hero */}
         <button

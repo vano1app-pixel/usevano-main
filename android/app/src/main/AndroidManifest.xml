@@ -51,4 +51,9 @@
     <!-- Location: "use my location" for addresses + live job tracking (@capacitor/geolocation) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Camera: helper face/profile photo upload uses a file input with
+         capture="environment". required=false so camera-less devices (and the
+         gallery-pick path) still install and work. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

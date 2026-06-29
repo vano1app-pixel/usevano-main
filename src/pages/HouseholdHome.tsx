@@ -9,8 +9,6 @@ import { FAQSection } from '@/components/household/FAQSection';
 import { FAQS } from '@/components/household/faqData';
 import { PopularCategories } from '@/components/household/PopularCategories';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
-import { FindBookingBar } from '@/components/household/FindBookingBar';
-import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { BlogTeaser } from '@/components/household/BlogTeaser';
 import { ScrollCue } from '@/components/household/ScrollCue';
@@ -69,7 +67,9 @@ const HouseholdHome: React.FC = () => {
             to open the shared booking sheet. */}
         <PopularCategories />
         <Reveal><FAQSection /></Reveal>
-        <Reveal><FindBookingBar /></Reveal>
+        {/* "Find your booking" used to live here as a phone-lookup form; it's now
+            the dedicated Bookings tab (mobile) / nav link (desktop) → /bookings,
+            so the home no longer duplicates it. */}
         {/* Self-hides unless this device has booked before (needs the phone) */}
         <Reveal>
           <section className="px-4 pb-20 bg-background">
@@ -81,8 +81,6 @@ const HouseholdHome: React.FC = () => {
         <Reveal><BlogTeaser /></Reveal>
         <HouseholdFooter />
       </main>
-
-      <StickyBookBar />
     </div>
   );
 };

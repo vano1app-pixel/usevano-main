@@ -21,7 +21,7 @@ const CATEGORY_OPTIONS = [
   { emoji: '🌿', label: 'Garden',   slug: 'garden'    },
   { emoji: '📦', label: 'Moving',   slug: 'moving'    },
   { emoji: '🧹', label: 'Cleaning', slug: 'cleaning'  },
-  { emoji: '📚', label: 'Tutoring', slug: 'tutoring'  },
+  { emoji: '💻', label: 'Online tutoring', slug: 'tutoring'  },
 ];
 
 const STATS = [
@@ -40,12 +40,14 @@ const REQUIREMENTS = [
   'Friendly, reliable and up for it',
 ];
 
+// Online, adults-only tutoring — no school grinds for minors (that needs Garda
+// vetting, which Vano doesn't broker). Subjects skew to adult upskilling.
 const TUTOR_SUBJECTS = [
-  'Maths', 'English', 'Irish', 'Science', 'Biology', 'Chemistry', 'Physics',
-  'History', 'Geography', 'French', 'Spanish', 'Engineering', 'Business', 'Accounting',
+  'Languages', 'French', 'Spanish', 'Irish', 'German', 'Coding & IT', 'Excel & spreadsheets',
+  'Music', 'Business', 'Accounting', 'Academic writing', 'Maths',
 ];
 
-const TUTOR_LEVELS = ['Primary', 'Junior Cert', 'Leaving Cert', 'Third Level'];
+const TUTOR_LEVELS = ['Adult learners', 'Third level', 'Professional / upskilling'];
 
 const JOBS = [
   { emoji: '🧺', label: 'Laundry' },
@@ -53,7 +55,7 @@ const JOBS = [
   { emoji: '🌿', label: 'Garden work' },
   { emoji: '📦', label: 'Moving help' },
   { emoji: '🧹', label: 'Cleaning' },
-  { emoji: '📚', label: 'Tutoring' },
+  { emoji: '💻', label: 'Online tutoring' },
 ];
 
 // Galway-first; ATU + University of Galway lead since dispatch is live there.
@@ -272,7 +274,7 @@ export const JoinAsHelper: React.FC = () => {
 
               <div className="flex justify-center gap-3 flex-wrap mb-2">
                 {STATS.map(({ value, label }) => (
-                  <div key={label} className="bg-background border border-border/60 rounded-2xl px-4 py-3 text-center shadow-tinted-sm">
+                  <div key={label} className="surface-float bg-white border border-black/5 rounded-2xl px-4 py-3 text-center">
                     <p className="font-bold text-foreground text-lg leading-tight">{value}</p>
                     <p className="text-xs text-muted-foreground">{label}</p>
                   </div>
@@ -415,6 +417,9 @@ export const JoinAsHelper: React.FC = () => {
                             className="overflow-hidden"
                           >
                             <div className="mt-4 space-y-4 bg-background/60 rounded-xl border border-border/50 p-3">
+                              <p className="text-[11px] font-medium text-foreground/70 leading-snug">
+                                💻 Tutoring on Vano is <span className="font-semibold">online and adults-only (18+)</span>. We don't offer school grinds for under-18s — that requires Garda vetting.
+                              </p>
                               <div>
                                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 block">Subjects</span>
                                 <div className="flex flex-wrap gap-2">
@@ -544,7 +549,7 @@ export const JoinAsHelper: React.FC = () => {
           <h2 className="text-2xl font-semibold text-foreground mb-6">Jobs available right now</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {JOBS.map(({ emoji, label }) => (
-              <div key={label} className="bg-secondary/60 rounded-2xl p-4 flex items-center gap-3">
+              <div key={label} className="surface-float bg-white border border-black/5 rounded-2xl p-4 flex items-center gap-3">
                 <span className="text-2xl leading-none">{emoji}</span>
                 <span className="text-sm font-medium text-foreground">{label}</span>
               </div>
