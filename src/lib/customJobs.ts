@@ -353,6 +353,14 @@ const OTHER = CUSTOM_JOBS.find((j) => j.key === 'other')!;
 
 export const POPULAR_CUSTOM_JOBS = CUSTOM_JOBS.filter((j) => j.popular);
 
+// The handful shown the instant the search bar is focused — before any typing.
+// Three flagship everyday services, so a first-timer sees a real, tappable
+// starting point instead of a blank box (tighter than the full popular list,
+// which is too long to read with the keyboard up). Order = what we lead with.
+export const STARTER_CUSTOM_JOBS: CustomJob[] = ['clean', 'tutoring', 'dog']
+  .map((k) => CUSTOM_JOBS.find((j) => j.key === k))
+  .filter((j): j is CustomJob => !!j);
+
 // Short, visit-style jobs that suit a 30-/45-min booking (priced from €12)
 // rather than a one-hour minimum — dog walks, let-outs, bins, key-drops,
 // quick errands. Everything else is booked by the hour.

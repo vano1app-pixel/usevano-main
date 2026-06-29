@@ -12,7 +12,7 @@ import { loadBookingMemory, saveBookingMemory, clearBookingMemory } from '@/lib/
 import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
-import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, type CustomJob } from '@/lib/customJobs';
+import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, STARTER_CUSTOM_JOBS, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
@@ -796,7 +796,36 @@ export const CategoryGrid: React.FC = () => {
   // Typeahead suggestions for the dropdown, and the price for the picked job.
   // Pricing is the canonical custom rate (€18/hr) so it can never go under min
   // wage, with the picked job's typical market rate shown beside it.
-  const suggestions = useMemo(() => searchCustomJobs(query, 6), [query]);
+  const trimmed = query.trim();
+  const isSearching = trimmed.length >= 2;
+  // Before typing → a tight set of flagship starters, shown the instant the bar
+  // is focused. While typing → the scored matches for what they typed.
+  const suggestions = useMemo(
+    () => (isSearching ? searchCustomJobs(query, 6) : STARTER_CUSTOM_JOBS),
+    [query, isSearching],
+  );
+  // Group the matches under small service-area headers once a search spans more
+  // than one area, so a long "clean" result list scans instead of blurs.
+  const grouped = useMemo(() => {
+    if (!isSearching) return null;
+    const groups: { name: string; items: CustomJob[] }[] = [];
+    for (const j of suggestions) {
+      const name = j.key === 'other' ? 'More' : j.group;
+      let g = groups.find((x) => x.name === name);
+      if (!g) { g = { name, items: [] }; groups.push(g); }
+      g.items.push(j);
+    }
+    return groups;
+  }, [suggestions, isSearching]);
+  // Only bother with headers when there's enough to organise — a 2-row result
+  // doesn't need labelling.
+  const useGroupHeaders = !!grouped && grouped.length >= 2 && suggestions.length >= 4;
+  // The order rows actually render in — grouped order when headers show, raw
+  // order otherwise. Keyboard nav + the active index must follow this exactly.
+  const displayJobs = useMemo(
+    () => (useGroupHeaders && grouped ? grouped.flatMap((g) => g.items) : suggestions),
+    [useGroupHeaders, grouped, suggestions],
+  );
   const shortVisit = isShortVisit(job?.key);
   const durationOptions = shortVisit ? SHORT_DURATIONS : DURATIONS;
   // Hours as a number, including sub-hour visits (0.5 / 0.75)
@@ -860,6 +889,42 @@ export const CategoryGrid: React.FC = () => {
     return () => window.removeEventListener('vano:select-category', handle);
   }, [openSheet]);
 
+  // One dropdown row — shared by the flat (starter) and grouped (search) lists,
+  // so keyboard highlight + tap behave identically either way. `i` is the row's
+  // position in displayJobs, which is what the keyboard nav highlights.
+  const renderRow = (s: CustomJob, i: number) => {
+    const isOther = s.key === 'other';
+    const active = i === activeIndex;
+    const sub = isOther
+      ? 'Tell us exactly what you need'
+      // When a group header already names the area, the per-row sub would just
+      // repeat it — show the example phrasing instead to earn its place.
+      : useGroupHeaders ? (s.example ?? s.group) : s.group;
+    return (
+      <li key={s.key}>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseEnter={() => setActiveIndex(i)}
+          onClick={() => chooseJob(s)}
+          className={cn(
+            'group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+            active ? 'bg-secondary' : 'hover:bg-secondary/70',
+          )}
+        >
+          <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-foreground truncate">
+              {isOther ? `Book “${query.trim() || 'something else'}”` : s.label}
+            </span>
+            <span className="block text-[11px] text-muted-foreground truncate">{sub}</span>
+          </span>
+          <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
+        </button>
+      </li>
+    );
+  };
+
   return (
     <>
       <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl scroll-mt-24">
@@ -878,11 +943,12 @@ export const CategoryGrid: React.FC = () => {
               type="text"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); setActiveIndex(0); }}
+              onFocus={() => { setOpen(true); setActiveIndex(0); }}
               onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
               onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1)); }
+                if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, displayJobs.length - 1)); }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); }
-                else if (e.key === 'Enter') { e.preventDefault(); const pick = suggestions[activeIndex] ?? suggestions[0]; if (pick) chooseJob(pick); }
+                else if (e.key === 'Enter') { e.preventDefault(); const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
                 else if (e.key === 'Escape') { setOpen(false); }
               }}
               placeholder={`Try "${HINTS[hintIdx]}"…`}
@@ -904,7 +970,7 @@ export const CategoryGrid: React.FC = () => {
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { const pick = suggestions[activeIndex] ?? suggestions[0]; if (pick) chooseJob(pick); }}
+              onClick={() => { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }}
               aria-label="Search"
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-90"
             >
@@ -912,10 +978,12 @@ export const CategoryGrid: React.FC = () => {
             </button>
           </div>
 
-          {/* Dropdown — only once they've typed (≥2 chars), so tapping the empty
-              bar doesn't crowd the screen with the keyboard up */}
+          {/* Dropdown. Empty + focused → the 3 popular starters (and "your usual"
+              for returning customers) so the bar is never a blank dead-end.
+              Typing → the scored matches, grouped under service-area headers
+              once the list is long enough to benefit. */}
           <AnimatePresence>
-            {open && !job && query.trim().length >= 2 && suggestions.length > 0 && (
+            {open && !job && displayJobs.length > 0 && (
               <motion.ul
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -923,36 +991,49 @@ export const CategoryGrid: React.FC = () => {
                 transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                 className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[19rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 shadow-2xl text-left"
               >
-                {suggestions.map((s, i) => {
-                  const isOther = s.key === 'other';
-                  const active = i === activeIndex;
-                  return (
-                    <li key={s.key}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onMouseEnter={() => setActiveIndex(i)}
-                        onClick={() => chooseJob(s)}
-                        className={cn(
-                          'group/row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-                          active ? 'bg-secondary' : 'hover:bg-secondary/70',
-                        )}
-                      >
-                        <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{s.emoji}</span>
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-sm font-semibold text-foreground truncate">
-                            {isOther ? `Book “${query.trim() || 'something else'}”` : s.label}
-                          </span>
-                          <span className="block text-[11px] text-muted-foreground truncate">
-                            {isOther ? 'Tell us exactly what you need' : s.group}
-                          </span>
+                {/* Returning customer — last job, one tap to rebook, before typing */}
+                {!isSearching && usual && (
+                  <li>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); }}
+                      className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-3 py-2.5 text-left transition-colors hover:bg-sage/15"
+                    >
+                      <span className="text-lg leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-foreground truncate">
+                          Your usual{usual.price ? ` · ${usual.price}` : ''}
                         </span>
-                        {/* Price stays hidden until they pick — then it drops in below */}
-                        <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
-                      </button>
-                    </li>
-                  );
-                })}
+                        <span className="block text-[11px] text-muted-foreground truncate">
+                          {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved
+                        </span>
+                      </span>
+                      <span className="text-gold text-base font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+                    </button>
+                  </li>
+                )}
+
+                {/* Popular starters get one quiet label so they read as a curated set */}
+                {!isSearching && (
+                  <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+                    Popular
+                  </li>
+                )}
+
+                {useGroupHeaders && grouped ? (() => {
+                  let idx = -1;
+                  return grouped.map((g) => (
+                    <React.Fragment key={g.name}>
+                      <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+                        {g.name}
+                      </li>
+                      {g.items.map((s) => { idx += 1; return renderRow(s, idx); })}
+                    </React.Fragment>
+                  ));
+                })() : (
+                  suggestions.map((s, i) => renderRow(s, i))
+                )}
               </motion.ul>
             )}
           </AnimatePresence>
@@ -1030,24 +1111,9 @@ export const CategoryGrid: React.FC = () => {
           </AnimatePresence>
         </motion.div>
 
-        {/* One-tap rebook — remembers the last job booked on this device */}
-        {usual && (
-          <button
-            onClick={() => openSheet(usual.cat, { size: usual.size })}
-            className="mt-3 w-full rounded-2xl bg-white/10 border border-white/15 px-4 py-3 flex items-center gap-3 text-left backdrop-blur-sm hover:bg-white/15 active:scale-[0.98] transition-[background-color,transform] duration-150"
-          >
-            <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-white leading-snug">
-                Book your usual{usual.price ? ` — ${usual.price}` : ''}
-              </span>
-              <span className="block text-xs text-white/55 mt-0.5 truncate">
-                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details already filled in
-              </span>
-            </span>
-            <span className="text-gold text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
-          </button>
-        )}
+        {/* "Your usual" now lives at the top of the search dropdown (one tap once
+            you focus the bar), so returning customers rebook without a second
+            card competing with the search box. */}
 
         {/* WhatsApp fallback — one quiet line on the dark hero */}
         <button
