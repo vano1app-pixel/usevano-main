@@ -249,6 +249,14 @@ serve(async (req) => {
         } : {}),
         'payment_intent_data[capture_method]': 'automatic',
         'payment_intent_data[metadata][household_booking_id]': booking_id,
+        // Save the card for future off-session use — the foundation for
+        // "card on file → auto-charge" so repeat bookings need no pay step.
+        // Additive: doesn't change what's charged now, just stores the method
+        // on a Stripe customer. (Step 2 reuses it by looking the customer up by
+        // phone and charging off-session at accept time.) Wallets (Apple/Google
+        // Pay / Link) still appear automatically — methods aren't restricted.
+        'customer_creation': 'always',
+        'payment_intent_data[setup_future_usage]': 'off_session',
         ...(booking.customer_email ? { customer_email: String(booking.customer_email).toLowerCase() } : {}),
         success_url: `${origin}/track/${booking_id}?paid=true`,
         cancel_url: `${origin}/track/${booking_id}`,
