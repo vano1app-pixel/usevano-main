@@ -232,6 +232,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   // When + duration collapse to a single "ASAP · change" line by default —
   // most people want it now, so we don't make them wade through time chips.
   const [showWhen, setShowWhen] = useState(false);
+  // Area also collapses to a compact line — Galway is the only live area and
+  // it's usually auto-detected from the address, so the city chips are tucked
+  // behind "Change".
+  const [showArea, setShowArea] = useState(false);
   const [size,     setSize]    = useState(
     // Honour the caller's size even when no size chips are shown (custom jobs
     // already pick the duration on the first page, so the sheet doesn't re-ask).
@@ -640,9 +644,25 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   Change
                 </button>
               </motion.div>
+            ) : !showArea ? (
+              <motion.div variants={listItem} className="flex items-center justify-between gap-3 rounded-xl bg-foreground/4 border border-foreground/8 px-3.5 py-2.5">
+                <p className="text-sm text-foreground/75 min-w-0 truncate">
+                  <span aria-hidden="true">📍</span> Area: <span className="font-semibold text-foreground">{city}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowArea(true)}
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                >
+                  Change
+                </button>
+              </motion.div>
             ) : (
               <motion.div variants={listItem}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">Your area</p>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
+                  <button type="button" onClick={() => setShowArea(false)} className="text-[11px] font-semibold text-sage-dark">Done</button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
                     ? [...SUPPORTED_CITIES]
