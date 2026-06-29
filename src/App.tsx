@@ -12,8 +12,11 @@ import { RouteSuspenseFallback } from "@/components/RouteSuspenseFallback";
 import { SilentErrorBoundary } from "@/components/SilentErrorBoundary";
 import { AuthProvider } from "@/hooks/useAuthContext";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { BottomNav } from "@/components/household/BottomNav";
 
 const HouseholdHome = lazyWithRetry(() => import("./pages/HouseholdHome"));
+const MyBookings = lazyWithRetry(() => import("./pages/MyBookings"));
+const Account = lazyWithRetry(() => import("./pages/Account"));
 const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
 const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
 const StudentJobDetail = lazyWithRetry(() => import("./pages/StudentJobDetail"));
@@ -65,7 +68,7 @@ import { initNativeApp } from "@/lib/native/initNativeApp";
 
 function getVariant(path: string): TransitionVariant {
   if (path === '/') return 'rise';
-  if (path === '/home' || path === '/join' || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/') || path === '/accepted') return 'rise';
+  if (path === '/home' || path === '/bookings' || path === '/account' || path === '/join' || path.startsWith('/track/') || path === '/student-dashboard' || path.startsWith('/student-job/') || path === '/accepted') return 'rise';
   if (['/auth', '/helper/profile'].includes(path) || path.startsWith('/helpers/')) return 'rise';
   return 'default';
 }
@@ -106,6 +109,8 @@ const App = () => {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<P><HouseholdHome /></P>} />
             <Route path="/home" element={<P><HouseholdHome /></P>} />
+            <Route path="/bookings" element={<P><MyBookings /></P>} />
+            <Route path="/account" element={<P><Account /></P>} />
             <Route path="/track/:bookingId" element={<P><TrackBooking /></P>} />
             <Route path="/student-dashboard" element={<P><StudentDashboard /></P>} />
             <Route path="/student-job/:bookingId" element={<P><StudentJobDetail /></P>} />
@@ -128,6 +133,7 @@ const App = () => {
         </Suspense>
         </RouteErrorBoundary>
       </div>
+      <SilentErrorBoundary source="BottomNav"><BottomNav /></SilentErrorBoundary>
       <Suspense fallback={null}>
         <SilentErrorBoundary source="WhatsAppFloatingButton"><WhatsAppFloatingButton /></SilentErrorBoundary>
         <SilentErrorBoundary source="CookieConsentBanner"><CookieConsentBanner /></SilentErrorBoundary>

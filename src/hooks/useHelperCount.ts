@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Module-level cache: HeroSection and StickyBookBar both show presence on the
-// same page — one head-count request serves both (and any remount).
+// Module-level cache: the hero presence pill (and any other consumer) shares a
+// single head-count request across mounts — one request serves them all.
 let cachedCount = 0;
 let resolved = false;
 let inflight: Promise<void> | null = null;

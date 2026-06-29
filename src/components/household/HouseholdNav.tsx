@@ -93,7 +93,7 @@ export const HouseholdNav: React.FC<HouseholdNavProps> = ({ darkHero = false }) 
 
           {/* Profile / account */}
           <Link
-            to="/student-account"
+            to="/account"
             aria-label="My account"
             className={cn(
               'flex items-center justify-center w-9 h-9 rounded-full',

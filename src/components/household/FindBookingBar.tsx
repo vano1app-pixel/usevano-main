@@ -5,6 +5,7 @@ import { Search, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { loadBookingMemory } from '@/lib/bookingMemory';
+import { categoryLabel, statusLabel, formatBookingDate } from '@/lib/bookingLabels';
 
 interface BookingResult {
   id: string;
@@ -13,30 +14,6 @@ interface BookingResult {
   scheduled_date: string | null;
   created_at: string;
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'grocery-shopping': 'Grocery shopping',
-  'dog-walk': 'Dog walk', 'dog-walking': 'Dog walking',
-  garden: 'Garden help', 'lawn-mowing': 'Lawn mowing',
-  moving: 'Moving help', 'moving-help': 'Moving help',
-  cleaning: 'Cleaning', 'outdoor-cleaning': 'Outdoor cleaning',
-  tutoring: 'Tutoring', 'tutoring-grinds': 'Tutoring & grinds',
-  'post-office': 'Post office run', 'pharmacy-run': 'Pharmacy run',
-  'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery', 'midnight-lift': 'Midnight Lift',
-  handyman: 'Handyman', plumbing: 'Plumbing help',
-};
-
-const STATUS_LABEL: Record<string, { label: string; colour: string }> = {
-  awaiting_payment: { label: 'Awaiting payment', colour: 'text-amber-600' },
-  pending:          { label: 'Finding helper…',  colour: 'text-blue-600' },
-  accepted:         { label: 'Helper on the way',colour: 'text-emerald-600' },
-  on_way:           { label: 'On the way',        colour: 'text-emerald-600' },
-  arrived:          { label: 'Helper arrived',    colour: 'text-emerald-600' },
-  in_progress:      { label: 'In progress',       colour: 'text-emerald-600' },
-  completed:        { label: 'Completed',          colour: 'text-foreground/50' },
-  cancelled:        { label: 'Cancelled',          colour: 'text-destructive/70' },
-};
 
 export const FindBookingBar: React.FC = () => {
   const navigate  = useNavigate();
@@ -136,11 +113,9 @@ export const FindBookingBar: React.FC = () => {
                 Select your booking:
               </motion.p>
               {results.map(b => {
-                const st = STATUS_LABEL[b.status] ?? { label: b.status, colour: 'text-muted-foreground' };
-                const cat = CATEGORY_LABELS[b.category] ?? b.category;
-                const date = b.scheduled_date
-                  ? new Date(b.scheduled_date).toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' })
-                  : 'Flexible';
+                const st = statusLabel(b.status);
+                const cat = categoryLabel(b.category);
+                const date = formatBookingDate(b.scheduled_date);
                 return (
                   <motion.button
                     key={b.id}

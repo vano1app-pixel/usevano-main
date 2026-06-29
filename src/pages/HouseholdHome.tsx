@@ -10,7 +10,6 @@ import { FAQS } from '@/components/household/faqData';
 import { PopularCategories } from '@/components/household/PopularCategories';
 import { ReferralShareCard } from '@/components/household/ReferralShareCard';
 import { FindBookingBar } from '@/components/household/FindBookingBar';
-import { StickyBookBar } from '@/components/household/StickyBookBar';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { BlogTeaser } from '@/components/household/BlogTeaser';
 import { ScrollCue } from '@/components/household/ScrollCue';
@@ -81,8 +80,6 @@ const HouseholdHome: React.FC = () => {
         <Reveal><BlogTeaser /></Reveal>
         <HouseholdFooter />
       </main>
-
-      <StickyBookBar />
     </div>
   );
 };
