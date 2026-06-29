@@ -16,9 +16,12 @@ export const BlogTeaser: React.FC = () => {
     .slice(0, 3);
 
   return (
-    <section className="bg-cream border-t border-navy/10 px-4 py-6" aria-labelledby="blog-teaser-heading">
-      <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-        <h2 id="blog-teaser-heading" className="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-sage-dark">
+    // Deliberately recessive — reads as fine-print footer links, not a content
+    // band — but every post link stays visible and in the DOM so the homepage
+    // keeps its internal links to the blog (the SEO benefit). Quiet, not hidden.
+    <section className="bg-cream px-4 py-2.5" aria-labelledby="blog-teaser-heading">
+      <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-x-2 gap-y-1">
+        <h2 id="blog-teaser-heading" className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-navy/35">
           From the blog
         </h2>
 
@@ -26,13 +29,13 @@ export const BlogTeaser: React.FC = () => {
           <span
             key={post.slug}
             className={i === 0
-              ? 'flex items-center gap-x-2.5 min-w-0'
-              : 'hidden sm:flex items-center gap-x-2.5 min-w-0'}
+              ? 'flex items-center gap-x-2 min-w-0'
+              : 'hidden sm:flex items-center gap-x-2 min-w-0'}
           >
-            <span aria-hidden className="text-navy/20">·</span>
+            <span aria-hidden className="text-navy/15">·</span>
             <Link
               to={`/blog/${post.slug}`}
-              className="truncate text-sm text-navy/70 hover:text-sage-dark transition-colors"
+              className="truncate text-xs text-navy/45 hover:text-sage-dark transition-colors"
             >
               {post.title}
             </Link>
@@ -41,7 +44,7 @@ export const BlogTeaser: React.FC = () => {
 
         <Link
           to="/blog"
-          className="ml-auto shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-navy/55 hover:text-sage-dark transition-colors"
+          className="ml-auto shrink-0 inline-flex items-center gap-1 text-xs font-medium text-navy/40 hover:text-sage-dark transition-colors"
         >
           Read all <span aria-hidden>→</span>
         </Link>
