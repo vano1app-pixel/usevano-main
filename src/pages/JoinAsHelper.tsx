@@ -133,6 +133,13 @@ export const JoinAsHelper: React.FC = () => {
   const [agreeChecks, setAgreeChecks] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
 
+  // Optional partner / referral code — prefilled from a ?ref=CODE link (e.g. a
+  // student union's recruitment link) and editable by hand.
+  const [referralCode, setReferralCode] = useState(() => {
+    try { return (new URLSearchParams(window.location.search).get('ref') ?? '').trim().toUpperCase(); }
+    catch { return ''; }
+  });
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -224,6 +231,16 @@ export const JoinAsHelper: React.FC = () => {
 
       const json = await res.json() as { success?: boolean; error?: string; helper_id?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? 'Unknown error');
+
+      // Attach an optional partner/referral code — best-effort, never blocks the
+      // signup. A DB trigger turns it into an attribution so the partner earns
+      // commission on this helper's completed jobs.
+      const code = referralCode.trim().toUpperCase();
+      if (code && json.helper_id) {
+        supabase.functions
+          .invoke('attach-referral-code', { body: { helper_id: json.helper_id, code } })
+          .catch(() => { /* referral attach is non-critical */ });
+      }
 
       // Carry id + email to the verification page (and survive any reload).
       try {
@@ -494,6 +511,23 @@ export const JoinAsHelper: React.FC = () => {
                       <Consent checked={agreeTerms} onChange={setAgreeTerms}>
                         I agree to VANO's <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-sage-dark underline underline-offset-2">terms</a> and helper code of conduct.
                       </Consent>
+                    </div>
+
+                    {/* Optional referral / partner code (e.g. from a student union) */}
+                    <div>
+                      <label htmlFor="referral-code" className={labelClass}>Referral code <span className="font-normal normal-case tracking-normal text-muted-foreground/70">(optional)</span></label>
+                      <input
+                        id="referral-code"
+                        value={referralCode}
+                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. your union's code"
+                        maxLength={12}
+                        autoCapitalize="characters"
+                        className={cn(inputClass, 'font-mono tracking-wider')}
+                      />
+                      {referralCode.trim() && (
+                        <p className="mt-1.5 text-[11px] text-sage-dark font-medium">Code {referralCode.trim()} will be applied to your signup.</p>
+                      )}
                     </div>
                   </>
                 )}
