@@ -203,6 +203,78 @@ serve(async (req) => {
     let payUrl = (booking.stripe_checkout_url as string | null) ?? null;
 
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
+
+    // ── Card on file → auto-charge (OFF until VANO_AUTO_CHARGE=1) ────────────
+    // If this household has a saved card (from a previous paid booking) and
+    // there's no referral discount to reconcile, charge it off-session now —
+    // no pay step for the customer. Stamps the booking paid directly because an
+    // off-session PaymentIntent has no checkout.session webhook. ANY failure
+    // leaves payUrl + paid_at untouched, so the normal pay-link block below
+    // runs as the fallback. Flag-gated so it can't fire until it's been
+    // verified in Stripe test mode.
+    let autoCharged = false;
+    if (
+      Deno.env.get('VANO_AUTO_CHARGE') === '1' &&
+      !payUrl && !booking.paid_at && priceCents > 0 && STRIPE_SECRET_KEY &&
+      reservedDiscountCents < 100
+    ) {
+      try {
+        const phone = (booking.customer_phone as string | null)?.trim();
+        if (phone) {
+          const { data: cust } = await supabase
+            .from('household_customers')
+            .select('stripe_customer_id')
+            .eq('phone', phone)
+            .maybeSingle() as { data: { stripe_customer_id: string } | null };
+          const customerId = cust?.stripe_customer_id;
+          if (customerId) {
+            const pmResp = await fetch(
+              `https://api.stripe.com/v1/payment_methods?customer=${customerId}&type=card&limit=1`,
+              { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } },
+            );
+            const pmId = pmResp.ok
+              ? ((await pmResp.json()) as { data?: { id: string }[] }).data?.[0]?.id
+              : undefined;
+            if (pmId) {
+              const piResp = await fetch('https://api.stripe.com/v1/payment_intents', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formEncode({
+                  amount: String(priceCents + serviceFeeCents),
+                  currency: 'eur',
+                  customer: customerId,
+                  payment_method: pmId,
+                  off_session: 'true',
+                  confirm: 'true',
+                  'metadata[household_booking_id]': booking_id,
+                  description: `VANO — ${CATEGORY_LABELS[booking.category as string] ?? 'Household help'} (card on file)`,
+                }),
+              });
+              if (piResp.ok) {
+                const pi = (await piResp.json()) as { id: string; status: string };
+                if (pi.status === 'succeeded') {
+                  const paidIso = new Date().toISOString();
+                  await supabase.from('household_bookings')
+                    .update({ paid_at: paidIso, stripe_payment_intent_id: pi.id })
+                    .eq('id', booking_id).is('paid_at', null);
+                  // Reflect locally so the SMS/email use the paid/track copy.
+                  (booking as { paid_at?: string | null }).paid_at = paidIso;
+                  autoCharged = true;
+                }
+              } else {
+                console.warn('[notify-household-accepted] off-session charge failed', (await piResp.text()).slice(0, 300));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[notify-household-accepted] auto-charge threw', e);
+      }
+    }
+
     if (!payUrl && !booking.paid_at && priceCents > 0 && STRIPE_SECRET_KEY) {
       // Mint the referral coupon first so the session params can include it.
       // Any failure here simply produces a full-price pay link.
@@ -339,7 +411,9 @@ serve(async (req) => {
         const discountSms = appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : '';
         const smsBody = payUrl && !booking.paid_at
           ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely: ${payUrl}`
-          : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${siteUrlSms}/track/${booking_id}`;
+          : autoCharged
+            ? `VANO: ${helperFirstName} accepted your ${catSms}! €${(totalCents / 100).toFixed(2)} was charged to your saved card. Track here: ${siteUrlSms}/track/${booking_id}`
+            : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${siteUrlSms}/track/${booking_id}`;
         await sendSms(phone, smsBody);
       }
     }

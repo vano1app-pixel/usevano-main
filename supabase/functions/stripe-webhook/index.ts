@@ -901,6 +901,21 @@ async function handleHouseholdPostAcceptPayment(
     customer_name?: string; customer_email?: string; customer_phone?: string;
     category?: string; scheduled_date?: string; city?: string; price_estimate_cents?: number;
   };
+
+  // Card on file: remember this household's Stripe customer id by phone so a
+  // future booking can be charged off-session with no pay step. Best-effort —
+  // the card was saved on the session (customer_creation + setup_future_usage).
+  if (session.customer && b.customer_phone) {
+    try {
+      await supabase.from('household_customers').upsert({
+        phone: b.customer_phone.trim(),
+        stripe_customer_id: session.customer,
+        updated_at: nowIso,
+      }, { onConflict: 'phone' });
+    } catch (e) {
+      console.warn('[stripe-webhook] household_customers upsert failed', e);
+    }
+  }
   const categoryLabels: Record<string, string> = {
     shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
     moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
