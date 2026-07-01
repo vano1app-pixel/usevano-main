@@ -53,8 +53,8 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
-        {/* How it works (honest + simple), then real helper faces — so the
-            bigger monthly ask below only comes once the visitor gets it. These
+        {/* How it works (honest + simple), then real helper faces — trust is
+            established before the most-booked tiles ask for the tap. These
             two plus the hero are the full-screen snap sections (data-snap):
             each fills the viewport, gently snaps, and carries its own scroll
             cue that walks to the next section. `relative` anchors the cue. */}

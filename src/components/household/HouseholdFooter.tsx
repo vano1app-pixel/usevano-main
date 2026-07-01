@@ -60,11 +60,11 @@ export const HouseholdFooter: React.FC = () => {
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <a
             href="mailto:hello@vanojobs.com"
-            className="inline-block text-xs text-white/40 hover:text-white bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] hover:bg-[length:100%_1px] transition-[background-size,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            className="inline-block text-xs text-white/60 hover:text-white bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-left-bottom bg-[length:0%_1px] hover:bg-[length:100%_1px] transition-[background-size,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
           >
             hello@vanojobs.com
           </a>
-          <p className="text-white/40 text-xs">© 2026 VANO · Ireland</p>
+          <p className="text-white/55 text-xs">© 2026 VANO · Ireland</p>
         </div>
       </div>
     </footer>

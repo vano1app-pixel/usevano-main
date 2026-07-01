@@ -18,8 +18,11 @@ const SHARE_TEXT = (link: string) =>
  * Give €5, get €5. Renders only for people who have booked on this device
  * (we need their phone, kept in booking memory, to mint their code) — for
  * everyone else it's invisible, so it can sit on any page.
+ *
+ * `heading` lets the host page speak to the moment (e.g. "Loved Aoife's
+ * work?" right after a five-star rating) without forking the card.
  */
-export const ReferralShareCard: React.FC<{ className?: string }> = ({ className }) => {
+export const ReferralShareCard: React.FC<{ className?: string; heading?: string }> = ({ className, heading }) => {
   const [info,   setInfo]   = useState<ReferralInfo | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -70,7 +73,7 @@ export const ReferralShareCard: React.FC<{ className?: string }> = ({ className 
       <div className="flex items-start gap-3.5 mb-4">
         <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">🎁</span>
         <div>
-          <p className="text-sm font-bold text-foreground">Give €5, get €5</p>
+          <p className="text-sm font-bold text-foreground">{heading ?? 'Give €5, get €5'}</p>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
             Your friend gets €5 off their first booking — you get €5 off your next one,
             applied automatically.

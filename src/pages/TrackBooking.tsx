@@ -632,9 +632,27 @@ const TrackBooking = () => {
   const currentStepIndex = latestUpdateStatus ? STATUS_ORDER.indexOf(latestUpdateStatus) : -1;
 
   if (loading) {
+    // Skeleton in the shape of the page (header line, status card, steps) —
+    // the customer lands here at their most anxious, so no bare spinner.
     return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="min-h-dvh bg-background">
+        <main className="max-w-lg mx-auto px-4 pt-8 space-y-6" aria-busy="true" aria-label="Loading your booking">
+          <div className="space-y-2">
+            <div className="h-4 w-28 rounded bg-secondary animate-pulse" />
+            <div className="h-7 w-52 rounded bg-secondary animate-pulse" />
+          </div>
+          <div className="rounded-2xl border border-border/60 p-5 space-y-3">
+            <div className="h-5 w-40 rounded bg-secondary animate-pulse" />
+            <div className="h-4 w-full rounded bg-secondary animate-pulse" />
+            <div className="h-4 w-2/3 rounded bg-secondary animate-pulse" />
+          </div>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-secondary animate-pulse flex-shrink-0" />
+              <div className="h-4 rounded bg-secondary animate-pulse" style={{ width: `${60 - i * 12}%` }} />
+            </div>
+          ))}
+        </main>
       </div>
     );
   }
@@ -642,10 +660,24 @@ const TrackBooking = () => {
   if (!booking) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-4 text-center">
-        <p className="text-lg font-semibold text-foreground">Booking not found</p>
-        <button onClick={() => navigate('/home')} className="text-sm text-muted-foreground underline underline-offset-2">
-          Back to home
-        </button>
+        <span className="text-3xl" aria-hidden="true">🔍</span>
+        <div>
+          <p className="text-lg font-semibold text-foreground">We couldn't find that booking</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+            The link may be old or mistyped. Your recent bookings are saved under your phone number.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/bookings')}
+            className="h-10 px-5 rounded-full bg-primary text-primary-foreground text-sm font-semibold"
+          >
+            Find my bookings
+          </button>
+          <button onClick={() => navigate('/home')} className="text-sm text-muted-foreground underline underline-offset-2 px-2 py-2">
+            Back to home
+          </button>
+        </div>
       </div>
     );
   }
@@ -1456,6 +1488,16 @@ const TrackBooking = () => {
           </motion.div>
         )}
 
+        {/* The just-finished customer is the highest-intent sharer — the €5
+            referral rides directly under the completion card (named after
+            their helper), not buried below the chat thread. */}
+        {isCompleted && (
+          <ReferralShareCard
+            className="mt-4"
+            heading={helperName ? `Loved ${helperName}'s work? Give €5, get €5` : 'Happy with the job? Give €5, get €5'}
+          />
+        )}
+
         {/* Chat */}
         {booking.student_id && (
           <div className="mt-8">
@@ -1507,9 +1549,9 @@ const TrackBooking = () => {
           />
         )}
 
-        {/* Give €5, get €5 — the post-booking wait is the highest-intent
-            sharing moment; renders only when this device has booking memory */}
-        <ReferralShareCard className="mt-8" />
+        {/* Give €5, get €5 during the wait — once the job completes, the card
+            moves up beside the rating (see above) so it isn't rendered twice */}
+        {!isCompleted && <ReferralShareCard className="mt-8" />}
       </main>
 
       {/* Map panel — helper's live position when shared, else the job location */}
