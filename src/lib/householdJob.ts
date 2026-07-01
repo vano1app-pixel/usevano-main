@@ -1,11 +1,12 @@
 // Job-type helpers shared by the helper (StudentJobDetail) and customer
 // (TrackBooking) screens. Mirrors supabase/functions/_shared/householdJob.ts.
 //
-// Only cleaning, tutoring, garden and moving are "timed" (booked by the hour).
-// Laundry and dog-walk are one-off and finish when the household marks them done.
+// "Timed" = booked by the hour, gets the countdown: the legacy tiles plus
+// `custom` (every search-bar booking — always priced by duration). Laundry
+// and dog-walk are one-off and finish when the household marks them done.
 
 export const TIMED_CATEGORIES = new Set([
-  'cleaning', 'tutoring', 'garden', 'moving',
+  'cleaning', 'tutoring', 'garden', 'moving', 'custom',
 ]);
 
 export function isTimedCategory(category: string): boolean {
