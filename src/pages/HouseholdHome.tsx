@@ -8,7 +8,6 @@ import { HelperCards } from '@/components/household/HelperCards';
 import { FAQSection } from '@/components/household/FAQSection';
 import { FAQS } from '@/components/household/faqData';
 import { PopularCategories } from '@/components/household/PopularCategories';
-import { ReviewCarousel } from '@/components/household/ReviewCarousel';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { BlogTeaser } from '@/components/household/BlogTeaser';
 import { ScrollCue } from '@/components/household/ScrollCue';
@@ -66,10 +65,10 @@ const HouseholdHome: React.FC = () => {
             dispatch vano:select-category, which the hero's CategoryGrid catches
             to open the shared booking sheet. */}
         <PopularCategories />
-        {/* Customer voice after the podium ask: real household_ratings replace
-            the honest seed testimonials as they come in (only real ones carry
-            the "Verified booking" badge — seeds never claim to be). */}
-        <Reveal><ReviewCarousel /></Reveal>
+        {/* No testimonial section by owner's call: the seed reviews read as
+            fake, and there aren't enough real household_ratings yet to carry
+            it. ReviewCarousel + the reviewer_name/area attribution plumbing
+            stay built — remount once genuine reviews exist to fill it. */}
         <Reveal><FAQSection /></Reveal>
         {/* The "Give €5, get €5" referral card lives on the Account tab and the
             post-booking tracking page now — not on the marketing home, where it
