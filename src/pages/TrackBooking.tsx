@@ -359,21 +359,40 @@ const TrackBooking = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!cancelled) setUserId(session?.user?.id ?? null);
 
+      // Booking + chat go through SECURITY DEFINER RPCs keyed on the booking id
+      // (the id is the bearer secret). The anon role can no longer read these
+      // tables in bulk — the RPC hands back only this one booking. job_updates
+      // (status + notes, no PII) is still read directly.
       const [bookingRes, updatesRes, messagesRes] = await Promise.all([
-        hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle(),
+        hdb.rpc('get_household_booking', { p_booking_id: bookingId }),
         hdb.from('household_job_updates').select('*').eq('booking_id', bookingId).order('created_at'),
-        hdb.from('household_chat').select('*').eq('booking_id', bookingId).order('created_at'),
+        hdb.rpc('get_household_chat', { p_booking_id: bookingId }),
       ]);
 
       if (cancelled) return;
-      if (bookingRes.data) setBooking(bookingRes.data as Booking);
+      const bookingRow = Array.isArray(bookingRes.data) ? bookingRes.data[0] : bookingRes.data;
+      if (bookingRow) setBooking(bookingRow as Booking);
       if (updatesRes.data) setUpdates(updatesRes.data as JobUpdate[]);
       if (messagesRes.data) setMessages(messagesRes.data as ChatMessage[]);
       setLoading(false);
     };
 
     void load();
-    return () => { cancelled = true; };
+    // Anonymous customers can't receive realtime once the bulk-read policy is
+    // removed, so poll while the job is live to keep status/pay/map/chat fresh.
+    // (The realtime subscriptions below still serve signed-in helpers.) The
+    // poll clears itself once the booking reaches a terminal state.
+    const poll = setInterval(() => {
+      setBooking((b) => {
+        if (b && (b.status === 'completed' || b.status === 'cancelled')) {
+          clearInterval(poll);
+          return b;
+        }
+        void load();
+        return b;
+      });
+    }, 5000);
+    return () => { cancelled = true; clearInterval(poll); };
   }, [bookingId]);
 
   useEffect(() => {

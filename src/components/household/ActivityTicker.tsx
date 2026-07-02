@@ -72,15 +72,11 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
   useEffect(() => {
     (async () => {
       try {
-        const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        // Non-PII activity via a SECURITY DEFINER RPC (category + area + time
+        // only) — the anon role can no longer read household_bookings directly,
+        // so the ticker can never leak a customer name, address or phone.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (supabase as any)
-          .from('household_bookings')
-          .select('category, city, created_at')
-          .in('status', ['accepted', 'in_progress', 'completed'])
-          .gte('created_at', cutoff)
-          .order('created_at', { ascending: false })
-          .limit(12);
+        const { data } = await (supabase as any).rpc('recent_household_activity');
 
         if (data && data.length >= 4) {
           const fetchedAt = Date.now();
