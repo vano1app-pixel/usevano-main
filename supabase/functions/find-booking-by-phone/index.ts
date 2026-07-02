@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
 // ── Inlined CORS ──────────────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -65,6 +66,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Rate limit: this returns booking ids from a phone number, so throttle it
+    // hard to stop mass enumeration of who has bookings.
+    if (!await allowRequest(supabase, 'find-booking-by-phone', clientIp(req), 10, 600)) {
+      return bad(429, 'Too many lookups — please wait a minute and try again.');
+    }
 
     // Look up by exact phone OR with/without leading country code variations
     // e.g. "0831234567" and "+353831234567" and "353831234567"

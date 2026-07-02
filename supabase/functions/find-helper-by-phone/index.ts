@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
 // Returns a helper's own profile for the phone-gated edit pages
 // (/helper/profile and /student-account). Runs with the service role so
@@ -46,8 +47,11 @@ function isOriginAllowed(req: Request): boolean {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// NB: email is deliberately NOT returned — this endpoint is an unauthenticated
+// phone lookup, and a helper's email is the sensitive bit (phishing / account
+// takeover). The self-service profile editor doesn't use it.
 const PROFILE_COLUMNS =
-  'id, name, phone, email, photo_url, city, bio, categories, availability, status';
+  'id, name, phone, photo_url, city, bio, categories, availability, status';
 
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
@@ -74,6 +78,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Rate limit: unauthenticated PII lookup by phone — throttle to stop
+    // harvesting helper profiles by iterating the mobile number space.
+    if (!await allowRequest(supabase, 'find-helper-by-phone', clientIp(req), 10, 600)) {
+      return bad(429, 'Too many lookups — please wait a minute and try again.');
+    }
 
     // Exact match across country-code variations
     // e.g. "0831234567" and "+353831234567" and "353831234567"

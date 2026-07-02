@@ -558,18 +558,9 @@ const StudentJobDetail = () => {
       }).catch(() => {});
     }
 
-    // Ping admin when helper arrives so they know the job has started
-    if (!updateRes.error && next.status === 'arrived') {
-      supabase.functions.invoke('notify-admin-whatsapp', {
-        body: {
-          type: 'helper_arrived',
-          booking_id: bookingId,
-          category: booking.category,
-          customer_name: booking.customer_name,
-          city: (booking.booking_data?.city as string | undefined) ?? '',
-        },
-      }).catch(() => {});
-    }
+    // (Admin arrival ping is handled server-side by household-arrival now; the
+    // old client call here was dead — this status machine only advances to
+    // 'on_way' — and notify-admin-whatsapp is service-role-only.)
 
     if (updateRes.error) {
       toast({ title: 'Update failed', description: getUserFriendlyError(updateRes.error), variant: 'destructive' });

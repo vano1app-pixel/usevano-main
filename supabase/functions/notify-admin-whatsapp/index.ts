@@ -115,6 +115,18 @@ async function emailAdmin(subject: string, message: string, contactPhone?: strin
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
+  // Server-to-server only. This function pages the owner (WhatsApp/email) and
+  // reflects caller-supplied strings, so without this guard anyone with the
+  // public anon key could spam / phish the owner. Every internal caller passes
+  // the service-role key; no legitimate browser client calls it directly.
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!serviceRoleKey || authHeader !== `Bearer ${serviceRoleKey}`) {
+    return new Response(JSON.stringify({ error: 'forbidden' }), {
+      status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+
   const adminNumber = Deno.env.get('ADMIN_WA_NUMBER') || '+353899817111';
 
   try {
