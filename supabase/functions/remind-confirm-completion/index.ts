@@ -1,14 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Human-in-the-loop net for jobs awaiting the customer's "mark complete".
-// We never auto-pay, so this nudges instead:
+// Safety net for jobs awaiting the customer's "mark complete":
 //   1. Remind the customer to confirm (once) when the job looks done — i.e. the
 //      helper tapped "I've finished" or a timed job's clock ran out.
-//   2. If still unconfirmed a while later, alert an admin to follow up (once).
-// Nothing here moves money — payout still only happens when the customer taps
-// "mark complete". Only PAID jobs are nudged (unpaid ones are chased by the
-// separate unpaid-booking reminders).
+//   2. If still unconfirmed 12h after the reminder, alert an admin (once).
+//   3. If STILL unconfirmed 48h after the reminder, auto-confirm the job via
+//      the internal capture-household-payment path — the same single source of
+//      truth the customer's own "mark complete" and the admin button use.
+// Stage 3 exists because a ghosting customer used to strand the helper's
+// (already-charged) money forever. The reminder tells the customer up front
+// that silence for 48h counts as confirmation, and the money-back guarantee
+// still applies afterwards. Only PAID jobs are touched (unpaid ones are
+// chased by the separate unpaid-booking reminders).
 //
 // Two modes:
 //   POST { booking_id }  → remind that one customer now (called by
@@ -23,6 +27,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const ESCALATE_MS = 12 * 60 * 60 * 1000; // alert admin 12h after the customer reminder
+const AUTO_COMPLETE_MS = 48 * 60 * 60 * 1000; // auto-confirm 48h after the customer reminder
 
 function normalizeIrishPhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -96,17 +101,18 @@ serve(async (req) => {
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;"><strong>${helper}</strong> has wrapped up your <strong>${cat}</strong>. Tap below to confirm it's done — that's what releases their payment.</p>
     <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Confirm &amp; pay ${helper} →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Not done yet, or a problem? WhatsApp us: +353 89 981 7111</p>
+    <p style="margin:20px 0 0;color:#6b7280;font-size:13px;line-height:1.5;">If we don't hear from you within 48 hours we'll confirm it automatically so ${helper} isn't left waiting — your money-back guarantee still applies either way.</p>
+    <p style="margin:12px 0 0;color:#9ca3af;font-size:12px;">Not done yet, or a problem? WhatsApp us: +353 89 981 7111</p>
   </div>
 </div></body></html>`;
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to: [b.customer_email], subject: `Confirm your ${cat} is done — VANO`, html, text: `Hi ${custName}, ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl} — Problem? WhatsApp +353 89 981 7111` }),
+        body: JSON.stringify({ from, to: [b.customer_email], subject: `Confirm your ${cat} is done — VANO`, html, text: `Hi ${custName}, ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl} — If we don't hear back within 48h we'll confirm automatically (money-back guarantee still applies). Problem? WhatsApp +353 89 981 7111` }),
       });
       ok = res.ok || ok;
     }
-    const sms = await sendSms(b.customer_phone, `VANO: ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl}`);
+    const sms = await sendSms(b.customer_phone, `VANO: ${helper} has finished your ${cat}. Confirm it's done to release their payment: ${trackUrl} (auto-confirms in 48h if we don't hear back — money-back guarantee still applies)`);
     return ok || sms;
   };
 
@@ -197,7 +203,43 @@ serve(async (req) => {
       escalated++;
     }
 
-    return new Response(JSON.stringify({ ok: true, reminded, escalated }), { headers: { 'Content-Type': 'application/json' } });
+    // Stage 3: still unconfirmed 48h after the reminder → auto-confirm via
+    // the internal completion path (same one the customer's "mark complete"
+    // and the admin button use, so payout/idempotency/emails stay in ONE
+    // place). The reminder warned about this; the money-back guarantee still
+    // applies after auto-confirmation. The status flip to 'completed' is the
+    // idempotency guard — a completed job never re-enters this query.
+    let autoCompleted = 0;
+    const autoCutoffIso = new Date(Date.now() - AUTO_COMPLETE_MS).toISOString();
+    const { data: toAutoComplete } = await supabase.from('household_bookings')
+      .select(cols)
+      .eq('status', 'in_progress')
+      .not('paid_at', 'is', null)
+      .not('completion_reminded_at', 'is', null)
+      .lt('completion_reminded_at', autoCutoffIso)
+      .limit(20) as { data: Booking[] | null };
+    for (const b of toAutoComplete ?? []) {
+      try {
+        const resp = await fetch(`${supabaseUrl}/functions/v1/capture-household-payment`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'x-internal-complete': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_id: b.id }),
+        });
+        if (!resp.ok) {
+          console.error('[remind-confirm-completion] auto-complete failed', b.id, resp.status, (await resp.text()).slice(0, 200));
+          continue;
+        }
+        await supabase.from('household_job_updates')
+          .insert({ booking_id: b.id, status: 'completed', note: 'Auto-confirmed 48h after the completion reminder (no customer response).' })
+          .then(() => {}, () => {});
+        await sendSms(b.customer_phone, `VANO: we hadn't heard back, so your ${CATEGORY_LABELS[b.category ?? 'other'] ?? 'job'} is now confirmed and your helper has been paid. Anything wrong? WhatsApp +353 89 981 7111 — your money-back guarantee still applies.`);
+        autoCompleted++;
+      } catch (e) {
+        console.error('[remind-confirm-completion] auto-complete threw', b.id, e);
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, reminded, escalated, autoCompleted }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {
     console.error('[remind-confirm-completion] unhandled', err);
     return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500 });
