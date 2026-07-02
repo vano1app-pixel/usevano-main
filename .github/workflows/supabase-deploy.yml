@@ -19,15 +19,16 @@ name: Deploy Supabase Edge Functions
 # bad edge function.
 
 on:
-  # Auto-deploy on push is commented out. Functions are deployed on
-  # demand via the Supabase MCP from the AI agent session instead.
-  # To re-enable: add SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF to
-  # the repo's Actions secrets, then uncomment the push: block below.
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - 'supabase/functions/**'
-  #     - '.github/workflows/supabase-deploy.yml'
+  # Auto-deploy edge functions on merge to main, mirroring what Vercel does
+  # for the frontend — so functions never lag behind the deployed site.
+  # Requires the SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF repo secrets
+  # (already configured). verify_jwt for every function is pinned in
+  # supabase/config.toml so a repo-wide deploy never changes gateway auth.
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/supabase-deploy.yml'
   workflow_dispatch:
 
 jobs:
