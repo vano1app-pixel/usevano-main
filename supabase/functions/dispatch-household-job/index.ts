@@ -327,17 +327,25 @@ serve(async (req) => {
       return new Response('Offers already sent', { status: 200 });
     }
 
+    // 'custom' is the search-bar catch-all (every "name any job" booking).
+    // Helpers can't pick 'custom' as a category on the join form, so filtering
+    // by it would match NOBODY and silently kill the entire search-bar funnel
+    // — custom jobs are everyday tasks any approved helper can do, so they
+    // fan out to everyone available. Real categories still filter as before.
+    const isCatchAll = category === 'custom';
+
     // Find helpers in the booking city first (bookings without a city skip
     // straight to the platform-wide search below).
     let helpers: Array<{ id: string; name: string; phone: string; email?: string; user_id?: string }> | null = null;
     if (city) {
-      const { data: cityHelpers, error: helpersError } = await supabase
+      let cityQuery = supabase
         .from('household_helpers')
         .select('id, name, phone, email, user_id')
         .eq('city', city)
         .eq('status', 'approved')
-        .eq('is_available', true)
-        .contains('categories', [category])
+        .eq('is_available', true);
+      if (!isCatchAll) cityQuery = cityQuery.contains('categories', [category]);
+      const { data: cityHelpers, error: helpersError } = await cityQuery
         .order('accepted_count', { ascending: true })
         .limit(MAX_OFFERS);
 
@@ -353,12 +361,13 @@ serve(async (req) => {
     // No helpers in city — fall back to ALL approved helpers on the platform.
     if (!helpers || helpers.length === 0) {
       console.warn(`[dispatch] no helpers in ${city ?? 'unknown city'} for ${bookingId} — expanding to platform-wide search`);
-      const { data: allHelpers, error: allErr } = await supabase
+      let allQuery = supabase
         .from('household_helpers')
         .select('id, name, phone, email, user_id')
         .eq('status', 'approved')
-        .eq('is_available', true)
-        .contains('categories', [category])
+        .eq('is_available', true);
+      if (!isCatchAll) allQuery = allQuery.contains('categories', [category]);
+      const { data: allHelpers, error: allErr } = await allQuery
         .order('accepted_count', { ascending: true })
         .limit(MAX_OFFERS);
 
