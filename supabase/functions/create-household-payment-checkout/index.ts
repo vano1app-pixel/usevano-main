@@ -327,6 +327,43 @@ serve(async (req) => {
     const el  = typeof extra_label === 'string' ? extra_label : '';
     const isScheduled = scheduled === true;
 
+    // ── Safety screen for free-text requests ─────────────────────────────
+    // Helpers are ID-verified students, NOT Garda-vetted and not tradespeople.
+    // Work with children / vulnerable adults is "relevant work" under the
+    // National Vetting Bureau Acts, and trade/height/driving-for-hire work is
+    // an insurance and safety line we don't cross. The catalogue no longer
+    // offers these, but the "Something else" box takes any text — so screen
+    // the request server-side before it can be inserted or dispatched.
+    // Deliberately conservative patterns to avoid blocking legitimate jobs
+    // (e.g. "clean the kids' bedroom" must still pass).
+    const UNSAFE_REQUEST_PATTERNS: Array<{ re: RegExp; reason: string }> = [
+      { re: /\b(babysit|baby[- ]?sit|babysitt|childmind|child[- ]?mind|nanny|au pair|creche|crèche)/i,
+        reason: 'minding children' },
+      { re: /\b(school (run|pickup|pick[- ]?up|drop[- ]?off|collection))|collect\w* (the |my )?(kids|children)\b/i,
+        reason: 'minding children' },
+      { re: /\b(mind|watch|look after|take care of|care for) (the |my |our )?(kid|kids|child|children|baby|toddler|son|daughter|little one)/i,
+        reason: 'minding children' },
+      { re: /\b(elderly|dementia|alzheimer|carer|caregiver|home care|personal care|medication|nursing)\b/i,
+        reason: 'caring for a vulnerable person' },
+      { re: /\b(rewire|fuse ?board|consumer unit|socket|mains|boiler|gas |immersion|electrics|electrical work)\b/i,
+        reason: 'qualified trade work' },
+      { re: /\b(roof|chimney|scaffold|gutters?\b)/i,
+        reason: 'working at height' },
+      { re: /\b(lift|drive|run) (me|us|him|her) to\b|\ba lift to\b|\bairport (run|lift|drop)/i,
+        reason: 'driving passengers' },
+    ];
+    const requestText = `${typeof note === 'string' ? note : ''} ${el}`.trim();
+    if (requestText) {
+      const hit = UNSAFE_REQUEST_PATTERNS.find(p => p.re.test(requestText));
+      if (hit) {
+        console.warn(`[checkout] blocked unsafe request (${hit.reason}): "${requestText.slice(0, 120)}"`);
+        return bad(422,
+          `Sorry — this looks like ${hit.reason}, which VANO can't take on. ` +
+          `Our helpers are ID-verified students, not Garda-vetted carers or qualified tradespeople. ` +
+          `If we've read your request wrong, WhatsApp us on +353 89 981 7111 and a person will sort it.`);
+      }
+    }
+
     let priceCents = computePriceCents(cat, sl, el);
     if (!priceCents) {
       return bad(400, `No price available for ${category} / ${sl}${el ? ' / ' + el : ''}`);

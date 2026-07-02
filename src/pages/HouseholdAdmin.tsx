@@ -24,6 +24,8 @@ interface Booking {
   price_estimate_cents: number | null;
   created_at: string;
   student_id: string | null;
+  /** Free-text request + labels from the quick sheet — what actually needs eyeballing on custom jobs. */
+  booking_data: { note?: string; extra_label?: string; size_label?: string } | null;
 }
 
 interface Helper {
@@ -89,7 +91,7 @@ export default function HouseholdAdmin() {
   const loadAll = async () => {
     const [{ data: b }, { data: h }, { data: p }] = await Promise.all([
       db.from('household_bookings')
-        .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_estimate_cents, created_at, student_id')
+        .select('id, customer_name, customer_phone, customer_email, category, city, scheduled_date, status, price_estimate_cents, created_at, student_id, booking_data')
         .order('created_at', { ascending: false })
         .limit(200),
       db.from('household_helpers')
@@ -333,6 +335,16 @@ export default function HouseholdAdmin() {
                       </p>
                     )}
                     {b.customer_email && <p><span className="text-muted-foreground">Email: </span>{b.customer_email}</p>}
+                    {/* The customer's own words — essential review surface for custom jobs */}
+                    {(b.booking_data?.note || b.booking_data?.extra_label) && (
+                      <p>
+                        <span className="text-muted-foreground">Request: </span>
+                        <span className="italic">
+                          "{(b.booking_data.note?.trim() || b.booking_data.extra_label ) ?? ''}"
+                        </span>
+                        {b.booking_data.size_label ? <span className="text-muted-foreground"> · {b.booking_data.size_label}</span> : null}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-muted-foreground">{format(new Date(b.created_at), 'dd MMM yyyy, HH:mm')} · #{b.id.slice(-8).toUpperCase()}</p>

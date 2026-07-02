@@ -84,7 +84,7 @@ export const PopularCategories: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-white text-balance" style={{ letterSpacing: '-0.02em' }}>
             Our most-booked help
           </h2>
-          <p className="text-white/55 text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
+          <p className="text-white/70 text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
             Tap a step to book in seconds — or search for anything else up top.
           </p>
         </motion.div>
@@ -174,7 +174,7 @@ export const PopularCategories: React.FC = () => {
           })}
         </motion.div>
 
-        <p className="text-center text-white/45 text-sm mt-10">
+        <p className="text-center text-white/60 text-sm mt-10">
           No payment until a helper accepts · money-back guarantee
         </p>
       </div>

@@ -506,7 +506,7 @@ export const JoinAsHelper: React.FC = () => {
 
                     <div className="space-y-2.5">
                       <Consent checked={agreeChecks} onChange={setAgreeChecks}>
-                        I'm 18 or over, have the right to work in Ireland, and consent to ID + background verification.
+                        I'm 18 or over, have the right to work in Ireland, and consent to photo-ID + selfie verification.
                       </Consent>
                       <Consent checked={agreeTerms} onChange={setAgreeTerms}>
                         I agree to VANO's <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-sage-dark underline underline-offset-2">terms</a> and helper code of conduct.
@@ -569,7 +569,7 @@ export const JoinAsHelper: React.FC = () => {
             </div>
 
             <p className="text-center text-xs text-muted-foreground">
-              We'll WhatsApp you within 24 hours.{' '}
+              Verify your ID right after this — most helpers are approved within minutes.{' '}
               <a href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi VANO, I'm a student and I'd like to start doing household jobs.")}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">
                 Prefer to text us?
               </a>

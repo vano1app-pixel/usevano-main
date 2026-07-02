@@ -172,12 +172,12 @@ export const HelperCards: React.FC = () => {
             <p className="text-xs text-muted-foreground max-w-xs">
               Students who sign up will be featured right here. Join today and be first.
             </p>
-            <a
-              href="/join"
+            <Link
+              to="/join"
               className="mt-2 inline-flex items-center rounded-full bg-primary text-primary-foreground px-5 py-2 text-sm font-semibold hover:-translate-y-px transition-transform duration-150"
             >
               Join as a helper →
-            </a>
+            </Link>
           </div>
         </div>
       ) : (

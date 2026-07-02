@@ -53,8 +53,8 @@ const HouseholdHome: React.FC = () => {
       <main>
         <HeroSection />
         <ActivityTicker />
-        {/* How it works (honest + simple), then real helper faces — so the
-            bigger monthly ask below only comes once the visitor gets it. These
+        {/* How it works (honest + simple), then real helper faces — trust is
+            established before the most-booked tiles ask for the tap. These
             two plus the hero are the full-screen snap sections (data-snap):
             each fills the viewport, gently snaps, and carries its own scroll
             cue that walks to the next section. `relative` anchors the cue. */}
@@ -65,6 +65,10 @@ const HouseholdHome: React.FC = () => {
             dispatch vano:select-category, which the hero's CategoryGrid catches
             to open the shared booking sheet. */}
         <PopularCategories />
+        {/* No testimonial section by owner's call: the seed reviews read as
+            fake, and there aren't enough real household_ratings yet to carry
+            it. ReviewCarousel + the reviewer_name/area attribution plumbing
+            stay built — remount once genuine reviews exist to fill it. */}
         <Reveal><FAQSection /></Reveal>
         {/* The "Give €5, get €5" referral card lives on the Account tab and the
             post-booking tracking page now — not on the marketing home, where it

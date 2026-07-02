@@ -34,6 +34,15 @@ serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user?.id || !user.email) return json(401, { error: 'Not signed in' });
 
+    // Claiming a helper application is done by email match, so the email MUST be
+    // verified — otherwise someone could sign up with a pending applicant's
+    // email (unconfirmed) and take over their application. Google-OAuth logins
+    // are already verified; email/OTP logins must have confirmed.
+    const provider = (user.app_metadata as { provider?: string } | undefined)?.provider;
+    const emailConfirmed = !!(user.email_confirmed_at || user.confirmed_at
+      || (provider && provider !== 'email'));
+    if (!emailConfirmed) return json(403, { error: 'Please verify your email first' });
+
     const email = user.email.toLowerCase();
     const supabase = createClient(url, serviceKey);
 

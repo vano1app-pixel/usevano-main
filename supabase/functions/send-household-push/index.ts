@@ -195,6 +195,19 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Server-to-server only (called by householdPush.ts / notify-* with the
+    // service-role key). Without this guard anyone holding the public anon key
+    // could fire spoofed "on the way / arrived / complete" pushes at a customer
+    // and probe which bookings have subscriptions. No legitimate client calls
+    // this directly.
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!serviceRoleKey || authHeader !== `Bearer ${serviceRoleKey}`) {
+      return new Response(JSON.stringify({ error: "forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { booking_id, status } = await req.json();
     if (!booking_id || typeof booking_id !== "string") {
       return new Response(JSON.stringify({ error: "booking_id required" }), {

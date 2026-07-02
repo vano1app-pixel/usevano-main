@@ -15,7 +15,9 @@ const EMOJI: Record<string, string> = {
   garden:     '🌿',
   moving:     '📦',
   cleaning:   '🧹',
+  laundry:    '🧺',
   tutoring:   '📚',
+  custom:     '✨',
 };
 
 const SERVICE_LABEL: Record<string, string> = {
@@ -24,7 +26,9 @@ const SERVICE_LABEL: Record<string, string> = {
   garden:     'Garden',
   moving:     'Moving help',
   cleaning:   'Cleaning',
+  laundry:    'Laundry',
   tutoring:   'Tutoring',
+  custom:     'Home help', // quick-search bookings land as `custom` — never show the raw slug
 };
 
 // Seeds use non-round offsets so they don't feel generated.
@@ -36,7 +40,9 @@ const SEEDS: TickerItem[] = [
   { emoji: '🌿', service: 'Garden',      area: 'Renmore',       baseMinsAgo: 38,  fetchedAt: NOW },
   { emoji: '📦', service: 'Moving help', area: "Taylor's Hill", baseMinsAgo: 67,  fetchedAt: NOW },
   { emoji: '🛒', service: 'Shopping',    area: 'Shantalla',     baseMinsAgo: 94,  fetchedAt: NOW },
-  { emoji: '📚', service: 'Tutoring',    area: 'Westside',      baseMinsAgo: 121, fetchedAt: NOW },
+  // No tutoring seed — tutoring is online/adults-only now, so an area-tagged
+  // in-person framing would misrepresent the service.
+  { emoji: '🧺', service: 'Laundry',     area: 'Westside',      baseMinsAgo: 121, fetchedAt: NOW },
   { emoji: '🧹', service: 'Cleaning',    area: 'Rahoon',        baseMinsAgo: 148, fetchedAt: NOW },
   { emoji: '🐕', service: 'Dog walk',    area: 'Salthill',      baseMinsAgo: 173, fetchedAt: NOW },
 ];
@@ -66,15 +72,11 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
   useEffect(() => {
     (async () => {
       try {
-        const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        // Non-PII activity via a SECURITY DEFINER RPC (category + area + time
+        // only) — the anon role can no longer read household_bookings directly,
+        // so the ticker can never leak a customer name, address or phone.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (supabase as any)
-          .from('household_bookings')
-          .select('category, city, created_at')
-          .in('status', ['accepted', 'in_progress', 'completed'])
-          .gte('created_at', cutoff)
-          .order('created_at', { ascending: false })
-          .limit(12);
+        const { data } = await (supabase as any).rpc('recent_household_activity');
 
         if (data && data.length >= 4) {
           const fetchedAt = Date.now();

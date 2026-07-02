@@ -151,8 +151,8 @@ export const HelperPublicProfile: React.FC = () => {
       <SEOHead
         title={helper ? `${firstName} — VANO helper in ${helper.city}` : 'VANO helper profile'}
         description={helper
-          ? `Meet ${firstName}, a vetted student helper on VANO in ${helper.city}. ${helper.accepted_count} tasks completed. Book same-day home help in minutes.`
-          : 'Meet a vetted VANO student helper. Book same-day home help in minutes.'}
+          ? `Meet ${firstName}, an ID-verified student helper on VANO in ${helper.city}. ${helper.accepted_count} tasks completed. Book same-day home help in minutes.`
+          : 'Meet an ID-verified VANO student helper. Book same-day home help in minutes.'}
         url={`https://vanojobs.com/helpers/${id ?? ''}`}
         type="profile"
       />
@@ -213,7 +213,7 @@ export const HelperPublicProfile: React.FC = () => {
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
                     <span className="inline-flex items-center gap-1 rounded-full bg-sage-light text-sage-dark text-[11px] font-semibold px-2.5 py-1">
-                      <ShieldCheck className="w-3 h-3" /> Vetted by VANO
+                      <ShieldCheck className="w-3 h-3" /> ID-verified by VANO
                     </span>
                     {/* The card the customer just clicked promised "ID-verified" —
                         the deeper trust page must match it, not show less. */}
@@ -262,7 +262,7 @@ export const HelperPublicProfile: React.FC = () => {
                        instead of a hollow "0" that reads as an empty profile. */
                     <>
                       <ShieldCheck className="w-4 h-4 text-sage" aria-hidden="true" />
-                      <p className="text-[11px] text-muted-foreground font-medium mt-1">Vetted</p>
+                      <p className="text-[11px] text-muted-foreground font-medium mt-1">ID-verified</p>
                     </>
                   )}
                 </div>
@@ -342,7 +342,7 @@ export const HelperPublicProfile: React.FC = () => {
             <motion.section variants={cardItem} className="bg-sage-light rounded-3xl border border-sage/20 p-6 text-center">
               <ShieldCheck className="w-6 h-6 text-sage mx-auto mb-2" aria-hidden="true" />
               <p className="text-sm text-foreground/80 leading-relaxed max-w-sm mx-auto">
-                Every VANO helper is personally vetted before their first job.
+                Every VANO helper passes photo-ID and selfie verification before their first job.
                 Not happy with a task? You don't pay.
               </p>
               <Link

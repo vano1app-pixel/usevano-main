@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
 // ── Inlined CORS ──────────────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -91,6 +92,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Rate limit: returns a phone's referral credit balance and mints code
+    // rows, so throttle to stop balance-enumeration and row spam.
+    if (!await allowRequest(supabase, 'get-referral-code', clientIp(req), 20, 600)) {
+      return bad(429, 'Too many requests — please wait a minute and try again.');
+    }
 
     // Existing code for this phone, or mint one (retry on the rare collision).
     let code: string | null = null;

@@ -87,11 +87,11 @@ const HINTS = [
   'clean the house',
   'walk the dog',
   'tidy the garden',
-  'mount a TV',
+  'build flat-pack furniture',
   'paint the spare room',
   'help move a sofa',
   'an hour of ironing',
-  'fix a leaky tap',
+  'clean the oven',
 ];
 
 
@@ -148,7 +148,7 @@ function applyScheduledDiscount(cents: number): number {
 
 function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
   const lines = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
-  if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : `today at ${when}`}`);
+  if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
   if (size) lines.push(`Duration: ${size}`);
   lines.push('Can you let me know who is available?');
   return lines.join('\n');
@@ -371,7 +371,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
           scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
           note:             note ?? '',
           ...(extraLabel ? { extra_label: extraLabel } : {}),
-          customer_name:    'Guest', // name collected by Stripe at checkout
+          customer_name:    'Guest', // quick sheet doesn't ask for a name (pay happens later, so Stripe never collects one either)
           customer_phone:   phoneClean,
           customer_email:   null,
           customer_address: address.trim(),
@@ -468,10 +468,12 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center hover:bg-foreground/12 transition-colors flex-shrink-0 mt-0.5"
+              className="w-11 h-11 -mt-1.5 -mr-1.5 rounded-full flex items-center justify-center flex-shrink-0 group/close"
               aria-label="Close"
             >
-              <X className="w-4 h-4 text-foreground/60" />
+              <span className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center group-hover/close:bg-foreground/12 transition-colors">
+                <X className="w-4 h-4 text-foreground/60" />
+              </span>
             </button>
           </div>
 
@@ -491,7 +493,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 <button
                   type="button"
                   onClick={forgetMe}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-3 -mx-3 -my-3"
                 >
                   Clear
                 </button>
@@ -517,7 +519,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   <button
                     type="button"
                     onClick={() => setEditDetails(true)}
-                    className="text-[11px] font-semibold text-sage-dark flex-shrink-0"
+                    className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
                   >
                     Edit
                   </button>
@@ -671,7 +673,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 <button
                   type="button"
                   onClick={() => setCityAuto(false)}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-3 -mx-3 -my-3"
                 >
                   Change
                 </button>
@@ -684,7 +686,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 <button
                   type="button"
                   onClick={() => setShowArea(true)}
-                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors"
+                  className="text-[11px] font-semibold text-foreground/45 hover:text-foreground/70 underline underline-offset-2 flex-shrink-0 transition-colors px-3 py-3 -mx-3 -my-3"
                 >
                   Change
                 </button>
@@ -693,7 +695,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
               <motion.div variants={listItem}>
                 <div className="flex items-center justify-between mb-2.5">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
-                  <button type="button" onClick={() => setShowArea(false)} className="text-[11px] font-semibold text-sage-dark">Done</button>
+                  <button type="button" onClick={() => setShowArea(false)} className="text-[11px] font-semibold text-sage-dark px-3 py-3 -mx-3 -my-3">Done</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {(SUPPORTED_CITIES.includes(city as typeof SUPPORTED_CITIES[number])
@@ -948,7 +950,7 @@ export const CategoryGrid: React.FC = () => {
       emoji: job.emoji,
       label,
       slug: 'custom',
-      hint: 'A vetted student, matched to your job',
+      hint: 'An ID-verified student, matched to your job',
       description: note,
     };
     openSheet(customCat, { size, note, extraLabel: label });
@@ -1071,7 +1073,7 @@ export const CategoryGrid: React.FC = () => {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { setQuery(''); setJob(null); setActiveIndex(0); setOpen(true); inputRef.current?.focus(); }}
                 aria-label="Clear"
-                className="relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+                className="relative z-10 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1158,19 +1160,20 @@ export const CategoryGrid: React.FC = () => {
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 className="surface-float mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
               >
-                <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2.5">
                   <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">
                     <span className="text-lg" aria-hidden="true">{job.emoji}</span>
                     <span className="truncate">{job.label}</span>
                   </span>
-                  <select
-                    value={size}
-                    onChange={(e) => setSize(e.target.value)}
-                    aria-label="How long"
-                    className="flex-shrink-0 rounded-lg border border-border bg-white text-xs font-semibold px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-foreground/20"
-                  >
-                    {durationOptions.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                </div>
+                {/* Duration — the same pill chips as the booking sheet, so "how
+                    long?" looks and behaves identically everywhere it's asked */}
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1 mb-3" role="group" aria-label="How long">
+                  {durationOptions.map((d) => (
+                    <Chip key={d} group="front-duration" active={size === d} onClick={() => setSize(d)}>
+                      {d}
+                    </Chip>
+                  ))}
                 </div>
                 {showComparison ? (
                   <>

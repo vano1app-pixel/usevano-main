@@ -321,6 +321,10 @@ serve(async (req) => {
         } : {}),
         'payment_intent_data[capture_method]': 'automatic',
         'payment_intent_data[metadata][household_booking_id]': booking_id,
+        // Stripe's own itemised receipt (amount + line items) — the only
+        // written proof of charge a customer gets unless they added an email
+        // later, so send it whenever we have an address to send it to.
+        ...(booking.customer_email ? { 'payment_intent_data[receipt_email]': String(booking.customer_email).toLowerCase() } : {}),
         // Save the card for future off-session use — the foundation for
         // "card on file → auto-charge" so repeat bookings need no pay step.
         // Additive: doesn't change what's charged now, just stores the method

@@ -16,7 +16,7 @@ import { ScrollCue } from './ScrollCue';
  */
 
 const TRUST = [
-  { icon: ShieldCheck, text: 'ID-verified & vetted',  short: 'ID-verified & vetted' },
+  { icon: ShieldCheck, text: 'ID-verified students', short: 'ID-verified students' },
   { icon: Eye,         text: 'You see them first',    short: 'You see them first' },
   { icon: CreditCard,  text: 'Protected payment',     short: 'Protected payment' },
   { icon: BadgeCheck,  text: 'Money-back guarantee',  short: 'Money-back guarantee' },

@@ -339,6 +339,8 @@ type StripeCheckoutSession = {
   client_reference_id?: string;
   subscription?: string;
   customer?: string;
+  /** Total charged in cents — used so the confirmation email states the amount. */
+  amount_total?: number;
   metadata?: Record<string, string | undefined>;
   customer_details?: { email?: string | null; name?: string | null; phone?: string | null };
 };
@@ -925,6 +927,11 @@ async function handleHouseholdPostAcceptPayment(
   };
   const catLabel = categoryLabels[b.category ?? ''] ?? b.category ?? 'job';
   const ref = bookingId.slice(-8).toUpperCase();
+  // A confirmation that never states the amount isn't a receipt — show what
+  // was actually charged (Stripe's session total includes the service fee).
+  const paidStr = typeof session.amount_total === 'number' && session.amount_total > 0
+    ? `€${(session.amount_total / 100).toFixed(2)}`
+    : null;
   const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
   const trackUrl = `${siteUrl}/track/${bookingId}`;
   const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
@@ -948,12 +955,13 @@ async function handleHouseholdPostAcceptPayment(
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there'},</p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Your <strong>${catLabel}</strong> is fully confirmed — helper booked, payment sorted. Nothing more to do. You'll get a message (with a live map) when your helper is on the way.</p>
+    ${paidStr ? `<p style="margin:0 0 24px;color:#111827;font-size:15px;"><strong>Amount paid: ${paidStr}</strong> <span style="color:#6b7280;font-size:13px;">(held safely until you confirm the job's done)</span></p>` : ''}
     <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Track your booking →</a>
     <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there'}, payment received — your ${catLabel} is fully confirmed. Track: ${trackUrl}. Ref: ${ref}`,
+            text: `Hi ${b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there'}, payment received${paidStr ? ` (${paidStr})` : ''} — your ${catLabel} is fully confirmed. Track: ${trackUrl}. Ref: ${ref}`,
           }),
         });
       } catch (e) {

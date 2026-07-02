@@ -289,13 +289,35 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const booking = payload?.record ?? payload;
-    const { id: bookingId, city, status, category, scheduled_date, price_estimate_cents } = booking;
+    const inbound = payload?.record ?? payload;
+    const bookingId = inbound?.id;
     // Quiet mode (re-dispatch rounds): revive offers + re-ping pocket channels
     // (web push + WhatsApp + SMS) so a missed offer gets a real second chance.
     // Only the repeat *email* is suppressed — the original "View & Accept" links
     // keep working once offers are live, and repeat emails read as spam.
-    const quiet = booking?.quiet === true || payload?.quiet === true;
+    const quiet = inbound?.quiet === true || payload?.quiet === true;
+
+    if (!bookingId) {
+      return new Response('Missing booking id', { status: 400 });
+    }
+
+    // SECURITY: never trust booking fields from the request body — a caller
+    // could fake a 'pending' status / inflated price to drive helper SMS/push
+    // spam. Load the authoritative row from the DB and use ITS values. If the
+    // booking doesn't exist or isn't pending, there's nothing to dispatch.
+    const { data: dbBooking } = await supabase
+      .from('household_bookings')
+      .select('id, city, status, category, scheduled_date, price_estimate_cents')
+      .eq('id', bookingId)
+      .maybeSingle();
+
+    if (!dbBooking) {
+      return new Response('Booking not found — skipping', { status: 200 });
+    }
+    const { city, status, category, scheduled_date, price_estimate_cents } = dbBooking as {
+      city: string | null; status: string; category: string;
+      scheduled_date: string | null; price_estimate_cents: number | null;
+    };
     // Students respond to money: show what they'd keep (95% of the job).
     const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
       ? Math.floor(price_estimate_cents * 0.95)
@@ -303,9 +325,6 @@ serve(async (req) => {
 
     if (status !== 'pending') {
       return new Response('Not a pending booking — skipping', { status: 200 });
-    }
-    if (!bookingId) {
-      return new Response('Missing booking id', { status: 400 });
     }
 
     // Expire any stale pending offers so re-dispatch isn't blocked by the idempotency check.
@@ -327,17 +346,25 @@ serve(async (req) => {
       return new Response('Offers already sent', { status: 200 });
     }
 
+    // 'custom' is the search-bar catch-all (every "name any job" booking).
+    // Helpers can't pick 'custom' as a category on the join form, so filtering
+    // by it would match NOBODY and silently kill the entire search-bar funnel
+    // — custom jobs are everyday tasks any approved helper can do, so they
+    // fan out to everyone available. Real categories still filter as before.
+    const isCatchAll = category === 'custom';
+
     // Find helpers in the booking city first (bookings without a city skip
     // straight to the platform-wide search below).
     let helpers: Array<{ id: string; name: string; phone: string; email?: string; user_id?: string }> | null = null;
     if (city) {
-      const { data: cityHelpers, error: helpersError } = await supabase
+      let cityQuery = supabase
         .from('household_helpers')
         .select('id, name, phone, email, user_id')
         .eq('city', city)
         .eq('status', 'approved')
-        .eq('is_available', true)
-        .contains('categories', [category])
+        .eq('is_available', true);
+      if (!isCatchAll) cityQuery = cityQuery.contains('categories', [category]);
+      const { data: cityHelpers, error: helpersError } = await cityQuery
         .order('accepted_count', { ascending: true })
         .limit(MAX_OFFERS);
 
@@ -353,12 +380,13 @@ serve(async (req) => {
     // No helpers in city — fall back to ALL approved helpers on the platform.
     if (!helpers || helpers.length === 0) {
       console.warn(`[dispatch] no helpers in ${city ?? 'unknown city'} for ${bookingId} — expanding to platform-wide search`);
-      const { data: allHelpers, error: allErr } = await supabase
+      let allQuery = supabase
         .from('household_helpers')
         .select('id, name, phone, email, user_id')
         .eq('status', 'approved')
-        .eq('is_available', true)
-        .contains('categories', [category])
+        .eq('is_available', true);
+      if (!isCatchAll) allQuery = allQuery.contains('categories', [category]);
+      const { data: allHelpers, error: allErr } = await allQuery
         .order('accepted_count', { ascending: true })
         .limit(MAX_OFFERS);
 

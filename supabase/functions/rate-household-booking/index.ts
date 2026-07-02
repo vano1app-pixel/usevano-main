@@ -31,7 +31,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, status, student_id')
+      .select('id, status, student_id, customer_name, city')
       .eq('id', booking_id)
       .maybeSingle();
 
@@ -41,6 +41,16 @@ serve(async (req) => {
     }
 
     const studentId = (booking as Record<string, unknown>).student_id as string | null;
+
+    // Reviewer attribution for the homepage review wall: first name only
+    // (quick-book customers are 'Guest' — those stay anonymous) plus the
+    // booking's area. Denormalized here so the anon-readable ratings table
+    // never needs a join into bookings.
+    const rawName = ((booking as Record<string, unknown>).customer_name as string | null)?.trim() ?? '';
+    const reviewerName = rawName && rawName.toLowerCase() !== 'guest'
+      ? rawName.split(/\s+/)[0].slice(0, 40)
+      : null;
+    const reviewerArea = ((booking as Record<string, unknown>).city as string | null)?.trim() || null;
 
     let helperId: string | null = null;
     let helperName: string | null = null;
@@ -61,6 +71,8 @@ serve(async (req) => {
       helper_id: helperId,
       rating,
       comment: typeof comment === 'string' ? comment.trim().slice(0, 300) || null : null,
+      reviewer_name: reviewerName,
+      area: reviewerArea,
     });
 
     if (insertErr) {

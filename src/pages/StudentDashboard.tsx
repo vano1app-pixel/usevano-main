@@ -126,6 +126,8 @@ const StudentDashboard = () => {
 
   // Availability toggle — only shown when the user has a linked household_helpers row
   const [helperId, setHelperId] = useState<string | null>(null);
+  // Needed by cancel-helper-subscription, which verifies phone against helper_id
+  const [helperPhone, setHelperPhone] = useState<string | null>(null);
   const [helperAvailable, setHelperAvailable] = useState<boolean | null>(null);
   const [helperCity, setHelperCity] = useState<string | null>(null);
   const [helperCategories, setHelperCategories] = useState<string[]>([]);
@@ -181,7 +183,7 @@ const StudentDashboard = () => {
       setUserId(uid);
 
       // Load helper profile first so we can filter jobs by city + categories
-      const HELPER_SELECT = 'id, name, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in';
+      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in';
       let { data: helperRow } = await hdb
         .from('household_helpers')
         .select(HELPER_SELECT)
@@ -204,6 +206,7 @@ const StudentDashboard = () => {
       const categories = (helperRow?.categories as string[] | null) ?? [];
       if (!cancelled && helperRow) {
         setHelperId(helperRow.id as string);
+        setHelperPhone((helperRow.phone as string | null) ?? null);
         setHelperAvailable(helperRow.is_available as boolean);
         setHelperCity(city);
         setHelperCategories(categories);
@@ -483,7 +486,12 @@ const StudentDashboard = () => {
   const handleLeave = async () => {
     setLeaving(true);
     try {
-      const { error } = await supabase.functions.invoke('cancel-helper-subscription');
+      // The function verifies the phone against the helper row — calling it
+      // with no body 400s every time, which is why cancel used to "not work".
+      if (!helperId || !helperPhone) throw new Error('missing helper identity');
+      const { error } = await supabase.functions.invoke('cancel-helper-subscription', {
+        body: { helper_id: helperId, phone: helperPhone },
+      });
       if (error) throw error;
       await supabase.auth.signOut();
       navigate('/', { replace: true });
@@ -722,8 +730,14 @@ const StudentDashboard = () => {
                             </p>
                           </div>
                           {job.price_estimate_cents && (
-                            <span className="text-lg font-bold text-foreground tabular-nums flex-shrink-0">
-                              €{(job.price_estimate_cents / 100).toFixed(0)}
+                            // 95% net — the same "Earn €X" number as the push/
+                            // WhatsApp offer, so the app never shows a bigger
+                            // figure than the notification that brought them in
+                            <span className="flex flex-col items-end flex-shrink-0">
+                              <span className="text-lg font-bold text-foreground tabular-nums">
+                                €{Math.floor((job.price_estimate_cents * 0.95) / 100)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground font-medium">you keep</span>
                             </span>
                           )}
                         </div>
@@ -1030,20 +1044,21 @@ const StudentDashboard = () => {
                     </div>
                   </section>
 
-                  {/* Subscription */}
+                  {/* Account — signup is a one-off €2 verification fee, NOT a
+                      recurring subscription, so don't call it one here */}
                   <section>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Subscription</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Account</p>
                     <div className="rounded-2xl border border-border/60 px-4 py-3.5 flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-foreground">VANO membership</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Active plan</p>
+                        <p className="text-sm font-medium text-foreground">Helper account</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Approved & active</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setShowLeave(true)}
                         className="text-xs text-destructive font-semibold px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/5 active:scale-95 transition-transform"
                       >
-                        Cancel
+                        Leave VANO
                       </button>
                     </div>
                   </section>
@@ -1176,7 +1191,7 @@ const StudentDashboard = () => {
               </div>
               <h2 className="text-lg font-bold text-foreground mb-2">Leave VANO?</h2>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                This will cancel your monthly subscription and remove you from the platform. Any pending payouts will still be transferred.
+                This removes your helper profile from the platform — you'll stop receiving job offers. Any pending payouts will still be transferred to you.
               </p>
               <div className="space-y-2.5">
                 <button

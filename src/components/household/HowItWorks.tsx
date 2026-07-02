@@ -2,9 +2,11 @@ import React from 'react';
 import { motion, type Variants } from 'framer-motion';
 
 /**
- * How it works — three honest steps on a clean white band. Replaced the
- * testimonial carousel: seeded reviews read as fake, so rather than fake
- * social proof this just explains the (genuinely simple) process.
+ * How it works — three honest steps on a clean white band, explaining the
+ * (genuinely simple) process before any social proof is asked for. The
+ * ReviewCarousel lives further down the page: real household_ratings replace
+ * its seed testimonials as they come in, and only real ones carry the
+ * "Verified booking" badge.
  * Plain by design — white background, black type — but it springs to life
  * on scroll so it never reads as a static block.
  */
@@ -12,7 +14,7 @@ import { motion, type Variants } from 'framer-motion';
 const STEPS = [
   { n: '1', title: 'Search what you need', lines: ['Type any job', 'See a fair price'] },
   { n: '2', title: 'Book in seconds',      lines: ['Drop your number', 'Pay only when a helper accepts'] },
-  { n: '3', title: 'A vetted student does it', lines: ['Shows up & does the job', "Paid only when you're happy"] },
+  { n: '3', title: 'An ID-verified student does it', lines: ['Shows up & does the job', "Paid only when you're happy"] },
 ];
 
 const container: Variants = {

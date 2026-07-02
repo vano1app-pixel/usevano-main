@@ -176,7 +176,6 @@ const StudentJobDetail = () => {
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
-  const [capturing, setCapturing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sharingLocation, setSharingLocation] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -522,26 +521,6 @@ const StudentJobDetail = () => {
     const next = NEXT_STATUS[booking.status];
     if (!next) return;
 
-    const isComplete = next.status === 'completed';
-
-    if (isComplete) {
-      setCapturing(true);
-      try {
-        const { error } = await supabase.functions.invoke('capture-household-payment', {
-          body: { booking_id: bookingId },
-        });
-        if (error) throw error;
-        stopLocationWatch();
-        setBooking((b) => b ? { ...b, status: 'completed' } : b);
-        toast({ title: 'Job complete — payment captured' });
-      } catch (err) {
-        toast({ title: 'Could not complete job', description: getUserFriendlyError(err), variant: 'destructive' });
-      } finally {
-        setCapturing(false);
-      }
-      return;
-    }
-
     setAdvancing(true);
 
     const bookingUpdate: Record<string, unknown> = { status: next.status };
@@ -579,18 +558,9 @@ const StudentJobDetail = () => {
       }).catch(() => {});
     }
 
-    // Ping admin when helper arrives so they know the job has started
-    if (!updateRes.error && next.status === 'arrived') {
-      supabase.functions.invoke('notify-admin-whatsapp', {
-        body: {
-          type: 'helper_arrived',
-          booking_id: bookingId,
-          category: booking.category,
-          customer_name: booking.customer_name,
-          city: (booking.booking_data?.city as string | undefined) ?? '',
-        },
-      }).catch(() => {});
-    }
+    // (Admin arrival ping is handled server-side by household-arrival now; the
+    // old client call here was dead — this status machine only advances to
+    // 'on_way' — and notify-admin-whatsapp is service-role-only.)
 
     if (updateRes.error) {
       toast({ title: 'Update failed', description: getUserFriendlyError(updateRes.error), variant: 'destructive' });
@@ -881,11 +851,12 @@ const StudentJobDetail = () => {
           </div>
         )}
 
-        {/* I've reached — generates the customer's arrival code. Available from
-            'accepted' too, so a helper who's already on site (or skipped the
-            "on my way" step) can still start the arrival-code handshake. Gated
-            on payment so no one starts an unpaid job. */}
-        {mine && !needsPayment && (booking.status === 'accepted' || booking.status === 'on_way') && (
+        {/* I've reached — generates the customer's arrival code. Primary only
+            once the helper is on the way; at 'accepted' it appears as a quiet
+            shortcut BELOW "I'm on my way" (see the status button), so the
+            live-tracking step doesn't get skipped just because this button
+            rendered first. Gated on payment so no one starts an unpaid job. */}
+        {mine && !needsPayment && booking.status === 'on_way' && (
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => void handleReached()}
@@ -1036,21 +1007,37 @@ const StudentJobDetail = () => {
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => void advanceStatus()}
-            disabled={advancing || capturing}
+            disabled={advancing}
             className={cn(
               'w-full h-14 rounded-full font-semibold text-base flex items-center justify-center gap-2 mb-6',
               'transition-[background-color,opacity] duration-150',
-              next.status === 'completed'
-                ? 'bg-sage text-white hover:bg-sage-dark disabled:opacity-50'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50',
+              'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50',
             )}
           >
-            {(advancing || capturing) ? (
+            {advancing ? (
               <Loader2 size={18} className="animate-spin" />
             ) : (
               next.label
             )}
           </motion.button>
+        )}
+
+        {/* Why "on my way" matters + the already-on-site shortcut. The primary
+            button above starts live GPS sharing — that's what powers the
+            customer's watch-them-approach map, so it leads and this follows. */}
+        {mine && !needsPayment && booking.status === 'accepted' && (
+          <div className="-mt-3 mb-6">
+            <p className="text-center text-[11px] text-muted-foreground mb-2">
+              Starts live tracking — the customer watches you approach on their map
+            </p>
+            <button
+              onClick={() => void handleReached()}
+              disabled={reaching}
+              className="w-full h-11 rounded-full border border-border bg-background text-sm font-semibold text-foreground/80 flex items-center justify-center gap-2 hover:bg-secondary/60 disabled:opacity-50 transition-[background-color,opacity] duration-150"
+            >
+              {reaching ? <Loader2 size={15} className="animate-spin" /> : <><MapPin size={15} />Already at the door? I've reached</>}
+            </button>
+          </div>
         )}
 
         {/* Safety — report a problem during a live job (straight to a person) */}

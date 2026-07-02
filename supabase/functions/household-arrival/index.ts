@@ -35,6 +35,56 @@ function buildCorsHeaders(req: Request) {
 }
 function isOriginAllowed(req: Request) { return !req.headers.get('Origin') || matchOrigin(req) !== null; }
 
+// ── Pocket channel (WhatsApp-first, SMS fallback) ─────────────────────────
+// Arrival used to be web-push-only, but push doesn't reach an iPhone customer
+// in a Safari tab — and this is the one moment the customer MUST act (read
+// out the 4-digit start code) or the helper is stuck at the door. Same
+// Twilio pattern as notify-household-on-way.
+function normalizeIrishPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[\s\-().]/g, '');
+  if (cleaned.startsWith('+')) return /^\+\d{8,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const c = '+' + cleaned.slice(2);
+    return /^\+\d{8,15}$/.test(c) ? c : null;
+  }
+  if (/^08[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned.slice(1);
+  if (/^8[3-9]\d{7}$/.test(cleaned)) return '+353' + cleaned;
+  return null;
+}
+async function sendPocketMessage(to: string | null | undefined, body: string): Promise<boolean> {
+  const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
+  const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
+  if (!sid || !token) return false;
+  const e164 = normalizeIrishPhone(to);
+  if (!e164) return false;
+  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
+  if (waFrom) {
+    const fromWa = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+    try {
+      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ To: `whatsapp:${e164}`, From: fromWa, Body: body }).toString(),
+      });
+      if (!resp.ok) console.warn('[arrival:whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
+      return resp.ok;
+    } catch (e) { console.warn('[arrival:whatsapp] twilio exception', e); return false; }
+  }
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
+  const fromSms = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+  if (!fromSms || fromSms.startsWith('whatsapp:')) return false;
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ To: e164, From: fromSms, Body: body }).toString(),
+    });
+    if (!resp.ok) console.warn('[arrival:sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
+    return resp.ok;
+  } catch (e) { console.warn('[arrival:sms] twilio exception', e); return false; }
+}
+
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   const json = (status: number, payload: Record<string, unknown>) =>
@@ -68,9 +118,9 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name')
+      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name, customer_phone')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null } | null; error: unknown };
+      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null; customer_phone: string | null } | null; error: unknown };
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
@@ -97,9 +147,19 @@ serve(async (req) => {
 
       await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'arrived', note: 'Helper reached the address — awaiting arrival code.' });
 
-      // Best-effort web push to the customer — only on the first arrival, not
-      // on a code re-request (status already 'arrived'). Never blocks the flow.
-      if (booking.status !== 'arrived') void sendHouseholdPush(bookingId, 'arrived');
+      // Best-effort web push + pocket message to the customer — only on the
+      // first arrival, not on a code re-request (status already 'arrived').
+      // The WhatsApp/SMS matters: push doesn't reach iPhone Safari tabs, and
+      // without the tracking link the customer never sees the start code and
+      // the helper is stuck at the door. Never blocks the flow.
+      if (booking.status !== 'arrived') {
+        void sendHouseholdPush(bookingId, 'arrived');
+        const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+        void sendPocketMessage(
+          booking.customer_phone,
+          `👋 Your VANO helper is at the door! Open your booking to get the 4-digit start code and read it out to them: ${siteUrl}/track/${bookingId}`,
+        );
+      }
 
       return json(200, { ok: true, status: 'arrived' });
     }

@@ -26,7 +26,7 @@ const inputClass =
  *   2. verify ID (Stripe Identity, document + selfie)
  *   3. pay the €2 sign-up fee
  * Passing all three auto-approves them (DB trigger). This is what makes the
- * homepage's "ID-checked & vetted" promise real.
+ * homepage's "ID-verified" promise real.
  */
 const VerifyHelper: React.FC = () => {
   const params = new URLSearchParams(window.location.search);

@@ -1,12 +1,14 @@
 // Shared job-type logic for the household flow (Deno edge functions).
 //
-// Only four live categories are "timed" (booked and paid by the hour, with the
-// helper working at the customer's home): cleaning, tutoring, garden, moving.
-// Everything else (laundry, dog-walk) is one-off and finishes when the
-// household taps "mark done".
+// "Timed" categories are booked and paid by the hour, so they get a
+// job_ends_at countdown: the legacy tiles (cleaning, tutoring, garden,
+// moving) AND `custom` — every search-bar booking lands as `custom` with an
+// hourly size_label ("2 hours", "30 min"), so it's timed too. Without it the
+// entire live front door would silently skip the countdown. One-off jobs
+// (laundry, dog-walk) finish when the household taps "mark done".
 
 export const TIMED_CATEGORIES = new Set([
-  'cleaning', 'tutoring', 'garden', 'moving',
+  'cleaning', 'tutoring', 'garden', 'moving', 'custom',
 ]);
 
 export function isTimedCategory(category: string): boolean {
