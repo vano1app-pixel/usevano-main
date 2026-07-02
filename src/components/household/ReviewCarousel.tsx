@@ -47,14 +47,14 @@ const SEED_REVIEWS: Review[] = [
   },
   {
     text:  "Cleaned the whole house top to bottom. Not bad at all — a couple of small spots missed but overall happy.",
-    name:  'Orla C.',    area: 'Castlebar',     color: 'bg-orange-100 text-orange-700', stars: 4,
+    name:  'Orla C.',    area: 'Moycullen',     color: 'bg-orange-100 text-orange-700', stars: 4,
   },
   {
     text:  "Got someone to help shift furniture into a new house. Showed up on time, worked hard, no complaints.",
     name:  'Tomás F.',   area: 'Tuam',          color: 'bg-indigo-100 text-indigo-700', stars: 5,
   },
   {
-    text:  "Booked a Maths tutor for my daughter — she actually understood it by the end. Will be booking again.",
+    text:  "Student came and built all the flat-pack for the spare room in one go. Would've taken me a week.",
     name:  'Nuala D.',   area: 'Galway City',   color: 'bg-pink-100 text-pink-700',     stars: 5,
   },
 ];
@@ -89,19 +89,24 @@ function useReviews(): Review[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('household_ratings')
-      .select('rating, comment, created_at')
+      .select('rating, comment, created_at, reviewer_name, area')
       .gte('rating', 4)
       .not('comment', 'is', null)
       .order('created_at', { ascending: false })
       .limit(8)
-      .then(({ data }: { data: { rating: number; comment: string | null; created_at: string }[] | null }) => {
+      .then(({ data }: { data: { rating: number; comment: string | null; created_at: string; reviewer_name: string | null; area: string | null }[] | null }) => {
         if (cancelled || !data) return;
         const real: Review[] = data
           .filter(r => (r.comment ?? '').trim().length >= 8)
           .map((r, i) => ({
             text:     r.comment!.trim(),
-            name:     'VANO customer',
-            area:     relativeTime(r.created_at),
+            // Real attribution when the booking carried a name (first name
+            // only, written at rating time) — anonymous quick-bookers show
+            // as "VANO customer" with their area, never a made-up name.
+            name:     r.reviewer_name?.trim() || 'VANO customer',
+            area:     r.area?.trim()
+              ? `${r.area.trim()} · ${relativeTime(r.created_at)}`
+              : relativeTime(r.created_at),
             color:    REAL_COLORS[i % REAL_COLORS.length],
             stars:    r.rating,
             verified: true,
