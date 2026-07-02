@@ -107,3 +107,24 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.accept-autopilot-plan]
     verify_jwt = false
+
+# --- verify_jwt pins (added so the deploy workflow reproduces the exact
+# live settings and never flips a function's gateway auth). These were
+# previously deployed with verify_jwt=false via the Supabase MCP but had no
+# config block, so a repo-wide `functions deploy` would otherwise default
+# them to true. All have JWT-bearing callers, but we pin to avoid any
+# behaviour change. ---
+  [functions.create-household-booking]
+    verify_jwt = false
+  [functions.remind-unpaid-bookings]
+    verify_jwt = false
+  [functions.household-arrival]
+    verify_jwt = false
+  [functions.partner-program]
+    verify_jwt = false
+  [functions.attach-referral-code]
+    verify_jwt = false
+  [functions.admin-cancel-helper-memberships]
+    verify_jwt = false
+  [functions.update-stripe-webhook-events]
+    verify_jwt = false
