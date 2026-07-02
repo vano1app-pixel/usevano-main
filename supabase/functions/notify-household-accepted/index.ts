@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
+import {
+  renderHouseholdEmail, emailBox, emailButton, emailP, escapeHtml,
+  sendHouseholdEmail, BRAND,
+} from "../_shared/householdEmail.ts";
 
 // Called by StudentDashboard after a helper claims a booking.
 // Pay-after-accept: creates the Stripe Checkout session for the booking
@@ -18,13 +22,6 @@ function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&');
-}
-
-// Customer/helper names come from free-text form fields — escape before
-// interpolating into email HTML.
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ── SMS via Twilio ────────────────────────────────────────────────────────────────────────────
@@ -437,10 +434,12 @@ serve(async (req) => {
     const resendKey  = Deno.env.get('RESEND_API_KEY')?.trim();
     if (!resendKey) return ok({ ok: true, emailed: false, reason: 'no_api_key' });
 
-    const from       = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+    // Brand domain default — the Resend sandbox fallback bounces for anyone
+    // but the account owner, which is exactly when you least want to find out.
+    const from       = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <noreply@vanojobs.com>';
     const siteUrl    = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
     const trackUrl   = `${siteUrl}/track/${booking_id}`;
-    const catLabel   = CATEGORY_LABELS[booking.category as string] ?? String(booking.category);
+    const catLabel   = CATEGORY_LABELS[booking.category as string] ?? 'booking';
     const rawCustName = String(booking.customer_name || '');
     const custName   = rawCustName && rawCustName !== 'Guest' ? rawCustName : 'there';
     const ref        = booking_id.slice(-8).toUpperCase();
@@ -462,73 +461,55 @@ serve(async (req) => {
       helperRating ? `&#9733; ${Number(helperRating).toFixed(1)}` : null,
       helperJobs > 0 ? `${helperJobs} task${helperJobs === 1 ? '' : 's'} done` : null,
     ].filter(Boolean).join(' &middot; ');
-    const helperCard = helperId ? `
-    <table cellpadding="0" cellspacing="0" style="width:100%;background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;margin:0 0 24px;">
-      <tr>
-        ${helperPhoto ? `<td style="padding:14px 0 14px 16px;width:64px;vertical-align:middle;"><img src="${escapeHtml(helperPhoto)}" alt="${helperNameHtml}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
-        <td style="padding:14px 16px;vertical-align:middle;">
-          <p style="margin:0;color:#111827;font-size:15px;font-weight:700;">${helperNameHtml}</p>
-          ${ratingBits ? `<p style="margin:2px 0 0;color:#4b5563;font-size:13px;">${ratingBits}</p>` : ''}
-          <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:#4a7c59;font-weight:600;text-decoration:none;">View ${helperNameHtml}'s profile &rarr;</a></p>
+    const helperCard = helperId ? emailBox(`
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+        ${helperPhoto ? `<td style="width:64px;vertical-align:middle;"><img src="${escapeHtml(helperPhoto)}" alt="${helperNameHtml}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
+        <td style="vertical-align:middle;">
+          <p style="margin:0;color:${BRAND.ink};font-size:15px;font-weight:700;">${helperNameHtml}</p>
+          ${ratingBits ? `<p style="margin:2px 0 0;color:${BRAND.muted};font-size:13px;">${ratingBits}</p>` : ''}
+          <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:${BRAND.sage};font-weight:600;text-decoration:none;">View ${helperNameHtml}'s profile &rarr;</a></p>
         </td>
-      </tr>
-    </table>` : '';
+      </tr></table>`) : '';
 
+    const isUnpaid = !!payUrl && !booking.paid_at;
     const discountLine = appliedDiscountCents > 0
-      ? `<p style="margin:0 0 14px;color:#4a7c59;font-size:13px;font-weight:600;">🎁 €${(appliedDiscountCents / 100).toFixed(0)} referral discount applied</p>`
+      ? `<p style="margin:0 0 12px;color:${BRAND.sage};font-size:13px;font-weight:600;">🎁 €${(appliedDiscountCents / 100).toFixed(0)} referral discount applied</p>`
       : '';
+    const payBox = isUnpaid ? emailBox(`
+      <p style="margin:0 0 4px;color:${BRAND.ink};font-size:15px;font-weight:700;">Secure your booking — €${(totalCents / 100).toFixed(2)}</p>
+      ${discountLine}
+      <p style="margin:0 0 14px;color:${BRAND.muted};font-size:13px;line-height:1.5;">Pay securely by card to confirm ${helperNameHtml}. Your money's protected until the job's done — no cash needed on the day.</p>
+      ${emailButton({ label: `Confirm &amp; pay €${(totalCents / 100).toFixed(2)} →`, url: payUrl! })}`) : '';
 
-    // Inbox preview line (hidden in the body) — the hook, not "Hi there,".
-    const preheader = payUrl && !booking.paid_at
+    const preheader = isUnpaid
       ? `Pay €${(totalCents / 100).toFixed(2)} to lock in ${helperFirstName} — then watch them arrive on the live map.`
       : `${helperFirstName} is confirmed — track your booking live.`;
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Helper confirmed</title></head><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(preheader)}</div>
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0 0 4px;color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;">Helper confirmed</p>
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${helperNameHtml} is on your job ✓</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custNameHtml},</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperNameHtml}</strong> has accepted your <strong>${catLabelHtml}</strong>${whenLineHtml ? ' for <strong>' + whenLineHtml + '</strong>' : ''}.
-    </p>
-    ${helperCard}
-    ${payUrl && !booking.paid_at ? `
-    <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
-      <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">Secure your booking — €${(totalCents / 100).toFixed(2)}</p>
-      ${discountLine}
-      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">Pay securely by card to confirm ${helperNameHtml}. Your money's protected until the job's done — no cash needed on the day.</p>
-      <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Confirm &amp; pay €${(totalCents / 100).toFixed(2)} →</a>
-    </div>` : ''}
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-      You'll get another message when they're on their way — including a <strong>live map</strong> so you can track exactly where they are.
-    </p>
-    <a href="${trackUrl}" style="display:inline-block;background:${payUrl && !booking.paid_at ? '#f3f4f6' : '#4a7c59'};color:${payUrl && !booking.paid_at ? '#374151' : '#fff'};font-size:14px;font-weight:600;padding:13px 28px;border-radius:100px;text-decoration:none;${payUrl && !booking.paid_at ? 'border:1px solid #e5e7eb;' : ''}">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
-  </div>
-</div>
-</body></html>`;
+    const html = renderHouseholdEmail({
+      preheader,
+      eyebrow: 'Helper confirmed',
+      heading: `${helperNameHtml} is on your job ✓`,
+      bodyHtml: [
+        emailP(`Hi ${custNameHtml},`),
+        emailP(`<strong>${helperNameHtml}</strong> has accepted your <strong>${catLabelHtml}</strong>${whenLineHtml ? ` for <strong>${whenLineHtml}</strong>` : ''}.`),
+        helperCard,
+        payBox,
+        emailP(`You'll get another message when they're on their way — including a <strong>live map</strong> so you can watch exactly where they are.`, { last: true }),
+      ].join(''),
+      ctas: [{ label: 'Track booking →', url: trackUrl, variant: isUnpaid ? 'quiet' : 'primary' }],
+      footerNote: `Ref: ${ref}`,
+    });
 
     let emailedOk = false;
     if (hasCustomerEmail) {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from,
-          to: [booking.customer_email as string],
-          subject: payUrl && !booking.paid_at
-            ? `${helperFirstName} accepted your ${catLabel} — confirm & pay €${(totalCents / 100).toFixed(2)}`
-            : `${helperFirstName} is on your ${catLabel} — VANO`,
-          html,
-          text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}.${payUrl && !booking.paid_at ? ` Confirm & pay €${(totalCents / 100).toFixed(2)}${appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : ''} securely here: ${payUrl}.` : ''} Track: ${trackUrl}. Ref: ${ref}`,
-        }),
+      emailedOk = await sendHouseholdEmail({
+        to: booking.customer_email as string,
+        subject: isUnpaid
+          ? `${helperFirstName} accepted your ${catLabel} — confirm & pay €${(totalCents / 100).toFixed(2)}`
+          : `${helperFirstName} is on your ${catLabel} — VANO`,
+        html,
+        text: `Hi ${custName}, ${helperFirstName} has accepted your ${catLabel}${whenLine ? ' for ' + whenLine : ''}.${isUnpaid ? ` Confirm & pay €${(totalCents / 100).toFixed(2)}${appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : ''} securely here: ${payUrl}.` : ''} Track: ${trackUrl}. Ref: ${ref}`,
       });
-      if (!res.ok) console.warn('[notify-household-accepted] Resend error', res.status, await res.text());
-      emailedOk = res.ok;
     }
 
     const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();

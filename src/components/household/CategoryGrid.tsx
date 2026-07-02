@@ -335,11 +335,11 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   const phoneValid = isValidPhone(phone);
   const addressValid = !!address.trim();
 
-  const ctaLabel = [
-    `Book ${cat.label}`,
-    size || null,
-    priceLabel,
-  ].filter(Boolean).join(' · ');
+  // The CTA must stay readable at every label length — long custom-job names
+  // ("Window cleaning (inside & ground floor)") were overflowing and clipping
+  // the button. The job name already heads the sheet and sits in the summary
+  // row, so the button carries only the action + price.
+  const ctaLabel = priceLabel ? `Book now · ${priceLabel}` : 'Book now';
 
   function sendWhatsApp() {
     const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(cat, when, size))}`;

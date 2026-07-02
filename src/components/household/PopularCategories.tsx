@@ -85,7 +85,7 @@ export const PopularCategories: React.FC = () => {
             Our most-booked help
           </h2>
           <p className="text-white/70 text-sm sm:text-base mt-3 max-w-md mx-auto text-pretty">
-            Tap a step to book in seconds — or search for anything else up top.
+            Tap a service to book in seconds — or search for anything else up top.
           </p>
         </motion.div>
 

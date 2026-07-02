@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  renderHouseholdEmail, emailBox, emailButton, emailP, escapeHtml,
+  categoryLabel, greetName, sendHouseholdEmail, BRAND,
+} from "../_shared/householdEmail.ts";
 
 // ── Inlined CORS ──────────────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -52,14 +56,6 @@ function isOriginAllowed(req: Request): boolean {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
-  handyman: 'Handyman', plumbing: 'Plumbing help',
-  'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery', other: 'General help',
-};
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -114,46 +110,37 @@ serve(async (req) => {
     // the opt-in itself.
     const emailPromise = (async () => {
       try {
-        const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
-        if (!resendKey) return;
-        const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
         const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
         const trackUrl = `${siteUrl}/track/${bookingId}`;
-        const name = (updated as { customer_name?: string }).customer_name || 'there';
-        const catLabel = CATEGORY_LABELS[(updated as { category?: string }).category ?? ''] ?? 'booking';
+        const name = greetName((updated as { customer_name?: string }).customer_name);
+        const catLabel = categoryLabel((updated as { category?: string }).category);
         const payUrl = (updated as { stripe_checkout_url?: string | null }).stripe_checkout_url;
         const isPaid = !!(updated as { paid_at?: string | null }).paid_at;
+        const hasPayStep = !!payUrl && !isPaid;
 
-        const payBlock = payUrl && !isPaid ? `
-    <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
-      <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">Your helper is confirmed — payment pending</p>
-      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">Pay securely by card to lock in your booking.</p>
-      <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Confirm &amp; pay →</a>
-    </div>` : '';
+        const payBlock = hasPayStep ? emailBox(`
+          <p style="margin:0 0 4px;color:${BRAND.ink};font-size:15px;font-weight:700;">Your helper is confirmed — payment pending</p>
+          <p style="margin:0 0 14px;color:${BRAND.muted};font-size:13px;line-height:1.5;">Pay securely by card to lock in your booking.</p>
+          ${emailButton({ label: 'Confirm &amp; pay →', url: payUrl! })}`) : '';
 
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from,
-            to: [email],
-            subject: `You're on the list — VANO ${catLabel} updates`,
-            html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">Email updates on ✓</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${name},</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">You'll now get every update for your <strong>${catLabel}</strong> by email — helper confirmation, payment link and receipt.</p>
-    ${payBlock}
-    <a href="${trackUrl}" style="display:inline-block;background:${payBlock ? '#f3f4f6' : '#4a7c59'};color:${payBlock ? '#374151' : '#fff'};font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;${payBlock ? 'border:1px solid #e5e7eb;' : ''}">Track your booking →</a>
-    <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Ref: ${bookingId.slice(-8).toUpperCase()}</p>
-  </div>
-</div>
-</body></html>`,
-            text: `Hi ${name}, you'll now get every update for your ${catLabel} by email.${payUrl && !isPaid ? ` Your helper is confirmed — pay securely here: ${payUrl}.` : ''} Track: ${trackUrl}`,
+        await sendHouseholdEmail({
+          to: email,
+          subject: `You're on the list — VANO ${catLabel} updates`,
+          html: renderHouseholdEmail({
+            preheader: hasPayStep
+              ? 'Your helper is confirmed — one quick payment locks them in.'
+              : `Every update on your ${catLabel} lands here from now on.`,
+            eyebrow: 'Email updates',
+            heading: 'Email updates on ✓',
+            bodyHtml: [
+              emailP(`Hi ${escapeHtml(name)},`),
+              emailP(`You'll now get every update for your <strong>${escapeHtml(catLabel)}</strong> by email — helper confirmation, payment link and receipt.`, { last: true }),
+              payBlock,
+            ].join(''),
+            ctas: [{ label: 'Track your booking →', url: trackUrl, variant: hasPayStep ? 'quiet' : 'primary' }],
+            footerNote: `Ref: ${bookingId.slice(-8).toUpperCase()}`,
           }),
+          text: `Hi ${name}, you'll now get every update for your ${catLabel} by email.${hasPayStep ? ` Your helper is confirmed — pay securely here: ${payUrl}.` : ''} Track: ${trackUrl}`,
         });
       } catch (e) {
         console.warn('[set-booking-email] confirmation email error', e);

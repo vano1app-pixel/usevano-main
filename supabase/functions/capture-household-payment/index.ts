@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
+import {
+  renderHouseholdEmail, emailBox, emailP, escapeHtml, categoryLabel,
+  greetName, sendHouseholdEmail, BRAND,
+} from "../_shared/householdEmail.ts";
 
 // Completes a household job and releases the helper's payout. INTERNAL ONLY —
 // the customer's "mark done" (complete-household-job), the admin path
@@ -180,11 +184,13 @@ serve(async (req) => {
     }
 
     const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
-    const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+    // Admin email only (customer email goes via sendHouseholdEmail). Brand-domain
+    // default — Resend's sandbox fallback bounces for anyone but the account owner.
+    const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <noreply@vanojobs.com>';
     const siteUrl = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
-    const catLabels: Record<string,string> = { shopping:'Laundry','dog-walk':'Dog walk',garden:'Garden help',moving:'Moving help',cleaning:'Cleaning',tutoring:'Tutoring',other:'General help' };
-    const catLabel = catLabels[(booking as Record<string,unknown>).category as string] ?? 'job';
-    const custName = String((booking as Record<string,unknown>).customer_name ?? 'there');
+    const catLabel = categoryLabel((booking as Record<string,unknown>).category as string | null);
+    const custName = String((booking as Record<string,unknown>).customer_name ?? 'there'); // admin/WhatsApp surfaces — unchanged
+    const custGreet = greetName((booking as Record<string,unknown>).customer_name as string | null); // never "Hi Guest"
     const custEmail = (booking as Record<string,unknown>).customer_email as string|null;
     const ref = bookingId.slice(-8).toUpperCase();
     const trackUrl = `${siteUrl}/track/${bookingId}`;
@@ -196,43 +202,34 @@ serve(async (req) => {
     // Customer "all done" email — the rating ask. Each star deep-links into
     // the tracking page with that rating pre-selected (?rate=N).
     if (resendKey && custEmail) {
+      // Star deep-links preserved exactly — TrackBooking prefills ?rate=N.
       const stars = [1, 2, 3, 4, 5].map(n =>
         `<a href="${trackUrl}?rate=${n}" style="text-decoration:none;font-size:30px;line-height:1;color:#f5b301;padding:0 3px;">&#9733;</a>`
       ).join('');
-      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">All done! &#10003;</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirst}</strong> has completed your <strong>${catLabel}</strong>. Payment was handled upfront — nothing more to do.
-    </p>
-    <div style="background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;padding:20px;text-align:center;margin:0 0 24px;">
-      <p style="margin:0 0 10px;color:#111827;font-size:15px;font-weight:700;">How was ${helperFirst}?</p>
-      <p style="margin:0 0 4px;">${stars}</p>
-      <p style="margin:8px 0 0;color:#6b7280;font-size:12px;">Tap a star — takes 10 seconds and helps ${helperFirst} get more work.</p>
-    </div>
-    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.6;">
-      Questions or need anything else? WhatsApp us:
-      <a href="https://wa.me/353899817111" style="color:#4a7c59;">+353 89 981 7111</a>
-    </p>
-    <p style="margin:0;color:#9ca3af;font-size:12px;">Thanks for using VANO &middot; Ref: ${ref}</p>
-  </div>
-</div>
-</body></html>`;
-      fetch('https://api.resend.com/emails', {
-        method:'POST',
-        headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'},
-        body: JSON.stringify({
-          from,
-          to:[custEmail],
-          subject:`Your ${catLabel} is complete — how was ${helperFirst}?`,
-          html,
-          text:`Hi ${custName}, ${helperFirst} has completed your ${catLabel}. Payment was handled upfront. How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
-        }),
-      }).catch(()=>{});
+      // HTML-safe variants for interpolation (raw values stay in text/subject).
+      const custNameHtml   = escapeHtml(custGreet);
+      const helperNameHtml = escapeHtml(helperFirst);
+      const catLabelHtml   = escapeHtml(catLabel);
+      const html = renderHouseholdEmail({
+        preheader: `${helperFirst} has finished your ${catLabel} — tap a star to say thanks (takes 10 seconds).`,
+        eyebrow: 'Job complete',
+        heading: 'All done! ✓',
+        bodyHtml: [
+          emailP(`Hi ${custNameHtml},`),
+          emailP(`<strong>${helperNameHtml}</strong> has completed your <strong>${catLabelHtml}</strong>. Payment was handled upfront — nothing more to do.`),
+          emailBox(`
+      <p style="margin:0 0 10px;color:${BRAND.ink};font-size:15px;font-weight:700;text-align:center;">How was ${helperNameHtml}?</p>
+      <p style="margin:0 0 4px;text-align:center;">${stars}</p>
+      <p style="margin:8px 0 0;color:${BRAND.faint};font-size:12px;text-align:center;">Tap a star — takes 10 seconds and helps ${helperNameHtml} get more work.</p>`),
+        ].join(''),
+        footerNote: `Thanks for using VANO · Ref: ${ref}`,
+      });
+      void sendHouseholdEmail({
+        to: custEmail,
+        subject:`Your ${catLabel} is complete — how was ${helperFirst}?`,
+        html,
+        text:`Hi ${custGreet}, ${helperFirst} has completed your ${catLabel}. Payment was handled upfront. How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
+      });
     }
 
     const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();

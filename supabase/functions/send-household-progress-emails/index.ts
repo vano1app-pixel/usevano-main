@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  renderHouseholdEmail, emailP, escapeHtml, categoryLabel, greetName,
+  sendHouseholdEmail,
+} from "../_shared/householdEmail.ts";
 
 // Deliveroo-style progress emails — sent every ~10 minutes while a helper
 // is on the way. Calculates real distance between helper and customer using
@@ -41,24 +45,10 @@ function etaDescription(km: number): { line: string; subjectDist: string } {
   };
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
-  handyman: 'Handyman', plumbing: 'Plumbing help',
-  'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery', 'post-office': 'Post office run',
-  'pharmacy-run': 'Pharmacy run', 'grocery-shopping': 'Grocery shopping',
-  'dog-walking': 'Dog walking', 'lawn-mowing': 'Lawn mowing',
-  'moving-help': 'Moving help', 'outdoor-cleaning': 'Outdoor cleaning',
-  'tutoring-grinds': 'Tutoring & grinds', 'midnight-lift': 'Midnight Lift',
-  custom: 'Home help', other: 'General help',
-};
-
 serve(async (_req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const resendKey   = Deno.env.get('RESEND_API_KEY')?.trim();
-  const from        = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
   const siteUrl     = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
 
   if (!resendKey) {
@@ -98,10 +88,8 @@ serve(async (_req) => {
     );
 
     const { line: etaLine, subjectDist } = etaDescription(km);
-    const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'booking';
-    // Quick-book leaves customer_name as 'Guest' — never greet with that.
-    const rawName   = String(b.customer_name || '');
-    const custName  = rawName && rawName !== 'Guest' ? rawName : 'there';
+    const catLabel  = categoryLabel(b.category as string);
+    const custName  = greetName(b.customer_name as string | null);
     const trackUrl  = `${siteUrl}/track/${b.id}`;
     const ref       = String(b.id).slice(-8).toUpperCase();
 
@@ -125,41 +113,37 @@ serve(async (_req) => {
       }
     }
 
-    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:28px 32px 20px;">
-    <p style="margin:0 0 4px;color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;">Live update · ${catLabel}</p>
-    <p style="margin:0;color:#fff;font-size:20px;font-weight:700;">📍 ${helperFirst} is ${subjectDist}</p>
-  </div>
-  <div style="padding:24px 32px;">
-    <p style="margin:0 0 12px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${etaLine}</p>
-    <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;">See live map →</a>
-    <p style="margin:16px 0 0;color:#d1d5db;font-size:11px;">Ref: ${ref} · You'll get one update every ~10 minutes</p>
-  </div>
-</div>
-</body></html>`;
+    // HTML-safe variants for interpolation (raw values stay in text/subject).
+    const custNameHtml    = escapeHtml(custName);
+    const helperFirstHtml = escapeHtml(helperFirst);
+
+    const html = renderHouseholdEmail({
+      preheader: `${helperFirst} is ${subjectDist} — follow the last stretch on the live map.`,
+      eyebrow: `Live update · ${escapeHtml(catLabel)}`,
+      heading: `📍 ${helperFirstHtml} is ${subjectDist}`,
+      bodyHtml: [
+        emailP(`Hi ${custNameHtml},`),
+        emailP(etaLine, { last: true }),
+      ].join(''),
+      ctas: [{ label: 'See live map →', url: trackUrl }],
+      footerNote: `Ref: ${ref} · You'll get one update every ~10 minutes`,
+    });
 
     try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from,
-          to: [b.customer_email as string],
-          subject: `${helperFirst} is ${subjectDist} — VANO`,
-          html,
-          text: `Hi ${custName}, ${etaLine} Track here: ${trackUrl}`,
-        }),
+      const sendOk = await sendHouseholdEmail({
+        to: b.customer_email as string,
+        subject: `${helperFirst} is ${subjectDist} — VANO`,
+        html,
+        text: `Hi ${custName}, ${etaLine} Track here: ${trackUrl}`,
       });
-      if (res.ok) {
+      if (sendOk) {
         await supabase
           .from('household_bookings')
           .update({ last_progress_email_at: new Date().toISOString() })
           .eq('id', b.id);
         sent++;
       } else {
-        console.warn('[progress-emails] Resend error for', b.id, res.status);
+        console.warn('[progress-emails] Resend send failed for', b.id);
       }
     } catch (e) {
       console.warn('[progress-emails] send threw for', b.id, e);

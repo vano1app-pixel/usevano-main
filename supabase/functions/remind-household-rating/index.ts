@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  renderHouseholdEmail, emailBox, emailP, escapeHtml, categoryLabel,
+  greetName, sendHouseholdEmail, BRAND,
+} from "../_shared/householdEmail.ts";
 
 // Hourly cron: one-time "how was your helper?" reminder for completed
 // bookings that never got rated. Sent 24h–7d after completion; each
@@ -8,18 +12,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //
 // Schedule (pg_cron): 15 * * * *  → POST /functions/v1/remind-household-rating
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
-};
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 serve(async (_req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  // Sending goes through sendHouseholdEmail(), which owns the from-address
+  // (brand-domain default — the old sandbox fallback bounces for non-owners).
   const resendKey   = Deno.env.get('RESEND_API_KEY')?.trim();
-  const from        = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
   const siteUrl     = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
 
   if (!resendKey) {
@@ -93,44 +93,39 @@ serve(async (_req) => {
       if (helper?.name) helperFirst = helper.name.split(' ')[0];
     }
 
-    const custName = b.customer_name || 'there';
-    const catLabel = CATEGORY_LABELS[b.category ?? 'other'] ?? 'job';
+    const custName = greetName(b.customer_name); // never "Hi Guest"
+    const catLabel = categoryLabel(b.category);
     const trackUrl = `${siteUrl}/track/${b.id}`;
+    // Star deep-links preserved exactly — TrackBooking prefills ?rate=N.
     const stars = [1, 2, 3, 4, 5].map(n =>
       `<a href="${trackUrl}?rate=${n}" style="text-decoration:none;font-size:30px;line-height:1;color:#f5b301;padding:0 3px;">&#9733;</a>`
     ).join('');
 
-    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-      Quick one — how did <strong>${helperFirst}</strong> do on your <strong>${catLabel}</strong>?
-    </p>
-    <div style="background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;padding:20px;text-align:center;margin:0 0 20px;">
-      <p style="margin:0 0 4px;">${stars}</p>
-      <p style="margin:8px 0 0;color:#6b7280;font-size:12px;">Tap a star — takes 10 seconds and helps ${helperFirst} get more work.</p>
-    </div>
-    <p style="margin:0;color:#9ca3af;font-size:12px;">We'll only ask once. Thanks for using VANO.</p>
-  </div>
-</div>
-</body></html>`;
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from,
-        to: [b.customer_email],
-        subject: `How was ${helperFirst}? — VANO`,
-        html,
-        text: `Hi ${custName}, quick one — how did ${helperFirst} do on your ${catLabel}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — We'll only ask once. Thanks for using VANO.`,
-      }),
+    // HTML-safe variants for interpolation (raw values stay in text/subject).
+    const custNameHtml   = escapeHtml(custName);
+    const helperNameHtml = escapeHtml(helperFirst);
+    const catLabelHtml   = escapeHtml(catLabel);
+    const html = renderHouseholdEmail({
+      preheader: `Tap a star for ${helperFirst} — takes 10 seconds and helps them get more work.`,
+      eyebrow: 'Quick favour',
+      heading: `How was ${helperNameHtml}?`,
+      bodyHtml: [
+        emailP(`Hi ${custNameHtml},`),
+        emailP(`Quick one — how did <strong>${helperNameHtml}</strong> do on your <strong>${catLabelHtml}</strong>?`),
+        emailBox(`
+      <p style="margin:0 0 4px;text-align:center;">${stars}</p>
+      <p style="margin:8px 0 0;color:${BRAND.faint};font-size:12px;text-align:center;">Tap a star — takes 10 seconds and helps ${helperNameHtml} get more work.</p>`),
+      ].join(''),
+      footerNote: `We'll only ask once. Thanks for using VANO.`,
     });
-    if (!res.ok) {
-      console.warn('[remind-rating] Resend error', res.status, await res.text());
-      continue; // retry on a later run
-    }
+
+    const sentOk = await sendHouseholdEmail({
+      to: b.customer_email,
+      subject: `How was ${helperFirst}? — VANO`,
+      html,
+      text: `Hi ${custName}, quick one — how did ${helperFirst} do on your ${catLabel}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — We'll only ask once. Thanks for using VANO.`,
+    });
+    if (!sentOk) continue; // Resend error/exception already logged — retry on a later run
 
     closeOut.push(b.id);
     sent++;

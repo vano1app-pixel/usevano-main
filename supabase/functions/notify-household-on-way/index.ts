@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  renderHouseholdEmail, emailP, escapeHtml, categoryLabel, greetName,
+  sendHouseholdEmail,
+} from "../_shared/householdEmail.ts";
 
 // Tells the customer their helper is on the way across every channel we have:
 // WhatsApp/SMS (the main channel for phone-only quick-book customers), email
@@ -7,7 +11,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // fire-and-forget from StudentJobDetail when status advances to on_way.
 //
 // CORS, the web-push trigger and the SMS sender are inlined (rather than pulled
-// from ../_shared) so this deploys as one self-contained file.
+// from ../_shared); the customer email renders through the shared branded
+// template (../_shared/householdEmail.ts).
 //
 // Guards: valid student JWT, caller is the assigned student, booking already in
 // on_way status (the DB update happens before this is called).
@@ -116,19 +121,6 @@ async function sendSms(to: string | null | undefined, body: string): Promise<boo
   } catch (e) { console.warn('[on-way:sms] twilio exception', e); return false; }
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
-  handyman: 'Handyman', plumbing: 'Plumbing help',
-  'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery', 'post-office': 'Post office run',
-  'pharmacy-run': 'Pharmacy run', 'grocery-shopping': 'Grocery shopping',
-  'dog-walking': 'Dog walking', 'lawn-mowing': 'Lawn mowing',
-  'moving-help': 'Moving help', 'outdoor-cleaning': 'Outdoor cleaning',
-  'tutoring-grinds': 'Tutoring & grinds', 'midnight-lift': 'Midnight Lift',
-  custom: 'Custom job', other: 'General help',
-};
-
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -191,12 +183,10 @@ serve(async (req) => {
     }
 
     const resendKey  = Deno.env.get('RESEND_API_KEY')?.trim();
-    const from       = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
     const siteUrl    = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
     const trackUrl   = `${siteUrl}/track/${booking_id}`;
-    const catLabel   = CATEGORY_LABELS[booking.category as string] ?? String(booking.category);
-    const rawCustName = String(booking.customer_name || '');
-    const custName   = rawCustName && rawCustName !== 'Guest' ? rawCustName : 'there';
+    const catLabel   = categoryLabel(booking.category as string);
+    const custName   = greetName(booking.customer_name as string | null);
     const ref        = booking_id.slice(-8).toUpperCase();
 
     // -- SMS / WhatsApp the customer - main channel for phone-only customers --
@@ -210,39 +200,30 @@ serve(async (req) => {
     // -- Customer email (only when they left one) ----------------------------
     let emailed = false;
     if (resendKey && booking.customer_email) {
-      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0 0 4px;color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;">On the way</p>
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${helperFirstName} is heading to you 🚶</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 8px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirstName}</strong> is on their way for your <strong>${catLabel}</strong>.
-    </p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-      You can see their <strong>live location on the map</strong> and message them directly below.
-    </p>
-    <a href="${trackUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 28px;border-radius:100px;text-decoration:none;">Track live location →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
-  </div>
-</div>
-</body></html>`;
+      // HTML-safe variants for interpolation (raw values stay in text/subject).
+      const custNameHtml   = escapeHtml(custName);
+      const helperNameHtml = escapeHtml(helperFirstName);
+      const catLabelHtml   = escapeHtml(catLabel);
 
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from,
-          to: [booking.customer_email as string],
-          subject: `${helperFirstName} is on the way - VANO`,
-          html,
-          text: `Hi ${custName}, ${helperFirstName} is on their way for your ${catLabel}. Track their live location: ${trackUrl}`,
-        }),
+      const html = renderHouseholdEmail({
+        preheader: `Watch ${helperFirstName} approach on the live map — tap to track.`,
+        eyebrow: 'On the way',
+        heading: `${helperNameHtml} is heading to you 🚶`,
+        bodyHtml: [
+          emailP(`Hi ${custNameHtml},`),
+          emailP(`<strong>${helperNameHtml}</strong> is on their way for your <strong>${catLabelHtml}</strong>.`),
+          emailP(`You can see their <strong>live location on the map</strong> and message them directly below.`, { last: true }),
+        ].join(''),
+        ctas: [{ label: 'Track live location →', url: trackUrl }],
+        footerNote: `Ref: ${ref}`,
       });
-      emailed = res.ok;
-      if (!res.ok) console.warn('[notify-on-way] Resend error', res.status, await res.text());
+
+      emailed = await sendHouseholdEmail({
+        to: booking.customer_email as string,
+        subject: `${helperFirstName} is on the way — VANO`,
+        html,
+        text: `Hi ${custName}, ${helperFirstName} is on their way for your ${catLabel}. Track their live location: ${trackUrl}`,
+      });
     }
 
     // -- Admin WhatsApp ping -------------------------------------------------
