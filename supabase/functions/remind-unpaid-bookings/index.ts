@@ -251,7 +251,10 @@ serve(async (_req) => {
     const nudgeTag = count >= 1 ? ' (reminder)' : '';
 
     if (b.customer_phone) {
-      void sendCustomerSms(b.customer_phone, `VANO${nudgeTag}: ${helperFirst} is confirmed for your ${catLabel} — just complete your secure payment to lock them in: ${payUrl}`);
+      // Link the branded track page, not the raw Stripe URL — it carries the
+      // live "Pay €X to confirm" card (same checkout session) plus the map
+      // and helper profile, and the short link survives SMS/WhatsApp better.
+      void sendCustomerSms(b.customer_phone, `VANO${nudgeTag}: ${helperFirst} is confirmed for your ${catLabel} — just complete your secure payment to lock them in: ${trackUrl}`);
     }
     if (resendKey && b.customer_email) {
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
