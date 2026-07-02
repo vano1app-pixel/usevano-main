@@ -15,7 +15,6 @@ describe('custom job recogniser — clear phrasings map to the right job', () =>
     ['flat pack a chest of drawers', 'assembly'],
     ['flat-pack assembly of a desk', 'assembly'],
     ['hang a mirror and some shelves', 'mounting'],
-    ['dripping leaky tap in the kitchen', 'plumbing'],
     ['deep clean before guests arrive', 'deepclean'],
     ['end of tenancy clean for my deposit', 'tenancy'],
     ['degrease the oven and hob', 'oven'],
@@ -24,35 +23,22 @@ describe('custom job recogniser — clear phrasings map to the right job', () =>
     ['cut the grass this saturday', 'mowing'],
     ['trim the hedges', 'hedge'],
     ['power wash the driveway', 'powerwash'],
-    ['clear the gutters', 'gutters'],
     ['help load a van on saturday', 'vanhelp'],
     ['take a load of rubbish to the dump', 'tiprun'],
-    ['mount my television', 'tvmount'],
-    ['set up my tv', 'tvmount'],
+    ['set up my new tv', 'tvsetup'],
     ['fix the broadband router', 'wifi'],
     ['walk my dog', 'dog'],
     ['feed the cat while away', 'petsit'],
     ['collect a prescription from the pharmacy', 'postrun'],
     ['wait in for a delivery', 'waitin'],
-    ['a lift to the airport', 'lift'],
-    // The big expansion — the long tail now has real homes, not "Something else"
-    ['tile the kitchen splashback', 'tiling'],
-    ['lay laminate flooring in the hall', 'flooring'],
-    ['fit a new cat flap', 'catflap'],
-    ['bleed the radiators', 'radiator'],
-    ['replace a broken fence panel', 'fencing'],
+    // The long tail — safe everyday jobs still find real homes
     ['shampoo the living room carpet', 'carpetclean'],
     ['clean up after the builders', 'afterbuild'],
     ['turn around my airbnb between guests', 'airbnb'],
-    ['cut back some overhanging branches', 'treework'],
     ['rake up the autumn leaves', 'leafclear'],
     ['lay new turf in the back garden', 'turfing'],
     ['water my plants while away', 'watering'],
-    ['move a washing machine', 'whitegoods'],
-    ['help move an upright piano', 'piano'],
     ['a full house clearance', 'houseclearance'],
-    ['set up a security camera', 'cctv'],
-    ['no signal on the tv aerial', 'tvaerial'],
     ['do my weekly grocery shop', 'groceries'],
     ['wash and valet the car', 'carwash'],
     ['drop bags to the charity shop', 'charityshop'],
@@ -64,8 +50,6 @@ describe('custom job recogniser — clear phrasings map to the right job', () =>
     ['learn python coding online', 'coding'],
     ['set up a market stall for the day', 'markethelp'],
     ['tidy and tend a family grave', 'gravetend'],
-    ['take the dog to the vet', 'pettransport'],
-    ['muck out and feed the horses', 'horses'],
     ['feed the hens and clean the coop', 'chickens'],
     ['deliver flyers around the estate', 'flyering'],
     ['serving staff for a function', 'eventstaff'],
@@ -120,6 +104,31 @@ describe('custom job recogniser — only true gibberish falls back to "Something
       expect(matchCustomJob(phrase)).toBeNull();
     });
   }
+});
+
+describe('safety cull — helpers are ID-verified students, not tradespeople', () => {
+  // Trade/qualification work, ladder & roof jobs, dangerous solo lifts and
+  // driving-for-hire were removed from the catalogue. This is the contract
+  // that none of them quietly come back.
+  const BANNED_KEYS = [
+    'plumbing', 'tiling', 'flooring', 'carpet', 'fencing', 'decking',
+    'shedbuild', 'plastering', 'woodwork', 'lightfit', 'radiator',
+    'guttering', 'garagedoor', 'doors', 'sealing', 'catflap',
+    'gutters', 'treework', 'whitegoods', 'piano',
+    'tvmount', 'cctv', 'tvaerial',
+    'lift', 'pettransport', 'horses', 'courier',
+  ];
+
+  it('none of the removed jobs are in the catalogue', () => {
+    const keys = new Set(CUSTOM_JOBS.map((j) => j.key));
+    for (const k of BANNED_KEYS) expect(keys.has(k)).toBe(false);
+  });
+
+  it('trade-work phrasings no longer resolve to a bookable job', () => {
+    for (const phrase of ['fix a dripping tap', 'tile the splashback', 'muck out the horses']) {
+      expect(matchCustomJob(phrase)).toBeNull();
+    }
+  });
 });
 
 describe('custom job catalogue integrity', () => {

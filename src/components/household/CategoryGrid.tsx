@@ -87,11 +87,11 @@ const HINTS = [
   'clean the house',
   'walk the dog',
   'tidy the garden',
-  'mount a TV',
+  'build flat-pack furniture',
   'paint the spare room',
   'help move a sofa',
   'an hour of ironing',
-  'fix a leaky tap',
+  'clean the oven',
 ];
 
 
@@ -950,7 +950,7 @@ export const CategoryGrid: React.FC = () => {
       emoji: job.emoji,
       label,
       slug: 'custom',
-      hint: 'A vetted student, matched to your job',
+      hint: 'An ID-verified student, matched to your job',
       description: note,
     };
     openSheet(customCat, { size, note, extraLabel: label });
