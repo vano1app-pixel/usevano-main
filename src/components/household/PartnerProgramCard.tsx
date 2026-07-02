@@ -22,17 +22,19 @@ function euros(cents: number): string {
   return Number.isInteger(v) ? `€${v}` : `€${v.toFixed(2)}`;
 }
 
-const shareText = (link: string, pct: number) =>
-  `Earn money with VANO — sign up to do flexible student jobs (cleaning, dog walks, tutoring & more) in minutes. Use my link: ${link}`;
+// Written to be pasted straight into an Instagram story / WhatsApp group /
+// TikTok bio — leads with what the FRIEND gets, so it actually converts.
+const shareText = (link: string) =>
+  `I earn money on VANO doing flexible student jobs around Galway — cleaning, dog walks, tutoring, moving. ` +
+  `You pick your own hours and get paid straight to your bank. Join with my link 👇\n${link}`;
 
 /**
- * "Refer students & earn" — a self-serve partner card for a student union,
- * society, or anyone recruiting helpers. Enter an email, get a shareable code;
- * when a student signs up with it and completes paid jobs, you earn a commission
- * (default 5% of the job, out of VANO's cut — the student's pay is untouched).
- * No login: codes aren't secrets, and the email just keys your earnings.
+ * "Invite friends & earn 5%" — the friend-referral card for helpers. Share
+ * your link; when a friend joins and earns on VANO, you get 5% of everything
+ * they earn for their first year — paid from VANO's cut, on top of (never out
+ * of) the friend's full pay. Email keys the code; no login needed.
  */
-export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className }) => {
+export const PartnerProgramCard: React.FC<{ className?: string; prefillEmail?: string | null }> = ({ className, prefillEmail }) => {
   const [email,   setEmail]   = useState('');
   const [info,    setInfo]    = useState<PartnerInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,12 +51,14 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
     try { localStorage.setItem(EMAIL_KEY, addr); } catch { /* storage may be off */ }
   }
 
-  // Auto-load if we already know the partner's email on this device.
+  // Auto-load from the signed-in helper's email, falling back to the email
+  // this device used before.
   useEffect(() => {
     let saved = '';
     try { saved = localStorage.getItem(EMAIL_KEY) ?? ''; } catch { /* ignore */ }
-    if (saved && EMAIL_RE.test(saved)) { setEmail(saved); void load(saved); }
-  }, []);
+    const candidate = (prefillEmail ?? '').trim().toLowerCase() || saved;
+    if (candidate && EMAIL_RE.test(candidate)) { setEmail(candidate); void load(candidate); }
+  }, [prefillEmail]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,8 +75,8 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
 
   function share() {
     if (!info) return;
-    const text = shareText(info.link, info.commission_pct);
-    if (navigator.share) navigator.share({ title: 'Refer students to VANO', text, url: info.link }).catch(() => {});
+    const text = shareText(info.link);
+    if (navigator.share) navigator.share({ title: 'Join me on VANO', text, url: info.link }).catch(() => {});
     else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   }
 
@@ -85,12 +89,13 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
       className={`rounded-2xl border border-gold/30 bg-gold/[0.06] p-5 ${className ?? ''}`}
     >
       <div className="flex items-start gap-3.5 mb-4">
-        <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">🎓</span>
+        <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">💸</span>
         <div>
-          <p className="text-sm font-bold text-foreground">Refer students &amp; earn</p>
+          <p className="text-sm font-bold text-foreground">Invite friends, earn {info ? `${info.commission_pct}%` : '5%'} of what they earn</p>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-            Running a student union or society? Get a code — when students you bring in complete
-            jobs, you earn {info ? `${info.commission_pct}%` : '5%'} of each job, paid out to you.
+            Share your link on your story or group chat. When a friend joins and starts earning on VANO,
+            you get {info ? `${info.commission_pct}%` : '5%'} of everything they earn for their <strong>first year</strong> —
+            on top of their full pay, not out of it.
           </p>
         </div>
       </div>
@@ -101,14 +106,14 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
             type="email" inputMode="email" autoComplete="email"
             value={email}
             onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
-            placeholder="you@union.ie"
+            placeholder="your@email.ie"
             className="flex-1 min-w-0 rounded-xl border border-border bg-white px-3 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent"
           />
           <button
             type="submit" disabled={loading}
             className="btn-gold flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-navy disabled:opacity-50"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Get my code'}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Get my link'}
           </button>
         </form>
       ) : (
@@ -116,7 +121,7 @@ export const PartnerProgramCard: React.FC<{ className?: string }> = ({ className
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 mb-3">
             <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">
-              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Users className="w-3 h-3" />Signups</p>
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70"><Users className="w-3 h-3" />Friends</p>
               <p className="text-lg font-extrabold text-foreground tabular-nums leading-tight mt-0.5">{info.signups}</p>
             </div>
             <div className="rounded-xl bg-white border border-border px-3 py-2.5 text-center">

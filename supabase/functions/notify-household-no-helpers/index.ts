@@ -80,7 +80,7 @@ serve(async (_req) => {
     <a href="${waLink}" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;margin-bottom:12px;">Message us on WhatsApp →</a>
     <br>
     <a href="${trackUrl}" style="display:inline-block;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;border:1px solid #e5e7eb;">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Your payment is safe — full refund if we can't find anyone.</p>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · You haven't paid anything — you only pay once a helper is confirmed.</p>
   </div>
 </div>
 </body></html>`;

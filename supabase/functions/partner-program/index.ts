@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
-// Partner / referral program: returns (creating on first call) the shareable
-// code for a recruiter — a student union, society, or an existing helper — that
-// brings students onto VANO, plus their live earnings. When a recruited helper
-// completes a paid job, a DB trigger accrues commission (default 5% of the job,
-// out of VANO's cut). Codes aren't secrets, so a guest entry point is fine.
+// Friend-referral program: returns (creating on first call) the shareable
+// invite code for a helper (or anyone) who brings friends onto VANO, plus
+// their live earnings. When a referred friend completes a paid job within
+// their first 12 months, a DB trigger accrues 5% of what the friend EARNED
+// (their net payout) — funded from VANO's cut, never the friend's pay.
+// Codes aren't secrets, so a guest entry point is fine.
 
 const FALLBACK_ORIGINS = [
   'https://vanojobs.com', 'https://www.vanojobs.com',
@@ -76,6 +78,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Same IP budget as get-referral-code: stops bots minting junk codes or
+    // enumerating other people's earnings by email.
+    if (!await allowRequest(supabase, 'partner-program', clientIp(req), 20, 600)) {
+      return bad(429, 'Too many requests — please try again shortly.');
+    }
 
     // Existing code for this email, or mint one (retry on the rare collision).
     let codeRow: { id: string; code: string; commission_bps: number } | null = null;

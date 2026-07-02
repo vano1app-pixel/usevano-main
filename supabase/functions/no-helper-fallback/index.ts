@@ -110,14 +110,14 @@ serve(async (_req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">We're really sorry — we weren't able to find an available helper for your <strong>${catLabel}</strong> in time. Your booking has been cancelled.</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${refundOk ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.' : 'Please contact us and we will arrange your refund immediately.'}</p>
+    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${refundOk ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.' : "<strong>You haven't been charged</strong> — with VANO you only ever pay once a helper is confirmed."}</p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;">Want to try again? <a href="${siteUrl}" style="color:#4a7c59;font-weight:600;">Book here</a></p>
     <p style="margin:0;color:#374151;font-size:15px;">Or message us on WhatsApp: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
   </div>
 </div>
 </body></html>`,
-          text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${refundOk ? 'Full refund issued (5–7 days).' : 'Contact us about refund.'} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
+          text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${refundOk ? 'Full refund issued (5–7 days).' : "You haven't been charged — you only pay once a helper is confirmed."} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
         }),
       }).catch(() => {});
     }

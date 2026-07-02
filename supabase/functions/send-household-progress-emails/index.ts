@@ -43,7 +43,15 @@ function etaDescription(km: number): { line: string; subjectDist: string } {
 
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
+  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
+  handyman: 'Handyman', plumbing: 'Plumbing help',
+  'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
+  'wait-delivery': 'Wait for delivery', 'post-office': 'Post office run',
+  'pharmacy-run': 'Pharmacy run', 'grocery-shopping': 'Grocery shopping',
+  'dog-walking': 'Dog walking', 'lawn-mowing': 'Lawn mowing',
+  'moving-help': 'Moving help', 'outdoor-cleaning': 'Outdoor cleaning',
+  'tutoring-grinds': 'Tutoring & grinds', 'midnight-lift': 'Midnight Lift',
+  custom: 'Home help', other: 'General help',
 };
 
 serve(async (_req) => {
@@ -90,8 +98,10 @@ serve(async (_req) => {
     );
 
     const { line: etaLine, subjectDist } = etaDescription(km);
-    const catLabel  = CATEGORY_LABELS[b.category as string] ?? String(b.category);
-    const custName  = String(b.customer_name || 'there');
+    const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'booking';
+    // Quick-book leaves customer_name as 'Guest' — never greet with that.
+    const rawName   = String(b.customer_name || '');
+    const custName  = rawName && rawName !== 'Guest' ? rawName : 'there';
     const trackUrl  = `${siteUrl}/track/${b.id}`;
     const ref       = String(b.id).slice(-8).toUpperCase();
 

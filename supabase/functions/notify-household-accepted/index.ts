@@ -20,6 +20,13 @@ function formEncode(obj: Record<string, string>): string {
     .join('&');
 }
 
+// Customer/helper names come from free-text form fields — escape before
+// interpolating into email HTML.
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // ── SMS via Twilio ────────────────────────────────────────────────────────────────────────────
 // Quick-book customers usually leave only a phone number, so SMS is the main
 // channel for the pay link. Uses TWILIO_SMS_FROM if set (SMS-capable number
@@ -405,19 +412,24 @@ serve(async (req) => {
       if (profile?.display_name) helperFirstName = profile.display_name.split(' ')[0];
     }
 
-    // SMS the customer the pay link — most quick-book customers leave only a
+    // SMS/WhatsApp the customer — most quick-book customers leave only a
     // phone number, so this is the primary channel for the trust moment.
+    // The link is always the TRACK page, never the raw Stripe URL: it's
+    // short and branded, the big "Pay €X to confirm" card is right there
+    // (backed by the same checkout session), and the customer lands on the
+    // live map + helper profile instead of a bare card form.
     {
       const phone = booking.customer_phone as string | null;
       if (phone) {
         const siteUrlSms = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
+        const trackUrlSms = `${siteUrlSms}/track/${booking_id}`;
         const catSms = CATEGORY_LABELS[booking.category as string] ?? 'job';
         const discountSms = appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : '';
         const smsBody = payUrl && !booking.paid_at
-          ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely: ${payUrl}`
+          ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely, and watch them arrive live: ${trackUrlSms}`
           : autoCharged
-            ? `VANO: ${helperFirstName} accepted your ${catSms}! €${(totalCents / 100).toFixed(2)} was charged to your saved card. Track here: ${siteUrlSms}/track/${booking_id}`
-            : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${siteUrlSms}/track/${booking_id}`;
+            ? `VANO: ${helperFirstName} accepted your ${catSms}! €${(totalCents / 100).toFixed(2)} was charged to your saved card. Track here: ${trackUrlSms}`
+            : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${trackUrlSms}`;
         await sendSms(phone, smsBody);
       }
     }
@@ -439,6 +451,12 @@ serve(async (req) => {
     const slotStr = booking.time_slot ? ` ${SLOT_LABELS[booking.time_slot as string] ?? booking.time_slot}` : '';
     const whenLine = dateStr ? `${dateStr}${slotStr}` : '';
 
+    // HTML-safe variants for interpolation (raw values stay in text/subject).
+    const custNameHtml   = escapeHtml(custName);
+    const helperNameHtml = escapeHtml(helperFirstName);
+    const whenLineHtml   = escapeHtml(whenLine);
+    const catLabelHtml   = escapeHtml(catLabel);
+
     const profileUrl  = helperId ? `${siteUrl}/helpers/${helperId}` : null;
     const ratingBits  = [
       helperRating ? `&#9733; ${Number(helperRating).toFixed(1)}` : null,
@@ -447,11 +465,11 @@ serve(async (req) => {
     const helperCard = helperId ? `
     <table cellpadding="0" cellspacing="0" style="width:100%;background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;margin:0 0 24px;">
       <tr>
-        ${helperPhoto ? `<td style="padding:14px 0 14px 16px;width:64px;vertical-align:middle;"><img src="${helperPhoto}" alt="${helperFirstName}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
+        ${helperPhoto ? `<td style="padding:14px 0 14px 16px;width:64px;vertical-align:middle;"><img src="${escapeHtml(helperPhoto)}" alt="${helperNameHtml}" width="52" height="52" style="border-radius:50%;object-fit:cover;display:block;" /></td>` : ''}
         <td style="padding:14px 16px;vertical-align:middle;">
-          <p style="margin:0;color:#111827;font-size:15px;font-weight:700;">${helperFirstName}</p>
+          <p style="margin:0;color:#111827;font-size:15px;font-weight:700;">${helperNameHtml}</p>
           ${ratingBits ? `<p style="margin:2px 0 0;color:#4b5563;font-size:13px;">${ratingBits}</p>` : ''}
-          <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:#4a7c59;font-weight:600;text-decoration:none;">View ${helperFirstName}'s profile &rarr;</a></p>
+          <p style="margin:4px 0 0;font-size:13px;"><a href="${profileUrl}" style="color:#4a7c59;font-weight:600;text-decoration:none;">View ${helperNameHtml}'s profile &rarr;</a></p>
         </td>
       </tr>
     </table>` : '';
@@ -460,23 +478,29 @@ serve(async (req) => {
       ? `<p style="margin:0 0 14px;color:#4a7c59;font-size:13px;font-weight:600;">🎁 €${(appliedDiscountCents / 100).toFixed(0)} referral discount applied</p>`
       : '';
 
-    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    // Inbox preview line (hidden in the body) — the hook, not "Hi there,".
+    const preheader = payUrl && !booking.paid_at
+      ? `Pay €${(totalCents / 100).toFixed(2)} to lock in ${helperFirstName} — then watch them arrive on the live map.`
+      : `${helperFirstName} is confirmed — track your booking live.`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>Helper confirmed</title></head><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(preheader)}</div>
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
   <div style="background:#4a7c59;padding:32px 32px 24px;">
     <p style="margin:0 0 4px;color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;">Helper confirmed</p>
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${helperFirstName} is on your job ✓</p>
+    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${helperNameHtml} is on your job ✓</p>
   </div>
   <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
+    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custNameHtml},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirstName}</strong> has accepted your <strong>${catLabel}</strong>${whenLine ? ' for <strong>' + whenLine + '</strong>' : ''}.
+      <strong>${helperNameHtml}</strong> has accepted your <strong>${catLabelHtml}</strong>${whenLineHtml ? ' for <strong>' + whenLineHtml + '</strong>' : ''}.
     </p>
     ${helperCard}
     ${payUrl && !booking.paid_at ? `
     <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
       <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">Secure your booking — €${(totalCents / 100).toFixed(2)}</p>
       ${discountLine}
-      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">Pay securely by card to confirm ${helperFirstName}. No cash needed on the day.</p>
+      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">Pay securely by card to confirm ${helperNameHtml}. Your money's protected until the job's done — no cash needed on the day.</p>
       <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Confirm &amp; pay €${(totalCents / 100).toFixed(2)} →</a>
     </div>` : ''}
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
