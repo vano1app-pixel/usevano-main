@@ -60,10 +60,19 @@ serve(async (req) => {
     });
     if (insErr) { console.error('[send-student-email-otp] insert failed', insErr); return json(500, { error: 'Could not send code.' }); }
 
+    // The email IS this flow — a code that never arrives is a hard-stuck
+    // helper. So unlike the courtesy emails elsewhere, a failed send here is
+    // surfaced as an error (and the orphan code cleared so Resend can retry
+    // cleanly), never silently reported as success.
     const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
     const from = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
-    if (resendKey) {
-      await fetch('https://api.resend.com/emails', {
+    if (!resendKey) {
+      console.error('[send-student-email-otp] RESEND_API_KEY not set — cannot email codes');
+      await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+      return json(503, { error: 'Email sending is not set up right now — text us on WhatsApp and we will verify you manually.' });
+    }
+    try {
+      const resendResp = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -80,9 +89,17 @@ serve(async (req) => {
 </div></body></html>`,
           text: `Your VANO verification code is ${code}. It expires in 10 minutes.`,
         }),
-      }).catch((e) => console.error('[send-student-email-otp] resend failed', e));
-    } else {
-      console.warn('[send-student-email-otp] RESEND_API_KEY not set — code not emailed');
+      });
+      if (!resendResp.ok) {
+        const detail = await resendResp.text().catch(() => '');
+        console.error('[send-student-email-otp] resend rejected send', resendResp.status, detail.slice(0, 300));
+        await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+        return json(502, { error: 'We could not send the email. Check the address is right, or text us on WhatsApp.' });
+      }
+    } catch (sendErr) {
+      console.error('[send-student-email-otp] resend failed', sendErr);
+      await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
+      return json(502, { error: 'We could not send the email. Try again in a moment, or text us on WhatsApp.' });
     }
 
     return json(200, { success: true });
