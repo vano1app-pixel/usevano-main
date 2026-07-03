@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signAcceptToken } from "../_shared/acceptToken.ts";
 import {
   renderHouseholdEmail, emailP, escapeHtml, categoryLabel, greetName,
-  sendHouseholdEmail,
+  sendHouseholdEmail, CATEGORY_LABELS,
 } from "../_shared/householdEmail.ts";
 
 // Triggered by create-household-payment-checkout when a booking goes live,
@@ -35,20 +35,10 @@ const MAX_OFFERS = Number(Deno.env.get('DISPATCH_MAX_OFFERS')) || 50;
 // inside no-helper-fallback's 2-hour auto-refund cutoff.
 const OFFER_TTL_MINUTES = 60;
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry',
-  'dog-walk': 'Dog walk',
-  garden: 'Garden help',
-  moving: 'Moving help',
-  cleaning: 'Cleaning',
-  tutoring: 'Tutoring',
-  handyman: 'Handyman',
-  plumbing: 'Plumbing help',
-  'furniture-assembly': 'Furniture assembly',
-  'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery',
-  other: 'General help',
-};
+// Category labels come from the shared map — the 12-entry local copy this
+// replaced was missing half the live slugs (grocery-shopping, lawn-mowing,
+// tutoring-grinds, …), so those helper offers were headlined as a generic
+// "Household help" while the customer's emails named the real service.
 
 // ── Web push (raw VAPID + aes128gcm, same implementation as notify-new-message) ──
 function base64UrlToArrayBuffer(base64url: string): ArrayBuffer {

@@ -79,9 +79,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Same IP budget as get-referral-code: stops bots minting junk codes or
-    // enumerating other people's earnings by email.
-    if (!await allowRequest(supabase, 'partner-program', clientIp(req), 20, 600)) {
+    // Per-IP budget against bots minting junk codes / enumerating earnings by
+    // email. Deliberately roomier than get-referral-code's 20: the student
+    // dashboard auto-loads this card, and campus wifi / student accommodation
+    // puts many helpers behind one NAT IP.
+    if (!await allowRequest(supabase, 'partner-program', clientIp(req), 60, 600)) {
       return bad(429, 'Too many requests — please try again shortly.');
     }
 

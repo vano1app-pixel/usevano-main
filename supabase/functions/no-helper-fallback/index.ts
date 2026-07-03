@@ -98,6 +98,20 @@ serve(async (_req) => {
     });
 
     if (resendKey && custEmail) {
+      // Three honest money states: refunded; a charge may exist but the
+      // refund call failed (never tell that customer "you weren't charged");
+      // or — the normal pay-after-accept case — no payment ever happened.
+      const refundFailed = !!piId?.startsWith('pi_') && !refundOk;
+      const moneyLineHtml = refundOk
+        ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.'
+        : refundFailed
+          ? "<strong>If you were charged, your refund is being arranged.</strong> Message us on WhatsApp and we'll confirm it straight away."
+          : "<strong>You haven't been charged</strong> — with VANO you only ever pay once a helper is confirmed.";
+      const moneyLineText = refundOk
+        ? 'Full refund issued (5–7 days).'
+        : refundFailed
+          ? 'If you were charged, your refund is being arranged — WhatsApp us to confirm.'
+          : "You haven't been charged — you only pay once a helper is confirmed.";
       // HTML-safe variants for interpolation (raw values stay in text/subject).
       const custNameHtml = escapeHtml(custName);
       const catLabelHtml = escapeHtml(catLabel);
@@ -107,16 +121,15 @@ serve(async (_req) => {
         html: renderHouseholdEmail({
           preheader: refundOk
             ? `No helper was free for your ${catLabel} this time — a full refund is on its way to your card.`
-            : `No helper was free for your ${catLabel} this time — you haven't been charged a cent.`,
+            : refundFailed
+              ? `No helper was free for your ${catLabel} this time — we're sorting your refund.`
+              : `No helper was free for your ${catLabel} this time — you haven't been charged a cent.`,
           eyebrow: 'Booking cancelled',
           heading: "We couldn't find a helper",
           bodyHtml: [
             emailP(`Hi ${custNameHtml},`),
             emailP(`We're really sorry — we weren't able to find an available helper for your <strong>${catLabelHtml}</strong> in time. Your booking has been cancelled.`),
-            emailP(refundOk
-              ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.'
-              : "<strong>You haven't been charged</strong> — with VANO you only ever pay once a helper is confirmed.",
-              { last: true }),
+            emailP(moneyLineHtml, { last: true }),
           ].join(''),
           ctas: [
             { label: 'Book again →', url: siteUrl, variant: 'primary' },
@@ -125,7 +138,7 @@ serve(async (_req) => {
           footerNote: `Ref: ${ref}`,
           tone: 'slate',
         }),
-        text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${refundOk ? 'Full refund issued (5–7 days).' : "You haven't been charged — you only pay once a helper is confirmed."} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
+        text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${moneyLineText} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
       });
     }
 

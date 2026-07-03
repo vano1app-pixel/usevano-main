@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert } from 'lucide-react';
@@ -35,6 +35,8 @@ interface Booking {
   customer_email: string | null;
   city: string | null;
   price_estimate_cents: number | null;
+  /** NULL for quick-book customers (they have no account) */
+  customer_id: string | null;
   student_id: string | null;
   worker_lat: number | null;
   worker_lng: number | null;
@@ -251,10 +253,17 @@ const TrackBooking = () => {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [locationAge, setLocationAge] = useState(0);
   const locationUpdatedAt = useRef<number>(Date.now());
+
+  // Stable marker identity — minting a fresh divIcon every render would make
+  // react-leaflet call setIcon on each 5s poll tick, rebuilding the marker DOM
+  // and restarting its pulse animation mid-cycle.
+  const helperMapIcon = useMemo(
+    () => makeHelperIcon(helperCard?.photo_url ?? null, helperName?.[0] ?? null),
+    [helperCard?.photo_url, helperName],
+  );
 
   // "Finding your helper" — real count of helpers we've offered the job to.
   const [offerCount, setOfferCount] = useState<number | null>(null);
@@ -364,11 +373,11 @@ const TrackBooking = () => {
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
+    // Fresh booking id → fresh chances: without this, a poll that gave up on a
+    // previous dead link would kill the new booking's poll on its first tick.
+    missCountRef.current = 0;
 
     const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!cancelled) setUserId(session?.user?.id ?? null);
-
       // Booking + chat go through SECURITY DEFINER RPCs keyed on the booking id
       // (the id is the bearer secret). The anon role can no longer read these
       // tables in bulk — the RPC hands back only this one booking.
@@ -740,7 +749,6 @@ const TrackBooking = () => {
   const showHeroMap  = jobActive && (helperLoc || customerLoc);
   const mapLat = (helperLoc ? booking.worker_lat : booking.customer_lat) as number;
   const mapLng = (helperLoc ? booking.worker_lng : booking.customer_lng) as number;
-  const helperMapIcon = makeHelperIcon(helperCard?.photo_url ?? null, helperName?.[0] ?? null);
   const heroTitle =
     booking.status === 'arrived' ? `${helperName ?? 'Your helper'} has arrived`
     : booking.status === 'in_progress' ? `${helperName ?? 'Your helper'} is on the job`
@@ -1574,10 +1582,13 @@ const TrackBooking = () => {
                   <p className="text-xs text-muted-foreground text-center py-6">No messages yet.</p>
                 )}
                 {messages.map((msg) => {
-                  // On this page the viewer is the customer: anything not sent
-                  // by the assigned helper is theirs (anonymous sends have
-                  // sender_id NULL — see send_household_chat).
-                  const isMe = !(msg.sender_id != null && msg.sender_id === booking.student_id);
+                  // On this page the viewer is the customer. Their messages
+                  // have sender_id NULL (anonymous, via send_household_chat)
+                  // or their own customer_id. Anything else is a helper —
+                  // including a previously assigned helper after a re-dispatch,
+                  // whose messages must not flip to the customer's side.
+                  const isMe = msg.sender_id == null
+                    || (booking.customer_id != null && msg.sender_id === booking.customer_id);
                   return (
                     <motion.div
                       key={msg.id}

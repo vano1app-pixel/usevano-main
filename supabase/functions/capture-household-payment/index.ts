@@ -216,7 +216,7 @@ serve(async (req) => {
         heading: 'All done! ✓',
         bodyHtml: [
           emailP(`Hi ${custNameHtml},`),
-          emailP(`<strong>${helperNameHtml}</strong> has completed your <strong>${catLabelHtml}</strong>. Payment was handled upfront — nothing more to do.`),
+          emailP(`<strong>${helperNameHtml}</strong> has completed your <strong>${catLabelHtml}</strong>. Payment's already sorted — nothing more to do.`),
           emailBox(`
       <p style="margin:0 0 10px;color:${BRAND.ink};font-size:15px;font-weight:700;text-align:center;">How was ${helperNameHtml}?</p>
       <p style="margin:0 0 4px;text-align:center;">${stars}</p>
@@ -228,7 +228,7 @@ serve(async (req) => {
         to: custEmail,
         subject:`Your ${catLabel} is complete — how was ${helperFirst}?`,
         html,
-        text:`Hi ${custGreet}, ${helperFirst} has completed your ${catLabel}. Payment was handled upfront. How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
+        text:`Hi ${custGreet}, ${helperFirst} has completed your ${catLabel}. Payment's already sorted. How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
       });
     }
 

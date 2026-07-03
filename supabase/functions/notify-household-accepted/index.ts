@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendHouseholdPush } from "../_shared/householdPush.ts";
 import {
   renderHouseholdEmail, emailBox, emailButton, emailP, escapeHtml,
-  sendHouseholdEmail, BRAND,
+  sendHouseholdEmail, BRAND, CATEGORY_LABELS, greetName,
 } from "../_shared/householdEmail.ts";
 
 // Called by StudentDashboard after a helper claims a booking.
@@ -97,18 +97,9 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
-  handyman: 'Handyman', plumbing: 'Plumbing help',
-  'furniture-assembly': 'Furniture assembly', 'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery', 'post-office': 'Post office run',
-  'pharmacy-run': 'Pharmacy run', 'grocery-shopping': 'Grocery shopping',
-  'dog-walking': 'Dog walking', 'lawn-mowing': 'Lawn mowing',
-  'moving-help': 'Moving help', 'outdoor-cleaning': 'Outdoor cleaning',
-  'tutoring-grinds': 'Tutoring & grinds', 'midnight-lift': 'Midnight Lift',
-  other: 'General help',
-};
+// Labels come from the shared map (single source across every email/SMS/
+// Stripe line item) — a local copy here had already drifted (no 'custom' key,
+// so search-bar bookings fell to the generic fallback in the pay email).
 
 const SLOT_LABELS: Record<string, string> = {
   morning: 'morning (8am–12pm)',
@@ -205,6 +196,10 @@ serve(async (req) => {
     let appliedDiscountCents = 0;
     let totalCents = priceCents + serviceFeeCents;
     let payUrl = (booking.stripe_checkout_url as string | null) ?? null;
+    // False when the freshly minted checkout URL couldn't be stored on the
+    // booking — the track page's pay card won't render, so messages must
+    // carry the raw Stripe link instead of the track link.
+    let payUrlSaved = true;
 
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 
@@ -358,7 +353,7 @@ serve(async (req) => {
         if (stripeResp.ok) {
           const session = await stripeResp.json() as { id: string; url: string };
           payUrl = session.url;
-          await supabase
+          const { error: saveErr } = await supabase
             .from('household_bookings')
             .update({
               stripe_checkout_url: session.url,
@@ -366,6 +361,13 @@ serve(async (req) => {
               stripe_payment_intent_id: session.id,
             })
             .eq('id', booking_id);
+          if (saveErr) {
+            // The track page's pay card reads stripe_checkout_url — if this
+            // write failed, the SMS below must carry the raw Stripe link or a
+            // phone-only customer has no way to pay at all.
+            console.error('[notify-household-accepted] failed to store checkout url', saveErr);
+            payUrlSaved = false;
+          }
         } else {
           console.error('[notify-household-accepted] stripe session error', stripeResp.status, (await stripeResp.text()).slice(0, 300));
         }
@@ -422,8 +424,9 @@ serve(async (req) => {
         const trackUrlSms = `${siteUrlSms}/track/${booking_id}`;
         const catSms = CATEGORY_LABELS[booking.category as string] ?? 'job';
         const discountSms = appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : '';
+        const payLinkSms = payUrlSaved ? trackUrlSms : payUrl!;
         const smsBody = payUrl && !booking.paid_at
-          ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely, and watch them arrive live: ${trackUrlSms}`
+          ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely${payUrlSaved ? ', and watch them arrive live' : ''}: ${payLinkSms}`
           : autoCharged
             ? `VANO: ${helperFirstName} accepted your ${catSms}! €${(totalCents / 100).toFixed(2)} was charged to your saved card. Track here: ${trackUrlSms}`
             : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${trackUrlSms}`;
@@ -440,8 +443,7 @@ serve(async (req) => {
     const siteUrl    = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
     const trackUrl   = `${siteUrl}/track/${booking_id}`;
     const catLabel   = CATEGORY_LABELS[booking.category as string] ?? 'booking';
-    const rawCustName = String(booking.customer_name || '');
-    const custName   = rawCustName && rawCustName !== 'Guest' ? rawCustName : 'there';
+    const custName   = greetName(booking.customer_name as string | null);
     const ref        = booking_id.slice(-8).toUpperCase();
 
     const dateStr = booking.scheduled_date === 'today' ? 'today'

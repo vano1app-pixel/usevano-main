@@ -14,8 +14,10 @@
 // - Hidden preheader div feeds the inbox preview line.
 // - color-scheme meta keeps dark-mode clients from inverting the header.
 
-export const LOGO_URL =
-  'https://puomfwjtpvqedwxjxogh.supabase.co/storage/v1/object/public/email-assets/logo.png';
+// The PWA icon the live site already serves — the storage bucket URL the auth
+// emails used to point at (email-assets/logo.png) was never actually uploaded,
+// so every email logo rendered broken.
+export const LOGO_URL = 'https://vanojobs.com/pwa-192x192.png';
 
 export const BRAND = {
   sage: '#4a7c59',
@@ -92,7 +94,8 @@ export interface HouseholdEmailOpts {
   preheader: string;
   /** Small uppercase line above the heading, e.g. "Helper confirmed". */
   eyebrow?: string;
-  /** Big white headline in the brand header. Pre-escape user content. */
+  /** Big white headline in the brand header. Pre-escape user content —
+   *  it is interpolated as-is into both the header and the <title>. */
   heading: string;
   /** Main content — paragraphs, emailBox()es, emailButton()s. */
   bodyHtml: string;
@@ -118,7 +121,7 @@ export function renderHouseholdEmail(o: HouseholdEmailOpts): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <title>${escapeHtml(o.heading)}</title>
+  <title>${o.heading}</title>
 </head>
 <body style="margin:0;padding:0;background:${BRAND.pageBg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(o.preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
