@@ -162,6 +162,15 @@ const Terms = () => (
               Helpers must provide accurate profile information, complete verification, and may be
               removed from the Platform for poor conduct, safety concerns, or breaching these Terms.
             </li>
+            <li>
+              <strong>Friend referrals:</strong> if someone joins VANO as a Helper using your invite
+              code, you earn a referral reward of 5% of that Helper&apos;s net earnings on the
+              Platform for the 12 months following their signup. The reward is funded from
+              VANO&apos;s service fee — it is never deducted from the referred Helper&apos;s pay.
+              Rewards accrue on completed, paid jobs only, are paid out periodically, may be
+              adjusted where the underlying job is refunded, and may be withheld or the programme
+              changed or withdrawn in cases of fraud, self-referral, or abuse.
+            </li>
           </ul>
         </section>
 

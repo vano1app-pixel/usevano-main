@@ -84,8 +84,12 @@ export const FAQSection: React.FC = () => {
           rel="noopener noreferrer"
           className="mt-5 flex items-center justify-center gap-1.5 py-2 text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150"
         >
-          <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" aria-hidden="true" />
-          Something else?<span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span> — we reply in minutes
+          <MessageCircle className="w-3.5 h-3.5 flex-shrink-0 text-[#25D366]" aria-hidden="true" />
+          <span>
+            Something else?{' '}
+            <span className="font-semibold text-foreground/80 underline underline-offset-2">WhatsApp us</span>
+            {' '}— we reply in minutes
+          </span>
         </a>
       </div>
     </section>

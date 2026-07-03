@@ -133,8 +133,9 @@ export const JoinAsHelper: React.FC = () => {
   const [agreeChecks, setAgreeChecks] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
 
-  // Optional partner / referral code — prefilled from a ?ref=CODE link (e.g. a
-  // student union's recruitment link) and editable by hand.
+  // Optional referral code — prefilled from a friend's ?ref=CODE invite link
+  // and editable by hand. The friend earns 5% of this helper's first-year
+  // earnings (from VANO's cut — this helper's pay is untouched).
   const [referralCode, setReferralCode] = useState(() => {
     try { return (new URLSearchParams(window.location.search).get('ref') ?? '').trim().toUpperCase(); }
     catch { return ''; }
@@ -513,20 +514,21 @@ export const JoinAsHelper: React.FC = () => {
                       </Consent>
                     </div>
 
-                    {/* Optional referral / partner code (e.g. from a student union) */}
+                    {/* Optional friend invite code — the friend earns 5% of this
+                        helper's first-year earnings, out of VANO's cut */}
                     <div>
-                      <label htmlFor="referral-code" className={labelClass}>Referral code <span className="font-normal normal-case tracking-normal text-muted-foreground/70">(optional)</span></label>
+                      <label htmlFor="referral-code" className={labelClass}>Invite code <span className="font-normal normal-case tracking-normal text-muted-foreground/70">(optional)</span></label>
                       <input
                         id="referral-code"
                         value={referralCode}
                         onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                        placeholder="e.g. your union's code"
+                        placeholder="Got a code from a friend?"
                         maxLength={12}
                         autoCapitalize="characters"
                         className={cn(inputClass, 'font-mono tracking-wider')}
                       />
                       {referralCode.trim() && (
-                        <p className="mt-1.5 text-[11px] text-sage-dark font-medium">Code {referralCode.trim()} will be applied to your signup.</p>
+                        <p className="mt-1.5 text-[11px] text-sage-dark font-medium">Code {referralCode.trim()} will be applied — your friend gets a thank-you from us, your pay is never touched.</p>
                       )}
                     </div>
                   </>

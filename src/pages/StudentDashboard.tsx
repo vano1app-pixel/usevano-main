@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
+import { PartnerProgramCard } from '@/components/household/PartnerProgramCard';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCountUp } from '@/hooks/useCountUp';
@@ -109,6 +110,7 @@ const StudentDashboard = () => {
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, permission: pushPermission, loading: pushLoading, subscribe: pushSubscribe } = usePushNotifications();
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   // Honor ?tab=earnings (e.g. the post-signup "set up payouts" link) and
   // ?payout=done|refresh (Stripe Connect onboarding return) by opening
   // straight on the Earnings tab where the payout card lives.
@@ -181,6 +183,7 @@ const StudentDashboard = () => {
       if (cancelled) return;
       const uid = session.user.id;
       setUserId(uid);
+      setUserEmail(session.user.email ?? null);
 
       // Load helper profile first so we can filter jobs by city + categories
       const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in';
@@ -730,12 +733,13 @@ const StudentDashboard = () => {
                             </p>
                           </div>
                           {job.price_estimate_cents && (
-                            // 95% net — the same "Earn €X" number as the push/
-                            // WhatsApp offer, so the app never shows a bigger
-                            // figure than the notification that brought them in
+                            // 85% net — must match the ACTUAL payout
+                            // (capture-household-payment, PLATFORM_FEE_BPS
+                            // 1500) so the number a helper is promised is the
+                            // number they're actually paid.
                             <span className="flex flex-col items-end flex-shrink-0">
                               <span className="text-lg font-bold text-foreground tabular-nums">
-                                €{Math.floor((job.price_estimate_cents * 0.95) / 100)}
+                                €{Math.floor((job.price_estimate_cents * 0.85) / 100)}
                               </span>
                               <span className="text-[10px] text-muted-foreground font-medium">you keep</span>
                             </span>
@@ -857,6 +861,10 @@ const StudentDashboard = () => {
                     ))}
                   </div>
                 )}
+
+                {/* Invite friends — helpers are the referral engine: 5% of a
+                    friend's first-year earnings, shareable straight to socials */}
+                <PartnerProgramCard className="mt-5" prefillEmail={userEmail} />
 
                 {/* Rating */}
                 <div className="mt-5 rounded-2xl border border-border/60 p-4 flex items-center gap-4">

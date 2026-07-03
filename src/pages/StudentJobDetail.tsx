@@ -72,7 +72,8 @@ interface Booking {
 
 interface ChatMessage {
   id: string;
-  sender_id: string;
+  /** NULL = the (anonymous) customer — sent via the send_household_chat RPC */
+  sender_id: string | null;
   body: string;
   created_at: string;
 }

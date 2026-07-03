@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  renderHouseholdEmail, emailP, escapeHtml, categoryLabel, greetName,
+  sendHouseholdEmail,
+} from "../_shared/householdEmail.ts";
 
 // Cron: runs every 30 minutes.
 // Finds UNPAID bookings stuck in 'pending' for more than 2 hours with no
@@ -17,17 +21,14 @@ function formEncode(obj: Record<string, string>): string {
     .join('&');
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
-  moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring', other: 'General help',
-};
-
 serve(async (_req) => {
   const supabaseUrl   = Deno.env.get('SUPABASE_URL')!;
   const serviceKey    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const STRIPE_SECRET = Deno.env.get('STRIPE_SECRET_KEY');
   const resendKey     = Deno.env.get('RESEND_API_KEY')?.trim();
-  const from          = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+  // Admin email only (customer email goes via sendHouseholdEmail). Brand-domain
+  // default — Resend's sandbox fallback bounces for anyone but the account owner.
+  const from          = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <noreply@vanojobs.com>';
   const adminEmail    = Deno.env.get('ADMIN_EMAIL')?.trim();
   const siteUrl       = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
 
@@ -61,9 +62,10 @@ serve(async (_req) => {
   for (const booking of stuckBookings) {
     const b         = booking as Record<string, unknown>;
     const ref       = (b.id as string).slice(-8).toUpperCase();
-    const custName  = String(b.customer_name ?? 'there');
+    const custNameRaw = String(b.customer_name ?? '');
+    const custName  = greetName(custNameRaw); // never "Hi Guest"
     const custEmail = b.customer_email as string | null;
-    const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
+    const catLabel  = categoryLabel(b.category as string | null);
 
     // Stripe refund
     let refundOk = false;
@@ -96,30 +98,48 @@ serve(async (_req) => {
     });
 
     if (resendKey && custEmail) {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from, to: [custEmail],
-          subject: `Sorry — we couldn't find a helper for your ${catLabel}`,
-          html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#374151;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">We couldn't find a helper</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">We're really sorry — we weren't able to find an available helper for your <strong>${catLabel}</strong> in time. Your booking has been cancelled.</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">${refundOk ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.' : 'Please contact us and we will arrange your refund immediately.'}</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;">Want to try again? <a href="${siteUrl}" style="color:#4a7c59;font-weight:600;">Book here</a></p>
-    <p style="margin:0;color:#374151;font-size:15px;">Or message us on WhatsApp: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}</p>
-  </div>
-</div>
-</body></html>`,
-          text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${refundOk ? 'Full refund issued (5–7 days).' : 'Contact us about refund.'} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
+      // Three honest money states: refunded; a charge may exist but the
+      // refund call failed (never tell that customer "you weren't charged");
+      // or — the normal pay-after-accept case — no payment ever happened.
+      const refundFailed = !!piId?.startsWith('pi_') && !refundOk;
+      const moneyLineHtml = refundOk
+        ? '<strong>A full refund has been issued</strong> and should appear on your card within 5–7 business days.'
+        : refundFailed
+          ? "<strong>If you were charged, your refund is being arranged.</strong> Message us on WhatsApp and we'll confirm it straight away."
+          : "<strong>You haven't been charged</strong> — with VANO you only ever pay once a helper is confirmed.";
+      const moneyLineText = refundOk
+        ? 'Full refund issued (5–7 days).'
+        : refundFailed
+          ? 'If you were charged, your refund is being arranged — WhatsApp us to confirm.'
+          : "You haven't been charged — you only pay once a helper is confirmed.";
+      // HTML-safe variants for interpolation (raw values stay in text/subject).
+      const custNameHtml = escapeHtml(custName);
+      const catLabelHtml = escapeHtml(catLabel);
+      await sendHouseholdEmail({
+        to: custEmail,
+        subject: `Sorry — we couldn't find a helper for your ${catLabel}`,
+        html: renderHouseholdEmail({
+          preheader: refundOk
+            ? `No helper was free for your ${catLabel} this time — a full refund is on its way to your card.`
+            : refundFailed
+              ? `No helper was free for your ${catLabel} this time — we're sorting your refund.`
+              : `No helper was free for your ${catLabel} this time — you haven't been charged a cent.`,
+          eyebrow: 'Booking cancelled',
+          heading: "We couldn't find a helper",
+          bodyHtml: [
+            emailP(`Hi ${custNameHtml},`),
+            emailP(`We're really sorry — we weren't able to find an available helper for your <strong>${catLabelHtml}</strong> in time. Your booking has been cancelled.`),
+            emailP(moneyLineHtml, { last: true }),
+          ].join(''),
+          ctas: [
+            { label: 'Book again →', url: siteUrl, variant: 'primary' },
+            { label: 'WhatsApp us', url: 'https://wa.me/353899817111', variant: 'whatsapp' },
+          ],
+          footerNote: `Ref: ${ref}`,
+          tone: 'slate',
         }),
-      }).catch(() => {});
+        text: `Hi ${custName}, we're really sorry — no helper was available for your ${catLabel}. ${moneyLineText} Book again at ${siteUrl} or WhatsApp +353 89 981 7111. Ref: ${ref}`,
+      });
     }
 
     if (resendKey && adminEmail) {
@@ -132,7 +152,7 @@ serve(async (_req) => {
           text: [
             `Booking ${ref} was auto-cancelled (2h, no helper).`,
             `Job: ${catLabel}`,
-            `Customer: ${custName} (${custEmail ?? '—'})`,
+            `Customer: ${custNameRaw || '—'} (${custEmail ?? '—'})`,
             `City: ${b.city ?? '?'}`,
             `Refund: ${refundOk ? 'Issued' : 'FAILED — check manually'}`,
             `ID: ${b.id}`,

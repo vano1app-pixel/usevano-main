@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert } from 'lucide-react';
@@ -35,6 +35,8 @@ interface Booking {
   customer_email: string | null;
   city: string | null;
   price_estimate_cents: number | null;
+  /** NULL for quick-book customers (they have no account) */
+  customer_id: string | null;
   student_id: string | null;
   worker_lat: number | null;
   worker_lng: number | null;
@@ -79,16 +81,10 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-interface JobUpdate {
-  id: string;
-  status: UpdateStatus;
-  note: string | null;
-  created_at: string;
-}
-
 interface ChatMessage {
   id: string;
-  sender_id: string;
+  /** NULL = the (anonymous) customer — see send_household_chat */
+  sender_id: string | null;
   body: string;
   created_at: string;
 }
@@ -107,16 +103,29 @@ if (typeof document !== 'undefined' && !document.getElementById('vano-map-css'))
   document.head.appendChild(s);
 }
 
-const helperMarkerIcon = L.divIcon({
-  className: '',
-  html:
-    '<div style="position:relative;width:18px;height:18px">' +
-    '<div class="vano-dot-ring" style="position:absolute;inset:-6px;border:2px solid #4a7c59;border-radius:50%"></div>' +
-    '<div style="width:18px;height:18px;background:#4a7c59;border:2.5px solid #fff;border-radius:50%;box-shadow:0 1px 6px rgba(74,124,89,.45)"></div>' +
-    '</div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
+// Deliveroo-style marker: the helper's actual face on the map (fallback to
+// their initial in a branded dot), wrapped in the live pulse ring.
+function makeHelperIcon(photoUrl: string | null, initial: string | null): L.DivIcon {
+  const safeUrl = photoUrl ? photoUrl.replace(/"/g, '&quot;') : null;
+  const safeInitial = (initial ?? '').replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase() || '•';
+  const core = safeUrl
+    ? `<img src="${safeUrl}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:block" />`
+    : `<div style="width:36px;height:36px;border-radius:50%;background:#4a7c59;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font:700 15px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">${safeInitial}</div>`;
+  return L.divIcon({
+    className: '',
+    html:
+      '<div style="position:relative;width:36px;height:36px">' +
+      '<div class="vano-dot-ring" style="position:absolute;inset:-7px;border:2px solid #4a7c59;border-radius:50%"></div>' +
+      core +
+      '</div>',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+}
+
+// Tile licence: OSM data via CARTO basemaps — attribution is required.
+const TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 const customerDestIcon = L.divIcon({
   className: '',
@@ -232,7 +241,6 @@ const TrackBooking = () => {
   const justPaid = searchParams.get('paid') === 'true';
 
   const [booking, setBooking] = useState<Booking | null>(null);
-  const [updates, setUpdates] = useState<JobUpdate[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [helperName, setHelperName] = useState<string | null>(null);
   const [helperCard, setHelperCard] = useState<{
@@ -245,10 +253,17 @@ const TrackBooking = () => {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [locationAge, setLocationAge] = useState(0);
   const locationUpdatedAt = useRef<number>(Date.now());
+
+  // Stable marker identity — minting a fresh divIcon every render would make
+  // react-leaflet call setIcon on each 5s poll tick, rebuilding the marker DOM
+  // and restarting its pulse animation mid-cycle.
+  const helperMapIcon = useMemo(
+    () => makeHelperIcon(helperCard?.photo_url ?? null, helperName?.[0] ?? null),
+    [helperCard?.photo_url, helperName],
+  );
 
   // "Finding your helper" — real count of helpers we've offered the job to.
   const [offerCount, setOfferCount] = useState<number | null>(null);
@@ -351,28 +366,34 @@ const TrackBooking = () => {
     }, 450);
   }, [booking?.status, alreadyRated, searchParams]);
 
+  // Consecutive booking-not-found responses — lets the poll give up on dead
+  // links instead of hammering the RPC forever from the error screen.
+  const missCountRef = useRef(0);
+
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
+    // Fresh booking id → fresh chances: without this, a poll that gave up on a
+    // previous dead link would kill the new booking's poll on its first tick.
+    missCountRef.current = 0;
 
     const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!cancelled) setUserId(session?.user?.id ?? null);
-
       // Booking + chat go through SECURITY DEFINER RPCs keyed on the booking id
       // (the id is the bearer secret). The anon role can no longer read these
-      // tables in bulk — the RPC hands back only this one booking. job_updates
-      // (status + notes, no PII) is still read directly.
-      const [bookingRes, updatesRes, messagesRes] = await Promise.all([
+      // tables in bulk — the RPC hands back only this one booking.
+      const [bookingRes, messagesRes] = await Promise.all([
         hdb.rpc('get_household_booking', { p_booking_id: bookingId }),
-        hdb.from('household_job_updates').select('*').eq('booking_id', bookingId).order('created_at'),
         hdb.rpc('get_household_chat', { p_booking_id: bookingId }),
       ]);
 
       if (cancelled) return;
       const bookingRow = Array.isArray(bookingRes.data) ? bookingRes.data[0] : bookingRes.data;
-      if (bookingRow) setBooking(bookingRow as Booking);
-      if (updatesRes.data) setUpdates(updatesRes.data as JobUpdate[]);
+      if (bookingRow) {
+        missCountRef.current = 0;
+        setBooking(bookingRow as Booking);
+      } else if (!bookingRes.error) {
+        missCountRef.current += 1;
+      }
       if (messagesRes.data) setMessages(messagesRes.data as ChatMessage[]);
       setLoading(false);
     };
@@ -381,10 +402,17 @@ const TrackBooking = () => {
     // Anonymous customers can't receive realtime once the bulk-read policy is
     // removed, so poll while the job is live to keep status/pay/map/chat fresh.
     // (The realtime subscriptions below still serve signed-in helpers.) The
-    // poll clears itself once the booking reaches a terminal state.
+    // poll clears itself once the booking reaches a terminal state, gives up
+    // on links that keep returning nothing, and skips ticks while the tab is
+    // hidden (the next visible tick refreshes).
     const poll = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       setBooking((b) => {
         if (b && (b.status === 'completed' || b.status === 'cancelled')) {
+          clearInterval(poll);
+          return b;
+        }
+        if (!b && missCountRef.current >= 6) {
           clearInterval(poll);
           return b;
         }
@@ -409,21 +437,14 @@ const TrackBooking = () => {
   useEffect(() => {
     if (!bookingId) return;
     const channel = supabase
-      .channel(`hh-updates-${bookingId}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'household_job_updates', filter: `booking_id=eq.${bookingId}` },
-        (payload) => setUpdates((prev) => [...prev, payload.new as JobUpdate]),
-      ).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [bookingId]);
-
-  useEffect(() => {
-    if (!bookingId) return;
-    const channel = supabase
       .channel(`hh-chat-${bookingId}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'household_chat', filter: `booking_id=eq.${bookingId}` },
-        (payload) => setMessages((prev) => [...prev, payload.new as ChatMessage]),
+        (payload) => setMessages((prev) => {
+          const next = payload.new as ChatMessage;
+          // The RPC send path and the 5s poll can land the same row first.
+          return prev.some((m) => m.id === next.id) ? prev : [...prev, next];
+        }),
       ).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [bookingId]);
@@ -632,23 +653,34 @@ const TrackBooking = () => {
     }
   };
 
+  // Customers book anonymously (no account), so chat sends go through the
+  // send_household_chat RPC — the booking id in the URL is the credential,
+  // exactly like the read RPCs. No sign-in required.
   const sendMessage = async () => {
-    if (!draft.trim() || !bookingId || !userId) return;
+    if (!draft.trim() || !bookingId || sending) return;
     setSending(true);
     const body = draft.trim().slice(0, 1000);
     setDraft('');
     try {
-      const { error } = await hdb.from('household_chat').insert({ booking_id: bookingId, sender_id: userId, body });
+      const { data, error } = await hdb.rpc('send_household_chat', { p_booking_id: bookingId, p_body: body });
       if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) {
+        setMessages((prev) => prev.some((m) => m.id === (row as ChatMessage).id) ? prev : [...prev, row as ChatMessage]);
+      }
     } catch {
       setDraft(body);
+      toast({ title: "Message didn't send", description: 'Please try again in a moment.', variant: 'destructive' });
     } finally {
       setSending(false);
     }
   };
 
-  const latestUpdateStatus = updates.at(-1)?.status ?? null;
-  const currentStepIndex = latestUpdateStatus ? STATUS_ORDER.indexOf(latestUpdateStatus) : -1;
+  // The stepper follows booking.status directly — it's always available via
+  // the booking RPC. (It used to follow household_job_updates, which RLS
+  // hides from anonymous customers, so the timeline never advanced for the
+  // very people this page is for.)
+  const currentStepIndex = booking ? STATUS_ORDER.indexOf(booking.status as UpdateStatus) : -1;
 
   if (loading) {
     // Skeleton in the shape of the page (header line, status card, steps) —
@@ -710,13 +742,26 @@ const TrackBooking = () => {
   const helperLoc    = booking.worker_lat != null && booking.worker_lng != null;
   const customerLoc  = booking.customer_lat != null && booking.customer_lng != null;
   const jobActive    = ['accepted', 'on_way', 'arrived', 'in_progress'].includes(booking.status);
-  // While the helper is on the way (or just arrived), promote the map to a big
-  // hero near the top — the Uber/Deliveroo "watch them approach" moment. Other
-  // active states keep the compact fixed bottom panel.
-  const showHeroMap  = ['on_way', 'arrived'].includes(booking.status) && (helperLoc || customerLoc);
-  const showMapPanel = jobActive && !showHeroMap && (helperLoc || customerLoc);
+  // Deliveroo-style: the live map is the hero for the WHOLE active job — from
+  // the moment a helper accepts right through to the work being done. Helper
+  // marker shows their photo; the map falls back to the job location until
+  // they share GPS.
+  const showHeroMap  = jobActive && (helperLoc || customerLoc);
   const mapLat = (helperLoc ? booking.worker_lat : booking.customer_lat) as number;
   const mapLng = (helperLoc ? booking.worker_lng : booking.customer_lng) as number;
+  const heroTitle =
+    booking.status === 'arrived' ? `${helperName ?? 'Your helper'} has arrived`
+    : booking.status === 'in_progress' ? `${helperName ?? 'Your helper'} is on the job`
+    : booking.status === 'accepted' ? `${helperName ?? 'Your helper'} is getting ready`
+    : helperLoc && distanceKm !== null
+      ? `Arriving ~${formatArrivalClock(distanceKm)} · ${etaMinutes(distanceKm)} min`
+      : `${helperName ?? 'Your helper'} is on the way`;
+  const heroSub =
+    booking.status === 'on_way' && helperLoc && distanceKm !== null
+      ? (distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m away` : `${distanceKm.toFixed(1)} km away`)
+      : booking.status === 'accepted'
+        ? "You'll see them move on the map when they set off"
+        : null;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -734,7 +779,7 @@ const TrackBooking = () => {
         <div className="w-8" />
       </header>
 
-      <main className={cn('pt-14 max-w-sm md:max-w-lg mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
+      <main className="pt-14 max-w-sm md:max-w-lg mx-auto px-4 pb-40">
 
         {/* Payment success banner */}
         <AnimatePresence>
@@ -825,16 +870,10 @@ const TrackBooking = () => {
                 <Navigation size={15} className="text-sage flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground leading-tight truncate">
-                    {booking.status === 'arrived'
-                      ? `${helperName ?? 'Your helper'} has arrived`
-                      : helperLoc && distanceKm !== null
-                        ? `Arriving ~${formatArrivalClock(distanceKm)} · ${etaMinutes(distanceKm)} min`
-                        : `${helperName ?? 'Your helper'} is on the way`}
+                    {heroTitle}
                   </p>
-                  {booking.status === 'on_way' && helperLoc && distanceKm !== null && (
-                    <p className="text-xs text-muted-foreground leading-tight mt-0.5">
-                      {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m away` : `${distanceKm.toFixed(1)} km away`}
-                    </p>
+                  {heroSub && (
+                    <p className="text-xs text-muted-foreground leading-tight mt-0.5">{heroSub}</p>
                   )}
                 </div>
               </div>
@@ -858,11 +897,10 @@ const TrackBooking = () => {
                 zoom={14}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
-                attributionControl={false}
                 scrollWheelZoom={false}
                 dragging={false}
               >
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
+                <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} subdomains="abcd" detectRetina />
                 {helperLoc && customerLoc && (
                   <Polyline
                     positions={[
@@ -873,7 +911,7 @@ const TrackBooking = () => {
                   />
                 )}
                 {helperLoc && (
-                  <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMarkerIcon} />
+                  <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMapIcon} />
                 )}
                 {customerLoc && (
                   <Marker position={[booking.customer_lat as number, booking.customer_lng as number]} icon={customerDestIcon} />
@@ -886,6 +924,24 @@ const TrackBooking = () => {
                 />
               </MapContainer>
             </div>
+          </motion.div>
+        )}
+
+        {/* What happens at the door — set expectations while they're en route
+            so the code moment never feels like a surprise (and the customer
+            knows how we verify it's really their helper). */}
+        {booking.status === 'on_way' && !booking.arrival_verified_at && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+            className="mt-3 flex items-start gap-3 rounded-2xl border border-border/60 bg-secondary/30 px-4 py-3"
+          >
+            <ShieldCheck size={16} className="text-sage flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              When {helperName ?? 'your helper'} arrives, a <strong className="text-foreground">4-digit code</strong> will
+              appear here. Read it out to them to start the job — it's how we make sure it's really them at your door.
+            </p>
           </motion.div>
         )}
 
@@ -1240,12 +1296,11 @@ const TrackBooking = () => {
                         zoom={14}
                         style={{ height: '100%', width: '100%' }}
                         zoomControl={false}
-                        attributionControl={false}
                         scrollWheelZoom={false}
                         dragging={false}
                         doubleClickZoom={false}
                       >
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
+                        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} subdomains="abcd" detectRetina />
                         <MapAutoResize />
                       </MapContainer>
                     ) : (
@@ -1527,7 +1582,13 @@ const TrackBooking = () => {
                   <p className="text-xs text-muted-foreground text-center py-6">No messages yet.</p>
                 )}
                 {messages.map((msg) => {
-                  const isMe = userId ? msg.sender_id === userId : false;
+                  // On this page the viewer is the customer. Their messages
+                  // have sender_id NULL (anonymous, via send_household_chat)
+                  // or their own customer_id. Anything else is a helper —
+                  // including a previously assigned helper after a re-dispatch,
+                  // whose messages must not flip to the customer's side.
+                  const isMe = msg.sender_id == null
+                    || (booking.customer_id != null && msg.sender_id === booking.customer_id);
                   return (
                     <motion.div
                       key={msg.id}
@@ -1550,11 +1611,6 @@ const TrackBooking = () => {
               </AnimatePresence>
               <div ref={chatBottomRef} />
             </div>
-            {!userId && (
-              <p className="text-xs text-muted-foreground text-center py-2">
-                <a href="/auth" className="underline underline-offset-2">Sign in</a> to message your helper.
-              </p>
-            )}
           </div>
         )}
 
@@ -1573,77 +1629,9 @@ const TrackBooking = () => {
         {!isCompleted && <ReferralShareCard className="mt-8" />}
       </main>
 
-      {/* Map panel — helper's live position when shared, else the job location */}
-      {showMapPanel && (
-        <div className={cn(
-          'fixed inset-x-0 z-30 flex justify-center px-4',
-          booking.student_id && !isCompleted && !isCancelled && userId ? 'bottom-[68px]' : 'bottom-0 pb-safe',
-        )}>
-          <motion.div
-            initial={{ y: 60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="w-full max-w-sm md:max-w-lg bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
-          >
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
-              <div className="flex items-center gap-2">
-                <Navigation size={13} className="text-sage flex-shrink-0" />
-                <span className="text-sm font-semibold text-foreground">
-                  {helperLoc && booking.status === 'on_way'
-                    ? (distanceKm !== null
-                        ? `${distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`} away`
-                        : 'Helper on the way')
-                    : booking.status === 'arrived'
-                    ? 'Helper has arrived'
-                    : booking.status === 'in_progress'
-                    ? 'Job in progress'
-                    : helperLoc
-                    ? 'Helper on the way'
-                    : 'Job location'}
-                </span>
-                {helperLoc && booking.status === 'on_way' && distanceKm !== null && (
-                  <span className="text-xs text-muted-foreground">
-                    · ~{Math.max(1, Math.round(distanceKm * 3))} min
-                  </span>
-                )}
-              </div>
-              {helperLoc && booking.status === 'on_way' && (
-                <span className="text-xs text-muted-foreground flex-shrink-0">
-                  {formatLocationAge(locationAge)}
-                </span>
-              )}
-            </div>
-            <div style={{ height: 200 }}>
-              <MapContainer
-                center={[mapLat, mapLng]}
-                zoom={14}
-                style={{ height: '100%', width: '100%' }}
-                zoomControl={false}
-                attributionControl={false}
-                scrollWheelZoom={false}
-                dragging={false}
-              >
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
-                {helperLoc && (
-                  <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMarkerIcon} />
-                )}
-                {customerLoc && (
-                  <Marker position={[booking.customer_lat as number, booking.customer_lng as number]} icon={customerDestIcon} />
-                )}
-                <FitBoundsOrFollow
-                  helperLat={booking.worker_lat ?? null}
-                  helperLng={booking.worker_lng ?? null}
-                  customerLat={booking.customer_lat ?? null}
-                  customerLng={booking.customer_lng ?? null}
-                />
-              </MapContainer>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Chat input */}
-      {booking.student_id && !isCompleted && !isCancelled && userId && (
+      {/* Chat input — available to everyone with the booking link (customers
+          book anonymously; sends go through the send_household_chat RPC) */}
+      {booking.student_id && !isCompleted && !isCancelled && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
           <div className="max-w-sm md:max-w-lg mx-auto flex items-center gap-2">
             <input

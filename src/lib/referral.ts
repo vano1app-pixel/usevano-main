@@ -21,6 +21,10 @@ interface StoredReferral {
  *  code was just captured (used to show the welcome banner). */
 export function captureReferralFromUrl(): boolean {
   try {
+    // /join?ref= codes belong to the helper-recruitment programme (a
+    // different table entirely) — capturing them here would promise a €5
+    // booking discount that checkout could never honour.
+    if (window.location.pathname.startsWith('/join')) return false;
     const raw = new URLSearchParams(window.location.search).get('ref');
     if (!raw) return false;
     const code = raw.trim().toUpperCase();

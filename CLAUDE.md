@@ -78,7 +78,21 @@ finishes onboarding, then swept by `release-household-payouts`.
 
 ## Conventions / gotchas
 - **Prices are always recomputed server-side** — client numbers are display only.
-- **Edge-function GitHub auto-deploy is DISABLED** — edit, then redeploy manually.
+- **Edge functions auto-deploy on merge to main** (`.github/workflows/
+  supabase-deploy.yml`, paths `supabase/functions/**`). DB **migrations are NOT
+  auto-applied** — apply them to the Supabase project yourself.
+- **Customers never sign in.** Quick-book is phone-only; the booking UUID in
+  the `/track/:id` link is the credential (SECURITY DEFINER RPCs:
+  `get_household_booking`, `get_household_chat`, `send_household_chat`).
+  Don't add auth gates to anything a booking customer touches.
+- **Helper earnings are 85% of the quoted price** (`PLATFORM_FEE_BPS = 1500`).
+  Every "you keep / Earn €X" surface must use 0.85 — never promise more than
+  the payout.
+- **Friend referrals** (helpers recruiting helpers): invite code from
+  `partner-program`, attribution on signup, and a DB trigger accrues **5% of
+  the friend's net payout for their first 12 months**, funded from Vano's cut
+  (migration `20260702100000`). The customer "Give €5, get €5" programme is a
+  separate system (`household_referral_codes`).
 - `design-references/` (30MB) and `.claude/skills/` are **not app code** — design
   reference material, fenced off from the build/tests. Ignore them when reading.
 - Two root lockfiles: `package-lock.json` is authoritative (npm);

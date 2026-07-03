@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  renderHouseholdEmail, emailBox, emailButton, emailP, escapeHtml,
+  categoryLabel, greetName, sendHouseholdEmail, BRAND,
+} from "../_shared/householdEmail.ts";
 
 // Cron: rescue accepted-but-unpaid household bookings.
 //
@@ -31,6 +35,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   PAY_REMINDER_REPEAT_MINUTES  re-nudge interval until paid or timed out      (default 30)
 //   PAY_TIMEOUT_HOURS            release + cancel after this long unpaid         (default 6)
 
+// SMS/WhatsApp copy only — email copy uses the shared categoryLabel() so all
+// branded emails agree on labels. Kept local so SMS wording never shifts.
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Laundry', 'dog-walk': 'Dog walk', garden: 'Garden help',
   moving: 'Moving help', cleaning: 'Cleaning', tutoring: 'Tutoring',
@@ -92,8 +98,10 @@ async function sendCustomerSms(to: string | null | undefined, body: string): Pro
 serve(async (_req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  // All emails here go through sendHouseholdEmail(), which owns the from-
+  // address (brand domain default — the old sandbox fallback bounces for
+  // anyone but the Resend account owner).
   const resendKey   = Deno.env.get('RESEND_API_KEY')?.trim();
-  const from        = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
   const siteUrl     = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
 
   const supabase = createClient(supabaseUrl, serviceKey);
@@ -148,8 +156,9 @@ serve(async (_req) => {
     const cadenceDue  = !lastMs || (now - lastMs) >= repeatMin * 60 * 1000;
     const helper    = b.student_id ? helperByUser.get(b.student_id) : undefined;
     const helperFirst = helper?.first ?? 'Your helper';
-    const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job';
-    const custName  = b.customer_name && b.customer_name !== 'Guest' ? String(b.customer_name) : 'there';
+    const catLabel  = CATEGORY_LABELS[b.category as string] ?? 'job'; // SMS copy — unchanged
+    const catEmail  = categoryLabel(b.category as string | null);     // email copy — shared labels
+    const custName  = greetName(b.customer_name as string | null);
     const ref       = String(b.id).slice(-8).toUpperCase();
     const trackUrl  = `${siteUrl}/track/${b.id}`;
 
@@ -203,29 +212,46 @@ serve(async (_req) => {
       // Tell the helper not to proceed — their pocket channels + email.
       if (helper?.phone) void sendCustomerSms(helper.phone, `VANO: the ${catLabel} you accepted was cancelled — the customer didn't complete payment, so please don't proceed. More jobs are waiting in the app.`);
       if (resendKey && helper?.email) {
-        void fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from, to: [helper.email],
-            subject: `Job released — payment wasn't completed (${ref})`,
-            text: `Hi ${helperFirst}, the ${catLabel} you accepted has been released because the customer didn't complete payment in time. Please don't proceed with it. There are more jobs waiting: ${siteUrl}/student-dashboard`,
+        void sendHouseholdEmail({
+          to: helper.email,
+          subject: `Job released — payment wasn't completed (${ref})`,
+          html: renderHouseholdEmail({
+            preheader: `No action needed — the ${catEmail} was released before any work was due. More jobs are live now.`,
+            eyebrow: 'Job released',
+            heading: "Please don't proceed with this job",
+            bodyHtml: [
+              emailP(`Hi ${escapeHtml(helperFirst)},`),
+              emailP(`The <strong>${escapeHtml(catEmail)}</strong> you accepted has been released — the customer didn't complete payment in time, so please don't proceed with it.`, { last: true }),
+            ].join(''),
+            ctas: [{ label: 'See open jobs →', url: `${siteUrl}/student-dashboard` }],
+            footerNote: `Ref: ${ref}`,
+            tone: 'slate',
           }),
-        }).catch(() => {});
+          text: `Hi ${helperFirst}, the ${catLabel} you accepted has been released because the customer didn't complete payment in time. Please don't proceed with it. There are more jobs waiting: ${siteUrl}/student-dashboard`,
+        });
       }
 
       // Tell the customer it lapsed (so they can rebook) — SMS + email.
       if (b.customer_phone) void sendCustomerSms(b.customer_phone, `VANO: your ${catLabel} booking was cancelled because payment wasn't completed. No charge was made — rebook anytime: ${siteUrl}`);
       if (resendKey && b.customer_email) {
-        void fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from, to: [b.customer_email as string],
-            subject: `Your VANO booking lapsed — no payment received`,
-            text: `Hi ${custName}, we couldn't confirm your ${catLabel} because payment wasn't completed, so the booking has been released. You weren't charged. Rebook anytime: ${siteUrl}. Ref: ${ref}`,
+        void sendHouseholdEmail({
+          to: b.customer_email as string,
+          subject: `Your VANO booking lapsed — no payment received`,
+          html: renderHouseholdEmail({
+            preheader: `Your ${catEmail} was released before payment — you weren't charged a cent. Rebooking takes under a minute.`,
+            eyebrow: 'Booking lapsed',
+            heading: 'Your booking was released',
+            bodyHtml: [
+              emailP(`Hi ${escapeHtml(custName)},`),
+              emailP(`We couldn't confirm your <strong>${escapeHtml(catEmail)}</strong> because payment wasn't completed in time, so your helper was released and the booking cancelled.`),
+              emailP(`<strong>You haven't been charged</strong> — with VANO you only ever pay once a helper is confirmed. If you still need a hand, rebooking takes under a minute.`, { last: true }),
+            ].join(''),
+            ctas: [{ label: 'Book again →', url: siteUrl }],
+            footerNote: `Ref: ${ref}`,
+            tone: 'slate',
           }),
-        }).catch(() => {});
+          text: `Hi ${custName}, we couldn't confirm your ${catEmail} because payment wasn't completed, so the booking has been released. You weren't charged. Rebook anytime: ${siteUrl}. Ref: ${ref}`,
+        });
       }
 
       // Page the owner.
@@ -251,34 +277,37 @@ serve(async (_req) => {
     const nudgeTag = count >= 1 ? ' (reminder)' : '';
 
     if (b.customer_phone) {
-      void sendCustomerSms(b.customer_phone, `VANO${nudgeTag}: ${helperFirst} is confirmed for your ${catLabel} — just complete your secure payment to lock them in: ${payUrl}`);
+      // Link the branded track page, not the raw Stripe URL — it carries the
+      // live "Pay €X to confirm" card (same checkout session) plus the map
+      // and helper profile, and the short link survives SMS/WhatsApp better.
+      void sendCustomerSms(b.customer_phone, `VANO${nudgeTag}: ${helperFirst} is confirmed for your ${catLabel} — just complete your secure payment to lock them in: ${trackUrl}`);
     }
     if (resendKey && b.customer_email) {
-      const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">${helperFirst} is waiting on you</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirst}</strong> has accepted your <strong>${catLabel}</strong> — you just need to complete your secure payment to lock them in. No cash needed on the day.
-    </p>
-    <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Complete payment →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Card, Apple Pay or Google Pay · secured by Stripe<br>Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
-  </div>
-</div>
-</body></html>`;
-      void fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from, to: [b.customer_email as string],
-          subject: `${helperFirst} is confirmed for your ${catLabel} — complete your payment`,
-          html,
-          text: `Hi ${custName}, ${helperFirst} accepted your ${catLabel} — complete your secure payment to lock them in: ${payUrl}. Track: ${trackUrl}. Ref: ${ref}`,
+      // HTML-safe variants for interpolation (raw values stay in text/subject).
+      const custNameHtml   = escapeHtml(custName);
+      const helperNameHtml = escapeHtml(helperFirst);
+      const catEmailHtml   = escapeHtml(catEmail);
+      const payBox = emailBox(`
+      <p style="margin:0 0 4px;color:${BRAND.ink};font-size:15px;font-weight:700;">Complete your secure payment</p>
+      <p style="margin:0 0 14px;color:${BRAND.muted};font-size:13px;line-height:1.5;">Card, Apple Pay or Google Pay — secured by Stripe. No cash needed on the day.</p>
+      ${emailButton({ label: 'Complete payment →', url: payUrl })}`);
+      void sendHouseholdEmail({
+        to: b.customer_email as string,
+        subject: `${helperFirst} is confirmed for your ${catEmail} — complete your payment`,
+        html: renderHouseholdEmail({
+          preheader: `${helperFirst} accepted your ${catEmail} — one quick payment locks them in.`,
+          eyebrow: count >= 1 ? 'Payment reminder' : 'Payment pending',
+          heading: `${helperNameHtml} is waiting on you`,
+          bodyHtml: [
+            emailP(`Hi ${custNameHtml},`),
+            emailP(`<strong>${helperNameHtml}</strong> has accepted your <strong>${catEmailHtml}</strong> — you just need to complete your secure payment to lock them in.`),
+            payBox,
+          ].join(''),
+          ctas: [{ label: 'Track booking →', url: trackUrl, variant: 'quiet' }],
+          footerNote: `Ref: ${ref} · Secured by Stripe`,
         }),
-      }).catch(() => {});
+        text: `Hi ${custName}, ${helperFirst} accepted your ${catEmail} — complete your secure payment to lock them in: ${payUrl}. Track: ${trackUrl}. Ref: ${ref}`,
+      });
     }
 
     await supabase.from('household_bookings')
@@ -348,7 +377,8 @@ serve(async (_req) => {
   for (const b of releaseCandidates ?? []) {
     const id = String(b.id);
     const ref = id.slice(-8).toUpperCase();
-    const catLabel = CATEGORY_LABELS[b.category as string] ?? 'job';
+    const catLabel = CATEGORY_LABELS[b.category as string] ?? 'job'; // SMS copy — unchanged
+    const catEmail = categoryLabel(b.category as string | null);     // email copy — shared labels
     const helper = b.student_id ? relHelperByUser.get(b.student_id as string) : undefined;
     const helperFirst = helper?.first ?? 'Your helper';
 
@@ -381,15 +411,23 @@ serve(async (_req) => {
     // Notify the released helper (best-effort, same channels as the timeout path).
     if (helper?.phone) void sendCustomerSms(helper.phone, `VANO: the ${catLabel} you accepted has been freed up — the customer didn't pay in time, so you're no longer assigned. More jobs are waiting in the app.`);
     if (resendKey && helper?.email) {
-      void fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from, to: [helper.email],
-          subject: `Job freed up — payment wasn't completed (${ref})`,
-          text: `Hi ${helperFirst}, the ${catLabel} you accepted has been released because the customer didn't complete payment in time, so you're no longer assigned. There are more jobs waiting: ${siteUrl}/student-dashboard`,
+      void sendHouseholdEmail({
+        to: helper.email,
+        subject: `Job freed up — payment wasn't completed (${ref})`,
+        html: renderHouseholdEmail({
+          preheader: `You're no longer assigned to the ${catEmail} — no action needed. More jobs are live now.`,
+          eyebrow: 'Job freed up',
+          heading: "You're off this job",
+          bodyHtml: [
+            emailP(`Hi ${escapeHtml(helperFirst)},`),
+            emailP(`The <strong>${escapeHtml(catEmail)}</strong> you accepted has been released — the customer didn't complete payment in time, so you're no longer assigned.`, { last: true }),
+          ].join(''),
+          ctas: [{ label: 'See open jobs →', url: `${siteUrl}/student-dashboard` }],
+          footerNote: `Ref: ${ref}`,
+          tone: 'slate',
         }),
-      }).catch(() => {});
+        text: `Hi ${helperFirst}, the ${catLabel} you accepted has been released because the customer didn't complete payment in time, so you're no longer assigned. There are more jobs waiting: ${siteUrl}/student-dashboard`,
+      });
     }
 
     // Expire open offers so re-dispatch isn't blocked by its idempotency check.

@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signAcceptToken } from "../_shared/acceptToken.ts";
+import {
+  renderHouseholdEmail, emailP, escapeHtml, categoryLabel, greetName,
+  sendHouseholdEmail, CATEGORY_LABELS,
+} from "../_shared/householdEmail.ts";
 
 // Triggered by create-household-payment-checkout when a booking goes live,
 // and by the redispatch-stale-jobs cron when all offers have expired.
@@ -31,20 +35,10 @@ const MAX_OFFERS = Number(Deno.env.get('DISPATCH_MAX_OFFERS')) || 50;
 // inside no-helper-fallback's 2-hour auto-refund cutoff.
 const OFFER_TTL_MINUTES = 60;
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shopping: 'Laundry',
-  'dog-walk': 'Dog walk',
-  garden: 'Garden help',
-  moving: 'Moving help',
-  cleaning: 'Cleaning',
-  tutoring: 'Tutoring',
-  handyman: 'Handyman',
-  plumbing: 'Plumbing help',
-  'furniture-assembly': 'Furniture assembly',
-  'tech-help': 'Tech help',
-  'wait-delivery': 'Wait for delivery',
-  other: 'General help',
-};
+// Category labels come from the shared map — the 12-entry local copy this
+// replaced was missing half the live slugs (grocery-shopping, lawn-mowing,
+// tutoring-grinds, …), so those helper offers were headlined as a generic
+// "Household help" while the customer's emails named the real service.
 
 // ── Web push (raw VAPID + aes128gcm, same implementation as notify-new-message) ──
 function base64UrlToArrayBuffer(base64url: string): ArrayBuffer {
@@ -284,7 +278,8 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
-  const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+  // Brand-domain fallback — the Resend sandbox address bounces for non-owners.
+  const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <noreply@vanojobs.com>';
   const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://vanojobs.com').replace(/\/$/, '');
 
   try {
@@ -318,9 +313,11 @@ serve(async (req) => {
       city: string | null; status: string; category: string;
       scheduled_date: string | null; price_estimate_cents: number | null;
     };
-    // Students respond to money: show what they'd keep (95% of the job).
+    // Students respond to money: show what they'd keep. 85% must match the
+    // ACTUAL payout (capture-household-payment, PLATFORM_FEE_BPS 1500) — the
+    // number in the offer is the number they're paid, never a bigger one.
     const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
-      ? Math.floor(price_estimate_cents * 0.95)
+      ? Math.floor(price_estimate_cents * 0.85)
       : null;
 
     if (status !== 'pending') {
@@ -408,44 +405,40 @@ serve(async (req) => {
         .maybeSingle() as { data: { customer_name?: string; customer_email?: string; customer_phone?: string; scheduled_date?: string } | null };
 
       const custEmail = fullBooking?.customer_email;
-      const custName = fullBooking?.customer_name && fullBooking.customer_name !== 'Guest'
-        ? fullBooking.customer_name : 'there';
-      const catLabel = CATEGORY_LABELS[category] ?? 'job';
+      const custName = greetName(fullBooking?.customer_name);
+      const catLabel = categoryLabel(category);
       const trackUrl = `${siteUrl}/track/${bookingId}`;
       const ref = bookingId.slice(-8).toUpperCase();
 
       if (resendKey && custEmail && !quiet) {
-        fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: resendFrom,
-            to: [custEmail],
-            subject: `We're finding your helper — VANO`,
-            html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">We're on it 🔍</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      We're actively searching for a helper for your <strong>${catLabel}</strong> in ${city ?? 'your area'}.
-      We'll confirm your helper as soon as we find the right match — your booking is secure.
-    </p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-      Need it urgently or want an update?
-    </p>
-    <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;margin-bottom:12px;">💬 WhatsApp us</a>
-    <br>
-    <a href="${trackUrl}" style="display:inline-block;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;border:1px solid #e5e7eb;margin-top:8px;">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · You won't be charged anything until a helper is confirmed.</p>
-  </div>
-</div>
-</body></html>`,
-            text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city ?? 'your area'}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
-          }),
-        }).catch(() => {});
+        // HTML-safe variants for interpolation (raw values stay in text/subject).
+        const custNameHtml = escapeHtml(custName);
+        const catLabelHtml = escapeHtml(catLabel);
+        const cityHtml     = escapeHtml(city ?? 'your area');
+
+        const html = renderHouseholdEmail({
+          preheader: `We're matching your ${catLabel} now — you won't be charged until a helper is confirmed.`,
+          eyebrow: 'Finding your helper',
+          heading: `We're on it 🔍`,
+          bodyHtml: [
+            emailP(`Hi ${custNameHtml},`),
+            emailP(`We're actively searching for a helper for your <strong>${catLabelHtml}</strong> in ${cityHtml}. We'll confirm your helper as soon as we find the right match — your booking is secure.`),
+            emailP(`Need it urgently or want an update?`, { last: true }),
+          ].join(''),
+          ctas: [
+            { label: '💬 WhatsApp us', url: 'https://wa.me/353899817111', variant: 'whatsapp' },
+            { label: 'Track booking →', url: trackUrl },
+          ],
+          footerNote: `Ref: ${ref} · You won't be charged anything until a helper is confirmed.`,
+        });
+
+        // Fire-and-forget, like every other side-channel in dispatch.
+        void sendHouseholdEmail({
+          to: custEmail,
+          subject: `We're finding your helper — VANO`,
+          html,
+          text: `Hi ${custName}, we're actively finding a helper for your ${catLabel} in ${city ?? 'your area'}. Your booking is secure. Need an update? WhatsApp +353 89 981 7111. Track: ${trackUrl}. Ref: ${ref}`,
+        });
       }
 
       // Instant admin escalation — WhatsApp + guaranteed email fallback + a
@@ -600,20 +593,23 @@ serve(async (req) => {
           .map(async (h) => {
             const firstName = h.name.split(' ')[0];
             const acceptUrl = acceptUrlFor(h.id);
-            const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">New job available 🏠</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 8px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
-    ${earnCents ? `<p style="margin:0 0 4px;color:#111827;font-size:26px;font-weight:800;">Earn €${(earnCents / 100).toFixed(2)}</p>` : ''}
-    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city ?? 'Ireland'}</p>
-    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · First to accept gets it · expires in ${OFFER_TTL_MINUTES} min</p>
-    <a href="${acceptUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Accept in one tap →</a>
-  </div>
-</div>
-</body></html>`;
+            // One decision, one button. The accept link is a signed one-tap
+            // token — it claims the job and signs the helper in with no login
+            // step, so the button IS the whole flow.
+            const html = renderHouseholdEmail({
+              preheader: earnCents
+                ? `€${(earnCents / 100).toFixed(2)} for a ${catLabel} in ${city ?? 'your area'} — first to accept gets it.`
+                : `${catLabel} in ${city ?? 'your area'} — first to accept gets it.`,
+              eyebrow: 'New job near you',
+              heading: earnCents ? `Earn €${(earnCents / 100).toFixed(2)} 🏠` : 'New job available 🏠',
+              bodyHtml: [
+                emailP(`Hi ${escapeHtml(firstName)}!`),
+                emailP(`<strong>${escapeHtml(catLabel)}</strong> · ${escapeHtml(city ?? 'Ireland')}`),
+                emailP(`When: ${escapeHtml(when)} · First to accept gets it · expires in ${OFFER_TTL_MINUTES} min`, { muted: true, last: true }),
+              ].join(''),
+              ctas: [{ label: `Accept this job${earnCents ? ` · €${(earnCents / 100).toFixed(2)}` : ''} →`, url: acceptUrl }],
+              footerNote: "One tap accepts the job and signs you in — no password needed. If someone beats you to it, we'll tell you straight away.",
+            });
             const res = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
