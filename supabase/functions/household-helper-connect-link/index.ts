@@ -12,9 +12,12 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 // earnings that piled up as 'pending' while they hadn't onboarded.
 //
 // Mirrors create-stripe-connect-link (Express / IE / EUR, same auth
-// method, same idempotent reuse of an existing account id). The only
-// difference is the row it reads/writes: household_helpers keyed by
-// user_id instead of student_profiles.
+// method, same idempotent reuse of an existing account id), with two
+// deliberate differences: it reads/writes household_helpers keyed by
+// user_id instead of student_profiles, and it requests the transfers
+// capability ONLY (helpers are payout recipients, never card merchants)
+// with the helper's name/email/phone prefilled — both of which keep
+// Stripe's onboarding as short as possible.
 //
 // verify_jwt defaults to true (this function is intentionally absent
 // from config.toml, exactly like create-stripe-connect-link) AND we
@@ -24,6 +27,20 @@ function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&');
+}
+
+// Stripe wants E.164. Application phones arrive as "089 123 4567",
+// "+353 89...", "00353..." etc. Returns null when unsure — prefill is
+// optional, a wrong guess is worse than an empty field.
+function toE164Irish(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const d = raw.replace(/\D/g, '');
+  let e164: string | null = null;
+  if (raw.trim().startsWith('+')) e164 = `+${d}`;
+  else if (d.startsWith('00')) e164 = `+${d.slice(2)}`;
+  else if (d.startsWith('353')) e164 = `+${d}`;
+  else if (d.startsWith('0')) e164 = `+353${d.slice(1)}`;
+  return e164 && /^\+\d{9,15}$/.test(e164) ? e164 : null;
 }
 
 serve(async (req) => {
@@ -66,9 +83,11 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // The helper's Connect account lives on their household_helpers row.
+    // name/phone/email are pulled so Express onboarding can be prefilled —
+    // the helper should only have to type what we don't already know.
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, stripe_account_id, stripe_payouts_enabled')
+      .select('id, stripe_account_id, stripe_payouts_enabled, name, phone, email')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -117,22 +136,50 @@ serve(async (req) => {
         // Ireland-default. Stripe Express + EUR; the helper links any
         // IBAN (bank or Revolut) during onboarding.
         country: 'IE',
+        // transfers ONLY — helpers receive payouts, they never charge cards.
+        // Requesting card_payments pulls in Stripe's fuller merchant KYC
+        // (business profile etc.) and makes onboarding noticeably longer.
         'capabilities[transfers][requested]': 'true',
-        'capabilities[card_payments][requested]': 'true',
         business_type: 'individual',
         'metadata[vano_user_id]': userId,
         'metadata[household_helper_id]': String(helper.id),
       };
       if (userEmail) accountParams.email = userEmail;
+      else if (helper.email) accountParams.email = String(helper.email).trim().toLowerCase();
 
-      const resp = await fetch('https://api.stripe.com/v1/accounts', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formEncode(accountParams),
-      });
+      // Prefill what the application already told us, so Express shows these
+      // filled in and the helper mostly just adds DOB, address and IBAN.
+      const prefill: Record<string, string> = {};
+      const fullName = String(helper.name ?? '').trim();
+      if (fullName) {
+        const [first, ...rest] = fullName.split(/\s+/);
+        prefill['individual[first_name]'] = first;
+        if (rest.length > 0) prefill['individual[last_name]'] = rest.join(' ');
+      }
+      const email = accountParams.email;
+      if (email) prefill['individual[email]'] = email;
+      const e164 = toE164Irish(helper.phone as string | null);
+      if (e164) prefill['individual[phone]'] = e164;
+
+      const createAccount = (params: Record<string, string>) =>
+        fetch('https://api.stripe.com/v1/accounts', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formEncode(params),
+        });
+
+      // Prefill is best-effort: if Stripe rejects any prefilled value (odd
+      // name characters, unparseable phone), retry bare rather than blocking
+      // payout setup over a convenience.
+      let resp = await createAccount({ ...accountParams, ...prefill });
+      if (!resp.ok && Object.keys(prefill).length > 0) {
+        const text = await resp.text().catch(() => '');
+        console.warn('[household-helper-connect-link] prefilled creation rejected — retrying bare', resp.status, text.slice(0, 300));
+        resp = await createAccount(accountParams);
+      }
 
       if (!resp.ok) {
         const text = await resp.text();
