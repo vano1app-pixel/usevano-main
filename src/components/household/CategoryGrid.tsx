@@ -13,7 +13,7 @@ import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, STARTER_CUSTOM_JOBS, type CustomJob } from '@/lib/customJobs';
-import { isValidPhone } from '@/lib/validation';
+import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -146,10 +146,11 @@ function applyScheduledDiscount(cents: number): number {
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────
 
-function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
+function buildWhatsAppMsg(cat: Category, when: string, size: string, address?: string): string {
   const lines = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
   if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
   if (size) lines.push(`Duration: ${size}`);
+  if (address) lines.push(`Address: ${address}`);
   lines.push('Can you let me know who is available?');
   return lines.join('\n');
 }
@@ -258,6 +259,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+  // True only after the checkout call itself failed (not field validation) —
+  // flips the WhatsApp fallback into the primary recovery action.
+  const [submitFailed, setSubmitFailed] = useState(false);
   // Field-level flags so a failed submit points at the field to fix, not just
   // a message at the foot of the sheet
   const [phoneError,   setPhoneError]   = useState(false);
@@ -331,9 +335,26 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
 
   // Live field validity — drives the small green ✓ next to each label as it's
   // filled. Quiet reassurance at the highest-friction step (a stranger typing
-  // their number + address for in-home help).
-  const phoneValid = isValidPhone(phone);
+  // their number + address for in-home help). The phone tick means "we can
+  // actually text this number", not just "looks phone-shaped".
+  const phoneValid = normalizePhoneE164(phone) !== null;
   const addressValid = !!address.trim();
+
+  // Abandoned-booking rescue: remember the details as they're typed, not only
+  // after a successful checkout — someone who hesitates at the last button
+  // comes back to a pre-filled sheet, one tap from booking.
+  useEffect(() => {
+    if (normalizePhoneE164(phone) === null) return;
+    const t = setTimeout(() => {
+      saveBookingMemory({
+        phone: phone.trim().replace(/\s+/g, ''),
+        ...(address.trim() ? { address: address.trim() } : {}),
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+        city,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [phone, address, coords, city]);
 
   const ctaLabel = [
     `Book ${cat.label}`,
@@ -342,7 +363,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   ].filter(Boolean).join(' · ');
 
   function sendWhatsApp() {
-    const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(cat, when, size))}`;
+    // After a failed submit the typed details ride along, so the WhatsApp
+    // thread starts with everything our team needs to book it by hand.
+    const withDetails = submitFailed && address.trim() ? address.trim() : undefined;
+    const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(cat, when, size, withDetails))}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
@@ -354,12 +378,20 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
       setError('Please enter a valid phone number.');
       return;
     }
+    if (normalizePhoneE164(phone) === null) {
+      // Phone-shaped but not textable (UK 07…, landlines) — every update
+      // (pay link, on-my-way, arrival) goes by text, so catch it here with a
+      // fix instead of booking someone we can never reach.
+      setPhoneError(true);
+      setError("We can't text that number — Irish mobiles (08…) work as-is; for other countries add the code, e.g. +44 7…");
+      return;
+    }
     if (!address.trim()) {
       setAddressError(true);
       setError('Please add your address so your helper can find you.');
       return;
     }
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setSubmitFailed(false);
     haptic(12); // subtle confirm tick on supported phones
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
@@ -394,6 +426,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
       window.location.href = data.checkout_url as string;
     } catch (err: unknown) {
       setLoading(false);
+      setSubmitFailed(true);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     }
   }
@@ -559,7 +592,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
                 )}
               />
-              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
             </motion.div>
 
             {/* Address — Eircode search or current location */}
@@ -821,20 +854,34 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
 
               {error && <p className="text-center text-xs text-destructive">{error}</p>}
 
-              <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                A nearby helper usually replies in minutes
-              </p>
+              {/* A failed checkout call must never be a dead end — flip the
+                  WhatsApp fallback into the primary recovery action, with the
+                  typed details riding along in the message. */}
+              {submitFailed ? (
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
+                </p>
+              ) : (
+                <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  A nearby helper usually replies in minutes
+                </p>
+              )}
 
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={sendWhatsApp}
-                  className="w-full rounded-full gap-2 font-medium text-sm h-10 border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                  className={cn(
+                    'w-full rounded-full gap-2',
+                    submitFailed
+                      ? 'h-12 font-semibold text-base border-transparent bg-[#25D366] text-white hover:bg-[#1fb457] hover:text-white'
+                      : 'h-10 font-medium text-sm border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6',
+                  )}
                 >
                   <MessageCircle className="w-4 h-4" />
-                  Or book via WhatsApp
+                  {submitFailed ? 'Book via WhatsApp instead' : 'Or book via WhatsApp'}
                 </Button>
               </motion.div>
             </motion.div>

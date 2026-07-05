@@ -407,6 +407,7 @@ serve(async (req) => {
 
     // SMS the customer the pay link — most quick-book customers leave only a
     // phone number, so this is the primary channel for the trust moment.
+    let smsSent = false;
     {
       const phone = booking.customer_phone as string | null;
       if (phone) {
@@ -414,11 +415,11 @@ serve(async (req) => {
         const catSms = CATEGORY_LABELS[booking.category as string] ?? 'job';
         const discountSms = appliedDiscountCents > 0 ? ' (€5 referral discount applied)' : '';
         const smsBody = payUrl && !booking.paid_at
-          ? `VANO: ${helperFirstName} accepted your ${catSms}! Confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely: ${payUrl}`
+          ? `VANO: ${helperFirstName} accepted your ${catSms} and is holding your slot — confirm & pay €${(totalCents / 100).toFixed(2)}${discountSms} securely: ${payUrl}`
           : autoCharged
             ? `VANO: ${helperFirstName} accepted your ${catSms}! €${(totalCents / 100).toFixed(2)} was charged to your saved card. Track here: ${siteUrlSms}/track/${booking_id}`
             : `VANO: ${helperFirstName} accepted your ${catSms}! Track here: ${siteUrlSms}/track/${booking_id}`;
-        await sendSms(phone, smsBody);
+        smsSent = await sendSms(phone, smsBody);
       }
     }
 
@@ -476,7 +477,7 @@ serve(async (req) => {
     <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
       <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">Secure your booking — €${(totalCents / 100).toFixed(2)}</p>
       ${discountLine}
-      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">Pay securely by card to confirm ${helperFirstName}. No cash needed on the day.</p>
+      <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">${helperFirstName} is holding your slot — pay securely by card to lock it in. No cash needed on the day.</p>
       <a href="${payUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Confirm &amp; pay €${(totalCents / 100).toFixed(2)} →</a>
     </div>` : ''}
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
@@ -509,22 +510,35 @@ serve(async (req) => {
 
     const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
     if (adminEmail) {
+      // The pay link reached the customer only if the text went out or they
+      // gave an email that Resend accepted. If NEITHER happened on an unpaid
+      // booking, the sale now depends on them reopening the track page — make
+      // the admin alert unmissable so a human WhatsApps the link right away.
+      const payLinkUndelivered = !!payUrl && !booking.paid_at && !smsSent && !emailedOk;
       fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from,
           to: [adminEmail],
-          subject: `✅ Job claimed — ${helperFirstName} on ${catLabel}${booking.paid_at ? '' : ' (payment requested)'}`,
+          subject: payLinkUndelivered
+            ? `🚨 ACTION NEEDED — customer never got their pay link (${catLabel}, €${(totalCents / 100).toFixed(2)})`
+            : `✅ Job claimed — ${helperFirstName} on ${catLabel}${booking.paid_at ? '' : ' (payment requested)'}`,
           text: [
+            ...(payLinkUndelivered ? [
+              `The customer has no email on file and the SMS/WhatsApp didn't go out — they have NOT received the pay link. WhatsApp it to them now:`,
+              `${payUrl}`,
+              '',
+            ] : []),
             `${helperFirstName} just claimed a job.`,
             `Job: ${catLabel}`,
             `Customer: ${custName}`,
+            `Phone: ${booking.customer_phone ?? '—'}`,
             `Email: ${booking.customer_email ?? '—'}`,
             `When: ${whenLine || 'Flexible'}`,
             `Payment: ${booking.paid_at ? 'PAID' : `UNPAID — customer asked to pay €${(totalCents / 100).toFixed(2)}`}`,
             ...(appliedDiscountCents > 0 ? [`Referral discount applied: -€${(appliedDiscountCents / 100).toFixed(2)}`] : []),
-            ...(payUrl && !booking.paid_at ? [`Pay link (WhatsApp it to the customer if they have no email): ${payUrl}`] : []),
+            ...(payUrl && !booking.paid_at && !payLinkUndelivered ? [`Pay link (WhatsApp it to the customer if they have no email): ${payUrl}`] : []),
             `Ref: ${ref}`,
             `Track: ${trackUrl}`,
           ].join('\n'),
@@ -532,7 +546,7 @@ serve(async (req) => {
       }).catch(() => {});
     }
 
-    return ok({ ok: true, emailed: emailedOk, pay_url: payUrl });
+    return ok({ ok: true, emailed: emailedOk, sms_sent: smsSent, pay_url: payUrl });
   } catch (err) {
     console.error('[notify-household-accepted] unhandled', err);
     return bad(500, 'Unexpected error');

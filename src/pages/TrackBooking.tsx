@@ -1186,10 +1186,10 @@ const TrackBooking = () => {
               </p>
               <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
                 {booking.helper_finished_at
-                  ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm to release their payment.`
+                  ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm it's done — you've already paid, this just lets us pay ${helperName ?? 'them'}.`
                   : booking.job_ends_at
-                    ? 'Your booked time is up. Rate your helper and confirm to release their payment.'
-                    : 'Once the work is finished, rate your helper and confirm — this releases their payment.'}
+                    ? "Your booked time is up. Rate your helper and confirm it's done — you've already paid, there's nothing more to pay."
+                    : `Once the work is finished, rate your helper and confirm it's done. You've already paid — confirming just lets us pay ${helperName ?? 'them'}.`}
               </p>
               <div className="flex gap-1 justify-center mb-4">
                 {[1, 2, 3, 4, 5].map((n) => {
@@ -1215,7 +1215,7 @@ const TrackBooking = () => {
                 disabled={markingDone}
                 className="w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
               >
-                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Mark complete &amp; pay{helperName ? ` ${helperName}` : ''}</>}
+                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Confirm it's done</>}
               </button>
               <p className="text-center text-[11px] text-muted-foreground mt-2">Rating is optional — you can confirm without it.</p>
             </motion.div>
