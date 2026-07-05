@@ -31,6 +31,7 @@ const Auth = lazyWithRetry(() => import("./pages/Auth"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const ServiceLanding = lazyWithRetry(() => import("./pages/ServiceLanding"));
 const BlogIndex = lazyWithRetry(() => import("./pages/BlogIndex"));
 const BlogPost = lazyWithRetry(() => import("./pages/BlogPost"));
 const GlossaryIndex = lazyWithRetry(() => import("./pages/GlossaryIndex"));
@@ -63,6 +64,7 @@ const PwaUpdateToast = lazy(() =>
 import type { TransitionVariant } from "./components/PageTransition";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 import { captureReferralFromUrl } from "@/lib/referral";
+import { SERVICE_LANDING_SLUGS } from "@/content/serviceSlugs";
 import { isNativeApp } from "@/lib/platform";
 import { initNativeApp } from "@/lib/native/initNativeApp";
 
@@ -124,6 +126,11 @@ const App = () => {
             <Route path="/auth" element={<P><Auth /></P>} />
             <Route path="/privacy" element={<P><Privacy /></P>} />
             <Route path="/terms" element={<P><Terms /></P>} />
+            {/* Per-service SEO landing pages (/cleaning-galway…). Slugs only —
+                the copy stays in the lazy ServiceLanding chunk. */}
+            {SERVICE_LANDING_SLUGS.map((slug) => (
+              <Route key={slug} path={`/${slug}`} element={<P><ServiceLanding /></P>} />
+            ))}
             <Route path="/blog" element={<P><BlogIndex /></P>} />
             <Route path="/blog/:slug" element={<P><BlogPost /></P>} />
             <Route path="/glossary" element={<P><GlossaryIndex /></P>} />

@@ -23,6 +23,8 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { BLOG_POSTS, type BlogPost } from "../src/content/blog";
 import { GLOSSARY_TERMS, type GlossaryTerm } from "../src/content/glossary";
+import { SERVICE_LANDINGS, type ServiceLandingContent } from "../src/content/services";
+import { FAQS } from "../src/components/household/faqData";
 
 const DIST = join(process.cwd(), "dist");
 const TEMPLATE_PATH = join(DIST, "index.html");
@@ -64,7 +66,8 @@ const PRERENDER_STYLE = `<style id="vano-prerender-style">
 </style>`;
 
 const topNav = `<nav class="top"><a href="/">Home</a> · <a href="/blog">Blog</a> · <a href="/glossary">Glossary</a> · <a href="/join">Join as helper</a></nav>`;
-const siteFooter = `<footer>VANO — same-day home help in Galway &amp; Ireland. <a href="/join">Join as a helper</a> · <a href="/blog">Blog</a> · <a href="/glossary">Glossary</a></footer>`;
+const serviceLinks = SERVICE_LANDINGS.map((s) => `<a href="/${s.slug}">${escAttr(s.name)} in Galway</a>`).join(" · ");
+const siteFooter = `<footer>VANO — same-day home help in Galway &amp; Ireland. ${serviceLinks} · <a href="/join">Join as a helper</a> · <a href="/blog">Blog</a> · <a href="/glossary">Glossary</a></footer>`;
 
 interface PageSpec {
   outFile: string;
@@ -334,10 +337,161 @@ ${siteFooter}`.trim();
   };
 }
 
+// ── service landing pages (/cleaning-galway …) ─────────────────────────────
+function servicePage(s: ServiceLandingContent): PageSpec {
+  const url = `${ORIGIN}/${s.slug}`;
+  const others = SERVICE_LANDINGS.filter((o) => o.slug !== s.slug);
+
+  const rootHtml = `
+${topNav}
+<article>
+<nav class="crumbs"><a href="/">Home</a> / ${escAttr(s.name)}</nav>
+<p class="eyebrow">${escAttr(s.priceLabel)} · Galway · same-day</p>
+<h1>${escAttr(s.h1)}</h1>
+<p class="summary">${escAttr(s.intro)}</p>
+<p><strong>${escAttr(s.priceLabel)}</strong> — ${escAttr(s.priceDetail)} <a href="/">Book now</a> — no payment until a helper accepts, money-back guarantee.</p>
+<h2>What's included</h2>
+<ul>${s.included.map((i) => `<li>${escAttr(i)}</li>`).join("")}</ul>
+${s.body.map((b) => `<h2>${escAttr(b.heading)}</h2><p>${escAttr(b.text)}</p>`).join("\n")}
+</article>
+<section class="faq"><h2>Common questions</h2>${s.faqs.map((f) => `<details><summary>${escAttr(f.q)}</summary><p>${escAttr(f.a)}</p></details>`).join("")}</section>
+<section><h2>More help in Galway</h2><ul class="cards">${others.map((o) => `<li><a href="/${o.slug}">${escAttr(o.title)}</a></li>`).join("")}</ul></section>
+${siteFooter}`.trim();
+
+  return {
+    outFile: `${s.slug}/index.html`,
+    title: s.title,
+    description: s.description,
+    canonical: url,
+    ogType: "website",
+    jsonLd: [
+      {
+        "@context": "https://schema.org",
+        "@type": "Service",
+        name: `${s.name} — VANO`,
+        description: s.description,
+        serviceType: s.name,
+        areaServed: { "@type": "City", name: "Galway", address: { "@type": "PostalAddress", addressCountry: "IE" } },
+        provider: { "@type": "LocalBusiness", name: "VANO", url: `${ORIGIN}/` },
+        offers: { "@type": "Offer", price: String(s.fromPriceEuro), priceCurrency: "EUR", url },
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: s.faqs.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: `${ORIGIN}/` },
+          { "@type": "ListItem", position: 2, name: s.name, item: url },
+        ],
+      },
+    ],
+    rootHtml,
+  };
+}
+
+// ── homepage + /join ─────────────────────────────────────────────────────────
+// The SPA shell's <head> already carries the right meta + LocalBusiness
+// JSON-LD, but its #root is empty apart from a noscript stub — AI crawlers
+// that don't run JS (GPTBot, PerplexityBot, ClaudeBot…) read nothing, even
+// though robots.txt explicitly invites them. Bake the real copy in; React
+// re-renders #root on load for human visitors, same as the blog pages.
+function homePage(): PageSpec {
+  const rootHtml = `
+${topNav}
+<h1>Same-day help, from someone you trust</h1>
+<p class="summary">VANO books an ID-verified local student for your home jobs in Galway — cleaning, laundry, dog walks, garden help and moving. You see your helper's name, photo and rating before you pay a cent: booking is free, and you only pay once a helper accepts. Money-back guarantee.</p>
+<h2>What you can book</h2>
+<ul class="cards">
+${SERVICE_LANDINGS.map((s) => `<li><a href="/${s.slug}">${escAttr(s.name)} in Galway</a> — ${escAttr(s.priceLabel)}<br><span>${escAttr(s.description)}</span></li>`).join("\n")}
+</ul>
+<h2>How it works</h2>
+<ul>
+<li><strong>1. Say what you need</strong> — pick a job, add your phone and address. Takes about 30 seconds; no account, no payment.</li>
+<li><strong>2. A verified student accepts</strong> — you see their name, photo and rating, then pay securely by card to confirm them.</li>
+<li><strong>3. Track it live</strong> — follow your helper on a live map, chat in the app, and confirm when the job's done. Helpers are paid only after you confirm.</li>
+</ul>
+<h2>Why people trust VANO</h2>
+<ul>
+<li>Every helper is ID-verified before their first job</li>
+<li>You see exactly who's coming before any money moves</li>
+<li>Protected card payment — no cash on the day</li>
+<li>Money-back guarantee if it's not right</li>
+</ul>
+<section class="faq"><h2>Frequently asked questions</h2>${FAQS.map((f) => `<details><summary>${escAttr(f.q)}</summary><p>${escAttr(f.a)}</p></details>`).join("")}</section>
+<p>Students: <a href="/join">earn money as a VANO helper</a> — flexible same-day jobs that pay above minimum wage after fees.</p>
+${siteFooter}`.trim();
+
+  return {
+    outFile: "index.html",
+    title: "Same-day home help in Galway",
+    description:
+      "Book a trusted local student helper in minutes — cleaning, garden, dog walks, laundry, moving & more. Same-day in Galway, from €15.",
+    canonical: `${ORIGIN}/`,
+    ogType: "website",
+    jsonLd: [
+      // LocalBusiness/WebSite already live in the static head — only the FAQ
+      // schema (normally injected at runtime by react-helmet) needs baking.
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: FAQS.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      },
+    ],
+    rootHtml,
+  };
+}
+
+function joinPage(): PageSpec {
+  const rootHtml = `
+${topNav}
+<h1>Earn money as a student helper in Galway</h1>
+<p class="summary">Pick up same-day home help jobs near you — laundry runs, dog walks, cleaning, garden work and moving help. Earn €12–€65 per job, keep 85% of every fare, and work only when it suits your timetable.</p>
+<h2>How it works</h2>
+<ul>
+<li><strong>Apply in minutes</strong> — a short form with your photo and student details.</li>
+<li><strong>Verify your ID</strong> — every VANO helper is ID-verified before their first job, which is why customers trust the platform.</li>
+<li><strong>Accept jobs near you</strong> — offers arrive by WhatsApp and in your dashboard; take only the ones that suit you.</li>
+<li><strong>Get paid after each job</strong> — payouts go straight to your bank once the customer confirms the job is done.</li>
+</ul>
+<h2>What jobs pay</h2>
+<ul>
+<li>Time-based work (cleaning, garden, moving) is priced at €18/hour — you keep €15.30/hour, above the Irish minimum wage.</li>
+<li>Flat-rate errands (laundry €15, dog walks €15–20) are priced per task so a short job is still worth your trip.</li>
+</ul>
+<p><a href="/join">Apply now at vanojobs.com/join</a> — it takes a few minutes, and most applicants are verified within days.</p>
+${siteFooter}`.trim();
+
+  return {
+    outFile: "join/index.html",
+    title: "Earn money as a student helper in Ireland",
+    description:
+      "Pick up same-day home help jobs near you. Earn €12–€65 per job — laundry, dog walks, cleaning, gardening & more. Flexible hours, paid after each job. Apply in minutes.",
+    canonical: `${ORIGIN}/join`,
+    ogType: "website",
+    jsonLd: [],
+    rootHtml,
+  };
+}
+
 // ── run ──────────────────────────────────────────────────────────────────────
 const pages: PageSpec[] = [
+  homePage(),
+  joinPage(),
   blogIndexPage(),
   glossaryIndexPage(),
+  ...SERVICE_LANDINGS.map(servicePage),
   ...BLOG_POSTS.map(blogPostPage),
   ...GLOSSARY_TERMS.map(glossaryTermPage),
 ];
@@ -358,6 +512,9 @@ const llmsTxt = [
   "## Glossary",
   ...GLOSSARY_TERMS.map((t) => `- [${t.term}](${ORIGIN}/glossary/${t.slug}): ${t.short}`),
   "",
+  "## Services",
+  ...SERVICE_LANDINGS.map((s) => `- [${s.title}](${ORIGIN}/${s.slug}): ${s.description}`),
+  "",
   "## Key pages",
   `- [Book same-day home help](${ORIGIN}/)`,
   `- [Join as a helper](${ORIGIN}/join)`,
@@ -368,6 +525,6 @@ const llmsTxt = [
 writeFileSync(join(DIST, "llms.txt"), llmsTxt, "utf-8");
 
 console.log(
-  `✓ prerendered ${pages.length} pages + llms.txt → dist/{blog,glossary} ` +
-    `(${BLOG_POSTS.length} posts, ${GLOSSARY_TERMS.length} terms + 2 index pages)`,
+  `✓ prerendered ${pages.length} pages + llms.txt → dist ` +
+    `(home, join, ${SERVICE_LANDINGS.length} service pages, ${BLOG_POSTS.length} posts, ${GLOSSARY_TERMS.length} terms + 2 index pages)`,
 );
