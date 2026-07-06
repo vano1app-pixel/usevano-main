@@ -68,6 +68,12 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
     if (!bookingId) return bad(400, 'booking_id required');
+    // Cooling-off: an AUTO-completed job (48h no customer response) carries
+    // dispute risk, so the caller passes hold_hours to defer the transfer — the
+    // payout stays 'pending' with hold_until set, and a dispute inside the
+    // window cancels+refunds cleanly with no reversal. A customer-confirmed
+    // completion omits it and pays out immediately (great for helpers).
+    const holdHours = Number(body?.hold_hours) > 0 ? Number(body.hold_hours) : 0;
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -108,9 +114,10 @@ serve(async (req) => {
     // household_payouts has a UNIQUE(booking_id) constraint, so a concurrent
     // second completion loses the insert race (23505) and is treated as
     // already-complete rather than double-paying.
+    const holdUntil = holdHours > 0 ? new Date(Date.now() + holdHours * 60 * 60 * 1000).toISOString() : null;
     const { data: payoutRow, error: payoutErr } = await supabase
       .from('household_payouts')
-      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending' })
+      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending', hold_until: holdUntil })
       .select('id')
       .single();
 
@@ -152,7 +159,10 @@ serve(async (req) => {
     // intent we transfer from the platform balance instead.
     try {
       const payoutId = payoutRow?.id as string | undefined;
-      if (payoutId && studentCents > 0 && STRIPE_SECRET_KEY) {
+      // Held payouts (auto-completed jobs in their dispute window) are NOT
+      // transferred now — release-household-payouts sweeps them once hold_until
+      // elapses, so a dispute meanwhile can cancel + refund with no reversal.
+      if (payoutId && !holdUntil && studentCents > 0 && STRIPE_SECRET_KEY) {
         const { data: helperRow } = await supabase
           .from('household_helpers')
           .select('stripe_account_id, stripe_payouts_enabled')

@@ -220,10 +220,14 @@ serve(async (req) => {
       .limit(20) as { data: Booking[] | null };
     for (const b of toAutoComplete ?? []) {
       try {
+        // Auto-completed (not explicitly customer-confirmed) → hold the payout
+        // for a cooling-off window so a late-responding customer can still
+        // dispute + get a clean refund before the helper's pay transfers.
+        const holdHours = Number(Deno.env.get('AUTO_COMPLETE_HOLD_HOURS')) || 24;
         const resp = await fetch(`${supabaseUrl}/functions/v1/capture-household-payment`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${serviceKey}`, 'x-internal-complete': '1', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking_id: b.id }),
+          body: JSON.stringify({ booking_id: b.id, hold_hours: holdHours }),
         });
         if (!resp.ok) {
           console.error('[remind-confirm-completion] auto-complete failed', b.id, resp.status, (await resp.text()).slice(0, 200));

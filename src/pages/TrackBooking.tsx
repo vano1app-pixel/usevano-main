@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -263,6 +263,12 @@ const TrackBooking = () => {
   // Cancel state
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // Report-a-problem (money-back) state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
 
   // "Mark done" (one-off jobs) + live timer tick (timed jobs)
   const [markingDone, setMarkingDone] = useState(false);
@@ -573,6 +579,33 @@ const TrackBooking = () => {
       toast({ title: 'Could not cancel', description: 'Please WhatsApp us on +353 89 981 7111', variant: 'destructive' });
     } finally {
       setCancelling(false);
+    }
+  };
+
+  // Money-back: files a dispute server-side. If the helper hasn't been paid yet
+  // it auto-refunds; otherwise it pages the team. Either way the customer gets a
+  // clear, honest outcome instead of a bare WhatsApp link.
+  const handleReportProblem = async () => {
+    if (!bookingId || reportSubmitting) return;
+    setReportSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<{ refunded?: boolean; needs_admin?: boolean }>(
+        'report-household-problem',
+        { body: { booking_id: bookingId, reason: reportReason.trim() || undefined } },
+      );
+      if (error) throw error;
+      setReportDone(true);
+      toast(
+        data?.refunded
+          ? { title: 'Refund on its way', description: 'You’ve been fully refunded — it’ll show on your card in 5–7 days.' }
+          : { title: 'We’re on it', description: 'Our team has been alerted and will sort this out with you shortly.' },
+      );
+    } catch {
+      // Never leave them stuck — fall back to the human channel.
+      toast({ title: 'Couldn’t submit automatically', description: 'Please message us on WhatsApp and we’ll sort it.', variant: 'destructive' });
+      window.open(`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO, I need help with my booking (ref ${bookingId.slice(-8).toUpperCase()}).`)}`, '_blank', 'noopener,noreferrer');
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -1504,6 +1537,52 @@ const TrackBooking = () => {
             >
               Book another job <span aria-hidden="true">→</span>
             </Link>
+
+            {/* Money-back guarantee — a real action, not a dead WhatsApp link.
+                Files a dispute server-side (auto-refunds when possible). */}
+            <div className="mt-3 border-t border-sage/20 pt-3">
+              {reportDone ? (
+                <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Check size={12} className="text-sage" /> Thanks — we’ve got it from here.
+                </p>
+              ) : !reportOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="flex items-center justify-center gap-1.5 w-full text-[11px] text-muted-foreground hover:text-foreground transition-colors py-1"
+                >
+                  <ShieldAlert size={12} className="flex-shrink-0" /> Something wrong? Report a problem
+                </button>
+              ) : (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
+                  <p className="text-[11px] text-muted-foreground mb-2">Tell us what went wrong — you’re covered by our money-back guarantee.</p>
+                  <textarea
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value.slice(0, 400))}
+                    placeholder="e.g. the helper didn’t show, or the job wasn’t done right…"
+                    rows={2}
+                    className="w-full p-3 rounded-xl border border-border/60 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-2"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setReportOpen(false); setReportReason(''); }}
+                      className="flex-1 h-10 rounded-full border border-border text-sm font-medium text-muted-foreground active:scale-[0.98] transition-transform"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleReportProblem()}
+                      disabled={reportSubmitting}
+                      className="flex-1 h-10 rounded-full bg-foreground text-background text-sm font-semibold flex items-center justify-center disabled:opacity-50 active:scale-[0.98] transition-transform"
+                    >
+                      {reportSubmitting ? <Loader2 size={15} className="animate-spin" /> : 'Submit'}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
           </motion.div>
         )}
 

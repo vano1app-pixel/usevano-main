@@ -100,10 +100,14 @@ serve(async (_req) => {
       }
     };
 
+    // Held payouts (auto-completed jobs in their cooling-off window) wait until
+    // hold_until elapses, so a dispute can still cancel + refund cleanly first.
+    const nowIso = new Date().toISOString();
     const { data: pending, error } = await supabase
       .from('household_payouts')
       .select('id, booking_id, student_id, amount_cents, transfer_attempts')
       .eq('status', 'pending')
+      .or(`hold_until.is.null,hold_until.lt.${nowIso}`)
       .order('created_at', { ascending: true })
       .limit(50);
 
