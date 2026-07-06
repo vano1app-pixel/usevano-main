@@ -53,14 +53,14 @@ export const HeroSection: React.FC = () => {
           <ReferralWelcomeBanner />
         </div>
 
-        {/* One calm social row — Trustpilot + live presence as MATCHING glass
-            chips so they read as a single unit. Only the pulsing dot carries
-            'live'; no loud emerald pill. */}
+        {/* Two stacked centered rows: (1) the trust-badges row — Trustpilot now,
+            room to grow with Yelp/Google as they come online; (2) the live
+            "helpers online" number on its own centered row directly beneath. */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8 sm:mb-10 flex flex-wrap items-center justify-center gap-2"
+          className="mb-8 sm:mb-10 flex flex-col items-center gap-2.5"
         >
           <ReviewBadges inline />
           {!helperReady ? (
