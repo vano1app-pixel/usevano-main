@@ -758,13 +758,13 @@ const TrackBooking = () => {
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button
           onClick={() => navigate('/home')}
-          className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
+          className="flex items-center justify-center w-11 h-11 -ml-2.5 rounded-full hover:bg-secondary active:scale-90 transition-[transform,background-color]"
           aria-label="Back"
         >
           <ArrowLeft size={18} strokeWidth={2} />
         </button>
         <img src={logo} alt="VANO" className="h-6 w-auto mx-auto" />
-        <div className="w-8" />
+        <div className="w-11" />
       </header>
 
       <main className={cn('pt-14 max-w-sm md:max-w-lg mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
@@ -945,7 +945,7 @@ const TrackBooking = () => {
             <button
               onClick={() => void enablePush()}
               disabled={pushState === 'subscribing'}
-              className="flex-shrink-0 h-9 px-4 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+              className="flex-shrink-0 h-10 px-4 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-sage-dark active:scale-[0.97] disabled:opacity-50 transition-[background-color,opacity,transform] duration-150"
             >
               {pushState === 'subscribing' ? <Loader2 size={14} className="animate-spin" /> : 'Turn on'}
             </button>
@@ -1233,7 +1233,7 @@ const TrackBooking = () => {
                       onMouseEnter={() => setHoverRating(n)}
                       onMouseLeave={() => setHoverRating(0)}
                       onClick={() => setSelectedRating(n)}
-                      className="p-1 active:scale-90 transition-transform"
+                      className="p-2 active:scale-90 transition-transform"
                       aria-label={`${n} star${n === 1 ? '' : 's'}`}
                     >
                       <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
@@ -1415,16 +1415,40 @@ const TrackBooking = () => {
                   <div key={step.key} className="flex gap-3">
                     <div className="flex flex-col items-center w-5 flex-shrink-0">
                       <div className={cn(
-                        'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
+                        'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors duration-300',
                         done ? 'bg-sage' : 'bg-secondary border border-border/60',
                       )}>
-                        {done
-                          ? <CheckCircle2 size={12} className="text-white" strokeWidth={2.5} />
-                          : <Circle size={8} className="text-muted-foreground/40" />
-                        }
+                        {/* The completed tick springs in — each status change is a
+                            moment, not a silent class swap. A gentle per-step
+                            stagger reads as a cascade on load. */}
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          {done ? (
+                            <motion.span
+                              key="check"
+                              initial={{ scale: 0.3, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ type: 'spring', stiffness: 520, damping: 15, delay: i * 0.04 }}
+                              className="inline-flex"
+                            >
+                              <CheckCircle2 size={12} className="text-white" strokeWidth={2.5} />
+                            </motion.span>
+                          ) : (
+                            <motion.span key="circle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="inline-flex">
+                              <Circle size={8} className="text-muted-foreground/40" />
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
                       </div>
                       {!isLast && (
-                        <div className={cn('w-[2px] flex-1 my-1', done ? 'bg-sage/40' : 'bg-border/40')} />
+                        <div className="w-[2px] flex-1 my-1 bg-border/40 relative overflow-hidden rounded-full">
+                          {/* Sage fill draws downward as this step completes. */}
+                          <motion.div
+                            className="absolute inset-0 bg-sage/50 origin-top"
+                            initial={{ scaleY: 0 }}
+                            animate={{ scaleY: done ? 1 : 0 }}
+                            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1], delay: i * 0.04 }}
+                          />
+                        </div>
                       )}
                     </div>
                     <div className={cn('pb-4', isLast && 'pb-0')}>
@@ -1485,7 +1509,7 @@ const TrackBooking = () => {
                         onMouseEnter={() => setHoverRating(n)}
                         onMouseLeave={() => setHoverRating(0)}
                         onClick={() => setSelectedRating(n)}
-                        className="p-1 active:scale-90 transition-transform"
+                        className="p-2 active:scale-90 transition-transform"
                       >
                         <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
                           <Star
