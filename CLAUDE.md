@@ -1,10 +1,20 @@
 # CLAUDE.md — Vano
 
 Same-day home help in Galway: book an ID-verified student for cleaning,
-laundry, garden, dog walks, moving or tutoring — or put the house on
-**autopilot** (a weekly/monthly plan). React + Vite + TypeScript +
+laundry, garden, dog walks, moving or tutoring. React + Vite + TypeScript +
 Tailwind/shadcn on the front; Supabase (Postgres + Deno edge functions) on
-the back; Stripe for payments; hosted on Vercel.
+the back; Stripe for payments; hosted on Vercel. Also ships as native iOS +
+Android apps via Capacitor (see `src/lib/native/`).
+
+## The focus (read this first)
+ONE business model: the single quick-book flow for one-off home help. The
+whole job right now is to **perfect that one flow to Uber's standard**, make
+the site convert, drive traffic to it, and ship it as polished iOS/Android
+apps. Do not add a second product or a second booking path. Autopilot (the
+old subscription) is **parked** — its code still exists but nothing mounts it
+and it is not being sold; don't build on it or cross-sell it. When in doubt,
+the tie-breaker is: does this make the one booking flow faster, clearer, or
+more trusted? If not, it waits.
 
 ## Commands
 | | |
@@ -47,14 +57,13 @@ There is exactly ONE customer booking flow:
 - **Vano's take:** 7.5% customer fee + 15% student-side cut ≈ 22.5% of the
   quoted price (`PLATFORM_FEE_BPS = 1500` in `capture-household-payment`).
 
-## Autopilot (the flagship subscription)
-`src/components/household/AutopilotBuilder.tsx` (UI) +
-`supabase/functions/create-autopilot-checkout` (Stripe subscription). Ongoing
-(weekly/monthly) or away-cover. Client prices are display-only; the function
-recomputes server-side. **No automatic per-visit payout** — admin schedules a
-student manually after the welcome ping. Each price assumes a capped visit time
-so it clears min wage (cleaning = 90-min refresh, dog = 30-min walk); don't
-lengthen scope without re-pricing.
+## Autopilot (PARKED — not the focus, don't build on it)
+The old weekly/monthly subscription. `AutopilotBuilder.tsx` +
+`create-autopilot-checkout` still exist but the builder is **not mounted
+anywhere** in the customer app, so customers can't reach it — it's
+effectively retired. Leave the code as-is (don't rip it out mid-focus), but
+don't extend it, cross-sell it, or route to it. All product energy goes to
+the one quick-book flow above.
 
 ## Payments & escrow
 "Vano Pay" Connect/escrow: `VANO_PAY_ESCROW.md`,
