@@ -38,6 +38,9 @@ serve(async (req) => {
       .is('student_id', null)
       .gte('created_at', minCreated)
       .lte('created_at', maxCreated)
+      // Leave future-dated jobs to dispatch-scheduled-jobs — re-dispatching them
+      // now would offer helpers a job days early.
+      .or(`scheduled_at.is.null,scheduled_at.lt.${new Date(now).toISOString()}`)
       .order('created_at', { ascending: true })
       .limit(50);
 

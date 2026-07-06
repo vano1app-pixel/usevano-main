@@ -145,6 +145,30 @@ function applyScheduledDiscount(cents: number): number {
   return Math.round(cents * 0.9);
 }
 
+/**
+ * Turn a chosen "when" slot into a real local timestamp (ISO) for book-ahead.
+ * The server stores it so a future job dispatches at a lead window instead of
+ * immediately. Returns null for ASAP ("Now"), unparseable, or already-past
+ * today slots — null means "as soon as possible", the default behaviour.
+ * Slots look like "Now", "1pm", "12:30pm" (today) or "Tomorrow 9am".
+ */
+function computeScheduledAt(when: string): string | null {
+  if (!when || when === 'Now') return null;
+  const m = when.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (!m) return null;
+  let hr = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  const pm = /pm/i.test(m[3]);
+  if (pm && hr < 12) hr += 12;
+  if (!pm && hr === 12) hr = 0;
+  const d = new Date();
+  if (/^tomorrow/i.test(when)) d.setDate(d.getDate() + 1);
+  d.setHours(hr, min, 0, 0);
+  // A "today" slot that's already passed → treat as ASAP rather than a past time.
+  if (d.getTime() < Date.now() - 60_000) return null;
+  return d.toISOString();
+}
+
 // ─── WhatsApp ─────────────────────────────────────────────────────────────
 
 function buildWhatsAppMsg(cat: Category, when: string, size: string, address?: string): string {
@@ -409,6 +433,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
           when_label:       when,
           size_label:       size,
           scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
+          ...(computeScheduledAt(when) ? { scheduled_at: computeScheduledAt(when) } : {}),
           note:             note ?? '',
           ...(extraLabel ? { extra_label: extraLabel } : {}),
           customer_name:    'Guest', // quick sheet doesn't ask for a name (pay happens later, so Stripe never collects one either)

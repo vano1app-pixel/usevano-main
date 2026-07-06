@@ -433,6 +433,8 @@ serve(async (_req) => {
     .is('paid_at', null)
     .in('status', ['pending', 'accepted', 'on_way'])
     .lt('created_at', cancelCutoff)
+    // Don't 24h-cancel a future-dated booking that simply hasn't come due yet.
+    .or(`scheduled_at.is.null,scheduled_at.lt.${new Date(now).toISOString()}`)
     .order('created_at', { ascending: true })
     .limit(SWEEP_LIMIT) as { data: Array<{ id: string; stripe_payment_intent_id: string | null }> | null };
 
