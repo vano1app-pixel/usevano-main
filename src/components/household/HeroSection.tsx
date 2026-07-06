@@ -26,7 +26,7 @@ export const HeroSection: React.FC = () => {
     : 'Same-day help in Galway';
 
   return (
-    <section id="book" data-snap className="relative bg-navy px-4 pt-20 pb-[13vh] sm:pb-16 flex flex-col justify-center min-h-[100svh]">
+    <section id="book" data-snap className="relative bg-navy px-4 pt-16 pb-[18vh] sm:pb-[16vh] flex flex-col justify-center min-h-[100svh]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="grain pointer-events-none absolute inset-0 opacity-[0.06]" aria-hidden="true" />
         <motion.div
