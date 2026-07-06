@@ -38,7 +38,12 @@ const PLATFORMS: Platform[] = [
   // },
 ];
 
-export const ReviewBadges: React.FC = () => {
+/**
+ * `inline` drops the standalone bottom margin so a parent row can own the
+ * spacing (used by the merged hero trust row). Default keeps its own mb-3 so
+ * existing standalone placements are unaffected.
+ */
+export const ReviewBadges: React.FC<{ inline?: boolean }> = ({ inline = false }) => {
   if (PLATFORMS.length === 0) return null;
 
   return (
@@ -46,7 +51,7 @@ export const ReviewBadges: React.FC = () => {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-3 flex flex-wrap items-center justify-center gap-2"
+      className={`${inline ? '' : 'mb-3'} flex flex-wrap items-center justify-center gap-2`}
     >
       {PLATFORMS.map(({ name, href, brand, rating, count }) => (
         <a
