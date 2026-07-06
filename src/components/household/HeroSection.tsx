@@ -6,6 +6,7 @@ import { helperPresenceTier } from '@/lib/helperPresence';
 import { useCountUp } from '@/hooks/useCountUp';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
+import { ReviewBadges } from './ReviewBadges';
 import { ScrollCue } from './ScrollCue';
 
 /**
@@ -79,6 +80,11 @@ export const HeroSection: React.FC = () => {
         <div className="flex justify-center">
           <ReferralWelcomeBanner />
         </div>
+
+        {/* Review-platform trust strip — sits just above the live-presence pill
+            so social proof is the first thing read. Renders platform links only
+            (no fabricated scores) until real ratings exist. */}
+        <ReviewBadges />
 
         {/* Live presence — centered */}
         <motion.div
