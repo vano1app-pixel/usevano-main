@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck } from 'lucide-react';
+import { MapPin, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -18,30 +18,40 @@ interface Face { id: string; name: string; photo_url: string }
 const firstName = (n: string) => (n || '').trim().split(/\s+/)[0] || '';
 const roundedPlus = (n: number) => (n >= 10 ? `${Math.floor(n / 10) * 10}+` : `${n}`);
 
+const base = () =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (supabase as any)
+    .from('household_helpers')
+    .select('id, name, photo_url', { count: 'exact' })
+    .eq('status', 'approved')
+    .eq('show_on_homepage', true)
+    .not('photo_url', 'is', null)
+    .neq('photo_url', '');
+
 export const HelperFacePile: React.FC = () => {
   const [faces, setFaces] = useState<Face[]>([]);
   const [total, setTotal] = useState(0);
+  // Only claim "ID-verified" when the shown helpers actually are. Prefer
+  // id_verified helpers; if none are verified yet, still show real approved
+  // helpers but drop the verification claim (honesty — never call an unverified
+  // helper "ID-verified"). Auto-upgrades once real verifications land.
+  const [verified, setVerified] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from('household_helpers')
-      .select('id, name, photo_url', { count: 'exact' })
-      .eq('status', 'approved')
-      .eq('show_on_homepage', true)
-      .not('photo_url', 'is', null)
-      .neq('photo_url', '')
-      .limit(6)
-      .then(({ data, count }: { data: Face[] | null; count: number | null }) => {
-        if (cancelled) return;
-        if (data && data.length > 0) {
-          setFaces(data);
-          setTotal(count ?? data.length);
-        }
-        setLoaded(true);
-      });
+    (async () => {
+      const v = await base().eq('id_verified', true).limit(6);
+      if (cancelled) return;
+      if (v.data && v.data.length > 0) {
+        setFaces(v.data); setTotal(v.count ?? v.data.length); setVerified(true); setLoaded(true);
+        return;
+      }
+      const a = await base().limit(6);
+      if (cancelled) return;
+      if (a.data && a.data.length > 0) { setFaces(a.data); setTotal(a.count ?? a.data.length); }
+      setLoaded(true);
+    })();
     return () => { cancelled = true; };
   }, []);
 
@@ -49,12 +59,13 @@ export const HelperFacePile: React.FC = () => {
 
   const shown = faces.slice(0, 4);
   const names = faces.map(f => firstName(f.name)).filter(Boolean);
+  const noun = verified ? 'ID-verified students' : 'local students in Galway';
   const label =
     total <= 1
-      ? `${names[0] ?? 'An ID-verified student'} — verified & ready to help`
+      ? `${names[0] ?? 'A student'} — ${verified ? 'ID-verified & ready to help' : 'ready to help in Galway'}`
       : names.length >= 2
-        ? `${names[0]}, ${names[1]} & ${roundedPlus(Math.max(total - 2, 1))} ID-verified students`
-        : `${roundedPlus(total)} ID-verified students in Galway`;
+        ? `${names[0]}, ${names[1]} & ${roundedPlus(Math.max(total - 2, 1))} ${noun}`
+        : `${roundedPlus(total)} ${noun}`;
 
   return (
     <motion.div
@@ -63,7 +74,7 @@ export const HelperFacePile: React.FC = () => {
       transition={{ delay: 0.34, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className="mt-5 flex justify-center"
     >
-      <a href="#helpers" className="group inline-flex items-center gap-3" aria-label="Meet the verified student helpers">
+      <a href="#helpers" className="group inline-flex items-center gap-3" aria-label="Meet the student helpers">
         <div className="flex -space-x-2.5">
           {shown.map(f => (
             <img
@@ -76,7 +87,11 @@ export const HelperFacePile: React.FC = () => {
           ))}
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-medium text-white/70 group-hover:text-white/90 transition-colors">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
+          {/* Shield only when the claim is actually "ID-verified" — a MapPin
+              otherwise, so the icon never implies verification we don't have. */}
+          {verified
+            ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />
+            : <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" aria-hidden="true" />}
           {label}
         </span>
       </a>
