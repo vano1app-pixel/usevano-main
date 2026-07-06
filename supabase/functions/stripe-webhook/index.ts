@@ -1112,83 +1112,11 @@ async function handleChargeRefunded(
   });
 }
 
-// --- Handler: helper subscription checkout completed ---------------------
-// Fires when a student pays the monthly membership.
-// Flips their status from pending → approved so they immediately start
-// receiving job dispatches. No manual approval needed.
-async function handleHelperSubscriptionCompleted(
-  supabase: SupabaseClient,
-  helperEmail: string,
-): Promise<Response> {
-  const { data: flipped, error } = await supabase
-    .from('household_helpers')
-    .update({ status: 'approved', is_available: true })
-    .eq('email', helperEmail)
-    .eq('status', 'pending')
-    .select('name')
-    .maybeSingle();
-
-  if (error) {
-    console.error('[stripe-webhook] helper approval flip failed', error);
-    return new Response('DB error', { status: 500 });
-  }
-
-  // Send a welcome email so the helper knows they're live
-  const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
-  const from      = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
-  const siteUrl   = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');
-  const firstName = (flipped as { name?: string } | null)?.name?.split(' ')[0] ?? 'there';
-
-  if (resendKey && helperEmail) {
-    fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from,
-        to: [helperEmail],
-        subject: "You're approved — start taking jobs on VANO! 🎉",
-        html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">Welcome to VANO! 🎉</p>
-  </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
-    <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">You're officially approved and your account is now <strong>live</strong>. Jobs in your area will start appearing on your dashboard — just go available and you're ready to earn.</p>
-    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Tips for your first job:<br>
-    • Make sure you're set to <strong>Available</strong> on the dashboard<br>
-    • You'll get an email + WhatsApp when a job is offered to you<br>
-    • Head over quickly — jobs can be claimed by other helpers too</p>
-    <a href="${siteUrl}/student-dashboard" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 28px;border-radius:100px;text-decoration:none;">Go to dashboard →</a>
-    <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Questions? WhatsApp us any time: <a href="https://wa.me/353899817111" style="color:#4a7c59">+353 89 981 7111</a></p>
-  </div>
-</div>
-</body></html>`,
-        text: `Hi ${firstName}! You're approved on VANO. Go to your dashboard to start taking jobs: ${siteUrl}/student-dashboard. Questions? WhatsApp +353 89 981 7111`,
-      }),
-    }).catch((e) => console.warn('[stripe-webhook] helper welcome email failed', e));
-  }
-
-  // Ping the admin — a paid membership means a new live helper, and that
-  // used to happen completely silently.
-  fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-admin-whatsapp`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      type: 'helper_membership_paid',
-      helper_name: (flipped as { name?: string } | null)?.name ?? null,
-      helper_email: helperEmail,
-    }),
-  }).catch(() => {/* non-critical */});
-
-  return new Response(
-    JSON.stringify({ received: true, triggered: 'helper_approved' }),
-    { headers: { 'Content-Type': 'application/json' } },
-  );
-}
+// (Removed) handleHelperSubscriptionCompleted — the legacy monthly-membership
+// auto-approve. It flipped a helper pending→approved on a subscription payment
+// alone, bypassing both Stripe Identity and the €2 sign-up fee. Approval is now
+// gated exclusively by the trg_helpers_autoapprove DB trigger (student email +
+// ID + €2), so this bypass was deleted rather than left as latent risk.
 
 // --- Handler: €2 helper sign-up fee paid ----------------------------------
 // Server-side backstop for confirm-signup-payment. Only pays attention to a
@@ -1298,10 +1226,14 @@ serve(async (req) => {
     if (session.metadata?.type === 'helper_signup' && session.metadata?.helper_id) {
       return handleHelperSignupPaid(supabase, supabaseUrl, serviceKey, session, session.metadata.helper_id);
     }
-    const helperEmail = session.metadata?.helper_email;
-    if (helperEmail) {
-      return handleHelperSubscriptionCompleted(supabase, helperEmail);
-    }
+    // NOTE: the legacy monthly-membership auto-approve (a checkout carrying
+    // metadata.helper_email → flip pending→approved) was REMOVED. It bypassed
+    // BOTH the €2 sign-up fee and Stripe Identity verification, breaking the
+    // platform invariant that a helper only goes live once student-email + ID +
+    // the €2 fee are ALL done. That is enforced solely by the
+    // trg_helpers_autoapprove DB trigger; there is now exactly one automated
+    // path to 'approved'. The subscription product is parked, so nothing legit
+    // creates a helper_email checkout anymore — such an event falls through.
 
     // Fallback: look at client_reference_id as an AI Find request id
     // (legacy behaviour before we started setting metadata). If it
