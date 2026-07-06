@@ -271,6 +271,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   // Drag-to-dismiss: only the handle starts the drag, so the body still scrolls
   const dragControls = useDragControls();
   const sheetRef = useRef<HTMLDivElement>(null);
+  // Synchronous submit lock — `loading` state only disables the button after a
+  // re-render, so a fast double-tap can fire handleBook twice before then. This
+  // ref flips instantly, closing that window (server-side dedupe is the backstop).
+  const submitLock = useRef(false);
 
   function forgetMe() {
     clearBookingMemory();
@@ -374,6 +378,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
+    if (submitLock.current) return; // ignore a double-tap before the re-render
     const phoneClean = phone.trim().replace(/\s+/g, '');
     if (!isValidPhone(phone)) {
       setPhoneError(true);
@@ -393,6 +398,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
       setError('Please add your address so your helper can find you.');
       return;
     }
+    submitLock.current = true;
     setLoading(true); setError(null); setSubmitFailed(false);
     haptic(12); // subtle confirm tick on supported phones
     try {
@@ -438,6 +444,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
       } catch { /* malformed URL — fall through to the hard redirect */ }
       window.location.href = dest;
     } catch (err: unknown) {
+      submitLock.current = false; // allow a retry after a failure
       setLoading(false);
       setSubmitFailed(true);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

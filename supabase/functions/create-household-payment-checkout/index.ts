@@ -514,6 +514,35 @@ serve(async (req) => {
       } catch (e) { console.warn('[create-household-payment-checkout] geocode failed', e); }
     }
 
+    // Double-submit guard: a fast double-tap on Book (or a retry) can call this
+    // twice before the client disables the button. If the same phone already
+    // created a live booking for the same category in the last few minutes,
+    // return THAT booking instead of creating a second one (which would fan out
+    // a second dispatch and could charge the customer twice).
+    {
+      const dedupeCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+      const { data: recent } = await supabase
+        .from('household_bookings')
+        .select('id, booking_data')
+        .eq('customer_phone', customer_phone.trim())
+        .eq('category', cat)
+        .not('status', 'in', '(cancelled,completed)')
+        .gte('created_at', dedupeCutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle() as { data: { id: string; booking_data: Record<string, unknown> | null } | null };
+      if (recent?.id) {
+        console.log('[create-household-payment-checkout] duplicate submit — returning existing booking', recent.id);
+        const origin0 = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
+        const trackUrl0 = `${origin0}/track/${recent.id}`;
+        const feeCents0 = Number((recent.booking_data as Record<string, unknown> | null)?.service_fee_cents) || 0;
+        return new Response(
+          JSON.stringify({ booking_id: recent.id, track_url: trackUrl0, checkout_url: trackUrl0, price_cents: priceCents, total_cents: priceCents + feeCents0, pay_later: true, deduped: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
       .insert({

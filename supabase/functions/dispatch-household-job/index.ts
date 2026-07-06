@@ -327,6 +327,26 @@ serve(async (req) => {
       return new Response('Not a pending booking — skipping', { status: 200 });
     }
 
+    // Atomic dispatch claim: two invocations for the same booking arriving
+    // within seconds (checkout dispatch racing a retry, admin button racing the
+    // cron) would BOTH pass the offer-count idempotency check below and each
+    // blast every helper — the offer upsert dedupes, but the notifications
+    // don't. This conditional UPDATE lets only one racer through; the other
+    // bails. A genuine re-dispatch round (minutes later) passes because
+    // last_dispatched_at is older than the lock window.
+    const DISPATCH_LOCK_SECONDS = 20;
+    const lockCutoff = new Date(Date.now() - DISPATCH_LOCK_SECONDS * 1000).toISOString();
+    const { data: claimed } = await supabase
+      .from('household_bookings')
+      .update({ last_dispatched_at: new Date().toISOString() })
+      .eq('id', bookingId)
+      .or(`last_dispatched_at.is.null,last_dispatched_at.lt.${lockCutoff}`)
+      .select('id')
+      .maybeSingle();
+    if (!claimed) {
+      return new Response('Dispatch just ran — skipping duplicate', { status: 200 });
+    }
+
     // Expire any stale pending offers so re-dispatch isn't blocked by the idempotency check.
     await supabase
       .from('household_job_offers')
