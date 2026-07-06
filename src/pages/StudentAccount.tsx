@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertTriangle, Camera, Check, CheckCircle2, ChevronLeft,
-  ImagePlus, Loader2, X,
+  ImagePlus, Loader2, Trash2, X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -48,6 +48,8 @@ interface HelperRow {
   categories: string[] | null;
   availability: string[] | null;
   status: string;
+  stripe_account_id: string | null;
+  stripe_payouts_enabled: boolean | null;
 }
 
 const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
@@ -122,6 +124,12 @@ const StudentAccount = () => {
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // Payout disconnect + account deletion (danger zone)
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [showDelete,    setShowDelete]    = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting,      setDeleting]      = useState(false);
 
   useEffect(() => {
     if (!saved) return;
@@ -364,6 +372,62 @@ const StudentAccount = () => {
     }
   };
 
+  // fetch() (not functions.invoke) so guard messages in a non-2xx body still
+  // surface to the helper — mirrors handleLeave above.
+  const fnUrl = (name: string) => `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/${name}`;
+  const fnHeaders = () => {
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${anonKey}`, apikey: anonKey };
+  };
+
+  // ── Disconnect Stripe payouts ───────────────────────────────────────────────
+  const handleDisconnectPayouts = async () => {
+    if (!helper) return;
+    setDisconnecting(true);
+    try {
+      const res = await fetch(fnUrl('disconnect-helper-payouts'), {
+        method: 'POST',
+        headers: fnHeaders(),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+      });
+      const json = await res.json() as { disconnected?: boolean; error?: string };
+      if (!res.ok || !json.disconnected) throw new Error(json.error ?? 'Failed');
+      setHelper(h => h ? { ...h, stripe_account_id: null, stripe_payouts_enabled: false } : h);
+      toast({ title: 'Payout account disconnected', description: 'Any earnings still owed wait safely until you reconnect.' });
+    } catch {
+      toast({ title: 'Could not disconnect', description: 'Try again or WhatsApp +353 89 981 7111.', variant: 'destructive' });
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  // ── Delete account (GDPR erasure) ───────────────────────────────────────────
+  const handleDeleteAccount = async () => {
+    if (!helper) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(fnUrl('delete-helper-account'), {
+        method: 'POST',
+        headers: fnHeaders(),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone, confirm: 'DELETE' }),
+      });
+      const json = await res.json() as { deleted?: boolean; error?: string };
+      if (!res.ok || !json.deleted) {
+        // Guard messages ("you're owed €X", "finish your active job") arrive here.
+        throw new Error(json.error || 'We could not delete your account. Try again or contact support.');
+      }
+      toast({ title: 'Account deleted', description: 'Your personal details have been removed. Take care!' });
+      navigate('/', { replace: true });
+    } catch (e) {
+      toast({
+        title: 'Could not delete account',
+        description: e instanceof Error ? e.message : 'Try again or WhatsApp +353 89 981 7111.',
+        variant: 'destructive',
+      });
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center">
@@ -556,11 +620,33 @@ const StudentAccount = () => {
             </div>
           </section>
 
-          {/* Automatic payouts — only for signed-in helpers (RLS-gated reads) */}
-          {authUserId && (
+          {/* Automatic payouts — the setup card needs an auth session (RLS-gated
+              reads); the disconnect action is phone-authed so it shows for any
+              helper whose Stripe account is linked. */}
+          {(authUserId || helper.stripe_account_id) && (
             <section>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Payouts</p>
-              <HouseholdHelperVanoPayCard userId={authUserId} />
+              {authUserId && <HouseholdHelperVanoPayCard userId={authUserId} />}
+              {helper.stripe_account_id && (
+                <div className={cn('rounded-2xl border border-border/60 px-4 py-3.5', authUserId && 'mt-3')}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">Payout account linked</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Disconnect to remove your bank/Revolut details. Earnings still owed wait until you reconnect.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleDisconnectPayouts()}
+                      disabled={disconnecting}
+                      className="text-xs text-destructive font-semibold flex-shrink-0 disabled:opacity-50"
+                    >
+                      {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
@@ -626,6 +712,22 @@ const StudentAccount = () => {
                 );
               })}
             </div>
+          </section>
+
+          {/* Danger zone — permanent account deletion (GDPR erasure) */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Danger zone</p>
+            <button
+              type="button"
+              onClick={() => { setDeleteConfirm(''); setShowDelete(true); }}
+              className="w-full rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+            >
+              <Trash2 size={18} className="text-destructive flex-shrink-0" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-destructive">Delete my account</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">Permanently removes your profile, photo and details.</span>
+              </span>
+            </button>
           </section>
         </div>
       </main>
@@ -801,6 +903,62 @@ const StudentAccount = () => {
                   type="button"
                   onClick={() => setShowConfirm(false)}
                   disabled={cancelling}
+                  className="w-full h-14 rounded-full bg-secondary text-foreground font-semibold text-base disabled:opacity-50"
+                >
+                  Keep my account
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Delete account confirmation — requires typing DELETE */}
+      <AnimatePresence>
+        {showDelete && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/40"
+              onClick={() => { if (!deleting) setShowDelete(false); }}
+            />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 350 }}
+              className="fixed bottom-0 inset-x-0 z-50 bg-background rounded-t-3xl px-5 pt-5 pb-10 max-w-sm mx-auto"
+            >
+              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-6" />
+              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-destructive/10 mb-4">
+                <Trash2 size={22} className="text-destructive" />
+              </div>
+              <h2 className="text-lg font-bold text-foreground mb-2">Delete your account?</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                This permanently removes your profile, photo, bio and personal details, disconnects payouts, and takes you off the platform. It can't be undone. Type <span className="font-semibold text-foreground">DELETE</span> to confirm.
+              </p>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder="DELETE"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base mb-5 focus:outline-none focus:ring-2 focus:ring-destructive/40 placeholder:text-muted-foreground/40"
+              />
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteAccount()}
+                  disabled={deleting || deleteConfirm.trim().toUpperCase() !== 'DELETE'}
+                  className="w-full h-14 rounded-full bg-destructive text-white font-semibold text-base flex items-center justify-center gap-2 disabled:opacity-40"
+                >
+                  {deleting
+                    ? <><Loader2 size={17} className="animate-spin" />Deleting…</>
+                    : 'Delete my account'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDelete(false)}
+                  disabled={deleting}
                   className="w-full h-14 rounded-full bg-secondary text-foreground font-semibold text-base disabled:opacity-50"
                 >
                   Keep my account
