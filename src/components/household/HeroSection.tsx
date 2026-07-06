@@ -43,7 +43,7 @@ export const HeroSection: React.FC = () => {
     // collapses — no jump, no phantom dead band. The asymmetric mobile padding
     // (pb > pt beyond the nav clearance) lifts the block's optical centre so
     // the search bar sits nearer the thumb line instead of drifting low.
-    <section id="book" data-snap className="relative bg-navy px-4 pt-24 pb-[13vh] sm:pb-16 flex flex-col justify-center min-h-[100svh]">
+    <section id="book" data-snap className="relative bg-navy px-4 pt-20 pb-[13vh] sm:pb-16 flex flex-col justify-center min-h-[100svh]">
       {/* Decorative background — kept in its own overflow-hidden layer so the
           section itself never clips the search dropdown that opens below the bar
           (previously overflow-hidden on the section cut the 3rd suggestion off). */}
@@ -91,7 +91,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-5 flex justify-center"
+          className="mb-4 flex justify-center"
         >
           {!helperReady ? (
             /* Skeleton shimmer only while the head-count request is genuinely in
@@ -117,7 +117,7 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="display-xl text-white mb-4 text-balance"
+          className="display-lg text-white mb-3 text-balance text-[1.75rem] sm:text-[2.25rem] leading-[1.08]"
         >
           Same-day help, from someone you{' '}
           <span className="relative inline-block">
@@ -139,18 +139,28 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-white/70 text-base sm:text-lg leading-relaxed max-w-md mx-auto mb-8 text-pretty"
+          className="text-white/65 text-sm sm:text-base leading-relaxed max-w-md mx-auto mb-6 text-pretty"
         >
-          ID-verified local students — see their name, photo and rating before they arrive.
+          ID-verified students — see their photo &amp; rating before they arrive.
         </motion.p>
 
-        {/* The one front door — big centered search bar (type → pick → price) */}
+        {/* The one front door — big centered search bar (type → pick → price).
+            A soft warm halo sits behind it so the white bar reads as THE focal
+            point against the navy, not just another element in the stack. */}
         <motion.div
+          className="relative"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         >
-          <CategoryGrid />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[220%] rounded-full blur-2xl"
+            style={{ background: 'radial-gradient(ellipse at center, hsl(43 92% 60% / 0.16), transparent 65%)' }}
+          />
+          <div className="relative z-10">
+            <CategoryGrid />
+          </div>
         </motion.div>
 
         {/* Trust — centered glass chips, one row that wraps on mobile */}
