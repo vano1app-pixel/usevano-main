@@ -156,6 +156,23 @@ export default function HouseholdAdmin() {
     }
   };
 
+  // Manual re-dispatch lever — for a job stuck waiting for a helper (or one the
+  // stalled-sweep escalated). Fans the offer out again to eligible helpers.
+  const handleRedispatch = async (bookingId: string) => {
+    setActioning(bookingId);
+    try {
+      const { error } = await supabase.functions.invoke('dispatch-household-job', {
+        body: { record: { id: bookingId } },
+      });
+      if (error) throw error;
+      toast({ title: 'Re-dispatched', description: 'Offer sent out to eligible helpers again.' });
+    } catch (e: unknown) {
+      toast({ title: 'Could not re-dispatch', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
+    } finally {
+      setActioning(null);
+    }
+  };
+
   const handleApproveHelper = async (helperId: string) => {
     setActioning(helperId);
     try {
@@ -348,16 +365,30 @@ export default function HouseholdAdmin() {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-muted-foreground">{format(new Date(b.created_at), 'dd MMM yyyy, HH:mm')} · #{b.id.slice(-8).toUpperCase()}</p>
-                    {CANCELLABLE.includes(b.status) && (
-                      <button
-                        onClick={() => void handleRefund(b.id)}
-                        disabled={actioning === b.id}
-                        className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-full hover:bg-destructive/5 disabled:opacity-50 flex items-center gap-1 transition-colors"
-                      >
-                        {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />}
-                        Cancel + refund
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Re-dispatch: a job still waiting for a helper (or one the
+                          stalled-sweep escalated back to pending) can be re-offered. */}
+                      {b.status === 'pending' && !b.student_id && (
+                        <button
+                          onClick={() => void handleRedispatch(b.id)}
+                          disabled={actioning === b.id}
+                          className="text-xs text-primary border border-primary/30 px-3 py-1 rounded-full hover:bg-primary/5 disabled:opacity-50 flex items-center gap-1 transition-colors"
+                        >
+                          {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                          Re-dispatch
+                        </button>
+                      )}
+                      {CANCELLABLE.includes(b.status) && (
+                        <button
+                          onClick={() => void handleRefund(b.id)}
+                          disabled={actioning === b.id}
+                          className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-full hover:bg-destructive/5 disabled:opacity-50 flex items-center gap-1 transition-colors"
+                        >
+                          {actioning === b.id ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />}
+                          Cancel + refund
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))

@@ -14,6 +14,7 @@ interface Health {
     acceptedUnpaid: number;
     lastDispatch: { ref: string; category: string | null; city: string | null; workers: number } | null;
   };
+  attention?: { stuckPaid: number; failedPayouts: number; openDisputes: number };
 }
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -71,6 +72,14 @@ export default function SystemHealthPanel() {
 
   const s = health.supply;
   const p = health.pipeline;
+  const a = health.attention;
+  const attentionItems = a
+    ? [
+        { n: a.stuckPaid, label: 'paid job', plural: 'paid jobs', tail: 'stuck — hand-assign a helper or refund' },
+        { n: a.failedPayouts, label: 'helper payout', plural: 'helper payouts', tail: 'failed to transfer — check Stripe' },
+        { n: a.openDisputes, label: 'open dispute', plural: 'open disputes', tail: 'awaiting your decision' },
+      ].filter((x) => x.n > 0)
+    : [];
 
   return (
     <div className="space-y-3">
@@ -80,6 +89,27 @@ export default function SystemHealthPanel() {
           <RefreshCw size={12} className={cn(loading && 'animate-spin')} /> Refresh
         </button>
       </div>
+
+      {/* Needs your attention — the money/stuck states the self-healing sweeps
+          escalate. Green "all clear" when empty so the owner knows it's covered. */}
+      {a && (
+        <div className={cn('rounded-2xl p-4 border', attentionItems.length ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200')}>
+          {attentionItems.length ? (
+            <>
+              <p className="font-semibold text-red-700 text-sm mb-2 flex items-center gap-1.5"><AlertTriangle size={15} /> Needs your attention</p>
+              <div className="space-y-1.5">
+                {attentionItems.map((x) => (
+                  <p key={x.label} className="text-sm text-red-800">
+                    <strong>{x.n}</strong> {x.n === 1 ? x.label : x.plural} {x.tail}
+                  </p>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="font-semibold text-emerald-700 text-sm flex items-center gap-1.5"><CheckCircle2 size={15} /> All clear — nothing needs you right now</p>
+          )}
+        </div>
+      )}
 
       {/* Channels */}
       <div className="bg-card border border-border rounded-2xl p-4">

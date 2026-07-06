@@ -89,6 +89,12 @@ serve(async (req) => {
   const openUnassigned    = await safeCount(sb.from('household_bookings').select('id', { count: 'exact', head: true }).eq('status', 'pending').is('student_id', null) as never);
   const acceptedUnpaid    = await safeCount(sb.from('household_bookings').select('id', { count: 'exact', head: true }).eq('status', 'accepted').is('paid_at', null) as never);
 
+  // ── Needs-your-attention: the money/stuck states the self-healing sweeps
+  //    escalate to a human. Non-zero here means something needs a decision.
+  const stuckPaid = await safeCount(sb.from('household_bookings').select('id', { count: 'exact', head: true }).not('stalled_escalated_at', 'is', null).in('status', ['accepted', 'on_way', 'pending']).not('paid_at', 'is', null) as never);
+  const failedPayouts = await safeCount(sb.from('household_payouts').select('id', { count: 'exact', head: true }).eq('status', 'failed') as never);
+  const openDisputes = await safeCount(sb.from('household_bookings').select('id', { count: 'exact', head: true }).not('disputed_at', 'is', null).is('refunded_at', null).neq('status', 'cancelled') as never);
+
   // Most recent dispatch fan-out (proxy: latest offer by expires_at).
   let lastDispatch: { ref: string; category: string | null; city: string | null; workers: number } | null = null;
   try {
@@ -121,6 +127,11 @@ serve(async (req) => {
       openUnassigned,
       acceptedUnpaid,
       lastDispatch,
+    },
+    attention: {
+      stuckPaid,       // paid jobs the stalled-sweep escalated — hand-assign or refund
+      failedPayouts,   // helper transfers that hit the retry cap
+      openDisputes,    // money-back reports awaiting a decision
     },
   });
 });
