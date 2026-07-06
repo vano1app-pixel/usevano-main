@@ -77,7 +77,7 @@ serve(async (req) => {
     const firstName = helper.name.split(' ')[0];
     const dashUrl = `${siteUrl}/student-dashboard`;
 
-    const waText = `🎉 ${firstName}, you're approved on VANO! You can now pick up jobs in ${helper.city}. Open your dashboard, turn on job alerts and set yourself Available — jobs are first come, first served: ${dashUrl}`;
+    const waText = `🎉 ${firstName}, you're approved on VANO! You can now pick up jobs in ${helper.city}. Open your dashboard, turn on job alerts and set yourself Available — jobs are first come, first served: ${dashUrl}\n\n💶 One important step: add your payout details in the Earnings tab so we can pay you — without it your earnings are held: ${dashUrl}?tab=earnings`;
     const waOk = await sendWhatsApp(helper.phone, waText);
 
     let emailOk = false;
@@ -101,11 +101,15 @@ serve(async (req) => {
       Your VANO helper application is <strong>approved</strong>. You can now pick up paid jobs in ${helper.city}.
     </p>
     <p style="margin:0 0 6px;color:#111827;font-size:14px;font-weight:700;">Get your first job in 3 steps:</p>
-    <ol style="margin:0 0 22px;padding-left:20px;color:#374151;font-size:14px;line-height:1.9;">
+    <ol style="margin:0 0 18px;padding-left:20px;color:#374151;font-size:14px;line-height:1.9;">
       <li>Open your dashboard and set yourself <strong>Available</strong></li>
       <li>Turn on <strong>job alerts</strong> — jobs are first come, first served</li>
+      <li>Add your <strong>payout details</strong> in the Earnings tab so you get paid</li>
       <li>When an offer lands, tap <strong>Accept</strong> fast 💨</li>
     </ol>
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;margin:0 0 20px;">
+      <p style="margin:0;color:#9a3412;font-size:13px;line-height:1.5;">💶 <strong>Don't skip payouts:</strong> until you add your bank details in the Earnings tab, anything you earn is held and can't be paid out.</p>
+    </div>
     <a href="${dashUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Open my dashboard →</a>
     <p style="margin:22px 0 0;color:#9ca3af;font-size:12px;">Questions? WhatsApp us any time: +353 89 981 7111</p>
   </div>

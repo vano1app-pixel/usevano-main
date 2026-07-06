@@ -205,10 +205,12 @@ serve(async (req) => {
     return redirect(siteUrl, 'login', { job: bookingId, cat: catLabel });
   }
 
-  // Atomic claim — only one helper can flip pending → accepted.
+  // Atomic claim — only one helper can flip pending → accepted. accepted_at
+  // (re)starts the stall clock so sweep-stalled-jobs measures lateness from
+  // THIS acceptance, not the original payment.
   const { data: claimed } = await supabase
     .from('household_bookings')
-    .update({ student_id: userId, status: 'accepted' })
+    .update({ student_id: userId, status: 'accepted', accepted_at: new Date().toISOString() })
     .eq('id', bookingId)
     .is('student_id', null)
     .eq('status', 'pending')

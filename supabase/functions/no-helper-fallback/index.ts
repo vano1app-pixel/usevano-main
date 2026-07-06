@@ -33,6 +33,7 @@ serve(async (_req) => {
 
   const supabase = createClient(supabaseUrl, serviceKey);
 
+  const nowIso = new Date().toISOString();
   const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
   const { data: stuckBookings, error: queryErr } = await supabase
@@ -41,7 +42,11 @@ serve(async (_req) => {
     .eq('status', 'pending')
     .is('student_id', null)
     .is('paid_at', null)
-    .lt('created_at', cutoff);
+    .lt('created_at', cutoff)
+    // Never cancel a future-dated booking early — a job scheduled for later is
+    // pending only because it hasn't been dispatched yet. It becomes
+    // cancel-eligible once its slot time has passed with still no helper.
+    .or(`scheduled_at.is.null,scheduled_at.lt.${nowIso}`);
 
   if (queryErr) {
     console.error('[no-helper-fallback] query error', queryErr);

@@ -314,7 +314,22 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw } = body;
+
+    // Book-ahead: the client computes the target time from the chosen slot (it
+    // knows the local timezone). Validate it here — must be a real future time
+    // within a sane window; anything else falls back to ASAP (null). NULL means
+    // "as soon as possible", exactly as today.
+    let scheduledAt: string | null = null;
+    if (typeof scheduledAtRaw === 'string' && scheduledAtRaw) {
+      const t = Date.parse(scheduledAtRaw);
+      const now = Date.now();
+      // Accept 20 min – 21 days ahead; ignore past/near-now (treat as ASAP) and
+      // absurd far-future values.
+      if (Number.isFinite(t) && t > now + 20 * 60 * 1000 && t < now + 21 * 24 * 60 * 60 * 1000) {
+        scheduledAt = new Date(t).toISOString();
+      }
+    }
 
     if (!category || !VALID_CATEGORIES.includes(category as Category)) {
       return bad(400, 'Invalid category');
@@ -514,6 +529,38 @@ serve(async (req) => {
       } catch (e) { console.warn('[create-household-payment-checkout] geocode failed', e); }
     }
 
+    // Double-submit guard: a fast double-tap on Book (or a retry) can call this
+    // twice before the client disables the button. If the same phone already
+    // created a live booking for the same category in the last few minutes,
+    // return THAT booking instead of creating a second one (which would fan out
+    // a second dispatch and could charge the customer twice).
+    {
+      const dedupeCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+      const { data: recent } = await supabase
+        .from('household_bookings')
+        .select('id, booking_data')
+        .eq('customer_phone', customer_phone.trim())
+        .eq('category', cat)
+        // Same requested time too — otherwise a customer booking "Cleaning now"
+        // then "Cleaning tomorrow 9am" would have the second silently swallowed.
+        .eq('scheduled_date', when_label || 'flexible')
+        .not('status', 'in', '(cancelled,completed)')
+        .gte('created_at', dedupeCutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle() as { data: { id: string; booking_data: Record<string, unknown> | null } | null };
+      if (recent?.id) {
+        console.log('[create-household-payment-checkout] duplicate submit — returning existing booking', recent.id);
+        const origin0 = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
+        const trackUrl0 = `${origin0}/track/${recent.id}`;
+        const feeCents0 = Number((recent.booking_data as Record<string, unknown> | null)?.service_fee_cents) || 0;
+        return new Response(
+          JSON.stringify({ booking_id: recent.id, track_url: trackUrl0, checkout_url: trackUrl0, price_cents: priceCents, total_cents: priceCents + feeCents0, pay_later: true, deduped: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     const { data: booking, error: insertError } = await supabase
       .from('household_bookings')
       .insert({
@@ -532,6 +579,7 @@ serve(async (req) => {
         ...(typeof city === 'string' && city.trim() ? { city: city.trim() } : {}),
         customer_phone: customer_phone.trim(),
         ...(typeof customer_email === 'string' && customer_email.trim() ? { customer_email: customer_email.trim().toLowerCase() } : {}),
+        ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
         booking_data: bookingData,
       })
       .select('id')
@@ -590,25 +638,34 @@ serve(async (req) => {
       }
     }
 
-    // Dispatch to helpers right away — this is what makes the booking real.
-    // Awaited so a dispatch failure is at least logged before we respond.
-    try {
-      const dispatchResp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          record: {
-            id: bookingId, status: 'pending', city: cityVal,
-            category: cat, scheduled_date: when_label || 'flexible',
-            price_estimate_cents: priceCents,
-          },
-        }),
-      });
-      if (!dispatchResp.ok) {
-        console.error('[create-household-payment-checkout] dispatch non-2xx', dispatchResp.status, await dispatchResp.text().catch(() => ''));
+    // Dispatch to helpers. ASAP jobs (no scheduled_at) and near-term ones go out
+    // now — that's what makes the booking real. A genuinely future-dated job is
+    // NOT dispatched yet: the dispatch-scheduled-jobs cron fans it out once it's
+    // within the lead window, so helpers aren't offered a job days early (and it
+    // isn't auto-cancelled before it's due). LEAD_MIN mirrors that cron.
+    const LEAD_MIN = 90;
+    const dispatchNow = !scheduledAt || (Date.parse(scheduledAt) - Date.now()) <= LEAD_MIN * 60 * 1000;
+    if (dispatchNow) {
+      try {
+        const dispatchResp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            record: {
+              id: bookingId, status: 'pending', city: cityVal,
+              category: cat, scheduled_date: when_label || 'flexible',
+              price_estimate_cents: priceCents,
+            },
+          }),
+        });
+        if (!dispatchResp.ok) {
+          console.error('[create-household-payment-checkout] dispatch non-2xx', dispatchResp.status, await dispatchResp.text().catch(() => ''));
+        }
+      } catch (e) {
+        console.error('[create-household-payment-checkout] dispatch call failed', e);
       }
-    } catch (e) {
-      console.error('[create-household-payment-checkout] dispatch call failed', e);
+    } else {
+      console.log('[create-household-payment-checkout] future-dated booking — deferring dispatch to lead window', { bookingId, scheduledAt });
     }
 
     // Admin ping (WhatsApp + email) — used to fire from stripe-webhook on

@@ -74,10 +74,26 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   const [locating, setLocating] = useState(false);
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState(false);
+  // Set when "Change" is tapped on the confirmed row, so the input can grab
+  // focus the moment it re-renders.
+  const [editRequested, setEditRequested] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync external value changes (e.g. cleared form)
   useEffect(() => { setQuery(value); }, [value]);
+
+  // A geocoded address (GPS or picked suggestion) collapses the two controls
+  // into one confirmed row — the section gets SMALLER once it's done, which
+  // reads as progress. Manually typed text (no coords) keeps the input.
+  const confirmed = !!coords && query.trim().length > 0;
+
+  useEffect(() => {
+    if (!confirmed && editRequested) {
+      inputRef.current?.focus();
+      setEditRequested(false);
+    }
+  }, [confirmed, editRequested]);
 
   // Autocomplete — debounced, Ireland only
   useEffect(() => {
@@ -149,55 +165,85 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
 
   return (
     <div ref={wrapperRef} className="relative">
-      {/* Use my location button */}
-      <button
-        type="button"
-        onClick={() => void locateMe()}
-        disabled={locating}
-        className={cn(
-          'w-full flex items-center gap-2.5 rounded-xl border border-dashed border-primary/40',
-          'bg-primary/5 px-3 py-2.5 text-sm text-primary font-medium mb-2',
-          'hover:bg-primary/10 transition-colors duration-150 disabled:opacity-60',
-        )}
-      >
-        {locating
-          ? <Loader2 size={15} className="animate-spin flex-shrink-0" />
-          : <LocateFixed size={15} className="flex-shrink-0" />
-        }
-        {locating ? 'Getting your location…' : 'Use my current location'}
-      </button>
+      {confirmed ? (
+        /* Locked-in address — Uber's "pin dropped" moment. One compact row
+           instead of button + input: the field visibly completes. */
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+          className="flex items-center gap-2.5 rounded-xl border border-sage/40 bg-sage-light px-3.5 py-3"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sage/15 flex-shrink-0" aria-hidden="true">
+            <MapPin size={14} className="text-sage-dark" />
+          </span>
+          <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">{query}</span>
+          <button
+            type="button"
+            onClick={() => { setEditRequested(true); onTextChange?.(query); }}
+            className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
+          >
+            Change
+          </button>
+        </motion.div>
+      ) : (
+        <>
+          {/* Use my location — the one-tap fast path, styled as such: solid,
+              full-weight, with press feedback. Typing is the fallback below. */}
+          <button
+            type="button"
+            onClick={() => void locateMe()}
+            disabled={locating}
+            className={cn(
+              'w-full flex items-center gap-2.5 rounded-xl border border-primary/25',
+              'bg-primary/8 px-3.5 py-3 text-sm text-primary font-semibold mb-2',
+              'hover:bg-primary/12 active:scale-[0.98]',
+              'transition-[background-color,transform] duration-150 disabled:opacity-60',
+            )}
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/12 flex-shrink-0" aria-hidden="true">
+              {locating
+                ? <Loader2 size={14} className="animate-spin" />
+                : <LocateFixed size={14} />
+              }
+            </span>
+            {locating ? 'Getting your location…' : 'Use my current location'}
+          </button>
 
-      {/* Text input */}
-      <div className="relative">
-        <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); onTextChange?.(e.target.value); }}
-          onBlur={onBlur}
-          onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
-          placeholder={placeholder}
-          className={cn(
-            'w-full rounded-xl border bg-background pl-8 pr-10 py-2.5 text-sm',
-            'placeholder:text-muted-foreground/50',
-            'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
-            'transition-[border-color,box-shadow] duration-150',
-            error ? 'border-destructive' : 'border-border',
-          )}
-        />
-        {searching && (
-          <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />
-        )}
-      </div>
+          {/* Text input */}
+          <div className="relative">
+            <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); onTextChange?.(e.target.value); }}
+              onBlur={onBlur}
+              onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
+              placeholder={placeholder}
+              className={cn(
+                'w-full rounded-xl border bg-background pl-8 pr-10 py-2.5 text-sm',
+                'placeholder:text-muted-foreground/50',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+                'transition-[border-color,box-shadow] duration-150',
+                error ? 'border-destructive' : 'border-border',
+              )}
+            />
+            {searching && (
+              <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />
+            )}
+          </div>
+        </>
+      )}
 
       {/* Suggestions dropdown */}
       <AnimatePresence>
-        {open && suggestions.length > 0 && (
+        {!confirmed && open && suggestions.length > 0 && (
           <motion.ul
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
             className="absolute z-50 left-0 right-0 mt-1 bg-background border border-border rounded-xl shadow-lg overflow-hidden"
           >
             {suggestions.map((s) => (
@@ -205,7 +251,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
                 <button
                   type="button"
                   onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-secondary transition-colors duration-100 flex items-start gap-2"
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-secondary active:bg-secondary transition-colors duration-100 flex items-start gap-2"
                 >
                   <MapPin size={13} className="text-muted-foreground flex-shrink-0 mt-0.5" />
                   <span className="leading-snug">{formatNominatimAddress(s)}</span>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -264,6 +264,12 @@ const TrackBooking = () => {
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  // Report-a-problem (money-back) state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
+
   // "Mark done" (one-off jobs) + live timer tick (timed jobs)
   const [markingDone, setMarkingDone] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -354,6 +360,12 @@ const TrackBooking = () => {
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
+    // Poll control lives in refs (not state) so the interval body stays a pure
+    // function — no side effects inside a setState updater. pollStatus tracks
+    // the latest status for the terminal check; missCount stops the poll for a
+    // booking that keeps coming back empty (a stale/mistyped link).
+    let pollStatus: string | null = null;
+    let missCount = 0;
 
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -371,7 +383,14 @@ const TrackBooking = () => {
 
       if (cancelled) return;
       const bookingRow = Array.isArray(bookingRes.data) ? bookingRes.data[0] : bookingRes.data;
-      if (bookingRow) setBooking(bookingRow as Booking);
+      if (bookingRow) {
+        setBooking(bookingRow as Booking);
+        pollStatus = (bookingRow as Booking).status;
+        missCount = 0;
+      } else if (!bookingRes.error) {
+        // RPC succeeded but returned no row — the booking doesn't exist.
+        missCount += 1;
+      }
       if (updatesRes.data) setUpdates(updatesRes.data as JobUpdate[]);
       if (messagesRes.data) setMessages(messagesRes.data as ChatMessage[]);
       setLoading(false);
@@ -380,17 +399,15 @@ const TrackBooking = () => {
     void load();
     // Anonymous customers can't receive realtime once the bulk-read policy is
     // removed, so poll while the job is live to keep status/pay/map/chat fresh.
-    // (The realtime subscriptions below still serve signed-in helpers.) The
-    // poll clears itself once the booking reaches a terminal state.
+    // (The realtime subscriptions below still serve signed-in helpers.)
     const poll = setInterval(() => {
-      setBooking((b) => {
-        if (b && (b.status === 'completed' || b.status === 'cancelled')) {
-          clearInterval(poll);
-          return b;
-        }
-        void load();
-        return b;
-      });
+      // Stop once terminal, or once the booking has come back empty a few times
+      // (stale link) — never poll a non-existent booking forever.
+      if (pollStatus === 'completed' || pollStatus === 'cancelled' || missCount >= 3) {
+        clearInterval(poll);
+        return;
+      }
+      void load();
     }, 5000);
     return () => { cancelled = true; clearInterval(poll); };
   }, [bookingId]);
@@ -576,6 +593,33 @@ const TrackBooking = () => {
     }
   };
 
+  // Money-back: files a dispute server-side. If the helper hasn't been paid yet
+  // it auto-refunds; otherwise it pages the team. Either way the customer gets a
+  // clear, honest outcome instead of a bare WhatsApp link.
+  const handleReportProblem = async () => {
+    if (!bookingId || reportSubmitting) return;
+    setReportSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<{ refunded?: boolean; needs_admin?: boolean }>(
+        'report-household-problem',
+        { body: { booking_id: bookingId, reason: reportReason.trim() || undefined } },
+      );
+      if (error) throw error;
+      setReportDone(true);
+      toast(
+        data?.refunded
+          ? { title: 'Refund on its way', description: 'You’ve been fully refunded — it’ll show on your card in 5–7 days.' }
+          : { title: 'We’re on it', description: 'Our team has been alerted and will sort this out with you shortly.' },
+      );
+    } catch {
+      // Never leave them stuck — fall back to the human channel.
+      toast({ title: 'Couldn’t submit automatically', description: 'Please message us on WhatsApp and we’ll sort it.', variant: 'destructive' });
+      window.open(`https://wa.me/353899817111?text=${encodeURIComponent(`Hi VANO, I need help with my booking (ref ${bookingId.slice(-8).toUpperCase()}).`)}`, '_blank', 'noopener,noreferrer');
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
   const handleRate = async () => {
     if (!bookingId || selectedRating === 0 || submittingRating) return;
     setSubmittingRating(true);
@@ -725,13 +769,13 @@ const TrackBooking = () => {
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button
           onClick={() => navigate('/home')}
-          className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
+          className="flex items-center justify-center w-11 h-11 -ml-2.5 rounded-full hover:bg-secondary active:scale-90 transition-[transform,background-color]"
           aria-label="Back"
         >
           <ArrowLeft size={18} strokeWidth={2} />
         </button>
         <img src={logo} alt="VANO" className="h-6 w-auto mx-auto" />
-        <div className="w-8" />
+        <div className="w-11" />
       </header>
 
       <main className={cn('pt-14 max-w-sm md:max-w-lg mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
@@ -912,7 +956,7 @@ const TrackBooking = () => {
             <button
               onClick={() => void enablePush()}
               disabled={pushState === 'subscribing'}
-              className="flex-shrink-0 h-9 px-4 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
+              className="flex-shrink-0 h-10 px-4 rounded-full bg-sage text-white text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-sage-dark active:scale-[0.97] disabled:opacity-50 transition-[background-color,opacity,transform] duration-150"
             >
               {pushState === 'subscribing' ? <Loader2 size={14} className="animate-spin" /> : 'Turn on'}
             </button>
@@ -1186,10 +1230,10 @@ const TrackBooking = () => {
               </p>
               <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
                 {booking.helper_finished_at
-                  ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm to release their payment.`
+                  ? `${helperName ?? 'Your helper'} has marked the job finished. Rate them and confirm it's done — you've already paid, this just lets us pay ${helperName ?? 'them'}.`
                   : booking.job_ends_at
-                    ? 'Your booked time is up. Rate your helper and confirm to release their payment.'
-                    : 'Once the work is finished, rate your helper and confirm — this releases their payment.'}
+                    ? "Your booked time is up. Rate your helper and confirm it's done — you've already paid, there's nothing more to pay."
+                    : `Once the work is finished, rate your helper and confirm it's done. You've already paid — confirming just lets us pay ${helperName ?? 'them'}.`}
               </p>
               <div className="flex gap-1 justify-center mb-4">
                 {[1, 2, 3, 4, 5].map((n) => {
@@ -1200,7 +1244,7 @@ const TrackBooking = () => {
                       onMouseEnter={() => setHoverRating(n)}
                       onMouseLeave={() => setHoverRating(0)}
                       onClick={() => setSelectedRating(n)}
-                      className="p-1 active:scale-90 transition-transform"
+                      className="p-2 active:scale-90 transition-transform"
                       aria-label={`${n} star${n === 1 ? '' : 's'}`}
                     >
                       <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
@@ -1215,7 +1259,7 @@ const TrackBooking = () => {
                 disabled={markingDone}
                 className="w-full h-12 rounded-full bg-sage text-white font-semibold text-[15px] flex items-center justify-center gap-2 hover:bg-sage-dark disabled:opacity-50 transition-[background-color,opacity] duration-150"
               >
-                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Mark complete &amp; pay{helperName ? ` ${helperName}` : ''}</>}
+                {markingDone ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} />Confirm it's done</>}
               </button>
               <p className="text-center text-[11px] text-muted-foreground mt-2">Rating is optional — you can confirm without it.</p>
             </motion.div>
@@ -1382,16 +1426,40 @@ const TrackBooking = () => {
                   <div key={step.key} className="flex gap-3">
                     <div className="flex flex-col items-center w-5 flex-shrink-0">
                       <div className={cn(
-                        'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
+                        'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors duration-300',
                         done ? 'bg-sage' : 'bg-secondary border border-border/60',
                       )}>
-                        {done
-                          ? <CheckCircle2 size={12} className="text-white" strokeWidth={2.5} />
-                          : <Circle size={8} className="text-muted-foreground/40" />
-                        }
+                        {/* The completed tick springs in — each status change is a
+                            moment, not a silent class swap. A gentle per-step
+                            stagger reads as a cascade on load. */}
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          {done ? (
+                            <motion.span
+                              key="check"
+                              initial={{ scale: 0.3, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ type: 'spring', stiffness: 520, damping: 15, delay: i * 0.04 }}
+                              className="inline-flex"
+                            >
+                              <CheckCircle2 size={12} className="text-white" strokeWidth={2.5} />
+                            </motion.span>
+                          ) : (
+                            <motion.span key="circle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="inline-flex">
+                              <Circle size={8} className="text-muted-foreground/40" />
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
                       </div>
                       {!isLast && (
-                        <div className={cn('w-[2px] flex-1 my-1', done ? 'bg-sage/40' : 'bg-border/40')} />
+                        <div className="w-[2px] flex-1 my-1 bg-border/40 relative overflow-hidden rounded-full">
+                          {/* Sage fill draws downward as this step completes. */}
+                          <motion.div
+                            className="absolute inset-0 bg-sage/50 origin-top"
+                            initial={{ scaleY: 0 }}
+                            animate={{ scaleY: done ? 1 : 0 }}
+                            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1], delay: i * 0.04 }}
+                          />
+                        </div>
                       )}
                     </div>
                     <div className={cn('pb-4', isLast && 'pb-0')}>
@@ -1452,7 +1520,7 @@ const TrackBooking = () => {
                         onMouseEnter={() => setHoverRating(n)}
                         onMouseLeave={() => setHoverRating(0)}
                         onClick={() => setSelectedRating(n)}
-                        className="p-1 active:scale-90 transition-transform"
+                        className="p-2 active:scale-90 transition-transform"
                       >
                         <motion.span className="block" animate={{ scale: on ? 1.18 : 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
                           <Star
@@ -1504,6 +1572,52 @@ const TrackBooking = () => {
             >
               Book another job <span aria-hidden="true">→</span>
             </Link>
+
+            {/* Money-back guarantee — a real action, not a dead WhatsApp link.
+                Files a dispute server-side (auto-refunds when possible). */}
+            <div className="mt-3 border-t border-sage/20 pt-3">
+              {reportDone ? (
+                <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Check size={12} className="text-sage" /> Thanks — we’ve got it from here.
+                </p>
+              ) : !reportOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="flex items-center justify-center gap-1.5 w-full text-[11px] text-muted-foreground hover:text-foreground transition-colors py-1"
+                >
+                  <ShieldAlert size={12} className="flex-shrink-0" /> Something wrong? Report a problem
+                </button>
+              ) : (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
+                  <p className="text-[11px] text-muted-foreground mb-2">Tell us what went wrong — you’re covered by our money-back guarantee.</p>
+                  <textarea
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value.slice(0, 400))}
+                    placeholder="e.g. the helper didn’t show, or the job wasn’t done right…"
+                    rows={2}
+                    className="w-full p-3 rounded-xl border border-border/60 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-2"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setReportOpen(false); setReportReason(''); }}
+                      className="flex-1 h-10 rounded-full border border-border text-sm font-medium text-muted-foreground active:scale-[0.98] transition-transform"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleReportProblem()}
+                      disabled={reportSubmitting}
+                      className="flex-1 h-10 rounded-full bg-foreground text-background text-sm font-semibold flex items-center justify-center disabled:opacity-50 active:scale-[0.98] transition-transform"
+                    >
+                      {reportSubmitting ? <Loader2 size={15} className="animate-spin" /> : 'Submit'}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
           </motion.div>
         )}
 

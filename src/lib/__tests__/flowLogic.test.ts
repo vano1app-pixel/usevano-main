@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { helperPresenceTier, REASSURING_MIN } from '@/lib/helperPresence';
 import { pendingWaitTier } from '@/lib/householdJob';
-import { isValidPhone } from '@/lib/validation';
+import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 
 // These three drive customer-facing copy that used to be inline ternaries with
 // no coverage: the "helpers online" pill, the "finding your helper" wait state,
@@ -75,5 +75,34 @@ describe('isValidPhone', () => {
 
   it('tolerates a nullish value without throwing', () => {
     expect(isValidPhone(undefined as unknown as string)).toBe(false);
+  });
+});
+
+// Must mirror the edge functions' normalizeIrishPhone exactly — every SMS /
+// WhatsApp send (pay link, on-my-way, arrival) is keyed on this rule, so a
+// number the sheet accepts but this rejects is a customer we can never text.
+describe('normalizePhoneE164', () => {
+  it('normalizes bare Irish mobiles to +353', () => {
+    expect(normalizePhoneE164('083 123 4567')).toBe('+353831234567');
+    expect(normalizePhoneE164('0891234567')).toBe('+353891234567');
+    expect(normalizePhoneE164('89 123 4567')).toBe('+353891234567'); // dropped leading 0
+  });
+
+  it('passes through international E.164 with + or 00', () => {
+    expect(normalizePhoneE164('+44 7911 123456')).toBe('+447911123456');
+    expect(normalizePhoneE164('0044 7911 123456')).toBe('+447911123456');
+    expect(normalizePhoneE164('+353 89 981 7111')).toBe('+353899817111');
+  });
+
+  it('strips separator punctuation the same way the server does', () => {
+    expect(normalizePhoneE164('(083) 123-4567')).toBe('+353831234567');
+  });
+
+  it('rejects numbers we could never text', () => {
+    expect(normalizePhoneE164('07911 123456')).toBe(null);  // UK mobile w/o country code
+    expect(normalizePhoneE164('091 123456')).toBe(null);    // Galway landline
+    expect(normalizePhoneE164('12345')).toBe(null);
+    expect(normalizePhoneE164('')).toBe(null);
+    expect(normalizePhoneE164('+1')).toBe(null);             // too short after +
   });
 });

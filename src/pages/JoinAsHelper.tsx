@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Camera, Loader2, ArrowLeft, ArrowRight, ShieldCheck, BadgeCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -144,6 +144,31 @@ export const JoinAsHelper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
+
+  // Peer social proof: real approved-helper faces + a live count. Students are
+  // deciding whether an unknown startup will actually pay them — seeing peers
+  // already doing it is the strongest reassurance, and the recruiting page had
+  // none. Renders nothing on an empty/failed fetch (never a fake).
+  const [peerFaces, setPeerFaces] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (supabase as any)
+          .from('household_helpers')
+          .select('photo_url')
+          .eq('status', 'approved')
+          .eq('show_on_homepage', true)
+          .not('photo_url', 'is', null)
+          .neq('photo_url', '')
+          .limit(5) as { data: Array<{ photo_url: string | null }> | null };
+        if (!alive) return;
+        setPeerFaces((data ?? []).map((r) => r.photo_url ?? '').filter(Boolean).slice(0, 5));
+      } catch { /* leave empty — no fake proof */ }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   function toggleIn(list: string[], set: React.Dispatch<React.SetStateAction<string[]>>, v: string) {
     set(list.includes(v) ? list.filter(x => x !== v) : [...list, v]);
@@ -297,6 +322,32 @@ export const JoinAsHelper: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Peer proof — real faces of students already earning. Only shown
+                  once there's genuine supply to show. */}
+              {peerFaces.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25, duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
+                  className="mt-6 inline-flex items-center gap-3 rounded-full bg-white border border-black/5 surface-float px-4 py-2"
+                >
+                  <div className="flex -space-x-2.5">
+                    {peerFaces.map((src, i) => (
+                      <img
+                        key={i}
+                        src={src}
+                        alt=""
+                        loading="lazy"
+                        className="w-7 h-7 rounded-full object-cover border-2 border-white"
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs font-semibold text-foreground">
+                    Join the students already earning with VANO
+                  </span>
+                </motion.div>
+              )}
             </motion.div>
           </div>
         </section>

@@ -155,6 +155,11 @@ export const HelperPublicProfile: React.FC = () => {
           : 'Meet an ID-verified VANO student helper. Book same-day home help in minutes.'}
         url={`https://vanojobs.com/helpers/${id ?? ''}`}
         type="profile"
+        // Deliberately unindexed: these are personal pages (a student's name +
+        // photo), they're client-rendered only (crawlers without JS get an
+        // empty shell) and they're absent from the sitemap. Customers reach
+        // them from the accept email / helper cards, not from Google.
+        noindex
       />
       <HouseholdNav />
 

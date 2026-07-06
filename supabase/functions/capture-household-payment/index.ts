@@ -68,15 +68,28 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
     if (!bookingId) return bad(400, 'booking_id required');
+    // Cooling-off: an AUTO-completed job (48h no customer response) carries
+    // dispute risk, so the caller passes hold_hours to defer the transfer — the
+    // payout stays 'pending' with hold_until set, and a dispute inside the
+    // window cancels+refunds cleanly with no reversal. A customer-confirmed
+    // completion omits it and pays out immediately (great for helpers).
+    const holdHours = Number(body?.hold_hours) > 0 ? Number(body.hold_hours) : 0;
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id')
+      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id, disputed_at, refunded_at')
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
+    // Never complete + pay out a job the customer disputed / was refunded for —
+    // otherwise a money-back refund plus a later auto-confirm would pay both
+    // sides. report-household-problem also cancels the booking, but guard here
+    // too so no completion path can slip a payout through.
+    if (booking.disputed_at || booking.refunded_at) {
+      return bad(409, 'This booking is under dispute or refunded — not completing.');
+    }
     // The helper to be paid is whoever the booking is assigned to.
     if (!booking.student_id) return bad(409, 'No helper assigned to this job');
     if (!['accepted','on_way','arrived','in_progress'].includes(booking.status)) return bad(409, `Cannot complete in status: ${booking.status}`);
@@ -96,28 +109,49 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Mark completed — atomic status guard
+    const PLATFORM_FEE_BPS = 1500;
+    const priceCents = booking.price_estimate_cents ?? 0;
+    const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
+
+    // Record the payout FIRST, and only flip the booking to 'completed' once
+    // the helper's pay is durably on the books. The old order (complete → then
+    // insert payout, unchecked) meant a transient insert failure marked the job
+    // done while the payout silently vanished, with no path back — the worst
+    // failure for a platform whose promise is that students always get paid.
+    // household_payouts has a UNIQUE(booking_id) constraint, so a concurrent
+    // second completion loses the insert race (23505) and is treated as
+    // already-complete rather than double-paying.
+    const holdUntil = holdHours > 0 ? new Date(Date.now() + holdHours * 60 * 60 * 1000).toISOString() : null;
+    const { data: payoutRow, error: payoutErr } = await supabase
+      .from('household_payouts')
+      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending', hold_until: holdUntil })
+      .select('id')
+      .single();
+
+    if (payoutErr) {
+      if ((payoutErr as { code?: string }).code === '23505') {
+        // A concurrent completion already wrote the payout — idempotent success.
+        return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      // Any other error: do NOT complete the booking, so the caller / cron
+      // retries against a still-completable status instead of stranding the pay.
+      console.error('[capture] payout insert failed — not completing so it can retry', payoutErr);
+      return bad(500, 'Could not record payout. Please try again.');
+    }
+
+    // Payout row is durable — now safe to mark completed (atomic status guard).
     const { error: updateError } = await supabase
       .from('household_bookings').update({ status: 'completed' })
       .eq('id', bookingId).eq('student_id', callerId)
       .in('status', ['accepted','on_way','arrived','in_progress']);
 
-    if (updateError) { console.error('[capture] booking update failed', updateError); return bad(500, 'Booking status update failed. Contact support.'); }
-
-    const PLATFORM_FEE_BPS = 1500;
-    const priceCents = booking.price_estimate_cents ?? 0;
-    const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
-
-    // Record the payout as 'pending'. If the helper has finished Stripe
-    // Connect onboarding we fire an automatic Transfer below and flip it
-    // to 'transferred'; otherwise it stays 'pending' and the
-    // release-household-payouts cron sweeps it once they onboard. Helpers
-    // can work with no payout setup — their earnings are simply held.
-    const { data: payoutRow } = await supabase
-      .from('household_payouts')
-      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending' })
-      .select('id')
-      .single();
+    if (updateError) {
+      // Rare (a real DB error, not a 0-row match). The payout row already
+      // exists, so the release cron's reconciliation backfill will still pay
+      // the helper; log loudly but don't fail the request — the money side is
+      // safe, only the booking's display status may lag until re-run.
+      console.error('[capture] booking status flip errored AFTER payout was recorded — reconcile will catch it', updateError);
+    }
     await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'completed', note: 'Job completed.' });
 
     // Best-effort web push to the customer — single completion choke-point, so
@@ -132,7 +166,10 @@ serve(async (req) => {
     // intent we transfer from the platform balance instead.
     try {
       const payoutId = payoutRow?.id as string | undefined;
-      if (payoutId && studentCents > 0 && STRIPE_SECRET_KEY) {
+      // Held payouts (auto-completed jobs in their dispute window) are NOT
+      // transferred now — release-household-payouts sweeps them once hold_until
+      // elapses, so a dispute meanwhile can cancel + refund with no reversal.
+      if (payoutId && !holdUntil && studentCents > 0 && STRIPE_SECRET_KEY) {
         const { data: helperRow } = await supabase
           .from('household_helpers')
           .select('stripe_account_id, stripe_payouts_enabled')

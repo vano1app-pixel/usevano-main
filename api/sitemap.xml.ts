@@ -9,6 +9,7 @@
 
 import { BLOG_POSTS } from '../src/content/blog';
 import { GLOSSARY_TERMS } from '../src/content/glossary';
+import { SERVICE_LANDINGS } from '../src/content/services';
 
 type VercelReq = {
   method?: string;
@@ -35,9 +36,14 @@ const STATIC_URLS: ReadonlyArray<SitemapUrl> = [
   { path: '/terms',    changefreq: 'monthly', priority: '0.2' },
 ];
 
-// Blog posts + glossary terms are generated from the content modules so the
-// sitemap stays in sync automatically when a post or term is added.
+// Service landing pages, blog posts + glossary terms are generated from the
+// content modules so the sitemap stays in sync automatically when one is added.
 const CONTENT_URLS: ReadonlyArray<SitemapUrl> = [
+  ...SERVICE_LANDINGS.map((s) => ({
+    path: `/${s.slug}`,
+    changefreq: 'weekly',
+    priority: '0.9',
+  })),
   ...BLOG_POSTS.map((p) => ({
     path: `/blog/${p.slug}`,
     changefreq: 'monthly',

@@ -884,6 +884,10 @@ async function handleHouseholdPostAcceptPayment(
     })
     .eq('id', bookingId)
     .is('paid_at', null)
+    // Never stamp a payment onto a booking that was already given up on — the
+    // customer may be paying a stale link after the booking was released/
+    // cancelled. Those land in the orphan-charge guard below.
+    .neq('status', 'cancelled')
     .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents, status')
     .maybeSingle();
 
@@ -894,6 +898,49 @@ async function handleHouseholdPostAcceptPayment(
     return new Response('DB error', { status: 500 });
   }
   if (!paidRow) {
+    // Nothing was stamped: either a genuine replay (already paid) or a payment
+    // that landed on a CANCELLED booking (stale pay link paid after release).
+    // Distinguish, and auto-refund the orphan charge so money never sits on a
+    // dead booking waiting for a manual dashboard refund.
+    const { data: existing } = await supabase
+      .from('household_bookings')
+      .select('status, paid_at, category, customer_phone')
+      .eq('id', bookingId)
+      .maybeSingle() as { data: { status?: string; paid_at?: string | null; category?: string; customer_phone?: string | null } | null };
+
+    if (existing?.status === 'cancelled' && !existing.paid_at && session.payment_intent) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+      let refunded = false;
+      if (stripeKey) {
+        try {
+          const r = await fetch('https://api.stripe.com/v1/refunds', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${stripeKey}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Idempotency-Key': `vano_orphan_refund_${bookingId}`,
+            },
+            body: new URLSearchParams({ payment_intent: session.payment_intent, reason: 'requested_by_customer' }).toString(),
+          });
+          refunded = r.ok;
+          if (!r.ok) console.error('[stripe-webhook] orphan auto-refund failed', bookingId, r.status, (await r.text()).slice(0, 200));
+        } catch (e) { console.error('[stripe-webhook] orphan auto-refund threw', bookingId, e); }
+      }
+      const ref = bookingId.slice(-8).toUpperCase();
+      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `${refunded ? '↩️ *Auto-refunded orphan charge*' : '🚨 *Orphan charge — refund by hand*'} (${ref})\nA customer paid a stale link for a ${existing.category ?? 'job'} that was already cancelled. ${refunded ? 'Refund issued automatically.' : 'Auto-refund FAILED — refund in the Stripe dashboard.'}`,
+          subject: `${refunded ? '↩️ Orphan charge auto-refunded' : '🚨 Orphan charge — manual refund'} (${ref})`,
+          contact_phone: existing.customer_phone ?? undefined,
+        }),
+      }).catch(() => {});
+      return new Response(JSON.stringify({ received: true, orphan_cancelled: true, refunded }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ received: true, replay: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1143,6 +1190,49 @@ async function handleHelperSubscriptionCompleted(
   );
 }
 
+// --- Handler: €2 helper sign-up fee paid ----------------------------------
+// Server-side backstop for confirm-signup-payment. Only pays attention to a
+// session that's actually paid; sets signup_paid idempotently (the
+// .is('signup_paid', ...) guard makes a replay a no-op) and, if the DB
+// auto-approve trigger flipped the helper to 'approved', notifies them.
+async function handleHelperSignupPaid(
+  supabase: SupabaseClient,
+  supabaseUrl: string,
+  serviceKey: string,
+  session: StripeCheckoutSession,
+  helperId: string,
+): Promise<Response> {
+  if (session.payment_status && session.payment_status !== 'paid') {
+    return new Response(JSON.stringify({ received: true, unpaid: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+  // Only flip false→true so we can tell whether THIS call completed the set.
+  const { data: updated, error } = await supabase
+    .from('household_helpers')
+    .update({ signup_paid: true })
+    .eq('id', helperId)
+    .or('signup_paid.is.null,signup_paid.eq.false')
+    .select('id, status')
+    .maybeSingle() as { data: { id: string; status?: string } | null; error: unknown };
+
+  if (error) {
+    console.error('[stripe-webhook] helper signup_paid update failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!updated) {
+    // Already paid (confirm-signup-payment beat us, or a replay) — no-op.
+    return new Response(JSON.stringify({ received: true, replay: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+  // The trigger may have flipped status to 'approved' in the same write.
+  if (updated.status === 'approved') {
+    fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ helper_id: helperId }),
+    }).catch(() => {});
+  }
+  return new Response(JSON.stringify({ received: true, signup_paid: true, approved: updated.status === 'approved' }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 // --- Entry point ----------------------------------------------------------
 serve(async (req) => {
   if (req.method !== 'POST') {
@@ -1198,6 +1288,15 @@ serve(async (req) => {
     const householdPlan = session.metadata?.household_plan;
     if (householdPlan) {
       return handleHouseholdPlanSubscribed(supabase, session, householdPlan);
+    }
+    // €2 helper sign-up fee. confirm-signup-payment sets signup_paid from the
+    // browser redirect, but a lost redirect (tab closed, wallet bounce, flaky
+    // network) left the helper charged-but-stuck-pending forever with no
+    // server backstop. This webhook makes the €2 gate as reliable as the
+    // Stripe Identity gate — set signup_paid idempotently, let the DB trigger
+    // auto-approve, and notify if that completed the set.
+    if (session.metadata?.type === 'helper_signup' && session.metadata?.helper_id) {
+      return handleHelperSignupPaid(supabase, supabaseUrl, serviceKey, session, session.metadata.helper_id);
     }
     const helperEmail = session.metadata?.helper_email;
     if (helperEmail) {

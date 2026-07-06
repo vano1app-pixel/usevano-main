@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
 import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, Clock, Phone, MapPin } from 'lucide-react';
@@ -13,7 +14,7 @@ import { getReferralCode } from '@/lib/referral';
 import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, STARTER_CUSTOM_JOBS, type CustomJob } from '@/lib/customJobs';
-import { isValidPhone } from '@/lib/validation';
+import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -144,12 +145,37 @@ function applyScheduledDiscount(cents: number): number {
   return Math.round(cents * 0.9);
 }
 
+/**
+ * Turn a chosen "when" slot into a real local timestamp (ISO) for book-ahead.
+ * The server stores it so a future job dispatches at a lead window instead of
+ * immediately. Returns null for ASAP ("Now"), unparseable, or already-past
+ * today slots — null means "as soon as possible", the default behaviour.
+ * Slots look like "Now", "1pm", "12:30pm" (today) or "Tomorrow 9am".
+ */
+function computeScheduledAt(when: string): string | null {
+  if (!when || when === 'Now') return null;
+  const m = when.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (!m) return null;
+  let hr = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  const pm = /pm/i.test(m[3]);
+  if (pm && hr < 12) hr += 12;
+  if (!pm && hr === 12) hr = 0;
+  const d = new Date();
+  if (/^tomorrow/i.test(when)) d.setDate(d.getDate() + 1);
+  d.setHours(hr, min, 0, 0);
+  // A "today" slot that's already passed → treat as ASAP rather than a past time.
+  if (d.getTime() < Date.now() - 60_000) return null;
+  return d.toISOString();
+}
+
 // ─── WhatsApp ─────────────────────────────────────────────────────────────
 
-function buildWhatsAppMsg(cat: Category, when: string, size: string): string {
+function buildWhatsAppMsg(cat: Category, when: string, size: string, address?: string): string {
   const lines = [`Hi VANO! I need ${cat.label.toLowerCase()} help.`];
   if (when) lines.push(`When: ${when === 'Now' ? 'ASAP / right now' : when.startsWith('Tomorrow') ? when : `today at ${when}`}`);
   if (size) lines.push(`Duration: ${size}`);
+  if (address) lines.push(`Address: ${address}`);
   lines.push('Can you let me know who is available?');
   return lines.join('\n');
 }
@@ -225,6 +251,7 @@ interface SheetProps {
 }
 
 const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLabel }) => {
+  const navigate   = useNavigate();
   const timeSlots  = useMemo(() => getTimeSlots(), []);
   const remembered = useMemo(() => loadBookingMemory(), []);
   const referralCode = useMemo(() => getReferralCode(), []);
@@ -258,6 +285,9 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
+  // True only after the checkout call itself failed (not field validation) —
+  // flips the WhatsApp fallback into the primary recovery action.
+  const [submitFailed, setSubmitFailed] = useState(false);
   // Field-level flags so a failed submit points at the field to fix, not just
   // a message at the foot of the sheet
   const [phoneError,   setPhoneError]   = useState(false);
@@ -265,6 +295,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   // Drag-to-dismiss: only the handle starts the drag, so the body still scrolls
   const dragControls = useDragControls();
   const sheetRef = useRef<HTMLDivElement>(null);
+  // Synchronous submit lock — `loading` state only disables the button after a
+  // re-render, so a fast double-tap can fire handleBook twice before then. This
+  // ref flips instantly, closing that window (server-side dedupe is the backstop).
+  const submitLock = useRef(false);
 
   function forgetMe() {
     clearBookingMemory();
@@ -331,9 +365,26 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
 
   // Live field validity — drives the small green ✓ next to each label as it's
   // filled. Quiet reassurance at the highest-friction step (a stranger typing
-  // their number + address for in-home help).
-  const phoneValid = isValidPhone(phone);
+  // their number + address for in-home help). The phone tick means "we can
+  // actually text this number", not just "looks phone-shaped".
+  const phoneValid = normalizePhoneE164(phone) !== null;
   const addressValid = !!address.trim();
+
+  // Abandoned-booking rescue: remember the details as they're typed, not only
+  // after a successful checkout — someone who hesitates at the last button
+  // comes back to a pre-filled sheet, one tap from booking.
+  useEffect(() => {
+    if (normalizePhoneE164(phone) === null) return;
+    const t = setTimeout(() => {
+      saveBookingMemory({
+        phone: phone.trim().replace(/\s+/g, ''),
+        ...(address.trim() ? { address: address.trim() } : {}),
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+        city,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [phone, address, coords, city]);
 
   const ctaLabel = [
     `Book ${cat.label}`,
@@ -342,16 +393,28 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
   ].filter(Boolean).join(' · ');
 
   function sendWhatsApp() {
-    const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(cat, when, size))}`;
+    // After a failed submit the typed details ride along, so the WhatsApp
+    // thread starts with everything our team needs to book it by hand.
+    const withDetails = submitFailed && address.trim() ? address.trim() : undefined;
+    const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(cat, when, size, withDetails))}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
+    if (submitLock.current) return; // ignore a double-tap before the re-render
     const phoneClean = phone.trim().replace(/\s+/g, '');
     if (!isValidPhone(phone)) {
       setPhoneError(true);
       setError('Please enter a valid phone number.');
+      return;
+    }
+    if (normalizePhoneE164(phone) === null) {
+      // Phone-shaped but not textable (UK 07…, landlines) — every update
+      // (pay link, on-my-way, arrival) goes by text, so catch it here with a
+      // fix instead of booking someone we can never reach.
+      setPhoneError(true);
+      setError("We can't text that number — Irish mobiles (08…) work as-is; for other countries add the code, e.g. +44 7…");
       return;
     }
     if (!address.trim()) {
@@ -359,7 +422,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
       setError('Please add your address so your helper can find you.');
       return;
     }
-    setLoading(true); setError(null);
+    submitLock.current = true;
+    setLoading(true); setError(null); setSubmitFailed(false);
     haptic(12); // subtle confirm tick on supported phones
     try {
       const { data, error: fnErr } = await supabase.functions.invoke(
@@ -369,6 +433,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
           when_label:       when,
           size_label:       size,
           scheduled:        isScheduledAhead, // unlocks the server's 10% book-ahead discount
+          ...(computeScheduledAt(when) ? { scheduled_at: computeScheduledAt(when) } : {}),
           note:             note ?? '',
           ...(extraLabel ? { extra_label: extraLabel } : {}),
           customer_name:    'Guest', // quick sheet doesn't ask for a name (pay happens later, so Stripe never collects one either)
@@ -391,9 +456,22 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
         lastCategory: cat.slug,
         lastSize:     size,
       });
-      window.location.href = data.checkout_url as string;
+      // Same-origin handoff (the /track page) rides the SPA router — instant
+      // slide, no white-flash full reload at the peak-momentum moment.
+      // Anything external (a real Stripe URL) still hard-navigates.
+      const dest = data.checkout_url as string;
+      try {
+        const u = new URL(dest, window.location.origin);
+        if (u.origin === window.location.origin) {
+          navigate(u.pathname + u.search);
+          return;
+        }
+      } catch { /* malformed URL — fall through to the hard redirect */ }
+      window.location.href = dest;
     } catch (err: unknown) {
+      submitLock.current = false; // allow a retry after a failure
       setLoading(false);
+      setSubmitFailed(true);
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     }
   }
@@ -429,8 +507,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
         dragElastic={{ top: 0, bottom: 0.6 }}
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl"
-        style={{ maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain' }}
+        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl flex flex-col overflow-hidden"
+        style={{ maxHeight: '88vh' }}
         role="dialog"
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
@@ -443,7 +521,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
           <div className="w-10 h-1.5 rounded-full bg-foreground/20" />
         </div>
 
-        <div className="px-5 pb-6 pt-2">
+        {/* Scrollable middle — header + fields. The action bar below is docked
+            outside this scroll area, Uber-style, so price + Book never leave
+            the screen (and stay put while the keyboard is up). */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2" style={{ overscrollBehavior: 'contain' }}>
           {/* Header */}
           <div className="flex items-start justify-between mb-5">
             <div>
@@ -468,7 +549,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             </div>
             <button
               onClick={onClose}
-              className="w-11 h-11 -mt-1.5 -mr-1.5 rounded-full flex items-center justify-center flex-shrink-0 group/close"
+              className="w-11 h-11 -mt-1.5 -mr-1.5 rounded-full flex items-center justify-center flex-shrink-0 group/close active:scale-90 transition-transform duration-150"
               aria-label="Close"
             >
               <span className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center group-hover/close:bg-foreground/12 transition-colors">
@@ -478,6 +559,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
           </div>
 
           <motion.form
+            id="quick-book-form"
             onSubmit={handleBook}
             className="space-y-5"
             variants={listContainer}
@@ -559,7 +641,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                   phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
                 )}
               />
-              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts</p>
+              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
             </motion.div>
 
             {/* Address — Eircode search or current location */}
@@ -768,81 +850,111 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 </p>
               )}
 
-              {/* Risk-reversal at the decision point — the single most reassuring
-                  fact (you don't pay until a helper accepts) sits right above the
-                  CTA, not buried in the fine print beneath it. */}
-              <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
-                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                No payment until a helper accepts · money-back guarantee
-              </p>
-
-              <motion.div
-                whileHover={{ scale: 1.015 }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                className={cn(
-                  'relative overflow-hidden rounded-full transition-shadow duration-300',
-                  // The glow only lights up once the form is genuinely ready to
-                  // submit (valid phone + an address), so it's a truthful "ready"
-                  // cue rather than lighting up on the first digit.
-                  phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
-                )}
-              >
-                <Button
-                  type="submit"
-                  disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
-                >
-                  {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                    : <>
-                        <motion.span
-                          className="inline-flex"
-                          animate={{ scale: [1, 1.18, 1] }}
-                          transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
-                        >
-                          <Zap className="w-4 h-4" />
-                        </motion.span>
-                        {ctaLabel}
-                      </>}
-                </Button>
-                {/* Occasional light sweep so the primary action feels alive —
-                    only once the form is actually ready to submit */}
-                {!loading && phoneValid && addressValid && (
-                  <motion.span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                    initial={{ x: '-150%' }}
-                    animate={{ x: '450%' }}
-                    transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 3, ease: 'easeInOut' }}
-                  />
-                )}
-              </motion.div>
-
-              {error && <p className="text-center text-xs text-destructive">{error}</p>}
-
               <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
                 A nearby helper usually replies in minutes
               </p>
 
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={sendWhatsApp}
-                  className="w-full rounded-full gap-2 font-medium text-sm h-10 border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Or book via WhatsApp
-                </Button>
-              </motion.div>
+              {/* Quiet WhatsApp alternative — the loud green recovery version
+                  lives in the docked bar and only appears after a failed submit. */}
+              {!submitFailed && (
+                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={sendWhatsApp}
+                    className="w-full rounded-full gap-2 h-10 font-medium text-sm border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Or book via WhatsApp
+                  </Button>
+                </motion.div>
+              )}
             </motion.div>
 
             <motion.p variants={listItem} className="text-center text-[11px] text-muted-foreground">
               No payment now — you're charged only when a helper accepts, and they're paid only once you confirm it's done. Card, Apple Pay or Google Pay · money-back guarantee
             </motion.p>
           </motion.form>
+        </div>
+
+        {/* Docked action bar — Uber-style: risk-reversal + Book never scroll
+            away, always thumb-reachable, and stay on screen while the keyboard
+            is up. The button submits the form above via its form= attribute. */}
+        <div className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
+          {/* Risk-reversal at the decision point — the single most reassuring
+              fact (you don't pay until a helper accepts) rides with the CTA. */}
+          <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
+            <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+            No payment until a helper accepts · money-back guarantee
+          </p>
+
+          <motion.div
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className={cn(
+              'relative overflow-hidden rounded-full transition-shadow duration-300',
+              // The glow only lights up once the form is genuinely ready to
+              // submit (valid phone + an address), so it's a truthful "ready"
+              // cue rather than lighting up on the first digit.
+              phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
+            )}
+          >
+            <Button
+              type="submit"
+              form="quick-book-form"
+              disabled={loading || !phone.trim()}
+              className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
+            >
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                : <>
+                    <motion.span
+                      className="inline-flex"
+                      animate={{ scale: [1, 1.18, 1] }}
+                      transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
+                    >
+                      <Zap className="w-4 h-4" />
+                    </motion.span>
+                    {ctaLabel}
+                  </>}
+            </Button>
+            {/* Occasional light sweep so the primary action feels alive —
+                only once the form is actually ready to submit */}
+            {!loading && phoneValid && addressValid && (
+              <motion.span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                initial={{ x: '-150%' }}
+                animate={{ x: '450%' }}
+                transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 3, ease: 'easeInOut' }}
+              />
+            )}
+          </motion.div>
+
+          {error && <p className="text-center text-xs text-destructive">{error}</p>}
+
+          {/* A failed checkout call must never be a dead end — flip the
+              WhatsApp fallback into the primary recovery action, right here in
+              the docked bar, with the typed details riding along. */}
+          {submitFailed && (
+            <>
+              <p className="text-center text-[11px] text-muted-foreground">
+                Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
+              </p>
+              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                <Button
+                  type="button"
+                  onClick={sendWhatsApp}
+                  className="w-full rounded-full gap-2 h-12 font-semibold text-base bg-[#25D366] text-white hover:bg-[#1fb457]"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Book via WhatsApp instead
+                </Button>
+              </motion.div>
+            </>
+          )}
         </div>
       </motion.div>
     </>

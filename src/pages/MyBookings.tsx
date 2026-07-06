@@ -22,17 +22,29 @@ interface BookingResult {
 
 const BookingRow: React.FC<{ b: BookingResult; onClick: () => void }> = ({ b, onClick }) => {
   const st = statusLabel(b.status);
+  // A live job should look alive — a job in motion earns the tap back into
+  // tracking, an Uber-style "something's happening, come watch".
+  const isLive = ACTIVE_STATUSES.has(b.status) && b.status !== 'pending';
   return (
     <motion.button
       variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
       onClick={onClick}
-      className="surface-float flex w-full items-center justify-between gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3.5 text-left transition-transform duration-150 active:scale-[0.99]"
+      className={cn(
+        'surface-float flex w-full items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3.5 text-left transition-transform duration-150 active:scale-[0.99]',
+        isLive ? 'border-sage/40 ring-1 ring-sage/15' : 'border-black/5',
+      )}
     >
       <div className="min-w-0">
         <p className="text-sm font-bold text-foreground truncate">{categoryLabel(b.category)}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{formatBookingDate(b.scheduled_date)}</p>
       </div>
       <span className="flex items-center gap-2 flex-shrink-0">
+        {isLive && (
+          <span className="relative flex h-2 w-2" aria-hidden="true">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-75 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-sage" />
+          </span>
+        )}
         <span className={cn('text-xs font-semibold', st.colour)}>{st.label}</span>
         <ArrowRight className="w-4 h-4 text-muted-foreground/40" aria-hidden="true" />
       </span>

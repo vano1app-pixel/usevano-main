@@ -2,6 +2,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/logo.png';
 
+// Service landing pages — internal links so crawlers (and people) can reach
+// /cleaning-galway etc. from every page. Keep in step with
+// src/content/serviceSlugs.ts.
+const SERVICE_LINKS = [
+  { label: 'Cleaning Galway',   href: '/cleaning-galway' },
+  { label: 'Dog walking',       href: '/dog-walking-galway' },
+  { label: 'Garden help',       href: '/garden-help-galway' },
+  { label: 'Laundry',           href: '/laundry-service-galway' },
+  { label: 'Moving help',       href: '/moving-help-galway' },
+];
+
 const NAV_LINKS = [
   { label: 'Join as helper', href: '/join',                                          external: false },
   { label: 'Blog',           href: '/blog',                                          external: false },
@@ -56,6 +67,18 @@ export const HouseholdFooter: React.FC = () => {
             </ul>
           </nav>
         </div>
+
+        <nav aria-label="Services" className="mb-8">
+          <ul className="flex flex-wrap gap-x-6 gap-y-3">
+            {SERVICE_LINKS.map(({ label, href }) => (
+              <li key={href}>
+                <Link to={href} className={FOOTER_LINK}>
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <a
