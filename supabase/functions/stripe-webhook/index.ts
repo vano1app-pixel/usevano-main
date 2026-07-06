@@ -884,6 +884,10 @@ async function handleHouseholdPostAcceptPayment(
     })
     .eq('id', bookingId)
     .is('paid_at', null)
+    // Never stamp a payment onto a booking that was already given up on — the
+    // customer may be paying a stale link after the booking was released/
+    // cancelled. Those land in the orphan-charge guard below.
+    .neq('status', 'cancelled')
     .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents, status')
     .maybeSingle();
 
@@ -894,6 +898,49 @@ async function handleHouseholdPostAcceptPayment(
     return new Response('DB error', { status: 500 });
   }
   if (!paidRow) {
+    // Nothing was stamped: either a genuine replay (already paid) or a payment
+    // that landed on a CANCELLED booking (stale pay link paid after release).
+    // Distinguish, and auto-refund the orphan charge so money never sits on a
+    // dead booking waiting for a manual dashboard refund.
+    const { data: existing } = await supabase
+      .from('household_bookings')
+      .select('status, paid_at, category, customer_phone')
+      .eq('id', bookingId)
+      .maybeSingle() as { data: { status?: string; paid_at?: string | null; category?: string; customer_phone?: string | null } | null };
+
+    if (existing?.status === 'cancelled' && !existing.paid_at && session.payment_intent) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+      let refunded = false;
+      if (stripeKey) {
+        try {
+          const r = await fetch('https://api.stripe.com/v1/refunds', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${stripeKey}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Idempotency-Key': `vano_orphan_refund_${bookingId}`,
+            },
+            body: new URLSearchParams({ payment_intent: session.payment_intent, reason: 'requested_by_customer' }).toString(),
+          });
+          refunded = r.ok;
+          if (!r.ok) console.error('[stripe-webhook] orphan auto-refund failed', bookingId, r.status, (await r.text()).slice(0, 200));
+        } catch (e) { console.error('[stripe-webhook] orphan auto-refund threw', bookingId, e); }
+      }
+      const ref = bookingId.slice(-8).toUpperCase();
+      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `${refunded ? '↩️ *Auto-refunded orphan charge*' : '🚨 *Orphan charge — refund by hand*'} (${ref})\nA customer paid a stale link for a ${existing.category ?? 'job'} that was already cancelled. ${refunded ? 'Refund issued automatically.' : 'Auto-refund FAILED — refund in the Stripe dashboard.'}`,
+          subject: `${refunded ? '↩️ Orphan charge auto-refunded' : '🚨 Orphan charge — manual refund'} (${ref})`,
+          contact_phone: existing.customer_phone ?? undefined,
+        }),
+      }).catch(() => {});
+      return new Response(JSON.stringify({ received: true, orphan_cancelled: true, refunded }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ received: true, replay: true }), {
       headers: { 'Content-Type': 'application/json' },
     });

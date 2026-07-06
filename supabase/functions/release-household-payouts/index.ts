@@ -36,9 +36,73 @@ serve(async (_req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    // ── Reconciliation backfill ──────────────────────────────────────────
+    // Defence-in-depth for capture-household-payment: if a job is 'completed'
+    // and paid but somehow has NO payout row (a historical row, or the rare
+    // window where the status flip errored after the payout insert), create
+    // the missing payout here so the helper is never silently unpaid. Bounded
+    // to recent completions so the scan stays cheap.
+    let backfilled = 0;
+    try {
+      const sinceIso = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: doneBookings } = await supabase
+        .from('household_bookings')
+        .select('id, student_id, price_estimate_cents')
+        .eq('status', 'completed')
+        .not('paid_at', 'is', null)
+        .not('student_id', 'is', null)
+        .gt('price_estimate_cents', 0)
+        .gte('created_at', sinceIso)
+        .limit(200) as { data: Array<{ id: string; student_id: string; price_estimate_cents: number }> | null };
+      const doneIds = (doneBookings ?? []).map((b) => b.id);
+      if (doneIds.length) {
+        const { data: existing } = await supabase
+          .from('household_payouts').select('booking_id').in('booking_id', doneIds) as { data: Array<{ booking_id: string }> | null };
+        const havePayout = new Set((existing ?? []).map((r) => r.booking_id));
+        const PLATFORM_FEE_BPS = 1500;
+        for (const b of doneBookings ?? []) {
+          if (havePayout.has(b.id)) continue;
+          const studentCents = Math.floor((b.price_estimate_cents ?? 0) * (10000 - PLATFORM_FEE_BPS) / 10000);
+          if (studentCents <= 0) continue;
+          const { error: insErr } = await supabase
+            .from('household_payouts')
+            .insert({ booking_id: b.id, student_id: b.student_id, amount_cents: studentCents, status: 'pending' });
+          // 23505 = a payout appeared concurrently; anything else is logged only.
+          if (!insErr) backfilled++;
+          else if ((insErr as { code?: string }).code !== '23505') console.error('[release] backfill insert failed', b.id, insErr);
+        }
+      }
+    } catch (reconErr) {
+      console.error('[release-household-payouts] reconciliation backfill errored', reconErr);
+    }
+
+    // Retry cap: a transfer that keeps failing for a non-onboarding reason
+    // (unsettled balance, destination restriction) must not loop forever — after
+    // MAX_TRANSFER_ATTEMPTS we mark it 'failed', page the owner once, and stop.
+    const MAX_TRANSFER_ATTEMPTS = 6;
+    const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
+    const resendKey  = Deno.env.get('RESEND_API_KEY')?.trim();
+    const resendFrom = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
+    const alertOwner = async (payoutId: string, studentId: string, amountCents: number, stripeErr: string) => {
+      const msg = `Payout ${payoutId.slice(0, 8)} for helper ${studentId.slice(0, 8)} (€${(amountCents / 100).toFixed(2)}) has failed ${MAX_TRANSFER_ATTEMPTS}× and is now marked stuck. Stripe: ${stripeErr.slice(0, 200)}`;
+      // WhatsApp page (best-effort) + email fallback.
+      void fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: `🚨 *Payout stuck* — ${msg}`, subject: `🚨 Helper payout stuck (${payoutId.slice(0, 8)})` }),
+      }).catch(() => {});
+      if (resendKey && adminEmail) {
+        void fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: resendFrom, to: [adminEmail], subject: `🚨 Helper payout stuck (${payoutId.slice(0, 8)})`, text: msg }),
+        }).catch(() => {});
+      }
+    };
+
     const { data: pending, error } = await supabase
       .from('household_payouts')
-      .select('id, booking_id, student_id, amount_cents')
+      .select('id, booking_id, student_id, amount_cents, transfer_attempts')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
       .limit(50);
@@ -48,7 +112,7 @@ serve(async (_req) => {
       return new Response(JSON.stringify({ error: 'fetch_failed' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
-    let released = 0, skipped = 0, failed = 0;
+    let released = 0, skipped = 0, failed = 0, stuck = 0;
 
     for (const p of pending ?? []) {
       const payoutId = p.id as string;
@@ -122,7 +186,22 @@ serve(async (_req) => {
         } else {
           const text = await resp.text().catch(() => '');
           console.error('[release-household-payouts] transfer failed', payoutId, resp.status, text.slice(0, 300));
-          failed++;
+          // Count the attempt; cap retries so a permanently-failing transfer
+          // can't loop invisibly forever. On the final strike, mark it 'failed'
+          // and page the owner exactly once.
+          const attempts = (Number(p.transfer_attempts) || 0) + 1;
+          if (attempts >= MAX_TRANSFER_ATTEMPTS) {
+            await supabase.from('household_payouts')
+              .update({ status: 'failed', transfer_attempts: attempts, last_transfer_error: text.slice(0, 500), stuck_alerted_at: new Date().toISOString() })
+              .eq('id', payoutId);
+            await alertOwner(payoutId, studentId, amountCents, text);
+            stuck++;
+          } else {
+            await supabase.from('household_payouts')
+              .update({ transfer_attempts: attempts, last_transfer_error: text.slice(0, 500) })
+              .eq('id', payoutId);
+            failed++;
+          }
         }
       } catch (rowErr) {
         console.error('[release-household-payouts] row errored', payoutId, rowErr);
@@ -130,7 +209,7 @@ serve(async (_req) => {
       }
     }
 
-    return new Response(JSON.stringify({ released, skipped, failed }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ released, skipped, failed, stuck, backfilled }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {
     console.error('[release-household-payouts] unhandled', err);
     return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });

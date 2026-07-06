@@ -55,6 +55,19 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
   return null;
 }
 
+// Expire the open Stripe checkout session so a stale pay link can't be paid
+// after the booking was released/cancelled (which would land money on a dead
+// booking). notify-household-accepted stores the session id (cs_…) in
+// stripe_payment_intent_id. Best-effort — never blocks the sweep.
+function expireStripeSession(sessId: string | null | undefined): void {
+  const key = Deno.env.get('STRIPE_SECRET_KEY');
+  if (!key || !sessId || !sessId.startsWith('cs_')) return;
+  void fetch(`https://api.stripe.com/v1/checkout/sessions/${sessId}/expire`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}` },
+  }).catch(() => {});
+}
+
 async function sendCustomerSms(to: string | null | undefined, body: string): Promise<boolean> {
   const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
@@ -190,15 +203,7 @@ serve(async (_req) => {
 
       // Expire the open Stripe checkout session so the stale pay link can't be
       // paid after release (which would land money on a cancelled booking).
-      // notify-household-accepted stores the session id in stripe_payment_intent_id.
-      const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
-      const sessId = b.stripe_payment_intent_id as string | null;
-      if (STRIPE_SECRET_KEY && sessId && sessId.startsWith('cs_')) {
-        void fetch(`https://api.stripe.com/v1/checkout/sessions/${sessId}/expire`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
-        }).catch(() => {});
-      }
+      expireStripeSession(b.stripe_payment_intent_id as string | null);
 
       // Tell the helper not to proceed — their pocket channels + email.
       if (helper?.phone) void sendCustomerSms(helper.phone, `VANO: the ${catLabel} you accepted was cancelled — the customer didn't complete payment, so please don't proceed. More jobs are waiting in the app.`);
@@ -319,7 +324,7 @@ serve(async (_req) => {
   const releaseCutoff = new Date(now - releaseAfterHours * 60 * 60 * 1000).toISOString();
   const { data: releaseCandidates } = await supabase
     .from('household_bookings')
-    .select('id, customer_name, customer_email, customer_phone, category, city, student_id, price_estimate_cents, payment_requested_at, scheduled_date, booking_data')
+    .select('id, customer_name, customer_email, customer_phone, category, city, student_id, price_estimate_cents, payment_requested_at, scheduled_date, booking_data, stripe_payment_intent_id')
     .in('status', ['accepted', 'on_way'])
     .not('student_id', 'is', null)
     .is('paid_at', null)
@@ -392,6 +397,10 @@ serve(async (_req) => {
       }).catch(() => {});
     }
 
+    // Kill the stale pay link — the customer still holds it in email/SMS, and
+    // paying it after release would stamp paid_at on a re-assigned booking.
+    expireStripeSession(b.stripe_payment_intent_id as string | null);
+
     // Expire open offers so re-dispatch isn't blocked by its idempotency check.
     await supabase
       .from('household_job_offers')
@@ -420,12 +429,12 @@ serve(async (_req) => {
   const cancelCutoff = new Date(now - cancelAfterHours * 60 * 60 * 1000).toISOString();
   const { data: cancelCandidates } = await supabase
     .from('household_bookings')
-    .select('id')
+    .select('id, stripe_payment_intent_id')
     .is('paid_at', null)
     .in('status', ['pending', 'accepted', 'on_way'])
     .lt('created_at', cancelCutoff)
     .order('created_at', { ascending: true })
-    .limit(SWEEP_LIMIT) as { data: Array<{ id: string }> | null };
+    .limit(SWEEP_LIMIT) as { data: Array<{ id: string; stripe_payment_intent_id: string | null }> | null };
 
   for (const b of cancelCandidates ?? []) {
     const { data: done } = await supabase
@@ -437,6 +446,8 @@ serve(async (_req) => {
       .select('id')
       .maybeSingle() as { data: { id: string } | null };
     if (!done) continue; // paid or progressed between query and now
+    // Kill the stale pay link so it can't be paid against a cancelled booking.
+    expireStripeSession(b.stripe_payment_intent_id);
     void supabase.from('household_job_updates').insert({
       booking_id: b.id, status: 'cancelled',
       note: 'Cancelled automatically — unpaid for over 24 hours.',

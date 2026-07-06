@@ -96,28 +96,48 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Mark completed — atomic status guard
+    const PLATFORM_FEE_BPS = 1500;
+    const priceCents = booking.price_estimate_cents ?? 0;
+    const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
+
+    // Record the payout FIRST, and only flip the booking to 'completed' once
+    // the helper's pay is durably on the books. The old order (complete → then
+    // insert payout, unchecked) meant a transient insert failure marked the job
+    // done while the payout silently vanished, with no path back — the worst
+    // failure for a platform whose promise is that students always get paid.
+    // household_payouts has a UNIQUE(booking_id) constraint, so a concurrent
+    // second completion loses the insert race (23505) and is treated as
+    // already-complete rather than double-paying.
+    const { data: payoutRow, error: payoutErr } = await supabase
+      .from('household_payouts')
+      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending' })
+      .select('id')
+      .single();
+
+    if (payoutErr) {
+      if ((payoutErr as { code?: string }).code === '23505') {
+        // A concurrent completion already wrote the payout — idempotent success.
+        return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      // Any other error: do NOT complete the booking, so the caller / cron
+      // retries against a still-completable status instead of stranding the pay.
+      console.error('[capture] payout insert failed — not completing so it can retry', payoutErr);
+      return bad(500, 'Could not record payout. Please try again.');
+    }
+
+    // Payout row is durable — now safe to mark completed (atomic status guard).
     const { error: updateError } = await supabase
       .from('household_bookings').update({ status: 'completed' })
       .eq('id', bookingId).eq('student_id', callerId)
       .in('status', ['accepted','on_way','arrived','in_progress']);
 
-    if (updateError) { console.error('[capture] booking update failed', updateError); return bad(500, 'Booking status update failed. Contact support.'); }
-
-    const PLATFORM_FEE_BPS = 1500;
-    const priceCents = booking.price_estimate_cents ?? 0;
-    const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
-
-    // Record the payout as 'pending'. If the helper has finished Stripe
-    // Connect onboarding we fire an automatic Transfer below and flip it
-    // to 'transferred'; otherwise it stays 'pending' and the
-    // release-household-payouts cron sweeps it once they onboard. Helpers
-    // can work with no payout setup — their earnings are simply held.
-    const { data: payoutRow } = await supabase
-      .from('household_payouts')
-      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending' })
-      .select('id')
-      .single();
+    if (updateError) {
+      // Rare (a real DB error, not a 0-row match). The payout row already
+      // exists, so the release cron's reconciliation backfill will still pay
+      // the helper; log loudly but don't fail the request — the money side is
+      // safe, only the booking's display status may lag until re-run.
+      console.error('[capture] booking status flip errored AFTER payout was recorded — reconcile will catch it', updateError);
+    }
     await supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'completed', note: 'Job completed.' });
 
     // Best-effort web push to the customer — single completion choke-point, so

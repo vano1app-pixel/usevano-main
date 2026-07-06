@@ -91,6 +91,18 @@ serve(async (req) => {
       return true;
     }
 
+    // Helper: kill the open checkout session so a stale pay link can't be paid
+    // after cancellation (an unpaid booking stores its cs_… id in
+    // stripe_payment_intent_id). Best-effort; never blocks the cancel.
+    function expireCheckoutSession(): void {
+      const sessId = b.stripe_payment_intent_id as string | null;
+      if (!STRIPE_SECRET || !sessId?.startsWith('cs_')) return;
+      void fetch(`https://api.stripe.com/v1/checkout/sessions/${sessId}/expire`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${STRIPE_SECRET}` },
+      }).catch(() => {});
+    }
+
     // ── customer_cancel ─────────────────────────────────────────────────────
     if (type === 'customer_cancel') {
       // Self-serve cancel is allowed right up until the helper starts the job.
@@ -116,6 +128,8 @@ serve(async (req) => {
 
       await supabase.from('household_bookings').update({ status: 'cancelled' }).eq('id', booking_id);
       await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: 'Customer cancelled.' });
+      // Kill the pay link so it can't be paid against this cancelled booking.
+      expireCheckoutSession();
 
       // If a helper was assigned, notify them so their live-subscribed screen
       // and pocket are updated. 'cancelled' isn't a valid push status, so this
@@ -297,6 +311,8 @@ serve(async (req) => {
 
       await supabase.from('household_bookings').update({ status: 'cancelled' }).eq('id', booking_id);
       await supabase.from('household_job_updates').insert({ booking_id, status: 'cancelled', note: 'Cancelled by admin.' });
+      // Kill any open pay link so it can't be paid against this cancelled booking.
+      expireCheckoutSession();
 
       if (resendKey && custEmail) {
         fetch('https://api.resend.com/emails', {
