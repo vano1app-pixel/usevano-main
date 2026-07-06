@@ -13,8 +13,14 @@ import { SilentErrorBoundary } from "@/components/SilentErrorBoundary";
 import { AuthProvider } from "@/hooks/useAuthContext";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { BottomNav } from "@/components/household/BottomNav";
+// Homepage is eager (NOT lazy): it's the landing route every visitor hits
+// first and we prerender it to static HTML. If it were a lazy chunk, the SPA
+// boot would swap the prerendered page for the Suspense fallback (a blank
+// frame with just the top progress bar) while that chunk downloaded — the
+// "page bounces to a different screen for a millisecond" flash. Bundling it
+// with the app shell means `/` paints immediately with no Suspense gap.
+import HouseholdHome from "./pages/HouseholdHome";
 
-const HouseholdHome = lazyWithRetry(() => import("./pages/HouseholdHome"));
 const MyBookings = lazyWithRetry(() => import("./pages/MyBookings"));
 const Account = lazyWithRetry(() => import("./pages/Account"));
 const TrackBooking = lazyWithRetry(() => import("./pages/TrackBooking"));
