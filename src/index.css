@@ -134,6 +134,13 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     min-height: 100dvh;
+    /* Contain any horizontal bleed (decorative glows/halos wider than the
+       viewport, e.g. the hero search-bar halo) so the document is never wider
+       than the screen. Without this, iOS Safari re-fits on input focus and
+       zooms the whole page OUT to show the overflow — the "search bar makes
+       the screen go weird / too zoomed out" bug. `clip` (not `hidden`) adds no
+       scroll container, so scroll-snap and position:sticky are unaffected. */
+    overflow-x: clip;
     /* Plus Jakarta Sans stylistic sets — gives the alt 'a' and 'g' more
        editorial character. Smart-quotes-as-CSS bug + Inter-only feature
        codes meant the previous declaration was silently invalid. */

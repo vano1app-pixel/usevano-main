@@ -104,10 +104,21 @@ function emit(page: PageSpec): void {
     sub(/(<meta name="twitter:image" content=")[^"]*(")/, page.image);
   }
 
-  const headInjection = `${PRERENDER_STYLE}\n${page.jsonLd.map(ldScript).join("\n")}\n</head>`;
+  // The prerendered body is SEO scaffolding for crawlers that can't run JS.
+  // Real browsers boot React, which re-renders #root — but for the ~100ms
+  // between HTML paint and React mounting, the browser would PAINT this static
+  // page first, then swap it for the app: a jarring "bounce to a different
+  // page" (most visible on the homepage, static light SEO → navy hero).
+  //
+  // Fix: mark the fallback `hidden` so JS browsers never paint it (React clears
+  // #root on mount regardless), while a <noscript> rule reveals it when
+  // scripting is OFF. The markup stays in the raw HTML either way, so non-JS
+  // crawlers (GPTBot, ClaudeBot, PerplexityBot…) still read every word.
+  const noscriptReveal = `<noscript><style>.vano-pr[hidden]{display:block!important}</style></noscript>`;
+  const headInjection = `${PRERENDER_STYLE}\n${noscriptReveal}\n${page.jsonLd.map(ldScript).join("\n")}\n</head>`;
   html = html.replace("</head>", headInjection);
 
-  html = html.replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root"><div class="vano-pr">${page.rootHtml}</div></div>`);
+  html = html.replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root"><div class="vano-pr" hidden>${page.rootHtml}</div></div>`);
 
   const outPath = join(DIST, page.outFile);
   mkdirSync(join(outPath, ".."), { recursive: true });
