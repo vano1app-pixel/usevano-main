@@ -1190,6 +1190,49 @@ async function handleHelperSubscriptionCompleted(
   );
 }
 
+// --- Handler: €2 helper sign-up fee paid ----------------------------------
+// Server-side backstop for confirm-signup-payment. Only pays attention to a
+// session that's actually paid; sets signup_paid idempotently (the
+// .is('signup_paid', ...) guard makes a replay a no-op) and, if the DB
+// auto-approve trigger flipped the helper to 'approved', notifies them.
+async function handleHelperSignupPaid(
+  supabase: SupabaseClient,
+  supabaseUrl: string,
+  serviceKey: string,
+  session: StripeCheckoutSession,
+  helperId: string,
+): Promise<Response> {
+  if (session.payment_status && session.payment_status !== 'paid') {
+    return new Response(JSON.stringify({ received: true, unpaid: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+  // Only flip false→true so we can tell whether THIS call completed the set.
+  const { data: updated, error } = await supabase
+    .from('household_helpers')
+    .update({ signup_paid: true })
+    .eq('id', helperId)
+    .or('signup_paid.is.null,signup_paid.eq.false')
+    .select('id, status')
+    .maybeSingle() as { data: { id: string; status?: string } | null; error: unknown };
+
+  if (error) {
+    console.error('[stripe-webhook] helper signup_paid update failed', error);
+    return new Response('DB error', { status: 500 });
+  }
+  if (!updated) {
+    // Already paid (confirm-signup-payment beat us, or a replay) — no-op.
+    return new Response(JSON.stringify({ received: true, replay: true }), { headers: { 'Content-Type': 'application/json' } });
+  }
+  // The trigger may have flipped status to 'approved' in the same write.
+  if (updated.status === 'approved') {
+    fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ helper_id: helperId }),
+    }).catch(() => {});
+  }
+  return new Response(JSON.stringify({ received: true, signup_paid: true, approved: updated.status === 'approved' }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 // --- Entry point ----------------------------------------------------------
 serve(async (req) => {
   if (req.method !== 'POST') {
@@ -1245,6 +1288,15 @@ serve(async (req) => {
     const householdPlan = session.metadata?.household_plan;
     if (householdPlan) {
       return handleHouseholdPlanSubscribed(supabase, session, householdPlan);
+    }
+    // €2 helper sign-up fee. confirm-signup-payment sets signup_paid from the
+    // browser redirect, but a lost redirect (tab closed, wallet bounce, flaky
+    // network) left the helper charged-but-stuck-pending forever with no
+    // server backstop. This webhook makes the €2 gate as reliable as the
+    // Stripe Identity gate — set signup_paid idempotently, let the DB trigger
+    // auto-approve, and notify if that completed the set.
+    if (session.metadata?.type === 'helper_signup' && session.metadata?.helper_id) {
+      return handleHelperSignupPaid(supabase, supabaseUrl, serviceKey, session, session.metadata.helper_id);
     }
     const helperEmail = session.metadata?.helper_email;
     if (helperEmail) {

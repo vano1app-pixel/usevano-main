@@ -97,6 +97,12 @@ project_id = "puomfwjtpvqedwxjxogh"
   [functions.sweep-stalled-jobs]
     verify_jwt = false
 
+  # Cron that chases helper drop-offs: approved helpers with held earnings but
+  # no payout setup, and pending applicants stalled mid-signup. Scheduler /
+  # service-key only; capped + stamped per helper. Cadence: 30 * * * *.
+  [functions.nudge-helper-onboarding]
+    verify_jwt = false
+
   # Cron sweep that releases held household-helper payouts once the helper
   # finishes Stripe Connect onboarding. Called by the scheduler with the
   # service key; the per-row status guard + Stripe Idempotency-Key are the
