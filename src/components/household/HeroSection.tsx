@@ -6,6 +6,7 @@ import { useCountUp } from '@/hooks/useCountUp';
 import { CategoryGrid } from './CategoryGrid';
 import { ReferralWelcomeBanner } from './ReferralWelcomeBanner';
 import { ReviewBadges } from './ReviewBadges';
+import { HelperFacePile } from './HelperFacePile';
 import { ScrollCue } from './ScrollCue';
 
 /**
@@ -119,6 +120,9 @@ export const HeroSection: React.FC = () => {
           </div>
         </motion.div>
 
+        {/* Real approved-helper faces — social proof right under the bar. */}
+        <HelperFacePile />
+
         {/* One gentle reassurance line — replaces the old subline + 4 chips. */}
         <motion.p
           initial={{ opacity: 0 }}
@@ -126,11 +130,11 @@ export const HeroSection: React.FC = () => {
           transition={{ delay: 0.3, duration: 0.5 }}
           className="mt-5 sm:mt-6 max-w-md mx-auto text-xs sm:text-[13px] leading-relaxed text-white/55 text-pretty"
         >
-          ID-verified
-          <span className="text-white/25 px-1.5">·</span>
           you see them first
           <span className="text-white/25 px-1.5">·</span>
           pay after they accept
+          <span className="text-white/25 px-1.5">·</span>
+          money-back guarantee
         </motion.p>
       </div>
 
