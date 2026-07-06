@@ -52,6 +52,9 @@ serve(async (_req) => {
         .not('paid_at', 'is', null)
         .not('student_id', 'is', null)
         .gt('price_estimate_cents', 0)
+        // Never back-fill a payout for a disputed/refunded booking.
+        .is('disputed_at', null)
+        .is('refunded_at', null)
         .gte('created_at', sinceIso)
         .limit(200) as { data: Array<{ id: string; student_id: string; price_estimate_cents: number }> | null };
       const doneIds = (doneBookings ?? []).map((b) => b.id);

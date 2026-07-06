@@ -541,6 +541,9 @@ serve(async (req) => {
         .select('id, booking_data')
         .eq('customer_phone', customer_phone.trim())
         .eq('category', cat)
+        // Same requested time too — otherwise a customer booking "Cleaning now"
+        // then "Cleaning tomorrow 9am" would have the second silently swallowed.
+        .eq('scheduled_date', when_label || 'flexible')
         .not('status', 'in', '(cancelled,completed)')
         .gte('created_at', dedupeCutoff)
         .order('created_at', { ascending: false })

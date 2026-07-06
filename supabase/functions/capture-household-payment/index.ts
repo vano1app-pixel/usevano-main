@@ -79,10 +79,17 @@ serve(async (req) => {
 
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id')
+      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id, disputed_at, refunded_at')
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
+    // Never complete + pay out a job the customer disputed / was refunded for —
+    // otherwise a money-back refund plus a later auto-confirm would pay both
+    // sides. report-household-problem also cancels the booking, but guard here
+    // too so no completion path can slip a payout through.
+    if (booking.disputed_at || booking.refunded_at) {
+      return bad(409, 'This booking is under dispute or refunded — not completing.');
+    }
     // The helper to be paid is whoever the booking is assigned to.
     if (!booking.student_id) return bad(409, 'No helper assigned to this job');
     if (!['accepted','on_way','arrived','in_progress'].includes(booking.status)) return bad(409, `Cannot complete in status: ${booking.status}`);

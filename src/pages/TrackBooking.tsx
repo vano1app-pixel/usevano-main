@@ -360,6 +360,12 @@ const TrackBooking = () => {
   useEffect(() => {
     if (!bookingId) return;
     let cancelled = false;
+    // Poll control lives in refs (not state) so the interval body stays a pure
+    // function — no side effects inside a setState updater. pollStatus tracks
+    // the latest status for the terminal check; missCount stops the poll for a
+    // booking that keeps coming back empty (a stale/mistyped link).
+    let pollStatus: string | null = null;
+    let missCount = 0;
 
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -377,7 +383,14 @@ const TrackBooking = () => {
 
       if (cancelled) return;
       const bookingRow = Array.isArray(bookingRes.data) ? bookingRes.data[0] : bookingRes.data;
-      if (bookingRow) setBooking(bookingRow as Booking);
+      if (bookingRow) {
+        setBooking(bookingRow as Booking);
+        pollStatus = (bookingRow as Booking).status;
+        missCount = 0;
+      } else if (!bookingRes.error) {
+        // RPC succeeded but returned no row — the booking doesn't exist.
+        missCount += 1;
+      }
       if (updatesRes.data) setUpdates(updatesRes.data as JobUpdate[]);
       if (messagesRes.data) setMessages(messagesRes.data as ChatMessage[]);
       setLoading(false);
@@ -386,17 +399,15 @@ const TrackBooking = () => {
     void load();
     // Anonymous customers can't receive realtime once the bulk-read policy is
     // removed, so poll while the job is live to keep status/pay/map/chat fresh.
-    // (The realtime subscriptions below still serve signed-in helpers.) The
-    // poll clears itself once the booking reaches a terminal state.
+    // (The realtime subscriptions below still serve signed-in helpers.)
     const poll = setInterval(() => {
-      setBooking((b) => {
-        if (b && (b.status === 'completed' || b.status === 'cancelled')) {
-          clearInterval(poll);
-          return b;
-        }
-        void load();
-        return b;
-      });
+      // Stop once terminal, or once the booking has come back empty a few times
+      // (stale link) — never poll a non-existent booking forever.
+      if (pollStatus === 'completed' || pollStatus === 'cancelled' || missCount >= 3) {
+        clearInterval(poll);
+        return;
+      }
+      void load();
     }, 5000);
     return () => { cancelled = true; clearInterval(poll); };
   }, [bookingId]);

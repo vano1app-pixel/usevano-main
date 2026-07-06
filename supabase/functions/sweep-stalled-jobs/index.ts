@@ -86,7 +86,7 @@ serve(async (_req) => {
   const GRACE_MIN    = Number(Deno.env.get('STALL_RELEASE_MINUTES'))  || 90;   // after the ping
   const ESCALATE_MIN = Number(Deno.env.get('STALL_ESCALATE_MINUTES')) || 120;  // after the release
   const now = Date.now();
-  const cols = 'id, status, category, city, student_id, paid_at, stalled_reminded_at, stalled_released_at, stalled_escalated_at, customer_name, customer_phone, customer_email, price_estimate_cents, scheduled_date';
+  const cols = 'id, status, category, city, student_id, paid_at, accepted_at, stalled_reminded_at, stalled_released_at, stalled_escalated_at, customer_name, customer_phone, customer_email, price_estimate_cents, scheduled_date';
 
   const helperContact = async (studentId: string | null): Promise<{ first: string; phone: string | null }> => {
     if (!studentId) return { first: 'your helper', phone: null };
@@ -105,13 +105,18 @@ serve(async (_req) => {
 
   try {
     // ── Stage A: PING — arm the sweep and nudge the helper ──────────────────
+    // Clock runs from acceptance (accepted_at), not payment — so a freshly
+    // re-accepted replacement helper isn't pinged for the original helper's
+    // lateness. Disputed jobs are left alone.
     const pingCutoff = new Date(now - PING_MIN * 60 * 1000).toISOString();
     const { data: toPing } = await supabase.from('household_bookings')
       .select(cols)
       .in('status', ['accepted', 'on_way'])
       .not('paid_at', 'is', null)
-      .lt('paid_at', pingCutoff)
+      .not('accepted_at', 'is', null)
+      .lt('accepted_at', pingCutoff)
       .is('stalled_reminded_at', null)
+      .is('disputed_at', null)
       .limit(50) as { data: Row[] | null };
     for (const b of toPing ?? []) {
       const cat = CATEGORY_LABELS[b.category ?? 'other'] ?? 'job';
@@ -130,6 +135,7 @@ serve(async (_req) => {
       .not('stalled_reminded_at', 'is', null)
       .lt('stalled_reminded_at', graceCutoff)
       .is('stalled_released_at', null)
+      .is('disputed_at', null)
       .limit(30) as { data: Row[] | null };
     for (const b of toRelease ?? []) {
       const cat = CATEGORY_LABELS[b.category ?? 'other'] ?? 'job';
@@ -177,6 +183,9 @@ serve(async (_req) => {
     }
 
     // ── Stage C: ESCALATE — released once, still unresolved → page owner ─────
+    // Escalate only jobs still genuinely stuck after a release — a fresh
+    // re-acceptance (recent accepted_at) is working fine, so exclude it; a job
+    // that stayed 'pending' (nobody re-took it) still escalates.
     const escalateCutoff = new Date(now - ESCALATE_MIN * 60 * 1000).toISOString();
     const { data: toEscalate } = await supabase.from('household_bookings')
       .select(cols)
@@ -185,6 +194,8 @@ serve(async (_req) => {
       .not('stalled_released_at', 'is', null)
       .lt('stalled_released_at', escalateCutoff)
       .is('stalled_escalated_at', null)
+      .is('disputed_at', null)
+      .or(`status.eq.pending,accepted_at.lt.${escalateCutoff}`)
       .limit(30) as { data: Row[] | null };
     for (const b of toEscalate ?? []) {
       const { data: marked } = await supabase.from('household_bookings')

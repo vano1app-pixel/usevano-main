@@ -180,6 +180,7 @@ serve(async (req) => {
       .eq('status', 'in_progress')
       .not('paid_at', 'is', null)
       .is('completion_reminded_at', null)
+      .is('disputed_at', null)
       .or(`helper_finished_at.not.is.null,job_ends_at.lt.${nowIso}`)
       .limit(50) as { data: Booking[] | null };
     for (const b of toRemind ?? []) {
@@ -216,6 +217,7 @@ serve(async (req) => {
       .eq('status', 'in_progress')
       .not('paid_at', 'is', null)
       .not('completion_reminded_at', 'is', null)
+      .is('disputed_at', null)
       .lt('completion_reminded_at', autoCutoffIso)
       .limit(20) as { data: Booking[] | null };
     for (const b of toAutoComplete ?? []) {

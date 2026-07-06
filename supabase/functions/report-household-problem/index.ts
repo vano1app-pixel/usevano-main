@@ -84,9 +84,27 @@ serve(async (req) => {
     const helperPaid = payout?.status === 'transferred';
     const pi = booking.stripe_payment_intent_id as string | null;
 
-    if (!helperPaid) {
-      // Helper hasn't been paid (no payout, or still pending/held/failed) →
-      // safe to auto-refund the customer and cancel the payout.
+    // Atomically claim the payout as 'reversed' BEFORE refunding, so a
+    // concurrent release-household-payouts can't transfer the helper in the
+    // gap. If a payout row exists and the claim affects 0 rows, a release just
+    // beat us (it's now 'transferred') → the helper is paid, so escalate
+    // instead of refunding.
+    let helperAlreadyPaid = helperPaid;
+    if (payout?.id && !helperAlreadyPaid) {
+      const { data: reversed } = await supabase
+        .from('household_payouts')
+        .update({ status: 'reversed', last_transfer_error: 'Cancelled — customer dispute before transfer' })
+        .eq('id', payout.id)
+        .neq('status', 'transferred')
+        .select('id')
+        .maybeSingle() as { data: { id: string } | null };
+      if (!reversed) helperAlreadyPaid = true;
+    }
+
+    if (!helperAlreadyPaid) {
+      // Helper hasn't been paid → refund the customer AND cancel the booking so
+      // no completion path (auto-confirm, stall-sweep re-dispatch, manual mark-
+      // done) can subsequently pay a helper on a refunded job.
       let refunded = false; let refundId: string | null = null;
       if (STRIPE_SECRET_KEY && pi && pi.startsWith('pi_')) {
         try {
@@ -99,14 +117,15 @@ serve(async (req) => {
           else console.error('[report-problem] refund failed', r.status, (await r.text()).slice(0, 200));
         } catch (e) { console.error('[report-problem] refund threw', e); }
       }
-      if (payout?.id) {
-        await supabase.from('household_payouts').update({ status: 'reversed', last_transfer_error: 'Cancelled — customer dispute before transfer' }).eq('id', payout.id).neq('status', 'transferred');
-      }
-      if (refunded) {
-        await supabase.from('household_bookings').update({ refunded_at: new Date().toISOString(), stripe_refund_id: refundId }).eq('id', bookingId);
-      }
+      // Terminal the booking regardless of refund success (disputed_at is
+      // already set as a second guard) so it's out of every payout path.
+      await supabase.from('household_bookings')
+        .update({ status: 'cancelled', ...(refunded ? { refunded_at: new Date().toISOString(), stripe_refund_id: refundId } : {}) })
+        .eq('id', bookingId)
+        .neq('status', 'cancelled');
+      void supabase.from('household_job_updates').insert({ booking_id: bookingId, status: 'cancelled', note: 'Cancelled — customer money-back report before the helper was paid.' });
       void pageAdmin(
-        `${refunded ? '↩️ *Auto-refunded (money-back)*' : '🚨 *Refund needed — auto-refund failed*'} (${ref})\n${cat} — "${reason || 'no detail'}"\nCustomer: ${contact}\n${refunded ? 'Customer refunded; held payout cancelled.' : 'Could NOT auto-refund — do it in Stripe.'}`,
+        `${refunded ? '↩️ *Auto-refunded (money-back)*' : '🚨 *Refund needed — auto-refund failed*'} (${ref})\n${cat} — "${reason || 'no detail'}"\nCustomer: ${contact}\n${refunded ? 'Customer refunded; booking cancelled; any held payout reversed.' : 'Booking cancelled but auto-refund FAILED — refund in Stripe.'}`,
         `${refunded ? '↩️ Auto-refunded' : '🚨 Manual refund'} — ${cat} (${ref})`,
       );
       return json(200, { ok: true, refunded, needs_admin: !refunded });

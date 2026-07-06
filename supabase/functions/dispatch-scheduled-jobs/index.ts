@@ -69,20 +69,23 @@ serve(async (_req) => {
   let dispatched = 0, reminded = 0;
 
   try {
-    // ── PASS A: dispatch jobs entering their lead window ────────────────────
-    // Due = scheduled within LEAD_MIN from now. Lower bound (now - 6h) skips
-    // long-stale rows so a backfilled/odd timestamp can't spam dispatch.
+    // ── PASS A: dispatch (and RE-dispatch) jobs in their lead window ────────
+    // Due = scheduled between 30 min past the slot and LEAD_MIN ahead. We call
+    // dispatch every run (not just once): dispatch-household-job expires stale
+    // offers and skips while live offers exist, so this re-offers an unaccepted
+    // book-ahead job as its offers lapse — the same second-chance an ASAP job
+    // gets from redispatch-stale-jobs (which deliberately skips future-dated
+    // jobs). Bounded to slot+30min so a passed slot stops re-offering.
     const leadCutoff = new Date(now + LEAD_MIN * 60 * 1000).toISOString();
-    const staleFloor = new Date(now - 6 * 60 * 60 * 1000).toISOString();
+    const slotFloor  = new Date(now - 30 * 60 * 1000).toISOString();
     const { data: due } = await supabase
       .from('household_bookings')
       .select('id, city, category, price_estimate_cents, scheduled_at')
       .eq('status', 'pending')
       .is('student_id', null)
-      .is('last_dispatched_at', null)
       .not('scheduled_at', 'is', null)
       .lte('scheduled_at', leadCutoff)
-      .gte('scheduled_at', staleFloor)
+      .gte('scheduled_at', slotFloor)
       .order('scheduled_at', { ascending: true })
       .limit(30) as { data: Array<Record<string, unknown>> | null };
 
@@ -112,11 +115,19 @@ serve(async (_req) => {
       .limit(50) as { data: Array<Record<string, unknown>> | null };
 
     for (const b of soon ?? []) {
+      // Claim the reminder atomically FIRST (conditional on it still being
+      // null) so two overlapping runs can't both text the helper.
+      const { data: claimed } = await supabase.from('household_bookings')
+        .update({ scheduled_reminded_at: new Date(now).toISOString() })
+        .eq('id', b.id as string)
+        .is('scheduled_reminded_at', null)
+        .select('id')
+        .maybeSingle();
+      if (!claimed) continue;
       const { data: helper } = await supabase.from('household_helpers').select('name, phone').eq('user_id', b.student_id as string).maybeSingle() as { data: { name?: string; phone?: string | null } | null };
       const cat = CATEGORY_LABELS[b.category as string] ?? 'job';
       const whenLocal = new Date(String(b.scheduled_at)).toLocaleTimeString('en-IE', { hour: 'numeric', minute: '2-digit', timeZone: 'Europe/Dublin' });
       await sendSms(helper?.phone, `VANO reminder: your ${cat} in ${b.city ?? 'Galway'} starts around ${whenLocal}. Head over in good time and tap "I've arrived" when you get there.`);
-      await supabase.from('household_bookings').update({ scheduled_reminded_at: new Date(now).toISOString() }).eq('id', b.id as string);
       reminded++;
     }
 
