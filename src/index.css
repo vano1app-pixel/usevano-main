@@ -239,6 +239,14 @@
     pointer-events: none;
   }
 
+  /* Cookie pill ducks out while a booking sheet is up. visibility (not
+     opacity/transform) because framer-motion owns those inline — and z-index
+     can't help: the sheet's z-70 is trapped inside the hero's transformed
+     motion wrapper, so a root-level overlay out-stacks it regardless. */
+  body.vano-modal-open .vano-cookie-pill {
+    visibility: hidden;
+  }
+
   /* Native (Capacitor) only: inside the iOS app the webview sits under the
      status bar / notch, and the app otherwise handles only the bottom inset.
      Pad the top by the safe area so the header doesn't hide under the clock.

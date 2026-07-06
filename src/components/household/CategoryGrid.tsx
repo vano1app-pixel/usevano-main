@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
 import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, Clock, Phone, MapPin } from 'lucide-react';
@@ -226,6 +227,7 @@ interface SheetProps {
 }
 
 const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLabel }) => {
+  const navigate   = useNavigate();
   const timeSlots  = useMemo(() => getTimeSlots(), []);
   const remembered = useMemo(() => loadBookingMemory(), []);
   const referralCode = useMemo(() => getReferralCode(), []);
@@ -423,7 +425,18 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
         lastCategory: cat.slug,
         lastSize:     size,
       });
-      window.location.href = data.checkout_url as string;
+      // Same-origin handoff (the /track page) rides the SPA router — instant
+      // slide, no white-flash full reload at the peak-momentum moment.
+      // Anything external (a real Stripe URL) still hard-navigates.
+      const dest = data.checkout_url as string;
+      try {
+        const u = new URL(dest, window.location.origin);
+        if (u.origin === window.location.origin) {
+          navigate(u.pathname + u.search);
+          return;
+        }
+      } catch { /* malformed URL — fall through to the hard redirect */ }
+      window.location.href = dest;
     } catch (err: unknown) {
       setLoading(false);
       setSubmitFailed(true);
@@ -504,7 +517,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
             </div>
             <button
               onClick={onClose}
-              className="w-11 h-11 -mt-1.5 -mr-1.5 rounded-full flex items-center justify-center flex-shrink-0 group/close"
+              className="w-11 h-11 -mt-1.5 -mr-1.5 rounded-full flex items-center justify-center flex-shrink-0 group/close active:scale-90 transition-transform duration-150"
               aria-label="Close"
             >
               <span className="w-8 h-8 rounded-full bg-foreground/8 flex items-center justify-center group-hover/close:bg-foreground/12 transition-colors">

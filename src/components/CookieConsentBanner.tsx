@@ -48,7 +48,11 @@ export const CookieConsentBanner: React.FC = () => {
           /* Mobile: clears the 64px bottom nav + safe area. Desktop: bottom-left,
              out of the centred booking column. z-60 keeps it under the quick-book
              sheet (backdrop z-69 / sheet z-70). */
-          className="pointer-events-auto fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)_+_76px)] md:left-5 md:right-auto md:bottom-5 z-[60] flex justify-center md:justify-start"
+          /* .vano-cookie-pill: hidden via CSS while any booking sheet is up
+             (body.vano-modal-open) — z-index alone can't win there because the
+             sheet's stacking context is trapped inside the hero's transformed
+             motion wrapper. */
+          className="vano-cookie-pill pointer-events-auto fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)_+_76px)] md:left-5 md:right-auto md:bottom-5 z-[60] flex justify-center md:justify-start"
         >
           <div className="flex items-center gap-2.5 rounded-full border border-border bg-card/95 py-2 pl-3 pr-2 shadow-lg shadow-black/10 backdrop-blur-md max-w-full">
             <Cookie size={15} className="shrink-0 text-primary" strokeWidth={2} aria-hidden="true" />
