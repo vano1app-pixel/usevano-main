@@ -462,8 +462,8 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
         dragElastic={{ top: 0, bottom: 0.6 }}
         dragSnapToOrigin
         onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 700) onClose(); }}
-        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl"
-        style={{ maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain' }}
+        className="fixed inset-x-0 bottom-0 z-[70] bg-cream rounded-t-3xl shadow-2xl safe-area-bottom sm:mx-auto sm:max-w-[460px] sm:bottom-6 sm:rounded-3xl flex flex-col overflow-hidden"
+        style={{ maxHeight: '88vh' }}
         role="dialog"
         aria-modal="true"
         aria-label={`Book ${cat.label}`}
@@ -476,7 +476,10 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
           <div className="w-10 h-1.5 rounded-full bg-foreground/20" />
         </div>
 
-        <div className="px-5 pb-6 pt-2">
+        {/* Scrollable middle — header + fields. The action bar below is docked
+            outside this scroll area, Uber-style, so price + Book never leave
+            the screen (and stay put while the keyboard is up). */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2" style={{ overscrollBehavior: 'contain' }}>
           {/* Header */}
           <div className="flex items-start justify-between mb-5">
             <div>
@@ -511,6 +514,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
           </div>
 
           <motion.form
+            id="quick-book-form"
             onSubmit={handleBook}
             className="space-y-5"
             variants={listContainer}
@@ -801,95 +805,111 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
                 </p>
               )}
 
-              {/* Risk-reversal at the decision point — the single most reassuring
-                  fact (you don't pay until a helper accepts) sits right above the
-                  CTA, not buried in the fine print beneath it. */}
-              <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
-                <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                No payment until a helper accepts · money-back guarantee
+              <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                A nearby helper usually replies in minutes
               </p>
 
-              <motion.div
-                whileHover={{ scale: 1.015 }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                className={cn(
-                  'relative overflow-hidden rounded-full transition-shadow duration-300',
-                  // The glow only lights up once the form is genuinely ready to
-                  // submit (valid phone + an address), so it's a truthful "ready"
-                  // cue rather than lighting up on the first digit.
-                  phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
-                )}
-              >
-                <Button
-                  type="submit"
-                  disabled={loading || !phone.trim()}
-                  className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
-                >
-                  {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                    : <>
-                        <motion.span
-                          className="inline-flex"
-                          animate={{ scale: [1, 1.18, 1] }}
-                          transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
-                        >
-                          <Zap className="w-4 h-4" />
-                        </motion.span>
-                        {ctaLabel}
-                      </>}
-                </Button>
-                {/* Occasional light sweep so the primary action feels alive —
-                    only once the form is actually ready to submit */}
-                {!loading && phoneValid && addressValid && (
-                  <motion.span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                    initial={{ x: '-150%' }}
-                    animate={{ x: '450%' }}
-                    transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 3, ease: 'easeInOut' }}
-                  />
-                )}
-              </motion.div>
-
-              {error && <p className="text-center text-xs text-destructive">{error}</p>}
-
-              {/* A failed checkout call must never be a dead end — flip the
-                  WhatsApp fallback into the primary recovery action, with the
-                  typed details riding along in the message. */}
-              {submitFailed ? (
-                <p className="text-center text-[11px] text-muted-foreground">
-                  Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
-                </p>
-              ) : (
-                <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                  A nearby helper usually replies in minutes
-                </p>
+              {/* Quiet WhatsApp alternative — the loud green recovery version
+                  lives in the docked bar and only appears after a failed submit. */}
+              {!submitFailed && (
+                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={sendWhatsApp}
+                    className="w-full rounded-full gap-2 h-10 font-medium text-sm border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Or book via WhatsApp
+                  </Button>
+                </motion.div>
               )}
-
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={sendWhatsApp}
-                  className={cn(
-                    'w-full rounded-full gap-2',
-                    submitFailed
-                      ? 'h-12 font-semibold text-base border-transparent bg-[#25D366] text-white hover:bg-[#1fb457] hover:text-white'
-                      : 'h-10 font-medium text-sm border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/6',
-                  )}
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  {submitFailed ? 'Book via WhatsApp instead' : 'Or book via WhatsApp'}
-                </Button>
-              </motion.div>
             </motion.div>
 
             <motion.p variants={listItem} className="text-center text-[11px] text-muted-foreground">
               No payment now — you're charged only when a helper accepts, and they're paid only once you confirm it's done. Card, Apple Pay or Google Pay · money-back guarantee
             </motion.p>
           </motion.form>
+        </div>
+
+        {/* Docked action bar — Uber-style: risk-reversal + Book never scroll
+            away, always thumb-reachable, and stay on screen while the keyboard
+            is up. The button submits the form above via its form= attribute. */}
+        <div className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
+          {/* Risk-reversal at the decision point — the single most reassuring
+              fact (you don't pay until a helper accepts) rides with the CTA. */}
+          <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
+            <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+            No payment until a helper accepts · money-back guarantee
+          </p>
+
+          <motion.div
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className={cn(
+              'relative overflow-hidden rounded-full transition-shadow duration-300',
+              // The glow only lights up once the form is genuinely ready to
+              // submit (valid phone + an address), so it's a truthful "ready"
+              // cue rather than lighting up on the first digit.
+              phoneValid && addressValid && !loading ? 'shadow-primary-glow' : '',
+            )}
+          >
+            <Button
+              type="submit"
+              form="quick-book-form"
+              disabled={loading || !phone.trim()}
+              className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
+            >
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                : <>
+                    <motion.span
+                      className="inline-flex"
+                      animate={{ scale: [1, 1.18, 1] }}
+                      transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
+                    >
+                      <Zap className="w-4 h-4" />
+                    </motion.span>
+                    {ctaLabel}
+                  </>}
+            </Button>
+            {/* Occasional light sweep so the primary action feels alive —
+                only once the form is actually ready to submit */}
+            {!loading && phoneValid && addressValid && (
+              <motion.span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                initial={{ x: '-150%' }}
+                animate={{ x: '450%' }}
+                transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 3, ease: 'easeInOut' }}
+              />
+            )}
+          </motion.div>
+
+          {error && <p className="text-center text-xs text-destructive">{error}</p>}
+
+          {/* A failed checkout call must never be a dead end — flip the
+              WhatsApp fallback into the primary recovery action, right here in
+              the docked bar, with the typed details riding along. */}
+          {submitFailed && (
+            <>
+              <p className="text-center text-[11px] text-muted-foreground">
+                Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
+              </p>
+              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                <Button
+                  type="button"
+                  onClick={sendWhatsApp}
+                  className="w-full rounded-full gap-2 h-12 font-semibold text-base bg-[#25D366] text-white hover:bg-[#1fb457]"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Book via WhatsApp instead
+                </Button>
+              </motion.div>
+            </>
+          )}
         </div>
       </motion.div>
     </>

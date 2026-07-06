@@ -38,8 +38,11 @@ export const HeroSection: React.FC = () => {
 
   return (
     // Full-height, vertically-centred hero on every screen so the search bar owns
-    // the viewport (dvh avoids the iOS browser-chrome jump). pt clears the fixed nav.
-    <section id="book" data-snap className="relative bg-navy px-4 pt-24 pb-16 flex flex-col justify-center min-h-[100dvh]">
+    // the viewport. svh (not dvh) keeps the height stable as iOS chrome
+    // collapses — no jump, no phantom dead band. The asymmetric mobile padding
+    // (pb > pt beyond the nav clearance) lifts the block's optical centre so
+    // the search bar sits nearer the thumb line instead of drifting low.
+    <section id="book" data-snap className="relative bg-navy px-4 pt-24 pb-[13vh] sm:pb-16 flex flex-col justify-center min-h-[100svh]">
       {/* Decorative background — kept in its own overflow-hidden layer so the
           section itself never clips the search dropdown that opens below the bar
           (previously overflow-hidden on the section cut the 3rd suggestion off). */}
