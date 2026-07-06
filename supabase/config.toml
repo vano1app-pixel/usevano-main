@@ -6,6 +6,12 @@ project_id = "puomfwjtpvqedwxjxogh"
   # _shared/acceptToken), verified inside the function.
   [functions.accept-job]
     verify_jwt = false
+  # Helper self-service on /student-account: phone-number auth verified inside
+  # the function (same model as update-helper-profile / cancel-helper-subscription).
+  [functions.disconnect-helper-payouts]
+    verify_jwt = false
+  [functions.delete-helper-account]
+    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.check-achievements]
