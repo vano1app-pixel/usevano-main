@@ -32,11 +32,14 @@ ALTER TABLE public.household_bookings
 -- state WITHOUT disturbing the currently-running dashboard jobs. Uses the same
 -- anon-key net.http_post pattern as 20260612_redispatch_cron.sql — every target
 -- is idempotent + capped, so an unauthenticated nudge is harmless.
-CREATE OR REPLACE FUNCTION public._vano_ensure_cron(job text, sched text, fn text)
+-- NB: params are prefixed p_ so the `WHERE jobname = p_job` predicate can't be
+-- read as the cron.job table column (an unprefixed `job` is ambiguous with the
+-- cron.job relation and errors at call time — caught during deploy).
+CREATE OR REPLACE FUNCTION public._vano_ensure_cron(p_job text, p_sched text, p_fn text)
 RETURNS void LANGUAGE plpgsql AS $fn$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = job) THEN
-    PERFORM cron.schedule(job, sched, format(
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = p_job) THEN
+    PERFORM cron.schedule(p_job, p_sched, format(
       $cmd$SELECT net.http_post(
         url := 'https://puomfwjtpvqedwxjxogh.supabase.co/functions/v1/%s',
         headers := jsonb_build_object(
@@ -45,7 +48,7 @@ BEGIN
         ),
         body := '{}'::jsonb,
         timeout_milliseconds := 15000
-      );$cmd$, fn));
+      );$cmd$, p_fn));
   END IF;
 END;
 $fn$;
