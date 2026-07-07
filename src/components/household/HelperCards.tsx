@@ -37,14 +37,18 @@ function Card({ h }: { h: HelperRow }) {
       className="snap-start flex-shrink-0 w-[200px] sm:w-[220px] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
     >
       <article className="h-full bg-card rounded-2xl border border-border/40 shadow-sm overflow-hidden flex flex-col transition-[transform,box-shadow,border-color] duration-200 ease-out group-hover:-translate-y-1 group-hover:shadow-tinted-lg group-hover:border-border/70 group-active:scale-[0.98]">
-        <div className="w-full aspect-[4/3] overflow-hidden bg-secondary/40 flex-shrink-0">
+        {/* Portrait window, crop anchored toward the top of the photo —
+            helpers upload portrait shots, and a centre-cropped landscape
+            4:3 window was slicing their heads off. Faces are the entire
+            point of this section. */}
+        <div className="w-full aspect-[4/5] overflow-hidden bg-secondary/40 flex-shrink-0">
           <img
             ref={imgRef}
             src={h.photo_url}
             alt={h.name}
             decoding="async"
             onLoad={() => setImgLoaded(true)}
-            className={`w-full h-full object-cover transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.03] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            className={`w-full h-full object-cover object-[center_20%] transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.03] ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             loading="lazy"
           />
         </div>
@@ -160,7 +164,7 @@ export const HelperCards: React.FC = () => {
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex-shrink-0 w-[200px] sm:w-[220px]">
                   <div className="shimmer h-full bg-card rounded-2xl border border-border/40 overflow-hidden">
-                    <div className="w-full aspect-[4/3] bg-secondary/50" />
+                    <div className="w-full aspect-[4/5] bg-secondary/50" />
                     <div className="p-3 space-y-2">
                       <div className="h-3.5 w-2/3 rounded bg-secondary/60" />
                       <div className="h-3 w-full rounded bg-secondary/40" />

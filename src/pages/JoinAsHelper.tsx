@@ -330,7 +330,7 @@ export const JoinAsHelper: React.FC = () => {
                         src={src}
                         alt=""
                         loading="lazy"
-                        className="w-7 h-7 rounded-full object-cover border-2 border-white"
+                        className="w-7 h-7 rounded-full object-cover object-[center_20%] border-2 border-white"
                       />
                     ))}
                   </div>

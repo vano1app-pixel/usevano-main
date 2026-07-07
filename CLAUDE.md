@@ -163,9 +163,11 @@ extend it.
 - **"ID-verified" claims stay keyed on `id_verified` alone** (they're true
   regardless of payment); the BLUE TICK is the paid thing. Never render
   either unless its flag is true.
-- Grandfather rule: helpers who paid the one-off €2 under pay-to-join have
-  `verified_plan_active=true` with NO Stripe sub (`verified_plan_sub_id`
-  null) — cancel-verified-plan just flips their flag off directly.
+- NO grandfather: the owner chose one deal for everyone — old one-off-€2
+  payers also verify + pay €2/month for the tick (their flags were reset
+  2026-07-07). cancel-verified-plan still handles a plan row with no Stripe
+  sub (`verified_plan_sub_id` null) by flipping the flag directly — keep
+  that as the safety net for manually-comped ticks.
 - `household-helper-connect-link` (payout onboarding) now has TWO auth
   paths: JWT (dashboard) and helper_id+phone (the /student-account page);
   its gateway verify_jwt is false and auth lives in the body.
