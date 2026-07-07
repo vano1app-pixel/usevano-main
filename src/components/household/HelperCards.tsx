@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Star, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
+import { skillLabel } from '@/lib/helperSkills';
 
 interface HelperRow {
   id:             string;
@@ -74,7 +75,7 @@ function Card({ h }: { h: HelperRow }) {
             <div className="flex flex-wrap gap-1 mt-auto">
               {cats.map(slug => (
                 <span key={slug} className="text-[10px] font-medium bg-secondary text-foreground/70 rounded-full px-2 py-0.5">
-                  {CATEGORY_LABELS[slug] ?? slug}
+                  {CATEGORY_LABELS[slug] ?? skillLabel(slug) ?? slug}
                 </span>
               ))}
             </div>

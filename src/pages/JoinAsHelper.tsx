@@ -10,25 +10,13 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
+import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { haptic } from '@/lib/haptics';
 
-// The jobs customers actually book. The first five slugs MUST match the
-// quick-book categories customer-side (CategoryGrid) — dispatch offers a job
-// only to helpers whose `categories` contains the booking's slug, so these
-// gate matching (slug 'shopping' is laundry). Handyman + Errands cover the big
-// custom-job families (Home & repairs, Errands & admin); custom jobs are
-// catch-all (offered to every approved helper) so opting in just tells us what
-// they're keen on. Autopilot removed — we don't run the subscription anymore.
-const CATEGORY_OPTIONS = [
-  { emoji: '🧹', label: 'Cleaning',        slug: 'cleaning' },
-  { emoji: '🌿', label: 'Garden',          slug: 'garden'   },
-  { emoji: '📦', label: 'Moving',          slug: 'moving'   },
-  { emoji: '🐕', label: 'Dog walk',        slug: 'dog-walk' },
-  { emoji: '🧺', label: 'Laundry',         slug: 'shopping' },
-  { emoji: '🔧', label: 'Handyman & odd jobs', slug: 'handyman' },
-  { emoji: '🛒', label: 'Errands & shopping',  slug: 'errands'  },
-  { emoji: '💻', label: 'Online tutoring', slug: 'tutoring' },
-];
+// The jobs customers actually book, shared with the account page via
+// helperSkills (groups gate dispatch matching; sub-skills are profile
+// detail). 'other' is a legacy slug existing helpers hold — hidden here.
+const CATEGORY_OPTIONS = SKILL_GROUPS.filter(g => g.id !== 'other');
 
 const STATS = [
   { value: '€12–€65', label: 'per job' },
@@ -457,13 +445,13 @@ export const JoinAsHelper: React.FC = () => {
                       <span className={labelClass}>What jobs do you want to do?</span>
                       <p className="text-xs text-muted-foreground mb-3 -mt-1.5">Pick everything you're happy to take on.</p>
                       <div className="grid grid-cols-2 gap-2">
-                        {CATEGORY_OPTIONS.map(({ emoji, label, slug }) => {
-                          const active = categories.includes(slug);
+                        {CATEGORY_OPTIONS.map(({ emoji, label, id }) => {
+                          const active = categories.includes(id);
                           return (
                             <button
-                              key={slug}
+                              key={id}
                               type="button"
-                              onClick={() => toggleIn(categories, setCategories, slug)}
+                              onClick={() => setCategories(prev => toggleGroup(prev, id))}
                               aria-pressed={active}
                               className={cn(
                                 'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
@@ -476,6 +464,38 @@ export const JoinAsHelper: React.FC = () => {
                           );
                         })}
                       </div>
+
+                      {/* Sub-skills for each picked job type — optional detail
+                          ("what kind?") that lands on the helper's profile. */}
+                      <AnimatePresence initial={false}>
+                        {CATEGORY_OPTIONS.filter(g => g.subs.length > 0 && categories.includes(g.id)).map(group => (
+                          <motion.div
+                            key={group.id}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-3 rounded-xl border border-border/50 bg-background/60 p-3">
+                              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 block">
+                                {group.emoji} {group.label} — what kind? <span className="normal-case font-normal tracking-normal">(optional)</span>
+                              </span>
+                              <div className="flex flex-wrap gap-2">
+                                {group.subs.map(sub => {
+                                  const active = categories.includes(sub.id);
+                                  return (
+                                    <button key={sub.id} type="button" onClick={() => setCategories(prev => toggleSub(prev, group.id, sub.id))} aria-pressed={active}
+                                      className={cn('px-3 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.95]', active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border/60 text-foreground hover:border-primary/40')}>
+                                      {sub.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
 
                       <AnimatePresence initial={false}>
                         {categories.includes('tutoring') && (

@@ -21,7 +21,7 @@ function parseSlugArray(raw: string | null): string[] | null {
     if (!Array.isArray(arr)) return [];
     return arr
       .filter((s): s is string => typeof s === 'string' && SLUG_RE.test(s))
-      .slice(0, 30);
+      .slice(0, 80);
   } catch {
     return [];
   }

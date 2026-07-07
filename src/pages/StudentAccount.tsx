@@ -10,20 +10,13 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
+import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import logo from '@/assets/logo.png';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
 
-const CATEGORIES = [
-  { id: 'shopping',  label: 'Shopping'   },
-  { id: 'dog-walk',  label: 'Dog walk'   },
-  { id: 'garden',    label: 'Garden'     },
-  { id: 'moving',    label: 'Moving'     },
-  { id: 'cleaning',  label: 'Cleaning'   },
-  { id: 'tutoring',  label: 'Online tutoring' },
-  { id: 'other',     label: 'Other'      },
-];
+// "Jobs I do" — groups + sub-skills shared with the join form (helperSkills).
 
 const SLOTS = [
   { id: 'mon-fri-morning',   label: 'Mon–Fri mornings'   },
@@ -359,8 +352,6 @@ const StudentAccount = () => {
     }
   };
 
-  const toggleCat  = (id: string) =>
-    setSelectedCats(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
   const toggleSlot = (id: string) =>
     setAvail(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
 
@@ -809,26 +800,67 @@ const StudentAccount = () => {
             </section>
           )}
 
-          {/* Jobs */}
+          {/* Jobs — top-level groups, each opening its sub-skills when picked
+              so a helper can say exactly what they do (e.g. Cleaning → Deep
+              clean, Oven & kitchen). Sub picks keep the parent selected —
+              dispatch matches on the parent slug. */}
           <section>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Jobs I do</p>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map(({ id, label }) => {
-                const active = selectedCats.includes(id);
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Jobs I do</p>
+            <p className="text-xs text-muted-foreground mb-3">Pick a job type, then tap the specifics you're good at — they show on your profile.</p>
+            <div className="space-y-2">
+              {SKILL_GROUPS.map(group => {
+                const active = selectedCats.includes(group.id);
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => toggleCat(id)}
+                  <div
+                    key={group.id}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,border-color,color] duration-150',
-                      active
-                        ? 'bg-sage text-white border-sage'
-                        : 'bg-background text-foreground border-border hover:border-sage/60',
+                      'rounded-2xl border transition-colors duration-150',
+                      active ? 'border-sage/40 bg-sage/5' : 'border-border/60 bg-background',
                     )}
                   >
-                    {label}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCats(prev => toggleGroup(prev, group.id))}
+                      aria-pressed={active}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left"
+                    >
+                      <span aria-hidden="true">{group.emoji}</span>
+                      <span className={cn('flex-1 text-sm font-medium', active ? 'text-foreground' : 'text-foreground/80')}>
+                        {group.label}
+                      </span>
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 items-center justify-center rounded-full border transition-colors duration-150 flex-shrink-0',
+                          active ? 'bg-sage border-sage text-white' : 'border-border text-transparent',
+                        )}
+                      >
+                        <Check size={11} strokeWidth={3} />
+                      </span>
+                    </button>
+                    {active && group.subs.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 px-3.5 pb-3">
+                        {group.subs.map(sub => {
+                          const subActive = selectedCats.includes(sub.id);
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => setSelectedCats(prev => toggleSub(prev, group.id, sub.id))}
+                              aria-pressed={subActive}
+                              className={cn(
+                                'px-2.5 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150 active:scale-[0.96]',
+                                subActive
+                                  ? 'bg-sage text-white border-sage'
+                                  : 'bg-background text-foreground/70 border-border hover:border-sage/60',
+                              )}
+                            >
+                              {sub.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

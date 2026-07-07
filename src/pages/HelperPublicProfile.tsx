@@ -8,6 +8,7 @@ import { HouseholdFooter } from '@/components/household/HouseholdFooter';
 import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS, AVAILABILITY_SLOTS } from '@/lib/helperCategories';
+import { skillLabel } from '@/lib/helperSkills';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
@@ -295,7 +296,7 @@ export const HelperPublicProfile: React.FC = () => {
                 <div className="flex flex-wrap gap-2">
                   {cats.map(slug => (
                     <span key={slug} className="text-xs font-medium bg-secondary text-foreground/80 rounded-full px-3 py-1.5">
-                      {HELPER_CATEGORY_LABELS[slug] ?? slug}
+                      {HELPER_CATEGORY_LABELS[slug] ?? skillLabel(slug) ?? slug}
                     </span>
                   ))}
                 </div>
