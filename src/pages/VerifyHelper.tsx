@@ -191,6 +191,16 @@ const VerifyHelper: React.FC = () => {
                         className={cn(inputClass, 'tracking-[0.4em] text-center font-semibold')}
                       />
                     )}
+                    {(emailState === 'sent' || emailState === 'verifying') && !emailError && (
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        Code sent to <span className="font-medium text-foreground">{email.trim()}</span>. It can take a minute — <span className="font-medium text-foreground">check your Spam / Promotions folder</span> too. Still nothing? Tap Resend, or{' '}
+                        <a
+                          href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, my student email code isn't arriving (${email.trim()}) — can you verify me?`)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="font-medium text-primary underline underline-offset-2"
+                        >WhatsApp us</a> and we'll verify you.
+                      </p>
+                    )}
                     {emailError && <p className="text-xs text-destructive">{emailError}</p>}
                     {emailState === 'idle' || emailState === 'sending' ? (
                       <Button onClick={() => void sendCode()} disabled={emailState === 'sending'} className="w-full rounded-full font-semibold gap-2">
