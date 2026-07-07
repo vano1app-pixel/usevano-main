@@ -10,9 +10,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //     are held and nobody prompts them. Send a few escalating "add your bank
 //     details, €X is waiting" nudges deep-linking to the Earnings tab.
 //
-//   PASS B — abandoned application: a PENDING applicant who stalled partway
-//     through the three gates (student email OTP / ID check / €2 fee). Send a
-//     step-aware "you're almost in — just finish X" nudge to the exact gate.
+//   PASS B — abandoned application: a PENDING applicant who hasn't paid the
+//     €2 that puts them live (pay-to-join). Nudge them to pay + finish.
+//
+//   PASS C — live but unverified: an APPROVED helper missing the ✓ Verified
+//     badge (student email / ID). The perk is real — dispatch offers jobs to
+//     verified helpers first — so chase the badge.
 //
 // Both are idempotent + capped via per-helper stamps/counts so nobody is
 // spammed and a re-run is safe. WhatsApp-first (SMS fallback) + email.
@@ -36,6 +39,11 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
   return null;
 }
 
+// Re-engagement send: try WhatsApp AND plain SMS (not either/or). A free-form
+// WhatsApp to a number that never messaged our WhatsApp is accepted by Twilio
+// but silently undelivered, while SMS reaches cold numbers — and helpers who
+// DID opt in read WhatsApp first. Double-sending a nudge to ~10 people costs
+// cents and maximises the chance it's actually seen.
 async function sendSms(to: string | null | undefined, body: string): Promise<boolean> {
   const sid = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
@@ -48,15 +56,19 @@ async function sendSms(to: string | null | undefined, body: string): Promise<boo
       headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(params).toString(),
     });
+  let sent = false;
   const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
   if (waFrom) {
     const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
-    try { const r = await post({ To: `whatsapp:${e164}`, From: from, Body: body }); if (r.ok) return true; } catch { /* fall through */ }
+    try { const r = await post({ To: `whatsapp:${e164}`, From: from, Body: body }); if (r.ok) sent = true; } catch { /* fall through */ }
   }
-  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() !== 'true') return false;
-  const smsFrom = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
-  if (!smsFrom || smsFrom.startsWith('whatsapp:')) return false;
-  try { const r = await post({ To: e164, From: smsFrom, Body: body }); return r.ok; } catch { return false; }
+  if (Deno.env.get('VANO_SMS_ENABLED')?.trim() === 'true') {
+    const smsFrom = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
+    if (smsFrom && !smsFrom.startsWith('whatsapp:')) {
+      try { const r = await post({ To: e164, From: smsFrom, Body: body }); if (r.ok) sent = true; } catch { /* keep whatsapp result */ }
+    }
+  }
+  return sent;
 }
 
 serve(async (_req) => {
@@ -139,30 +151,50 @@ serve(async (_req) => {
       const lastMs = h.application_nudged_at ? Date.parse(String(h.application_nudged_at)) : 0;
       if (lastMs && (now - lastMs) < APP_MIN_HOURS * 3600_000) continue;
 
-      // Point at the exact gate they're stuck on (email → ID → fee order).
+      // Pay-to-join: the €2 is what puts them live, so that's the headline.
+      // (A pending row is by definition unpaid — payment auto-approves.)
       const verifyUrl = `${siteUrl}/verify-helper?id=${h.id}`;
       const first = String(h.name ?? '').split(' ')[0] || 'there';
-      let step: string; let emailBody: string;
-      if (!h.student_email_verified) {
-        step = `you're almost in — just confirm your student email to keep going`;
-        emailBody = `Hi ${first}, your VANO helper application is almost done — the next step is confirming your student email. Pick up where you left off: ${verifyUrl}`;
-      } else if (!h.id_verified) {
-        step = `you're one quick ID check away from getting approved`;
-        emailBody = `Hi ${first}, nice one — your email's confirmed. The last checks are a quick ID verification (2 min) so we can approve you. Finish here: ${verifyUrl}`;
-      } else {
-        step = `just the €2 sign-up to go and you're live`;
-        emailBody = `Hi ${first}, you're nearly there — only the €2 sign-up fee is left and then you can start picking up paid jobs. Finish here: ${verifyUrl}`;
-      }
+      const step = `you're one €2 step from going live — pay the sign-up and jobs can start coming through`;
+      const emailBody = `Hi ${first}, your VANO application is ready to go — pay the €2 sign-up and you're live on the platform today. Two quick checks after that earn your ✓ Verified badge (verified helpers get offered jobs first). Finish here: ${verifyUrl}`;
       await sendSms(h.phone as string | null, `VANO: ${step} 👉 ${verifyUrl}`);
-      await email(h.email as string | null, `Finish your VANO application — you're almost in`, emailBody);
+      await email(h.email as string | null, `You're one €2 step from going live on VANO`, emailBody);
       await supabase.from('household_helpers')
         .update({ application_nudged_at: new Date(now).toISOString(), application_nudge_count: count + 1 })
         .eq('id', h.id as string);
       appNudged++;
     }
 
-    console.log(`[nudge-helper-onboarding] payoutNudged ${payoutNudged} · appNudged ${appNudged}`);
-    return new Response(JSON.stringify({ ok: true, payoutNudged, appNudged }), { headers: { 'Content-Type': 'application/json' } });
+    // ── PASS C: live but unverified — chase the ✓ Verified badge ────────────
+    // Approved (paid) helpers missing either badge check. The perk is real:
+    // dispatch offers jobs to verified helpers first. Same stamps/caps as
+    // PASS B so nobody gets both in one window.
+    let badgeNudged = 0;
+    const { data: unverified } = await supabase
+      .from('household_helpers')
+      .select('id, name, email, phone, student_email_verified, id_verified, application_nudged_at, application_nudge_count')
+      .eq('status', 'approved')
+      .or('student_email_verified.eq.false,id_verified.eq.false')
+      .limit(100) as { data: Array<Record<string, unknown>> | null };
+
+    for (const h of unverified ?? []) {
+      const count = Number(h.application_nudge_count) || 0;
+      if (count >= MAX_APP_NUDGES) continue;
+      const lastMs = h.application_nudged_at ? Date.parse(String(h.application_nudged_at)) : 0;
+      if (lastMs && (now - lastMs) < APP_MIN_HOURS * 3600_000) continue;
+
+      const verifyUrl = `${siteUrl}/verify-helper?id=${h.id}`;
+      const first = String(h.name ?? '').split(' ')[0] || 'there';
+      await sendSms(h.phone as string | null, `VANO: you're live 🎉 One last thing — finish your ✓ Verified badge (2 quick checks, ~3 min) and you'll be offered jobs FIRST 👉 ${verifyUrl}`);
+      await email(h.email as string | null, `You're live on VANO — grab your ✓ Verified badge`, `Hi ${first}, you're live on VANO 🎉 Finish your ✓ Verified badge — confirm your student email and do the 2-minute ID check — and customers see the tick on your name, plus verified helpers are offered jobs first. Finish here: ${verifyUrl}`);
+      await supabase.from('household_helpers')
+        .update({ application_nudged_at: new Date(now).toISOString(), application_nudge_count: count + 1 })
+        .eq('id', h.id as string);
+      badgeNudged++;
+    }
+
+    console.log(`[nudge-helper-onboarding] payoutNudged ${payoutNudged} · appNudged ${appNudged} · badgeNudged ${badgeNudged}`);
+    return new Response(JSON.stringify({ ok: true, payoutNudged, appNudged, badgeNudged }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {
     console.error('[nudge-helper-onboarding] unhandled', err);
     return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
