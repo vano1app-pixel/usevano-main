@@ -1009,15 +1009,24 @@ export const CategoryGrid: React.FC = () => {
   // body class the booking sheet uses); Escape closes it.
   useEffect(() => {
     if (!takeover) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // Lock ONLY the vertical axis. Setting `overflow: hidden` would clobber
+    // the stylesheet's `overflow-x: clip` and make the body a horizontal
+    // scroll container — then iOS pans it a few px when the input focuses,
+    // leaving a white strip down the right edge on return. overflow-y alone
+    // keeps overflow-x: clip intact, so the page can never pan sideways.
+    const prevOverflowY = document.body.style.overflowY;
+    document.body.style.overflowY = 'hidden';
     document.body.classList.add('vano-modal-open');
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTakeover(false); };
     window.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      document.body.style.overflowY = prevOverflowY;
       document.body.classList.remove('vano-modal-open');
       window.removeEventListener('keydown', onKey);
+      // Belt-and-braces: if iOS did leave any horizontal offset while the
+      // keyboard was up, snap it back to 0 on close.
+      document.documentElement.scrollLeft = 0;
+      document.body.scrollLeft = 0;
     };
   }, [takeover]);
 
