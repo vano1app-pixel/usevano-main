@@ -19,9 +19,14 @@ import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
 // with the helper's name/email/phone prefilled — both of which keep
 // Stripe's onboarding as short as possible.
 //
-// verify_jwt defaults to true (this function is intentionally absent
-// from config.toml, exactly like create-stripe-connect-link) AND we
-// re-verify the caller's JWT inside the function.
+// TWO auth paths (verify_jwt is now false in config.toml; both are
+// enforced in the body):
+//   1. JWT (dashboard payout card) — helper row keyed by user_id.
+//   2. helper_id + phone (the phone-gated /student-account page) — the
+//      same phone-as-auth stance as disconnect-helper-payouts /
+//      delete-helper-account. The Stripe Express onboarding itself still
+//      demands the onboarder's OWN identity + IBAN, but note the standing
+//      CLAUDE.md item: the phone gate deserves an SMS OTP eventually.
 
 function formEncode(obj: Record<string, string>): string {
   return Object.entries(obj)
@@ -56,11 +61,6 @@ serve(async (req) => {
   if (!isOriginAllowed(req)) return bad(403, 'Forbidden origin');
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return bad(401, 'Unauthorized');
-    }
-
     const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
     if (!STRIPE_SECRET_KEY) return bad(500, 'STRIPE_SECRET_KEY not configured');
 
@@ -68,38 +68,72 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Verify caller — same getClaims pattern as create-stripe-connect-link.
-    const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return bad(401, 'Unauthorized');
-    }
-    const userId = claimsData.claims.sub as string;
-    const userEmail = claimsData.claims.email as string | undefined;
-
     const supabase = createClient(supabaseUrl, serviceKey);
+    const reqBody = await req.json().catch(() => ({})) as {
+      check_only?: boolean; helper_id?: string; phone?: string;
+    };
 
-    // The helper's Connect account lives on their household_helpers row.
-    // name/phone/email are pulled so Express onboarding can be prefilled —
-    // the helper should only have to type what we don't already know.
-    const { data: helper } = await supabase
-      .from('household_helpers')
-      .select('id, stripe_account_id, stripe_payouts_enabled, name, phone, email')
-      .eq('user_id', userId)
-      .maybeSingle();
+    // ── Resolve the caller to their helper row (two auth paths) ────────────
+    const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
+    const phonesMatch = (a: string, b: string) => {
+      const na = normalizePhone(a), nb = normalizePhone(b);
+      return na === nb || na.endsWith(nb) || nb.endsWith(na);
+    };
 
-    if (!helper) {
-      return bad(404, 'No helper account found for this user. Apply to join VANO first.');
+    // deno-lint-ignore no-explicit-any
+    let helper: any = null;
+    let userId: string | null = null;
+    let userEmail: string | undefined;
+
+    if (reqBody.helper_id && reqBody.phone) {
+      // Phone path — the /student-account page (no auth session).
+      const { data } = await supabase
+        .from('household_helpers')
+        .select('id, user_id, stripe_account_id, stripe_payouts_enabled, name, phone, email')
+        .eq('id', reqBody.helper_id)
+        .maybeSingle();
+      if (!data) return bad(404, 'No helper account found.');
+      if (!phonesMatch(String(data.phone ?? ''), reqBody.phone)) {
+        return bad(403, 'Phone number does not match.');
+      }
+      helper = data;
+      userId = (data.user_id as string | null) ?? null;
+    } else {
+      // JWT path — the dashboard payout card (same getClaims pattern as
+      // create-stripe-connect-link).
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return bad(401, 'Unauthorized');
+      }
+      const authClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims) {
+        return bad(401, 'Unauthorized');
+      }
+      userId = claimsData.claims.sub as string;
+      userEmail = claimsData.claims.email as string | undefined;
+
+      // The helper's Connect account lives on their household_helpers row.
+      // name/phone/email are pulled so Express onboarding can be prefilled —
+      // the helper should only have to type what we don't already know.
+      const { data } = await supabase
+        .from('household_helpers')
+        .select('id, stripe_account_id, stripe_payouts_enabled, name, phone, email')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!data) {
+        return bad(404, 'No helper account found for this user. Apply to join VANO first.');
+      }
+      helper = data;
     }
 
     // Status-sync mode: the payout card calls this with { check_only: true }
     // after the helper returns from onboarding to confirm readiness directly
     // with Stripe (so it shows "active" even if the account.updated webhook
     // isn't wired up). It never creates an account or onboarding link.
-    const reqBody = await req.json().catch(() => ({}));
     if (reqBody?.check_only === true) {
       let enabled = !!helper.stripe_payouts_enabled;
       const existingAccount = helper.stripe_account_id as string | null;
@@ -112,7 +146,7 @@ serve(async (req) => {
             const acct = await acctResp.json() as { payouts_enabled?: boolean };
             enabled = !!acct.payouts_enabled;
             if (enabled) {
-              await supabase.from('household_helpers').update({ stripe_payouts_enabled: true }).eq('user_id', userId);
+              await supabase.from('household_helpers').update({ stripe_payouts_enabled: true }).eq('id', helper.id);
             }
           }
         } catch (_e) { /* non-fatal — card falls back to its cached state */ }
@@ -141,7 +175,7 @@ serve(async (req) => {
         // (business profile etc.) and makes onboarding noticeably longer.
         'capabilities[transfers][requested]': 'true',
         business_type: 'individual',
-        'metadata[vano_user_id]': userId,
+        ...(userId ? { 'metadata[vano_user_id]': userId } : {}),
         'metadata[household_helper_id]': String(helper.id),
       };
       if (userEmail) accountParams.email = userEmail;
@@ -197,7 +231,7 @@ serve(async (req) => {
       await supabase
         .from('household_helpers')
         .update({ stripe_account_id: accountId })
-        .eq('user_id', userId);
+        .eq('id', helper.id);
     }
 
     // Mint a one-time onboarding link (expires after ~5 min of
@@ -211,10 +245,11 @@ serve(async (req) => {
       },
       body: formEncode({
         account: accountId,
-        // The helper dashboard route is /student-dashboard; it reads the
-        // ?payout= param to surface a toast and re-check Connect state.
-        refresh_url: `${origin}/student-dashboard?payout=refresh`,
-        return_url: `${origin}/student-dashboard?payout=done`,
+        // Send the helper back to wherever they started: the phone path is
+        // the /student-account page, the JWT path the dashboard. Both read
+        // the ?payout= param to surface a toast and re-check Connect state.
+        refresh_url: `${origin}${reqBody.phone ? '/student-account' : '/student-dashboard'}?payout=refresh`,
+        return_url: `${origin}${reqBody.phone ? '/student-account' : '/student-dashboard'}?payout=done`,
         type: 'account_onboarding',
       }),
     });

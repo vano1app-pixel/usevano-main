@@ -166,3 +166,18 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.update-stripe-webhook-events]
     verify_jwt = false
+
+# --- ✓ Verified €2/month plan (free-to-join model) --------------------------
+# Anonymous callers (helpers have no auth session during onboarding); auth is
+# enforced inside each function: helper_id scoping + Stripe session metadata
+# checks (create/confirm), phone-match (cancel). household-helper-connect-link
+# gained a phone-auth branch for the /student-account payout card, so its
+# gateway JWT check moves into the function body.
+  [functions.create-verified-plan]
+    verify_jwt = false
+  [functions.confirm-verified-plan]
+    verify_jwt = false
+  [functions.cancel-verified-plan]
+    verify_jwt = false
+  [functions.household-helper-connect-link]
+    verify_jwt = false

@@ -5,8 +5,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Accepts multipart/form-data with photo file + JSON fields.
 // Inserts the helper row (or updates an existing pending application —
 // duplicate phone/email submissions update in place rather than creating
-// a second row). Verification + the €2 fee happen on /verify-helper; the
-// helper auto-approves once student email, ID and payment all pass (DB trigger).
+// a second row).
+//
+// FREE-TO-JOIN: applying puts the helper live immediately (status 'approved',
+// available). The ✓ Verified blue tick is earned separately on /verify-helper:
+// student-email OTP + Stripe Identity check (both free) + the €2/month
+// verified plan — vano_verified in the DB. Verified helpers are offered jobs
+// first, so the tick is the carrot; joining costs nothing.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -115,6 +120,7 @@ serve(async (req) => {
 
     // Insert helper row (no user_id — they don't need a Supabase auth
     // account), or refresh the existing pending application in place.
+    // Free-to-join: live + available from the moment they apply.
     const helperFields = {
       name,
       email,
@@ -122,7 +128,8 @@ serve(async (req) => {
       city,
       photo_url: publicUrl,
       categories,
-      status: 'pending',
+      status: 'approved',
+      is_available: true,
       autopilot_opt_in: autopilotOptIn,
       ...(age !== null && !isNaN(age) ? { age } : {}),
       ...(bioRaw ? { bio: bioRaw } : {}),
@@ -157,6 +164,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Could not save application' }), {
         status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Free-to-join: they're approved the moment the row lands — send the
+    // "you're in" WhatsApp/email (dashboard, alerts, payout steps) right away.
+    if (!pendingExisting && helperId) {
+      fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ helper_id: helperId }),
+      }).catch(() => {/* non-critical */});
     }
 
     // Notify admin via WhatsApp — fire and forget. Skipped on resubmission
@@ -200,24 +217,24 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${firstName},</p>
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-      Thanks for applying to be a VANO helper in <strong>${city}</strong>. Finish the three quick
-      steps on the next screen — confirm your student email, verify your ID, and pay the €2 fee —
-      and your profile goes live automatically.
+      Thanks for joining VANO in <strong>${city}</strong> — <strong>you're live already</strong> and
+      jobs near you can start coming through. Next, earn your <strong>✓ Verified tick</strong> on the
+      next screen: confirm your student email and do the 2-minute ID check (both free), then €2/month
+      keeps the tick on your name. Verified helpers are offered jobs first.
     </p>
     <p style="margin:0 0 4px;color:#374151;font-size:14px;">Questions or in a hurry?</p>
     <a href="https://wa.me/353899817111" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:12px 22px;border-radius:100px;text-decoration:none;margin-top:6px;">💬 WhatsApp us</a>
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${firstName}, thanks for applying to be a VANO helper in ${city}. Finish the three quick steps on the next screen — confirm your student email, verify your ID, and pay the €2 fee — and your profile goes live automatically. Questions? WhatsApp +353 89 981 7111`,
+            text: `Hi ${firstName}, you're live as a VANO helper in ${city} — jobs near you can start coming through. Next: earn your ✓ Verified tick — confirm your student email and do the 2-minute ID check (both free), then €2/month keeps the tick on your name. Verified helpers get offered jobs first. Questions? WhatsApp +353 89 981 7111`,
           }),
         }).catch(() => {/* non-critical */});
       }
     }
 
-    // Saved as 'pending'. The client moves to /verify-helper, which holds the
-    // three gates — confirm student email, verify ID (Stripe Identity), pay the
-    // €2 fee — and the helper auto-approves once all three pass (DB trigger).
+    // Saved as 'approved' — they're live. The client moves to /verify-helper,
+    // where the ✓ tick is earned: email OTP + ID check (free) + €2/month plan.
     return new Response(JSON.stringify({ success: true, helper_id: helperId }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

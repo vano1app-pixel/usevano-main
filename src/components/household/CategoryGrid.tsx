@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useDragControls, type Variants } from 'framer-motion';
 import { haptic } from '@/lib/haptics';
-import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, Clock, Phone, MapPin } from 'lucide-react';
+import { MessageCircle, Loader2, X, Zap, ShieldCheck, Check, Search, ArrowRight, ArrowLeft, Clock, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SUPPORTED_CITIES } from '@/lib/cities';
@@ -979,6 +980,47 @@ export const CategoryGrid: React.FC = () => {
   const blurTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Phones get a full-screen search takeover (Uber/Airbnb pattern) instead of
+  // the inline dropdown: the bar is a trigger, and search happens in a panel
+  // with the input pinned above the keyboard. Desktop keeps the inline
+  // dropdown + floating price card.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const [takeover, setTakeover] = useState(false);
+  const takeoverInputRef = useRef<HTMLInputElement>(null);
+
+  const openTakeover = useCallback(() => {
+    setTakeover(true);
+    setOpen(true);
+    setActiveIndex(0);
+  }, []);
+  // Closing also resets `open` so the hero bar returns to its idle state
+  // (gold pulse ring) rather than a half-engaged one.
+  const closeTakeover = useCallback(() => { setTakeover(false); setOpen(false); }, []);
+
+  // Lock the page + tuck the bottom nav away while the takeover is up (same
+  // body class the booking sheet uses); Escape closes it.
+  useEffect(() => {
+    if (!takeover) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.classList.add('vano-modal-open');
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTakeover(false); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.classList.remove('vano-modal-open');
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [takeover]);
+
   const openSheet = useCallback(
     (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string }) =>
       setSelected({ cat, size: opts?.size, note: opts?.note, extraLabel: opts?.extraLabel }),
@@ -1034,7 +1076,6 @@ export const CategoryGrid: React.FC = () => {
   const vanoCents = getPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
   const marketCents = (job?.marketHourlyCents ?? 0) * hours;
   const saveCents = Math.max(0, marketCents - vanoCents);
-  const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
   // Sub-hour visits hit the €12 floor, so a pro-rated market rate would read as
   // "more expensive" — show the Vano price alone for those, full comparison at 1h+.
   const showComparison = hours >= 1 && marketCents > 0;
@@ -1047,6 +1088,12 @@ export const CategoryGrid: React.FC = () => {
     setSize(isShortVisit(j.key) ? '30 min' : `${Math.min(8, Math.max(1, j.typicalHours))} hours`);
     setOpen(false);
     if (blurTimer.current) window.clearTimeout(blurTimer.current);
+    // Drop the keyboard: the dropdown rows preventDefault on mousedown to keep
+    // focus while the list is up, which also meant a picked job left the
+    // keyboard open on phones — covering the price card that just appeared.
+    inputRef.current?.blur();
+    takeoverInputRef.current?.blur();
+    haptic(8);
   }, []);
 
   // Hand the picked job to the booking sheet (phone / address / when) as a
@@ -1090,6 +1137,14 @@ export const CategoryGrid: React.FC = () => {
     return () => window.removeEventListener('vano:select-category', handle);
   }, [openSheet]);
 
+  // Keep the keyboard-highlighted row visible as ↑/↓ move past the fold of
+  // the scrollable dropdown.
+  useEffect(() => {
+    if (!open || job) return;
+    const key = displayJobs[activeIndex]?.key;
+    if (key) document.getElementById(`job-opt-${key}`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open, job, displayJobs]);
+
   // One dropdown row — shared by the flat (starter) and grouped (search) lists,
   // so keyboard highlight + tap behave identically either way. `i` is the row's
   // position in displayJobs, which is what the keyboard nav highlights.
@@ -1102,9 +1157,12 @@ export const CategoryGrid: React.FC = () => {
       // repeat it — show the example phrasing instead to earn its place.
       : useGroupHeaders ? (s.example ?? s.group) : s.group;
     return (
-      <li key={s.key}>
+      <li key={s.key} role="presentation">
         <button
           type="button"
+          id={`job-opt-${s.key}`}
+          role="option"
+          aria-selected={active}
           onMouseDown={(e) => e.preventDefault()}
           onMouseEnter={() => setActiveIndex(i)}
           onClick={() => chooseJob(s)}
@@ -1120,11 +1178,158 @@ export const CategoryGrid: React.FC = () => {
             </span>
             <span className="block text-[11px] text-muted-foreground truncate">{sub}</span>
           </span>
-          <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
+          {/* A ballpark price per row (typical hours × €18) answers "roughly
+              how much?" before the tap — worth more than a chevron. */}
+          {isOther ? (
+            <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
+          ) : (
+            <span className="flex-shrink-0 text-xs font-semibold text-foreground/55 tabular-nums">
+              {isShortVisit(s.key) ? 'from €12' : `~€${(VANO_HOURLY_CENTS * s.typicalHours) / 100}`}
+            </span>
+          )}
         </button>
       </li>
     );
   };
+
+  // ── Shared bodies ──────────────────────────────────────────────────────────
+  // The suggestion list and the price card render in two shells — the desktop
+  // inline dropdown/floating card and the mobile full-screen takeover — so
+  // their contents live here once and the two experiences can't drift.
+
+  const suggestionItems = (
+    <>
+      {/* Returning customer — last job, one tap to rebook, before typing */}
+      {!isSearching && usual && (
+        <li role="presentation">
+          <button
+            type="button"
+            role="option"
+            aria-selected={false}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); inputRef.current?.blur(); takeoverInputRef.current?.blur(); }}
+            className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-2.5 py-2 text-left transition-colors hover:bg-sage/15"
+          >
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-sage/25 bg-white text-lg leading-none shadow-sm" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-foreground truncate">
+                Your usual{usual.price ? ` · ${usual.price}` : ''}
+              </span>
+              <span className="block text-[11px] text-muted-foreground truncate">
+                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved
+              </span>
+            </span>
+            <span className="text-gold text-base font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+          </button>
+        </li>
+      )}
+
+      {/* Popular starters get one quiet label so they read as a curated set */}
+      {!isSearching && (
+        <li role="presentation" className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+          Popular
+        </li>
+      )}
+
+      {useGroupHeaders && grouped ? (() => {
+        let idx = -1;
+        return grouped.map((g) => (
+          <React.Fragment key={g.name}>
+            <li role="presentation" className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+              {g.name}
+            </li>
+            {g.items.map((s) => { idx += 1; return renderRow(s, idx); })}
+          </React.Fragment>
+        ));
+      })() : (
+        suggestions.map((s, i) => renderRow(s, i))
+      )}
+    </>
+  );
+
+  const priceCardBody = job && (
+    <>
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">
+          <span className="text-lg" aria-hidden="true">{job.emoji}</span>
+          <span className="truncate">{job.label}</span>
+        </span>
+        {/* An explicit way back — before this the only escapes were the ✕ or
+            knowing that typing resets, so the card felt like a dead end. */}
+        <button
+          type="button"
+          onClick={() => {
+            setJob(null); setOpen(true); setActiveIndex(0);
+            (isMobile ? takeoverInputRef : inputRef).current?.focus();
+          }}
+          className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
+        >
+          Change
+        </button>
+      </div>
+      {/* Duration — the same pill chips as the booking sheet, so "how long?"
+          looks and behaves identically everywhere it's asked */}
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1 mb-3" role="group" aria-label="How long">
+        {durationOptions.map((d) => (
+          <Chip key={d} group="front-duration" active={size === d} onClick={() => setSize(d)}>
+            {d}
+          </Chip>
+        ))}
+      </div>
+      {showComparison ? (
+        /* One calm panel: the VANO price is the hero, the market rate a quiet
+           strikethrough beside it. (Two side-by-side 3xl tiles competed for
+           attention and read as clutter.) */
+        <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3" aria-live="polite">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-left">
+              <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">Your price</p>
+              <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none origin-left">
+                {fmt(vanoCents)}
+              </motion.p>
+              <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr · fair rate</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-[10px] text-muted-foreground">Typical rate</p>
+              <p className="text-base font-semibold tabular-nums text-muted-foreground/55 line-through decoration-muted-foreground/40">
+                {fmt(marketCents)}
+              </p>
+              {saveCents > 0 && (
+                <motion.p
+                  key={saveCents}
+                  initial={{ scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                  className="mt-1 inline-flex rounded-full bg-sage text-white text-[10px] font-bold px-2 py-0.5 tabular-nums"
+                >
+                  Save {fmt(saveCents)}
+                </motion.p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Short visit — single fair price (the €12 floor makes a pro-rated
+           market comparison misleading, so we don't show one). */
+        <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center" aria-live="polite">
+          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair flat price</p>
+          <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
+            {fmt(vanoCents)}
+          </motion.p>
+          <p className="mt-1 text-[10px] text-muted-foreground">Quick {size} visit</p>
+        </div>
+      )}
+      <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="mt-3">
+        <Button type="button" onClick={goBook} className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary shadow-primary-glow">
+          <Zap className="w-4 h-4" />
+          Book · {fmt(vanoCents)}
+        </Button>
+      </motion.div>
+      {/* One line of reassurance — the book-ahead discount is offered at the
+          "When?" step, so it doesn't need to shout here too. */}
+      <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
+    </>
+  );
 
   return (
     <>
@@ -1151,7 +1356,7 @@ export const CategoryGrid: React.FC = () => {
           )}
           <div
             className="search-shell flex cursor-text items-center gap-3 overflow-hidden rounded-2xl bg-white px-5 h-16 sm:h-[72px] transition-shadow duration-200 hover:shadow-[0_16px_44px_-14px_rgba(0,0,0,0.3)]"
-            onClick={() => inputRef.current?.focus()}
+            onClick={() => { if (isMobile) openTakeover(); else inputRef.current?.focus(); }}
             onMouseMove={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
               e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
@@ -1165,18 +1370,42 @@ export const CategoryGrid: React.FC = () => {
               id="custom-job-input"
               type="text"
               value={query}
+              // On phones the bar is only the DOOR to the full-screen search
+              // takeover — readOnly keeps the OS keyboard down and the
+              // pointerdown hands off before focus can land.
+              readOnly={isMobile}
+              onPointerDown={(e) => { if (isMobile) { e.preventDefault(); openTakeover(); } }}
               onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); setActiveIndex(0); }}
-              onFocus={() => { setOpen(true); setActiveIndex(0); }}
+              onFocus={() => {
+                if (isMobile) { inputRef.current?.blur(); openTakeover(); return; }
+                // Focusing the bar always returns to searching — before this,
+                // a picked job left the bar unresponsive (the dropdown only
+                // renders while no job is picked), which read as broken.
+                if (job) setJob(null);
+                setOpen(true); setActiveIndex(0);
+              }}
               onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, displayJobs.length - 1)); }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); }
-                else if (e.key === 'Enter') { e.preventDefault(); const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
+                else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  // Only ever act on what's visible: pick from an OPEN list,
+                  // book a picked job — never select from a closed dropdown.
+                  if (job) { goBook(); return; }
+                  if (open) { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
+                  else setOpen(true);
+                }
                 else if (e.key === 'Escape') { setOpen(false); }
               }}
               placeholder={`Search for "${HINTS[hintIdx]}"…`}
               autoComplete="off"
+              role="combobox"
               aria-label="Search for what you need done"
+              aria-expanded={open && !job && displayJobs.length > 0}
+              aria-controls="job-suggestions"
+              aria-activedescendant={open && !job && displayJobs[activeIndex] ? `job-opt-${displayJobs[activeIndex].key}` : undefined}
+              aria-autocomplete="list"
               className="relative z-10 flex-1 min-w-0 bg-transparent text-lg sm:text-xl text-foreground placeholder:text-foreground/55 focus:outline-none"
             />
             {query && (
@@ -1193,146 +1422,68 @@ export const CategoryGrid: React.FC = () => {
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }}
-              aria-label="Search"
+              onClick={() => {
+                // Contextual, never surprising: book the picked job, pick the
+                // highlighted row of an OPEN list, otherwise just open the
+                // suggestions. (It used to silently pick the first starter
+                // even with the dropdown closed and nothing typed.)
+                if (isMobile) { if (job) goBook(); else openTakeover(); return; }
+                if (job) { goBook(); return; }
+                if (open && displayJobs.length > 0) { const pick = displayJobs[activeIndex] ?? displayJobs[0]; chooseJob(pick); return; }
+                inputRef.current?.focus();
+              }}
+              aria-label={job ? 'Book this job' : 'Search'}
               className="btn-gold relative z-10 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
             >
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Dropdown. Empty + focused → the 3 popular starters (and "your usual"
-              for returning customers) so the bar is never a blank dead-end.
-              Typing → the scored matches, grouped under service-area headers
-              once the list is long enough to benefit. */}
-          <AnimatePresence>
-            {open && !job && displayJobs.length > 0 && (
-              <motion.ul
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                className="surface-float absolute left-0 right-0 top-full z-[60] mt-2 max-h-[22rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 text-left"
-              >
-                {/* Returning customer — last job, one tap to rebook, before typing */}
-                {!isSearching && usual && (
-                  <li>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); }}
-                      className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-2.5 py-2 text-left transition-colors hover:bg-sage/15"
-                    >
-                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-sage/25 bg-white text-lg leading-none shadow-sm" aria-hidden="true">{usual.cat.emoji}</span>
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-sm font-semibold text-foreground truncate">
-                          Your usual{usual.price ? ` · ${usual.price}` : ''}
-                        </span>
-                        <span className="block text-[11px] text-muted-foreground truncate">
-                          {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved
-                        </span>
-                      </span>
-                      <span className="text-gold text-base font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
-                    </button>
-                  </li>
-                )}
+          {/* Desktop dropdown. Empty + focused → the popular starters (and
+              "your usual" for returning customers) so the bar is never a blank
+              dead-end. Typing → the scored matches, grouped under service-area
+              headers once the list is long enough to benefit. On phones the
+              full-screen takeover below renders this list instead. */}
+          {!isMobile && (
+            <AnimatePresence>
+              {open && !job && displayJobs.length > 0 && (
+                <motion.ul
+                  id="job-suggestions"
+                  role="listbox"
+                  aria-label="Job suggestions"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                  className="surface-float absolute left-0 right-0 top-full z-[60] mt-2 max-h-[22rem] overflow-y-auto rounded-2xl border border-black/5 bg-white p-1.5 text-left"
+                >
+                  {suggestionItems}
+                </motion.ul>
+              )}
+            </AnimatePresence>
+          )}
 
-                {/* Popular starters get one quiet label so they read as a curated set */}
-                {!isSearching && (
-                  <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
-                    Popular
-                  </li>
-                )}
-
-                {useGroupHeaders && grouped ? (() => {
-                  let idx = -1;
-                  return grouped.map((g) => (
-                    <React.Fragment key={g.name}>
-                      <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
-                        {g.name}
-                      </li>
-                      {g.items.map((s) => { idx += 1; return renderRow(s, idx); })}
-                    </React.Fragment>
-                  ));
-                })() : (
-                  suggestions.map((s, i) => renderRow(s, i))
-                )}
-              </motion.ul>
-            )}
-          </AnimatePresence>
-
-          {/* Picked a job → VANO-vs-market price, the time above (like the custom box) */}
-          <AnimatePresence initial={false}>
-            {job && (
-              <motion.div
-                key="price"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                className="surface-float mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
-              >
-                <div className="flex items-center gap-2 mb-2.5">
-                  <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">
-                    <span className="text-lg" aria-hidden="true">{job.emoji}</span>
-                    <span className="truncate">{job.label}</span>
-                  </span>
-                </div>
-                {/* Duration — the same pill chips as the booking sheet, so "how
-                    long?" looks and behaves identically everywhere it's asked */}
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1 mb-3" role="group" aria-label="How long">
-                  {durationOptions.map((d) => (
-                    <Chip key={d} group="front-duration" active={size === d} onClick={() => setSize(d)}>
-                      {d}
-                    </Chip>
-                  ))}
-                </div>
-                {showComparison ? (
-                  <>
-                    <div className="flex items-stretch gap-2" aria-live="polite">
-                      <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
-                        <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
-                          {fmt(vanoCents)}
-                        </motion.p>
-                        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
-                      </div>
-                      <div className="flex-1 rounded-xl border border-border/60 px-3 py-2.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
-                        <p className="mt-0.5 text-3xl font-bold tabular-nums text-muted-foreground/60 leading-none line-through decoration-muted-foreground/40">
-                          {fmt(marketCents)}
-                        </p>
-                        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">≈ €{job.marketHourlyCents / 100}/hr</p>
-                      </div>
-                    </div>
-                    {saveCents > 0 && (
-                      <p className="mt-2.5 text-center text-[12px] font-bold text-sage-dark">
-                        ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  /* Short visit — single fair price (the €12 floor makes a pro-rated
-                     market comparison misleading, so we don't show one). */
-                  <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center" aria-live="polite">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair flat price</p>
-                    <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
-                      {fmt(vanoCents)}
-                    </motion.p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">Quick {size} visit</p>
-                  </div>
-                )}
-                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="mt-3">
-                  <Button type="button" onClick={goBook} className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary shadow-primary-glow">
-                    <Zap className="w-4 h-4" />
-                    Book · {fmt(vanoCents)}
-                  </Button>
+          {/* Picked a job → the price card. Floats below the bar exactly like
+              the dropdown (absolute, no layout height): in normal flow its
+              height re-centered the justify-center hero, so the moment a job
+              was picked the whole hero — search bar included — jumped up
+              off-screen. On phones this lives inside the takeover instead. */}
+          {!isMobile && (
+            <AnimatePresence initial={false}>
+              {job && (
+                <motion.div
+                  key="price"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  className="surface-float absolute left-0 right-0 top-full z-[60] mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
+                >
+                  {priceCardBody}
                 </motion.div>
-                <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
-                <p className="mt-1 text-center text-[11px] font-semibold text-sage-dark">💡 Need it another day? Book ahead at the next step &amp; save 10%.</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+            </AnimatePresence>
+          )}
         </motion.div>
 
         {/* Nothing sits directly under the bar anymore — the first-timer cue and
@@ -1341,8 +1492,121 @@ export const CategoryGrid: React.FC = () => {
             dropdown; WhatsApp is now a green button in the nav. */}
       </div>
 
-      {/* Bottom sheet portal-style — rendered outside the grid */}
-      <AnimatePresence>
+      {/* ── Mobile full-screen search takeover (Uber/Airbnb pattern) ────────
+          The hero bar is just the door; searching happens here with the input
+          pinned above the keyboard and the whole screen for suggestions. The
+          booking sheet (z-70) opens over it, so closing the sheet lands the
+          customer back on their price card, not a cold hero.
+          PORTALED to <body>: the hero's framer wrapper is a transform, which
+          traps any z-index inside its stacking context — rendered in place,
+          the fixed nav (z-50) sat over the takeover and ate its taps. */}
+      {typeof document !== 'undefined' && createPortal(<AnimatePresence>
+        {isMobile && takeover && (
+          <motion.div
+            key="search-takeover"
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 28, transition: { duration: 0.18, ease: [0.32, 0.72, 0, 1] } }}
+            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            className="fixed inset-0 z-[68] bg-cream flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Search for what you need done"
+          >
+            {/* Pinned search header — never scrolls, never under the keyboard */}
+            <div
+              className="flex-shrink-0 px-3 pb-3 bg-cream border-b border-border/40"
+              style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
+            >
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={closeTakeover}
+                  aria-label="Back"
+                  className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-foreground/70 hover:bg-secondary active:scale-90 transition-[background-color,transform] duration-150"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="search-shell flex flex-1 min-w-0 items-center gap-2.5 rounded-2xl bg-white pl-4 pr-1.5 h-12">
+                  <Search className="w-5 h-5 text-foreground/60 flex-shrink-0" aria-hidden="true" />
+                  <input
+                    ref={takeoverInputRef}
+                    type="text"
+                    value={query}
+                    // Keyboard up immediately when arriving to search; stays
+                    // down when reopening onto an already-picked job.
+                    autoFocus={!job}
+                    onChange={(e) => { setQuery(e.target.value); setJob(null); setActiveIndex(0); }}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return;
+                      e.preventDefault();
+                      if (job) { goBook(); return; }
+                      const pick = displayJobs[activeIndex] ?? displayJobs[0];
+                      if (pick) chooseJob(pick);
+                    }}
+                    placeholder={`Search for "${HINTS[hintIdx]}"…`}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    enterKeyHint="search"
+                    role="combobox"
+                    aria-label="Search for what you need done"
+                    aria-expanded={!job && displayJobs.length > 0}
+                    aria-controls="job-suggestions-m"
+                    aria-autocomplete="list"
+                    className="flex-1 min-w-0 bg-transparent text-base text-foreground placeholder:text-foreground/50 focus:outline-none"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { setQuery(''); setJob(null); setActiveIndex(0); takeoverInputRef.current?.focus(); }}
+                      aria-label="Clear"
+                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Body — suggestions until a job is picked, then the price card */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-10" style={{ overscrollBehavior: 'contain' }}>
+              {job ? (
+                <motion.div
+                  key={`m-price-${job.key}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="surface-float rounded-2xl border border-black/5 bg-white p-4 text-left"
+                >
+                  {priceCardBody}
+                </motion.div>
+              ) : (
+                <>
+                  <ul
+                    id="job-suggestions-m"
+                    role="listbox"
+                    aria-label="Job suggestions"
+                    className="surface-float rounded-2xl border border-black/5 bg-white p-1.5 text-left"
+                  >
+                    {suggestionItems}
+                  </ul>
+                  <p className="mt-4 text-center text-[11px] text-muted-foreground">
+                    €18/hour flat rate · no payment until a helper accepts
+                  </p>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>, document.body)}
+
+      {/* Bottom sheet — a REAL portal to <body>. Rendered in place it sits in
+          the hero's transform stacking context, where its z-70 can't beat the
+          root-level takeover (z-68) or the fixed nav (z-50). */}
+      {typeof document !== 'undefined' && createPortal(<AnimatePresence>
         {selected && (
           <Sheet
             cat={selected.cat}
@@ -1352,7 +1616,7 @@ export const CategoryGrid: React.FC = () => {
             onClose={closeSheet}
           />
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
     </>
   );
 };

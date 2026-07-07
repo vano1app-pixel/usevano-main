@@ -58,7 +58,7 @@ const Account: React.FC = () => {
   const links: { label: string; to?: string; href?: string; icon: React.ElementType }[] = [
     { label: 'Your bookings', to: '/bookings', icon: CalendarCheck },
     { label: 'Become a helper', to: '/join', icon: UserPlus },
-    { label: 'Helper account — photo, payouts & plan', to: '/student-account', icon: UserCog },
+    { label: 'Helper account — photo, payouts & profile', to: '/student-account', icon: UserCog },
     { label: 'Chat to us on WhatsApp', href: `${teamWhatsAppHref}?text=${encodeURIComponent('Hi VANO! ')}`, icon: MessageCircle },
     { label: 'Terms', to: '/terms', icon: FileText },
     { label: 'Privacy', to: '/privacy', icon: Shield },

@@ -46,6 +46,10 @@ interface HelperRow {
   /** Optional — only present once find-helper-by-phone returns them. */
   student_email_verified?: boolean | null;
   id_verified?: boolean | null;
+  /** €2/month ✓ Verified plan (the paid leg of the blue tick). */
+  verified_plan_active?: boolean | null;
+  /** email + ID + plan, computed by the DB (generated column). */
+  vano_verified?: boolean | null;
 }
 
 const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
@@ -100,12 +104,18 @@ const StudentAccount = () => {
     (async () => {
       const { data } = await hdb
         .from('household_helpers')
-        .select('student_email_verified, id_verified')
+        .select('student_email_verified, id_verified, verified_plan_active, vano_verified')
         .eq('id', helperId)
         .maybeSingle();
       if (cancelled || !data) return;
       setHelper(h => h && h.id === helperId
-        ? { ...h, student_email_verified: data.student_email_verified, id_verified: data.id_verified }
+        ? {
+            ...h,
+            student_email_verified: data.student_email_verified,
+            id_verified: data.id_verified,
+            verified_plan_active: data.verified_plan_active,
+            vano_verified: data.vano_verified,
+          }
         : h);
     })();
     return () => { cancelled = true; };
@@ -152,6 +162,10 @@ const StudentAccount = () => {
   const [showDelete,    setShowDelete]    = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting,      setDeleting]      = useState(false);
+
+  // ✓ Verified €2/month plan + phone-gated payout setup
+  const [planCancelling, setPlanCancelling] = useState(false);
+  const [payoutStarting, setPayoutStarting] = useState(false);
 
   useEffect(() => {
     if (!saved) return;
@@ -455,6 +469,93 @@ const StudentAccount = () => {
     }
   };
 
+  // ── ✓ Verified plan cancel ──────────────────────────────────────────────────
+  // Cancel-anytime is part of the €2/month deal. Stripe cancels at period end
+  // (they keep the tick for the month they paid for); the webhook flips
+  // verified_plan_active off when the period actually ends.
+  const handleCancelPlan = async () => {
+    if (!helper || planCancelling) return;
+    setPlanCancelling(true);
+    try {
+      const res = await fetch(fnUrl('cancel-verified-plan'), {
+        method: 'POST',
+        headers: fnHeaders(),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+      });
+      const json = await res.json() as { cancelled?: boolean; immediate?: boolean; ends_at_period_end?: boolean; error?: string };
+      if (!res.ok || !json.cancelled) throw new Error(json.error ?? 'Failed');
+      if (json.immediate) {
+        setHelper(h => h ? { ...h, verified_plan_active: false, vano_verified: false } : h);
+        toast({ title: 'Verified plan cancelled', description: 'Your blue tick is off. You can turn it back on anytime.' });
+      } else {
+        toast({ title: 'Verified plan cancelled', description: "You keep the tick until the month you've paid for ends — then it switches off. Turn it back on anytime." });
+      }
+    } catch {
+      toast({ title: 'Could not cancel', description: 'Try again or WhatsApp +353 89 981 7111.', variant: 'destructive' });
+    } finally {
+      setPlanCancelling(false);
+    }
+  };
+
+  // ── Payout setup (phone-gated) ──────────────────────────────────────────────
+  // Opens Stripe Connect Express onboarding via household-helper-connect-link's
+  // phone-auth branch — no sign-in needed, matching the rest of this page.
+  const handleSetupPayouts = async () => {
+    if (!helper || payoutStarting) return;
+    setPayoutStarting(true);
+    try {
+      const res = await fetch(fnUrl('household-helper-connect-link'), {
+        method: 'POST',
+        headers: fnHeaders(),
+        body: JSON.stringify({ helper_id: helper.id, phone: helper.phone }),
+      });
+      const json = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !json.url) throw new Error(json.error ?? 'Failed');
+      window.location.href = json.url;
+      return;
+    } catch (e) {
+      toast({
+        title: 'Could not start payout setup',
+        description: e instanceof Error && e.message !== 'Failed' ? e.message : 'Try again or WhatsApp +353 89 981 7111.',
+        variant: 'destructive',
+      });
+      setPayoutStarting(false);
+    }
+  };
+
+  // Back from Stripe onboarding (?payout=done|refresh): confirm readiness
+  // directly with Stripe (webhook-independent), toast, and strip the param.
+  useEffect(() => {
+    if (!helper?.id) return;
+    const params = new URLSearchParams(window.location.search);
+    const payout = params.get('payout');
+    if (!payout) return;
+    params.delete('payout');
+    const qs = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    (async () => {
+      try {
+        const res = await fetch(fnUrl('household-helper-connect-link'), {
+          method: 'POST',
+          headers: fnHeaders(),
+          body: JSON.stringify({ check_only: true, helper_id: helper.id, phone: helper.phone }),
+        });
+        const json = await res.json() as { stripe_account_id?: string | null; stripe_payouts_enabled?: boolean };
+        setHelper(h => h ? {
+          ...h,
+          stripe_account_id: json.stripe_account_id ?? h.stripe_account_id,
+          stripe_payouts_enabled: !!json.stripe_payouts_enabled,
+        } : h);
+        if (payout === 'done') {
+          toast(json.stripe_payouts_enabled
+            ? { title: '💶 Payouts ready', description: 'Your earnings will land automatically after each job.' }
+            : { title: 'Almost there', description: "Stripe is finishing your payout setup — it usually confirms within a minute or two." });
+        }
+      } catch { /* non-blocking — the card just shows its cached state */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [helper?.id]);
+
   // ── Delete account (GDPR erasure) ───────────────────────────────────────────
   const handleDeleteAccount = async () => {
     if (!helper) return;
@@ -482,14 +583,15 @@ const StudentAccount = () => {
     }
   };
 
-  // VANO Verified (the blue tick) = confirmed student email + Stripe ID check.
-  // The flags only arrive once the redeployed find-helper-by-phone returns
-  // them, so treat "unknown" (undefined) as: show nothing rather than nag a
-  // helper who may already be verified.
+  // VANO Verified (the blue tick) = confirmed student email + Stripe ID check
+  // + the €2/month plan. The flags only arrive once find-helper-by-phone
+  // returns them, so treat "unknown" (undefined) as: show nothing rather than
+  // nag a helper who may already be verified.
   const verificationKnown = helper != null
     && helper.id_verified !== undefined
     && helper.student_email_verified !== undefined;
-  const vanoVerified = verificationKnown && !!helper?.id_verified && !!helper?.student_email_verified;
+  const vanoVerified = verificationKnown
+    && !!helper?.id_verified && !!helper?.student_email_verified && !!helper?.verified_plan_active;
 
   if (loading) {
     return (
@@ -644,11 +746,9 @@ const StudentAccount = () => {
                     <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
                   </span>
                   <span className="block text-xs text-muted-foreground mt-0.5">
-                    {!helper.student_email_verified && !helper.id_verified
-                      ? 'Confirm your student email and verify your ID to earn the blue tick — verified helpers get offered jobs first.'
-                      : !helper.student_email_verified
-                        ? 'One step left: confirm your student email to earn the blue tick.'
-                        : 'One step left: verify your ID (2 minutes with Stripe) to earn the blue tick.'}
+                    {!helper.student_email_verified || !helper.id_verified
+                      ? 'Confirm your student email and verify your ID (both free), then €2/month keeps the blue tick on your name — verified helpers get offered jobs first.'
+                      : 'Checks done ✓ — activate the €2/month plan to switch your blue tick on. Cancel anytime.'}
                   </span>
                 </span>
                 <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
@@ -756,49 +856,100 @@ const StudentAccount = () => {
                 <span className="flex-1 text-sm text-foreground">{helper.city}</span>
               </div>
 
-              {/* Subscription */}
+              {/* ✓ Verified plan — the €2/month that keeps the blue tick on.
+                  Cancel-anytime lives right here, no digging. */}
+              {helper.verified_plan_active && (
+                <div className="px-4 py-3.5 flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Plan</span>
+                  <span className="flex-1 text-sm text-foreground flex items-center gap-1.5">
+                    <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
+                    Verified · €2/month
+                  </span>
+                  <button
+                    onClick={() => void handleCancelPlan()}
+                    disabled={planCancelling}
+                    className="text-xs text-destructive font-medium disabled:opacity-50"
+                  >
+                    {planCancelling ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                </div>
+              )}
+
+              {/* Account — the €2 sign-up is a one-off verification fee, NOT a
+                  recurring subscription, so never call it a plan here */}
               <div className="px-4 py-3.5 flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Plan</span>
-                <span className="flex-1 text-sm text-foreground">Monthly membership</span>
+                <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Account</span>
+                <span className="flex-1 text-sm text-foreground">Helper account</span>
                 <button
                   onClick={() => setShowConfirm(true)}
                   className="text-xs text-destructive font-medium"
                 >
-                  Cancel
+                  Leave VANO
                 </button>
               </div>
             </div>
           </section>
 
-          {/* Automatic payouts — the setup card needs an auth session (RLS-gated
-              reads); the disconnect action is phone-authed so it shows for any
-              helper whose Stripe account is linked. */}
-          {(authUserId || helper.stripe_account_id) && (
-            <section>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Payouts</p>
-              {authUserId && <HouseholdHelperVanoPayCard userId={authUserId} />}
-              {helper.stripe_account_id && (
-                <div className={cn('rounded-2xl border border-border/60 px-4 py-3.5', authUserId && 'mt-3')}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">Payout account linked</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Disconnect to remove your bank/Revolut details. Earnings still owed wait until you reconnect.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleDisconnectPayouts()}
-                      disabled={disconnecting}
-                      className="text-xs text-destructive font-semibold flex-shrink-0 disabled:opacity-50"
-                    >
-                      {disconnecting ? 'Disconnecting…' : 'Disconnect'}
-                    </button>
-                  </div>
+          {/* Automatic payouts. Signed-in helpers get the full VanoPay card;
+              phone-gated helpers get a one-tap Stripe onboarding button (the
+              connect-link function's phone-auth branch) so payout setup works
+              right here with no sign-in. */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Payouts</p>
+            {authUserId ? (
+              <HouseholdHelperVanoPayCard userId={authUserId} />
+            ) : helper.stripe_payouts_enabled ? (
+              <div className="rounded-2xl border border-sage/30 bg-sage-light px-4 py-3.5 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-sage text-white">
+                  <CheckCircle2 size={18} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Payouts active</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Earnings land in your account automatically after each job.</p>
                 </div>
-              )}
-            </section>
-          )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleSetupPayouts()}
+                disabled={payoutStarting}
+                className="w-full rounded-2xl border border-sage/30 bg-sage-light px-4 py-4 flex items-center gap-3 text-left active:scale-[0.99] transition-transform disabled:opacity-60"
+              >
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sage text-white">
+                  {payoutStarting ? <Loader2 size={18} className="animate-spin" /> : <span className="text-base leading-none" aria-hidden="true">💶</span>}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground">
+                    {helper.stripe_account_id ? 'Finish payout setup' : 'Set up payouts'}
+                  </span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    Link your bank or Revolut (any IBAN) with Stripe — 2 minutes. Until then your earnings are held safely.
+                  </span>
+                </span>
+                <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
+              </button>
+            )}
+            {helper.stripe_account_id && (
+              <div className="mt-3 rounded-2xl border border-border/60 px-4 py-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Payout account linked</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Disconnect to remove your bank/Revolut details. Earnings still owed wait until you reconnect.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleDisconnectPayouts()}
+                    disabled={disconnecting}
+                    className="text-xs text-destructive font-semibold flex-shrink-0 disabled:opacity-50"
+                  >
+                    {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
 
           {/* Jobs — top-level groups, each opening its sub-skills when picked
               so a helper can say exactly what they do (e.g. Cleaning → Deep
@@ -1077,7 +1228,7 @@ const StudentAccount = () => {
               </div>
               <h2 className="text-lg font-bold text-foreground mb-2">Leave VANO?</h2>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                This will cancel your monthly subscription and remove you from the platform. Any pending payouts will still be transferred.
+                This removes your helper profile from the platform — you'll stop receiving job offers. Any pending payouts will still be transferred to you.
               </p>
               <div className="space-y-2.5">
                 <button

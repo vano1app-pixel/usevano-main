@@ -151,14 +151,15 @@ serve(async (_req) => {
       const lastMs = h.application_nudged_at ? Date.parse(String(h.application_nudged_at)) : 0;
       if (lastMs && (now - lastMs) < APP_MIN_HOURS * 3600_000) continue;
 
-      // Pay-to-join: the €2 is what puts them live, so that's the headline.
-      // (A pending row is by definition unpaid — payment auto-approves.)
+      // Free-to-join made 'pending' rows extinct (applications approve on
+      // arrival), so this pass normally matches nobody — kept as a safety
+      // net for any row an admin manually parks back to pending.
       const verifyUrl = `${siteUrl}/verify-helper?id=${h.id}`;
       const first = String(h.name ?? '').split(' ')[0] || 'there';
-      const step = `you're one €2 step from going live — pay the sign-up and jobs can start coming through`;
-      const emailBody = `Hi ${first}, your VANO application is ready to go — pay the €2 sign-up and you're live on the platform today. Two quick checks after that earn your ✓ Verified badge (verified helpers get offered jobs first). Finish here: ${verifyUrl}`;
+      const step = `your application needs one more step — finish it and jobs can start coming through`;
+      const emailBody = `Hi ${first}, your VANO application isn't live yet — finish it here and jobs can start coming through: ${verifyUrl}`;
       await sendSms(h.phone as string | null, `VANO: ${step} 👉 ${verifyUrl}`);
-      await email(h.email as string | null, `You're one €2 step from going live on VANO`, emailBody);
+      await email(h.email as string | null, `One more step to go live on VANO`, emailBody);
       await supabase.from('household_helpers')
         .update({ application_nudged_at: new Date(now).toISOString(), application_nudge_count: count + 1 })
         .eq('id', h.id as string);
@@ -185,8 +186,11 @@ serve(async (_req) => {
 
       const verifyUrl = `${siteUrl}/verify-helper?id=${h.id}`;
       const first = String(h.name ?? '').split(' ')[0] || 'there';
-      await sendSms(h.phone as string | null, `VANO: you're live 🎉 One last thing — finish your ✓ Verified badge (2 quick checks, ~3 min) and you'll be offered jobs FIRST 👉 ${verifyUrl}`);
-      await email(h.email as string | null, `You're live on VANO — grab your ✓ Verified badge`, `Hi ${first}, you're live on VANO 🎉 Finish your ✓ Verified badge — confirm your student email and do the 2-minute ID check — and customers see the tick on your name, plus verified helpers are offered jobs first. Finish here: ${verifyUrl}`);
+      // Chase only the FREE checks here (email + ID). The €2/month plan step
+      // is explained once they're on /verify-helper — SMS-nudging people to
+      // start a subscription is a fast way to feel spammy.
+      await sendSms(h.phone as string | null, `VANO: you're live 🎉 One thing — do your 2 free verification checks (~3 min) to unlock the ✓ tick, and you'll be offered jobs FIRST 👉 ${verifyUrl}`);
+      await email(h.email as string | null, `You're live on VANO — unlock your ✓ Verified tick`, `Hi ${first}, you're live on VANO 🎉 Do the two free checks — confirm your student email and the 2-minute ID check — to unlock your ✓ Verified tick (€2/month once the checks pass, cancel anytime). Customers see the tick on your name and verified helpers are offered jobs first. Start here: ${verifyUrl}`);
       await supabase.from('household_helpers')
         .update({ application_nudged_at: new Date(now).toISOString(), application_nudge_count: count + 1 })
         .eq('id', h.id as string);

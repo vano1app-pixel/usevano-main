@@ -348,7 +348,10 @@ const StudentJobDetail = () => {
     setClaiming(true);
     const { data: claimed, error } = await hdb
       .from('household_bookings')
-      .update({ student_id: userId, status: 'accepted' })
+      // Stamp accepted_at like accept-job does — sweep-stalled-jobs clocks a
+      // ghosting helper from acceptance, and filters on accepted_at IS NOT
+      // NULL, so an in-app claim that omitted it was invisible to the sweep.
+      .update({ student_id: userId, status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('id', bookingId)
       .eq('status', 'pending')
       .is('student_id', null)

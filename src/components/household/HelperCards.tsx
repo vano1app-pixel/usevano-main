@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Star, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, ShieldCheck, BadgeCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { HELPER_CATEGORY_LABELS as CATEGORY_LABELS } from '@/lib/helperCategories';
 import { skillLabel } from '@/lib/helperSkills';
@@ -17,6 +17,8 @@ interface HelperRow {
   average_rating: number | null;
   accepted_count: number;
   id_verified?: boolean | null;
+  /** email + ID + active plan — the blue tick (DB generated column). */
+  vano_verified?: boolean | null;
 }
 
 function Card({ h }: { h: HelperRow }) {
@@ -49,9 +51,14 @@ function Card({ h }: { h: HelperRow }) {
         <div className="p-3 flex flex-col gap-2 flex-1">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <p className="font-semibold text-foreground text-sm leading-tight">
-                Hey, I'm {firstName}
-                {h.age ? <span className="font-normal text-muted-foreground"> · {h.age}</span> : null}
+              <p className="font-semibold text-foreground text-sm leading-tight flex items-center gap-1 min-w-0">
+                <span className="truncate">
+                  Hey, I'm {firstName}
+                  {h.age ? <span className="font-normal text-muted-foreground"> · {h.age}</span> : null}
+                </span>
+                {h.vano_verified && (
+                  <BadgeCheck className="w-4 h-4 fill-sky-500 text-white flex-shrink-0" aria-label="VANO Verified" />
+                )}
               </p>
               {h.average_rating ? (
                 <span className="flex items-center gap-0.5 text-xs font-semibold text-foreground flex-shrink-0">
@@ -122,7 +129,7 @@ export const HelperCards: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('household_helpers')
-      .select('id, name, photo_url, city, age, bio, categories, average_rating, accepted_count, id_verified')
+      .select('id, name, photo_url, city, age, bio, categories, average_rating, accepted_count, id_verified, vano_verified')
       .eq('status', 'approved')
       .eq('show_on_homepage', true)
       .not('photo_url', 'is', null)
