@@ -431,7 +431,7 @@ ${SERVICE_LANDINGS.map((s) => `<li><a href="/${s.slug}">${escAttr(s.name)} in Ga
 </ul>
 <h2>Why people trust VANO</h2>
 <ul>
-<li>Every helper is ID-verified before their first job</li>
+<li>Look for the blue ✓ — VANO Verified helpers have passed student-email and photo-ID checks</li>
 <li>You see exactly who's coming before any money moves</li>
 <li>Protected card payment — no cash on the day</li>
 <li>Money-back guarantee if it's not right</li>
@@ -471,8 +471,8 @@ ${topNav}
 <p class="summary">Pick up same-day home help jobs near you — laundry runs, dog walks, cleaning, garden work and moving help. Earn €12–€65 per job, keep 85% of every fare, and work only when it suits your timetable.</p>
 <h2>How it works</h2>
 <ul>
-<li><strong>Apply in minutes</strong> — a short form with your photo and student details.</li>
-<li><strong>Verify your ID</strong> — every VANO helper is ID-verified before their first job, which is why customers trust the platform.</li>
+<li><strong>Join free, live instantly</strong> — a short form with your photo and student details, and jobs can reach you straight away.</li>
+<li><strong>Earn the ✓ Verified tick</strong> — confirm your college email and pass a 2-minute photo-ID check (both free); €2/month keeps the blue tick on your name, and verified helpers are offered jobs first. Cancel anytime.</li>
 <li><strong>Accept jobs near you</strong> — offers arrive by WhatsApp and in your dashboard; take only the ones that suit you.</li>
 <li><strong>Get paid after each job</strong> — payouts go straight to your bank once the customer confirms the job is done.</li>
 </ul>
@@ -481,7 +481,7 @@ ${topNav}
 <li>Time-based work (cleaning, garden, moving) is priced at €18/hour — you keep €15.30/hour, above the Irish minimum wage.</li>
 <li>Flat-rate errands (laundry €15, dog walks €15–20) are priced per task so a short job is still worth your trip.</li>
 </ul>
-<p><a href="/join">Apply now at vanojobs.com/join</a> — it takes a few minutes, and most applicants are verified within days.</p>
+<p><a href="/join">Apply now at vanojobs.com/join</a> — it takes a few minutes, joining is free, and you're live the moment you apply.</p>
 ${siteFooter}`.trim();
 
   return {
