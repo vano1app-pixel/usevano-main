@@ -397,7 +397,10 @@ tick-eyebrows, floating cards.
 
 ## Conventions / gotchas
 - **Prices are always recomputed server-side** — client numbers are display only.
-- **Edge-function GitHub auto-deploy is DISABLED** — edit, then redeploy manually.
+- **Edge functions auto-deploy on merge to main** (`.github/workflows/
+  supabase-deploy.yml` deploys EVERY function via the CLI; `verify_jwt` is
+  pinned per-function in `supabase/config.toml`, so keep new functions
+  pinned there or the deploy defaults them to true).
 - **Customers are anonymous** — no `auth.users` row, no realtime; tracking
   polls. Identity = phone + booking UUID. Don't add an account requirement.
 - **Two marketplaces, two pots of money**: household (`household_bookings`/
