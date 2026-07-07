@@ -51,7 +51,7 @@ function isOriginAllowed(req: Request): boolean {
 // phone lookup, and a helper's email is the sensitive bit (phishing / account
 // takeover). The self-service profile editor doesn't use it.
 const PROFILE_COLUMNS =
-  'id, name, phone, photo_url, city, bio, categories, availability, status, stripe_account_id, stripe_payouts_enabled';
+  'id, name, phone, photo_url, city, bio, categories, availability, status, stripe_account_id, stripe_payouts_enabled, student_email_verified, id_verified';
 
 serve(async (req) => {
   const cors = buildCorsHeaders(req);

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  AlertTriangle, Camera, Check, CheckCircle2, ChevronLeft,
-  ImagePlus, Loader2, Trash2, X,
+  AlertTriangle, BadgeCheck, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight,
+  ImagePlus, Loader2, ShieldCheck, Trash2, X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -50,6 +50,9 @@ interface HelperRow {
   status: string;
   stripe_account_id: string | null;
   stripe_payouts_enabled: boolean | null;
+  /** Optional — only present once find-helper-by-phone returns them. */
+  student_email_verified?: boolean | null;
+  id_verified?: boolean | null;
 }
 
 const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
@@ -428,6 +431,15 @@ const StudentAccount = () => {
     }
   };
 
+  // VANO Verified (the blue tick) = confirmed student email + Stripe ID check.
+  // The flags only arrive once the redeployed find-helper-by-phone returns
+  // them, so treat "unknown" (undefined) as: show nothing rather than nag a
+  // helper who may already be verified.
+  const verificationKnown = helper != null
+    && helper.id_verified !== undefined
+    && helper.student_email_verified !== undefined;
+  const vanoVerified = verificationKnown && !!helper?.id_verified && !!helper?.student_email_verified;
+
   if (loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center">
@@ -537,7 +549,19 @@ const StudentAccount = () => {
           {photoFile && (
             <p className="text-xs text-primary mt-2 font-medium">New photo ready — tap Save to apply</p>
           )}
-          <h1 className="text-xl font-bold text-foreground mt-3">{helper.name}</h1>
+          <h1 className="text-xl font-bold text-foreground mt-3 flex items-center gap-1.5">
+            {helper.name}
+            {vanoVerified && (
+              <BadgeCheck
+                size={22}
+                className="fill-sky-500 text-white flex-shrink-0"
+                aria-label="VANO Verified"
+              />
+            )}
+          </h1>
+          {vanoVerified && (
+            <span className="mt-1 text-xs font-semibold text-sky-600">VANO Verified</span>
+          )}
           <span className={cn(
             'mt-1.5 text-xs px-2.5 py-1 rounded-full border font-medium',
             helper.status === 'approved'
@@ -549,6 +573,36 @@ const StudentAccount = () => {
         </div>
 
         <div className="space-y-7">
+          {/* Get VANO Verified — finish the missing checks to earn the blue
+              tick. Hidden until the flags are known (see verificationKnown). */}
+          {verificationKnown && !vanoVerified && (
+            <section>
+              <button
+                type="button"
+                onClick={() => navigate(`/verify-helper?id=${helper.id}&name=${encodeURIComponent(helper.name)}`)}
+                className="w-full rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+              >
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
+                  <ShieldCheck size={20} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
+                    Get VANO Verified
+                    <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
+                  </span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    {!helper.student_email_verified && !helper.id_verified
+                      ? 'Confirm your student email and verify your ID to earn the blue tick — verified helpers get offered jobs first.'
+                      : !helper.student_email_verified
+                        ? 'One step left: confirm your student email to earn the blue tick.'
+                        : 'One step left: verify your ID (2 minutes with Stripe) to earn the blue tick.'}
+                  </span>
+                </span>
+                <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
+              </button>
+            </section>
+          )}
+
           {/* Account info */}
           <section>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Account info</p>
