@@ -60,11 +60,15 @@ export const HelperFacePile: React.FC = () => {
   const shown = faces.slice(0, 4);
   const names = faces.map(f => firstName(f.name)).filter(Boolean);
   const noun = verified ? 'ID-verified students' : 'local students in Galway';
+  // Never overstate: the "& N" tail only appears when there genuinely are
+  // more helpers than the two we name.
   const label =
     total <= 1
       ? `${names[0] ?? 'A student'} — ${verified ? 'ID-verified & ready to help' : 'ready to help in Galway'}`
       : names.length >= 2
-        ? `${names[0]}, ${names[1]} & ${roundedPlus(Math.max(total - 2, 1))} ${noun}`
+        ? (total <= 2
+            ? `${names[0]} & ${names[1]} — ${noun}`
+            : `${names[0]}, ${names[1]} & ${roundedPlus(total - 2)} ${noun}`)
         : `${roundedPlus(total)} ${noun}`;
 
   return (
