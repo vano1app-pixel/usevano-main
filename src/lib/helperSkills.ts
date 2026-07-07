@@ -42,6 +42,12 @@ export const SKILL_GROUPS: SkillGroup[] = [
       { id: 'window-clean',      label: 'Windows (inside)' },
       { id: 'ironing',           label: 'Ironing' },
       { id: 'airbnb-changeover', label: 'Airbnb changeover' },
+      // Ground-level outdoor cleans only — roof/gutter cleaning is
+      // deliberately NOT offered (no ladders/roofs for un-vetted student
+      // helpers; see the heights note in customJobs.ts).
+      { id: 'driveway-clean',    label: 'Driveway & footpaths' },
+      { id: 'patio-clean',       label: 'Patio & decking' },
+      { id: 'bin-clean',         label: 'Wheelie bins' },
     ],
   },
   {
