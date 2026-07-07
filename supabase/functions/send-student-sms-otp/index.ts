@@ -39,9 +39,13 @@ function normalizeIrishPhone(raw: string | null | undefined): string | null {
   return null;
 }
 
-// WhatsApp preferred (no Irish carrier filtering), SMS fallback. Returns the
-// channel that sent, or null if none could.
-async function sendText(e164: string, body: string): Promise<'whatsapp' | 'sms' | null> {
+// SMS is tried FIRST here (unlike dispatch, which prefers WhatsApp): an OTP
+// goes to a brand-new applicant who hasn't opted into our WhatsApp, and a
+// free-form WhatsApp message to a non-opted-in number is accepted by Twilio
+// (200/queued) but then silently undelivered — the same dead-end as the spam
+// filter. Plain SMS reaches a cold number. WhatsApp is the fallback for when
+// only it is configured. Returns the channel that sent, or null.
+async function sendText(e164: string, body: string): Promise<'sms' | 'whatsapp' | null> {
   const sid   = Deno.env.get('TWILIO_ACCOUNT_SID')?.trim();
   const token = Deno.env.get('TWILIO_AUTH_TOKEN')?.trim();
   if (!sid || !token) return null;
@@ -53,16 +57,7 @@ async function sendText(e164: string, body: string): Promise<'whatsapp' | 'sms' 
       body: new URLSearchParams(params).toString(),
     });
 
-  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
-  if (waFrom) {
-    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
-    try {
-      const resp = await post({ To: `whatsapp:${e164}`, From: from, Body: body });
-      if (resp.ok) return 'whatsapp';
-      console.warn('[send-student-sms-otp][whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
-    } catch (e) { console.warn('[send-student-sms-otp][whatsapp] exception', e); }
-  }
-
+  // 1) Plain SMS — reliable to a cold number.
   if (Deno.env.get('VANO_SMS_ENABLED')?.trim() === 'true') {
     const from = (Deno.env.get('TWILIO_SMS_FROM') || Deno.env.get('TWILIO_FROM_NUMBER'))?.trim();
     if (from && !from.startsWith('whatsapp:')) {
@@ -72,6 +67,17 @@ async function sendText(e164: string, body: string): Promise<'whatsapp' | 'sms' 
         console.warn('[send-student-sms-otp][sms] twilio error', resp.status, (await resp.text()).slice(0, 200));
       } catch (e) { console.warn('[send-student-sms-otp][sms] exception', e); }
     }
+  }
+
+  // 2) WhatsApp fallback (works if the number is opted-in / a template is used).
+  const waFrom = Deno.env.get('TWILIO_WHATSAPP_FROM')?.trim();
+  if (waFrom) {
+    const from = waFrom.startsWith('whatsapp:') ? waFrom : `whatsapp:${waFrom}`;
+    try {
+      const resp = await post({ To: `whatsapp:${e164}`, From: from, Body: body });
+      if (resp.ok) return 'whatsapp';
+      console.warn('[send-student-sms-otp][whatsapp] twilio error', resp.status, (await resp.text()).slice(0, 200));
+    } catch (e) { console.warn('[send-student-sms-otp][whatsapp] exception', e); }
   }
   return null;
 }
