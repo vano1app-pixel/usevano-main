@@ -76,6 +76,10 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.stripe-identity-webhook]
     verify_jwt = false
+  # Webhook-independent ID-check backstop polled by the verify page (reads only
+  # the helper's own stored session id). Applicant has no JWT yet.
+  [functions.check-identity-status]
+    verify_jwt = false
   # €2 sign-up fee — opened and confirmed by the (account-less) applicant on
   # the verify page, so no user JWT.
   [functions.create-signup-payment]

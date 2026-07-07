@@ -130,7 +130,7 @@ export const HeroSection: React.FC = () => {
           transition={{ delay: 0.3, duration: 0.5 }}
           className="mt-5 sm:mt-6 max-w-md mx-auto text-xs sm:text-[13px] leading-relaxed text-white/55 text-pretty"
         >
-          you see them first
+          You see them first
           <span className="text-white/25 px-1.5">·</span>
           pay after they accept
           <span className="text-white/25 px-1.5">·</span>

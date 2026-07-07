@@ -3,8 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Opens a €2 Stripe Checkout for a helper's sign-up fee and returns the hosted
 // URL. Stripe returns to /verify-helper?sp=<session_id>, where the client calls
-// confirm-signup-payment to record it. Paying is one of the three gates to go
-// live (student email + ID + fee).
+// confirm-signup-payment to record it. Pay-to-join: paying IS the gate to going
+// live (the DB trigger flips pending → approved on signup_paid); the email + ID
+// checks earn the ✓ Verified badge separately.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

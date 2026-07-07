@@ -606,7 +606,7 @@ export const JoinAsHelper: React.FC = () => {
             </div>
 
             <p className="text-center text-xs text-muted-foreground">
-              Verify your ID right after this — most helpers are approved within minutes.{' '}
+              Pay the €2 sign-up right after this and you're live — verifying your ID then earns the ✓ badge customers look for.{' '}
               <a href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi VANO, I'm a student and I'd like to start doing household jobs.")}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">
                 Prefer to text us?
               </a>

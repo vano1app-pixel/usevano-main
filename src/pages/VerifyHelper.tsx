@@ -21,12 +21,12 @@ const inputClass =
   'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150';
 
 /**
- * Post-application verification — the three gates that get a helper live:
- *   1. confirm their college email (OTP)
- *   2. verify ID (Stripe Identity, document + selfie)
- *   3. pay the €2 sign-up fee
- * Passing all three auto-approves them (DB trigger). This is what makes the
- * homepage's "ID-verified" promise real.
+ * Post-application verification — pay-to-join:
+ *   1. pay the €2 sign-up fee → the DB trigger flips them live (approved)
+ *   2. confirm their college email ┐ together these earn the ✓ Verified
+ *   3. verify ID (Stripe Identity) ┘ badge on their public card
+ * Verified helpers are offered jobs first, so the badge is the carrot to
+ * finish steps 2–3 — but the €2 alone puts them on the platform.
  */
 const VerifyHelper: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
@@ -155,16 +155,54 @@ const VerifyHelper: React.FC = () => {
     window.location.href = url;
   }, [helperId]);
 
-  // All three done → celebrate once.
-  const allDone = emailState === 'verified' && idState === 'verified' && payState === 'paid';
+  // Pay-to-join: the €2 puts you live; email + ID earn the ✓ Verified badge.
+  const isLive = payState === 'paid';
+  const hasBadge = emailState === 'verified' && idState === 'verified';
+  const allDone = isLive && hasBadge;
   const celebrated = useRef(false);
   useEffect(() => {
-    if (allDone && !celebrated.current) { celebrated.current = true; haptic(20); celebrateBooking(); }
-  }, [allDone]);
+    if (isLive && !celebrated.current) { celebrated.current = true; haptic(20); celebrateBooking(); }
+  }, [isLive]);
+
+  // Auto-verify the moment the 6th digit lands (guarded so a failed code
+  // isn't retried in a loop — the code must change to auto-try again).
+  const lastAutoTried = useRef('');
+  useEffect(() => {
+    if (emailState === 'sent' && code.length === 6 && lastAutoTried.current !== code) {
+      lastAutoTried.current = code;
+      void verifyCode();
+    }
+  }, [code, emailState, verifyCode]);
+
+  // While Stripe is confirming the ID, poll the webhook-independent backstop
+  // (check-identity-status asks Stripe's API directly), so the ✓ lands even if
+  // the identity webhook isn't configured in the Stripe dashboard. Polls ~2
+  // minutes; the outcome is also recorded server-side so leaving is safe.
+  useEffect(() => {
+    if (idState !== 'submitted' || !helperId) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    let tries = 0;
+    const tick = async () => {
+      tries += 1;
+      const { data } = await supabase.functions.invoke('check-identity-status', { body: { helper_id: helperId } });
+      if (cancelled) return;
+      const st = data as { verified?: boolean; status?: string } | null;
+      if (st?.verified) { haptic(16); setIdState('verified'); return; }
+      if (st?.status === 'requires_input') {
+        setIdError('Stripe needs another look — a photo may have been blurry. Tap below to re-do it (takes 2 minutes).');
+        setIdState('idle');
+        return;
+      }
+      if (tries < 30) timer = window.setTimeout(tick, 4000);
+    };
+    timer = window.setTimeout(tick, 2000);
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [idState, helperId]);
 
   return (
     <>
-      <SEOHead title="Verify your helper account — VANO" description="Confirm your student email, verify your ID and pay the €2 fee to start picking up jobs." noindex />
+      <SEOHead title="Verify your helper account — VANO" description="Pay the €2 sign-up to go live, then verify your student email and ID to earn your ✓ Verified badge." noindex />
       <HouseholdNav />
 
       <main className="pt-28 pb-20 px-4">
@@ -178,7 +216,7 @@ const VerifyHelper: React.FC = () => {
               {name ? `Nearly there, ${name.split(' ')[0]}` : 'Nearly there'}
             </h1>
             <p className="text-muted-foreground leading-relaxed mb-8">
-              Three quick steps get you live. They're why customers feel safe letting a helper into their home — and they only ever see verified helpers.
+              Pay the €2 sign-up and you're live today. Then two quick checks earn your <span className="font-semibold text-foreground">✓ Verified badge</span> — customers look for the tick, and verified helpers get offered jobs first.
             </p>
           </motion.div>
 
@@ -190,8 +228,46 @@ const VerifyHelper: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Step 1 — student email */}
-              <VerifyCard icon={<Mail className="w-5 h-5" />} step="1" title="Confirm your student email" done={emailState === 'verified'}>
+              {/* Step 1 — €2 sign-up: the gate to going live */}
+              <VerifyCard icon={<CreditCard className="w-5 h-5" />} step="1" title="Go live — €2 sign-up" done={payState === 'paid'}>
+                {payState === 'paid' ? (
+                  <p className="text-sm text-muted-foreground">Paid — you're on the platform. 💚</p>
+                ) : payState === 'confirming' ? (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Confirming your payment…</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    <p className="text-sm text-muted-foreground leading-relaxed">A one-off €2 puts you live on VANO and keeps sign-ups genuine. Card, Apple Pay or Google Pay.</p>
+                    {payError && <p className="text-xs text-destructive">{payError}</p>}
+                    <Button onClick={() => void startPayment()} disabled={payState === 'paying'} className="w-full rounded-full font-semibold gap-2">
+                      {payState === 'paying' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : 'Pay €2 & go live'}
+                    </Button>
+                  </div>
+                )}
+              </VerifyCard>
+
+              {/* Live banner — the moment they've paid, they're in. */}
+              {isLive && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
+                  <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
+                  <p className="text-base font-bold text-foreground">{hasBadge ? "You're live and Verified ✓ 🎉" : "You're live on VANO 🎉"}</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">
+                    {hasBadge
+                      ? 'Jobs near you will start coming through. Set yourself Available to get them first.'
+                      : 'Jobs can now come through. Finish the two checks below to earn your ✓ Verified badge — customers look for it, and verified helpers are offered jobs first.'}
+                  </p>
+                  <a href="/student-dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">Go to my dashboard <ArrowRight className="w-4 h-4" /></a>
+                </motion.div>
+              )}
+
+              {/* The two checks that earn the badge */}
+              <div className="flex items-center gap-2 pt-2" aria-hidden="true">
+                <span className="h-px flex-1 bg-border" />
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Earn your ✓ Verified badge</span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* Step 2 — student email */}
+              <VerifyCard icon={<Mail className="w-5 h-5" />} step="2" title="Confirm your student email" done={emailState === 'verified'}>
                 {emailState === 'verified' ? (
                   <p className="text-sm text-muted-foreground">Verified — you're confirmed as a student. 🎓</p>
                 ) : (
@@ -252,8 +328,8 @@ const VerifyHelper: React.FC = () => {
                 )}
               </VerifyCard>
 
-              {/* Step 2 — ID check */}
-              <VerifyCard icon={<ShieldCheck className="w-5 h-5" />} step="2" title="Verify your ID" done={idState === 'verified'}>
+              {/* Step 3 — ID check */}
+              <VerifyCard icon={<ShieldCheck className="w-5 h-5" />} step="3" title="Verify your ID" done={idState === 'verified'}>
                 {idState === 'verified' ? (
                   <p className="text-sm text-muted-foreground">Your ID is verified. ✅</p>
                 ) : idState === 'submitted' ? (
@@ -271,32 +347,6 @@ const VerifyHelper: React.FC = () => {
                   </div>
                 )}
               </VerifyCard>
-
-              {/* Step 3 — €2 fee */}
-              <VerifyCard icon={<CreditCard className="w-5 h-5" />} step="3" title="Pay your €2 sign-up fee" done={payState === 'paid'}>
-                {payState === 'paid' ? (
-                  <p className="text-sm text-muted-foreground">Paid — thank you. 💚</p>
-                ) : payState === 'confirming' ? (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Confirming your payment…</p>
-                ) : (
-                  <div className="space-y-2.5">
-                    <p className="text-sm text-muted-foreground leading-relaxed">A one-off €2 keeps VANO genuine — it's how we know everyone here actually wants to help. Card, Apple Pay or Google Pay.</p>
-                    {payError && <p className="text-xs text-destructive">{payError}</p>}
-                    <Button onClick={() => void startPayment()} disabled={payState === 'paying'} className="w-full rounded-full font-semibold gap-2">
-                      {payState === 'paying' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : 'Pay €2 to join'}
-                    </Button>
-                  </div>
-                )}
-              </VerifyCard>
-
-              {allDone && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
-                  <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
-                  <p className="text-base font-bold text-foreground">You're verified and in 🎉</p>
-                  <p className="text-xs text-muted-foreground mt-1 mb-4">Jobs near you will start coming through. Set yourself Available to get them first.</p>
-                  <a href="/student-dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">Go to my dashboard <ArrowRight className="w-4 h-4" /></a>
-                </motion.div>
-              )}
 
               {/* Payout nudge */}
               {!allDone && (

@@ -63,15 +63,8 @@ serve(async (req) => {
     if (updErr) { console.error('[verify-student-email-otp] update failed', updErr); return json(500, { error: 'Could not save verification.' }); }
     await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
 
-    // If that completed all three gates, the DB trigger approved them — notify.
-    const { data: row } = await supabase.from('household_helpers').select('status').eq('id', helper_id).maybeSingle();
-    if ((row as { status?: string } | null)?.status === 'approved') {
-      fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ helper_id }),
-      }).catch(() => {/* non-critical */});
-    }
+    // Pay-to-join: going live is gated on the €2 (its paths send the approval
+    // notification). This check now contributes to the ✓ Verified badge only.
 
     return json(200, { success: true, verified: true });
   } catch (err) {
