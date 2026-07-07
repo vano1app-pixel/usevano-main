@@ -129,6 +129,15 @@
     @apply border-border;
   }
 
+  /* Root can never scroll or pan horizontally either — the body has
+     overflow-x: clip, but a full-screen fixed overlay (the mobile search
+     takeover) that momentarily locks the body can let iOS pan the *root*
+     sideways, leaving a white strip down the right edge. Clipping html too
+     closes that gap without adding a scroll container. */
+  html {
+    overflow-x: clip;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased text-base leading-relaxed;
     -webkit-tap-highlight-color: transparent;
