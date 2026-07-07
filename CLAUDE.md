@@ -417,4 +417,8 @@ dashboard, subscription copy purged) — see "The helper funnel" above; helper
 earnings now show the real 85% everywhere (dispatch offers + dashboard were
 overpromising 95%); both in-app claim paths (`StudentJobDetail.claimJob`,
 `StudentDashboard.acceptJob`) now stamp `accepted_at` so `sweep-stalled-jobs`
-catches a ghosting helper regardless of how they accepted.
+catches a ghosting helper regardless of how they accepted; the hero search
+bar's pick-a-job moment was de-janked (the price card floats like the
+dropdown, so the justify-center hero no longer re-centers and throws the bar
+off-screen when it mounts; keyboard drops on pick; the bar always reopens
+the list; explicit Change link; calmer one-panel price card; combobox a11y).

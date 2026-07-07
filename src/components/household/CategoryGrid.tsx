@@ -1034,7 +1034,6 @@ export const CategoryGrid: React.FC = () => {
   const vanoCents = getPriceCents('custom', size) ?? VANO_HOURLY_CENTS * hours;
   const marketCents = (job?.marketHourlyCents ?? 0) * hours;
   const saveCents = Math.max(0, marketCents - vanoCents);
-  const savePct = marketCents > 0 ? Math.round((saveCents / marketCents) * 100) : 0;
   // Sub-hour visits hit the €12 floor, so a pro-rated market rate would read as
   // "more expensive" — show the Vano price alone for those, full comparison at 1h+.
   const showComparison = hours >= 1 && marketCents > 0;
@@ -1047,6 +1046,26 @@ export const CategoryGrid: React.FC = () => {
     setSize(isShortVisit(j.key) ? '30 min' : `${Math.min(8, Math.max(1, j.typicalHours))} hours`);
     setOpen(false);
     if (blurTimer.current) window.clearTimeout(blurTimer.current);
+    // Drop the keyboard: the dropdown rows preventDefault on mousedown to keep
+    // focus while the list is up, which also meant a picked job left the
+    // keyboard open on phones — covering the price card that just appeared.
+    inputRef.current?.blur();
+    haptic(8);
+  }, []);
+
+  // Phones: the bar sits mid-hero, so the moment the keyboard comes up the
+  // dropdown has almost no room. Ease the bar toward the top of the viewport
+  // (after the browser's own focus scroll settles) so bar + suggestions fit
+  // above the keyboard. No-op on larger screens.
+  const barRef = useRef<HTMLDivElement>(null);
+  const settleBarForKeyboard = useCallback(() => {
+    if (!window.matchMedia('(max-width: 640px)').matches) return;
+    window.setTimeout(() => {
+      const el = barRef.current;
+      if (!el) return;
+      const y = el.getBoundingClientRect().top + window.scrollY - 88;
+      if (y > 0 && Math.abs(window.scrollY - y) > 24) window.scrollTo({ top: y, behavior: 'smooth' });
+    }, 220);
   }, []);
 
   // Hand the picked job to the booking sheet (phone / address / when) as a
@@ -1090,6 +1109,14 @@ export const CategoryGrid: React.FC = () => {
     return () => window.removeEventListener('vano:select-category', handle);
   }, [openSheet]);
 
+  // Keep the keyboard-highlighted row visible as ↑/↓ move past the fold of
+  // the scrollable dropdown.
+  useEffect(() => {
+    if (!open || job) return;
+    const key = displayJobs[activeIndex]?.key;
+    if (key) document.getElementById(`job-opt-${key}`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open, job, displayJobs]);
+
   // One dropdown row — shared by the flat (starter) and grouped (search) lists,
   // so keyboard highlight + tap behave identically either way. `i` is the row's
   // position in displayJobs, which is what the keyboard nav highlights.
@@ -1102,9 +1129,12 @@ export const CategoryGrid: React.FC = () => {
       // repeat it — show the example phrasing instead to earn its place.
       : useGroupHeaders ? (s.example ?? s.group) : s.group;
     return (
-      <li key={s.key}>
+      <li key={s.key} role="presentation">
         <button
           type="button"
+          id={`job-opt-${s.key}`}
+          role="option"
+          aria-selected={active}
           onMouseDown={(e) => e.preventDefault()}
           onMouseEnter={() => setActiveIndex(i)}
           onClick={() => chooseJob(s)}
@@ -1150,6 +1180,7 @@ export const CategoryGrid: React.FC = () => {
             />
           )}
           <div
+            ref={barRef}
             className="search-shell flex cursor-text items-center gap-3 overflow-hidden rounded-2xl bg-white px-5 h-16 sm:h-[72px] transition-shadow duration-200 hover:shadow-[0_16px_44px_-14px_rgba(0,0,0,0.3)]"
             onClick={() => inputRef.current?.focus()}
             onMouseMove={(e) => {
@@ -1166,17 +1197,36 @@ export const CategoryGrid: React.FC = () => {
               type="text"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setJob(null); setOpen(true); setActiveIndex(0); }}
-              onFocus={() => { setOpen(true); setActiveIndex(0); }}
+              onFocus={() => {
+                // Focusing the bar always returns to searching — before this,
+                // a picked job left the bar unresponsive (the dropdown only
+                // renders while no job is picked), which read as broken.
+                if (job) setJob(null);
+                setOpen(true); setActiveIndex(0);
+                settleBarForKeyboard();
+              }}
               onBlur={() => { blurTimer.current = window.setTimeout(() => setOpen(false), 140); }}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, displayJobs.length - 1)); }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); }
-                else if (e.key === 'Enter') { e.preventDefault(); const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
+                else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  // Only ever act on what's visible: pick from an OPEN list,
+                  // book a picked job — never select from a closed dropdown.
+                  if (job) { goBook(); return; }
+                  if (open) { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }
+                  else setOpen(true);
+                }
                 else if (e.key === 'Escape') { setOpen(false); }
               }}
               placeholder={`Search for "${HINTS[hintIdx]}"…`}
               autoComplete="off"
+              role="combobox"
               aria-label="Search for what you need done"
+              aria-expanded={open && !job && displayJobs.length > 0}
+              aria-controls="job-suggestions"
+              aria-activedescendant={open && !job && displayJobs[activeIndex] ? `job-opt-${displayJobs[activeIndex].key}` : undefined}
+              aria-autocomplete="list"
               className="relative z-10 flex-1 min-w-0 bg-transparent text-lg sm:text-xl text-foreground placeholder:text-foreground/55 focus:outline-none"
             />
             {query && (
@@ -1193,8 +1243,16 @@ export const CategoryGrid: React.FC = () => {
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { const pick = displayJobs[activeIndex] ?? displayJobs[0]; if (pick) chooseJob(pick); }}
-              aria-label="Search"
+              onClick={() => {
+                // Contextual, never surprising: book the picked job, pick the
+                // highlighted row of an OPEN list, otherwise just open the
+                // suggestions. (It used to silently pick the first starter
+                // even with the dropdown closed and nothing typed.)
+                if (job) { goBook(); return; }
+                if (open && displayJobs.length > 0) { const pick = displayJobs[activeIndex] ?? displayJobs[0]; chooseJob(pick); return; }
+                inputRef.current?.focus();
+              }}
+              aria-label={job ? 'Book this job' : 'Search'}
               className="btn-gold relative z-10 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
             >
               <ArrowRight className="w-5 h-5" />
@@ -1208,6 +1266,9 @@ export const CategoryGrid: React.FC = () => {
           <AnimatePresence>
             {open && !job && displayJobs.length > 0 && (
               <motion.ul
+                id="job-suggestions"
+                role="listbox"
+                aria-label="Job suggestions"
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -1216,11 +1277,13 @@ export const CategoryGrid: React.FC = () => {
               >
                 {/* Returning customer — last job, one tap to rebook, before typing */}
                 {!isSearching && usual && (
-                  <li>
+                  <li role="presentation">
                     <button
                       type="button"
+                      role="option"
+                      aria-selected={false}
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); }}
+                      onClick={() => { openSheet(usual.cat, { size: usual.size }); setOpen(false); inputRef.current?.blur(); }}
                       className="flex w-full items-center gap-3 rounded-xl bg-sage/8 px-2.5 py-2 text-left transition-colors hover:bg-sage/15"
                     >
                       <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-sage/25 bg-white text-lg leading-none shadow-sm" aria-hidden="true">{usual.cat.emoji}</span>
@@ -1239,7 +1302,7 @@ export const CategoryGrid: React.FC = () => {
 
                 {/* Popular starters get one quiet label so they read as a curated set */}
                 {!isSearching && (
-                  <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+                  <li role="presentation" className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
                     Popular
                   </li>
                 )}
@@ -1248,7 +1311,7 @@ export const CategoryGrid: React.FC = () => {
                   let idx = -1;
                   return grouped.map((g) => (
                     <React.Fragment key={g.name}>
-                      <li className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
+                      <li role="presentation" className="select-none px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/55">
                         {g.name}
                       </li>
                       {g.items.map((s) => { idx += 1; return renderRow(s, idx); })}
@@ -1270,13 +1333,27 @@ export const CategoryGrid: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                className="surface-float mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
+                // Floats below the bar exactly like the dropdown (absolute, no
+                // layout height). In normal flow its height re-centered the
+                // justify-center hero, so the moment a job was picked the whole
+                // hero — search bar included — jumped up off-screen.
+                className="surface-float absolute left-0 right-0 top-full z-[60] mt-3 rounded-2xl border border-black/5 bg-white p-4 text-left"
               >
-                <div className="flex items-center gap-2 mb-2.5">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
                   <span className="flex items-center gap-2 text-sm font-bold text-foreground min-w-0">
                     <span className="text-lg" aria-hidden="true">{job.emoji}</span>
                     <span className="truncate">{job.label}</span>
                   </span>
+                  {/* An explicit way back — before this the only escapes were
+                      the ✕ or knowing that typing resets, so the card felt
+                      like a dead end once a job was picked. */}
+                  <button
+                    type="button"
+                    onClick={() => { setJob(null); setOpen(true); setActiveIndex(0); inputRef.current?.focus(); }}
+                    className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
+                  >
+                    Change
+                  </button>
                 </div>
                 {/* Duration — the same pill chips as the booking sheet, so "how
                     long?" looks and behaves identically everywhere it's asked */}
@@ -1288,29 +1365,37 @@ export const CategoryGrid: React.FC = () => {
                   ))}
                 </div>
                 {showComparison ? (
-                  <>
-                    <div className="flex items-stretch gap-2" aria-live="polite">
-                      <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
-                        <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
+                  /* One calm panel: the VANO price is the hero, the market rate
+                     is a quiet strikethrough beside it. (Two side-by-side 3xl
+                     tiles competed for attention and read as clutter.) */
+                  <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3" aria-live="polite">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-left">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">Your price</p>
+                        <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none origin-left">
                           {fmt(vanoCents)}
                         </motion.p>
-                        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr · fair rate</p>
                       </div>
-                      <div className="flex-1 rounded-xl border border-border/60 px-3 py-2.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Typical rate</p>
-                        <p className="mt-0.5 text-3xl font-bold tabular-nums text-muted-foreground/60 leading-none line-through decoration-muted-foreground/40">
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[10px] text-muted-foreground">Typical rate</p>
+                        <p className="text-base font-semibold tabular-nums text-muted-foreground/55 line-through decoration-muted-foreground/40">
                           {fmt(marketCents)}
                         </p>
-                        <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">≈ €{job.marketHourlyCents / 100}/hr</p>
+                        {saveCents > 0 && (
+                          <motion.p
+                            key={saveCents}
+                            initial={{ scale: 0.7, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                            className="mt-1 inline-flex rounded-full bg-sage text-white text-[10px] font-bold px-2 py-0.5 tabular-nums"
+                          >
+                            Save {fmt(saveCents)}
+                          </motion.p>
+                        )}
                       </div>
                     </div>
-                    {saveCents > 0 && (
-                      <p className="mt-2.5 text-center text-[12px] font-bold text-sage-dark">
-                        ✨ You save {fmt(saveCents)} — {savePct}% under the going rate
-                      </p>
-                    )}
-                  </>
+                  </div>
                 ) : (
                   /* Short visit — single fair price (the €12 floor makes a pro-rated
                      market comparison misleading, so we don't show one). */
@@ -1328,8 +1413,9 @@ export const CategoryGrid: React.FC = () => {
                     Book · {fmt(vanoCents)}
                   </Button>
                 </motion.div>
+                {/* One line of reassurance — the book-ahead discount is offered
+                    at the "When?" step, so it doesn't need to shout here too. */}
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
-                <p className="mt-1 text-center text-[11px] font-semibold text-sage-dark">💡 Need it another day? Book ahead at the next step &amp; save 10%.</p>
               </motion.div>
             )}
           </AnimatePresence>
