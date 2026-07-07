@@ -204,7 +204,7 @@ export const HelperPublicProfile: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-secondary flex-shrink-0">
                   {helper.photo_url ? (
-                    <img src={helper.photo_url} alt={helper.name} decoding="async" className="w-full h-full object-cover" />
+                    <img src={helper.photo_url} alt={helper.name} decoding="async" className="w-full h-full object-cover object-[center_20%]" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-sage bg-sage-light">
                       {firstName.charAt(0).toUpperCase()}

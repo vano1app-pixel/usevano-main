@@ -86,7 +86,7 @@ export const HelperFacePile: React.FC = () => {
               src={f.photo_url}
               alt=""
               loading="lazy"
-              className="w-8 h-8 rounded-full object-cover ring-2 ring-navy bg-navy transition-transform duration-200 group-hover:-translate-y-0.5"
+              className="w-8 h-8 rounded-full object-cover object-[center_20%] ring-2 ring-navy bg-navy transition-transform duration-200 group-hover:-translate-y-0.5"
             />
           ))}
         </div>
