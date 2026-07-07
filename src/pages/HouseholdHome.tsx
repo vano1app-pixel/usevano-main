@@ -52,7 +52,10 @@ const HouseholdHome: React.FC = () => {
 
       <main>
         <HeroSection />
-        <ActivityTicker />
+        {/* Ticker rides the navy so the hero band ends cleanly, then a soft
+            gradient seam bridges navy → cream instead of a hard cut. */}
+        <ActivityTicker dark />
+        <div aria-hidden="true" className="h-14 bg-gradient-to-b from-navy to-cream" />
         {/* How it works (honest + simple), then real helper faces — trust is
             established before the most-booked tiles ask for the tap. These
             two plus the hero are the full-screen snap sections (data-snap):
@@ -64,7 +67,7 @@ const HouseholdHome: React.FC = () => {
             band anchors the middle of the page between the cream sections. Tiles
             dispatch vano:select-category, which the hero's CategoryGrid catches
             to open the shared booking sheet. */}
-        <PopularCategories />
+        <Reveal><PopularCategories /></Reveal>
         {/* No testimonial section by owner's call: the seed reviews read as
             fake, and there aren't enough real household_ratings yet to carry
             it. ReviewCarousel + the reviewer_name/area attribution plumbing

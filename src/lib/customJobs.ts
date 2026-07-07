@@ -407,15 +407,21 @@ export function matchCustomJob(text: string): CustomJob | null {
         score += kw.length * 2;
         continue;
       }
-      // Typo tolerance: single-word keywords (4+ chars) only, compared against
-      // whole input words within one character of the same length. One slip is
-      // forgiven — enough for "tutuor" → "tutor" — without inviting the false
-      // hits a looser budget brings (e.g. "living" ≈ "lifting").
+      // Typo tolerance: single-word keywords (4+ chars) only. One slip is
+      // forgiven on short words ("tutuor" → "tutor"); LONGER words (6+ chars)
+      // forgive two ("clening" → "cleaning", "gardining" → "gardening") —
+      // short words keep the tight budget so "living" never ≈ "lifting".
       if (kw.length >= 4 && !kw.includes(' ')) {
         for (const w of words) {
-          if (Math.abs(w.length - kw.length) <= 1 && editDistance(w, kw) === 1) {
-            score += kw.length; // fuzzy — counts, but never beats an exact hit
-            break;
+          // Two slips only when BOTH words are long (6+): "clening"→"cleaning"
+          // matches, but "clean"≈"cleanup" (a different job) never does.
+          const budget = kw.length >= 6 && w.length >= 6 ? 2 : 1;
+          if (Math.abs(w.length - kw.length) <= budget) {
+            const d = editDistance(w, kw);
+            if (d >= 1 && d <= budget) {
+              score += Math.max(2, kw.length - d); // fuzzy — counts, never beats exact
+              break;
+            }
           }
         }
       }
@@ -448,8 +454,13 @@ export function searchCustomJobs(text: string, limit = 6): CustomJob[] {
     for (const kw of job.keywords) {
       if (t.includes(kw)) { score += kw.length * 2; continue; }
       if (kw.length >= 4 && !kw.includes(' ')) {
+        // Same typo budget as matchCustomJob: 1 slip, or 2 when both words are 6+.
         for (const w of words) {
-          if (Math.abs(w.length - kw.length) <= 1 && editDistance(w, kw) === 1) { score += kw.length; break; }
+          const budget = kw.length >= 6 && w.length >= 6 ? 2 : 1;
+          if (Math.abs(w.length - kw.length) <= budget) {
+            const d = editDistance(w, kw);
+            if (d >= 1 && d <= budget) { score += Math.max(2, kw.length - d); break; }
+          }
         }
       }
     }

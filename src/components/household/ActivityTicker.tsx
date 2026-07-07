@@ -5,12 +5,13 @@ interface TickerItem {
   emoji: string;
   service: string;
   area: string;
-  baseMinsAgo: number; // age at the moment the item was fetched/seeded
-  fetchedAt: number;   // Date.now() when minsAgo was captured
+  slug: string | null;  // core category slug → tapping books it; null = not tappable
+  baseMinsAgo: number;  // age at the moment the item was fetched
+  fetchedAt: number;    // Date.now() when minsAgo was captured
 }
 
 const EMOJI: Record<string, string> = {
-  shopping:   '🛒',
+  shopping:   '🧺',
   'dog-walk': '🐕',
   garden:     '🌿',
   moving:     '📦',
@@ -21,7 +22,7 @@ const EMOJI: Record<string, string> = {
 };
 
 const SERVICE_LABEL: Record<string, string> = {
-  shopping:   'Shopping',
+  shopping:   'Laundry',
   'dog-walk': 'Dog walk',
   garden:     'Garden',
   moving:     'Moving help',
@@ -31,20 +32,20 @@ const SERVICE_LABEL: Record<string, string> = {
   custom:     'Home help', // quick-search bookings land as `custom` — never show the raw slug
 };
 
-// Seeds use non-round offsets so they don't feel generated.
-// fetchedAt is set at module load so the ages advance in real time.
-const NOW = Date.now();
-const SEEDS: TickerItem[] = [
-  { emoji: '🧹', service: 'Cleaning',    area: 'Salthill',      baseMinsAgo: 6,   fetchedAt: NOW },
-  { emoji: '🐕', service: 'Dog walk',    area: 'Knocknacarra',  baseMinsAgo: 19,  fetchedAt: NOW },
-  { emoji: '🌿', service: 'Garden',      area: 'Renmore',       baseMinsAgo: 38,  fetchedAt: NOW },
-  { emoji: '📦', service: 'Moving help', area: "Taylor's Hill", baseMinsAgo: 67,  fetchedAt: NOW },
-  { emoji: '🛒', service: 'Shopping',    area: 'Shantalla',     baseMinsAgo: 94,  fetchedAt: NOW },
-  // No tutoring seed — tutoring is online/adults-only now, so an area-tagged
-  // in-person framing would misrepresent the service.
-  { emoji: '🧺', service: 'Laundry',     area: 'Westside',      baseMinsAgo: 121, fetchedAt: NOW },
-  { emoji: '🧹', service: 'Cleaning',    area: 'Rahoon',        baseMinsAgo: 148, fetchedAt: NOW },
-  { emoji: '🐕', service: 'Dog walk',    area: 'Salthill',      baseMinsAgo: 173, fetchedAt: NOW },
+// Tapping an activity item opens the quick-book sheet for that category —
+// only for the categories the sheet actually offers.
+const BOOKABLE = new Set(['shopping', 'dog-walk', 'garden', 'moving', 'cleaning']);
+
+// Honest fallback for quiet periods: real facts about the service, NOT
+// invented bookings. Fabricated "Cleaning · Salthill · 6 min ago" items are
+// fake social proof — the exact trust-burner this brand can't afford.
+const FACTS: Array<{ emoji: string; text: string }> = [
+  { emoji: '🛡️', text: 'Students are ID-checked before their first job' },
+  { emoji: '💶', text: '€18/hr flat — no hidden fees' },
+  { emoji: '👀', text: 'You see your helper before they arrive' },
+  { emoji: '💳', text: 'Pay only after a helper accepts' },
+  { emoji: '✅', text: 'Money-back guarantee on every job' },
+  { emoji: '⚡', text: 'Same-day help across Galway' },
 ];
 
 function currentMins(item: TickerItem, nowMs: number): number {
@@ -58,8 +59,13 @@ function fmtMins(m: number): string {
   return h === 1 ? '1 hr ago' : `${h} hrs ago`;
 }
 
+function bookCategory(slug: string) {
+  window.dispatchEvent(new CustomEvent('vano:select-category', { detail: { slug } }));
+}
+
 export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) => {
-  const [items,  setItems]  = useState<TickerItem[]>(SEEDS);
+  // null = still loading (render nothing yet — never a fabricated frame).
+  const [items,  setItems]  = useState<TickerItem[] | null>(null);
   const [paused, setPaused] = useState(false);
   // Tick every minute so displayed ages advance in real time
   const [nowMs,  setNowMs]  = useState(() => Date.now());
@@ -78,24 +84,35 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data } = await (supabase as any).rpc('recent_household_activity');
 
-        if (data && data.length >= 4) {
+        if (data && data.length >= 3) {
           const fetchedAt = Date.now();
           const real: TickerItem[] = data.map((row: { category: string; city: string; created_at: string }) => ({
             emoji:       EMOJI[row.category]         ?? '✅',
             service:     SERVICE_LABEL[row.category] ?? row.category,
             area:        row.city ?? 'Galway',
+            slug:        BOOKABLE.has(row.category) ? row.category : null,
             baseMinsAgo: Math.max(1, Math.round((fetchedAt - new Date(row.created_at).getTime()) / 60000)),
             fetchedAt,
           }));
           setItems(real);
+          return;
         }
       } catch {
-        // DB unavailable — seeds age correctly on their own
+        /* DB unavailable — fall through to facts */
       }
+      setItems([]); // quiet period / no DB → facts mode
     })();
   }, []);
 
-  const doubled = [...items, ...items];
+  if (items === null) return null; // loading — show nothing rather than anything invented
+
+  const factsMode = items.length === 0;
+  const doubled = factsMode ? [...FACTS, ...FACTS] : [...items, ...items];
+
+  const mutedText  = dark ? 'text-white/50'  : 'text-muted-foreground';
+  const strongText = dark ? 'font-medium text-white/80' : 'font-medium text-foreground';
+  const dotText    = dark ? 'text-white/20 select-none' : 'text-muted-foreground/50 select-none';
+  const dashText   = dark ? 'ml-3 text-white/20 select-none' : 'ml-3 text-border select-none';
 
   return (
     <div
@@ -109,31 +126,55 @@ export const ActivityTicker: React.FC<{ dark?: boolean }> = ({ dark = false }) =
       }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      aria-label="Recent bookings"
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => setPaused(false)}
+      onTouchCancel={() => setPaused(false)}
+      aria-label={factsMode ? "Why VANO" : "Recent bookings"}
       aria-live="off"
     >
       <div
         className="flex animate-scroll-left whitespace-nowrap py-2.5"
         style={{ animationPlayState: paused ? 'paused' : 'running' }}
       >
-        {doubled.map((item, i) => (
-          <span
-            key={i}
-            className={dark
-              ? "inline-flex items-center gap-1.5 px-5 text-xs text-white/50 flex-shrink-0"
-              : "inline-flex items-center gap-1.5 px-5 text-xs text-muted-foreground flex-shrink-0"}
-          >
-            <span className="text-sm leading-none" aria-hidden="true">{item.emoji}</span>
-            <span>
-              <span className={dark ? "font-medium text-white/80" : "font-medium text-foreground"}>{item.service}</span>
-              {' '}booked in{' '}
-              <span className={dark ? "font-medium text-white/80" : "font-medium text-foreground"}>{item.area}</span>
-            </span>
-            <span className={dark ? "text-white/20 select-none" : "text-muted-foreground/50 select-none"}>·</span>
-            <span className="tabular-nums">{fmtMins(currentMins(item, nowMs))}</span>
-            <span className={dark ? "ml-3 text-white/20 select-none" : "ml-3 text-border select-none"} aria-hidden="true">—</span>
-          </span>
-        ))}
+        {factsMode
+          ? (doubled as typeof FACTS).map((f, i) => (
+              <span key={i} className={`inline-flex items-center gap-1.5 px-5 text-xs flex-shrink-0 ${mutedText}`}>
+                <span className="text-sm leading-none" aria-hidden="true">{f.emoji}</span>
+                <span className={strongText}>{f.text}</span>
+                <span className={dashText} aria-hidden="true">—</span>
+              </span>
+            ))
+          : (doubled as TickerItem[]).map((item, i) => {
+              const body = (
+                <>
+                  <span className="text-sm leading-none" aria-hidden="true">{item.emoji}</span>
+                  <span>
+                    <span className={strongText}>{item.service}</span>
+                    {' '}booked in{' '}
+                    <span className={strongText}>{item.area}</span>
+                  </span>
+                  <span className={dotText}>·</span>
+                  <span className="tabular-nums">{fmtMins(currentMins(item, nowMs))}</span>
+                  <span className={dashText} aria-hidden="true">—</span>
+                </>
+              );
+              // Real bookings for a bookable category are tappable — "book this too".
+              return item.slug ? (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => bookCategory(item.slug!)}
+                  className={`inline-flex items-center gap-1.5 px-5 text-xs flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75 ${mutedText}`}
+                  aria-label={`Book a ${item.service.toLowerCase()} like this one`}
+                >
+                  {body}
+                </button>
+              ) : (
+                <span key={i} className={`inline-flex items-center gap-1.5 px-5 text-xs flex-shrink-0 ${mutedText}`}>
+                  {body}
+                </span>
+              );
+            })}
       </div>
     </div>
   );

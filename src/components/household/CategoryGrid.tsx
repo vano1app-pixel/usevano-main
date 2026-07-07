@@ -117,6 +117,32 @@ function fmt(cents: number): string {
   return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
 }
 
+/** Euro amount that glides between price changes (50c steps mid-flight, exact
+ *  at rest) instead of snapping — the little "meter ticking" moment when a
+ *  duration chip is tapped. */
+const AnimatedPrice: React.FC<{ cents: number; className?: string }> = ({ cents, className }) => {
+  const [display, setDisplay] = useState(cents);
+  const prevRef = useRef(cents);
+  useEffect(() => {
+    const from = prevRef.current;
+    prevRef.current = cents;
+    if (from === cents) return;
+    const start = Date.now();
+    const dur = 450;
+    let raf = 0;
+    const tick = () => {
+      const p = Math.min((Date.now() - start) / dur, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      const v = from + (cents - from) * ease;
+      setDisplay(p >= 1 ? cents : Math.round(v / 50) * 50);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [cents]);
+  return <span className={className}>{fmt(display)}</span>;
+};
+
 // ─── Time slots ───────────────────────────────────────────────────────────
 
 function getTimeSlots(): string[] {
@@ -1120,6 +1146,16 @@ export const CategoryGrid: React.FC = () => {
             </span>
             <span className="block text-[11px] text-muted-foreground truncate">{sub}</span>
           </span>
+          {/* Price at the moment of choice — canonical custom rate for the job's
+              typical duration, so the row and the price card can never disagree. */}
+          {!isOther && (() => {
+            const cents = getPriceCents('custom', `${Math.min(8, Math.max(1, s.typicalHours))} hours`);
+            return cents ? (
+              <span className="flex-shrink-0 text-[11px] font-bold tabular-nums text-sage-dark">
+                from {fmt(cents)}
+              </span>
+            ) : null;
+          })()}
           <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground/30 transition-colors group-hover/row:text-muted-foreground/70" aria-hidden="true" />
         </button>
       </li>
@@ -1176,6 +1212,7 @@ export const CategoryGrid: React.FC = () => {
               }}
               placeholder={`Search for "${HINTS[hintIdx]}"…`}
               autoComplete="off"
+              enterKeyHint="go"
               aria-label="Search for what you need done"
               className="relative z-10 flex-1 min-w-0 bg-transparent text-lg sm:text-xl text-foreground placeholder:text-foreground/55 focus:outline-none"
             />
@@ -1292,9 +1329,9 @@ export const CategoryGrid: React.FC = () => {
                     <div className="flex items-stretch gap-2" aria-live="polite">
                       <div className="flex-1 rounded-xl border border-sage/40 bg-sage-light/40 px-3 py-2.5 text-center">
                         <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair</p>
-                        <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
-                          {fmt(vanoCents)}
-                        </motion.p>
+                        <p className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
+                          <AnimatedPrice cents={vanoCents} />
+                        </p>
                         <p className="mt-1 text-[10px] text-muted-foreground tabular-nums">€18/hr × {hours} hr</p>
                       </div>
                       <div className="flex-1 rounded-xl border border-border/60 px-3 py-2.5 text-center">
@@ -1316,16 +1353,16 @@ export const CategoryGrid: React.FC = () => {
                      market comparison misleading, so we don't show one). */
                   <div className="rounded-xl border border-sage/40 bg-sage-light/40 px-4 py-3 text-center" aria-live="polite">
                     <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-sage-dark">VANO · fair flat price</p>
-                    <motion.p key={vanoCents} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }} className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
-                      {fmt(vanoCents)}
-                    </motion.p>
+                    <p className="mt-0.5 text-3xl font-extrabold tabular-nums text-foreground leading-none">
+                      <AnimatedPrice cents={vanoCents} />
+                    </p>
                     <p className="mt-1 text-[10px] text-muted-foreground">Quick {size} visit</p>
                   </div>
                 )}
                 <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="mt-3">
                   <Button type="button" onClick={goBook} className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary shadow-primary-glow">
                     <Zap className="w-4 h-4" />
-                    Book · {fmt(vanoCents)}
+                    Book · <AnimatedPrice cents={vanoCents} />
                   </Button>
                 </motion.div>
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">No payment until a helper accepts · money-back guarantee</p>
@@ -1335,10 +1372,32 @@ export const CategoryGrid: React.FC = () => {
           </AnimatePresence>
         </motion.div>
 
-        {/* Nothing sits directly under the bar anymore — the first-timer cue and
-            the "Prefer to chat?" line were removed so the search box is the one
-            clear thing to act on. Returning customers' "your usual" is in the
-            dropdown; WhatsApp is now a green button in the nav. */}
+        {/* One-tap starters — the three most-booked services, bookable without
+            typing. Quiet glass chips so the bar stays the hero; they yield the
+            stage the moment a job is picked (the price card takes over). */}
+        <AnimatePresence initial={false}>
+          {!job && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="mt-3 flex flex-wrap items-center justify-center gap-2"
+            >
+              {CATEGORIES.filter(c => ['cleaning', 'dog-walk', 'garden'].includes(c.slug)).map((cat) => (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  onClick={() => { haptic(8); openSheet(cat); }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3.5 py-2 text-xs font-semibold text-white/85 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] transition-[background-color,transform] duration-150 hover:bg-white/[0.12] active:scale-95"
+                >
+                  <span className="text-sm leading-none" aria-hidden="true">{cat.emoji}</span>
+                  {cat.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Bottom sheet portal-style — rendered outside the grid */}

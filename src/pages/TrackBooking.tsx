@@ -125,6 +125,53 @@ const customerDestIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
+// Helper pin with their actual photo (the Uber moment) — falls back to the
+// plain sage dot until a photo exists. Icons are cached per URL so the
+// location poll's re-renders don't rebuild DOM icons every few seconds.
+const photoIconCache = new Map<string, L.DivIcon>();
+function helperIconFor(photoUrl: string | null | undefined): L.DivIcon {
+  if (!photoUrl) return helperMarkerIcon;
+  const cached = photoIconCache.get(photoUrl);
+  if (cached) return cached;
+  const esc = photoUrl.replace(/"/g, '&quot;');
+  const icon = L.divIcon({
+    className: '',
+    html:
+      '<div style="position:relative;width:36px;height:36px">' +
+      '<div class="vano-dot-ring" style="position:absolute;inset:-6px;border:2px solid #4a7c59;border-radius:50%"></div>' +
+      `<img src="${esc}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);background:#4a7c59" />` +
+      '</div>',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+  photoIconCache.set(photoUrl, icon);
+  return icon;
+}
+
+// Marker that GLIDES between GPS pings (ease-out over ~1.2s) instead of
+// teleporting — the small thing that makes live tracking read as live.
+function GlidingMarker({ lat, lng, icon }: { lat: number; lng: number; icon: L.DivIcon }) {
+  const [pos, setPos] = useState<[number, number]>([lat, lng]);
+  const prev = useRef<[number, number]>([lat, lng]);
+  useEffect(() => {
+    const from = prev.current;
+    prev.current = [lat, lng];
+    if (from[0] === lat && from[1] === lng) return;
+    const start = Date.now();
+    const dur = 1200;
+    let raf = 0;
+    const tick = () => {
+      const p = Math.min((Date.now() - start) / dur, 1);
+      const e = 1 - Math.pow(1 - p, 3);
+      setPos([from[0] + (lat - from[0]) * e, from[1] + (lng - from[1]) * e]);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [lat, lng]);
+  return <Marker position={pos} icon={icon} />;
+}
+
 // Invalidate the map size once layout settles (the map can mount mid-
 // animation, otherwise tiles come up gray). Used by the static search map.
 function MapAutoResize() {
@@ -917,7 +964,7 @@ const TrackBooking = () => {
                   />
                 )}
                 {helperLoc && (
-                  <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMarkerIcon} />
+                  <GlidingMarker lat={booking.worker_lat as number} lng={booking.worker_lng as number} icon={helperIconFor(helperCard?.photo_url)} />
                 )}
                 {customerLoc && (
                   <Marker position={[booking.customer_lat as number, booking.customer_lng as number]} icon={customerDestIcon} />
@@ -1739,7 +1786,7 @@ const TrackBooking = () => {
               >
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" detectRetina />
                 {helperLoc && (
-                  <Marker position={[booking.worker_lat as number, booking.worker_lng as number]} icon={helperMarkerIcon} />
+                  <GlidingMarker lat={booking.worker_lat as number} lng={booking.worker_lng as number} icon={helperIconFor(helperCard?.photo_url)} />
                 )}
                 {customerLoc && (
                   <Marker position={[booking.customer_lat as number, booking.customer_lng as number]} icon={customerDestIcon} />

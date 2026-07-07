@@ -41,10 +41,18 @@ export const HowItWorks: React.FC = () => {
   return (
     <section className="bg-white py-20 lg:pt-28 lg:pb-20 lg:min-h-screen lg:flex lg:flex-col lg:justify-center">
       <div className="px-4 max-w-5xl mx-auto">
-        <div className="text-center mb-10 lg:mb-14">
+        {/* Heading lands first, then the steps stagger in behind it — the same
+            reveal order every section on the page follows. */}
+        <motion.div
+          className="text-center mb-10 lg:mb-14"
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
           <p className="eyebrow mb-3">How it works</p>
           <h2 className="display-lg text-foreground">Help in three simple steps</h2>
-        </div>
+        </motion.div>
 
         <motion.ol
           className="relative grid gap-10 sm:grid-cols-3 sm:gap-8"

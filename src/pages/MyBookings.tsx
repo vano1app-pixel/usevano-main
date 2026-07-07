@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { loadBookingMemory } from '@/lib/bookingMemory';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { isValidPhone } from '@/lib/validation';
 import {
   categoryLabel, statusLabel, formatBookingDate, ACTIVE_STATUSES,
@@ -87,6 +88,10 @@ const MyBookings: React.FC = () => {
 
   useEffect(() => { if (phone) void fetchBookings(phone); }, [phone, fetchBookings]);
 
+  // Native-app pull-to-refresh: drag down from the top to re-fetch. No-op
+  // until a phone is on file (nothing to refresh yet).
+  const { pull, refreshing } = usePullToRefresh(() => (phone ? fetchBookings(phone) : undefined));
+
   const active = (bookings ?? []).filter(b => ACTIVE_STATUSES.has(b.status));
   const past = (bookings ?? []).filter(b => !ACTIVE_STATUSES.has(b.status));
 
@@ -102,6 +107,25 @@ const MyBookings: React.FC = () => {
     <div className="min-h-[100dvh] bg-cream">
       <SEOHead title="Your bookings" description="Track your VANO bookings — find a helper, follow their arrival, and see your history." url="https://vanojobs.com/bookings" />
       <HouseholdNav />
+
+      {/* Pull-to-refresh indicator — fades/rotates in with the drag, spins while
+          re-fetching. Touch devices only (the hook never fires on mouse). */}
+      {(pull > 0 || refreshing) && (
+        <div
+          className="pointer-events-none fixed left-1/2 top-16 z-40 -translate-x-1/2"
+          style={{ opacity: refreshing ? 1 : Math.min(1, pull / 60), transform: `translate(-50%, ${Math.min(pull, 70) - 24}px)` }}
+          aria-hidden={!refreshing}
+          aria-live="polite"
+          aria-label={refreshing ? 'Refreshing your bookings' : undefined}
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-white shadow-md">
+            <RotateCw
+              className={cn('h-4 w-4 text-sage', refreshing && 'animate-spin')}
+              style={refreshing ? undefined : { transform: `rotate(${pull * 3}deg)` }}
+            />
+          </span>
+        </div>
+      )}
 
       {/* Mobile: content sits at the top under the nav. Desktop: the flex column
           centres in the viewport so the short lookup/empty card lands in the
