@@ -41,6 +41,9 @@ const VerifyHelper: React.FC = () => {
   const [code, setCode] = useState('');
   const [emailState, setEmailState] = useState<EmailState>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
+  // Which channel the live code was sent by, so Resend re-uses it and the
+  // helper text matches ('sms' also covers WhatsApp).
+  const [otpChannel, setOtpChannel] = useState<'email' | 'sms'>('email');
 
   const [idState, setIdState] = useState<IdState>(returnedFromIdCheck ? 'submitted' : 'idle');
   const [idError, setIdError] = useState<string | null>(null);
@@ -85,7 +88,7 @@ const VerifyHelper: React.FC = () => {
     if (!helperId) return;
     const clean = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) { setEmailError('Enter your college email.'); return; }
-    setEmailState('sending'); setEmailError(null);
+    setEmailState('sending'); setEmailError(null); setOtpChannel('email');
     const { data, error } = await supabase.functions.invoke('send-student-email-otp', { body: { helper_id: helperId, email: clean } });
     if (error || (data as { error?: string } | null)?.error) {
       setEmailError((data as { error?: string } | null)?.error || 'Could not send a code. Try again.');
@@ -95,6 +98,21 @@ const VerifyHelper: React.FC = () => {
     haptic(8);
     setEmailState('sent');
   }, [helperId, email]);
+
+  // Reliable alternative: text the code to the phone on the application
+  // (WhatsApp preferred, SMS fallback). No email needed. Same code + verify.
+  const sendSmsCode = useCallback(async () => {
+    if (!helperId) return;
+    setEmailState('sending'); setEmailError(null); setOtpChannel('sms');
+    const { data, error } = await supabase.functions.invoke('send-student-sms-otp', { body: { helper_id: helperId } });
+    if (error || (data as { error?: string } | null)?.error) {
+      setEmailError((data as { error?: string } | null)?.error || 'Could not text a code. Try email instead.');
+      setEmailState('idle');
+      return;
+    }
+    haptic(8);
+    setEmailState('sent');
+  }, [helperId]);
 
   const verifyCode = useCallback(async () => {
     if (!helperId || code.trim().length !== 6) { setEmailError('Enter the 6-digit code.'); return; }
@@ -193,25 +211,41 @@ const VerifyHelper: React.FC = () => {
                     )}
                     {(emailState === 'sent' || emailState === 'verifying') && !emailError && (
                       <p className="text-xs text-muted-foreground leading-snug">
-                        Code sent to <span className="font-medium text-foreground">{email.trim()}</span>. It can take a minute — <span className="font-medium text-foreground">check your Spam / Promotions folder</span> too. Still nothing? Tap Resend, or{' '}
-                        <a
-                          href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, my student email code isn't arriving (${email.trim()}) — can you verify me?`)}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="font-medium text-primary underline underline-offset-2"
-                        >WhatsApp us</a> and we'll verify you.
+                        {otpChannel === 'sms' ? (
+                          <>We texted your code (check WhatsApp too). Didn't get it? Tap Resend or use email above.</>
+                        ) : (
+                          <>Code sent to <span className="font-medium text-foreground">{email.trim()}</span>. It can take a minute — <span className="font-medium text-foreground">check your Spam / Promotions folder</span> too. Still nothing? Tap Resend, text it instead, or{' '}
+                          <a
+                            href={`${teamWhatsAppHref}?text=${encodeURIComponent(`Hi VANO, my student email code isn't arriving (${email.trim()}) — can you verify me?`)}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="font-medium text-primary underline underline-offset-2"
+                          >WhatsApp us</a>.</>
+                        )}
                       </p>
                     )}
                     {emailError && <p className="text-xs text-destructive">{emailError}</p>}
                     {emailState === 'idle' || emailState === 'sending' ? (
-                      <Button onClick={() => void sendCode()} disabled={emailState === 'sending'} className="w-full rounded-full font-semibold gap-2">
-                        {emailState === 'sending' ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</> : 'Send me a code'}
-                      </Button>
+                      <div className="space-y-2">
+                        <Button onClick={() => void sendCode()} disabled={emailState === 'sending'} className="w-full rounded-full font-semibold gap-2">
+                          {emailState === 'sending' && otpChannel === 'email' ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</> : 'Send me a code'}
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => void sendSmsCode()}
+                          disabled={emailState === 'sending'}
+                          className="w-full text-sm font-medium text-primary flex items-center justify-center gap-1.5 py-1.5 disabled:opacity-50"
+                        >
+                          {emailState === 'sending' && otpChannel === 'sms'
+                            ? <><Loader2 className="w-4 h-4 animate-spin" />Texting…</>
+                            : <>📱 Prefer a text? Send the code by SMS</>}
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <Button onClick={() => void verifyCode()} disabled={emailState === 'verifying' || code.length !== 6} className="flex-1 rounded-full font-semibold gap-2">
                           {emailState === 'verifying' ? <><Loader2 className="w-4 h-4 animate-spin" />Checking…</> : 'Verify'}
                         </Button>
-                        <button onClick={() => void sendCode()} className="text-xs text-muted-foreground underline underline-offset-2 px-2">Resend</button>
+                        <button onClick={() => void (otpChannel === 'sms' ? sendSmsCode() : sendCode())} className="text-xs text-muted-foreground underline underline-offset-2 px-2">Resend</button>
                       </div>
                     )}
                   </div>

@@ -68,6 +68,10 @@ project_id = "puomfwjtpvqedwxjxogh"
     verify_jwt = false
   [functions.verify-student-email-otp]
     verify_jwt = false
+  # SMS/WhatsApp code — reliable alternative to the email OTP; verified by the
+  # same verify-student-email-otp. Applicant has no JWT yet.
+  [functions.send-student-sms-otp]
+    verify_jwt = false
   [functions.create-identity-verification]
     verify_jwt = false
   [functions.stripe-identity-webhook]
