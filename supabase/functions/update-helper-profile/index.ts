@@ -21,7 +21,7 @@ function parseSlugArray(raw: string | null): string[] | null {
     if (!Array.isArray(arr)) return [];
     return arr
       .filter((s): s is string => typeof s === 'string' && SLUG_RE.test(s))
-      .slice(0, 30);
+      .slice(0, 80);
   } catch {
     return [];
   }
@@ -61,6 +61,7 @@ serve(async (req) => {
     const availRaw     = (formData.get('availability') as string | null);
     const catsRaw      = (formData.get('categories')   as string | null);
     const newPhoneRaw  = (formData.get('new_phone')    as string | null)?.trim();
+    const newEmailRaw  = (formData.get('new_email')    as string | null)?.trim().toLowerCase();
     const photo        = formData.get('photo') as File | null;
 
     if (!phone) return bad('phone is required');
@@ -69,7 +70,7 @@ serve(async (req) => {
     // differences, falling back to a digits-only comparison.
     let { data: helper, error: lookupErr } = await supabase
       .from('household_helpers')
-      .select('id, photo_url')
+      .select('id, photo_url, email')
       .in('phone', phoneVariants(phone))
       .neq('status', 'suspended')
       .limit(1)
@@ -80,14 +81,14 @@ serve(async (req) => {
       if (last9.length === 9) {
         const { data: rows, error: listErr } = await supabase
           .from('household_helpers')
-          .select('id, phone, photo_url')
+          .select('id, phone, photo_url, email')
           .neq('status', 'suspended');
         if (listErr) {
           lookupErr = listErr;
         } else {
           const hit = (rows ?? []).find((r: { phone: string | null }) =>
             (r.phone ?? '').replace(/\D/g, '').endsWith(last9));
-          if (hit) helper = hit as { id: string; photo_url: string };
+          if (hit) helper = hit as { id: string; photo_url: string; email: string | null };
         }
       }
     }
@@ -114,6 +115,17 @@ serve(async (req) => {
       const digits = newPhoneRaw.replace(/\D/g, '');
       if (digits.length < 7 || digits.length > 15) return bad('Invalid new phone number');
       updates.phone = newPhoneRaw;
+    }
+
+    // Email add/change — a different address is unconfirmed, so it drops
+    // student_email_verified; the OTP flow on /verify-helper re-earns it.
+    if (newEmailRaw) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmailRaw) || newEmailRaw.length > 254) {
+        return bad('Invalid email address');
+      }
+      updates.email = newEmailRaw;
+      const current = ((helper as { email?: string | null }).email ?? '').toLowerCase();
+      if (newEmailRaw !== current) updates.student_email_verified = false;
     }
 
     // Photo upload

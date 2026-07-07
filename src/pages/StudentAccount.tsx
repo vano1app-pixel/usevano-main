@@ -10,20 +10,13 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
+import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import logo from '@/assets/logo.png';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const hdb = supabase as any;
 
-const CATEGORIES = [
-  { id: 'shopping',  label: 'Shopping'   },
-  { id: 'dog-walk',  label: 'Dog walk'   },
-  { id: 'garden',    label: 'Garden'     },
-  { id: 'moving',    label: 'Moving'     },
-  { id: 'cleaning',  label: 'Cleaning'   },
-  { id: 'tutoring',  label: 'Online tutoring' },
-  { id: 'other',     label: 'Other'      },
-];
+// "Jobs I do" — groups + sub-skills shared with the join form (helperSkills).
 
 const SLOTS = [
   { id: 'mon-fri-morning',   label: 'Mon–Fri mornings'   },
@@ -97,6 +90,27 @@ const StudentAccount = () => {
     return () => { cancelled = true; };
   }, []);
 
+  // Verification flags come straight from the DB by helper id (same anon read
+  // VerifyHelper uses) — not from find-helper-by-phone, so the badge and the
+  // get-verified card work regardless of which function version is deployed.
+  const helperId = helper?.id;
+  useEffect(() => {
+    if (!helperId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await hdb
+        .from('household_helpers')
+        .select('student_email_verified, id_verified')
+        .eq('id', helperId)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setHelper(h => h && h.id === helperId
+        ? { ...h, student_email_verified: data.student_email_verified, id_verified: data.id_verified }
+        : h);
+    })();
+    return () => { cancelled = true; };
+  }, [helperId]);
+
   const [bio,          setBio]          = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [avail,        setAvail]        = useState<string[]>([]);
@@ -113,6 +127,11 @@ const StudentAccount = () => {
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput,   setPhoneInput]   = useState('');
   const [phoneSaving,  setPhoneSaving]  = useState(false);
+
+  // Email inline edit (add or change)
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput,   setEmailInput]   = useState('');
+  const [emailSaving,  setEmailSaving]  = useState(false);
 
   // Sheets
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
@@ -299,8 +318,40 @@ const StudentAccount = () => {
     }
   };
 
-  const toggleCat  = (id: string) =>
-    setSelectedCats(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+  // Email inline save — same service-role path as savePhone. Changing the
+  // email un-verifies it server-side, so the badge can't ride on an
+  // unconfirmed address; the get-verified card re-earns it.
+  const saveEmail = async () => {
+    if (!helper) return;
+    const clean = emailInput.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      toast({ title: 'Enter a valid email address', variant: 'destructive' });
+      return;
+    }
+    setEmailSaving(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const fd = new FormData();
+      fd.append('phone',     helper.phone);
+      fd.append('new_email', clean);
+      const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
+        body: fd,
+      });
+      const json = await res.json() as { success?: boolean };
+      if (!res.ok || !json.success) throw new Error('Update failed');
+      setHelper(h => h ? { ...h, email: clean, student_email_verified: false } : h);
+      setEditingEmail(false);
+      toast({ title: 'Email saved', description: 'Confirm it via Get VANO Verified to earn your badge.' });
+    } catch {
+      toast({ title: 'Could not save email', description: 'Try again or WhatsApp +353 89 981 7111.', variant: 'destructive' });
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
   const toggleSlot = (id: string) =>
     setAvail(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
 
@@ -512,9 +563,11 @@ const StudentAccount = () => {
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button
-          onClick={() => navigate('/student-dashboard')}
+          // The dashboard needs an auth session and bounces to the sign-in
+          // page without one — phone-gated helpers go home instead.
+          onClick={() => navigate(authUserId ? '/student-dashboard' : '/')}
           className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
-          aria-label="Back to dashboard"
+          aria-label="Back"
         >
           <ChevronLeft size={20} strokeWidth={2} />
         </button>
@@ -648,10 +701,53 @@ const StudentAccount = () => {
                 )}
               </div>
 
-              {/* Email */}
-              <div className="px-4 py-3.5 flex items-center gap-3">
+              {/* Email — add it here or change it; the get-verified flow
+                  confirms it. helper.email is only populated locally after a
+                  save (the phone lookup deliberately doesn't return it). */}
+              <div className="px-4 py-3.5 flex items-center gap-3 min-h-[52px]">
                 <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Email</span>
-                <span className="flex-1 text-sm text-foreground truncate">{helper.email ?? '—'}</span>
+                {editingEmail ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={e => setEmailInput(e.target.value)}
+                      placeholder="you@universityofgalway.ie"
+                      inputMode="email"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoFocus
+                      className="flex-1 min-w-0 bg-transparent text-sm text-foreground focus:outline-none border-b border-primary pb-0.5 placeholder:text-muted-foreground/40"
+                    />
+                    <button
+                      onClick={() => void saveEmail()}
+                      disabled={emailSaving}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-sage text-white disabled:opacity-50 flex-shrink-0"
+                      aria-label="Save email"
+                    >
+                      {emailSaving
+                        ? <Loader2 size={13} className="animate-spin" />
+                        : <Check size={13} strokeWidth={2.5} />}
+                    </button>
+                    <button
+                      onClick={() => { setEditingEmail(false); setEmailInput(helper.email ?? ''); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground flex-shrink-0"
+                      aria-label="Cancel"
+                    >
+                      <X size={13} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm text-foreground truncate">{helper.email ?? '—'}</span>
+                    <button
+                      onClick={() => { setEmailInput(helper.email ?? ''); setEditingEmail(true); }}
+                      className="text-xs text-primary font-medium"
+                    >
+                      {helper.email ? 'Edit' : 'Add'}
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* City */}
@@ -704,26 +800,67 @@ const StudentAccount = () => {
             </section>
           )}
 
-          {/* Jobs */}
+          {/* Jobs — top-level groups, each opening its sub-skills when picked
+              so a helper can say exactly what they do (e.g. Cleaning → Deep
+              clean, Oven & kitchen). Sub picks keep the parent selected —
+              dispatch matches on the parent slug. */}
           <section>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Jobs I do</p>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map(({ id, label }) => {
-                const active = selectedCats.includes(id);
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Jobs I do</p>
+            <p className="text-xs text-muted-foreground mb-3">Pick a job type, then tap the specifics you're good at — they show on your profile.</p>
+            <div className="space-y-2">
+              {SKILL_GROUPS.map(group => {
+                const active = selectedCats.includes(group.id);
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => toggleCat(id)}
+                  <div
+                    key={group.id}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,border-color,color] duration-150',
-                      active
-                        ? 'bg-sage text-white border-sage'
-                        : 'bg-background text-foreground border-border hover:border-sage/60',
+                      'rounded-2xl border transition-colors duration-150',
+                      active ? 'border-sage/40 bg-sage/5' : 'border-border/60 bg-background',
                     )}
                   >
-                    {label}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCats(prev => toggleGroup(prev, group.id))}
+                      aria-pressed={active}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left"
+                    >
+                      <span aria-hidden="true">{group.emoji}</span>
+                      <span className={cn('flex-1 text-sm font-medium', active ? 'text-foreground' : 'text-foreground/80')}>
+                        {group.label}
+                      </span>
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 items-center justify-center rounded-full border transition-colors duration-150 flex-shrink-0',
+                          active ? 'bg-sage border-sage text-white' : 'border-border text-transparent',
+                        )}
+                      >
+                        <Check size={11} strokeWidth={3} />
+                      </span>
+                    </button>
+                    {active && group.subs.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 px-3.5 pb-3">
+                        {group.subs.map(sub => {
+                          const subActive = selectedCats.includes(sub.id);
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => setSelectedCats(prev => toggleSub(prev, group.id, sub.id))}
+                              aria-pressed={subActive}
+                              className={cn(
+                                'px-2.5 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150 active:scale-[0.96]',
+                                subActive
+                                  ? 'bg-sage text-white border-sage'
+                                  : 'bg-background text-foreground/70 border-border hover:border-sage/60',
+                              )}
+                            >
+                              {sub.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
