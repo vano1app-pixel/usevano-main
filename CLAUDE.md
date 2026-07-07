@@ -421,4 +421,9 @@ catches a ghosting helper regardless of how they accepted; the hero search
 bar's pick-a-job moment was de-janked (the price card floats like the
 dropdown, so the justify-center hero no longer re-centers and throws the bar
 off-screen when it mounts; keyboard drops on pick; the bar always reopens
-the list; explicit Change link; calmer one-panel price card; combobox a11y).
+the list; explicit Change link; calmer one-panel price card; combobox a11y);
+phones now get a full-screen search takeover (Uber pattern — the hero bar is
+just the door, the input pins above the keyboard, list → price card → the
+booking sheet opens over it), suggestion rows show ballpark prices, and both
+the takeover AND the booking sheet are portaled to <body> (rendered in place,
+the hero's transform stacking context let the fixed nav sit over them).
