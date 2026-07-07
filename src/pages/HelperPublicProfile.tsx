@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, type Variants } from 'framer-motion';
-import { Star, MapPin, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Star, MapPin, ShieldCheck, ArrowLeft, BadgeCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { HouseholdNav } from '@/components/household/HouseholdNav';
 import { HouseholdFooter } from '@/components/household/HouseholdFooter';
@@ -60,6 +60,8 @@ interface HelperRow {
   rating_count:   number;
   created_at:     string;
   id_verified:    boolean | null;
+  /** email + ID + active plan — the blue tick (DB generated column). */
+  vano_verified:  boolean | null;
 }
 
 interface ReviewRow {
@@ -117,7 +119,7 @@ export const HelperPublicProfile: React.FC = () => {
     (async () => {
       const { data } = await hdb
         .from('household_helpers')
-        .select('id, name, photo_url, city, age, bio, categories, availability, is_available, accepted_count, average_rating, rating_avg, rating_count, created_at, id_verified')
+        .select('id, name, photo_url, city, age, bio, categories, availability, is_available, accepted_count, average_rating, rating_avg, rating_count, created_at, id_verified, vano_verified')
         .eq('id', id)
         .eq('status', 'approved')
         .maybeSingle();
@@ -210,9 +212,14 @@ export const HelperPublicProfile: React.FC = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-2xl font-semibold text-foreground leading-tight">
-                    {firstName}
-                    {helper.age ? <span className="font-normal text-muted-foreground"> · {helper.age}</span> : null}
+                  <h1 className="text-2xl font-semibold text-foreground leading-tight flex items-center gap-1.5">
+                    <span>
+                      {firstName}
+                      {helper.age ? <span className="font-normal text-muted-foreground"> · {helper.age}</span> : null}
+                    </span>
+                    {helper.vano_verified && (
+                      <BadgeCheck className="w-6 h-6 fill-sky-500 text-white flex-shrink-0" aria-label="VANO Verified" />
+                    )}
                   </h1>
                   <p className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                     <MapPin className="w-3.5 h-3.5 flex-shrink-0" /> {helper.city}

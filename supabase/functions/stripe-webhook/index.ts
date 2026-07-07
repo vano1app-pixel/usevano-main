@@ -1226,6 +1226,26 @@ serve(async (req) => {
     if (session.metadata?.type === 'helper_signup' && session.metadata?.helper_id) {
       return handleHelperSignupPaid(supabase, supabaseUrl, serviceKey, session, session.metadata.helper_id);
     }
+    // €2/month ✓ Verified plan. confirm-verified-plan records it from the
+    // browser redirect; this is the lost-redirect backstop (same reasoning as
+    // the €2 helper_signup above). Idempotent — replays just re-set true.
+    if (session.metadata?.type === 'verified_plan' && session.metadata?.helper_id) {
+      if (session.payment_status && session.payment_status !== 'paid') {
+        return new Response(JSON.stringify({ received: true, unpaid: true }), { headers: { 'Content-Type': 'application/json' } });
+      }
+      const { error: planErr } = await supabase
+        .from('household_helpers')
+        .update({
+          verified_plan_active: true,
+          ...(session.subscription ? { verified_plan_sub_id: session.subscription } : {}),
+        })
+        .eq('id', session.metadata.helper_id);
+      if (planErr) {
+        console.error('[stripe-webhook] verified_plan activate failed', planErr);
+        return new Response('DB error', { status: 500 });
+      }
+      return new Response(JSON.stringify({ received: true, verified_plan: 'active' }), { headers: { 'Content-Type': 'application/json' } });
+    }
     // NOTE: the legacy monthly-membership auto-approve (a checkout carrying
     // metadata.helper_email → flip pending→approved) was REMOVED. It bypassed
     // BOTH the €2 sign-up fee and Stripe Identity verification, breaking the
@@ -1260,6 +1280,24 @@ serve(async (req) => {
   // nothing breaks — the table just stays admin-managed.
   if (eventType === 'customer.subscription.deleted') {
     const sub = event.data?.object as StripeSubscription | undefined;
+    // A helper's €2/month ✓ Verified plan ending (cancelled, or payments
+    // failed until Stripe gave up) — turn the tick's paid leg off. Matched
+    // by the stored subscription id, with the sub's own metadata as the
+    // fallback for rows where the redirect confirm never stored it.
+    if (sub?.id) {
+      const helperIdMeta = sub.metadata?.type === 'verified_plan' ? sub.metadata?.helper_id : undefined;
+      const { data: flipped, error: tickErr } = await supabase
+        .from('household_helpers')
+        .update({ verified_plan_active: false, verified_plan_sub_id: null })
+        .or(`verified_plan_sub_id.eq.${sub.id}${helperIdMeta ? `,id.eq.${helperIdMeta}` : ''}`)
+        .eq('verified_plan_active', true)
+        .select('id')
+        .maybeSingle();
+      if (tickErr) console.warn('[stripe-webhook] verified_plan deactivate failed', tickErr);
+      if (flipped) {
+        return new Response(JSON.stringify({ received: true, verified_plan: 'ended' }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
     return handlePlanSubscriptionDeleted(supabase, sub ?? {});
   }
 

@@ -29,7 +29,7 @@ const STATS = [
 const REQUIREMENTS = [
   'Third-level student — verified by your college email',
   '18 or over, with a valid photo ID',
-  'A one-off €2 to verify you — covers your Stripe ID check',
+  'Free to join — the optional ✓ Verified tick is €2/month',
   'Living in a city we serve',
   'Friendly, reliable and up for it',
 ];
@@ -554,10 +554,12 @@ export const JoinAsHelper: React.FC = () => {
                     <div className="rounded-2xl border border-sage/30 bg-sage-light p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <BadgeCheck className="w-5 h-5 text-sage flex-shrink-0" />
-                        <p className="text-sm font-bold text-foreground">Next: 3 quick checks, then you're live</p>
+                        <p className="text-sm font-bold text-foreground">Submit this and you're live — free</p>
                       </div>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Right after this you'll confirm your college email, do a 2-minute ID check (secured by Stripe), and pay the one-off €2 fee. Pass all three and your profile goes live automatically.
+                        Jobs can reach you straight away. Then earn the ✓ Verified blue tick: confirm your
+                        college email and do a 2-minute ID check (both free) — €2/month keeps the tick on
+                        your name, and verified helpers are offered jobs first. Cancel anytime.
                       </p>
                     </div>
 
@@ -626,7 +628,7 @@ export const JoinAsHelper: React.FC = () => {
             </div>
 
             <p className="text-center text-xs text-muted-foreground">
-              Pay the €2 sign-up right after this and you're live — verifying your ID then earns the ✓ badge customers look for.{' '}
+              Joining is free and you're live the moment you submit — the ✓ Verified tick customers look for comes after.{' '}
               <a href={`${teamWhatsAppHref}?text=${encodeURIComponent("Hi VANO, I'm a student and I'd like to start doing household jobs.")}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">
                 Prefer to text us?
               </a>
@@ -690,7 +692,7 @@ export const JoinAsHelper: React.FC = () => {
           <h2 className="text-2xl font-semibold text-foreground mb-6">From sign-up to your first job</h2>
           <ol className="space-y-5">
             {[
-              { n: '1', title: 'Apply & get verified', body: 'Your details and a photo, then confirm your college email, a quick ID check and the €2 fee. About 3 minutes.' },
+              { n: '1', title: 'Join free & get verified', body: "Your details and a photo and you're live. Then confirm your college email and do a quick ID check to unlock the ✓ tick (€2/month, cancel anytime)." },
               { n: '2', title: 'Get matched to jobs', body: "When a job near you comes in, we'll text you first. Accept or pass — totally your call." },
               { n: '3', title: 'Do the job, get paid', body: 'Show up, do great work, and get paid straight to your account after each job.' },
             ].map(({ n, title, body }) => (

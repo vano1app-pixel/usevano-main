@@ -120,42 +120,55 @@ so this funnel is the second thing that must stay polished. It was audited
 end-to-end in July 2026; the model below is deliberate — don't redesign it,
 extend it.
 
-**Sign-up → live (pay-to-join):**
+**Sign-up → live (FREE-to-join, since July 2026):**
 1. `/join` (`JoinAsHelper.tsx`) — 3 short steps, minimal by design. Bio,
    availability and areas are deliberately NOT asked here; the dashboard
    collects them later (that's what its "Finish your profile" nudge is for).
    Submits to `create-helper-application` (dupe-guarded: same phone/email
-   updates the pending row, never a second one).
-2. `/verify-helper` (`VerifyHelper.tsx`) — three gates:
-   - **€2 Stripe checkout** (`create-signup-payment` → `confirm-signup-payment`).
-     Paying is THE gate to going live — a DB trigger flips pending→approved on
-     `signup_paid`. It's a one-off verification fee. **There is no
-     subscription** — never call it a plan/membership anywhere.
+   updates the existing row, never a second one).
+2. **Applying = live.** `create-helper-application` inserts the row as
+   `status 'approved'` + `is_available true` and fires
+   `notify-helper-approved` immediately. There is NO payment gate to join.
+   (The old pay-to-join €2 one-off — `create-signup-payment` /
+   `confirm-signup-payment` / the `signup_paid` DB trigger — is retired but
+   still deployed for stragglers with old links; don't build on it.)
+3. `/verify-helper` (`VerifyHelper.tsx`) — earns the ✓ tick, three steps:
    - **College-email OTP** (`send-student-email-otp` / `send-student-sms-otp`
-     / `verify-student-email-otp`) → `student_email_verified`. SMS path is the
-     spam-folder rescue hatch: SMS first, WhatsApp fallback, and the code only
+     / `verify-student-email-otp`) → `student_email_verified`. Free. SMS path
+     is the spam-folder rescue hatch: SMS first, WhatsApp fallback, code only
      ever goes to the phone on the helper's own row (never client-supplied).
      Codes: hashed, 10-min TTL, 30s resend gap, 5 attempts, one live code.
    - **Stripe Identity check** (`create-identity-verification`) →
-     `id_verified`. Result lands via `stripe-identity-webhook` AND a polling
-     backstop (`check-identity-status`) so it works even if the webhook is
-     misconfigured. Verified name + DOB are locked to the ID. Sessions cost
-     ~€1 — always reuse an in-flight session, never mint on retry.
-3. Approval fires `notify-helper-approved` (WhatsApp + email);
-   `nudge-helper-onboarding` (hourly cron) chases stalled applications,
-   missing payout details and the unfinished badge — capped + stamped, never
-   spammy.
+     `id_verified`. Free to the helper. Result lands via
+     `stripe-identity-webhook` AND a polling backstop
+     (`check-identity-status`). Verified name + DOB are locked to the ID.
+     Sessions cost ~€1 — always reuse an in-flight session.
+   - **€2/month Verified plan** (`create-verified-plan` →
+     `confirm-verified-plan`; Stripe subscription) → `verified_plan_active`.
+     ONLY offered once both free checks pass (enforced server-side — nobody
+     may pay for a tick that can't render). Cancel-anytime is part of the
+     deal: `cancel-verified-plan` (phone-authed, cancels at period end);
+     `stripe-webhook` handles activation backstop + subscription-deleted.
+4. `nudge-helper-onboarding` (hourly cron) chases payout onboarding and the
+   two FREE checks — it never SMS-pushes the paid plan (spam smell).
 
 **The ✓ Verified blue tick — the invariants:**
-- Blue tick ("VANO Verified") = `student_email_verified` AND `id_verified`.
-  The €2 alone puts a helper live but does NOT grant any tick.
-- The badge's perk is real and must stay real: `dispatch-household-job`
-  orders offers by `id_verified` first. If that ordering ever goes, the
-  badge is a lie.
-- **Never render an ID/verified claim unless the flag is true.** The public
-  profile used to say "ID-verified by VANO" for everyone — a false tick
-  poisons every real one. Unverified helpers get honest fallbacks
-  ("Student helper" / "New").
+- Blue tick ("VANO Verified") = the DB generated column **`vano_verified`**
+  = `student_email_verified` AND `id_verified` AND `verified_plan_active`.
+  One definition, in the database — frontends read it or recompute the same
+  three flags, never a subset.
+- The tick's perk is real and must stay real: `dispatch-household-job`
+  orders offers by `vano_verified` first. If that ordering ever goes, the
+  €2/month is buying a lie.
+- **"ID-verified" claims stay keyed on `id_verified` alone** (they're true
+  regardless of payment); the BLUE TICK is the paid thing. Never render
+  either unless its flag is true.
+- Grandfather rule: helpers who paid the one-off €2 under pay-to-join have
+  `verified_plan_active=true` with NO Stripe sub (`verified_plan_sub_id`
+  null) — cancel-verified-plan just flips their flag off directly.
+- `household-helper-connect-link` (payout onboarding) now has TWO auth
+  paths: JWT (dashboard) and helper_id+phone (the /student-account page);
+  its gateway verify_jwt is false and auth lives in the body.
 
 **Profile editing — three surfaces, one rule set:**
 - `StudentDashboard.tsx` profile sheet (needs an auth session) and
@@ -175,15 +188,20 @@ extend it.
   your profile" (bio/availability) — one card at a time, never a stack.
 
 **Open decisions the owner still needs to make (don't silently pick one):**
-- **ID-check policy — the big one.** Pay-to-join means an unverified helper
+- **ID-check policy — the big one.** Free-to-join means an unverified helper
   can work, but marketing still says "ID-verified students" in places
   (HowItWorks, review copy, service pages). Either make the ID check
   mandatory before the FIRST JOB (preferred — Stripe Identity is already
   wired) or sweep the remaining overclaiming copy. The helper public profile
   is already honest; the rest of the site isn't fully.
+- **Free signup lost the spam filter.** The €2 used to keep sign-ups
+  genuine; now anyone is instantly live + available and the admin gets a
+  WhatsApp per application. Watch signup quality; if junk arrives, add a
+  cheap gate (email OTP before going live, or manual approve toggle).
 - **Phone gate hardening**: anyone who knows a helper's number can edit
-  their profile via `/student-account`. An SMS OTP at that gate is the
-  cheap fix (`send-student-sms-otp` infra already exists).
+  their profile via `/student-account` — and now also start payout
+  onboarding and cancel the verified plan there. An SMS OTP at that gate is
+  the cheap fix (`send-student-sms-otp` infra already exists).
 - **Twilio env check**: `VANO_SMS_ENABLED=true` + `TWILIO_SMS_FROM` etc.
   must be set in Supabase or the "Prefer a text?" OTP path errors
   (gracefully, but the rescue hatch is then closed).

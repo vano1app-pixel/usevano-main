@@ -139,6 +139,7 @@ const StudentDashboard = () => {
   // at someone who's already verified.
   const [helperEmailVerified, setHelperEmailVerified] = useState<boolean | null>(null);
   const [helperIdVerified,    setHelperIdVerified]    = useState<boolean | null>(null);
+  const [helperPlanActive,    setHelperPlanActive]    = useState<boolean | null>(null);
   const [helperAvgRating, setHelperAvgRating] = useState<number | null>(null);
   const [helperRatingCount, setHelperRatingCount] = useState(0);
 
@@ -184,7 +185,7 @@ const StudentDashboard = () => {
       setUserId(uid);
 
       // Load helper profile first so we can filter jobs by city + categories
-      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in, student_email_verified, id_verified';
+      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in, student_email_verified, id_verified, verified_plan_active';
       let { data: helperRow } = await hdb
         .from('household_helpers')
         .select(HELPER_SELECT)
@@ -217,6 +218,7 @@ const StudentDashboard = () => {
         setHelperAvailability((helperRow.availability as string[] | null) ?? []);
         setHelperEmailVerified(!!helperRow.student_email_verified);
         setHelperIdVerified(!!helperRow.id_verified);
+        setHelperPlanActive(!!helperRow.verified_plan_active);
         setAutopilotOptIn((helperRow.autopilot_opt_in as boolean | null) ?? false);
         const avgRating = (helperRow.average_rating as number | null) ?? null;
         const ratingCount = (helperRow.rating_count as number) ?? 0;
@@ -511,12 +513,13 @@ const StudentDashboard = () => {
     }
   };
 
-  // ✓ Verified = confirmed student email + Stripe ID check — mirrors
-  // /student-account. One nudge at a time: the badge first (it's the one with
-  // a real perk — verified helpers are offered jobs first), then profile
-  // completeness (bio + availability are skipped by design at signup).
+  // ✓ Verified = confirmed student email + Stripe ID check + the €2/month
+  // plan — mirrors /student-account. One nudge at a time: the badge first
+  // (it's the one with a real perk — verified helpers are offered jobs
+  // first), then profile completeness (bio + availability are skipped by
+  // design at signup).
   const verificationKnown = helperEmailVerified !== null && helperIdVerified !== null;
-  const vanoVerified = !!helperEmailVerified && !!helperIdVerified;
+  const vanoVerified = !!helperEmailVerified && !!helperIdVerified && !!helperPlanActive;
   const profileIncomplete = !helperBio || helperAvailability.length === 0;
 
   const totalEarned = payouts
@@ -654,11 +657,9 @@ const StudentDashboard = () => {
                 <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
               </span>
               <span className="block text-xs text-muted-foreground mt-0.5">
-                {!helperEmailVerified && !helperIdVerified
-                  ? 'Confirm your student email and verify your ID to earn the blue tick — verified helpers get offered jobs first.'
-                  : !helperEmailVerified
-                    ? 'One step left: confirm your student email to earn the blue tick.'
-                    : 'One step left: verify your ID (2 minutes with Stripe) to earn the blue tick.'}
+                {!helperEmailVerified || !helperIdVerified
+                  ? 'Confirm your student email and verify your ID (both free), then €2/month keeps the blue tick on your name — verified helpers get offered jobs first.'
+                  : 'Checks done ✓ — activate the €2/month plan to switch your blue tick on. Cancel anytime.'}
               </span>
             </span>
             <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />

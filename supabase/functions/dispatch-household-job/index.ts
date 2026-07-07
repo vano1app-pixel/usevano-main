@@ -387,10 +387,11 @@ serve(async (req) => {
         .eq('status', 'approved')
         .eq('is_available', true);
       if (!isCatchAll) cityQuery = cityQuery.contains('categories', [category]);
-      // ✓-Verified helpers get first dibs (the badge's tangible perk), then
-      // fair rotation by fewest accepted jobs.
+      // ✓-Verified helpers get first dibs (the badge's tangible perk — the
+      // €2/month tick has to buy something real), then fair rotation by
+      // fewest accepted jobs. vano_verified = email + ID + active plan.
       const { data: cityHelpers, error: helpersError } = await cityQuery
-        .order('id_verified', { ascending: false })
+        .order('vano_verified', { ascending: false })
         .order('accepted_count', { ascending: true })
         .limit(MAX_OFFERS);
 
@@ -413,7 +414,7 @@ serve(async (req) => {
         .eq('is_available', true);
       if (!isCatchAll) allQuery = allQuery.contains('categories', [category]);
       const { data: allHelpers, error: allErr } = await allQuery
-        .order('id_verified', { ascending: false })
+        .order('vano_verified', { ascending: false })
         .order('accepted_count', { ascending: true })
         .limit(MAX_OFFERS);
 
