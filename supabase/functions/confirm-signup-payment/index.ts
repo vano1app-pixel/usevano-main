@@ -4,8 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Confirms a helper's €2 sign-up fee from the Checkout session id Stripe
 // returns to /verify-helper. Verifies the session is paid AND belongs to this
 // helper (metadata.helper_id), then sets signup_paid. The DB trigger flips the
-// helper to 'approved' once student email + ID + payment are all done; if this
-// call is the one that completes the set, we notify them.
+// helper to 'approved' the moment signup_paid lands (pay-to-join) — so this
+// call is normally what puts them live, and we notify them.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

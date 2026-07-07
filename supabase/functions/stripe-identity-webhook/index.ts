@@ -134,19 +134,8 @@ serve(async (req) => {
     const { error } = await supabase.from('household_helpers').update(update).eq('id', helperId);
     if (error) console.error('[stripe-identity-webhook] update failed', error);
 
-    // The DB trigger flips pending → approved once student email, ID and the €2
-    // fee are all done (it never touches suspended/rejected/approved rows). If
-    // verifying ID just completed the set, notify the helper.
-    if (status === 'verified') {
-      const { data: row } = await supabase.from('household_helpers').select('status').eq('id', helperId).maybeSingle();
-      if ((row as { status?: string } | null)?.status === 'approved') {
-        fetch(`${supabaseUrl}/functions/v1/notify-helper-approved`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ helper_id: helperId }),
-        }).catch(() => {/* non-critical */});
-      }
-    }
+    // Pay-to-join: approval is gated on the €2 fee (its paths notify on going
+    // live). A verified ID grants the ✓ Verified badge (id_verified above).
 
     return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {
