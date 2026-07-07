@@ -297,7 +297,10 @@ const StudentDashboard = () => {
     // Use .select('id') so we can detect a race — if data is empty, someone else got there first
     const { data: claimed, error } = await hdb
       .from('household_bookings')
-      .update({ student_id: userId, status: 'accepted' })
+      // Stamp accepted_at like accept-job does, so sweep-stalled-jobs (which
+      // clocks a ghosting helper from accepted_at) can still catch a job
+      // claimed here in-app rather than via the one-tap link.
+      .update({ student_id: userId, status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('id', jobId)
       .eq('status', 'pending')
       .is('student_id', null)
@@ -804,12 +807,13 @@ const StudentDashboard = () => {
                             </p>
                           </div>
                           {job.price_estimate_cents && (
-                            // 95% net — the same "Earn €X" number as the push/
-                            // WhatsApp offer, so the app never shows a bigger
-                            // figure than the notification that brought them in
+                            // 85% net — the real payout (job price minus the
+                            // 15% platform cut), matching the dispatch offer
+                            // and the job-detail earnings figure, so the app
+                            // never shows more than what actually lands.
                             <span className="flex flex-col items-end flex-shrink-0">
                               <span className="text-lg font-bold text-foreground tabular-nums">
-                                €{Math.floor((job.price_estimate_cents * 0.95) / 100)}
+                                €{Math.floor((job.price_estimate_cents * 0.85) / 100)}
                               </span>
                               <span className="text-[10px] text-muted-foreground font-medium">you keep</span>
                             </span>

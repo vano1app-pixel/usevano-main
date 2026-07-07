@@ -394,17 +394,6 @@ tick-eyebrows, floating cards.
   `bun.lock`/`bun.lockb` are stale.
 
 ## What needs improving (known — not yet done)
-- **Helper earnings copy says 95%, reality is 85%** — dispatch offer
-  messages (`dispatch-household-job`, "Earn €X" at ×0.95) and the dashboard
-  "you keep" figure disagree with the actual payout
-  (`PLATFORM_FEE_BPS=1500` → 85%; StudentJobDetail shows 85% correctly).
-  This is a money-integrity bug: pick the real number with the owner, then
-  align every surface. Note the pricing section's wage floor assumes 15%.
-- **In-app job claims never stamp `accepted_at`** (`StudentJobDetail.tsx`
-  `claimJob` — the one-tap `accept-job` link does stamp it), and
-  `sweep-stalled-jobs` filters on `accepted_at IS NOT NULL`, so a paid job
-  claimed in-app by a ghosting helper is invisible to the stall sweep.
-  Small fix: set `accepted_at` in `claimJob`.
 - **Legacy 404 routing**: `authSession.ts` can still route old
   student/business accounts to unmounted routes via Auth.tsx's "Continue
   as" button. Harmless for helpers/customers; tidy when touching auth.
@@ -424,4 +413,8 @@ by Autopilot); Autopilot away-cover now records the entry method
 (lockbox / be-home / smart-lock) in the booking; the helper-flow audit fixes
 (dashboard photo save, shared skills picker everywhere, honest badge rendering
 on the public profile, verification + finish-your-profile nudges on the
-dashboard, subscription copy purged) — see "The helper funnel" above.
+dashboard, subscription copy purged) — see "The helper funnel" above; helper
+earnings now show the real 85% everywhere (dispatch offers + dashboard were
+overpromising 95%); both in-app claim paths (`StudentJobDetail.claimJob`,
+`StudentDashboard.acceptJob`) now stamp `accepted_at` so `sweep-stalled-jobs`
+catches a ghosting helper regardless of how they accepted.

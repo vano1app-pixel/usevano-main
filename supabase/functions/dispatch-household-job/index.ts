@@ -318,9 +318,12 @@ serve(async (req) => {
       city: string | null; status: string; category: string;
       scheduled_date: string | null; price_estimate_cents: number | null;
     };
-    // Students respond to money: show what they'd keep (95% of the job).
+    // Students respond to money: show what they'd actually keep — the helper
+    // is paid the job price minus the 15% platform cut (PLATFORM_FEE_BPS=1500
+    // in capture-household-payment), i.e. 85%. This must match the payout, or
+    // the offer overpromises vs what lands in their account.
     const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
-      ? Math.floor(price_estimate_cents * 0.95)
+      ? Math.floor(price_estimate_cents * 0.85)
       : null;
 
     if (status !== 'pending') {
