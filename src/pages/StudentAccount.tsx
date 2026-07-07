@@ -97,6 +97,27 @@ const StudentAccount = () => {
     return () => { cancelled = true; };
   }, []);
 
+  // Verification flags come straight from the DB by helper id (same anon read
+  // VerifyHelper uses) — not from find-helper-by-phone, so the badge and the
+  // get-verified card work regardless of which function version is deployed.
+  const helperId = helper?.id;
+  useEffect(() => {
+    if (!helperId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await hdb
+        .from('household_helpers')
+        .select('student_email_verified, id_verified')
+        .eq('id', helperId)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setHelper(h => h && h.id === helperId
+        ? { ...h, student_email_verified: data.student_email_verified, id_verified: data.id_verified }
+        : h);
+    })();
+    return () => { cancelled = true; };
+  }, [helperId]);
+
   const [bio,          setBio]          = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [avail,        setAvail]        = useState<string[]>([]);
@@ -113,6 +134,11 @@ const StudentAccount = () => {
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput,   setPhoneInput]   = useState('');
   const [phoneSaving,  setPhoneSaving]  = useState(false);
+
+  // Email inline edit (add or change)
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput,   setEmailInput]   = useState('');
+  const [emailSaving,  setEmailSaving]  = useState(false);
 
   // Sheets
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
@@ -296,6 +322,40 @@ const StudentAccount = () => {
       toast({ title: 'Could not save phone number', variant: 'destructive' });
     } finally {
       setPhoneSaving(false);
+    }
+  };
+
+  // Email inline save — same service-role path as savePhone. Changing the
+  // email un-verifies it server-side, so the badge can't ride on an
+  // unconfirmed address; the get-verified card re-earns it.
+  const saveEmail = async () => {
+    if (!helper) return;
+    const clean = emailInput.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      toast({ title: 'Enter a valid email address', variant: 'destructive' });
+      return;
+    }
+    setEmailSaving(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const fd = new FormData();
+      fd.append('phone',     helper.phone);
+      fd.append('new_email', clean);
+      const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
+        body: fd,
+      });
+      const json = await res.json() as { success?: boolean };
+      if (!res.ok || !json.success) throw new Error('Update failed');
+      setHelper(h => h ? { ...h, email: clean, student_email_verified: false } : h);
+      setEditingEmail(false);
+      toast({ title: 'Email saved', description: 'Confirm it via Get VANO Verified to earn your badge.' });
+    } catch {
+      toast({ title: 'Could not save email', description: 'Try again or WhatsApp +353 89 981 7111.', variant: 'destructive' });
+    } finally {
+      setEmailSaving(false);
     }
   };
 
@@ -650,10 +710,53 @@ const StudentAccount = () => {
                 )}
               </div>
 
-              {/* Email */}
-              <div className="px-4 py-3.5 flex items-center gap-3">
+              {/* Email — add it here or change it; the get-verified flow
+                  confirms it. helper.email is only populated locally after a
+                  save (the phone lookup deliberately doesn't return it). */}
+              <div className="px-4 py-3.5 flex items-center gap-3 min-h-[52px]">
                 <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Email</span>
-                <span className="flex-1 text-sm text-foreground truncate">{helper.email ?? '—'}</span>
+                {editingEmail ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={e => setEmailInput(e.target.value)}
+                      placeholder="you@universityofgalway.ie"
+                      inputMode="email"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoFocus
+                      className="flex-1 min-w-0 bg-transparent text-sm text-foreground focus:outline-none border-b border-primary pb-0.5 placeholder:text-muted-foreground/40"
+                    />
+                    <button
+                      onClick={() => void saveEmail()}
+                      disabled={emailSaving}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-sage text-white disabled:opacity-50 flex-shrink-0"
+                      aria-label="Save email"
+                    >
+                      {emailSaving
+                        ? <Loader2 size={13} className="animate-spin" />
+                        : <Check size={13} strokeWidth={2.5} />}
+                    </button>
+                    <button
+                      onClick={() => { setEditingEmail(false); setEmailInput(helper.email ?? ''); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground flex-shrink-0"
+                      aria-label="Cancel"
+                    >
+                      <X size={13} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm text-foreground truncate">{helper.email ?? '—'}</span>
+                    <button
+                      onClick={() => { setEmailInput(helper.email ?? ''); setEditingEmail(true); }}
+                      className="text-xs text-primary font-medium"
+                    >
+                      {helper.email ? 'Edit' : 'Add'}
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* City */}
