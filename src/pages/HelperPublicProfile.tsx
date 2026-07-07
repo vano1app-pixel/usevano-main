@@ -152,8 +152,8 @@ export const HelperPublicProfile: React.FC = () => {
       <SEOHead
         title={helper ? `${firstName} — VANO helper in ${helper.city}` : 'VANO helper profile'}
         description={helper
-          ? `Meet ${firstName}, an ID-verified student helper on VANO in ${helper.city}. ${helper.accepted_count} tasks completed. Book same-day home help in minutes.`
-          : 'Meet an ID-verified VANO student helper. Book same-day home help in minutes.'}
+          ? `Meet ${firstName}, ${helper.id_verified ? 'an ID-verified' : 'a'} student helper on VANO in ${helper.city}. ${helper.accepted_count} tasks completed. Book same-day home help in minutes.`
+          : 'Meet a VANO student helper. Book same-day home help in minutes.'}
         url={`https://vanojobs.com/helpers/${id ?? ''}`}
         type="profile"
         // Deliberately unindexed: these are personal pages (a student's name +
@@ -218,14 +218,17 @@ export const HelperPublicProfile: React.FC = () => {
                     <MapPin className="w-3.5 h-3.5 flex-shrink-0" /> {helper.city}
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-sage-light text-sage-dark text-[11px] font-semibold px-2.5 py-1">
-                      <ShieldCheck className="w-3 h-3" /> ID-verified by VANO
-                    </span>
-                    {/* The card the customer just clicked promised "ID-verified" —
-                        the deeper trust page must match it, not show less. */}
-                    {helper.id_verified && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1">
-                        <ShieldCheck className="w-3 h-3" /> ID-verified
+                    {/* Only claim ID-verified when it's true — the badge is the
+                        product; a false tick would poison every real one. (This
+                        used to render unconditionally, doubling up for verified
+                        helpers and overclaiming for unverified ones.) */}
+                    {helper.id_verified ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sage-light text-sage-dark text-[11px] font-semibold px-2.5 py-1">
+                        <ShieldCheck className="w-3 h-3" /> ID-verified by VANO
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary text-foreground/70 text-[11px] font-semibold px-2.5 py-1">
+                        🎓 Student helper
                       </span>
                     )}
                     {helper.is_available && (
@@ -263,12 +266,17 @@ export const HelperPublicProfile: React.FC = () => {
                         Task{helper.accepted_count === 1 ? '' : 's'} done
                       </p>
                     </>
-                  ) : (
+                  ) : helper.id_verified ? (
                     /* A brand-new helper has 0 jobs — show vetting credibility
                        instead of a hollow "0" that reads as an empty profile. */
                     <>
                       <ShieldCheck className="w-4 h-4 text-sage" aria-hidden="true" />
                       <p className="text-[11px] text-muted-foreground font-medium mt-1">ID-verified</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-base font-bold text-foreground leading-tight">New</p>
+                      <p className="text-[11px] text-muted-foreground font-medium mt-0.5">Helper</p>
                     </>
                   )}
                 </div>
@@ -348,8 +356,11 @@ export const HelperPublicProfile: React.FC = () => {
             <motion.section variants={cardItem} className="bg-sage-light rounded-3xl border border-sage/20 p-6 text-center">
               <ShieldCheck className="w-6 h-6 text-sage mx-auto mb-2" aria-hidden="true" />
               <p className="text-sm text-foreground/80 leading-relaxed max-w-sm mx-auto">
-                Every VANO helper passes photo-ID and selfie verification before their first job.
-                Not happy with a task? You don't pay.
+                {helper.id_verified
+                  ? `${firstName} has passed photo-ID and selfie verification with Stripe.
+                     Not happy with a task? You don't pay.`
+                  : `Booked through VANO you're covered — track your helper live, and if
+                     you're not happy with a task, you don't pay.`}
               </p>
               <Link
                 to="/home#category-grid"

@@ -756,15 +756,16 @@ const StudentAccount = () => {
                 <span className="flex-1 text-sm text-foreground">{helper.city}</span>
               </div>
 
-              {/* Subscription */}
+              {/* Account — the €2 sign-up is a one-off verification fee, NOT a
+                  recurring subscription, so never call it a plan here */}
               <div className="px-4 py-3.5 flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Plan</span>
-                <span className="flex-1 text-sm text-foreground">Monthly membership</span>
+                <span className="text-xs text-muted-foreground w-14 flex-shrink-0">Account</span>
+                <span className="flex-1 text-sm text-foreground">Helper account</span>
                 <button
                   onClick={() => setShowConfirm(true)}
                   className="text-xs text-destructive font-medium"
                 >
-                  Cancel
+                  Leave VANO
                 </button>
               </div>
             </div>
@@ -1077,7 +1078,7 @@ const StudentAccount = () => {
               </div>
               <h2 className="text-lg font-bold text-foreground mb-2">Leave VANO?</h2>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                This will cancel your monthly subscription and remove you from the platform. Any pending payouts will still be transferred.
+                This removes your helper profile from the platform — you'll stop receiving job offers. Any pending payouts will still be transferred to you.
               </p>
               <div className="space-y-2.5">
                 <button

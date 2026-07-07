@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet, MessageCircle, Phone } from 'lucide-react';
+import { Clock, CheckCircle2, MapPin, Loader2, Star, Zap, ShoppingCart, PawPrint, Leaf, Package, Sparkles, GraduationCap, Camera, ImagePlus, AlertTriangle, X, Check, Inbox, Wallet, MessageCircle, Phone, BadgeCheck, ShieldCheck, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
@@ -11,18 +11,15 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCountUp } from '@/hooks/useCountUp';
 import { haptic } from '@/lib/haptics';
 import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
+import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import logo from '@/assets/logo.png';
 
 // ── Profile sheet data ─────────────────────────────────────────────────────────
-const PROFILE_CATEGORIES = [
-  { id: 'shopping',  label: 'Shopping'  },
-  { id: 'dog-walk',  label: 'Dog walk'  },
-  { id: 'garden',    label: 'Garden'    },
-  { id: 'moving',    label: 'Moving'    },
-  { id: 'cleaning',  label: 'Cleaning'  },
-  { id: 'tutoring',  label: 'Tutoring'  },
-  { id: 'other',     label: 'Other'     },
-];
+// "Jobs I do" uses the shared SKILL_GROUPS model (groups + sub-skills), the
+// same picker as the join form and /student-account — the old flat list here
+// mislabelled `shopping` ("Shopping" vs the Laundry customers book), missed
+// handyman/errands entirely, and left sub-skills orphaned when a group was
+// deselected (dispatch matches on the parent slug, so an orphan is invisible).
 
 const PROFILE_SLOTS = [
   { id: 'mon-fri-morning',   label: 'Mon–Fri mornings'   },
@@ -138,6 +135,10 @@ const StudentDashboard = () => {
   const [helperPhoto, setHelperPhoto] = useState<string | null>(null);
   const [helperBio,   setHelperBio]   = useState<string | null>(null);
   const [helperAvailability, setHelperAvailability] = useState<string[]>([]);
+  // ✓ Verified badge state — null until the row loads, so no nudge flashes
+  // at someone who's already verified.
+  const [helperEmailVerified, setHelperEmailVerified] = useState<boolean | null>(null);
+  const [helperIdVerified,    setHelperIdVerified]    = useState<boolean | null>(null);
   const [helperAvgRating, setHelperAvgRating] = useState<number | null>(null);
   const [helperRatingCount, setHelperRatingCount] = useState(0);
 
@@ -183,7 +184,7 @@ const StudentDashboard = () => {
       setUserId(uid);
 
       // Load helper profile first so we can filter jobs by city + categories
-      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in';
+      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in, student_email_verified, id_verified';
       let { data: helperRow } = await hdb
         .from('household_helpers')
         .select(HELPER_SELECT)
@@ -214,6 +215,8 @@ const StudentDashboard = () => {
         setHelperPhoto((helperRow.photo_url as string | null) ?? null);
         setHelperBio((helperRow.bio as string | null) ?? null);
         setHelperAvailability((helperRow.availability as string[] | null) ?? []);
+        setHelperEmailVerified(!!helperRow.student_email_verified);
+        setHelperIdVerified(!!helperRow.id_verified);
         setAutopilotOptIn((helperRow.autopilot_opt_in as boolean | null) ?? false);
         const avgRating = (helperRow.average_rating as number | null) ?? null;
         const ratingCount = (helperRow.rating_count as number) ?? 0;
@@ -444,10 +447,14 @@ const StudentDashboard = () => {
       let newPhotoUrl = helperPhoto;
 
       if (photoFile) {
+        // update-helper-profile authenticates by the helper's phone number —
+        // without it the function 400s and the photo silently never saved.
+        if (!helperPhone) throw new Error('missing phone');
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
         const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
         const { data: { session: s } } = await supabase.auth.getSession();
         const fd = new FormData();
+        fd.append('phone', helperPhone);
         fd.append('photo', photoFile);
         fd.append('bio', profileBio.trim());
         fd.append('availability', JSON.stringify(profileAvail));
@@ -456,12 +463,11 @@ const StudentDashboard = () => {
           headers: { Authorization: `Bearer ${s?.access_token ?? anonKey}`, apikey: anonKey },
           body: fd,
         });
-        const json = await res.json() as { photo_url?: string };
-        if (json.photo_url) {
-          newPhotoUrl = json.photo_url;
-          setHelperPhoto(newPhotoUrl);
-          setPhotoPreview(newPhotoUrl);
-        }
+        const json = await res.json() as { success?: boolean; photo_url?: string };
+        if (!res.ok || !json.success || !json.photo_url) throw new Error('photo upload failed');
+        newPhotoUrl = json.photo_url;
+        setHelperPhoto(newPhotoUrl);
+        setPhotoPreview(newPhotoUrl);
         setPhotoFile(null);
       }
 
@@ -501,6 +507,14 @@ const StudentDashboard = () => {
       setShowLeave(false);
     }
   };
+
+  // ✓ Verified = confirmed student email + Stripe ID check — mirrors
+  // /student-account. One nudge at a time: the badge first (it's the one with
+  // a real perk — verified helpers are offered jobs first), then profile
+  // completeness (bio + availability are skipped by design at signup).
+  const verificationKnown = helperEmailVerified !== null && helperIdVerified !== null;
+  const vanoVerified = !!helperEmailVerified && !!helperIdVerified;
+  const profileIncomplete = !helperBio || helperAvailability.length === 0;
 
   const totalEarned = payouts
     .filter((p) => p.status === 'transferred')
@@ -616,6 +630,66 @@ const StudentDashboard = () => {
             </button>
           )}
         </div>
+
+        {/* Get VANO Verified — the blue tick customers look for. Links to the
+            same /verify-helper checks the signup flow uses. */}
+        {helperId && verificationKnown && !vanoVerified && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            onClick={() => navigate(`/verify-helper?id=${helperId}${helperName ? `&name=${encodeURIComponent(helperName)}` : ''}`)}
+            className="mb-4 w-full rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 flex items-center gap-3 text-left active:scale-[0.99] transition-transform lg:max-w-2xl"
+          >
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
+              <ShieldCheck size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
+                Get VANO Verified
+                <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
+              </span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {!helperEmailVerified && !helperIdVerified
+                  ? 'Confirm your student email and verify your ID to earn the blue tick — verified helpers get offered jobs first.'
+                  : !helperEmailVerified
+                    ? 'One step left: confirm your student email to earn the blue tick.'
+                    : 'One step left: verify your ID (2 minutes with Stripe) to earn the blue tick.'}
+              </span>
+            </span>
+            <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
+          </motion.button>
+        )}
+
+        {/* Finish your profile — bio + availability are deliberately skipped at
+            signup ("set those in your dashboard"), so this is where they're
+            asked for. Only once the badge is sorted, one nudge at a time. */}
+        {helperId && verificationKnown && vanoVerified && profileIncomplete && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            onClick={openProfile}
+            className="mb-4 w-full rounded-2xl border border-sage/30 bg-sage-light px-4 py-4 flex items-center gap-3 text-left active:scale-[0.99] transition-transform lg:max-w-2xl"
+          >
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sage text-white">
+              <Sparkles size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-foreground">Finish your profile</span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {!helperBio && helperAvailability.length === 0
+                  ? "Add a short bio and when you're free — customers see both before they book you."
+                  : !helperBio
+                    ? 'Add a short bio — customers see it before they book you.'
+                    : "Set when you're free so we only offer you jobs that suit."}
+              </span>
+            </span>
+            <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
+          </motion.button>
+        )}
 
         {/* Job alerts — jobs are first-come-first-served; push is the only
             channel fast enough to win them */}
@@ -975,7 +1049,15 @@ const StudentDashboard = () => {
                   {photoFile && (
                     <p className="text-xs text-primary mt-2 font-medium">New photo ready — tap Save</p>
                   )}
-                  <p className="text-base font-bold text-foreground mt-3">{helperName}</p>
+                  <p className="text-base font-bold text-foreground mt-3 flex items-center gap-1.5">
+                    {helperName}
+                    {vanoVerified && (
+                      <BadgeCheck size={18} className="fill-sky-500 text-white flex-shrink-0" aria-label="VANO Verified" />
+                    )}
+                  </p>
+                  {vanoVerified && (
+                    <span className="mt-0.5 text-[11px] font-semibold text-sky-600">VANO Verified</span>
+                  )}
                   <p className="text-xs text-muted-foreground mt-0.5">{helperCity}</p>
                 </div>
 
@@ -994,26 +1076,64 @@ const StudentDashboard = () => {
                     <p className="text-right text-xs text-muted-foreground mt-1">{profileBio.length}/120</p>
                   </section>
 
-                  {/* Categories */}
+                  {/* Categories — shared groups + sub-skills (see helperSkills) */}
                   <section>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Jobs I do</p>
-                    <div className="flex flex-wrap gap-2">
-                      {PROFILE_CATEGORIES.map(({ id, label }) => {
-                        const active = profileCats.includes(id);
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Jobs I do</p>
+                    <p className="text-xs text-muted-foreground mb-3">Pick a job type, then tap the specifics you're good at — they show on your profile.</p>
+                    <div className="space-y-2">
+                      {SKILL_GROUPS.map(group => {
+                        const active = profileCats.includes(group.id);
                         return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => setProfileCats(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])}
+                          <div
+                            key={group.id}
                             className={cn(
-                              'px-3.5 py-1.5 rounded-full text-sm font-medium border transition-[background-color,border-color,color] duration-150',
-                              active
-                                ? 'bg-sage text-white border-sage'
-                                : 'bg-background text-foreground border-border hover:border-sage/60',
+                              'rounded-2xl border transition-colors duration-150',
+                              active ? 'border-sage/40 bg-sage/5' : 'border-border/60 bg-background',
                             )}
                           >
-                            {label}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setProfileCats(prev => toggleGroup(prev, group.id))}
+                              aria-pressed={active}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left"
+                            >
+                              <span aria-hidden="true">{group.emoji}</span>
+                              <span className={cn('flex-1 text-sm font-medium', active ? 'text-foreground' : 'text-foreground/80')}>
+                                {group.label}
+                              </span>
+                              <span
+                                className={cn(
+                                  'flex h-5 w-5 items-center justify-center rounded-full border transition-colors duration-150 flex-shrink-0',
+                                  active ? 'bg-sage border-sage text-white' : 'border-border text-transparent',
+                                )}
+                              >
+                                <Check size={11} strokeWidth={3} />
+                              </span>
+                            </button>
+                            {active && group.subs.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 px-3.5 pb-3">
+                                {group.subs.map(sub => {
+                                  const subActive = profileCats.includes(sub.id);
+                                  return (
+                                    <button
+                                      key={sub.id}
+                                      type="button"
+                                      onClick={() => setProfileCats(prev => toggleSub(prev, group.id, sub.id))}
+                                      aria-pressed={subActive}
+                                      className={cn(
+                                        'px-2.5 py-1 rounded-full text-xs font-medium border transition-[background-color,border-color,color] duration-150 active:scale-[0.96]',
+                                        subActive
+                                          ? 'bg-sage text-white border-sage'
+                                          : 'bg-background text-foreground/70 border-border hover:border-sage/60',
+                                      )}
+                                    >
+                                      {sub.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
