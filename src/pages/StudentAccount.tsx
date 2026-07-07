@@ -512,9 +512,11 @@ const StudentAccount = () => {
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center justify-between px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
         <button
-          onClick={() => navigate('/student-dashboard')}
+          // The dashboard needs an auth session and bounces to the sign-in
+          // page without one — phone-gated helpers go home instead.
+          onClick={() => navigate(authUserId ? '/student-dashboard' : '/')}
           className="flex items-center justify-center w-8 h-8 -ml-1 rounded-full hover:bg-secondary transition-colors"
-          aria-label="Back to dashboard"
+          aria-label="Back"
         >
           <ChevronLeft size={20} strokeWidth={2} />
         </button>
