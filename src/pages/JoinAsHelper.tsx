@@ -12,6 +12,7 @@ import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
 import { SKILL_GROUPS, defaultSelectedGroups, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { haptic } from '@/lib/haptics';
+import { PhotoCropper } from '@/components/PhotoCropper';
 
 // The jobs customers actually book, shared with the account page via
 // helperSkills (groups gate dispatch matching; sub-skills are profile
@@ -82,6 +83,30 @@ const labelClass = 'text-xs font-semibold uppercase tracking-widest text-muted-f
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[\d\s\-().]{7,15}$/;
 
+/** Whole years between a YYYY-MM-DD date of birth and today, or null if unparseable. */
+function ageFromDob(dob: string): number | null {
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
+/** `<input type="date">` bounds so the picker itself steers to a plausible 18–100. */
+function dobBounds(): { min: string; max: string } {
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return {
+    max: fmt(new Date(now.getFullYear() - 18,  now.getMonth(), now.getDate())),
+    min: fmt(new Date(now.getFullYear() - 100, now.getMonth(), now.getDate())),
+  };
+}
+// Computed once per load — a bound that's a few hours stale never lets an
+// under-18 through (validateStep re-checks the exact age on submit anyway).
+const DOB_BOUNDS = dobBounds();
+
 // A small, accessible consent row used on the final step.
 const Consent: React.FC<{ checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }> = ({ checked, onChange, children }) => (
   <button
@@ -109,11 +134,16 @@ export const JoinAsHelper: React.FC = () => {
 
   // Step 1 — you
   const [name, setName] = useState('');
+  const [dob, setDob] = useState(''); // YYYY-MM-DD — proves 18+ and fills the profile age badge
   const [college, setCollege] = useState('');
   const [email, setEmail] = useState(''); // college email — also the verification address
   const [phone, setPhone] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  // Raw file waiting to be cropped — selecting a photo opens the cropper; the
+  // cropped square becomes `photo`/`preview`. Keeps a full-body/landscape shot
+  // from being hard-cropped into a headless thumbnail on the cards.
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   // Step 2 — work. The picker is opt-OUT: the no-skill-needed groups start
   // ticked (students untick far more readily than they tick, so an empty
@@ -176,11 +206,13 @@ export const JoinAsHelper: React.FC = () => {
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be re-picked after a cancel
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { setError('Photo must be under 8 MB.'); return; }
-    setPhoto(file);
-    setPreview(URL.createObjectURL(file));
+    // The upload is the ~400px crop, not this source, so allow big phone
+    // photos in — we only decode them for cropping.
+    if (file.size > 15 * 1024 * 1024) { setError('Photo must be under 15 MB.'); return; }
     setError(null);
+    setCropSrc(URL.createObjectURL(file)); // opens the cropper
   }
 
   // Per-step validity is enforced in goNext() (validateStep), which surfaces the
@@ -192,6 +224,13 @@ export const JoinAsHelper: React.FC = () => {
     if (s === 0) {
       if (!photo) return 'Please add a clear face photo.';
       if (!name.trim()) return 'Please enter your name.';
+      if (!dob) return 'Please enter your date of birth.';
+      {
+        const yrs = ageFromDob(dob);
+        if (yrs === null) return 'Please enter a valid date of birth.';
+        if (yrs < 18) return 'You must be 18 or over to work through VANO.';
+        if (yrs > 100) return 'Please check your date of birth.';
+      }
       if (!college) return 'Please choose where you study.';
       if (!EMAIL_RE.test(email.trim())) return 'Please add your college email — we verify it at sign-up.';
       if (!PHONE_RE.test(phone.trim())) return 'Please enter a valid phone number.';
@@ -233,6 +272,7 @@ export const JoinAsHelper: React.FC = () => {
       fd.append('email', cleanEmail);
       fd.append('student_email', cleanEmail);
       fd.append('phone', phone.trim());
+      fd.append('dob', dob);
       fd.append('city', city);
       fd.append('categories', JSON.stringify(categories));
       fd.append('tutor_subjects', JSON.stringify(tutorSubjects));
@@ -410,6 +450,21 @@ export const JoinAsHelper: React.FC = () => {
                     <div>
                       <span className={labelClass}>Your name</span>
                       <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="First and last name" autoComplete="name" autoCapitalize="words" className={inputClass} />
+                    </div>
+
+                    <div>
+                      <span className={labelClass}>Date of birth</span>
+                      <input
+                        type="date"
+                        value={dob}
+                        onChange={e => setDob(e.target.value)}
+                        max={DOB_BOUNDS.max}
+                        min={DOB_BOUNDS.min}
+                        autoComplete="bday"
+                        className={cn(inputClass, !dob && 'text-muted-foreground')}
+                        aria-label="Date of birth"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">You must be 18 or over. We show your age — never your birthday — on your profile.</p>
                     </div>
 
                     <div>
@@ -720,6 +775,23 @@ export const JoinAsHelper: React.FC = () => {
       </main>
 
       <HouseholdFooter />
+
+      {/* Move-and-scale cropper — opens when a photo is picked so students frame
+          their face instead of uploading a stretched full-body shot. */}
+      <AnimatePresence>
+        {cropSrc && (
+          <PhotoCropper
+            src={cropSrc}
+            onCancel={() => setCropSrc(null)}
+            onCropped={(file, previewUrl) => {
+              setPhoto(file);
+              setPreview(previewUrl);
+              setCropSrc(null);
+              haptic(8);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };

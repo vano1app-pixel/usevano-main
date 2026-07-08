@@ -469,4 +469,11 @@ the hero's transform stacking context let the fixed nav sit over them);
 supply-matching round one: the join form's jobs picker went opt-out (the
 commodity groups start pre-ticked) and dispatch now sends gap-recruit nudges
 when a category is thin in a city — see "The helper funnel" and "Gap-recruit
-nudges" above (migration: `gap_nudged_at`).
+nudges" above (migration: `gap_nudged_at`); the join form now collects a
+**date of birth** (18+ gated client- AND server-side in
+`create-helper-application`, which derives `age` from it so the profile age
+badge fills), and both the join form and `StudentAccount` share ONE
+`src/components/PhotoCropper.tsx` (move/pinch/zoom, exports a SQUARE JPEG so
+circular avatars round it and the rectangular helper cards object-cover it
+with no baked-in black corners) — a picked photo always opens the cropper
+instead of uploading a stretched full-body shot.
