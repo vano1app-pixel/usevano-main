@@ -10,7 +10,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
-import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { SKILL_GROUPS, defaultSelectedGroups, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { haptic } from '@/lib/haptics';
 
 // The jobs customers actually book, shared with the account page via
@@ -115,9 +115,17 @@ export const JoinAsHelper: React.FC = () => {
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  // Step 2 — work
+  // Step 2 — work. The picker is opt-OUT: the no-skill-needed groups start
+  // ticked (students untick far more readily than they tick, so an empty
+  // grid under-fills supply in the commodity categories); gear/skill-gated
+  // groups stay opt-in. See defaultOn in helperSkills.
   const [city, setCity] = useState('');
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(() => defaultSelectedGroups());
+  // Sub-skill panels only open for groups the student TAPPED — if the five
+  // pre-ticked defaults all expanded their optional chips, step 2 would lose
+  // its 30-second feel. (Sub detail is optional garnish; the dashboard's
+  // "Finish your profile" nudge collects it later anyway.)
+  const [touchedGroups, setTouchedGroups] = useState<ReadonlySet<string>>(new Set());
   const [tutorSubjects, setTutorSubjects] = useState<string[]>([]);
   const [tutorLevels, setTutorLevels] = useState<string[]>([]);
 
@@ -443,7 +451,7 @@ export const JoinAsHelper: React.FC = () => {
 
                     <div>
                       <span className={labelClass}>What jobs do you want to do?</span>
-                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">Pick everything you're happy to take on.</p>
+                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">We've ticked the jobs most students take — untick any you wouldn't do, and add the rest.</p>
                       <div className="grid grid-cols-2 gap-2">
                         {CATEGORY_OPTIONS.map(({ emoji, label, id }) => {
                           const active = categories.includes(id);
@@ -451,7 +459,10 @@ export const JoinAsHelper: React.FC = () => {
                             <button
                               key={id}
                               type="button"
-                              onClick={() => setCategories(prev => toggleGroup(prev, id))}
+                              onClick={() => {
+                                setCategories(prev => toggleGroup(prev, id));
+                                setTouchedGroups(prev => new Set(prev).add(id));
+                              }}
                               aria-pressed={active}
                               className={cn(
                                 'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
@@ -468,7 +479,7 @@ export const JoinAsHelper: React.FC = () => {
                       {/* Sub-skills for each picked job type — optional detail
                           ("what kind?") that lands on the helper's profile. */}
                       <AnimatePresence initial={false}>
-                        {CATEGORY_OPTIONS.filter(g => g.subs.length > 0 && categories.includes(g.id)).map(group => (
+                        {CATEGORY_OPTIONS.filter(g => g.subs.length > 0 && categories.includes(g.id) && touchedGroups.has(g.id)).map(group => (
                           <motion.div
                             key={group.id}
                             initial={{ opacity: 0, height: 0 }}

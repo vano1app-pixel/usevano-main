@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
-import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import logo from '@/assets/logo.png';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,6 +133,17 @@ const StudentAccount = () => {
   const [gateError,     setGateError]     = useState('');
   const [gateLoading,   setGateLoading]   = useState(false);
 
+  // "?add=<group>" deep link from the dispatch gap-recruit nudge ("a paying
+  // job skipped you — add the category"): pre-ticks that job once the phone
+  // gate opens, so opting in is enter-number → Save. Only known group slugs
+  // count; anything else is ignored.
+  const [pendingAdd] = useState<string | null>(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('add');
+      return v && v !== 'other' && SKILL_GROUPS.some(g => g.id === v) ? v : null;
+    } catch { return null; }
+  });
+
   // Phone inline edit
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput,   setPhoneInput]   = useState('');
@@ -202,7 +213,18 @@ const StudentAccount = () => {
   function loadHelper(data: HelperRow) {
     setHelper(data);
     setBio(data.bio ?? '');
-    setSelectedCats(data.categories ?? []);
+    const cats = data.categories ?? [];
+    // Apply the ?add= deep link — pre-tick only, the helper still taps Save
+    // (nothing is ever written silently from a URL param).
+    if (pendingAdd && !cats.includes(pendingAdd)) {
+      setSelectedCats([...cats, pendingAdd]);
+      toast({
+        title: `${skillLabel(pendingAdd) ?? pendingAdd} ticked for you`,
+        description: 'Tap Save changes below and you’ll get these job offers from now on.',
+      });
+    } else {
+      setSelectedCats(cats);
+    }
     setAvail(data.availability ?? []);
     setPhotoPreview(data.photo_url);
     setPhoneInput(data.phone ?? '');
@@ -621,7 +643,12 @@ const StudentAccount = () => {
           <div className="w-full max-w-sm">
             <h1 className="text-2xl font-bold text-foreground mb-2">Enter your number</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              Enter the phone number you signed up with to access your VANO account.
+              {pendingAdd ? (
+                <>Enter the phone number you signed up with and we&rsquo;ll tick{' '}
+                <span className="font-semibold text-foreground">{skillLabel(pendingAdd)}</span> onto your jobs.</>
+              ) : (
+                'Enter the phone number you signed up with to access your VANO account.'
+              )}
             </p>
             <form onSubmit={handlePhoneVerify} className="space-y-3">
               <input

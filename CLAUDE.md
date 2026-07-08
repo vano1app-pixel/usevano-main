@@ -100,6 +100,16 @@ the dead-man's switch), `dispatch-scheduled-jobs` (book-ahead + pre-start
 reminder), `remind-confirm-completion` (arrival-stuck alert → confirm nudge
 → admin alert → 48h auto-confirm).
 
+**Gap-recruit nudges (supply follows demand):** when a fresh dispatch lands
+in thin city coverage (<5 matching helpers, or zero → platform-wide
+expansion), `dispatch-household-job` texts up to 5 available same-city
+helpers who *don't* have the category — "a €X job just skipped you, add it
+in 10 seconds" — linking `/student-account?add=<cat>`, which pre-ticks the
+group behind the phone gate (the helper still taps Save; a URL param never
+writes silently). One nudge per helper per 7 days across ALL categories
+(`gap_nudged_at`, stamped before sending), never on quiet re-dispatch
+rounds or the `custom` catch-all.
+
 ## Pricing — single source of truth + the wage rule
 - **Frontend canonical prices:** `src/lib/householdPricing.ts`. `CategoryGrid`
   and `PricingTable` both read it — change a price in ONE place.
@@ -124,6 +134,12 @@ extend it.
 1. `/join` (`JoinAsHelper.tsx`) — 3 short steps, minimal by design. Bio,
    availability and areas are deliberately NOT asked here; the dashboard
    collects them later (that's what its "Finish your profile" nudge is for).
+   The jobs picker is **opt-OUT**: the no-skill commodity groups (cleaning,
+   laundry, errands, moving, dog walks — `defaultOn` in `helperSkills.ts`)
+   start ticked; gear/skill-gated ones (garden, handyman, tutoring) stay
+   opt-in. Students untick far more readily than they tick, so this keeps
+   supply wide where demand is. Join form ONLY — the account/dashboard
+   editors always load the helper's saved picks.
    Submits to `create-helper-application` (dupe-guarded: same phone/email
    updates the existing row, never a second one).
 2. **Applying = live.** `create-helper-application` inserts the row as
@@ -449,4 +465,8 @@ phones now get a full-screen search takeover (Uber pattern — the hero bar is
 just the door, the input pins above the keyboard, list → price card → the
 booking sheet opens over it), suggestion rows show ballpark prices, and both
 the takeover AND the booking sheet are portaled to <body> (rendered in place,
-the hero's transform stacking context let the fixed nav sit over them).
+the hero's transform stacking context let the fixed nav sit over them);
+supply-matching round one: the join form's jobs picker went opt-out (the
+commodity groups start pre-ticked) and dispatch now sends gap-recruit nudges
+when a category is thin in a city — see "The helper funnel" and "Gap-recruit
+nudges" above (migration: `gap_nudged_at`).
