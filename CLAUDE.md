@@ -476,4 +476,9 @@ badge fills), and both the join form and `StudentAccount` share ONE
 `src/components/PhotoCropper.tsx` (move/pinch/zoom, exports a SQUARE JPEG so
 circular avatars round it and the rectangular helper cards object-cover it
 with no baked-in black corners) — a picked photo always opens the cropper
-instead of uploading a stretched full-body shot.
+instead of uploading a stretched full-body shot; step 2 now also captures a
+rough **area** (optional free text → `areas_served`, for nearest-job
+matching) and **how they get around** (multi-select → `application_data.
+transport`; car = the moving/tip-run/wider-radius signal dispatch can later
+weight on) — both wired through the existing `create-helper-application`
+fields, no migration.

@@ -44,6 +44,16 @@ const TUTOR_SUBJECTS = [
 
 const TUTOR_LEVELS = ['Adult learners', 'Third level', 'Professional / upskilling'];
 
+// How a helper gets around — the highest-value dispatch signal we weren't
+// capturing. Car access is the money one (moving, tip runs, grocery runs, a
+// wider radius); the rest colour how far we can reasonably send them.
+const TRANSPORT_MODES = [
+  { id: 'car',    emoji: '🚗', label: 'Car' },
+  { id: 'bike',   emoji: '🚲', label: 'Bike' },
+  { id: 'public', emoji: '🚌', label: 'Public transport' },
+  { id: 'foot',   emoji: '🚶', label: 'On foot' },
+];
+
 const JOBS = [
   { emoji: '🧺', label: 'Laundry' },
   { emoji: '🐕', label: 'Dog walks' },
@@ -150,6 +160,8 @@ export const JoinAsHelper: React.FC = () => {
   // grid under-fills supply in the commodity categories); gear/skill-gated
   // groups stay opt-in. See defaultOn in helperSkills.
   const [city, setCity] = useState('');
+  const [area, setArea] = useState('');            // rough neighbourhood/Eircode → areas_served (nearest-job matching)
+  const [transport, setTransport] = useState<string[]>([]); // how they get around → dispatch reach (car = moving/tip runs)
   const [categories, setCategories] = useState<string[]>(() => defaultSelectedGroups());
   // Sub-skill panels only open for groups the student TAPPED — if the five
   // pre-ticked defaults all expanded their optional chips, step 2 would lose
@@ -274,6 +286,9 @@ export const JoinAsHelper: React.FC = () => {
       fd.append('phone', phone.trim());
       fd.append('dob', dob);
       fd.append('city', city);
+      // Rough area → areas_served (nearest-job matching); mobility → dispatch reach.
+      fd.append('areas', JSON.stringify(area.trim() ? [area.trim()] : []));
+      fd.append('transport', transport.join(','));
       fd.append('categories', JSON.stringify(categories));
       fd.append('tutor_subjects', JSON.stringify(tutorSubjects));
       fd.append('tutor_levels', JSON.stringify(tutorLevels));
@@ -505,6 +520,19 @@ export const JoinAsHelper: React.FC = () => {
                     </div>
 
                     <div>
+                      <span className={labelClass}>Your area <span className="font-normal normal-case tracking-normal text-muted-foreground/70">(optional)</span></span>
+                      <input
+                        type="text"
+                        value={area}
+                        onChange={e => setArea(e.target.value)}
+                        placeholder={city ? `e.g. Salthill or your Eircode` : 'Neighbourhood or Eircode'}
+                        autoCapitalize="words"
+                        className={inputClass}
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">Helps us send you the jobs closest to you first.</p>
+                    </div>
+
+                    <div>
                       <span className={labelClass}>What jobs do you want to do?</span>
                       <p className="text-xs text-muted-foreground mb-3 -mt-1.5">We've ticked the jobs most students take — untick any you wouldn't do, and add the rest.</p>
                       <div className="grid grid-cols-2 gap-2">
@@ -609,7 +637,32 @@ export const JoinAsHelper: React.FC = () => {
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <p className="text-[11px] text-muted-foreground mt-3">Areas you cover and when you're free — you'll set those in your dashboard after you're in.</p>
+                    </div>
+
+                    <div>
+                      <span className={labelClass}>How do you get around?</span>
+                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">A car means we can send you moving jobs and tip runs — pick all that apply.</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {TRANSPORT_MODES.map(({ id, emoji, label }) => {
+                          const active = transport.includes(id);
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => toggleIn(transport, setTransport, id)}
+                              aria-pressed={active}
+                              className={cn(
+                                'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
+                                active ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary/60 border-border/50 text-foreground hover:bg-secondary hover:border-border',
+                              )}
+                            >
+                              <span className="text-base leading-none select-none">{emoji}</span>
+                              <span className="leading-tight">{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-3">When you're free — you'll set that in your dashboard after you're in.</p>
                     </div>
                   </>
                 )}
