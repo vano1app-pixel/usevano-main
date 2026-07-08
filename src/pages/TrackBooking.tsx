@@ -26,7 +26,7 @@ type UpdateStatus = 'accepted' | 'on_way' | 'arrived' | 'in_progress' | 'complet
 interface Booking {
   id: string;
   category: string;
-  scheduled_date: string;
+  scheduled_date: string | null;
   time_slot: string | null;
   is_express: boolean;
   status: BookingStatus;
@@ -196,7 +196,11 @@ function formatTimeSlot(slot: string | null): string | null {
   return map[slot] ?? slot;
 }
 
-function formatDate(d: string): string {
+// Nullable in the DB — ASAP quick-books can land without a date (dispatch
+// falls back to 'flexible' for the same reason), and a null here used to
+// crash the whole tracking page at .toLowerCase().
+function formatDate(d: string | null): string {
+  if (!d) return 'As soon as possible';
   const lower = d.toLowerCase();
   if (lower === 'today') return 'Today';
   if (lower === 'tomorrow') return 'Tomorrow';
@@ -391,8 +395,11 @@ const TrackBooking = () => {
         // RPC succeeded but returned no row — the booking doesn't exist.
         missCount += 1;
       }
-      if (updatesRes.data) setUpdates(updatesRes.data as JobUpdate[]);
-      if (messagesRes.data) setMessages(messagesRes.data as ChatMessage[]);
+      // Array-guarded like bookingRow above: a malformed response (proxy,
+      // captive portal, API hiccup) must degrade to "no updates yet", not
+      // crash the whole tracking page at `updates.at(-1)`.
+      if (Array.isArray(updatesRes.data)) setUpdates(updatesRes.data as JobUpdate[]);
+      if (Array.isArray(messagesRes.data)) setMessages(messagesRes.data as ChatMessage[]);
       setLoading(false);
     };
 
