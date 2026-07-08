@@ -20,6 +20,46 @@ type PlanState = 'idle' | 'confirming' | 'paying' | 'active';
 const inputClass =
   'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-[border-color,box-shadow] duration-150';
 
+// ── Stage-progress cache ─────────────────────────────────────────────────────
+// The DB columns are the source of truth for the three stages, but the
+// restore read happens async (a beat of "nothing done" flash) and can fail on
+// a network blip — which looks to the helper like their progress was lost.
+// Cache completed stages per helper so a returning helper's ticks render
+// instantly. UPGRADE-ONLY: the cache can mark a stage done, never undo one.
+interface VerifyProgress { email?: boolean; id_check?: boolean; plan?: boolean }
+const progressKey = (id: string) => `vano_verify_progress_${id}`;
+function readProgress(id: string | null): VerifyProgress {
+  if (!id) return {};
+  try { return (JSON.parse(localStorage.getItem(progressKey(id)) ?? '{}') as VerifyProgress) ?? {}; } catch { return {}; }
+}
+function saveProgress(id: string | null, patch: VerifyProgress) {
+  if (!id) return;
+  try { localStorage.setItem(progressKey(id), JSON.stringify({ ...readProgress(id), ...patch })); } catch { /* best effort */ }
+}
+
+// Mid-OTP state: once a code is texted/emailed, a reload used to bounce the
+// card back to "Send me a code" even though the server-side code (10-min TTL,
+// one live code) was still perfectly valid. Persist the sent-state so the
+// code input survives a reload; expires with the code itself.
+const OTP_STATE_KEY = 'vano_verify_otp_state';
+const OTP_TTL_MS = 10 * 60 * 1000;
+interface OtpState { channel: 'email' | 'sms'; email: string; sentAt: number }
+function readOtpState(): OtpState | null {
+  try {
+    const raw = localStorage.getItem(OTP_STATE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as OtpState;
+    if (!s || typeof s.sentAt !== 'number' || Date.now() - s.sentAt > OTP_TTL_MS) return null;
+    return s;
+  } catch { return null; }
+}
+function saveOtpState(s: OtpState) {
+  try { localStorage.setItem(OTP_STATE_KEY, JSON.stringify(s)); } catch { /* best effort */ }
+}
+function clearOtpState() {
+  try { localStorage.removeItem(OTP_STATE_KEY); } catch { /* best effort */ }
+}
+
 /**
  * Post-application page — free-to-join:
  * signing up already put the helper LIVE (status approved). This page earns
@@ -37,20 +77,43 @@ const VerifyHelper: React.FC = () => {
   const planSession = params.get('vp');   // Stripe Checkout session id — €2/month plan return
   const legacySession = params.get('sp'); // legacy one-off €2 return (old links still resolve)
 
+  // Instant restore: cached completed stages (upgrade-only mirror of the DB
+  // flags) + a still-live OTP send, so a reload or return visit picks up
+  // exactly where the helper left off instead of resetting every card.
+  const [cachedProgress] = useState<VerifyProgress>(() => readProgress(helperId));
+  const [restoredOtp] = useState<OtpState | null>(() => (cachedProgress.email ? null : readOtpState()));
+
+  // Landing with ?id= (from join, a dashboard nudge, or a Stripe return)
+  // makes this browser remember the account, so later param-less visits work.
+  useEffect(() => {
+    try {
+      if (helperId) localStorage.setItem('vano_helper_id', helperId);
+      if (name) localStorage.setItem('vano_helper_name', name);
+    } catch { /* best effort */ }
+  }, [helperId, name]);
+
   const [email, setEmail] = useState(
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_student_email') : '') || '',
+    restoredOtp?.email
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('vano_student_email') : '')
+    || '',
   );
   const [code, setCode] = useState('');
-  const [emailState, setEmailState] = useState<EmailState>('idle');
+  const [emailState, setEmailState] = useState<EmailState>(
+    cachedProgress.email ? 'verified' : restoredOtp ? 'sent' : 'idle',
+  );
   const [emailError, setEmailError] = useState<string | null>(null);
   // Which channel the live code was sent by, so Resend re-uses it and the
   // helper text matches ('sms' also covers WhatsApp).
-  const [otpChannel, setOtpChannel] = useState<'email' | 'sms'>('email');
+  const [otpChannel, setOtpChannel] = useState<'email' | 'sms'>(restoredOtp?.channel ?? 'email');
 
-  const [idState, setIdState] = useState<IdState>(returnedFromIdCheck ? 'submitted' : 'idle');
+  const [idState, setIdState] = useState<IdState>(
+    cachedProgress.id_check ? 'verified' : returnedFromIdCheck ? 'submitted' : 'idle',
+  );
   const [idError, setIdError] = useState<string | null>(null);
 
-  const [planState, setPlanState] = useState<PlanState>(planSession ? 'confirming' : 'idle');
+  const [planState, setPlanState] = useState<PlanState>(
+    planSession ? 'confirming' : cachedProgress.plan ? 'active' : 'idle',
+  );
   const [planError, setPlanError] = useState<string | null>(null);
 
   // Free-to-join: applications are approved on arrival, so this is true for
@@ -70,12 +133,12 @@ const VerifyHelper: React.FC = () => {
         .maybeSingle();
       if (cancelled || !data) return;
       if (data.status === 'approved') setIsLive(true);
-      if (data.student_email_verified) setEmailState('verified');
-      if (data.id_verified) setIdState('verified');
+      if (data.student_email_verified) { setEmailState('verified'); saveProgress(helperId, { email: true }); clearOtpState(); }
+      if (data.id_verified) { setIdState('verified'); saveProgress(helperId, { id_check: true }); }
       else if (data.identity_status === 'processing' || data.identity_status === 'requires_input') {
         setIdState((s) => (s === 'verified' ? s : 'submitted'));
       }
-      if (data.verified_plan_active) setPlanState('active');
+      if (data.verified_plan_active) { setPlanState('active'); saveProgress(helperId, { plan: true }); }
     })();
     return () => { cancelled = true; };
   }, [helperId]);
@@ -87,7 +150,9 @@ const VerifyHelper: React.FC = () => {
     (async () => {
       const { data } = await supabase.functions.invoke('confirm-verified-plan', { body: { helper_id: helperId, session_id: planSession } });
       if (cancelled) return;
-      setPlanState((data as { active?: boolean } | null)?.active ? 'active' : 'idle');
+      const active = Boolean((data as { active?: boolean } | null)?.active);
+      setPlanState(active ? 'active' : 'idle');
+      if (active) saveProgress(helperId, { plan: true });
     })();
     return () => { cancelled = true; };
   }, [helperId, planSession]);
@@ -113,6 +178,8 @@ const VerifyHelper: React.FC = () => {
     }
     haptic(8);
     setEmailState('sent');
+    saveOtpState({ channel: 'email', email: clean, sentAt: Date.now() });
+    try { localStorage.setItem('vano_student_email', clean); } catch { /* best effort */ }
   }, [helperId, email]);
 
   // Reliable alternative: text the code to the phone on the application
@@ -128,7 +195,8 @@ const VerifyHelper: React.FC = () => {
     }
     haptic(8);
     setEmailState('sent');
-  }, [helperId]);
+    saveOtpState({ channel: 'sms', email: email.trim().toLowerCase(), sentAt: Date.now() });
+  }, [helperId, email]);
 
   const verifyCode = useCallback(async () => {
     if (!helperId || code.trim().length !== 6) { setEmailError('Enter the 6-digit code.'); return; }
@@ -141,13 +209,15 @@ const VerifyHelper: React.FC = () => {
     }
     haptic(16);
     setEmailState('verified');
+    saveProgress(helperId, { email: true });
+    clearOtpState();
   }, [helperId, code]);
 
   const startIdCheck = useCallback(async () => {
     if (!helperId) return;
     setIdState('starting'); setIdError(null);
     const { data, error } = await supabase.functions.invoke('create-identity-verification', { body: { helper_id: helperId } });
-    if ((data as { already_verified?: boolean } | null)?.already_verified) { setIdState('verified'); return; }
+    if ((data as { already_verified?: boolean } | null)?.already_verified) { setIdState('verified'); saveProgress(helperId, { id_check: true }); return; }
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
       setIdError((data as { error?: string } | null)?.error || 'Could not start the ID check. Try again.');
@@ -161,7 +231,7 @@ const VerifyHelper: React.FC = () => {
     if (!helperId) return;
     setPlanState('paying'); setPlanError(null);
     const { data, error } = await supabase.functions.invoke('create-verified-plan', { body: { helper_id: helperId } });
-    if ((data as { already_active?: boolean } | null)?.already_active) { setPlanState('active'); return; }
+    if ((data as { already_active?: boolean } | null)?.already_active) { setPlanState('active'); saveProgress(helperId, { plan: true }); return; }
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
       setPlanError((data as { error?: string } | null)?.error || 'Could not open checkout. Try again.');
@@ -202,7 +272,7 @@ const VerifyHelper: React.FC = () => {
       const { data } = await supabase.functions.invoke('check-identity-status', { body: { helper_id: helperId } });
       if (cancelled) return;
       const st = data as { verified?: boolean; status?: string } | null;
-      if (st?.verified) { haptic(16); setIdState('verified'); return; }
+      if (st?.verified) { haptic(16); setIdState('verified'); saveProgress(helperId, { id_check: true }); return; }
       if (st?.status === 'requires_input') {
         setIdError('Stripe needs another look — a photo may have been blurry. Tap below to re-do it (takes 2 minutes).');
         setIdState('idle');

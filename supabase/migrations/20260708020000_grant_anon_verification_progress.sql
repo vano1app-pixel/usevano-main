@@ -1,0 +1,12 @@
+-- /verify-helper and /student-account restore a helper's verification
+-- progress with an anon read by helper id. anon's access to
+-- household_helpers is COLUMN-LEVEL (20260610_helpers_hide_contact_from_anon),
+-- and two of the selected columns were never granted — so PostgREST rejected
+-- the WHOLE query ("permission denied") and progress silently never
+-- restored: a helper returning to /verify-helper saw every stage reset, and
+-- the account page's Get-Verified card never rendered. Identical failure
+-- mode to the one 20260622040000 fixed for id_verified.
+--
+-- Both columns are non-PII (a boolean + a coarse status word) on rows that
+-- are already publicly listable; contact details stay locked down.
+GRANT SELECT (student_email_verified, identity_status) ON public.household_helpers TO anon;

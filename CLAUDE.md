@@ -487,4 +487,11 @@ cleared on submit, "welcome back" note on resume), the two consent boxes
 merged into ONE tap (all three consent flags stored from it), a SOFT
 personal-email warning (gmail/hotmail/etc can never pass the student check —
 flag it at typing time, never block), and a "takes about a minute" hint on
-step 1.
+step 1; verification-resume fix: anon was never granted
+`student_email_verified`/`identity_status`, so the column-level read that
+restores progress on `/verify-helper` (and gates the account page's
+Get-Verified card) failed WHOLE-QUERY and every stage looked reset on
+return (migration `20260708020000` grants them) — plus VerifyHelper now
+caches completed stages per helper in localStorage (upgrade-only, instant
+ticks even on a failed fetch) and persists the mid-OTP "code sent" state
+(10-min TTL matching the code) so a reload keeps the code box open.
