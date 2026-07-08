@@ -481,4 +481,10 @@ rough **area** (optional free text → `areas_served`, for nearest-job
 matching) and **how they get around** (multi-select → `application_data.
 transport`; car = the moving/tip-run/wider-radius signal dispatch can later
 weight on) — both wired through the existing `create-helper-application`
-fields, no migration.
+fields, no migration; signup smoothness pass: the form **autosaves a draft**
+to localStorage (all fields + the cropped photo as a data URL, 7-day TTL,
+cleared on submit, "welcome back" note on resume), the two consent boxes
+merged into ONE tap (all three consent flags stored from it), a SOFT
+personal-email warning (gmail/hotmail/etc can never pass the student check —
+flag it at typing time, never block), and a "takes about a minute" hint on
+step 1.
