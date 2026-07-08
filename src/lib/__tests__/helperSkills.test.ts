@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SKILL_GROUPS, toggleGroup, toggleSub, skillLabel } from '../helperSkills';
+import { SKILL_GROUPS, defaultSelectedGroups, toggleGroup, toggleSub, skillLabel } from '../helperSkills';
 
 // Dispatch (dispatch-household-job) filters on these exact slugs — if a group
 // id drifts, its helpers silently stop receiving that category's jobs.
@@ -49,6 +49,19 @@ describe('helperSkills', () => {
     expect(toggleGroup(['cleaning'], 'nonsense')).toEqual(['cleaning']);
     expect(toggleSub(['cleaning'], 'cleaning', 'nonsense')).toEqual(['cleaning']);
     expect(toggleSub(['x'], 'nonsense', 'deep-clean')).toEqual(['x']);
+  });
+
+  it('pre-ticks only the no-skill commodity groups on the join form', () => {
+    const defaults = defaultSelectedGroups();
+    // Opt-out defaults: jobs any student can do on day one.
+    expect(defaults.sort()).toEqual(['cleaning', 'dog-walk', 'errands', 'moving', 'shopping']);
+    // Gear/skill-gated groups must stay opt-in, and 'other' (legacy) never defaults.
+    for (const gated of ['garden', 'handyman', 'tutoring', 'other']) {
+      expect(defaults).not.toContain(gated);
+    }
+    // Defaults are group slugs (dispatch matches groups) — never sub-skills.
+    const groupIds = new Set(SKILL_GROUPS.map(g => g.id));
+    for (const d of defaults) expect(groupIds.has(d)).toBe(true);
   });
 
   it('labels groups (with emoji) and subs (plain), null for unknown', () => {

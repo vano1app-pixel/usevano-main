@@ -26,6 +26,15 @@ export interface SkillGroup {
   emoji: string;
   label: string;
   subs: SkillSub[];
+  /**
+   * Pre-ticked on the JOIN FORM only (never the account/dashboard editors,
+   * which load the helper's saved picks). Marks the no-skill-no-gear jobs any
+   * student can do on day one — people untick far more readily than they
+   * tick, so defaulting these ON keeps supply wide in the commodity
+   * categories. Skill- or gear-gated groups (garden, handyman, tutoring)
+   * stay opt-in.
+   */
+  defaultOn?: boolean;
 }
 
 // Group slugs must match the quick-book categories customer-side
@@ -34,7 +43,7 @@ export interface SkillGroup {
 // the same words customers book it with.
 export const SKILL_GROUPS: SkillGroup[] = [
   {
-    id: 'cleaning', emoji: '🧹', label: 'Cleaning',
+    id: 'cleaning', emoji: '🧹', label: 'Cleaning', defaultOn: true,
     subs: [
       { id: 'deep-clean',        label: 'Deep clean' },
       { id: 'end-of-tenancy',    label: 'End-of-tenancy' },
@@ -62,7 +71,7 @@ export const SKILL_GROUPS: SkillGroup[] = [
     ],
   },
   {
-    id: 'moving', emoji: '📦', label: 'Moving',
+    id: 'moving', emoji: '📦', label: 'Moving', defaultOn: true,
     subs: [
       { id: 'van-loading',     label: 'Loading / van help' },
       { id: 'house-move',      label: 'House moves' },
@@ -73,7 +82,7 @@ export const SKILL_GROUPS: SkillGroup[] = [
     ],
   },
   {
-    id: 'dog-walk', emoji: '🐕', label: 'Dog walk',
+    id: 'dog-walk', emoji: '🐕', label: 'Dog walk', defaultOn: true,
     subs: [
       { id: 'pet-sitting', label: 'Pet sitting' },
       { id: 'pet-feeding', label: 'Feeding visits' },
@@ -81,7 +90,7 @@ export const SKILL_GROUPS: SkillGroup[] = [
     ],
   },
   // Flat single service — nothing meaningful to subdivide.
-  { id: 'shopping', emoji: '🧺', label: 'Laundry', subs: [] },
+  { id: 'shopping', emoji: '🧺', label: 'Laundry', defaultOn: true, subs: [] },
   {
     id: 'handyman', emoji: '🔧', label: 'Handyman & odd jobs',
     subs: [
@@ -94,7 +103,7 @@ export const SKILL_GROUPS: SkillGroup[] = [
     ],
   },
   {
-    id: 'errands', emoji: '🛒', label: 'Errands & shopping',
+    id: 'errands', emoji: '🛒', label: 'Errands & shopping', defaultOn: true,
     subs: [
       { id: 'grocery-run',     label: 'Grocery runs' },
       { id: 'pharmacy-pickup', label: 'Pharmacy pickup' },
@@ -132,6 +141,11 @@ export function toggleSub(selected: string[], groupId: string, subId: string): s
   if (selected.includes(subId)) return selected.filter(s => s !== subId);
   const withSub = [...selected, subId];
   return withSub.includes(groupId) ? withSub : [...withSub, groupId];
+}
+
+/** The group slugs the join form starts with pre-ticked (see `defaultOn`). */
+export function defaultSelectedGroups(): string[] {
+  return SKILL_GROUPS.filter(g => g.defaultOn).map(g => g.id);
 }
 
 /** Label for any skill slug — group or sub — or null if unknown. */

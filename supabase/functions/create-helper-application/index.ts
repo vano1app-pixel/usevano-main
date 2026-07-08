@@ -70,7 +70,28 @@ serve(async (req) => {
       });
     }
 
-    const age = ageRaw ? parseInt(ageRaw, 10) : null;
+    // Age: prefer an explicit `age`, else derive whole years from the `dob` the
+    // join form now collects — so the profile age badge populates from one
+    // field. 18+ is a hard requirement (right-to-work, adults-only tutoring),
+    // enforced here as the real gate; the client checkbox/date bounds are only
+    // the first line.
+    function ageFromDobStr(v: string | null): number | null {
+      if (!v) return null;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return null;
+      const now = new Date();
+      let a = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+      return a;
+    }
+    const parsedAge = ageRaw ? parseInt(ageRaw, 10) : null;
+    const age = (parsedAge !== null && !isNaN(parsedAge)) ? parsedAge : ageFromDobStr(dob);
+    if (age !== null && age < 18) {
+      return new Response(JSON.stringify({ error: 'You must be 18 or over to join VANO.' }), {
+        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
 
     // ── Duplicate guard ────────────────────────────────────────────────────
     // Match an existing helper by email or by phone (digits-only, last 9 —

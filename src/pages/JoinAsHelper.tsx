@@ -10,8 +10,9 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { teamWhatsAppHref } from '@/lib/contact';
 import { SUPPORTED_CITIES } from '@/lib/cities';
-import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { SKILL_GROUPS, defaultSelectedGroups, toggleGroup, toggleSub } from '@/lib/helperSkills';
 import { haptic } from '@/lib/haptics';
+import { PhotoCropper } from '@/components/PhotoCropper';
 
 // The jobs customers actually book, shared with the account page via
 // helperSkills (groups gate dispatch matching; sub-skills are profile
@@ -42,6 +43,16 @@ const TUTOR_SUBJECTS = [
 ];
 
 const TUTOR_LEVELS = ['Adult learners', 'Third level', 'Professional / upskilling'];
+
+// How a helper gets around — the highest-value dispatch signal we weren't
+// capturing. Car access is the money one (moving, tip runs, grocery runs, a
+// wider radius); the rest colour how far we can reasonably send them.
+const TRANSPORT_MODES = [
+  { id: 'car',    emoji: '🚗', label: 'Car' },
+  { id: 'bike',   emoji: '🚲', label: 'Bike' },
+  { id: 'public', emoji: '🚌', label: 'Public transport' },
+  { id: 'foot',   emoji: '🚶', label: 'On foot' },
+];
 
 const JOBS = [
   { emoji: '🧺', label: 'Laundry' },
@@ -82,6 +93,96 @@ const labelClass = 'text-xs font-semibold uppercase tracking-widest text-muted-f
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[\d\s\-().]{7,15}$/;
 
+// Personal-provider domains that can never verify as a college address. A
+// SOFT warning only (never a block): the email OTP is the real enforcement,
+// and hard-blocking would need a college-domain database we'd get wrong.
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.ie', 'yahoo.co.uk',
+  'hotmail.com', 'hotmail.ie', 'hotmail.co.uk', 'outlook.com', 'outlook.ie',
+  'live.com', 'live.ie', 'icloud.com', 'me.com', 'proton.me', 'protonmail.com',
+  'aol.com', 'msn.com',
+]);
+const isPersonalEmail = (v: string) =>
+  PERSONAL_EMAIL_DOMAINS.has(v.trim().toLowerCase().split('@')[1] ?? '');
+
+// ── Draft persistence ────────────────────────────────────────────────────────
+// Mobile signups get interrupted constantly (app-switch to find a photo, a
+// message, a reload) — losing the half-filled form was the biggest smoothness
+// hole. Every field autosaves to localStorage and restores on return, photo
+// included (the cropped JPEG is small enough to stash as a data URL). Cleared
+// on successful submit; drafts older than 7 days are ignored.
+const DRAFT_KEY = 'vano_join_draft_v1';
+const DRAFT_PHOTO_KEY = 'vano_join_photo_v1';
+const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+interface JoinDraft {
+  savedAt: number; step: number;
+  name: string; dob: string; college: string; email: string; phone: string;
+  city: string; area: string; transport: string[]; categories: string[];
+  tutorSubjects: string[]; tutorLevels: string[]; referralCode: string;
+}
+
+function readJoinDraft(): JoinDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as JoinDraft;
+    if (!d || typeof d.savedAt !== 'number' || Date.now() - d.savedAt > DRAFT_TTL_MS) return null;
+    const arr = (v: unknown) => Array.isArray(v) ? (v as string[]).filter(x => typeof x === 'string') : [];
+    return {
+      savedAt: d.savedAt,
+      step: typeof d.step === 'number' ? Math.min(Math.max(d.step, 0), STEPS.length - 1) : 0,
+      name: typeof d.name === 'string' ? d.name : '',
+      dob: typeof d.dob === 'string' ? d.dob : '',
+      college: typeof d.college === 'string' ? d.college : '',
+      email: typeof d.email === 'string' ? d.email : '',
+      phone: typeof d.phone === 'string' ? d.phone : '',
+      city: typeof d.city === 'string' ? d.city : '',
+      area: typeof d.area === 'string' ? d.area : '',
+      transport: arr(d.transport),
+      categories: arr(d.categories),
+      tutorSubjects: arr(d.tutorSubjects),
+      tutorLevels: arr(d.tutorLevels),
+      referralCode: typeof d.referralCode === 'string' ? d.referralCode : '',
+    };
+  } catch { return null; }
+}
+
+function readDraftPhoto(): string | null {
+  try {
+    const v = localStorage.getItem(DRAFT_PHOTO_KEY);
+    return v && v.startsWith('data:image/') ? v : null;
+  } catch { return null; }
+}
+
+function clearJoinDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); localStorage.removeItem(DRAFT_PHOTO_KEY); } catch { /* best effort */ }
+}
+
+/** Whole years between a YYYY-MM-DD date of birth and today, or null if unparseable. */
+function ageFromDob(dob: string): number | null {
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
+/** `<input type="date">` bounds so the picker itself steers to a plausible 18–100. */
+function dobBounds(): { min: string; max: string } {
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return {
+    max: fmt(new Date(now.getFullYear() - 18,  now.getMonth(), now.getDate())),
+    min: fmt(new Date(now.getFullYear() - 100, now.getMonth(), now.getDate())),
+  };
+}
+// Computed once per load — a bound that's a few hours stale never lets an
+// under-18 through (validateStep re-checks the exact age on submit anyway).
+const DOB_BOUNDS = dobBounds();
+
 // A small, accessible consent row used on the final step.
 const Consent: React.FC<{ checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }> = ({ checked, onChange, children }) => (
   <button
@@ -104,32 +205,72 @@ const Consent: React.FC<{ checked: boolean; onChange: (v: boolean) => void; chil
 );
 
 export const JoinAsHelper: React.FC = () => {
-  // Wizard
-  const [step, setStep] = useState(0);
+  // Saved draft from an interrupted signup, read once. `resumed` shows the
+  // "picked up where you left off" note.
+  const [draft] = useState<JoinDraft | null>(() => readJoinDraft());
+  const [draftPhoto] = useState<string | null>(() => readDraftPhoto());
+  const resumed = draft !== null;
+
+  // Wizard — resume at the saved step only when the photo survived too
+  // (validateStep(0) needs it, and submit uploads it).
+  const [step, setStep] = useState(() => (draft && draftPhoto ? draft.step : 0));
 
   // Step 1 — you
-  const [name, setName] = useState('');
-  const [college, setCollege] = useState('');
-  const [email, setEmail] = useState(''); // college email — also the verification address
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState(draft?.name ?? '');
+  const [dob, setDob] = useState(draft?.dob ?? ''); // YYYY-MM-DD — proves 18+ and fills the profile age badge
+  const [college, setCollege] = useState(draft?.college ?? '');
+  const [email, setEmail] = useState(draft?.email ?? ''); // college email — also the verification address
+  const [phone, setPhone] = useState(draft?.phone ?? '');
   const [photo, setPhoto] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(draftPhoto);
+  // Raw file waiting to be cropped — selecting a photo opens the cropper; the
+  // cropped square becomes `photo`/`preview`. Keeps a full-body/landscape shot
+  // from being hard-cropped into a headless thumbnail on the cards.
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
-  // Step 2 — work
-  const [city, setCity] = useState('');
-  const [categories, setCategories] = useState<string[]>([]);
-  const [tutorSubjects, setTutorSubjects] = useState<string[]>([]);
-  const [tutorLevels, setTutorLevels] = useState<string[]>([]);
+  // Rebuild the File from the stashed data URL so a restored draft can submit
+  // without re-picking the photo.
+  useEffect(() => {
+    if (!draftPhoto) return;
+    let alive = true;
+    fetch(draftPhoto)
+      .then(r => r.blob())
+      .then(b => { if (alive) setPhoto(new File([b], 'photo.jpg', { type: b.type || 'image/jpeg' })); })
+      .catch(() => { /* they can re-pick — preview still shows */ });
+    return () => { alive = false; };
+  }, [draftPhoto]);
 
-  // Step 3 — consent
-  const [agreeChecks, setAgreeChecks] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
+  // Step 2 — work. The picker is opt-OUT: the no-skill-needed groups start
+  // ticked (students untick far more readily than they tick, so an empty
+  // grid under-fills supply in the commodity categories); gear/skill-gated
+  // groups stay opt-in. See defaultOn in helperSkills.
+  const [city, setCity] = useState(draft?.city ?? '');
+  const [area, setArea] = useState(draft?.area ?? '');            // rough neighbourhood/Eircode → areas_served (nearest-job matching)
+  const [transport, setTransport] = useState<string[]>(draft?.transport ?? []); // how they get around → dispatch reach (car = moving/tip runs)
+  const [categories, setCategories] = useState<string[]>(() =>
+    draft && draft.categories.length > 0 ? draft.categories : defaultSelectedGroups());
+  // Sub-skill panels only open for groups the student TAPPED — if the five
+  // pre-ticked defaults all expanded their optional chips, step 2 would lose
+  // its 30-second feel. (Sub detail is optional garnish; the dashboard's
+  // "Finish your profile" nudge collects it later anyway.)
+  const [touchedGroups, setTouchedGroups] = useState<ReadonlySet<string>>(new Set());
+  const [tutorSubjects, setTutorSubjects] = useState<string[]>(draft?.tutorSubjects ?? []);
+  const [tutorLevels, setTutorLevels] = useState<string[]>(draft?.tutorLevels ?? []);
+
+  // Step 3 — one consent, one tap. It bundles 18+/right-to-work/ID-check
+  // consent AND the terms (they were two boxes; both were required anyway, so
+  // the split only cost a tap). Never restored from a draft — consent is the
+  // one thing they must actively give this session.
+  const [agreeAll, setAgreeAll] = useState(false);
 
   // Optional partner / referral code — prefilled from a ?ref=CODE link (e.g. a
-  // student union's recruitment link) and editable by hand.
+  // student union's recruitment link) and editable by hand. URL wins over a
+  // saved draft (a fresh partner link should always take effect).
   const [referralCode, setReferralCode] = useState(() => {
-    try { return (new URLSearchParams(window.location.search).get('ref') ?? '').trim().toUpperCase(); }
-    catch { return ''; }
+    try {
+      const fromUrl = (new URLSearchParams(window.location.search).get('ref') ?? '').trim().toUpperCase();
+      return fromUrl || draft?.referralCode || '';
+    } catch { return draft?.referralCode ?? ''; }
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -168,22 +309,47 @@ export const JoinAsHelper: React.FC = () => {
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be re-picked after a cancel
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { setError('Photo must be under 8 MB.'); return; }
-    setPhoto(file);
-    setPreview(URL.createObjectURL(file));
+    // The upload is the ~400px crop, not this source, so allow big phone
+    // photos in — we only decode them for cropping.
+    if (file.size > 15 * 1024 * 1024) { setError('Photo must be under 15 MB.'); return; }
     setError(null);
+    setCropSrc(URL.createObjectURL(file)); // opens the cropper
   }
+
+  // Autosave the draft whenever anything meaningful changes. Gated on an
+  // identity field so an untouched visit never writes (and never triggers the
+  // "picked up where you left off" note on the next one).
+  useEffect(() => {
+    if (submitting) return;
+    if (!name && !dob && !email && !phone && !college && !city && !area) return;
+    try {
+      const d: JoinDraft = {
+        savedAt: Date.now(), step,
+        name, dob, college, email, phone, city, area,
+        transport, categories, tutorSubjects, tutorLevels, referralCode,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    } catch { /* quota/private mode — signup still works, just no resume */ }
+  }, [submitting, step, name, dob, college, email, phone, city, area, transport, categories, tutorSubjects, tutorLevels, referralCode]);
 
   // Per-step validity is enforced in goNext() (validateStep), which surfaces the
   // specific missing field — so the Continue button stays tappable instead of
   // sitting greyed-out with no explanation.
-  const step3Valid = agreeChecks && agreeTerms;
+  const step3Valid = agreeAll;
 
   function validateStep(s: number): string | null {
     if (s === 0) {
       if (!photo) return 'Please add a clear face photo.';
       if (!name.trim()) return 'Please enter your name.';
+      if (!dob) return 'Please enter your date of birth.';
+      {
+        const yrs = ageFromDob(dob);
+        if (yrs === null) return 'Please enter a valid date of birth.';
+        if (yrs < 18) return 'You must be 18 or over to work through VANO.';
+        if (yrs > 100) return 'Please check your date of birth.';
+      }
       if (!college) return 'Please choose where you study.';
       if (!EMAIL_RE.test(email.trim())) return 'Please add your college email — we verify it at sign-up.';
       if (!PHONE_RE.test(phone.trim())) return 'Please enter a valid phone number.';
@@ -211,7 +377,7 @@ export const JoinAsHelper: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!step3Valid) { setError('Please tick both boxes to continue.'); return; }
+    if (!step3Valid) { setError('Please tick the box to continue.'); return; }
     setSubmitting(true);
     setError(null);
     haptic(12);
@@ -225,14 +391,18 @@ export const JoinAsHelper: React.FC = () => {
       fd.append('email', cleanEmail);
       fd.append('student_email', cleanEmail);
       fd.append('phone', phone.trim());
+      fd.append('dob', dob);
       fd.append('city', city);
+      // Rough area → areas_served (nearest-job matching); mobility → dispatch reach.
+      fd.append('areas', JSON.stringify(area.trim() ? [area.trim()] : []));
+      fd.append('transport', transport.join(','));
       fd.append('categories', JSON.stringify(categories));
       fd.append('tutor_subjects', JSON.stringify(tutorSubjects));
       fd.append('tutor_levels', JSON.stringify(tutorLevels));
       fd.append('college', college);
-      fd.append('right_to_work', String(agreeChecks));
-      fd.append('consent_verify', String(agreeChecks));
-      fd.append('agree_terms', String(agreeTerms));
+      fd.append('right_to_work', String(agreeAll));
+      fd.append('consent_verify', String(agreeAll));
+      fd.append('agree_terms', String(agreeAll));
       fd.append('photo', photo as File);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -257,6 +427,9 @@ export const JoinAsHelper: React.FC = () => {
           .invoke('attach-referral-code', { body: { helper_id: json.helper_id, code } })
           .catch(() => { /* referral attach is non-critical */ });
       }
+
+      // Application saved — the draft has done its job.
+      clearJoinDraft();
 
       // Carry id + email to the verification page (and survive any reload).
       try {
@@ -360,7 +533,15 @@ export const JoinAsHelper: React.FC = () => {
                   transition={{ type: 'spring', stiffness: 240, damping: 28 }}
                 />
               </div>
-              <p className="text-sm text-muted-foreground mt-2">{STEPS[step]}</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {STEPS[step]}
+                {step === 0 && <span className="text-muted-foreground/70"> · takes about a minute</span>}
+              </p>
+              {resumed && (
+                <p className="text-xs text-sage-dark font-medium mt-1.5">
+                  Welcome back — we saved where you left off.
+                </p>
+              )}
             </div>
 
             <AnimatePresence mode="wait" initial={false}>
@@ -405,6 +586,21 @@ export const JoinAsHelper: React.FC = () => {
                     </div>
 
                     <div>
+                      <span className={labelClass}>Date of birth</span>
+                      <input
+                        type="date"
+                        value={dob}
+                        onChange={e => setDob(e.target.value)}
+                        max={DOB_BOUNDS.max}
+                        min={DOB_BOUNDS.min}
+                        autoComplete="bday"
+                        className={cn(inputClass, !dob && 'text-muted-foreground')}
+                        aria-label="Date of birth"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">You must be 18 or over. We show your age — never your birthday — on your profile.</p>
+                    </div>
+
+                    <div>
                       <span className={labelClass}>Where do you study?</span>
                       <Select value={college} onValueChange={setCollege}>
                         <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Select your college" /></SelectTrigger>
@@ -417,7 +613,16 @@ export const JoinAsHelper: React.FC = () => {
                     <div>
                       <span className={labelClass}>College email</span>
                       <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@universityofgalway.ie" autoComplete="email" inputMode="email" autoCapitalize="off" autoCorrect="off" className={inputClass} />
-                      <p className="text-[11px] text-muted-foreground mt-1.5">We email a code here to confirm you're a student. Use your official college address.</p>
+                      {/* Soft catch for gmail/hotmail etc. — a personal address
+                          sails through signup but can never pass the student
+                          check, so flag it NOW instead of at verification. */}
+                      {isPersonalEmail(email) ? (
+                        <p className="text-[11px] text-express-orange font-medium mt-1.5">
+                          That looks like a personal address — use your college email, it's how we confirm you're a student.
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground mt-1.5">We email a code here to confirm you're a student. Use your official college address.</p>
+                      )}
                     </div>
 
                     <div>
@@ -442,8 +647,21 @@ export const JoinAsHelper: React.FC = () => {
                     </div>
 
                     <div>
+                      <span className={labelClass}>Your area <span className="font-normal normal-case tracking-normal text-muted-foreground/70">(optional)</span></span>
+                      <input
+                        type="text"
+                        value={area}
+                        onChange={e => setArea(e.target.value)}
+                        placeholder={city ? `e.g. Salthill or your Eircode` : 'Neighbourhood or Eircode'}
+                        autoCapitalize="words"
+                        className={inputClass}
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">Helps us send you the jobs closest to you first.</p>
+                    </div>
+
+                    <div>
                       <span className={labelClass}>What jobs do you want to do?</span>
-                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">Pick everything you're happy to take on.</p>
+                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">We've ticked the jobs most students take — untick any you wouldn't do, and add the rest.</p>
                       <div className="grid grid-cols-2 gap-2">
                         {CATEGORY_OPTIONS.map(({ emoji, label, id }) => {
                           const active = categories.includes(id);
@@ -451,7 +669,10 @@ export const JoinAsHelper: React.FC = () => {
                             <button
                               key={id}
                               type="button"
-                              onClick={() => setCategories(prev => toggleGroup(prev, id))}
+                              onClick={() => {
+                                setCategories(prev => toggleGroup(prev, id));
+                                setTouchedGroups(prev => new Set(prev).add(id));
+                              }}
                               aria-pressed={active}
                               className={cn(
                                 'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
@@ -468,7 +689,7 @@ export const JoinAsHelper: React.FC = () => {
                       {/* Sub-skills for each picked job type — optional detail
                           ("what kind?") that lands on the helper's profile. */}
                       <AnimatePresence initial={false}>
-                        {CATEGORY_OPTIONS.filter(g => g.subs.length > 0 && categories.includes(g.id)).map(group => (
+                        {CATEGORY_OPTIONS.filter(g => g.subs.length > 0 && categories.includes(g.id) && touchedGroups.has(g.id)).map(group => (
                           <motion.div
                             key={group.id}
                             initial={{ opacity: 0, height: 0 }}
@@ -543,7 +764,32 @@ export const JoinAsHelper: React.FC = () => {
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <p className="text-[11px] text-muted-foreground mt-3">Areas you cover and when you're free — you'll set those in your dashboard after you're in.</p>
+                    </div>
+
+                    <div>
+                      <span className={labelClass}>How do you get around?</span>
+                      <p className="text-xs text-muted-foreground mb-3 -mt-1.5">A car means we can send you moving jobs and tip runs — pick all that apply.</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {TRANSPORT_MODES.map(({ id, emoji, label }) => {
+                          const active = transport.includes(id);
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => toggleIn(transport, setTransport, id)}
+                              aria-pressed={active}
+                              className={cn(
+                                'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
+                                active ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary/60 border-border/50 text-foreground hover:bg-secondary hover:border-border',
+                              )}
+                            >
+                              <span className="text-base leading-none select-none">{emoji}</span>
+                              <span className="leading-tight">{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-3">When you're free — you'll set that in your dashboard after you're in.</p>
                     </div>
                   </>
                 )}
@@ -563,14 +809,15 @@ export const JoinAsHelper: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="space-y-2.5">
-                      <Consent checked={agreeChecks} onChange={setAgreeChecks}>
-                        I'm 18 or over, have the right to work in Ireland, and consent to photo-ID + selfie verification.
-                      </Consent>
-                      <Consent checked={agreeTerms} onChange={setAgreeTerms}>
-                        I agree to VANO's <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-sage-dark underline underline-offset-2">terms</a> and helper code of conduct.
-                      </Consent>
-                    </div>
+                    {/* One box, one tap — it was two required boxes, and the
+                        split only cost a tap. All three consent flags are
+                        stored from it. */}
+                    <Consent checked={agreeAll} onChange={setAgreeAll}>
+                      I'm 18 or over, have the right to work in Ireland, consent to photo-ID + selfie
+                      verification, and agree to VANO's{' '}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-sage-dark underline underline-offset-2">terms</a>{' '}
+                      and helper code of conduct.
+                    </Consent>
 
                     {/* Optional referral / partner code (e.g. from a student union) */}
                     <div>
@@ -709,6 +956,32 @@ export const JoinAsHelper: React.FC = () => {
       </main>
 
       <HouseholdFooter />
+
+      {/* Move-and-scale cropper — opens when a photo is picked so students frame
+          their face instead of uploading a stretched full-body shot. */}
+      <AnimatePresence>
+        {cropSrc && (
+          <PhotoCropper
+            src={cropSrc}
+            onCancel={() => setCropSrc(null)}
+            onCropped={(file, previewUrl) => {
+              setPhoto(file);
+              setPreview(previewUrl);
+              setCropSrc(null);
+              haptic(8);
+              // Stash the cropped JPEG (small, ~50 KB) so a resumed draft
+              // keeps the photo too.
+              try {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  try { localStorage.setItem(DRAFT_PHOTO_KEY, String(reader.result)); } catch { /* quota */ }
+                };
+                reader.readAsDataURL(file);
+              } catch { /* best effort */ }
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };

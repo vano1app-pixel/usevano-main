@@ -100,6 +100,16 @@ the dead-man's switch), `dispatch-scheduled-jobs` (book-ahead + pre-start
 reminder), `remind-confirm-completion` (arrival-stuck alert → confirm nudge
 → admin alert → 48h auto-confirm).
 
+**Gap-recruit nudges (supply follows demand):** when a fresh dispatch lands
+in thin city coverage (<5 matching helpers, or zero → platform-wide
+expansion), `dispatch-household-job` texts up to 5 available same-city
+helpers who *don't* have the category — "a €X job just skipped you, add it
+in 10 seconds" — linking `/student-account?add=<cat>`, which pre-ticks the
+group behind the phone gate (the helper still taps Save; a URL param never
+writes silently). One nudge per helper per 7 days across ALL categories
+(`gap_nudged_at`, stamped before sending), never on quiet re-dispatch
+rounds or the `custom` catch-all.
+
 ## Pricing — single source of truth + the wage rule
 - **Frontend canonical prices:** `src/lib/householdPricing.ts`. `CategoryGrid`
   and `PricingTable` both read it — change a price in ONE place.
@@ -124,6 +134,12 @@ extend it.
 1. `/join` (`JoinAsHelper.tsx`) — 3 short steps, minimal by design. Bio,
    availability and areas are deliberately NOT asked here; the dashboard
    collects them later (that's what its "Finish your profile" nudge is for).
+   The jobs picker is **opt-OUT**: the no-skill commodity groups (cleaning,
+   laundry, errands, moving, dog walks — `defaultOn` in `helperSkills.ts`)
+   start ticked; gear/skill-gated ones (garden, handyman, tutoring) stay
+   opt-in. Students untick far more readily than they tick, so this keeps
+   supply wide where demand is. Join form ONLY — the account/dashboard
+   editors always load the helper's saved picks.
    Submits to `create-helper-application` (dupe-guarded: same phone/email
    updates the existing row, never a second one).
 2. **Applying = live.** `create-helper-application` inserts the row as
@@ -449,4 +465,33 @@ phones now get a full-screen search takeover (Uber pattern — the hero bar is
 just the door, the input pins above the keyboard, list → price card → the
 booking sheet opens over it), suggestion rows show ballpark prices, and both
 the takeover AND the booking sheet are portaled to <body> (rendered in place,
-the hero's transform stacking context let the fixed nav sit over them).
+the hero's transform stacking context let the fixed nav sit over them);
+supply-matching round one: the join form's jobs picker went opt-out (the
+commodity groups start pre-ticked) and dispatch now sends gap-recruit nudges
+when a category is thin in a city — see "The helper funnel" and "Gap-recruit
+nudges" above (migration: `gap_nudged_at`); the join form now collects a
+**date of birth** (18+ gated client- AND server-side in
+`create-helper-application`, which derives `age` from it so the profile age
+badge fills), and both the join form and `StudentAccount` share ONE
+`src/components/PhotoCropper.tsx` (move/pinch/zoom, exports a SQUARE JPEG so
+circular avatars round it and the rectangular helper cards object-cover it
+with no baked-in black corners) — a picked photo always opens the cropper
+instead of uploading a stretched full-body shot; step 2 now also captures a
+rough **area** (optional free text → `areas_served`, for nearest-job
+matching) and **how they get around** (multi-select → `application_data.
+transport`; car = the moving/tip-run/wider-radius signal dispatch can later
+weight on) — both wired through the existing `create-helper-application`
+fields, no migration; signup smoothness pass: the form **autosaves a draft**
+to localStorage (all fields + the cropped photo as a data URL, 7-day TTL,
+cleared on submit, "welcome back" note on resume), the two consent boxes
+merged into ONE tap (all three consent flags stored from it), a SOFT
+personal-email warning (gmail/hotmail/etc can never pass the student check —
+flag it at typing time, never block), and a "takes about a minute" hint on
+step 1; verification-resume fix: anon was never granted
+`student_email_verified`/`identity_status`, so the column-level read that
+restores progress on `/verify-helper` (and gates the account page's
+Get-Verified card) failed WHOLE-QUERY and every stage looked reset on
+return (migration `20260708020000` grants them) — plus VerifyHelper now
+caches completed stages per helper in localStorage (upgrade-only, instant
+ticks even on a failed fetch) and persists the mid-OTP "code sent" state
+(10-min TTL matching the code) so a reload keeps the code box open.

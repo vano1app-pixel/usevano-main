@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { HouseholdHelperVanoPayCard } from '@/components/HouseholdHelperVanoPayCard';
 import { useToast } from '@/hooks/use-toast';
-import { SKILL_GROUPS, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { SKILL_GROUPS, skillLabel, toggleGroup, toggleSub } from '@/lib/helperSkills';
+import { PhotoCropper } from '@/components/PhotoCropper';
 import logo from '@/assets/logo.png';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,10 +60,6 @@ const phonesMatch = (stored: string, entered: string) => {
   return s === e || s.endsWith(e) || e.endsWith(s);
 };
 
-const CROP_D = 260;
-const CROP_R = CROP_D / 2;
-const OUTPUT_SIZE = 400;
-
 const StudentAccount = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -70,13 +67,6 @@ const StudentAccount = () => {
   // File inputs
   const fileRef   = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
-
-  // Crop refs
-  const imgRef         = useRef<HTMLImageElement>(null);
-  const cropAreaRef    = useRef<HTMLDivElement>(null);
-  const naturalSize    = useRef({ w: 0, h: 0 });
-  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const lastPinchDist  = useRef<number | null>(null);
 
   const [helper,  setHelper]  = useState<HelperRow | null>(null);
   const [loading, setLoading] = useState(false); // no initial load needed — wait for phone gate
@@ -133,6 +123,17 @@ const StudentAccount = () => {
   const [gateError,     setGateError]     = useState('');
   const [gateLoading,   setGateLoading]   = useState(false);
 
+  // "?add=<group>" deep link from the dispatch gap-recruit nudge ("a paying
+  // job skipped you — add the category"): pre-ticks that job once the phone
+  // gate opens, so opting in is enter-number → Save. Only known group slugs
+  // count; anything else is ignored.
+  const [pendingAdd] = useState<string | null>(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('add');
+      return v && v !== 'other' && SKILL_GROUPS.some(g => g.id === v) ? v : null;
+    } catch { return null; }
+  });
+
   // Phone inline edit
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput,   setPhoneInput]   = useState('');
@@ -147,11 +148,9 @@ const StudentAccount = () => {
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
   const [showConfirm,    setShowConfirm]    = useState(false);
 
-  // Crop
-  const [cropSrc,      setCropSrc]      = useState<string | null>(null);
-  const [cropScale,    setCropScale]    = useState(1);
-  const [minCropScale, setMinCropScale] = useState(0.1);
-  const [cropOffset,   setCropOffset]   = useState({ x: 0, y: 0 });
+  // Crop — the raw file waiting to be framed; the shared PhotoCropper handles
+  // the drag/pinch/zoom and hands back a square JPEG.
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
@@ -202,7 +201,18 @@ const StudentAccount = () => {
   function loadHelper(data: HelperRow) {
     setHelper(data);
     setBio(data.bio ?? '');
-    setSelectedCats(data.categories ?? []);
+    const cats = data.categories ?? [];
+    // Apply the ?add= deep link — pre-tick only, the helper still taps Save
+    // (nothing is ever written silently from a URL param).
+    if (pendingAdd && !cats.includes(pendingAdd)) {
+      setSelectedCats([...cats, pendingAdd]);
+      toast({
+        title: `${skillLabel(pendingAdd) ?? pendingAdd} ticked for you`,
+        description: 'Tap Save changes below and you’ll get these job offers from now on.',
+      });
+    } else {
+      setSelectedCats(cats);
+    }
     setAvail(data.availability ?? []);
     setPhotoPreview(data.photo_url);
     setPhoneInput(data.phone ?? '');
@@ -216,92 +226,6 @@ const StudentAccount = () => {
     e.target.value = '';
     setCropSrc(URL.createObjectURL(file));
     setShowPhotoSheet(false);
-  };
-
-  // ── Crop ───────────────────────────────────────────────────────────────────
-  const onCropImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    naturalSize.current = { w: img.naturalWidth, h: img.naturalHeight };
-    const s = Math.max(CROP_D / img.naturalWidth, CROP_D / img.naturalHeight);
-    setMinCropScale(s);
-    setCropScale(s * 1.1);
-    setCropOffset({ x: 0, y: 0 });
-  };
-
-  const clampOffset = useCallback((x: number, y: number, scale: number) => {
-    const { w, h } = naturalSize.current;
-    const maxX = Math.max(0, (w * scale) / 2 - CROP_R);
-    const maxY = Math.max(0, (h * scale) / 2 - CROP_R);
-    return {
-      x: Math.max(-maxX, Math.min(maxX, x)),
-      y: Math.max(-maxY, Math.min(maxY, y)),
-    };
-  }, []);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    lastPinchDist.current = null;
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    const ptr = activePointers.current;
-    if (!ptr.has(e.pointerId)) return;
-    const prev = ptr.get(e.pointerId)!;
-    ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-    if (ptr.size === 1) {
-      const dx = e.clientX - prev.x;
-      const dy = e.clientY - prev.y;
-      setCropOffset(o => clampOffset(o.x + dx, o.y + dy, cropScale));
-    } else if (ptr.size === 2) {
-      const pts = Array.from(ptr.values());
-      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      if (lastPinchDist.current !== null) {
-        const ratio = dist / lastPinchDist.current;
-        setCropScale(s => Math.max(minCropScale, s * ratio));
-      }
-      lastPinchDist.current = dist;
-    }
-  };
-
-  const onPointerUp = (e: React.PointerEvent) => {
-    activePointers.current.delete(e.pointerId);
-    if (activePointers.current.size < 2) lastPinchDist.current = null;
-  };
-
-  const confirmCrop = () => {
-    const img  = imgRef.current;
-    const area = cropAreaRef.current;
-    if (!img || !area) return;
-
-    const imgRect  = img.getBoundingClientRect();
-    const areaRect = area.getBoundingClientRect();
-    const cx = areaRect.left + areaRect.width  / 2;
-    const cy = areaRect.top  + areaRect.height / 2;
-
-    const scaleX = img.naturalWidth  / imgRect.width;
-    const scaleY = img.naturalHeight / imgRect.height;
-    const srcX = (cx - CROP_R - imgRect.left) * scaleX;
-    const srcY = (cy - CROP_R - imgRect.top)  * scaleY;
-    const srcW = CROP_D * scaleX;
-    const srcH = CROP_D * scaleY;
-
-    const canvas = document.createElement('canvas');
-    canvas.width  = OUTPUT_SIZE;
-    canvas.height = OUTPUT_SIZE;
-    const ctx = canvas.getContext('2d')!;
-    ctx.beginPath();
-    ctx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-
-    canvas.toBlob(blob => {
-      if (!blob) return;
-      setPhotoFile(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
-      setPhotoPreview(URL.createObjectURL(blob));
-      setCropSrc(null);
-    }, 'image/jpeg', 0.9);
   };
 
   // ── Phone inline save ──────────────────────────────────────────────────────
@@ -621,7 +545,12 @@ const StudentAccount = () => {
           <div className="w-full max-w-sm">
             <h1 className="text-2xl font-bold text-foreground mb-2">Enter your number</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              Enter the phone number you signed up with to access your VANO account.
+              {pendingAdd ? (
+                <>Enter the phone number you signed up with and we&rsquo;ll tick{' '}
+                <span className="font-semibold text-foreground">{skillLabel(pendingAdd)}</span> onto your jobs.</>
+              ) : (
+                'Enter the phone number you signed up with to access your VANO account.'
+              )}
             </p>
             <form onSubmit={handlePhoneVerify} className="space-y-3">
               <input
@@ -1136,75 +1065,18 @@ const StudentAccount = () => {
         )}
       </AnimatePresence>
 
-      {/* Crop modal */}
+      {/* Move-and-scale cropper (shared with the join form) */}
       <AnimatePresence>
         {cropSrc && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-black flex flex-col"
-          >
-            <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
-              <button onClick={() => setCropSrc(null)} className="text-sm text-white/70 font-medium">
-                Cancel
-              </button>
-              <span className="text-sm font-semibold text-white">Move and scale</span>
-              <button onClick={confirmCrop} className="text-sm text-white font-semibold">
-                Use photo
-              </button>
-            </div>
-
-            <div
-              ref={cropAreaRef}
-              className="flex-1 relative overflow-hidden flex items-center justify-center select-none"
-              style={{ touchAction: 'none' }}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-            >
-              <img
-                ref={imgRef}
-                src={cropSrc}
-                alt="crop"
-                draggable={false}
-                onLoad={onCropImageLoad}
-                className="absolute pointer-events-none max-w-none"
-                style={{
-                  transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropScale})`,
-                  transformOrigin: 'center',
-                }}
-              />
-
-              {/* Dimmed overlay with circular hole */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}>
-                <defs>
-                  <mask id="crop-hole">
-                    <rect width="100%" height="100%" fill="white" />
-                    <circle cx="50%" cy="50%" r={CROP_R} fill="black" />
-                  </mask>
-                </defs>
-                <rect width="100%" height="100%" fill="rgba(0,0,0,0.62)" mask="url(#crop-hole)" />
-                <circle cx="50%" cy="50%" r={CROP_R} fill="none" stroke="white" strokeWidth="1.5" opacity="0.7" />
-              </svg>
-            </div>
-
-            {/* Zoom slider */}
-            <div className="px-8 pb-8 pt-4 flex-shrink-0">
-              <input
-                type="range"
-                min={minCropScale}
-                max={minCropScale * 4}
-                step={0.005}
-                value={cropScale}
-                onChange={e => {
-                  const s = parseFloat(e.target.value);
-                  setCropScale(s);
-                  setCropOffset(o => clampOffset(o.x, o.y, s));
-                }}
-                className="w-full accent-white"
-              />
-            </div>
-          </motion.div>
+          <PhotoCropper
+            src={cropSrc}
+            onCancel={() => setCropSrc(null)}
+            onCropped={(file, previewUrl) => {
+              setPhotoFile(file);
+              setPhotoPreview(previewUrl);
+              setCropSrc(null);
+            }}
+          />
         )}
       </AnimatePresence>
 

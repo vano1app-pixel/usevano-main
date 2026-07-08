@@ -31,6 +31,13 @@ const MAX_OFFERS = Number(Deno.env.get('DISPATCH_MAX_OFFERS')) || 50;
 // inside no-helper-fallback's 2-hour auto-refund cutoff.
 const OFFER_TTL_MINUTES = 60;
 
+// Gap-recruit nudges (see sendGapRecruitNudges): only fire when coverage is
+// thin — if plenty of matching helpers already got the offer there's no gap
+// to recruit into, and texting bystanders would just burn goodwill.
+const GAP_NUDGE_MIN_COVERAGE = 5;   // nudge only when fewer matching helpers than this were offered
+const GAP_NUDGE_MAX_RECIPIENTS = 5; // per dispatch
+const GAP_NUDGE_COOLDOWN_DAYS = 7;  // per helper, across all categories
+
 const CATEGORY_LABELS: Record<string, string> = {
   shopping: 'Laundry',
   'dog-walk': 'Dog walk',
@@ -274,6 +281,61 @@ async function notifyHelperPhone(to: string | null | undefined, body: string): P
   return { whatsapp, sms };
 }
 
+// ── Gap-recruit nudge ───────────────────────────────────────────────────────
+// The supply-side half of "always have the right person": when a job goes out
+// to few or no matching helpers, tell a handful of available same-city helpers
+// who DON'T have the category that a paying job just passed them by, with a
+// link that pre-ticks it on their account page (/student-account?add=<cat>,
+// behind the usual phone gate). A real missed job converts far better than a
+// sign-up checkbox ever did — and it recruits into the exact category+city
+// gap. gap_nudged_at is stamped BEFORE sending (cron idempotency convention):
+// a crash between stamp and send loses one nudge, never double-texts.
+async function sendGapRecruitNudges(opts: {
+  supabase: ReturnType<typeof createClient>;
+  city: string;
+  category: string;
+  catLabel: string;
+  earnCents: number | null;
+  siteUrl: string;
+}): Promise<void> {
+  const { supabase, city, category, catLabel, earnCents, siteUrl } = opts;
+  try {
+    const cooldownCutoff = new Date(Date.now() - GAP_NUDGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    // Multiple .or() filters AND together — same PostgREST idiom as the
+    // dispatch lock above. NULL categories counts as "doesn't have it".
+    const { data: candidates } = await supabase
+      .from('household_helpers')
+      .select('id, phone')
+      .eq('city', city)
+      .eq('status', 'approved')
+      .eq('is_available', true)
+      .not('phone', 'is', null)
+      .or(`categories.is.null,categories.not.cs.{${category}}`)
+      .or(`gap_nudged_at.is.null,gap_nudged_at.lt.${cooldownCutoff}`)
+      // Proven responders first — they're the likeliest to actually opt in.
+      .order('accepted_count', { ascending: false })
+      .limit(GAP_NUDGE_MAX_RECIPIENTS);
+    if (!candidates || candidates.length === 0) return;
+
+    const ids = (candidates as Array<{ id: string }>).map((c) => c.id);
+    await supabase
+      .from('household_helpers')
+      .update({ gap_nudged_at: new Date().toISOString() })
+      .in('id', ids);
+
+    const earn = earnCents ? ` (€${(earnCents / 100).toFixed(2)} to you)` : '';
+    const addUrl = `${siteUrl}/student-account?add=${encodeURIComponent(category)}`;
+    const body = `VANO: A ${catLabel} job${earn} just went out in ${city} — it skipped you because ${catLabel} isn't in your "Jobs I do" list. Add it in 10 seconds and you'll get the next one: ${addUrl}`;
+    const results = await Promise.allSettled(
+      (candidates as Array<{ phone?: string }>).map((c) => notifyHelperPhone(c.phone, body)),
+    );
+    const ok = results.filter((r) => r.status === 'fulfilled' && (r.value.whatsapp || r.value.sms)).length;
+    console.log(`[dispatch] gap-recruit nudged ${ok}/${candidates.length} helper(s) in ${city} without '${category}'`);
+  } catch (e) {
+    console.warn('[dispatch] gap-recruit nudge failed (non-fatal)', e);
+  }
+}
+
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -500,6 +562,12 @@ serve(async (req) => {
         }).catch(() => {});
       }
 
+      // Nobody matched, but the gap is still recruitable: available same-city
+      // helpers WITHOUT this category just missed real money — tell them.
+      if (!quiet && !isCatchAll && city) {
+        await sendGapRecruitNudges({ supabase, city, category, catLabel, earnCents, siteUrl });
+      }
+
       return new Response(JSON.stringify({ dispatched: 0, city, bookingId, noHelpers: true }), {
         headers: { 'Content-Type': 'application/json' },
       });
@@ -670,6 +738,15 @@ serve(async (req) => {
       console.log('[dispatch] quiet re-dispatch — offers revived + pocket channels re-pinged (push + WhatsApp + SMS), no repeat email');
     } else {
       console.info('[dispatch] RESEND_API_KEY not set — skipping helper notifications');
+    }
+
+    // Thin coverage — the job went out, but city-side coverage is a supply
+    // gap: either so few local helpers matched, or NONE did and the search
+    // went platform-wide. Recruit into it. (Skipped on quiet re-dispatch
+    // rounds and for the 'custom' catch-all, which already fans out to
+    // everyone.)
+    if (!quiet && !isCatchAll && city && (expandedSearch || offers.length < GAP_NUDGE_MIN_COVERAGE)) {
+      await sendGapRecruitNudges({ supabase, city, category, catLabel, earnCents, siteUrl });
     }
 
     return new Response(

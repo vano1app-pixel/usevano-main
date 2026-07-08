@@ -447,7 +447,17 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
         }},
       );
       if (fnErr || !data?.checkout_url) {
-        throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Something went wrong.');
+        // On a non-2xx the client hides the response body behind
+        // error.context and `data` is null — so the old fallback showed the
+        // customer "Edge Function returned a non-2xx status code" instead of
+        // the server's actual reason. Unwrap it.
+        let serverMsg = (data as { error?: string } | null)?.error ?? null;
+        const errCtx = (fnErr as { context?: Response } | null)?.context;
+        if (!serverMsg && errCtx && typeof errCtx.json === 'function') {
+          try { serverMsg = ((await errCtx.json()) as { error?: string } | null)?.error ?? null; }
+          catch { /* body unreadable/not JSON — fall through to the generic copy */ }
+        }
+        throw new Error(serverMsg || 'Something went wrong. Please try again.');
       }
       saveBookingMemory({
         phone:   phoneClean,
