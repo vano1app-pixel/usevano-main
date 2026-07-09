@@ -18,6 +18,7 @@ import { sendHouseholdPush } from "../_shared/householdPush.ts";
 // helper's reach (the helper's client deliberately does not select it).
 
 const FALLBACK_ORIGINS = ['https://vanojobs.com', 'https://www.vanojobs.com', 'http://localhost:5173', 'http://localhost:4173'];
+const NATIVE_APP_ORIGINS = ['capacitor://localhost', 'https://localhost', 'ionic://localhost']; // iOS / Android / legacy shells — always allowed (see capacitor.config.ts)
 const ALLOWED_HEADERS = 'authorization, x-client-info, apikey, content-type';
 
 function matchOrigin(req: Request): string | null {
@@ -25,7 +26,7 @@ function matchOrigin(req: Request): string | null {
   if (!origin) return null;
   const n = origin.replace(/\/$/, '');
   const list = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
-  const allowed = list.length ? list : FALLBACK_ORIGINS;
+  const allowed = [...(list.length ? list : FALLBACK_ORIGINS), ...NATIVE_APP_ORIGINS];
   if (allowed.includes(n)) return n;
   try { if (new URL(n).hostname.endsWith('-vano1app-pixels-projects.vercel.app')) return n; } catch { /* not a URL */ }
   return null;

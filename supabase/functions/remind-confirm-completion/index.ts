@@ -190,15 +190,24 @@ serve(async (req) => {
     }
 
     // Stage 2: reminded a while ago, still unconfirmed → alert admin once.
+    // The stamp is SHARED with Stage 0's stuck-at-arrival alert, so "once"
+    // can't be a bare IS NULL check — a booking that already got the arrival
+    // alert would then never get THIS one. Instead: escalate when the stamp is
+    // missing OR predates the completion reminder (i.e. it was the arrival
+    // alert or a previous cycle, not this escalation). Column-to-column
+    // comparison isn't expressible in PostgREST, so filter in code.
     const cutoffIso = new Date(Date.now() - ESCALATE_MS).toISOString();
-    const { data: toEscalate } = await supabase.from('household_bookings')
-      .select(cols)
+    const { data: toEscalateRaw } = await supabase.from('household_bookings')
+      .select(`${cols}, completion_reminded_at, completion_escalated_at`)
       .eq('status', 'in_progress')
       .not('completion_reminded_at', 'is', null)
       .lt('completion_reminded_at', cutoffIso)
-      .is('completion_escalated_at', null)
-      .limit(50) as { data: Booking[] | null };
-    for (const b of toEscalate ?? []) {
+      .limit(50) as { data: (Booking & { completion_reminded_at: string; completion_escalated_at: string | null })[] | null };
+    const toEscalate = (toEscalateRaw ?? []).filter((b) =>
+      !b.completion_escalated_at ||
+      new Date(b.completion_escalated_at).getTime() < new Date(b.completion_reminded_at).getTime()
+    );
+    for (const b of toEscalate) {
       await escalateAdmin(b);
       await supabase.from('household_bookings').update({ completion_escalated_at: new Date().toISOString() }).eq('id', b.id);
       escalated++;

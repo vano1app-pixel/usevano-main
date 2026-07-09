@@ -14,6 +14,18 @@ const CORS = {
 const OTP_TTL_MS   = 10 * 60 * 1000; // 10 minutes
 const RESEND_GAP_MS = 30 * 1000;     // min seconds between sends per helper
 
+// Personal-provider domains that can never be a college address. The join
+// form only soft-warns on these ("the email OTP is the real enforcement") —
+// so this sender is where the enforcement actually lives. Hard-blocking
+// every non-college domain would need a college-domain database we'd get
+// wrong; blocking known personal providers is safe.
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.ie', 'yahoo.co.uk',
+  'hotmail.com', 'hotmail.ie', 'hotmail.co.uk', 'outlook.com', 'outlook.ie',
+  'live.com', 'live.ie', 'icloud.com', 'me.com', 'proton.me', 'protonmail.com',
+  'aol.com', 'msn.com',
+]);
+
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
@@ -34,6 +46,9 @@ serve(async (req) => {
     const cleanEmail = email?.trim().toLowerCase();
     if (!helper_id || !cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return json(400, { error: 'A valid college email is required.' });
+    }
+    if (PERSONAL_EMAIL_DOMAINS.has(cleanEmail.split('@')[1] ?? '')) {
+      return json(400, { error: "That's a personal address — the student check needs your official college email (it usually ends in .ie or .edu)." });
     }
 
     // Helper must exist (don't leak which ids are valid beyond a generic 404)

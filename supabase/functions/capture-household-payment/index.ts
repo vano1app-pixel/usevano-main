@@ -14,13 +14,14 @@ import { sendHouseholdPush } from "../_shared/householdPush.ts";
 // If you edit this, redeploy — the GitHub auto-deploy is disabled.
 
 const FALLBACK_ORIGINS = ['https://vanojobs.com','https://www.vanojobs.com','http://localhost:5173','http://localhost:4173'];
+const NATIVE_APP_ORIGINS = ['capacitor://localhost', 'https://localhost', 'ionic://localhost']; // iOS / Android / legacy shells — always allowed (see capacitor.config.ts)
 const ALLOWED_HEADERS = 'authorization, x-client-info, apikey, content-type';
 function matchOrigin(req: Request): string | null {
   const origin = req.headers.get('Origin');
   if (!origin) return null;
   const n = origin.replace(/\/$/, '');
   const list = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s=>s.trim().replace(/\/$/, '')).filter(Boolean);
-  const allowed = list.length ? list : FALLBACK_ORIGINS;
+  const allowed = [...(list.length ? list : FALLBACK_ORIGINS), ...NATIVE_APP_ORIGINS];
   if (allowed.includes(n)) return n;
   try { if (new URL(n).hostname.endsWith('-vano1app-pixels-projects.vercel.app')) return n; } catch { /* not a valid URL */ }
   return null;
@@ -79,7 +80,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, price_estimate_cents, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id, disputed_at, refunded_at')
+      .select('id, student_id, status, price_estimate_cents, booking_data, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id, disputed_at, refunded_at')
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
@@ -110,8 +111,16 @@ serve(async (req) => {
     }
 
     const PLATFORM_FEE_BPS = 1500;
-    const priceCents = booking.price_estimate_cents ?? 0;
-    const studentCents = Math.floor(priceCents * (10000 - PLATFORM_FEE_BPS) / 10000);
+    const priceCents = (booking.price_estimate_cents as number | null) ?? 0; // what the customer paid (job line)
+    // Helper pay base: the FULL job price. When a schedule/loyalty discount
+    // shrank the customer price, create-household-payment-checkout stamps the
+    // undiscounted price in booking_data.helper_pay_base_cents — the discount
+    // is platform-funded and must never dock the helper below minimum wage.
+    const payBaseCents = Math.max(
+      priceCents,
+      Number((booking.booking_data as Record<string, unknown> | null)?.helper_pay_base_cents) || 0,
+    );
+    const studentCents = Math.floor(payBaseCents * (10000 - PLATFORM_FEE_BPS) / 10000);
 
     // Record the payout FIRST, and only flip the booking to 'completed' once
     // the helper's pay is durably on the books. The old order (complete → then

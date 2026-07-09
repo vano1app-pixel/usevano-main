@@ -1075,6 +1075,44 @@ async function handleChargeRefunded(
   }
 
   const nowIso = new Date().toISOString();
+
+  // Household bookings first: an out-of-band refund (Stripe dashboard,
+  // chargeback) must stamp refunded_at on the booking, or
+  // capture-household-payment / release-household-payouts would still pay
+  // the helper for a job the customer got their money back on.
+  const { data: hb } = await supabase
+    .from('household_bookings')
+    .update({ refunded_at: nowIso })
+    .eq('stripe_payment_intent_id', charge.payment_intent)
+    .is('refunded_at', null)
+    .select('id, status')
+    .maybeSingle();
+  if (hb) {
+    // A refunded job that hasn't finished shouldn't keep running — cancel it
+    // unless it already reached a terminal state.
+    if (hb.status !== 'completed' && hb.status !== 'cancelled') {
+      await supabase
+        .from('household_bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', hb.id)
+        .not('status', 'in', '(completed,cancelled)');
+      await supabase.from('household_job_updates').insert({
+        booking_id: hb.id,
+        status: 'cancelled',
+        note: 'Payment refunded — booking cancelled.',
+      });
+    }
+    // Kill any not-yet-transferred payout so the release sweep can't pay it.
+    await supabase
+      .from('household_payouts')
+      .update({ status: 'failed', last_transfer_error: 'charge refunded — payout withheld' })
+      .eq('booking_id', hb.id)
+      .eq('status', 'pending');
+    return new Response(JSON.stringify({ received: true, triggered: 'household_charge_refunded' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const { data: flipped, error } = await supabase
     .from('vano_payments')
     .update({

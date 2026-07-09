@@ -218,9 +218,19 @@ serve(async (req) => {
       await supabase.from('household_bookings').update({
         status: 'pending',
         student_id: null,
+        accepted_at: null,
         worker_lat: null,
         worker_lng: null,
         worker_location_updated_at: null,
+        // Reset the pay-after-accept state along with the helper: the old
+        // checkout URL kept the track page showing "Helper confirmed — pay
+        // now" while we were actually searching again, and the stale
+        // payment_requested_at meant remind-unpaid-bookings' 2h clock could
+        // release the REPLACEMENT helper minutes after they accepted. A new
+        // accept generates a fresh session + fresh clock.
+        payment_requested_at: null,
+        stripe_checkout_url: null,
+        payment_reminder_sent_at: null,
       }).eq('id', booking_id);
 
       await supabase.from('household_job_updates').insert({

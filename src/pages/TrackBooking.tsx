@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { extractFnError } from '@/lib/fnError';
 import { ArrowLeft, MapPin, CheckCircle2, Circle, Loader2, Send, Navigation, Star, X, Bell, ShieldCheck, ShieldAlert, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -564,9 +565,15 @@ const TrackBooking = () => {
       if (error) throw error;
       if (selectedRating > 0) {
         try {
-          await supabase.functions.invoke('rate-household-booking', { body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined } });
-          if (typeof localStorage !== 'undefined') localStorage.setItem(`vano_rated_${bookingId}`, '1');
-          setAlreadyRated(true);
+          // invoke() reports HTTP failures via the returned error — it doesn't
+          // throw — so the old fire-and-forget marked the booking "rated" even
+          // when the rating never saved. Only mark rated on genuine success;
+          // otherwise leave the rating card up so the customer can retry.
+          const rateRes = await supabase.functions.invoke('rate-household-booking', { body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined } });
+          if (!rateRes.error && !(rateRes.data as { error?: string } | null)?.error) {
+            if (typeof localStorage !== 'undefined') localStorage.setItem(`vano_rated_${bookingId}`, '1');
+            setAlreadyRated(true);
+          }
         } catch { /* rating is best-effort — don't block completion */ }
       }
       setBooking((b) => b ? { ...b, status: 'completed' } : b);
@@ -631,10 +638,22 @@ const TrackBooking = () => {
     if (!bookingId || selectedRating === 0 || submittingRating) return;
     setSubmittingRating(true);
     try {
-      const { error } = await supabase.functions.invoke('rate-household-booking', {
+      const { data, error } = await supabase.functions.invoke('rate-household-booking', {
         body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined },
       });
-      if (error) throw error;
+      if (error || (data as { error?: string } | null)?.error) {
+        const msg = await extractFnError(data, error, 'Could not save rating — please try again.');
+        // A duplicate (rated on another device) shouldn't loop "try again"
+        // forever — it IS rated; reflect that and stop asking.
+        if (/already/i.test(msg)) {
+          if (typeof localStorage !== 'undefined') localStorage.setItem(`vano_rated_${bookingId}`, '1');
+          setAlreadyRated(true);
+          toast({ title: 'Already rated', description: 'This booking has a rating — thanks!' });
+          return;
+        }
+        toast({ title: 'Could not save rating', description: msg, variant: 'destructive' });
+        return;
+      }
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(`vano_rated_${bookingId}`, '1');
       }
@@ -981,7 +1000,10 @@ const TrackBooking = () => {
             The email/WhatsApp pay link doesn't reach phone-only customers
             reliably — this card is the always-works path, updating live the
             moment notify-household-accepted stores the checkout URL. */}
-        {booking.stripe_checkout_url && !booking.paid_at && !isCancelled && !isCompleted && (
+        {/* status must be past 'pending': a released helper drops the booking back
+            to searching but the old checkout URL survives on the row — showing
+            "Helper confirmed — secure your booking" then would be a lie. */}
+        {booking.stripe_checkout_url && !booking.paid_at && !isCancelled && !isCompleted && booking.status !== 'pending' && (
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

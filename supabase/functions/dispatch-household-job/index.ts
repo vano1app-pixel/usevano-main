@@ -369,7 +369,7 @@ serve(async (req) => {
     // booking doesn't exist or isn't pending, there's nothing to dispatch.
     const { data: dbBooking } = await supabase
       .from('household_bookings')
-      .select('id, city, status, category, scheduled_date, price_estimate_cents')
+      .select('id, city, status, category, scheduled_date, price_estimate_cents, booking_data')
       .eq('id', bookingId)
       .maybeSingle();
 
@@ -383,9 +383,15 @@ serve(async (req) => {
     // Students respond to money: show what they'd actually keep — the helper
     // is paid the job price minus the 15% platform cut (PLATFORM_FEE_BPS=1500
     // in capture-household-payment), i.e. 85%. This must match the payout, or
-    // the offer overpromises vs what lands in their account.
-    const earnCents = typeof price_estimate_cents === 'number' && price_estimate_cents > 0
-      ? Math.floor(price_estimate_cents * 0.85)
+    // the offer overpromises vs what lands in their account. The payout base
+    // is helper_pay_base_cents when a schedule/loyalty discount shrank the
+    // customer price (platform-funded — the helper is still paid in full).
+    const helperPayBaseCents = Math.max(
+      typeof price_estimate_cents === 'number' ? price_estimate_cents : 0,
+      Number((dbBooking as { booking_data?: Record<string, unknown> | null }).booking_data?.helper_pay_base_cents) || 0,
+    );
+    const earnCents = helperPayBaseCents > 0
+      ? Math.floor(helperPayBaseCents * 0.85)
       : null;
 
     if (status !== 'pending') {

@@ -105,9 +105,12 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ie&limit=5&addressdetails=1`,
           { headers: { 'Accept-Language': 'en' } },
         );
-        const results: NominatimResult[] = await res.json();
-        setSuggestions(results);
-        setOpen(results.length > 0);
+        // Nominatim under rate-limit/error returns a JSON object (or HTML),
+        // not an array — guard before setState or the .map render crashes.
+        const results: unknown = res.ok ? await res.json().catch(() => []) : [];
+        const list = Array.isArray(results) ? (results as NominatimResult[]) : [];
+        setSuggestions(list);
+        setOpen(list.length > 0);
       } catch { /* network error — ignore */ }
       finally { setSearching(false); }
     }, 380);
@@ -145,7 +148,13 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         { headers: { 'Accept-Language': 'en' } },
       );
+      // Reverse geocode can come back as {error: "Unable to geocode"} — treat
+      // that as a failure (→ the catch's "type your address" toast) instead of
+      // confirming an address of "undefined".
       const result: NominatimResult = await res.json();
+      if (!res.ok || (!result?.display_name && !result?.address)) {
+        throw new Error('reverse geocode failed');
+      }
       const formatted = formatNominatimAddress(result);
       setQuery(formatted);
       setSuggestions([]);
