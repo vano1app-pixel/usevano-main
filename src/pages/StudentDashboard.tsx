@@ -52,8 +52,17 @@ interface Booking {
   customer_name: string;
   customer_address: string;
   price_estimate_cents: number | null;
+  /** Payout base when a schedule/loyalty discount shrank the customer price —
+   *  the helper is still paid 85% of the FULL price (platform-funded). */
+  booking_data?: { helper_pay_base_cents?: number } | null;
   student_id: string | null;
   created_at: string;
+}
+
+/** 85% of the payout base — must match capture-household-payment. */
+function earnCentsFor(job: Booking): number {
+  const base = Math.max(job.price_estimate_cents ?? 0, Number(job.booking_data?.helper_pay_base_cents) || 0);
+  return Math.floor(base * 0.85);
 }
 
 interface Payout {
@@ -146,7 +155,7 @@ const StudentDashboard = () => {
   const loadData = useCallback(async (uid: string, city?: string | null, categories?: string[]) => {
     let availableQuery = hdb
       .from('household_bookings')
-      .select('id, category, scheduled_date, time_slot, is_express, status, customer_address, city, price_estimate_cents, student_id, created_at')
+      .select('id, category, scheduled_date, time_slot, is_express, status, customer_address, city, price_estimate_cents, booking_data, student_id, created_at')
       .eq('status', 'pending')
       .is('student_id', null)
       .order('created_at', { ascending: false })
@@ -157,7 +166,12 @@ const StudentDashboard = () => {
     const [available, mine, earnedPayouts] = await Promise.all([
       availableQuery,
       hdb.from('household_bookings')
-        .select('*')
+        // Explicit columns — never '*': the row carries the customer's secret
+        // arrival_code, which must ONLY ever render on the customer's screen
+        // (the helper typing it is the proof-of-presence handshake). Pulling
+        // it into the helper's browser handed it to the one person who must
+        // not have it.
+        .select('id, category, scheduled_date, time_slot, is_express, status, customer_name, customer_address, price_estimate_cents, booking_data, student_id, created_at')
         .eq('student_id', uid)
         .not('status', 'in', '(pending,cancelled)')
         .order('created_at', { ascending: false })
@@ -821,7 +835,7 @@ const StudentDashboard = () => {
                             // never shows more than what actually lands.
                             <span className="flex flex-col items-end flex-shrink-0">
                               <span className="text-lg font-bold text-foreground tabular-nums">
-                                €{Math.floor((job.price_estimate_cents * 0.85) / 100)}
+                                €{Math.floor(earnCentsFor(job) / 100)}
                               </span>
                               <span className="text-[10px] text-muted-foreground font-medium">you keep</span>
                             </span>

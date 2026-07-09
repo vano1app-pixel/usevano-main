@@ -37,14 +37,26 @@ serve(async (req) => {
     // Load helper and verify phone matches
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, phone, email, status')
+      .select('id, phone, email, status, verified_plan_sub_id')
       .eq('id', helper_id)
-      .maybeSingle() as { data: { id: string; phone: string; email: string | null; status: string } | null };
+      .maybeSingle() as { data: { id: string; phone: string; email: string | null; status: string; verified_plan_sub_id: string | null } | null };
 
     if (!helper) return bad(404, 'Helper account not found');
     if (!phonesMatch(helper.phone, phone)) return bad(403, 'Phone number does not match');
 
-    // Cancel Stripe subscription (best-effort — DB update still proceeds on failure)
+    // Cancel the ✓ Verified €2/month subscription by its STORED id first —
+    // the email sweep below only works when the Stripe customer's email
+    // matches the helper row, and a stale/changed email left the sub billing
+    // forever after the helper had gone. Leaving the platform ends the plan
+    // immediately (no tick to keep).
+    if (stripeKey && helper.verified_plan_sub_id) {
+      await fetch(`https://api.stripe.com/v1/subscriptions/${helper.verified_plan_sub_id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${stripeKey}` },
+      }).catch((e) => console.warn('[cancel-helper-subscription] sub-id cancel failed (email sweep still runs):', e));
+    }
+
+    // Belt-and-braces email sweep (best-effort — DB update still proceeds on failure)
     if (stripeKey && helper.email) {
       try {
         const custRes = await fetch(
@@ -72,10 +84,11 @@ serve(async (req) => {
       }
     }
 
-    // Remove from platform regardless of Stripe outcome
+    // Remove from platform regardless of Stripe outcome. Also switch the paid
+    // plan flags off so nothing keeps rendering a tick for a cancelled row.
     await supabase
       .from('household_helpers')
-      .update({ status: 'cancelled', is_available: false })
+      .update({ status: 'cancelled', is_available: false, verified_plan_active: false, verified_plan_sub_id: null })
       .eq('id', helper.id);
 
     return ok({ cancelled: true });

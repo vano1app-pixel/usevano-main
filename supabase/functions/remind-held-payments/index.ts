@@ -159,28 +159,24 @@ serve(async (_req) => {
       const msLeft = releaseAt.getTime() - nowMs;
       const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
       const releaseDate = releaseAt.toLocaleDateString('en-IE', { day: 'numeric', month: 'short' });
-      const threadUrl = row.conversation_id
-        ? `${siteUrl}/messages?open=${row.conversation_id}`
-        : `${siteUrl}/messages`;
-      const dashboardUrl = `${siteUrl}/business-dashboard`;
+      // The old marketplace frontend (/messages, /business-dashboard) was
+      // deleted and those routes 404 — there is no self-serve release/flag UI
+      // any more. The email now points problems at WhatsApp/reply instead of
+      // dead links; doing nothing still auto-releases on schedule.
 
       const subject = `Your ${amountEuro} on Vano auto-releases in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
       const text =
         `Your ${amountEuro} payment to ${freelancerName} on Vano is held and auto-releases on ${releaseDate} (${daysLeft} day${daysLeft === 1 ? '' : 's'} away).\n\n` +
         (row.description ? `Description: ${row.description}\n\n` : '') +
-        `If the work is done, you can release it now from the thread:\n${threadUrl}\n\n` +
-        `If anything's off, flag a problem from the same thread and we'll refund the full amount.\n\n` +
-        `Auto-release is automatic after ${daysLeft} more day${daysLeft === 1 ? '' : 's'} — your protection window closes then.\n\n` +
+        `If the work is done, you don't need to do anything — the payment releases automatically on ${releaseDate}.\n\n` +
+        `If anything's off, reply to this email or WhatsApp us on +353 89 981 7111 before then and we'll sort it (full refund if the work wasn't done).\n\n` +
         `— The Vano team\n${siteUrl}\n`;
 
       const html =
         `<p>Your <strong>${amountEuro}</strong> payment to <strong>${escapeHtml(freelancerName)}</strong> on Vano is held and auto-releases on <strong>${releaseDate}</strong> (${daysLeft} day${daysLeft === 1 ? '' : 's'} away).</p>` +
         (row.description ? `<p style="color:#555">Description: ${escapeHtml(row.description)}</p>` : '') +
-        `<p>If the work is done, release it now from the thread:</p>` +
-        `<p><a href="${threadUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;">Open thread</a></p>` +
-        `<p>If anything's off, flag a problem from the same thread and we'll refund the full amount.</p>` +
-        `<p style="color:#555;font-size:13px">Auto-release is automatic after ${daysLeft} more day${daysLeft === 1 ? '' : 's'} — your protection window closes then.</p>` +
-        `<p style="color:#888;font-size:12px">Dashboard: <a href="${dashboardUrl}">${dashboardUrl}</a></p>` +
+        `<p>If the work is done, you don't need to do anything — the payment releases automatically on <strong>${releaseDate}</strong>.</p>` +
+        `<p>If anything's off, reply to this email or <a href="https://wa.me/353899817111">WhatsApp us on +353 89 981 7111</a> before then and we'll sort it (full refund if the work wasn't done).</p>` +
         `<p style="color:#888;font-size:12px">— The Vano team · <a href="${siteUrl}">${siteUrl}</a></p>`;
 
       try {

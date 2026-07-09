@@ -80,8 +80,12 @@ serve(async (req) => {
       return na === nb || na.endsWith(nb) || nb.endsWith(na);
     };
 
-    // deno-lint-ignore no-explicit-any
-    let helper: any = null;
+    interface HelperRow {
+      id: string; user_id: string | null; stripe_account_id: string | null;
+      stripe_payouts_enabled: boolean | null; name: string | null;
+      phone: string | null; email: string | null;
+    }
+    let helper: HelperRow | null = null;
     let userId: string | null = null;
     let userEmail: string | undefined;
 

@@ -10,10 +10,18 @@ const ALLOWED_HEADERS = [
   'x-supabase-client-platform','x-supabase-client-platform-version',
   'x-supabase-client-runtime','x-supabase-client-runtime-version',
 ].join(', ');
+// The native apps load the SAME bundle from a local origin — iOS serves it
+// from capacitor://localhost, Android from https://localhost (see
+// capacitor.config.ts). These must ALWAYS pass the origin gate, even when the
+// ALLOWED_ORIGINS secret overrides the fallback list, or every origin-gated
+// call 403s inside the installed app.
+const NATIVE_APP_ORIGINS = ['capacitor://localhost', 'https://localhost', 'ionic://localhost'];
 function getAllowlist(): string[] {
   const raw = Deno.env.get('ALLOWED_ORIGINS');
-  if (!raw) return FALLBACK_ORIGINS;
-  return raw.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+  const base = !raw
+    ? FALLBACK_ORIGINS
+    : raw.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+  return [...base, ...NATIVE_APP_ORIGINS];
 }
 function allowsVercelPreview(origin: string): boolean {
   try { return new URL(origin).hostname.endsWith('-vano1app-pixels-projects.vercel.app'); } catch { return false; }

@@ -8,6 +8,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { supabase } from '@/integrations/supabase/client';
 import { haptic } from '@/lib/haptics';
 import { celebrateBooking } from '@/lib/celebrate';
+import { extractFnError } from '@/lib/fnError';
 import { teamWhatsAppHref, teamTelHref } from '@/lib/contact';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,6 +157,13 @@ const VerifyHelper: React.FC = () => {
         setIdState((s) => (s === 'verified' ? s : 'submitted'));
       }
       if (data.verified_plan_active) { setPlanState('active'); saveProgress(helperId, { plan: true }); }
+      else {
+        // Unlike the two free checks, the plan is CANCELLABLE — the upgrade-only
+        // cache must not pin it "active" forever (a helper who cancelled could
+        // never re-subscribe from this page). DB false wins; correct the cache.
+        saveProgress(helperId, { plan: false });
+        setPlanState((s) => (s === 'confirming' || s === 'paying' ? s : 'idle'));
+      }
     })();
     return () => { cancelled = true; };
   }, [helperId]);
@@ -189,7 +197,7 @@ const VerifyHelper: React.FC = () => {
     setEmailState('sending'); setEmailError(null); setOtpChannel('email');
     const { data, error } = await supabase.functions.invoke('send-student-email-otp', { body: { helper_id: helperId, email: clean } });
     if (error || (data as { error?: string } | null)?.error) {
-      setEmailError((data as { error?: string } | null)?.error || 'Could not send a code. Try again.');
+      setEmailError(await extractFnError(data, error, 'Could not send a code. Try again.'));
       setEmailState('idle');
       return;
     }
@@ -206,7 +214,7 @@ const VerifyHelper: React.FC = () => {
     setEmailState('sending'); setEmailError(null); setOtpChannel('sms');
     const { data, error } = await supabase.functions.invoke('send-student-sms-otp', { body: { helper_id: helperId } });
     if (error || (data as { error?: string } | null)?.error) {
-      setEmailError((data as { error?: string } | null)?.error || 'Could not text a code. Try email instead.');
+      setEmailError(await extractFnError(data, error, 'Could not text a code. Try email instead.'));
       setEmailState('idle');
       return;
     }
@@ -220,7 +228,7 @@ const VerifyHelper: React.FC = () => {
     setEmailState('verifying'); setEmailError(null);
     const { data, error } = await supabase.functions.invoke('verify-student-email-otp', { body: { helper_id: helperId, code: code.trim() } });
     if (error || !(data as { verified?: boolean } | null)?.verified) {
-      setEmailError((data as { error?: string } | null)?.error || 'That code is incorrect.');
+      setEmailError(await extractFnError(data, error, 'That code is incorrect.'));
       setEmailState('sent');
       return;
     }
@@ -237,7 +245,7 @@ const VerifyHelper: React.FC = () => {
     if ((data as { already_verified?: boolean } | null)?.already_verified) { setIdState('verified'); saveProgress(helperId, { id_check: true }); return; }
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
-      setIdError((data as { error?: string } | null)?.error || 'Could not start the ID check. Try again.');
+      setIdError(await extractFnError(data, error, 'Could not start the ID check. Try again.'));
       setIdState('idle');
       return;
     }
@@ -251,7 +259,7 @@ const VerifyHelper: React.FC = () => {
     if ((data as { already_active?: boolean } | null)?.already_active) { setPlanState('active'); saveProgress(helperId, { plan: true }); return; }
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
-      setPlanError((data as { error?: string } | null)?.error || 'Could not open checkout. Try again.');
+      setPlanError(await extractFnError(data, error, 'Could not open checkout. Try again.'));
       setPlanState('idle');
       return;
     }

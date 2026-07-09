@@ -11,10 +11,18 @@ const ALLOWED_HEADERS = [
   'x-supabase-client-platform','x-supabase-client-platform-version',
   'x-supabase-client-runtime','x-supabase-client-runtime-version',
 ].join(', ');
+// The native apps load the SAME bundle from a local origin — iOS serves it
+// from capacitor://localhost, Android from https://localhost (see
+// capacitor.config.ts). These must ALWAYS pass the origin gate, even when the
+// ALLOWED_ORIGINS secret overrides the fallback list, or every origin-gated
+// call 403s inside the installed app.
+const NATIVE_APP_ORIGINS = ['capacitor://localhost', 'https://localhost', 'ionic://localhost'];
 function getAllowlist(): string[] {
   const raw = Deno.env.get('ALLOWED_ORIGINS');
-  if (!raw) return FALLBACK_ORIGINS;
-  return raw.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+  const base = !raw
+    ? FALLBACK_ORIGINS
+    : raw.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+  return [...base, ...NATIVE_APP_ORIGINS];
 }
 function allowsVercelPreview(origin: string): boolean {
   try { return new URL(origin).hostname.endsWith('-vano1app-pixels-projects.vercel.app'); } catch { return false; }
@@ -389,19 +397,15 @@ serve(async (req) => {
     }
     const isMonthlyPlan = cat.startsWith('airbnb-');
 
+    // The FULL (undiscounted) price is the helper's pay base. Schedule and
+    // loyalty discounts are customer-side deals funded by the platform — they
+    // must never shrink what the helper is paid, or a €18/hr job drops under
+    // Ireland's €14.15/hr minimum wage after the 15% cut (the pricing
+    // invariant). Same principle the referral discount already follows.
+    const fullPriceCents = priceCents;
+
     // Schedule and loyalty discounts don't apply to monthly Airbnb plans
     if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
-
-    // Vano's take has two parts: a 7.5% service fee added on top of the
-    // quoted price here, plus a 15% student-side cut taken off the price at
-    // completion (PLATFORM_FEE_BPS in capture-household-payment). Combined
-    // that's ~22.5% of the quoted price (~21% of what the customer pays) —
-    // NOT the 12.5% an older comment claimed. Every time-based labour rate
-    // is now €18/hr (cleaning, tutoring, garden, moving), so the 15% cut
-    // still nets the student €15.30/hr — clear of the €14.15/hr 2026
-    // minimum wage.
-    const SERVICE_FEE_PCT  = 0.075;
-    const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 
     const supabase = createClient(supabaseUrl, serviceKey);
     let isLoyalty = false;
@@ -419,6 +423,20 @@ serve(async (req) => {
       isLoyalty = (confirmedCount + 1) % 3 === 0;
       if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
     }
+
+    // Vano's take has two parts: a 7.5% service fee added on top of the
+    // quoted price here, plus a 15% student-side cut taken off the price at
+    // completion (PLATFORM_FEE_BPS in capture-household-payment). Combined
+    // that's ~22.5% of the quoted price (~21% of what the customer pays) —
+    // NOT the 12.5% an older comment claimed. Every time-based labour rate
+    // is now €18/hr (cleaning, tutoring, garden, moving), so the 15% cut
+    // still nets the student €15.30/hr — clear of the €14.15/hr 2026
+    // minimum wage.
+    // The fee is 7.5% of the price the customer actually pays (post-discount)
+    // — it used to be computed before the loyalty halving, which made the
+    // promised "50% off" quietly smaller than 50%.
+    const SERVICE_FEE_PCT  = 0.075;
+    const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 
     // ── Referral programme (give €5, get €5) ──────────────────────────────
     // Two mutually exclusive discounts, at most one per booking:
@@ -500,6 +518,10 @@ serve(async (req) => {
       source:        'task_showcase',
       service_fee_cents: serviceFeeCents,
       total_cents:       baseTotalCents,
+      // Helper pay base when a schedule/loyalty discount shrank the customer
+      // price: capture-household-payment and dispatch offers pay/quote 85% of
+      // THIS, so the discount is platform-funded, never docked from the helper.
+      ...(fullPriceCents > priceCents ? { helper_pay_base_cents: fullPriceCents } : {}),
       ...(referralDiscountCents > 0 ? {
         referral_discount_cents: referralDiscountCents,
         referral_kind: referralWelcome ? 'welcome' : 'redeem',
@@ -553,13 +575,21 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle() as { data: { id: string; booking_data: Record<string, unknown> | null } | null };
-      if (recent?.id) {
+      // Same size too — a customer who books a 2-hour clean and immediately
+      // rebooks a 4-hour one meant a DIFFERENT job, not a double-tap.
+      const recentSize = (recent?.booking_data as Record<string, unknown> | null)?.size_label ?? null;
+      const sameJob = recent?.id && (recentSize ?? null) === (sl || null);
+      if (recent?.id && sameJob) {
         console.log('[create-household-payment-checkout] duplicate submit — returning existing booking', recent.id);
         const origin0 = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
         const trackUrl0 = `${origin0}/track/${recent.id}`;
-        const feeCents0 = Number((recent.booking_data as Record<string, unknown> | null)?.service_fee_cents) || 0;
+        const bd0 = recent.booking_data as Record<string, unknown> | null;
+        const feeCents0 = Number(bd0?.service_fee_cents) || 0;
+        // Quote the EXISTING booking's numbers, not this request's re-priced
+        // ones — they're the amounts that booking will actually charge.
+        const totalCents0 = Number(bd0?.total_cents) || priceCents + feeCents0;
         return new Response(
-          JSON.stringify({ booking_id: recent.id, track_url: trackUrl0, checkout_url: trackUrl0, price_cents: priceCents, total_cents: priceCents + feeCents0, pay_later: true, deduped: true }),
+          JSON.stringify({ booking_id: recent.id, track_url: trackUrl0, checkout_url: trackUrl0, price_cents: totalCents0 - feeCents0, total_cents: totalCents0, pay_later: true, deduped: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }

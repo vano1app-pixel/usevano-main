@@ -173,6 +173,13 @@ serve(async (_req) => {
     //    payment_requested_at exists.
     if (requestedMs === null || !b.stripe_checkout_url) {
       if (!cadenceDue) continue;
+      // Each regenerate re-sends the full accepted/pay notification — retry a
+      // handful of times (session creation failing is a transient Stripe/env
+      // problem), then stop instead of notifying the customer forever.
+      if (count >= 6) {
+        console.warn('[unpaid] pay-link regenerate cap reached for', b.id, '- giving up (check STRIPE env)');
+        continue;
+      }
       void fetch(`${supabaseUrl}/functions/v1/notify-household-accepted`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${serviceKey}`, 'x-internal-accept': '1', 'Content-Type': 'application/json' },
@@ -429,14 +436,14 @@ serve(async (_req) => {
   const cancelCutoff = new Date(now - cancelAfterHours * 60 * 60 * 1000).toISOString();
   const { data: cancelCandidates } = await supabase
     .from('household_bookings')
-    .select('id, stripe_payment_intent_id')
+    .select('id, stripe_payment_intent_id, student_id, category, customer_name, customer_email')
     .is('paid_at', null)
     .in('status', ['pending', 'accepted', 'on_way'])
     .lt('created_at', cancelCutoff)
     // Don't 24h-cancel a future-dated booking that simply hasn't come due yet.
     .or(`scheduled_at.is.null,scheduled_at.lt.${new Date(now).toISOString()}`)
     .order('created_at', { ascending: true })
-    .limit(SWEEP_LIMIT) as { data: Array<{ id: string; stripe_payment_intent_id: string | null }> | null };
+    .limit(SWEEP_LIMIT) as { data: Array<{ id: string; stripe_payment_intent_id: string | null; student_id: string | null; category: string | null; customer_name: string | null; customer_email: string | null }> | null };
 
   for (const b of cancelCandidates ?? []) {
     const { data: done } = await supabase
@@ -454,6 +461,50 @@ serve(async (_req) => {
       booking_id: b.id, status: 'cancelled',
       note: 'Cancelled automatically — unpaid for over 24 hours.',
     });
+    // Never cancel SILENTLY: the sweep used to drop the booking without a
+    // word — the customer kept a live-looking track page/pay link, and a
+    // still-assigned helper (2h release missed/raced) just watched the job
+    // vanish. One email/text each, best-effort.
+    {
+      const swCat = CATEGORY_LABELS[String(b.category)] ?? 'job';
+      const swRef = String(b.id).slice(-8).toUpperCase();
+      if (resendKey && b.customer_email) {
+        void fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from, to: [b.customer_email],
+            subject: `Your ${swCat} booking was cancelled — nothing charged`,
+            text: `Hi ${b.customer_name && b.customer_name !== 'Guest' ? b.customer_name : 'there'}, your ${swCat} booking (${swRef}) went unpaid for over 24 hours, so we've cancelled it. You haven't been charged anything. Book again any time: ${siteUrl} — or WhatsApp +353 89 981 7111.`,
+          }),
+        }).catch(() => {});
+      }
+      if (b.student_id) {
+        // helperByUser is built from the accepted-unpaid batch, which may not
+        // include this swept booking's helper — fall back to a direct lookup.
+        let swHelper = helperByUser.get(b.student_id);
+        if (!swHelper) {
+          const { data: hRow } = await supabase
+            .from('household_helpers')
+            .select('name, email, phone')
+            .eq('user_id', b.student_id)
+            .maybeSingle() as { data: { name: string | null; email: string | null; phone: string | null } | null };
+          if (hRow) swHelper = { first: (String(hRow.name ?? '').split(' ')[0] || 'there'), email: hRow.email, phone: hRow.phone };
+        }
+        if (swHelper?.phone) void sendCustomerSms(swHelper.phone, `VANO: the ${swCat} you accepted (${swRef}) was cancelled — the customer never paid. You're free; more jobs are in the app.`);
+        if (resendKey && swHelper?.email) {
+          void fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from, to: [swHelper.email],
+              subject: `Job cancelled — customer never paid (${swRef})`,
+              text: `Hi ${swHelper.first ?? 'there'}, the ${swCat} you accepted was cancelled after 24 hours unpaid. You're no longer assigned — more jobs: ${siteUrl}/student-dashboard`,
+            }),
+          }).catch(() => {});
+        }
+      }
+    }
     swept_cancelled++;
   }
 

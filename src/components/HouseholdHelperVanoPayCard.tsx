@@ -4,6 +4,7 @@ import { Loader2, CheckCircle2, Banknote, ExternalLink, AlertCircle, Clock } fro
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { extractFnError } from '@/lib/fnError';
 
 // Household-helper version of VanoPaySetupCard. Lets a helper link their
 // bank account or Revolut (any IBAN works) via Stripe Connect Express so
@@ -121,7 +122,10 @@ export function HouseholdHelperVanoPayCard({ userId: userIdProp, className }: Pr
       if (!url) throw new Error('No onboarding URL returned');
       window.location.href = url;
     } catch (err) {
-      const message = (err as { message?: string })?.message || '';
+      // The real server reason hides in err.context on non-2xx — err.message
+      // is just "Edge Function returned a non-2xx status code", which made
+      // the Connect-not-enabled owner hint below unreachable.
+      const message = await extractFnError(null, err, (err as { message?: string })?.message || '');
       toast({
         title: "Couldn't open payout setup",
         description: message.includes('Connect is not enabled')

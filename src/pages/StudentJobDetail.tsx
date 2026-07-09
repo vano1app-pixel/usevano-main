@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { SEOHead } from '@/components/SEOHead';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errorMessages';
+import { extractFnError } from '@/lib/fnError';
 import { microCelebrate } from '@/lib/celebrate';
 import { isTimedCategory, formatCountdown } from '@/lib/householdJob';
 import { getCurrentPosition, watchPosition, clearWatch, isPermissionDenied, type WatchId } from '@/lib/native/geolocation';
@@ -398,7 +399,7 @@ const StudentJobDetail = () => {
       setBooking((b) => b ? { ...b, status: 'arrived' } : b);
       toast({ title: "You're at the door", description: 'Ask the customer for their 4-digit code, then enter it to start.' });
     } catch (err) {
-      toast({ title: 'Could not mark arrival', description: getUserFriendlyError(err), variant: 'destructive' });
+      toast({ title: 'Could not mark arrival', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
     } finally {
       setReaching(false);
     }
@@ -429,7 +430,7 @@ const StudentJobDetail = () => {
         setCodeError(true);
       }
     } catch (err) {
-      toast({ title: 'Could not confirm code', description: getUserFriendlyError(err), variant: 'destructive' });
+      toast({ title: 'Could not confirm code', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
     } finally {
       setVerifying(false);
     }
@@ -452,7 +453,7 @@ const StudentJobDetail = () => {
       microCelebrate();
       toast({ title: 'Job started', description: "The customer has been notified that you started without their code." });
     } catch (err) {
-      toast({ title: 'Could not start job', description: getUserFriendlyError(err), variant: 'destructive' });
+      toast({ title: 'Could not start job', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
     } finally {
       setSkipping(false);
     }
@@ -477,7 +478,7 @@ const StudentJobDetail = () => {
       setBooking((b) => b ? { ...b, helper_finished_at: new Date().toISOString() } : b);
       toast({ title: 'Marked as finished', description: "We've asked the customer to confirm so you get paid." });
     } catch (err) {
-      toast({ title: 'Could not mark finished', description: getUserFriendlyError(err), variant: 'destructive' });
+      toast({ title: 'Could not mark finished', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
     } finally {
       setFinishing(false);
     }
@@ -495,7 +496,7 @@ const StudentJobDetail = () => {
       toast({ title: 'Job released', description: 'The customer has been notified. We are finding another helper.' });
       navigate('/student-dashboard');
     } catch (err) {
-      toast({ title: 'Could not release job', description: getUserFriendlyError(err), variant: 'destructive' });
+      toast({ title: 'Could not release job', description: await extractFnError(null, err, getUserFriendlyError(err)), variant: 'destructive' });
     } finally {
       setReleasing(false);
       setReleaseConfirm(false);
@@ -618,8 +619,14 @@ const StudentJobDetail = () => {
   const isUnclaimed = booking.status === 'pending' && !booking.student_id;
   const claimedByOther = !!booking.student_id && booking.student_id !== userId;
   // Helper keeps the price minus Vano's 15% cut (PLATFORM_FEE_BPS = 1500 in
-  // capture-household-payment) — must match the ACTUAL payout, not 5%.
-  const earnCents = booking.price_estimate_cents ? Math.floor(booking.price_estimate_cents * 0.85) : null;
+  // capture-household-payment) — must match the ACTUAL payout, not 5%. When a
+  // schedule/loyalty discount shrank the customer price, the payout base is
+  // booking_data.helper_pay_base_cents (platform-funded — helper paid in full).
+  const helperPayBase = Math.max(
+    booking.price_estimate_cents ?? 0,
+    Number((booking.booking_data as Record<string, unknown> | null)?.helper_pay_base_cents) || 0,
+  );
+  const earnCents = helperPayBase > 0 ? Math.floor(helperPayBase * 0.85) : null;
 
   return (
     <div className="min-h-dvh bg-background">

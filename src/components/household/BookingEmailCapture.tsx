@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, Mail, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { extractFnError } from '@/lib/fnError';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -36,7 +37,9 @@ export const BookingEmailCapture: React.FC<{
         { body: { booking_id: bookingId, email: clean } },
       );
       if (fnErr || (data as { error?: string } | null)?.error) {
-        throw new Error((data as { error?: string } | null)?.error || fnErr?.message || 'Could not save.');
+        // On non-2xx the real server message hides in fnErr.context, not
+        // fnErr.message ("Edge Function returned a non-2xx status code").
+        throw new Error(await extractFnError(data, fnErr, 'Could not save. Please try again.'));
       }
       setSaved(true);
       onSaved(clean);

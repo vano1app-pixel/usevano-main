@@ -111,6 +111,17 @@ async function sendEmail(opts: {
     });
   }
 
+  // RETIRED: this digest advertises the old freelancer marketplace — its
+  // destinations (/profile, /hire, AI Find) were deleted with that frontend
+  // and 404 now, so every email it sends is a dead-end pitch for a product
+  // that no longer exists. No-op (kept deployed so the scheduled cron gets a
+  // clean 200 instead of erroring) until the cron entry is removed in the
+  // Supabase dashboard.
+  return new Response(
+    JSON.stringify({ ok: true, retired: true, freelancersSent: 0, hirersSent: 0 }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+
   const url = new URL(req.url);
   // Defaults to TRUE so a misconfigured cron doesn't ship a live
   // blast by accident. Flip to false only when you've seen the

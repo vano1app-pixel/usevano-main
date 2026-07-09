@@ -80,7 +80,7 @@ serve(async (_req) => {
     const slotFloor  = new Date(now - 30 * 60 * 1000).toISOString();
     const { data: due } = await supabase
       .from('household_bookings')
-      .select('id, city, category, price_estimate_cents, scheduled_at')
+      .select('id, city, category, price_estimate_cents, scheduled_at, last_dispatched_at')
       .eq('status', 'pending')
       .is('student_id', null)
       .not('scheduled_at', 'is', null)
@@ -91,10 +91,17 @@ serve(async (_req) => {
 
     for (const b of due ?? []) {
       try {
+        // First attempt is LOUD (customer + owner notifications); every later
+        // run inside the dispatch window is QUIET — without this, a scheduled
+        // booking with no matching helpers emailed the customer "we're on it"
+        // and paged the owner on EVERY 5-minute run for the whole window.
+        // dispatch stamps last_dispatched_at on each attempt, so its presence
+        // means this is a repeat round.
+        const quiet = !!b.last_dispatched_at;
         const resp = await fetch(`${supabaseUrl}/functions/v1/dispatch-household-job`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ record: { id: b.id, status: 'pending', city: b.city, category: b.category, price_estimate_cents: b.price_estimate_cents } }),
+          body: JSON.stringify({ record: { id: b.id, status: 'pending', city: b.city, category: b.category, price_estimate_cents: b.price_estimate_cents }, quiet }),
         });
         if (resp.ok) dispatched++;
         else console.warn('[dispatch-scheduled] dispatch non-2xx', b.id, resp.status, (await resp.text()).slice(0, 160));

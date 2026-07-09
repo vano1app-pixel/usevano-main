@@ -44,10 +44,15 @@ export function loadBookingMemory(): BookingMemory | null {
 export function saveBookingMemory(details: Omit<BookingMemory, 'savedAt'>): void {
   try {
     const prev = loadBookingMemory();
+    // A NEW address with no fresh coordinates must not inherit the previous
+    // booking's lat/lng — the remembered text would name the new house while
+    // the pin (helper distance, live-map marker) still pointed at the old one.
+    const addressChanged = !!details.address && !!prev?.address && details.address !== prev.address;
+    const base = addressChanged ? { ...prev, lat: undefined, lng: undefined } : { ...prev };
     const next: BookingMemory = {
       // Keep previously remembered fields (e.g. address) when the current
       // sheet doesn't collect them — the extra-services sheet has no address.
-      ...prev,
+      ...base,
       ...Object.fromEntries(
         Object.entries(details).filter(([, v]) => v !== undefined && v !== ''),
       ),

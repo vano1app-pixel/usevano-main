@@ -58,10 +58,6 @@ export function rememberTalentBoardReturn(path: string): void {
   if (s) sessionStorage.setItem(TALENT_BOARD_RETURN_KEY, s);
 }
 
-function peekTalentBoardReturn(): string | null {
-  return safeReturnAfterAuth(sessionStorage.getItem(TALENT_BOARD_RETURN_KEY));
-}
-
 function clearTalentBoardReturn(): void {
   sessionStorage.removeItem(TALENT_BOARD_RETURN_KEY);
 }
@@ -107,18 +103,15 @@ export async function resolvePostAuthDestination(userId: string): Promise<string
   const claimToken = peekPendingClaimToken();
   if (claimToken) return `/claim/${claimToken}`;
 
-  const base = await getPostAuthPath(userId);
-  const returnTo = peekTalentBoardReturn();
-  if (base === '/profile' && returnTo) {
-    clearTalentBoardReturn();
-    return returnTo;
-  }
-  if (base === '/profile') clearTalentBoardReturn();
-  return base;
+  // Talent-board returns pointed at the legacy /students page (deleted with
+  // the freelancer marketplace — it 404s now). Clear any stale stash rather
+  // than honouring it.
+  clearTalentBoardReturn();
+  return getPostAuthPath(userId);
 }
 
 /**
- * Same as getPostGoogleAuthPath, with talent-board return preference when landing on /profile.
+ * Same as getPostGoogleAuthPath, minus any stale legacy return stash.
  */
 export async function resolvePostGoogleAuthDestination(userId: string): Promise<string> {
   // See resolvePostAuthDestination — paid AI Find wins over every
@@ -131,14 +124,8 @@ export async function resolvePostGoogleAuthDestination(userId: string): Promise<
   const claimToken = peekPendingClaimToken();
   if (claimToken) return `/claim/${claimToken}`;
 
-  const base = await getPostGoogleAuthPath(userId);
-  const returnTo = peekTalentBoardReturn();
-  if (base === '/profile' && returnTo) {
-    clearTalentBoardReturn();
-    return returnTo;
-  }
-  if (base === '/profile') clearTalentBoardReturn();
-  return base;
+  clearTalentBoardReturn();
+  return getPostGoogleAuthPath(userId);
 }
 
 /** Supabase: `user.email_confirmed_at` is the analogue of Firebase `emailVerified`. */
@@ -148,36 +135,21 @@ export function isEmailVerified(session: Session | null): boolean {
 }
 
 /**
- * True when a freelancer has at least one published (or awaiting-moderation)
- * community listing. Used by the post-auth router to decide whether to send a
- * student to /profile (already listed) or to force them through the wizard at
- * /list-on-community (not listed yet). Keeps new freelancers from completing
- * sign-up and vanishing without ever appearing on the talent board.
- */
-async function studentHasListing(userId: string): Promise<boolean> {
-  const { data } = await supabase
-    .from('community_posts')
-    .select('id')
-    .eq('user_id', userId)
-    .in('moderation_status', ['approved', 'pending'])
-    .limit(1)
-    .maybeSingle();
-  return !!data?.id;
-}
-
-/**
- * Where to send a signed-in user:
- *   - no user_type → /choose-account-type
- *   - student WITH a listing → /profile
- *   - student WITHOUT a listing → /list-on-community (wizard captures
- *     everything; display_name is already seeded by the handle_new_user
- *     trigger from OAuth metadata, so no separate /complete-profile step)
- *   - business complete → /business-dashboard
- *   - business incomplete → /complete-profile
+ * Where to send a signed-in user. Only helpers sign in today, so every branch
+ * must land on a MOUNTED route — the old marketplace destinations
+ * (/choose-account-type, /profile, /list-on-community, /business-dashboard,
+ * /complete-profile) were deleted with the freelancer frontend and 404 now.
+ *   - linked approved helper → /student-dashboard
+ *   - legacy 'customer'/'business' profile → /home (household homepage)
+ *   - everyone else (no user_type, or legacy 'student') → /student-dashboard,
+ *     which runs link-helper-account on mount. That IS the first-sign-in path
+ *     for a helper whose row isn't linked to their auth account yet — routing
+ *     them to the old account-type chooser 404'd them before they ever
+ *     reached the linker.
  */
 export async function getPostAuthPath(
   userId: string,
-): Promise<'/profile' | '/choose-account-type' | '/complete-profile' | '/business-dashboard' | '/list-on-community' | '/home' | '/student-dashboard'> {
+): Promise<'/home' | '/student-dashboard'> {
   // Approved household helpers always land on the helper dashboard
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: helperRow } = await (supabase as any)
@@ -190,21 +162,13 @@ export async function getPostAuthPath(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, avatar_url, user_type')
+    .select('user_type')
     .eq('user_id', userId)
     .maybeSingle();
-  if (!profile?.user_type?.trim()) return '/choose-account-type';
 
-  // Household customers land on the household homepage
-  if (profile.user_type === 'customer') return '/home';
-
-  if (profile.user_type === 'student') {
-    return (await studentHasListing(userId)) ? '/profile' : '/list-on-community';
-  }
-
-  // Business only needs display_name (no avatar required)
-  const done = !!profile?.display_name?.trim();
-  return done ? '/business-dashboard' : '/complete-profile';
+  const userType = profile?.user_type?.trim();
+  if (userType === 'customer' || userType === 'business') return '/home';
+  return '/student-dashboard';
 }
 
 /**
@@ -212,7 +176,7 @@ export async function getPostAuthPath(
  */
 export async function getPostGoogleAuthPath(
   userId: string,
-): Promise<'/choose-account-type' | '/complete-profile' | '/profile' | '/business-dashboard' | '/list-on-community' | '/home' | '/student-dashboard'> {
+): Promise<'/home' | '/student-dashboard'> {
   return getPostAuthPath(userId);
 }
 

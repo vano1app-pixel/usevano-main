@@ -73,6 +73,13 @@ const MyBookings: React.FC = () => {
     );
     setLoading(false);
     if (err || !data) {
+      // Rate-limited (429) is not a transport failure — the retry UI would
+      // just keep the user hammering the limit. Tell them to wait instead.
+      const status = (err as { context?: { status?: number } } | null)?.context?.status;
+      if (status === 429) {
+        setError('Too many lookups — give it a minute, then try again.');
+        return;
+      }
       // Transport / function failure — retryable, don't masquerade as "empty".
       setLoadError(true);
       return;

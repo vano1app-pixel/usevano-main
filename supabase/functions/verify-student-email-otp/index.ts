@@ -37,7 +37,7 @@ serve(async (req) => {
 
     const { data: otp } = await supabase
       .from('helper_email_otps')
-      .select('id, code_hash, expires_at, attempts')
+      .select('id, email, code_hash, expires_at, attempts')
       .eq('helper_id', helper_id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -57,9 +57,15 @@ serve(async (req) => {
       return json(400, { error: 'That code is incorrect. Try again.' });
     }
 
-    // Success — mark verified and clear codes
+    // Success — mark verified and clear codes. The verified ADDRESS is written
+    // to the row too: the flag means "the email on this row was verified"
+    // (update-helper-profile un-verifies on email change for the same reason),
+    // so verifying a different address than the stored one must not leave the
+    // flag pointing at an unverified email.
+    const updates: Record<string, unknown> = { student_email_verified: true };
+    if (typeof otp.email === 'string' && otp.email.trim()) updates.email = otp.email.trim().toLowerCase();
     const { error: updErr } = await supabase
-      .from('household_helpers').update({ student_email_verified: true }).eq('id', helper_id);
+      .from('household_helpers').update(updates).eq('id', helper_id);
     if (updErr) { console.error('[verify-student-email-otp] update failed', updErr); return json(500, { error: 'Could not save verification.' }); }
     await supabase.from('helper_email_otps').delete().eq('helper_id', helper_id);
 
