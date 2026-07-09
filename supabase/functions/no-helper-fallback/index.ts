@@ -93,7 +93,23 @@ serve(async (_req) => {
       }
     }
 
-    await supabase.from('household_bookings').update({ status: 'cancelled' }).eq('id', b.id);
+    // Compare-and-swap: only cancel if STILL unclaimed + unpaid. A helper can
+    // accept (status→accepted) in the seconds between the SELECT above and
+    // here; an unguarded cancel would strand them. Skip the notifications too
+    // if the swap lost the race.
+    const { data: cancelledRow } = await supabase
+      .from('household_bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', b.id)
+      .eq('status', 'pending')
+      .is('student_id', null)
+      .is('paid_at', null)
+      .select('id')
+      .maybeSingle();
+    if (!cancelledRow) {
+      console.log(`[no-helper-fallback] ${b.id} was claimed/paid mid-run — skipping cancel`);
+      continue;
+    }
     await supabase.from('household_job_updates').insert({
       booking_id: b.id,
       status: 'cancelled',

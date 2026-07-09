@@ -41,8 +41,14 @@ export function statusLabel(status: string): { label: string; colour: string } {
 }
 
 export function formatBookingDate(scheduledDate: string | null): string {
-  if (!scheduledDate) return 'Flexible';
-  return new Date(scheduledDate).toLocaleDateString('en-IE', {
-    weekday: 'short', day: 'numeric', month: 'short',
-  });
+  // scheduled_date stores the human "when" LABEL, not always a real date —
+  // quick-books write 'Now', '1pm', 'Tomorrow 9am', 'flexible' (see
+  // create-household-payment-checkout: scheduled_date = when_label || 'flexible').
+  // new Date('Now') is Invalid Date → this used to render "Invalid Date" on
+  // every quick-booked row. Only format genuine dates; show the label as-is.
+  if (!scheduledDate || scheduledDate.toLowerCase() === 'flexible') return 'Flexible';
+  if (scheduledDate.toLowerCase() === 'now') return 'As soon as possible';
+  const parsed = new Date(scheduledDate);
+  if (isNaN(parsed.getTime())) return scheduledDate;
+  return parsed.toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' });
 }

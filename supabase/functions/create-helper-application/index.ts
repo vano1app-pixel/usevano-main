@@ -19,6 +19,25 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Store phones in a canonical shape so the phone-gated lookup
+// (find-helper-by-phone) and dispatch SMS/WhatsApp both match reliably.
+// Real bug this fixes: helpers were signing up as "83 341 0456" / "851689402"
+// (a bare 9-digit mobile with no leading 0) and could then never load their
+// account by phone. Strips punctuation, keeps a genuine + country code, and
+// restores the leading 0 on a bare Irish mobile (8x…). Non-Irish/odd inputs
+// pass through digit-cleaned rather than being mangled.
+function normalizeStoredPhone(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  const cleaned = raw.replace(/[\s\-().]/g, '');
+  if (!cleaned) return undefined;
+  if (cleaned.startsWith('+')) return cleaned;                 // explicit international
+  if (cleaned.startsWith('00')) return '+' + cleaned.slice(2); // 00353… → +353…
+  if (/^353\d{9}$/.test(cleaned)) return '0' + cleaned.slice(3); // 353 8x… → 0 8x…
+  if (/^0\d{9}$/.test(cleaned)) return cleaned;                // already 0-prefixed
+  if (/^8[0-9]\d{7}$/.test(cleaned)) return '0' + cleaned;     // bare Irish mobile → add leading 0
+  return cleaned;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS });
@@ -32,7 +51,7 @@ serve(async (req) => {
 
     const name       = (formData.get('name')       as string | null)?.trim();
     const email      = (formData.get('email')      as string | null)?.trim().toLowerCase();
-    const phone      = (formData.get('phone')      as string | null)?.trim();
+    const phone      = normalizeStoredPhone((formData.get('phone') as string | null)?.trim());
     const city       = (formData.get('city')       as string | null)?.trim();
     const ageRaw     = (formData.get('age')        as string | null)?.trim();
     const bioRaw     = (formData.get('bio')        as string | null)?.trim();

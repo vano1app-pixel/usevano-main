@@ -38,12 +38,18 @@ serve(async (_req) => {
 
   // NOTE: deliberately NOT filtering on no_helpers_email_sent_at — every still-
   // pending booking is re-evaluated each run so the owner page can repeat.
+  const nowIso = new Date(now).toISOString();
   const { data: bookings, error } = await supabase
     .from('household_bookings')
-    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, city, price_estimate_cents, created_at, no_helpers_email_sent_at, booking_data')
+    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, scheduled_at, city, price_estimate_cents, created_at, no_helpers_email_sent_at, booking_data')
     .eq('status', 'pending')
     .is('student_id', null)
-    .lt('created_at', alertCutoff);
+    .lt('created_at', alertCutoff)
+    // Don't page the owner (or email the customer "taking longer than usual")
+    // for a BOOK-AHEAD job — it's pending only because its dispatch window
+    // hasn't arrived. It becomes alert-eligible once its slot time has passed
+    // with still no helper. Mirrors no-helper-fallback's guard.
+    .or(`scheduled_at.is.null,scheduled_at.lt.${nowIso}`);
 
   if (error) {
     console.error('[watchdog] query error', error);
