@@ -100,12 +100,19 @@ const SLOT_LABELS: Record<string, string> = {
   evening: 'Evening · 5–8pm',
 };
 
-function formatDate(d: string): string {
-  if (d === 'today') return 'Today';
-  if (d === 'tomorrow') return 'Tomorrow';
-  try {
-    return new Date(d).toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
-  } catch { return d; }
+function formatDate(d: string | null): string {
+  // scheduled_date holds the human "when" label ('Now', '1pm', 'Tomorrow 9am',
+  // 'flexible'), not always a date — new Date('1pm') is Invalid Date and
+  // toLocaleDateString doesn't throw, so the old try/catch still rendered
+  // "Invalid Date" as the job date. Show the label as-is unless it's a real date.
+  if (!d || d.toLowerCase() === 'flexible') return 'Flexible';
+  const lower = d.toLowerCase();
+  if (lower === 'now') return 'As soon as possible';
+  if (lower === 'today') return 'Today';
+  if (lower === 'tomorrow') return 'Tomorrow';
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return d;
+  return parsed.toLocaleDateString('en-IE', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 function googleMapsUrl(address: string, lat?: number | null, lng?: number | null) {
