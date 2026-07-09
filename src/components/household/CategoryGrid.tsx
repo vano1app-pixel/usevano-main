@@ -1104,7 +1104,11 @@ export const CategoryGrid: React.FC = () => {
   const chooseJob = useCallback((j: CustomJob) => {
     setJob(j);
     if (j.key !== 'other') setQuery(j.label);
-    setSize(isShortVisit(j.key) ? '30 min' : `${Math.min(8, Math.max(1, j.typicalHours))} hours`);
+    // Singular for 1 — the server prices by EXACT label lookup ('1 hour'), so
+    // "1 hours" made every typicalHours-1 job (mowing, TV setup, hanging…)
+    // fail checkout with "No price available" while the client showed €18.
+    const h = Math.min(8, Math.max(1, j.typicalHours));
+    setSize(isShortVisit(j.key) ? '30 min' : h === 1 ? '1 hour' : `${h} hours`);
     setOpen(false);
     if (blurTimer.current) window.clearTimeout(blurTimer.current);
     // Drop the keyboard: the dropdown rows preventDefault on mousedown to keep

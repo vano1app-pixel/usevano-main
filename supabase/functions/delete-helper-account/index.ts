@@ -66,23 +66,35 @@ serve(async (req) => {
     if (helper.status === 'deleted') return ok({ deleted: true }); // idempotent
 
     // Guard 1 — active job in progress. Deleting mid-job would strand a paying
-    // customer, so refuse until it's finished or cancelled.
-    const { count: activeJobs } = await supabase
+    // customer, so refuse until it's finished or cancelled. Bookings key the
+    // helper as student_id (NOT assigned_helper_id — that column never
+    // existed, so this guard silently passed on a query error and helpers
+    // could delete mid-job). Fail CLOSED on a query error for the same reason.
+    const { count: activeJobs, error: activeErr } = await supabase
       .from('household_bookings')
       .select('id', { count: 'exact', head: true })
-      .eq('assigned_helper_id', helper.id)
+      .eq('student_id', helper.id)
       .in('status', ACTIVE_JOB_STATUSES);
+    if (activeErr) {
+      console.error('[delete-helper-account] active-job guard failed', activeErr);
+      return bad(500, 'Could not check your active jobs — try again in a minute.');
+    }
     if ((activeJobs ?? 0) > 0) {
       return bad(409, 'You have a job in progress. Please finish or cancel it before deleting your account.');
     }
 
     // Guard 2 — unpaid earnings owed. Don't let a helper delete away money we
     // still owe them (and then wipe the Stripe account it would pay to).
-    const { data: pendingPayouts } = await supabase
+    // household_payouts keys the helper as student_id too.
+    const { data: pendingPayouts, error: payoutsErr } = await supabase
       .from('household_payouts')
       .select('amount_cents')
-      .eq('helper_id', helper.id)
-      .eq('status', 'pending') as { data: Array<{ amount_cents: number }> | null };
+      .eq('student_id', helper.id)
+      .eq('status', 'pending') as { data: Array<{ amount_cents: number }> | null; error: unknown };
+    if (payoutsErr) {
+      console.error('[delete-helper-account] payout guard failed', payoutsErr);
+      return bad(500, 'Could not check your pending earnings — try again in a minute.');
+    }
     const owedCents = (pendingPayouts ?? []).reduce((s, p) => s + (p.amount_cents ?? 0), 0);
     if (owedCents > 0) {
       return bad(409, `You're owed €${(owedCents / 100).toFixed(2)} in unpaid earnings. Get paid out first, or WhatsApp us and we'll sort it before you go.`);
