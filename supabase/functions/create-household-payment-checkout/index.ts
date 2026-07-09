@@ -241,6 +241,10 @@ function computePriceCents(category: Category, sizeLabel: string, extraLabel: st
       '30 min': 1200, '45 min': 1350, // €18/hr × 0.5/0.75, floored at €12
       '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
       '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
+      // Alias: old clients (and any cached bundle) sent "1 hours" for every
+      // typicalHours-1 catalogue job — an exact-lookup miss here 400'd the
+      // whole booking. Keep the alias so stale clients still price.
+      '1 hours': 1800,
     };
     return hourMap[sizeLabel] ?? null;
   }

@@ -420,6 +420,20 @@ serve(async (req) => {
       .eq('status', 'pending')
       .lt('expires_at', new Date().toISOString());
 
+    // Also expire leftover 'accepted' offers. This booking is back to
+    // 'pending' with no helper (verified above), so an accepted offer is by
+    // definition stale — accept-job marks the claimer's offer 'accepted', but
+    // every release path (helper_release, sweep-stalled-jobs,
+    // remind-unpaid-bookings) only expires 'pending' rows. Without this, a
+    // booking whose one-tap-accepted helper released it could NEVER
+    // re-dispatch: the surviving accepted offer tripped the "Offers already
+    // sent" idempotency check on every round, forever, silently.
+    await supabase
+      .from('household_job_offers')
+      .update({ status: 'expired' })
+      .eq('booking_id', bookingId)
+      .eq('status', 'accepted');
+
     // Idempotency: skip if non-expired offers already exist.
     const { count: existingOffers } = await supabase
       .from('household_job_offers')

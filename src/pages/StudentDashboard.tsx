@@ -179,7 +179,14 @@ const StudentDashboard = () => {
     let cancelled = false;
     const run = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/auth', { replace: true, state: { from: '/student-dashboard' } }); return; }
+      // No auth session → this is a phone-gated helper (the free-to-join
+      // default: most helpers never create a Supabase auth account). The
+      // dashboard is auth-only, so send them to their real home — the
+      // phone-gated /student-account — NOT the legacy /auth marketplace page
+      // (old "Continue with Google" freelancer sign-in), which is a dead end
+      // for a helper who never had a Google-linked account. `replace` so a
+      // back-tap doesn't bounce them straight back here.
+      if (!session?.user) { navigate('/student-account', { replace: true }); return; }
       if (cancelled) return;
       const uid = session.user.id;
       setUserId(uid);

@@ -1,0 +1,14 @@
+-- The in-app claim (StudentDashboard.acceptJob / StudentJobDetail.claimJob)
+-- updates {student_id, status, accepted_at}. authenticated's UPDATE on
+-- household_bookings is COLUMN-LEVEL in production (status, student_id,
+-- worker_lat, worker_lng, worker_location_updated_at) — accepted_at was
+-- never granted, so the WHOLE claim UPDATE failed with permission denied
+-- and every in-app accept showed the race-lost "Job just taken" toast. The
+-- signed one-tap link (service role) was the only working accept path.
+--
+-- RLS ("Helpers can claim pending bookings") already constrains WHO may run
+-- the update; this grant just permits the column.
+--
+-- Applied to production 2026-07-09 via MCP (grant_authenticated_accepted_at_update);
+-- kept here so the repo migration history matches the live database.
+GRANT UPDATE (accepted_at) ON public.household_bookings TO authenticated;

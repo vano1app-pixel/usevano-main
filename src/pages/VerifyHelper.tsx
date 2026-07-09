@@ -121,6 +121,23 @@ const VerifyHelper: React.FC = () => {
   // so an admin-suspended helper doesn't see a false "you're live".
   const [isLive, setIsLive] = useState(false);
 
+  // Does this browser have a real auth session? Phone-gated helpers (the
+  // free-to-join default) don't — and the /student-dashboard is auth-only,
+  // bouncing a session-less visitor to the legacy /auth "Continue with
+  // Google" page (a dead end for a helper who never had a Google account).
+  // So the "Go to my …" button below points authed helpers at the dashboard
+  // and everyone else at their phone-gated /student-account home.
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setHasSession(!!data.session?.user);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  const homeHref = hasSession ? '/student-dashboard' : '/student-account';
+  const homeLabel = hasSession ? 'Go to my dashboard' : 'Go to my account';
+
   // Reflect any progress already on file (revisiting / returning from Stripe).
   useEffect(() => {
     if (!helperId) return;
@@ -328,7 +345,7 @@ const VerifyHelper: React.FC = () => {
                       ? 'The blue tick is on your name. Set yourself Available and jobs near you reach you first.'
                       : 'Jobs can now come through. Finish the steps below to earn your ✓ Verified tick — verified helpers are offered jobs first.'}
                   </p>
-                  <a href="/student-dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">Go to my dashboard <ArrowRight className="w-4 h-4" /></a>
+                  <a href={homeHref} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">{homeLabel} <ArrowRight className="w-4 h-4" /></a>
                 </motion.div>
               )}
 
