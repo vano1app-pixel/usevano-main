@@ -183,17 +183,30 @@ serve(async (_req) => {
     const custName = candidate.customer_name && candidate.customer_name !== 'Guest'
       ? candidate.customer_name : 'there';
 
-    // Mirror check-loyalty: if their NEXT booking is a 3rd one, lead with the
-    // 50%-off hook — it's true and it's the strongest comeback reason we have.
-    const confirmed = bookings.filter(b => b.status !== 'awaiting_payment' && b.status !== 'cancelled').length;
-    const loyaltyNext = (confirmed + 1) % 3 === 0;
-    const hook = loyaltyNext
-      ? 'your next booking is 50% off (loyalty reward)'
-      : 'every 3rd booking is 50% off';
+    // Always use the generic, ALWAYS-TRUE hook. We deliberately DON'T promise
+    // "your next booking is 50% off": winback only sees a 120-day window and
+    // groups by normalized phone, whereas checkout counts PAID bookings over
+    // the customer's lifetime keyed on the exact phone string. Those two counts
+    // disagree, so a specific "next one is half price" promise here would be
+    // charged in full at checkout — a broken promise. The evergreen "every 3rd
+    // booking is 50% off" is correct no matter what the real count is.
+    const hook = 'every 3rd booking is 50% off';
 
     const smsBody =
       `VANO: it's been a few weeks since your last ${catLabel} — need a hand again? ` +
       `Book an ID-verified student in 30 seconds: ${siteUrl} — ${hook}. Reply STOP to opt out.`;
+
+    // Claim BEFORE sending (guarded on the stamp still being null) so a crash
+    // partway through the run can't re-blast marketing SMS on the next firing —
+    // the double-send that gets a sender number reported as spam.
+    const { data: claimed } = await supabase
+      .from('household_bookings')
+      .update({ winback_sent_at: new Date().toISOString() })
+      .eq('id', candidate.id)
+      .is('winback_sent_at', null)
+      .select('id')
+      .maybeSingle() as { data: { id: string } | null };
+    if (!claimed) continue; // another run already handled this lapse
 
     const delivered = await sendSms(candidate.customer_phone, smsBody);
 
@@ -207,7 +220,7 @@ serve(async (_req) => {
       It's been a few weeks since your last <strong>${catLabel}</strong> — need a hand again?
       Same-day, ID-verified student helpers, booked in about 30 seconds.
     </p>
-    <p style="margin:0 0 20px;color:#4a7c59;font-size:13px;font-weight:600;">${loyaltyNext ? '🎉 Your next booking is 50% off — loyalty reward.' : '💚 Every 3rd booking is 50% off.'}</p>
+    <p style="margin:0 0 20px;color:#4a7c59;font-size:13px;font-weight:600;">💚 Every 3rd booking is 50% off.</p>
     <a href="${siteUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:700;padding:13px 28px;border-radius:100px;text-decoration:none;">Book a helper →</a>
     <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">You're getting this because you booked with VANO — we only send it once. Questions? WhatsApp us: <a href="https://wa.me/353899817111" style="color:#9ca3af;">+353 89 981 7111</a></p>
   </div>
@@ -219,7 +232,7 @@ serve(async (_req) => {
         body: JSON.stringify({
           from,
           to: [candidate.customer_email],
-          subject: loyaltyNext ? 'Your next booking is 50% off — VANO' : 'Need a hand again? — VANO',
+          subject: 'Need a hand again? — VANO',
           html,
           text: `Hi ${custName}, it's been a few weeks since your last ${catLabel} — need a hand again? Book an ID-verified student in 30 seconds: ${siteUrl} — ${hook}. We only send this once.`,
         }),
@@ -228,9 +241,9 @@ serve(async (_req) => {
       emailed = res.ok;
     }
 
-    // Handled either way: sent, or unreachable on every channel we have —
-    // retrying an unreachable customer daily would just burn the run cap.
-    closeOut.push(candidate.id);
+    // Already stamped by the claim above (handled either way: sent, or
+    // unreachable on every channel — retrying an unreachable customer daily
+    // would just burn the run cap).
     if (delivered || emailed) sent++;
   }
 

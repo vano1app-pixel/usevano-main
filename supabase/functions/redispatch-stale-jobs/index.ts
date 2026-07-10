@@ -68,11 +68,13 @@ serve(async (req) => {
         .gt('expires_at', new Date().toISOString());
       if (liveOffers && liveOffers > 0) { skipped.push(`${b.id}:live_offers`); continue; }
 
-      // Bump the round BEFORE dispatching so a crash can't cause infinite loops
+      // Bump the round BEFORE dispatching so a crash can't cause infinite loops.
+      // Atomic top-level JSON merge (only touches redispatch_round) so a
+      // concurrent notify-household-no-helpers write can't clobber our bump, and
+      // ours can't wipe its admin-alert counters. A plain .update({booking_data})
+      // rewrote the whole blob from a stale snapshot, losing the other cron's keys.
       const { error: bumpErr } = await supabase
-        .from('household_bookings')
-        .update({ booking_data: { ...bookingData, redispatch_round: round + 1 } })
-        .eq('id', b.id);
+        .rpc('merge_booking_data', { p_id: b.id, p_patch: { redispatch_round: round + 1 } });
       if (bumpErr) { skipped.push(`${b.id}:bump_failed`); continue; }
 
       try {

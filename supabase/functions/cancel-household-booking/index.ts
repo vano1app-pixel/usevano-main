@@ -231,6 +231,14 @@ serve(async (req) => {
         payment_requested_at: null,
         stripe_checkout_url: null,
         payment_reminder_sent_at: null,
+        // Clear the stall-sweep stamps too. Without this, a stall PING fired at
+        // the ORIGINAL helper (stalled_reminded_at set) survives the release, so
+        // sweep-stalled-jobs Stage B would strip the REPLACEMENT helper off the
+        // job minutes after they accept — the job is handed to a fresh dispatch
+        // cycle, so its stall clock must restart from zero.
+        stalled_reminded_at: null,
+        stalled_released_at: null,
+        stalled_escalated_at: null,
       }).eq('id', booking_id);
 
       await supabase.from('household_job_updates').insert({

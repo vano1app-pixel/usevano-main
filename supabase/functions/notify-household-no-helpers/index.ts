@@ -41,7 +41,7 @@ serve(async (_req) => {
   const nowIso = new Date(now).toISOString();
   const { data: bookings, error } = await supabase
     .from('household_bookings')
-    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, scheduled_at, city, price_estimate_cents, created_at, no_helpers_email_sent_at, booking_data')
+    .select('id, customer_name, customer_email, customer_phone, category, scheduled_date, scheduled_at, city, price_estimate_cents, paid_at, created_at, no_helpers_email_sent_at, booking_data')
     .eq('status', 'pending')
     .is('student_id', null)
     .lt('created_at', alertCutoff)
@@ -67,6 +67,14 @@ serve(async (_req) => {
     const waLink    = 'https://wa.me/353899817111';
 
     // ── Customer reassurance email — ONCE per booking ─────────────────────────
+    // Pay-after-accept: a pending, unassigned booking normally has NEVER been
+    // charged (the Stripe session isn't created until a helper accepts), so the
+    // "your payment is safe / full refund" line only applies to the rare
+    // sweep-released paid booking. Show it only when money actually moved.
+    const isPaid = !!b.paid_at;
+    const paymentLine = isPaid
+      ? ' · Your payment is safe — full refund if we can\'t find anyone.'
+      : ' · You haven\'t been charged — you only pay once a helper accepts.';
     if (!b.no_helpers_email_sent_at && resendKey && b.customer_email) {
       const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
@@ -86,7 +94,7 @@ serve(async (_req) => {
     <a href="${waLink}" style="display:inline-block;background:#25d366;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;margin-bottom:12px;">Message us on WhatsApp →</a>
     <br>
     <a href="${trackUrl}" style="display:inline-block;background:#f3f4f6;color:#374151;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;border:1px solid #e5e7eb;">Track booking →</a>
-    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref} · Your payment is safe — full refund if we can't find anyone.</p>
+    <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">Ref: ${ref}${paymentLine}</p>
   </div>
 </div>
 </body></html>`;
@@ -102,12 +110,19 @@ serve(async (_req) => {
           text: `Hi ${custName}, we're still finding your helper for ${catLabel}. Takes a little longer today. Message us on WhatsApp: ${waLink}. Ref: ${ref}`,
         }),
       });
-      if (!res.ok) console.warn('[watchdog] customer Resend error', b.id, res.status);
-      else customerEmails++;
-      await supabase
-        .from('household_bookings')
-        .update({ no_helpers_email_sent_at: new Date().toISOString() })
-        .eq('id', b.id);
+      // Only stamp on a SUCCESSFUL send. Stamping regardless meant one transient
+      // Resend 429/5xx permanently killed the single reassurance email this
+      // system owes the customer — on exactly the booking most likely to churn.
+      // Left unstamped, the next run retries.
+      if (!res.ok) {
+        console.warn('[watchdog] customer Resend error — will retry next run', b.id, res.status);
+      } else {
+        customerEmails++;
+        await supabase
+          .from('household_bookings')
+          .update({ no_helpers_email_sent_at: new Date().toISOString() })
+          .eq('id', b.id);
+      }
     }
 
     // ── Owner page — REPEATING escalation until the booking is resolved ───────
@@ -142,12 +157,13 @@ serve(async (_req) => {
       }),
     }).catch(() => {});
 
-    // Record this page so the next one waits a full interval (merge to preserve
-    // redispatch_round and anything else already in booking_data).
+    // Record this page so the next one waits a full interval. Atomic top-level
+    // JSON merge (only our two keys) so a concurrent redispatch-stale-jobs
+    // round bump can't clobber the alert counters, and ours can't revert its
+    // redispatch_round — a plain .update({booking_data}) rewrote the whole blob
+    // from the query snapshot, losing whichever cron wrote in between.
     await supabase
-      .from('household_bookings')
-      .update({ booking_data: { ...bd, last_admin_alert_at: new Date(now).toISOString(), admin_alert_count: attempt } })
-      .eq('id', b.id);
+      .rpc('merge_booking_data', { p_id: b.id, p_patch: { last_admin_alert_at: new Date(now).toISOString(), admin_alert_count: attempt } });
 
     adminPages++;
   }

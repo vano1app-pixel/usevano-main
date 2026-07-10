@@ -245,12 +245,12 @@ const StudentAccount = () => {
         headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
         body: fd,
       });
-      const json = await res.json() as { success?: boolean };
-      if (!res.ok || !json.success) throw new Error('Update failed');
+      const json = await res.json().catch(() => ({})) as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) throw new Error(json.error || 'Update failed');
       setHelper(h => h ? { ...h, phone: phoneInput.trim() } : h);
       setEditingPhone(false);
-    } catch {
-      toast({ title: 'Could not save phone number', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Could not save phone number', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
     } finally {
       setPhoneSaving(false);
     }
@@ -278,13 +278,21 @@ const StudentAccount = () => {
         headers: { Authorization: `Bearer ${anonKey}`, apikey: anonKey },
         body: fd,
       });
-      const json = await res.json() as { success?: boolean };
-      if (!res.ok || !json.success) throw new Error('Update failed');
-      setHelper(h => h ? { ...h, email: clean, student_email_verified: false } : h);
+      const json = await res.json().catch(() => ({})) as { success?: boolean; error?: string; email_unverified?: boolean };
+      if (!res.ok || !json.success) throw new Error(json.error || 'Update failed');
+      // Only blank the verified flag if the server actually cleared it (i.e.
+      // the address changed). Re-saving the SAME address keeps the blue tick —
+      // flipping it false unconditionally made a verified helper's tick vanish
+      // until reload on a no-op re-save.
+      const nowUnverified = json.email_unverified === true;
+      setHelper(h => h ? { ...h, email: clean, ...(nowUnverified ? { student_email_verified: false } : {}) } : h);
       setEditingEmail(false);
-      toast({ title: 'Email saved', description: 'Confirm it via Get VANO Verified to earn your badge.' });
-    } catch {
-      toast({ title: 'Could not save email', description: 'Try again or WhatsApp +353 89 981 7111.', variant: 'destructive' });
+      toast({
+        title: 'Email saved',
+        description: nowUnverified ? 'Confirm it via Get VANO Verified to earn your badge.' : undefined,
+      });
+    } catch (e) {
+      toast({ title: 'Could not save email', description: e instanceof Error ? e.message : 'Try again or WhatsApp +353 89 981 7111.', variant: 'destructive' });
     } finally {
       setEmailSaving(false);
     }
@@ -328,8 +336,8 @@ const StudentAccount = () => {
         : h,
       );
       setSaved(true);
-    } catch {
-      toast({ title: 'Could not save', description: 'Try again or contact support.', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Could not save', description: e instanceof Error ? e.message : 'Try again or contact support.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }

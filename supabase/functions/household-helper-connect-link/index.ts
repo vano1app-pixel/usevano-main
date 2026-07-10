@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
+import { phonesMatch } from "../_shared/phoneMatch.ts";
 
 // Creates (or retrieves) a Stripe Connect Express account for the
 // calling household helper and returns a hosted onboarding URL. The
@@ -74,11 +75,6 @@ serve(async (req) => {
     };
 
     // ── Resolve the caller to their helper row (two auth paths) ────────────
-    const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
-    const phonesMatch = (a: string, b: string) => {
-      const na = normalizePhone(a), nb = normalizePhone(b);
-      return na === nb || na.endsWith(nb) || nb.endsWith(na);
-    };
 
     interface HelperRow {
       id: string; user_id: string | null; stripe_account_id: string | null;

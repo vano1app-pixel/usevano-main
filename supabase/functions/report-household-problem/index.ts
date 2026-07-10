@@ -81,21 +81,23 @@ serve(async (req) => {
       .eq('booking_id', bookingId)
       .maybeSingle() as { data: { id: string; status: string } | null };
 
-    const helperPaid = payout?.status === 'transferred';
+    const helperPaid = payout?.status === 'transferred' || payout?.status === 'transferring';
     const pi = booking.stripe_payment_intent_id as string | null;
 
     // Atomically claim the payout as 'reversed' BEFORE refunding, so a
     // concurrent release-household-payouts can't transfer the helper in the
-    // gap. If a payout row exists and the claim affects 0 rows, a release just
-    // beat us (it's now 'transferred') → the helper is paid, so escalate
-    // instead of refunding.
+    // gap. release claims the row pending → transferring before it moves money;
+    // whoever flips the row first wins. We can only safely reverse a row that is
+    // still 'pending' or terminally 'failed' (helper never paid). If the claim
+    // affects 0 rows the money is in flight or already gone ('transferring' /
+    // 'transferred') → escalate instead of refunding + double-paying.
     let helperAlreadyPaid = helperPaid;
     if (payout?.id && !helperAlreadyPaid) {
       const { data: reversed } = await supabase
         .from('household_payouts')
         .update({ status: 'reversed', last_transfer_error: 'Cancelled — customer dispute before transfer' })
         .eq('id', payout.id)
-        .neq('status', 'transferred')
+        .in('status', ['pending', 'failed'])
         .select('id')
         .maybeSingle() as { data: { id: string } | null };
       if (!reversed) helperAlreadyPaid = true;
