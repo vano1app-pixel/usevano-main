@@ -151,6 +151,11 @@ serve(async (req) => {
       .eq('id', paymentId)
       .eq('status', 'paid')
       .is('stripe_transfer_id', null)
+      // Also require NO refund in flight. refund-vano-payment reserves on
+      // stripe_refund_id while leaving status='paid', so without this a
+      // transfer and a refund could both claim the same row and both move
+      // money (freelancer paid AND hirer refunded).
+      .is('stripe_refund_id', null)
       .select('id')
       .maybeSingle();
 
@@ -177,15 +182,30 @@ serve(async (req) => {
       'metadata[vano_payment_id]': paymentId,
     };
 
-    const stripeResp = await fetch('https://api.stripe.com/v1/transfers', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Idempotency-Key': `vano_release_${paymentId}`,
-      },
-      body: formEncode(transferParams),
-    });
+    // A thrown fetch (network reset) must roll the sentinel back too, or the
+    // row is bricked at stripe_transfer_id='pending' forever and every retry
+    // returns the already_in_flight lie above while the freelancer is never
+    // paid. The old code only rolled back on a !ok RESPONSE.
+    let stripeResp: Response;
+    try {
+      stripeResp = await fetch('https://api.stripe.com/v1/transfers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': `vano_release_${paymentId}`,
+        },
+        body: formEncode(transferParams),
+      });
+    } catch (e) {
+      console.error('[release-vano-payment] stripe transfer threw', e);
+      await supabase
+        .from('vano_payments')
+        .update({ stripe_transfer_id: null })
+        .eq('id', paymentId)
+        .eq('stripe_transfer_id', 'pending');
+      return bad(502, 'Transfer failed. Please try again in a moment.');
+    }
 
     if (!stripeResp.ok) {
       const text = await stripeResp.text().catch(() => '');

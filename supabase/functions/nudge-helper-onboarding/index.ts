@@ -71,9 +71,19 @@ async function sendSms(to: string | null | undefined, body: string): Promise<boo
   return sent;
 }
 
-serve(async (_req) => {
+serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  // Service-role only. This is a cron endpoint (verify_jwt=false) that fans out
+  // WhatsApp/SMS/email to every un-nudged helper. Without this gate anyone with
+  // the public anon key could fire it repeatedly and, because stamps are
+  // written AFTER sending, blow past the per-helper caps and pump Twilio spend.
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (authHeader !== `Bearer ${serviceKey}`) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+
   const resendKey   = Deno.env.get('RESEND_API_KEY')?.trim();
   const resendFrom  = Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>';
   const siteUrl     = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/+$/, '');

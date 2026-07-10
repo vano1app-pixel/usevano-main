@@ -561,8 +561,10 @@ const TrackBooking = () => {
     if (!bookingId || markingDone) return;
     setMarkingDone(true);
     try {
-      const { error } = await supabase.functions.invoke('complete-household-job', { body: { booking_id: bookingId } });
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('complete-household-job', { body: { booking_id: bookingId } });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error(await extractFnError(data, error, 'Please try again, or WhatsApp +353 89 981 7111'));
+      }
       if (selectedRating > 0) {
         try {
           // invoke() reports HTTP failures via the returned error — it doesn't
@@ -578,8 +580,8 @@ const TrackBooking = () => {
       }
       setBooking((b) => b ? { ...b, status: 'completed' } : b);
       toast({ title: 'All done — thanks!', description: 'Your helper has been paid.' });
-    } catch {
-      toast({ title: 'Could not mark done', description: 'Please try again, or WhatsApp +353 89 981 7111', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Could not mark done', description: e instanceof Error ? e.message : 'Please try again, or WhatsApp +353 89 981 7111', variant: 'destructive' });
     } finally {
       setMarkingDone(false);
     }
@@ -589,10 +591,16 @@ const TrackBooking = () => {
     if (!bookingId || cancelling) return;
     setCancelling(true);
     try {
-      const { error } = await supabase.functions.invoke('cancel-household-booking', {
+      const { data, error } = await supabase.functions.invoke('cancel-household-booking', {
         body: { booking_id: bookingId, type: 'customer_cancel' },
       });
-      if (error) throw error;
+      if (error || (data as { error?: string } | null)?.error) {
+        // Surface the server's real reason — e.g. "Your helper has already
+        // started — message us…" (409) or the refund-failed 502 — instead of
+        // the generic robot toast that left the customer at a dead end when the
+        // cancel block silently unmounted on the next poll.
+        throw new Error(await extractFnError(data, error, 'Please WhatsApp us on +353 89 981 7111'));
+      }
       const wasPaid = !!booking?.paid_at;
       setBooking((b) => b ? { ...b, status: 'cancelled' } : b);
       toast({
@@ -600,8 +608,8 @@ const TrackBooking = () => {
         description: wasPaid ? 'Your refund will arrive in 5–7 business days.' : "You weren't charged.",
       });
       setCancelConfirm(false);
-    } catch {
-      toast({ title: 'Could not cancel', description: 'Please WhatsApp us on +353 89 981 7111', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Could not cancel', description: e instanceof Error ? e.message : 'Please WhatsApp us on +353 89 981 7111', variant: 'destructive' });
     } finally {
       setCancelling(false);
     }
@@ -806,9 +814,12 @@ const TrackBooking = () => {
 
       <main className={cn('pt-14 max-w-sm md:max-w-lg mx-auto px-4', showMapPanel ? 'pb-[320px]' : 'pb-40')}>
 
-        {/* Payment success banner */}
+        {/* Payment success banner. ?paid=true only ever comes from the Stripe
+            success URL, which is reached AFTER a helper accepted (pay-after-
+            accept), so the copy is post-accept — not "we're finding a helper".
+            Gated off once the job is completed/cancelled so it can't linger. */}
         <AnimatePresence>
-          {justPaid && (
+          {justPaid && booking && booking.status !== 'completed' && booking.status !== 'cancelled' && (
             <motion.div
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -825,9 +836,9 @@ const TrackBooking = () => {
                 <CheckCircle2 className="w-6 h-6 text-sage" />
               </motion.span>
               <div className="flex-1">
-                <p className="font-semibold text-foreground text-sm">You're booked — we're on it!</p>
+                <p className="font-semibold text-foreground text-sm">Payment confirmed 🎉</p>
                 <p className="text-foreground/70 text-sm mt-0.5 leading-relaxed">
-                  We're finding your helper right now. You'll get a text with their name and photo within minutes.
+                  Your helper is confirmed and on the job. Follow their progress below — we'll text you every update.
                 </p>
                 {bookingId && (
                   <p className="text-muted-foreground text-xs mt-2 font-mono tracking-wide">

@@ -78,8 +78,14 @@ const JobAccepted = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
-  const status = (params.get('status') as Status) ?? 'claimed';
-  const view = VIEWS[status] ?? VIEWS.claimed;
+  // A missing/unknown status must NEVER fall back to 'claimed' — an SMS client
+  // that truncates the query string (or a future status the SPA doesn't know)
+  // would otherwise show "You've got the job! 🎉" + confetti for a job the
+  // helper never claimed, and route to /student-job/ (empty → 404). Default to
+  // the neutral 'expired' view, which points at the dashboard.
+  const rawStatus = params.get('status');
+  const status: Status = rawStatus && rawStatus in VIEWS ? (rawStatus as Status) : 'expired';
+  const view = VIEWS[status];
   const job = params.get('job') ?? '';
   const cat = params.get('cat') || 'job';
   const city = params.get('city') || '';

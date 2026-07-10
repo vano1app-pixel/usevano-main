@@ -53,7 +53,6 @@ serve(async (req) => {
     const email      = (formData.get('email')      as string | null)?.trim().toLowerCase();
     const phone      = normalizeStoredPhone((formData.get('phone') as string | null)?.trim());
     const city       = (formData.get('city')       as string | null)?.trim();
-    const ageRaw     = (formData.get('age')        as string | null)?.trim();
     const bioRaw     = (formData.get('bio')        as string | null)?.trim();
     const categories = JSON.parse((formData.get('categories') as string | null) ?? '[]') as string[];
     const tutorSubjects = JSON.parse((formData.get('tutor_subjects') as string | null) ?? '[]') as string[];
@@ -104,29 +103,47 @@ serve(async (req) => {
       if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
       return a;
     }
-    const parsedAge = ageRaw ? parseInt(ageRaw, 10) : null;
-    const age = (parsedAge !== null && !isNaN(parsedAge)) ? parsedAge : ageFromDobStr(dob);
-    if (age !== null && age < 18) {
+    // Derive age from the DOB the form collects and gate on THAT — never trust
+    // a client-supplied `age`. This endpoint is public (verify_jwt=false,
+    // CORS *), so `if (age < 18)` on a client value let a scripted POST send
+    // dob=2010-01-01&age=25 (or omit both → age null) and sail through. The
+    // dob is required; a client `age` is ignored for the gate (and only used
+    // as a cosmetic fallback for the badge when it agrees with a valid dob).
+    const dobAge = ageFromDobStr(dob);
+    if (dobAge === null) {
+      return new Response(JSON.stringify({ error: 'Please enter your date of birth.' }), {
+        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    if (dobAge < 18) {
       return new Response(JSON.stringify({ error: 'You must be 18 or over to join VANO.' }), {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
+    const age = dobAge;
 
     // ── Duplicate guard ────────────────────────────────────────────────────
-    // Match an existing helper by email or by phone (digits-only, last 9 —
-    // catches "+353 89..." vs "089..." formatting differences). Approved
-    // helpers are sent to their account page; pending applications are
-    // updated in place so a double-tap or abandoned checkout never creates
-    // a second row.
-    const phoneDigits = phone.replace(/\D/g, '');
-    const last9 = phoneDigits.slice(-9);
-    const { data: allHelpers } = await supabase
-      .from('household_helpers')
-      .select('id, email, phone, status');
-    const existing = (allHelpers ?? []).find((h: { email: string | null; phone: string | null }) =>
-      (h.email && h.email.toLowerCase() === email) ||
-      (h.phone && last9.length === 9 && h.phone.replace(/\D/g, '').endsWith(last9)),
-    ) as { id: string; status: string } | undefined;
+    // Look up an existing helper by email and by phone with TARGETED queries.
+    // The old code selected the ENTIRE household_helpers table and scanned it
+    // client-side, which silently breaks past PostgREST's 1,000-row cap — once
+    // helper #1001 exists a re-application could miss the guard and create a
+    // second live row. Phone is matched across the common formatting variants.
+    const phoneDigitsRaw = phone.replace(/\D/g, '');
+    const phoneVariants = new Set<string>([phone, phoneDigitsRaw]);
+    if (phoneDigitsRaw.length >= 9) {
+      const nat = phoneDigitsRaw.slice(-9);          // 899817111
+      phoneVariants.add(nat);
+      phoneVariants.add('0' + nat);                  // 0899817111
+      phoneVariants.add('353' + nat);                // 353899817111
+      phoneVariants.add('+353' + nat);               // +353899817111
+    }
+    const [emailHit, phoneHit] = await Promise.all([
+      supabase.from('household_helpers').select('id, email, phone, status').eq('email', email).limit(1).maybeSingle(),
+      supabase.from('household_helpers').select('id, email, phone, status').in('phone', [...phoneVariants]).limit(1).maybeSingle(),
+    ]);
+    const emailMatch = emailHit.data as { id: string; email: string | null; status: string } | null;
+    const phoneMatch = phoneHit.data as { id: string; email: string | null; status: string } | null;
+    const existing = emailMatch ?? phoneMatch ?? null;
 
     if (existing && existing.status === 'approved') {
       return new Response(JSON.stringify({
@@ -138,7 +155,23 @@ serve(async (req) => {
         error: 'We already have an application with these details. WhatsApp us on +353 89 981 7111 and we will sort it out.',
       }), { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } });
     }
-    const pendingExisting = existing ?? null; // status 'pending' → update in place
+
+    // Pending row → update in place (dedupe a double-tap / abandoned checkout).
+    // BUT only take over on an EMAIL match. A phone-only match with a DIFFERENT
+    // email must not overwrite the row's identity: that would let someone who
+    // knows a stranger's number rewrite their pending row with the attacker's
+    // email (then bind a magic-link sign-in to it) and inherit its state.
+    let pendingExisting: { id: string } | null = null;
+    if (existing && existing.status === 'pending') {
+      if (emailMatch) {
+        pendingExisting = { id: emailMatch.id };
+      } else {
+        // phone matched a pending row owned by a different email — conflict.
+        return new Response(JSON.stringify({
+          error: 'We already have an application with this phone number. WhatsApp us on +353 89 981 7111 and we will sort it out.',
+        }), { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+    }
 
     // Upload photo to helper-photos bucket
     const ext  = photo.name.split('.').pop() ?? 'jpg';

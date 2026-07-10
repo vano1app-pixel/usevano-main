@@ -119,12 +119,24 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name, customer_phone')
+      .select('id, student_id, status, paid_at, price_estimate_cents, arrival_code, arrival_verified_at, category, booking_data, arrival_attempts, customer_name, customer_phone')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null; customer_phone: string | null } | null; error: unknown };
+      .maybeSingle() as { data: { id: string; student_id: string | null; status: string; paid_at: string | null; price_estimate_cents: number | null; arrival_code: string | null; arrival_verified_at: string | null; category: string; booking_data: Record<string, unknown> | null; arrival_attempts: number | null; customer_name: string | null; customer_phone: string | null } | null; error: unknown };
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if (booking.student_id !== callerId) return bad(403, 'Not the assigned helper');
+
+    // Pay-before-start gate, ENFORCED SERVER-SIDE. StudentJobDetail hides the
+    // arrival buttons until paid_at is set, but that's client-only: a helper
+    // bypassing their UI could drive request→start_without_code and push an
+    // UNPAID job to in_progress — a state no unpaid sweep covers, so it would
+    // sit unpaid forever. Block every forward-moving arrival action until paid.
+    // ('finished' is allowed through — a paid job that somehow reached here
+    // should still be completable; the checks above already require assignment.)
+    const advancingActions = ['request', 'verify', 'start_without_code'];
+    if (advancingActions.includes(action) && ((booking.price_estimate_cents ?? 0) > 0) && !booking.paid_at) {
+      return bad(409, 'This job can be started once the customer has paid.');
+    }
 
     if (action === 'request') {
       // Helper just tapped "I've reached". Generate the code and move the job

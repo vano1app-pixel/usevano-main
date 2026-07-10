@@ -1,12 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { allowRequest } from "../_shared/rateLimit.ts";
 
-// Called by HouseholdAdmin right after approving a helper. Previously
-// approval was a silent DB flip — the helper was never told they got in,
-// so approved helpers didn't know to go available or watch for jobs.
+// Called by HouseholdAdmin right after approving a helper, and by the server
+// signup/backstop paths. Previously approval was a silent DB flip — the helper
+// was never told they got in, so approved helpers didn't know to go available.
 //
-// Safe to expose with verify_jwt: it only sends "you're approved" to the
-// helper's own email/phone, and only when the row really is approved.
+// It only ever messages the helper's OWN email/phone, but under free-to-join
+// every helper is 'approved' (so the status guard is vacuous) and helper_id is
+// public (it's in every /helpers/:id URL) — so it's rate-limited per helper_id
+// to at most one send per 6h, bounding any spam-a-helper attempt regardless of
+// which caller (server service-role or the admin browser session) invokes it.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -61,6 +65,12 @@ serve(async (req) => {
     }
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // Bound spam: at most one "you're approved" per helper per 6h, whoever calls.
+    if (!await allowRequest(supabase, 'notify-helper-approved', helper_id, 1, 6 * 60 * 60)) {
+      return new Response(JSON.stringify({ skipped: 'rate_limited' }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+    }
+
     const { data: helper } = await supabase
       .from('household_helpers')
       .select('id, name, email, phone, city, status')

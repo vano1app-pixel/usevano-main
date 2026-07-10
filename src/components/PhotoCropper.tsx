@@ -77,7 +77,15 @@ export function PhotoCropper({ src, onCancel, onCropped }: PhotoCropperProps) {
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       if (lastPinchDist.current !== null) {
         const ratio = dist / lastPinchDist.current;
-        setScale(s => Math.max(minScale, s * ratio));
+        // Mirror the slider path: clamp scale to [minScale, minScale*4] AND
+        // re-clamp the offset for the new scale. Without the offset re-clamp,
+        // pinching OUT near a corner left the shrunken image no longer covering
+        // the guide circle, so confirm() exported a JPEG with a white
+        // letterbox band / the face pushed off-frame. Without the upper clamp,
+        // pinch could zoom past the slider's max.
+        const nextScale = Math.min(minScale * 4, Math.max(minScale, scale * ratio));
+        setScale(nextScale);
+        setOffset(o => clampOffset(o.x, o.y, nextScale));
       }
       lastPinchDist.current = dist;
     }

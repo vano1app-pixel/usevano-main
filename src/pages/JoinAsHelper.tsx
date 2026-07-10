@@ -248,7 +248,13 @@ export const JoinAsHelper: React.FC = () => {
   const [area, setArea] = useState(draft?.area ?? '');            // rough neighbourhood/Eircode → areas_served (nearest-job matching)
   const [transport, setTransport] = useState<string[]>(draft?.transport ?? []); // how they get around → dispatch reach (car = moving/tip runs)
   const [categories, setCategories] = useState<string[]>(() =>
-    draft && draft.categories.length > 0 ? draft.categories : defaultSelectedGroups());
+    // An EMPTY categories array in a draft is a real saved choice (the user
+    // unticked all five pre-ticked defaults, intending to pick only, say,
+    // tutoring, then got interrupted). The old `.length > 0` check silently
+    // re-ticked the defaults under the "welcome back" note — so they could
+    // submit and get dispatched jobs they explicitly declined. Only fall back
+    // to defaults when there is NO draft at all.
+    draft ? draft.categories : defaultSelectedGroups());
   // Sub-skill panels only open for groups the student TAPPED — if the five
   // pre-ticked defaults all expanded their optional chips, step 2 would lose
   // its 30-second feel. (Sub detail is optional garnish; the dashboard's
@@ -378,6 +384,18 @@ export const JoinAsHelper: React.FC = () => {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!step3Valid) { setError('Please tick the box to continue.'); return; }
+    // The photo can be null when resuming a draft to step 2/3 if the async
+    // data-URL→File rebuild failed or hasn't resolved (goNext only re-validates
+    // the current step, so step 0's photo check never re-runs). Submitting then
+    // appends "null" to FormData, which passes the server's `if (!photo)` and
+    // crashes on photo.name → an unbreakable 500 loop. Catch it here and send
+    // them back to re-pick.
+    if (!(photo instanceof File)) {
+      setError('Please add a clear photo of yourself — it looks like it didn\'t save.');
+      setStep(0);
+      topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     setSubmitting(true);
     setError(null);
     haptic(12);
@@ -444,9 +462,17 @@ export const JoinAsHelper: React.FC = () => {
       window.location.href = `/verify-helper?${q.toString()}`;
       return;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('whatsapp')) setError(msg);
-      else setError('Something went wrong — please try again or text us on WhatsApp.');
+      // Surface the server's ACTUAL reason ("Photo upload failed", "You must be
+      // 18 or over…", "Missing required fields"). The old code collapsed
+      // everything except "already"/"whatsapp" messages to a generic string, so
+      // an applicant hit by a photo-upload hiccup retried forever against a
+      // message that never told them what was wrong. Guard against a raw
+      // network error leaking an ugly string.
+      const raw = err instanceof Error ? err.message : String(err);
+      const looksLikeNetwork = /failed to fetch|networkerror|load failed/i.test(raw);
+      setError(looksLikeNetwork || !raw
+        ? 'Something went wrong — please try again or text us on WhatsApp.'
+        : raw);
       setSubmitting(false);
     }
   }

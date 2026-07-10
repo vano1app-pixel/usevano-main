@@ -442,6 +442,13 @@ serve(async (_req) => {
     .lt('created_at', cancelCutoff)
     // Don't 24h-cancel a future-dated booking that simply hasn't come due yet.
     .or(`scheduled_at.is.null,scheduled_at.lt.${new Date(now).toISOString()}`)
+    // created_at is the WRONG clock for an accepted booking. A book-ahead job
+    // created days ago, dispatched at its slot and just accepted, has a fresh
+    // payment_requested_at — without this it would be cancelled out from under
+    // the helper who accepted seconds ago (and the customer mid-payment). Only
+    // cancel when payment was never requested (unassigned) OR was requested
+    // long enough ago; the 2h RELEASE sweep above handles the in-between.
+    .or(`payment_requested_at.is.null,payment_requested_at.lt.${cancelCutoff}`)
     .order('created_at', { ascending: true })
     .limit(SWEEP_LIMIT) as { data: Array<{ id: string; stripe_payment_intent_id: string | null; student_id: string | null; category: string | null; customer_name: string | null; customer_email: string | null }> | null };
 

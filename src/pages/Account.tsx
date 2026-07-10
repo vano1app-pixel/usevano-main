@@ -181,7 +181,7 @@ const Account: React.FC = () => {
 
         {/* Referral credit — only renders for people who've booked */}
         <div className="mb-4">
-          <ReferralShareCard />
+          <ReferralShareCard phone={mem?.phone ?? null} />
         </div>
 
         {/* Partner program — recruit students (e.g. a union) and earn commission */}
