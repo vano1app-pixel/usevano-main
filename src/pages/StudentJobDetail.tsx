@@ -286,11 +286,12 @@ const StudentJobDetail = () => {
         (payload) => {
           // Realtime UPDATE payloads carry the ENTIRE new row (row-level RLS
           // only — no column narrowing), including the customer's secret
-          // arrival_code. The initial fetch and the polling RPC both withhold
-          // it from the helper on purpose; merging payload.new wholesale would
-          // hand the assigned helper their own code and let them self-verify
-          // off DevTools without being at the door. Strip it before merging.
-          const { arrival_code: _omit, ...next } = payload.new as Partial<Booking> & { arrival_code?: string };
+          // arrival_code AND rating_token. The initial fetch and the polling RPC
+          // both withhold these from the helper on purpose; merging payload.new
+          // wholesale would hand the assigned helper their own arrival code (to
+          // self-verify off DevTools) and the rating token (to rate their own
+          // job). Strip both before merging.
+          const { arrival_code: _omitCode, rating_token: _omitTok, ...next } = payload.new as Partial<Booking> & { arrival_code?: string; rating_token?: string };
           setBooking((b) => (b ? { ...b, ...next } : b));
           if (next.status === 'completed' || next.status === 'cancelled') stopLocationWatch();
         },

@@ -52,6 +52,9 @@ interface Booking {
   job_ends_at: string | null;
   /** Set when the helper taps "I've finished" — surfaces the confirm card early */
   helper_finished_at: string | null;
+  /** Capability token for rating — minted at completion, delivered only to the
+   *  customer (the anon RPC withholds it from the assigned helper). */
+  rating_token: string | null;
   booking_data: {
     service_fee_cents?: number;
     referral_discount_cents?: number;
@@ -571,7 +574,7 @@ const TrackBooking = () => {
           // throw — so the old fire-and-forget marked the booking "rated" even
           // when the rating never saved. Only mark rated on genuine success;
           // otherwise leave the rating card up so the customer can retry.
-          const rateRes = await supabase.functions.invoke('rate-household-booking', { body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined } });
+          const rateRes = await supabase.functions.invoke('rate-household-booking', { body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined, rating_token: booking?.rating_token ?? undefined } });
           if (!rateRes.error && !(rateRes.data as { error?: string } | null)?.error) {
             if (typeof localStorage !== 'undefined') localStorage.setItem(`vano_rated_${bookingId}`, '1');
             setAlreadyRated(true);
@@ -647,7 +650,7 @@ const TrackBooking = () => {
     setSubmittingRating(true);
     try {
       const { data, error } = await supabase.functions.invoke('rate-household-booking', {
-        body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined },
+        body: { booking_id: bookingId, rating: selectedRating, comment: ratingComment || undefined, rating_token: booking?.rating_token ?? undefined },
       });
       if (error || (data as { error?: string } | null)?.error) {
         const msg = await extractFnError(data, error, 'Could not save rating — please try again.');
