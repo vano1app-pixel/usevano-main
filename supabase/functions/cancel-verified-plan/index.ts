@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phonesMatch } from "../_shared/phoneMatch.ts";
 
 // Cancels a helper's €2/month ✓ Verified subscription — cancel-anytime is part
 // of the deal (and EU consumer law). Auth: phone number verified against the
@@ -17,12 +18,6 @@ const CORS = {
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 }
-
-const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
-const phonesMatch = (a: string, b: string) => {
-  const na = normalizePhone(a), nb = normalizePhone(b);
-  return na === nb || na.endsWith(nb) || nb.endsWith(na);
-};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });

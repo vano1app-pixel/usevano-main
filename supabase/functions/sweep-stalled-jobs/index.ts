@@ -71,7 +71,7 @@ async function sendSms(to: string | null | undefined, body: string): Promise<boo
 
 interface Row {
   id: string; status: string; category: string | null; city: string | null;
-  student_id: string | null; paid_at: string | null;
+  student_id: string | null; paid_at: string | null; accepted_at: string | null;
   stalled_reminded_at: string | null; stalled_released_at: string | null; stalled_escalated_at: string | null;
   customer_name: string | null; customer_phone: string | null; customer_email: string | null;
   price_estimate_cents: number | null; scheduled_date: string | null;
@@ -117,12 +117,26 @@ serve(async (_req) => {
       .lt('accepted_at', pingCutoff)
       .is('stalled_reminded_at', null)
       .is('disputed_at', null)
+      // Don't chase a book-ahead job before its slot: dispatch-scheduled-jobs
+      // offers scheduled jobs up to 90 min early, so a helper who accepts a
+      // future booking would otherwise be told to "head over now" and release
+      // it if they can't — for a job that isn't due yet. Only sweep ASAP jobs
+      // (no scheduled_at) or ones whose slot has already passed.
+      .or(`scheduled_at.is.null,scheduled_at.lt.${new Date(now).toISOString()}`)
       .limit(50) as { data: Row[] | null };
     for (const b of toPing ?? []) {
+      // Claim FIRST (guarded on the stamp still being null) so an overlapping
+      // run or a crash-retry can't double-text the helper. Only send if we won.
+      const { data: claimed } = await supabase.from('household_bookings')
+        .update({ stalled_reminded_at: new Date(now).toISOString() })
+        .eq('id', b.id)
+        .is('stalled_reminded_at', null)
+        .select('id')
+        .maybeSingle() as { data: { id: string } | null };
+      if (!claimed) continue;
       const cat = CATEGORY_LABELS[b.category ?? 'other'] ?? 'job';
-      const { phone, first } = await helperContact(b.student_id);
-      await sendSms(phone, `VANO: your ${cat} in ${b.city ?? 'Galway'} is paid and waiting — please head over and tap "I've arrived" when you get there. Can't make it? Release it in the app so someone else can take it. — ${first}`);
-      await supabase.from('household_bookings').update({ stalled_reminded_at: new Date(now).toISOString() }).eq('id', b.id);
+      const { phone } = await helperContact(b.student_id);
+      await sendSms(phone, `VANO: your ${cat} in ${b.city ?? 'Galway'} is paid and waiting — please head over and tap "I've arrived" when you get there. Can't make it? Release it in the app so someone else can take it. — Team VANO`);
       pinged++;
     }
 
@@ -138,6 +152,16 @@ serve(async (_req) => {
       .is('disputed_at', null)
       .limit(30) as { data: Row[] | null };
     for (const b of toRelease ?? []) {
+      // Defence-in-depth: only release if the stall ping was fired AT the helper
+      // currently on the job — i.e. the ping postdates their acceptance. A ping
+      // that predates accepted_at belongs to a previous helper (e.g. one who
+      // released and got replaced), so releasing this one would strip a helper
+      // who just accepted. (helper_release now clears the stamp, so this is a
+      // second guard.)
+      if (b.accepted_at && b.stalled_reminded_at && new Date(b.stalled_reminded_at).getTime() < new Date(b.accepted_at).getTime()) {
+        await supabase.from('household_bookings').update({ stalled_reminded_at: null }).eq('id', b.id);
+        continue;
+      }
       const cat = CATEGORY_LABELS[b.category ?? 'other'] ?? 'job';
       // Free the helper but KEEP paid_at — guarded so a job that advanced to
       // arrived/in_progress/completed between query and now is never touched.

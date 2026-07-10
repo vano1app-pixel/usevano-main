@@ -108,8 +108,12 @@ serve(async (_req) => {
     const nowIso = new Date().toISOString();
     const { data: pending, error } = await supabase
       .from('household_payouts')
-      .select('id, booking_id, student_id, amount_cents, transfer_attempts')
-      .eq('status', 'pending')
+      .select('id, booking_id, student_id, amount_cents, transfer_attempts, status')
+      // 'transferring' rows are picked up too: a run that claimed a row and
+      // crashed (or overlapped) after the Stripe transfer but before the DB
+      // write would otherwise strand it. Re-sending is safe — the per-payout
+      // Idempotency-Key returns the SAME transfer, never a second one.
+      .in('status', ['pending', 'transferring'])
       .or(`hold_until.is.null,hold_until.lt.${nowIso}`)
       .order('created_at', { ascending: true })
       .limit(50);
@@ -125,6 +129,7 @@ serve(async (_req) => {
       const payoutId = p.id as string;
       const studentId = p.student_id as string;
       const amountCents = p.amount_cents as number;
+      const alreadyClaimed = (p.status as string) === 'transferring';
 
       try {
         if (!amountCents || amountCents <= 0) { skipped++; continue; }
@@ -165,6 +170,25 @@ serve(async (_req) => {
           .maybeSingle();
         const intentId = booking?.stripe_payment_intent_id as string | null | undefined;
 
+        // Atomically CLAIM the row (pending → transferring) BEFORE moving any
+        // money. This is the same compare-and-swap report-household-problem
+        // uses to reverse a payout: whoever flips 'pending' first wins. Without
+        // it the row stayed 'pending' across the whole Stripe transfer, so a
+        // customer dispute landing mid-transfer could reverse+refund AND the
+        // helper still got paid — Vano eating both. A row we picked up already
+        // 'transferring' is a crash/overlap recovery; skip the claim and let the
+        // idempotency key make the re-send a no-op.
+        if (!alreadyClaimed) {
+          const { data: claimed } = await supabase
+            .from('household_payouts')
+            .update({ status: 'transferring' })
+            .eq('id', payoutId)
+            .eq('status', 'pending')
+            .select('id')
+            .maybeSingle();
+          if (!claimed) { skipped++; continue; } // reversed by a dispute, or another run took it
+        }
+
         const transferParams: Record<string, string> = {
           amount: String(amountCents),
           currency: 'eur',
@@ -195,7 +219,8 @@ serve(async (_req) => {
           console.error('[release-household-payouts] transfer failed', payoutId, resp.status, text.slice(0, 300));
           // Count the attempt; cap retries so a permanently-failing transfer
           // can't loop invisibly forever. On the final strike, mark it 'failed'
-          // and page the owner exactly once.
+          // and page the owner exactly once. Otherwise release the claim back to
+          // 'pending' so the next sweep retries (the row is 'transferring' now).
           const attempts = (Number(p.transfer_attempts) || 0) + 1;
           if (attempts >= MAX_TRANSFER_ATTEMPTS) {
             await supabase.from('household_payouts')
@@ -205,7 +230,7 @@ serve(async (_req) => {
             stuck++;
           } else {
             await supabase.from('household_payouts')
-              .update({ transfer_attempts: attempts, last_transfer_error: text.slice(0, 500) })
+              .update({ status: 'pending', transfer_attempts: attempts, last_transfer_error: text.slice(0, 500) })
               .eq('id', payoutId);
             failed++;
           }

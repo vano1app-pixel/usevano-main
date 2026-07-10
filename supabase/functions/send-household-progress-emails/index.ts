@@ -64,7 +64,7 @@ serve(async (_req) => {
   // All on_way bookings with both helper and customer coordinates
   const { data: bookings, error } = await supabase
     .from('household_bookings')
-    .select('id, customer_name, customer_email, customer_lat, customer_lng, worker_lat, worker_lng, category, student_id, city, last_progress_email_at')
+    .select('id, customer_name, customer_email, customer_lat, customer_lng, worker_lat, worker_lng, worker_location_updated_at, category, student_id, city, last_progress_email_at')
     .eq('status', 'on_way')
     .not('worker_lat', 'is', null)
     .not('worker_lng', 'is', null)
@@ -78,11 +78,21 @@ serve(async (_req) => {
   }
 
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  // The helper's phone streams a GPS fix every ~15s. If that stream died (app
+  // killed, permission revoked, phone dead) the last-known point goes stale,
+  // and "Sam is 500m away — arriving in ~2 min" would repeat for hours from a
+  // frozen coordinate. Only email when the fix is recent enough to be "live".
+  const GPS_FRESH_MS = 8 * 60 * 1000;
+  const gpsFreshCutoff = new Date(Date.now() - GPS_FRESH_MS).toISOString();
   let sent = 0;
 
   for (const b of (bookings ?? [])) {
     // Throttle: skip if we already sent one in the last 10 minutes
     if (b.last_progress_email_at && b.last_progress_email_at > tenMinutesAgo) continue;
+
+    // Stale GPS → don't send a "live" ETA from a frozen point. A missing
+    // timestamp is treated as stale (can't prove it's live).
+    if (!b.worker_location_updated_at || b.worker_location_updated_at < gpsFreshCutoff) continue;
 
     const km = haversineKm(
       Number(b.worker_lat), Number(b.worker_lng),

@@ -83,6 +83,18 @@ serve(async (_req) => {
     // Too fresh — leave for a later run
     if (now - doneAt < DAY_MS) continue;
 
+    // Claim BEFORE sending (guarded on the stamp still being null) so a crash
+    // or redeploy mid-loop can't re-send this "we'll only ask once" email on
+    // the next run. If the send fails we revert the stamp so it retries.
+    const { data: claimed } = await supabase
+      .from('household_bookings')
+      .update({ rating_reminder_sent_at: new Date().toISOString() })
+      .eq('id', b.id)
+      .is('rating_reminder_sent_at', null)
+      .select('id')
+      .maybeSingle() as { data: { id: string } | null };
+    if (!claimed) continue; // another run already handled it
+
     let helperFirst = 'your helper';
     if (b.student_id) {
       const { data: helper } = await supabase
@@ -129,10 +141,13 @@ serve(async (_req) => {
     });
     if (!res.ok) {
       console.warn('[remind-rating] Resend error', res.status, await res.text());
-      continue; // retry on a later run
+      // Revert the claim so a later run retries this one.
+      await supabase.from('household_bookings')
+        .update({ rating_reminder_sent_at: null })
+        .eq('id', b.id);
+      continue;
     }
 
-    closeOut.push(b.id);
     sent++;
   }
 

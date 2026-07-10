@@ -406,6 +406,7 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
     if (submitLock.current) return; // ignore a double-tap before the re-render
     const phoneClean = phone.trim().replace(/\s+/g, '');
     if (!isValidPhone(phone)) {
+      setEditDetails(true); // reveal the fields if the compact summary is showing
       setPhoneError(true);
       setError('Please enter a valid phone number.');
       return;
@@ -414,11 +415,16 @@ const Sheet: React.FC<SheetProps> = ({ cat, onClose, initialSize, note, extraLab
       // Phone-shaped but not textable (UK 07…, landlines) — every update
       // (pay link, on-my-way, arrival) goes by text, so catch it here with a
       // fix instead of booking someone we can never reach.
+      setEditDetails(true);
       setPhoneError(true);
       setError("We can't text that number — Irish mobiles (08…) work as-is; for other countries add the code, e.g. +44 7…");
       return;
     }
     if (!address.trim()) {
+      // The red border targets the AddressPicker — which is hidden behind the
+      // "returning customer" compact summary. Reveal the fields first so the
+      // flagged field the error points at is actually on screen.
+      setEditDetails(true);
       setAddressError(true);
       setError('Please add your address so your helper can find you.');
       return;

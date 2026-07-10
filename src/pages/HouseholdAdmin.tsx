@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Loader2, RefreshCw, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SystemHealthPanel from '@/components/household/SystemHealthPanel';
+import { extractFnError } from '@/lib/fnError';
 
 const ADMIN_EMAIL = 'vano1app@gmail.com';
 
@@ -142,10 +143,12 @@ export default function HouseholdAdmin() {
     if (!window.confirm('Cancel this booking and issue a Stripe refund?')) return;
     setActioning(bookingId);
     try {
-      const { error } = await supabase.functions.invoke('cancel-household-booking', {
+      const { data, error } = await supabase.functions.invoke('cancel-household-booking', {
         body: { booking_id: bookingId, type: 'admin_cancel' },
       });
-      if (error) throw error;
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error(await extractFnError(data, error, 'Refund failed.'));
+      }
       toast({ title: 'Booking cancelled + refund issued' });
       setBookings((prev) => prev.map((bk) => bk.id === bookingId ? { ...bk, status: 'cancelled' } : bk));
     } catch (e: unknown) {
@@ -161,10 +164,12 @@ export default function HouseholdAdmin() {
   const handleRedispatch = async (bookingId: string) => {
     setActioning(bookingId);
     try {
-      const { error } = await supabase.functions.invoke('dispatch-household-job', {
+      const { data, error } = await supabase.functions.invoke('dispatch-household-job', {
         body: { record: { id: bookingId } },
       });
-      if (error) throw error;
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error(await extractFnError(data, error, 'Could not re-dispatch.'));
+      }
       toast({ title: 'Re-dispatched', description: 'Offer sent out to eligible helpers again.' });
     } catch (e: unknown) {
       toast({ title: 'Could not re-dispatch', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
@@ -209,13 +214,30 @@ export default function HouseholdAdmin() {
     }
   };
 
-  const handleMarkPaid = async (payoutId: string) => {
+  // "Release now" kicks the real payout sweep. It used to flip the row to
+  // 'transferred' with a direct client UPDATE — which (a) silently no-ops
+  // because there's no admin UPDATE grant, so it lied "Marked as paid", and
+  // (b) if it HAD worked would have forged a paid ledger row with no money
+  // moved. The only correct path to 'transferred' is a real Stripe transfer,
+  // which release-household-payouts performs (and only for onboarded helpers).
+  const handleReleasePayouts = async (payoutId: string) => {
     setActioning(payoutId);
     try {
-      const { error } = await db.from('household_payouts').update({ status: 'transferred' }).eq('id', payoutId);
-      if (error) throw error;
-      toast({ title: 'Marked as paid' });
-      setPayouts((prev) => prev.map((p) => p.id === payoutId ? { ...p, status: 'transferred' } : p));
+      const { data, error } = await supabase.functions.invoke('release-household-payouts', { body: {} });
+      if (error || (data as { error?: string } | null)?.error) {
+        throw new Error(await extractFnError(data, error, 'Could not release payouts.'));
+      }
+      const released = Number((data as { released?: number } | null)?.released) || 0;
+      const stuck = Number((data as { stuck?: number } | null)?.stuck) || 0;
+      toast({
+        title: released > 0 ? `Released ${released} payout${released === 1 ? '' : 's'}` : 'Nothing to release',
+        description: released > 0
+          ? 'Transfers sent to onboarded helpers.'
+          : stuck > 0
+            ? 'Some payouts are stuck (transfer failing) — check the helper\'s Stripe onboarding.'
+            : 'No eligible pending payouts (helper may not have finished Stripe onboarding yet).',
+      });
+      await loadAll();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       toast({ title: 'Failed', description: msg, variant: 'destructive' });
@@ -491,12 +513,12 @@ export default function HouseholdAdmin() {
                     </div>
                     {p.status === 'pending' ? (
                       <button
-                        onClick={() => void handleMarkPaid(p.id)}
+                        onClick={() => void handleReleasePayouts(p.id)}
                         disabled={actioning === p.id}
                         className="flex-shrink-0 text-xs bg-sage/10 text-sage border border-sage/30 px-3 py-1.5 rounded-full font-semibold hover:bg-sage/20 disabled:opacity-50 flex items-center gap-1 transition-colors"
                       >
                         {actioning === p.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
-                        Mark paid
+                        Release now
                       </button>
                     ) : (
                       <span className="flex-shrink-0 text-xs text-sage font-semibold flex items-center gap-1">

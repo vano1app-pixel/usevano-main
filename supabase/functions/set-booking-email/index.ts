@@ -100,7 +100,7 @@ serve(async (req) => {
       .update({ customer_email: email })
       .eq('id', bookingId)
       .is('customer_email', null)
-      .select('id, customer_name, category, scheduled_date, paid_at, stripe_checkout_url')
+      .select('id, customer_name, category, scheduled_date, status, paid_at, stripe_checkout_url')
       .maybeSingle();
 
     if (updErr) {
@@ -131,8 +131,14 @@ serve(async (req) => {
         const catLabel = CATEGORY_LABELS[(updated as { category?: string }).category ?? ''] ?? 'booking';
         const payUrl = (updated as { stripe_checkout_url?: string | null }).stripe_checkout_url;
         const isPaid = !!(updated as { paid_at?: string | null }).paid_at;
+        // Only pitch the pay link while a helper actually holds the job — a
+        // cancelled booking (or one released back to pending) can still carry
+        // its old checkout URL, and "your helper is confirmed, pay now" would
+        // be a lie there.
+        const status = (updated as { status?: string }).status ?? '';
+        const helperHolding = ['accepted', 'on_way', 'arrived', 'in_progress'].includes(status);
 
-        const payBlock = payUrl && !isPaid ? `
+        const payBlock = payUrl && !isPaid && helperHolding ? `
     <div style="background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;padding:18px 20px;margin:0 0 24px;">
       <p style="margin:0 0 4px;color:#111827;font-size:15px;font-weight:700;">Your helper is confirmed — payment pending</p>
       <p style="margin:0 0 14px;color:#4b5563;font-size:13px;line-height:1.5;">Pay securely by card to lock in your booking.</p>
@@ -160,7 +166,7 @@ serve(async (req) => {
   </div>
 </div>
 </body></html>`,
-            text: `Hi ${name}, you'll now get every update for your ${catLabel} by email.${payUrl && !isPaid ? ` Your helper is confirmed — pay securely here: ${payUrl}.` : ''} Track: ${trackUrl}`,
+            text: `Hi ${name}, you'll now get every update for your ${catLabel} by email.${payBlock ? ` Your helper is confirmed — pay securely here: ${payUrl}.` : ''} Track: ${trackUrl}`,
           }),
         });
       } catch (e) {

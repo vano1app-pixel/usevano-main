@@ -114,18 +114,34 @@ serve(async (req) => {
     if (newPhoneRaw) {
       const digits = newPhoneRaw.replace(/\D/g, '');
       if (digits.length < 7 || digits.length > 15) return bad('Invalid new phone number');
+      // Reject a number another helper already uses. The phone IS the auth
+      // credential here, so a collision would let either person load and edit
+      // the other's row at the phone gate. Check across formatting variants,
+      // excluding this helper's own row.
+      const { data: clash } = await supabase
+        .from('household_helpers')
+        .select('id')
+        .in('phone', phoneVariants(newPhoneRaw))
+        .neq('id', helper.id)
+        .limit(1)
+        .maybeSingle();
+      if (clash) return bad('That number is already registered to another helper.');
       updates.phone = newPhoneRaw;
     }
 
     // Email add/change — a different address is unconfirmed, so it drops
     // student_email_verified; the OTP flow on /verify-helper re-earns it.
+    let emailUnverified = false;
     if (newEmailRaw) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmailRaw) || newEmailRaw.length > 254) {
         return bad('Invalid email address');
       }
       updates.email = newEmailRaw;
       const current = ((helper as { email?: string | null }).email ?? '').toLowerCase();
-      if (newEmailRaw !== current) updates.student_email_verified = false;
+      // Only a DIFFERENT address drops the verified flag; re-saving the same
+      // one keeps it. We report which happened so the client doesn't blank the
+      // blue tick on a no-op re-save (it can't see the stored email itself).
+      if (newEmailRaw !== current) { updates.student_email_verified = false; emailUnverified = true; }
     }
 
     // Photo upload
@@ -162,6 +178,8 @@ serve(async (req) => {
         success: true,
         photo_url: updates.photo_url ?? helper.photo_url,
         phone: updates.phone ?? undefined,
+        // true only when the email actually changed (verified flag cleared).
+        email_unverified: emailUnverified,
       }),
       { headers: { ...CORS, 'Content-Type': 'application/json' } },
     );

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phonesMatch } from "../_shared/phoneMatch.ts";
 
 // GDPR "right to erasure" for a household helper, from /student-account.
 // Auth: phone number verified against helper_id (same model as
@@ -22,12 +23,6 @@ const CORS = {
 };
 
 const ACTIVE_JOB_STATUSES = ['accepted', 'on_way', 'arrived', 'in_progress'];
-
-const normalizePhone = (p: string) => p.replace(/[\s\-().+]/g, '').replace(/^0/, '353');
-const phonesMatch = (a: string, b: string) => {
-  const na = normalizePhone(a), nb = normalizePhone(b);
-  return na === nb || na.endsWith(nb) || nb.endsWith(na);
-};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
