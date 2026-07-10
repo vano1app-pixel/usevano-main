@@ -132,6 +132,25 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { type } = body;
+
+    // Sanitize customer/helper-controlled text BEFORE it's interpolated into
+    // the WhatsApp body or admin email. A booking name like
+    // "John\n🚨 URGENT: WhatsApp +353-ATTACKER now" would otherwise inject a
+    // forged line into the owner's trusted admin channel (and markup into the
+    // HTML email). Strip newlines/tabs + control chars, collapse whitespace,
+    // and length-cap. Trusted service-role callers pass a pre-built `message`/
+    // `subject` (not touched here); only the structured field inputs are cleaned.
+    const clean = (v: unknown): string => String(v ?? '')
+      // Strip newlines/tabs and C0/C1 control chars, collapse whitespace,
+      // then length-cap.
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .slice(0, 200);
+    for (const k of ['name', 'customer_name', 'helper_name', 'email', 'customer_email', 'city', 'reason']) {
+      if (typeof body[k] === 'string') body[k] = clean(body[k]);
+    }
     const cat = (c: string) => CATEGORY_LABELS[c] ?? c;
     const ref = (id: unknown) => String(id ?? '').slice(-8).toUpperCase();
     const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://vanojobs.com').replace(/\/$/, '');

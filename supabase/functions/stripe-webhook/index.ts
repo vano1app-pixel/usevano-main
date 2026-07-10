@@ -904,9 +904,52 @@ async function handleHouseholdPostAcceptPayment(
     // dead booking waiting for a manual dashboard refund.
     const { data: existing } = await supabase
       .from('household_bookings')
-      .select('status, paid_at, category, customer_phone')
+      .select('status, paid_at, category, customer_phone, stripe_payment_intent_id')
       .eq('id', bookingId)
-      .maybeSingle() as { data: { status?: string; paid_at?: string | null; category?: string; customer_phone?: string | null } | null };
+      .maybeSingle() as { data: { status?: string; paid_at?: string | null; category?: string; customer_phone?: string | null; stripe_payment_intent_id?: string | null } | null };
+
+    // Genuine DOUBLE payment: the booking is already paid, but THIS session
+    // settled a DIFFERENT PaymentIntent than the one on file (e.g. the customer
+    // paid a stale pay-link after a helper re-accept minted a fresh session).
+    // Without this it fell through to replay:true and the second charge was
+    // silently kept. Auto-refund the duplicate and page the owner.
+    if (
+      existing?.paid_at && session.payment_intent &&
+      existing.stripe_payment_intent_id && existing.stripe_payment_intent_id !== session.payment_intent
+    ) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+      let refunded = false;
+      if (stripeKey) {
+        try {
+          const r = await fetch('https://api.stripe.com/v1/refunds', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${stripeKey}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              // Key on the DUPLICATE intent so two deliveries of this event
+              // don't double-refund, and it can't collide with the orphan key.
+              'Idempotency-Key': `vano_dup_refund_${session.payment_intent}`,
+            },
+            body: new URLSearchParams({ payment_intent: session.payment_intent, reason: 'duplicate' }).toString(),
+          });
+          refunded = r.ok;
+          if (!r.ok) console.error('[stripe-webhook] duplicate auto-refund failed', bookingId, r.status, (await r.text()).slice(0, 200));
+        } catch (e) { console.error('[stripe-webhook] duplicate auto-refund threw', bookingId, e); }
+      }
+      const ref = bookingId.slice(-8).toUpperCase();
+      await fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `${refunded ? '↩️ *Auto-refunded duplicate charge*' : '🚨 *Duplicate charge — refund by hand*'} (${ref})\nA customer paid twice for the same ${existing.category ?? 'job'} (a second, stale pay link). ${refunded ? 'The duplicate was refunded automatically.' : 'Auto-refund FAILED — refund the second charge in Stripe.'}`,
+          subject: `${refunded ? '↩️ Duplicate charge auto-refunded' : '🚨 Duplicate charge — manual refund'} (${ref})`,
+          contact_phone: existing.customer_phone ?? undefined,
+        }),
+      }).catch(() => {});
+      return new Response(JSON.stringify({ received: true, duplicate_refunded: refunded }), { headers: { 'Content-Type': 'application/json' } });
+    }
 
     if (existing?.status === 'cancelled' && !existing.paid_at && session.payment_intent) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -1070,6 +1113,18 @@ async function handleChargeRefunded(
 ): Promise<Response> {
   if (!charge?.payment_intent) {
     return new Response(JSON.stringify({ received: true, ignored: 'no_payment_intent' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Stripe fires charge.refunded on PARTIAL refunds too. Treating a partial
+  // refund as a full one would cancel a live job and withhold the helper's
+  // ENTIRE payout over a small goodwill refund (and, on the legacy pot, flip
+  // the whole escrow row 'refunded' so the freelancer loses the unrefunded
+  // remainder). Only act when the charge is FULLY refunded. Partial refunds
+  // need a human decision, so no-op here.
+  if (charge.refunded === false) {
+    return new Response(JSON.stringify({ received: true, ignored: 'partial_refund' }), {
       headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -1249,6 +1304,15 @@ serve(async (req) => {
       return handleVanoPayCheckoutCompleted(supabase, session, vanoPayId);
     }
     if (householdBookingId) {
+      // A delayed-notification method (SEPA, Sofort — offered whenever enabled
+      // in the Stripe dashboard, since the session doesn't restrict methods)
+      // completes the session with payment_status 'unpaid' and only settles
+      // later via checkout.session.async_payment_succeeded. Never stamp paid on
+      // an unpaid session: it would open the helper's start-gate and pay them
+      // out for money that hasn't arrived (and may bounce).
+      if (session.payment_status && session.payment_status !== 'paid') {
+        return new Response(JSON.stringify({ received: true, unpaid: true }), { headers: { 'Content-Type': 'application/json' } });
+      }
       return handleHouseholdCheckoutCompleted(supabase, session, householdBookingId);
     }
     const householdPlan = session.metadata?.household_plan;
@@ -1305,6 +1369,19 @@ serve(async (req) => {
     return new Response(JSON.stringify({ received: true, ignored: 'no_id' }), {
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  // Delayed methods (SEPA/Sofort) settle here, not on checkout.session.completed
+  // (which fired 'unpaid'). Route a now-PAID household session through the same
+  // stamp path so the booking finally goes paid; ignore an async failure (the
+  // booking just stays unpaid and the normal unpaid sweeps handle it).
+  if (eventType === 'checkout.session.async_payment_succeeded') {
+    const session = event.data?.object as StripeCheckoutSession | undefined;
+    const householdBookingId = session?.metadata?.household_booking_id;
+    if (session?.id && householdBookingId && session.payment_status === 'paid') {
+      return handleHouseholdCheckoutCompleted(supabase, session, householdBookingId);
+    }
+    return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } });
   }
 
   if (eventType === 'account.updated') {

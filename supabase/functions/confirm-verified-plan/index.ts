@@ -29,12 +29,14 @@ serve(async (req) => {
     const { helper_id, session_id } = await req.json() as { helper_id?: string; session_id?: string };
     if (!helper_id || !session_id) return json(400, { error: 'Missing helper id or session id.' });
 
-    const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(session_id)}`, {
+    // expand[]=subscription so the sub id is always present on a completed
+    // subscription-mode session (it can come back as a string or an object).
+    const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(session_id)}?expand[]=subscription`, {
       headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
     });
     const session = await res.json() as {
       payment_status?: string;
-      subscription?: string;
+      subscription?: string | { id?: string } | null;
       metadata?: { helper_id?: string; type?: string };
     };
     if (!res.ok) return json(502, { error: 'Could not verify payment.' });
@@ -48,9 +50,18 @@ serve(async (req) => {
       return json(200, { active: false });
     }
 
+    // ALWAYS record the subscription id. Recording the plan active with a
+    // null verified_plan_sub_id left no handle to cancel the live Stripe
+    // subscription later — cancel-verified-plan's no-sub branch would flip
+    // the flag off while Stripe kept billing €2/month forever.
+    const subId = typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id ?? null;
+    if (!subId) console.error('[confirm-verified-plan] paid session with no subscription id', session_id);
+
     const { error } = await supabase
       .from('household_helpers')
-      .update({ verified_plan_active: true, ...(session.subscription ? { verified_plan_sub_id: session.subscription } : {}) })
+      .update({ verified_plan_active: true, ...(subId ? { verified_plan_sub_id: subId } : {}) })
       .eq('id', helper_id);
     if (error) { console.error('[confirm-verified-plan] update failed', error); return json(500, { error: 'Could not record your plan.' }); }
 

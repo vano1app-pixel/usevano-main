@@ -48,14 +48,25 @@ self.addEventListener('activate', (event) => {
 
 // Handle push notifications
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() ?? { title: 'VANO', body: 'You have a new notification' };
-  
+  // event.data.json() THROWS on a non-JSON payload — `??` only covers a null
+  // data, so a malformed push crashed the handler before showNotification and
+  // Chrome then showed the generic "site updated in the background" notice
+  // (repeats can get the subscription throttled). Parse defensively.
+  let data: { title?: string; body?: string; tag?: string; url?: string };
+  try {
+    data = event.data?.json() ?? {};
+  } catch {
+    data = {};
+  }
+
   const options: NotificationOptions & { vibrate?: number[] } = {
     body: data.body || 'You have a new notification',
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',
     tag: data.tag || 'vano-notification',
-    data: { url: data.url || '/jobs' },
+    // Default to the site root, NOT '/jobs' — that legacy route was deleted
+    // and 404s, so a payload without a url used to land the tap on a dead page.
+    data: { url: data.url || '/' },
   };
 
   event.waitUntil(
@@ -87,11 +98,13 @@ self.addEventListener('notificationclick', (event) => {
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Focus existing window if available
+      // Focus existing window if available. navigate() REJECTS for a client
+      // the SW doesn't control yet (first visit since install, no reload), and
+      // the unhandled rejection left the tab on the old page — await it and
+      // fall back to opening a fresh window so the tap always lands on `url`.
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(url);
-          return client.focus();
+          return client.navigate(url).then((c) => (c ?? client).focus()).catch(() => self.clients.openWindow(url));
         }
       }
       // Open new window

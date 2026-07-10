@@ -53,8 +53,20 @@ serve(async (req) => {
 
     // Helper must exist (don't leak which ids are valid beyond a generic 404)
     const { data: helper } = await supabase
-      .from('household_helpers').select('id, name').eq('id', helper_id).maybeSingle();
+      .from('household_helpers').select('id, name, email').eq('id', helper_id).maybeSingle();
     if (!helper) return json(404, { error: 'Application not found.' });
+
+    // The code may ONLY go to the address already on the helper's own row —
+    // the same invariant as the SMS path (never a client-supplied number).
+    // helper_id is NOT a secret (it's in every public /helpers/:id profile
+    // URL), so without this check anyone could verify THEIR email onto
+    // someone else's account. A helper who wants a different address changes
+    // it first from their phone-gated account page, then verifies here.
+    const storedEmail = ((helper as { email?: string | null }).email ?? '').trim().toLowerCase();
+    if (!storedEmail) return json(409, { error: 'No email on your application yet — add your college email from your account page first.' });
+    if (cleanEmail !== storedEmail) {
+      return json(403, { error: "That's not the email on your application. Update your email from your account page first, then verify it here." });
+    }
 
     // Rate limit — one code per 30s per helper
     const { data: recent } = await supabase

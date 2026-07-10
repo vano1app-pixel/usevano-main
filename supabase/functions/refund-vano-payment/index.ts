@@ -126,6 +126,12 @@ serve(async (req) => {
       .eq('id', paymentId)
       .eq('status', 'paid')
       .is('stripe_refund_id', null)
+      // Also require NO release in flight. release/auto-release reserve on
+      // stripe_transfer_id while leaving status='paid' until their final stamp,
+      // so without this a refund and a transfer could BOTH claim the same row
+      // (each checked only its own sentinel) and both move money — freelancer
+      // paid AND hirer refunded, Vano eating the lot.
+      .is('stripe_transfer_id', null)
       .select('id')
       .maybeSingle();
 
@@ -144,15 +150,30 @@ serve(async (req) => {
       'metadata[vano_payment_id]': paymentId,
     };
 
-    const stripeResp = await fetch('https://api.stripe.com/v1/refunds', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Idempotency-Key': `vano_refund_${paymentId}`,
-      },
-      body: formEncode(refundParams),
-    });
+    // A thrown fetch (network reset, DNS blip) must roll the sentinel back too
+    // — otherwise the row is bricked at stripe_refund_id='pending' forever and
+    // every retry returns the already_in_flight lie above while the hirer is
+    // never refunded. The old code only rolled back on a !ok RESPONSE.
+    let stripeResp: Response;
+    try {
+      stripeResp = await fetch('https://api.stripe.com/v1/refunds', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': `vano_refund_${paymentId}`,
+        },
+        body: formEncode(refundParams),
+      });
+    } catch (e) {
+      console.error('[refund-vano-payment] stripe refund threw', e);
+      await supabase
+        .from('vano_payments')
+        .update({ stripe_refund_id: null })
+        .eq('id', paymentId)
+        .eq('stripe_refund_id', 'pending');
+      return bad(502, 'Refund failed. Please try again in a moment.');
+    }
 
     if (!stripeResp.ok) {
       const text = await stripeResp.text().catch(() => '');

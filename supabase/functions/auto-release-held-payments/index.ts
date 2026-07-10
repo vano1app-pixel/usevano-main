@@ -74,6 +74,12 @@ serve(async (_req) => {
       .eq('status', 'paid')
       .is('dispute_reason', null)
       .is('stripe_transfer_id', null)
+      // Exclude rows with a refund in flight / done. A refund that succeeded at
+      // Stripe but failed to stamp status leaves the row status='paid',
+      // stripe_refund_id set (or 'pending'), auto_release_at still set — without
+      // this filter the cron would then transfer to the freelancer money that
+      // already went back to the hirer's card.
+      .is('stripe_refund_id', null)
       .not('auto_release_at', 'is', null)
       .lt('auto_release_at', nowIso)
       .limit(BATCH_LIMIT);
@@ -152,6 +158,9 @@ serve(async (_req) => {
         .eq('status', 'paid')
         .is('stripe_transfer_id', null)
         .is('dispute_reason', null)
+        // A refund reserved (or completed) between the SELECT and here must
+        // block the transfer — same cross-sentinel guard as release/refund.
+        .is('stripe_refund_id', null)
         .select('id')
         .maybeSingle();
 
@@ -162,13 +171,17 @@ serve(async (_req) => {
 
       let transferId: string | null = null;
       try {
+        // Body MUST be byte-identical to release-vano-payment's — they share
+        // the Idempotency-Key `vano_release_${id}`, and Stripe rejects a
+        // same-key/different-body replay with an idempotency_error (which,
+        // after the key's 24h window, would let a second live transfer through
+        // and double-pay). released_by is recorded in the DB below, not here.
         const transferParams: Record<string, string> = {
           amount: String(transferAmount),
           currency: row.currency || 'eur',
           destination: row.stripe_destination_account_id,
           source_transaction: row.stripe_payment_intent_id,
           'metadata[vano_payment_id]': row.id,
-          'metadata[released_by]': 'auto',
         };
 
         const resp = await fetchWithTimeout(

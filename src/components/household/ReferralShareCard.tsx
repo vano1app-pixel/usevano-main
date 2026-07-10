@@ -22,13 +22,19 @@ const SHARE_TEXT = (link: string) =>
  * `heading` lets the host page speak to the moment (e.g. "Loved Aoife's
  * work?" right after a five-star rating) without forking the card.
  */
-export const ReferralShareCard: React.FC<{ className?: string; heading?: string }> = ({ className, heading }) => {
+export const ReferralShareCard: React.FC<{ className?: string; heading?: string; phone?: string | null }> = ({ className, heading, phone: phoneProp }) => {
   const [info,   setInfo]   = useState<ReferralInfo | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // A host page (e.g. Account) can pass its LIVE phone so the card re-fetches
+  // when the user edits or clears their saved details — the old []-dep effect
+  // snapshotted the phone once at mount, so after "Clear saved details" the
+  // card kept showing the cleared number's code + "€5 ready" until a reload.
+  // When no prop is given, fall back to booking memory at mount (standalone use).
+  const phone = phoneProp !== undefined ? phoneProp : loadBookingMemory()?.phone ?? null;
+
   useEffect(() => {
-    const phone = loadBookingMemory()?.phone;
-    if (!phone) return;
+    if (!phone) { setInfo(null); return; }
     let cancelled = false;
     supabase.functions
       .invoke<ReferralInfo>('get-referral-code', { body: { phone } })
@@ -38,9 +44,9 @@ export const ReferralShareCard: React.FC<{ className?: string; heading?: string 
       })
       .catch(() => { /* silent — the card simply doesn't render */ });
     return () => { cancelled = true; };
-  }, []);
+  }, [phone]);
 
-  if (!info) return null;
+  if (!phone || !info) return null;
 
   const creditEuros = Math.floor(info.credit_cents / 100);
 

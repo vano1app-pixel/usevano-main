@@ -241,6 +241,14 @@ serve(async (req) => {
         stalled_escalated_at: null,
       }).eq('id', booking_id);
 
+      // Expire the OPEN checkout session too. customer_cancel/admin_cancel do
+      // this; helper_release didn't, so the old cs_ pay link stayed live after
+      // re-dispatch. If the customer paid it after helper B's re-accept minted
+      // a fresh session, the second charge landed on an already-paid booking —
+      // a silent double-charge. (Reads b.stripe_payment_intent_id, the pre-
+      // update snapshot that still holds the cs_ id.)
+      expireCheckoutSession();
+
       await supabase.from('household_job_updates').insert({
         booking_id,
         status: 'cancelled',
