@@ -290,6 +290,10 @@ const StudentDashboard = () => {
       // a haptic tap (firmer when going live) and a short reassurance toast.
       haptic(next ? 16 : 8);
       if (next) toast({ title: "You're live", description: 'New jobs near you will reach you first.' });
+    } else {
+      // Availability gates ALL job dispatch — a silent failure here means the
+      // helper thinks they're on duty and receives nothing, with no signal why.
+      toast({ title: "Couldn't update your status", description: 'Please try again in a moment.', variant: 'destructive' });
     }
     setTogglingAvailable(false);
   };
@@ -489,8 +493,8 @@ const StudentDashboard = () => {
           headers: { Authorization: `Bearer ${s?.access_token ?? anonKey}`, apikey: anonKey },
           body: fd,
         });
-        const json = await res.json() as { success?: boolean; photo_url?: string };
-        if (!res.ok || !json.success || !json.photo_url) throw new Error('photo upload failed');
+        const json = await res.json().catch(() => ({})) as { success?: boolean; photo_url?: string; error?: string };
+        if (!res.ok || !json.success || !json.photo_url) throw new Error(json.error || 'Could not upload your photo.');
         newPhotoUrl = json.photo_url;
         setHelperPhoto(newPhotoUrl);
         setPhotoPreview(newPhotoUrl);
@@ -508,8 +512,9 @@ const StudentDashboard = () => {
       setHelperAvailability(profileAvail);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
-    } catch {
-      toast({ title: 'Could not save', description: 'Try again or contact support.', variant: 'destructive' });
+    } catch (e) {
+      const msg = e instanceof Error && e.message && e.message !== 'missing phone' ? e.message : 'Try again or contact support.';
+      toast({ title: 'Could not save', description: msg, variant: 'destructive' });
     } finally {
       setProfileSaving(false);
     }

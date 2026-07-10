@@ -107,6 +107,16 @@ serve(async (req) => {
     const { count: existingPayout } = await supabase
       .from('household_payouts').select('id', { count:'exact', head:true }).eq('booking_id', bookingId);
     if (existingPayout && existingPayout > 0) {
+      // Self-heal: if a prior run recorded the payout but its status flip then
+      // errored (a DB blip), the booking is stuck 'in_progress' WITH a payout —
+      // and every later call short-circuits here without ever advancing it, so
+      // the completion sweeps re-select it and re-send "you've been paid"
+      // forever. Re-attempt the flip (guarded) before returning.
+      if (booking.status !== 'completed') {
+        await supabase.from('household_bookings').update({ status: 'completed' })
+          .eq('id', bookingId)
+          .in('status', ['accepted','on_way','arrived','in_progress']);
+      }
       return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
