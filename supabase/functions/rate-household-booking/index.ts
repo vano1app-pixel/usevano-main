@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders, isOriginAllowed } from "../_shared/cors.ts";
+import { allowRequest, clientIp } from "../_shared/rateLimit.ts";
 
 // Allows anonymous customers to rate a completed booking (1–5 stars + optional comment).
 // Enforced one-per-booking via unique constraint. Updates denormalized average on helper row.
+//
+// NOTE (owner decision needed): the anonymous-customer model has no secret that
+// distinguishes the customer from the assigned helper — both hold the booking
+// UUID — so a helper who knows their own completed booking ids can submit a
+// 5-star rating for each (bounded to one per booking by the unique constraint),
+// preempting the customer's honest rating. The rate-limit below blunts bulk
+// scripting; the real fix is a per-booking rating token delivered only in the
+// customer's completion email/SMS (arrival-code pattern) and required here.
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -20,6 +29,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase    = createClient(supabaseUrl, serviceKey);
+
+    // Rate-limit per caller IP: a real customer rates one booking, so a low cap
+    // costs them nothing but stops a helper scripting 5-star ratings across all
+    // their completed jobs in a loop.
+    if (!await allowRequest(supabase, 'rate-household-booking', clientIp(req), 8, 3600)) {
+      return bad(429, 'Too many ratings — please wait a little and try again.');
+    }
 
     const body = await req.json().catch(() => ({}));
     const { booking_id, rating, comment } = body;

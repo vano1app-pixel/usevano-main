@@ -3,7 +3,7 @@ import { lazyWithRetry, markChunkLoadRecovered } from "@/lib/lazyWithRetry";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
 import { MotionConfig } from "framer-motion";
 import { ScrollProgress } from "@/components/ScrollProgress";
@@ -126,7 +126,9 @@ const App = () => {
             <Route path="/student-account" element={<P><StudentAccount /></P>} />
             <Route path="/join" element={<P><JoinAsHelper /></P>} />
             <Route path="/verify-helper" element={<P><VerifyHelper /></P>} />
-            <Route path="/helper/profile" element={<P><HelperProfile /></P>} />
+            {/* Legacy orphan — nothing links here. Redirect to the live helper
+                home instead of rendering the stale HelperProfile page. */}
+            <Route path="/helper/profile" element={<Navigate to="/student-account" replace />} />
             <Route path="/helpers/:id" element={<P><HelperPublicProfile /></P>} />
             <Route path="/household-admin" element={<P><HouseholdAdmin /></P>} />
             <Route path="/auth" element={<P><Auth /></P>} />

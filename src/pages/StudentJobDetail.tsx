@@ -284,7 +284,13 @@ const StudentJobDetail = () => {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'household_bookings', filter: `id=eq.${bookingId}` },
         (payload) => {
-          const next = payload.new as Partial<Booking>;
+          // Realtime UPDATE payloads carry the ENTIRE new row (row-level RLS
+          // only — no column narrowing), including the customer's secret
+          // arrival_code. The initial fetch and the polling RPC both withhold
+          // it from the helper on purpose; merging payload.new wholesale would
+          // hand the assigned helper their own code and let them self-verify
+          // off DevTools without being at the door. Strip it before merging.
+          const { arrival_code: _omit, ...next } = payload.new as Partial<Booking> & { arrival_code?: string };
           setBooking((b) => (b ? { ...b, ...next } : b));
           if (next.status === 'completed' || next.status === 'cancelled') stopLocationWatch();
         },
@@ -367,8 +373,12 @@ const StudentJobDetail = () => {
 
     if (error || !claimed?.length) {
       toast({ title: 'Job just taken', description: 'Someone else got there first — keep an eye out for the next one.', variant: 'destructive' });
-      // Re-fetch so the page reflects whoever actually has it
-      const { data: fresh } = await hdb.from('household_bookings').select('*').eq('id', bookingId).maybeSingle();
+      // Re-fetch so the page reflects whoever actually has it. Explicit columns
+      // — never select('*'): the row carries the customer's secret arrival_code
+      // and this runs in the (losing) helper's browser.
+      const { data: fresh } = await hdb.from('household_bookings')
+        .select('id, category, scheduled_date, time_slot, is_express, status, student_id, customer_name, customer_address, customer_phone, customer_lat, customer_lng, price_estimate_cents, paid_at, booking_data, arrival_verified_at, job_ends_at, helper_finished_at')
+        .eq('id', bookingId).maybeSingle();
       if (fresh) setBooking(fresh as Booking);
       setClaiming(false);
       return;
@@ -574,6 +584,11 @@ const StudentJobDetail = () => {
     // 'on_way' — and notify-admin-whatsapp is service-role-only.)
 
     if (updateRes.error) {
+      // The on_way transition started the GPS watch BEFORE this write. If the
+      // write failed, the status stays 'accepted' but the watch would keep
+      // streaming worker_lat/lng every 15s — the customer's map would show a
+      // live location for a job the helper never actually started. Stop it.
+      if (next.status === 'on_way') stopLocationWatch();
       toast({ title: 'Update failed', description: getUserFriendlyError(updateRes.error), variant: 'destructive' });
     } else {
       setBooking((b) => b ? { ...b, status: next.status as JobStatus } : b);

@@ -145,11 +145,29 @@ serve(async (req) => {
     // ── On-demand: remind one customer now (helper just tapped finished) ──
     if (bookingId) {
       const { data: b } = await supabase.from('household_bookings')
-        .select(`${cols}, completion_reminded_at`).eq('id', bookingId).maybeSingle() as { data: (Booking & { completion_reminded_at: string | null }) | null };
+        .select(`${cols}, completion_reminded_at, helper_finished_at, job_ends_at`).eq('id', bookingId).maybeSingle() as { data: (Booking & { completion_reminded_at: string | null; helper_finished_at: string | null; job_ends_at: string | null }) | null };
       if (!b || b.status !== 'in_progress' || !b.paid_at) return new Response(JSON.stringify({ ok: true, skipped: true }), { headers: { 'Content-Type': 'application/json' } });
-      if (b.completion_reminded_at) return new Response(JSON.stringify({ ok: true, already: true }), { headers: { 'Content-Type': 'application/json' } });
-      await remindCustomer(b);
-      await supabase.from('household_bookings').update({ completion_reminded_at: new Date().toISOString() }).eq('id', bookingId);
+      // Only start the confirm / 48h auto-confirm clock once the job actually
+      // LOOKS done (helper finished, or a timed job elapsed) — same guard as
+      // cron Stage 1. Without it, anyone who knows a booking UUID could POST to
+      // this unauthenticated endpoint and start the auto-confirm clock on a job
+      // still genuinely in progress.
+      const looksDone = !!b.helper_finished_at || (!!b.job_ends_at && new Date(b.job_ends_at).getTime() < Date.now());
+      if (!looksDone) return new Response(JSON.stringify({ ok: true, skipped: 'not_done' }), { headers: { 'Content-Type': 'application/json' } });
+      // Claim first (guarded on null) so an overlapping cron Stage-1 sweep can't
+      // also remind the same customer.
+      const { data: claimed } = await supabase.from('household_bookings')
+        .update({ completion_reminded_at: new Date().toISOString() })
+        .eq('id', bookingId).is('completion_reminded_at', null).select('id').maybeSingle();
+      if (!claimed) return new Response(JSON.stringify({ ok: true, already: true }), { headers: { 'Content-Type': 'application/json' } });
+      const sent = await remindCustomer(b);
+      if (!sent) {
+        // Nothing was delivered (no email, unroutable phone, Twilio/Resend down)
+        // → revert so we don't silently start the 48h auto-confirm clock for a
+        // customer who was NEVER warned that silence means payment.
+        await supabase.from('household_bookings').update({ completion_reminded_at: null }).eq('id', bookingId);
+        return new Response(JSON.stringify({ ok: true, reminded: 0, undelivered: true }), { headers: { 'Content-Type': 'application/json' } });
+      }
       return new Response(JSON.stringify({ ok: true, reminded: 1 }), { headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -184,8 +202,18 @@ serve(async (req) => {
       .or(`helper_finished_at.not.is.null,job_ends_at.lt.${nowIso}`)
       .limit(50) as { data: Booking[] | null };
     for (const b of toRemind ?? []) {
-      await remindCustomer(b);
-      await supabase.from('household_bookings').update({ completion_reminded_at: new Date().toISOString() }).eq('id', b.id);
+      // Claim first (guarded on null) so an overlapping run / the on-demand path
+      // can't double-remind. Revert if nothing was delivered so the 48h
+      // auto-confirm clock never starts for an unwarned customer.
+      const { data: claimed } = await supabase.from('household_bookings')
+        .update({ completion_reminded_at: new Date().toISOString() })
+        .eq('id', b.id).is('completion_reminded_at', null).select('id').maybeSingle();
+      if (!claimed) continue;
+      const sent = await remindCustomer(b);
+      if (!sent) {
+        await supabase.from('household_bookings').update({ completion_reminded_at: null }).eq('id', b.id);
+        continue;
+      }
       reminded++;
     }
 

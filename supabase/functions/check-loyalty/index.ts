@@ -26,12 +26,17 @@ serve(async (req) => {
     const phone = typeof body.customer_phone === 'string' ? body.customer_phone.trim() : '';
     if (!phone) return bad(400, 'customer_phone is required');
 
-    // Count confirmed (paid) bookings for this phone — exclude pending/cancelled
+    // Count PAID bookings for this phone. Under pay-after-accept every booking
+    // is born status='pending' and unpaid, so counting by status alone let a
+    // customer spin up 2 free throwaway 'pending' bookings and get 50% off the
+    // 3rd. paid_at is the only reliable "this really happened" signal — this
+    // mirrors the authoritative inline count in create-household-payment-checkout.
     const { count, error } = await supabase
       .from('household_bookings')
       .select('id', { count: 'exact', head: true })
       .eq('customer_phone', phone)
-      .not('status', 'in', '(awaiting_payment,cancelled)');
+      .not('paid_at', 'is', null)
+      .neq('status', 'cancelled');
 
     if (error) {
       console.error('[check-loyalty]', error);

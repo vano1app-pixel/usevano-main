@@ -352,7 +352,13 @@ serve(async (req) => {
     const cat = category as Category;
     const sl  = typeof size_label  === 'string' ? size_label  : '';
     const el  = typeof extra_label === 'string' ? extra_label : '';
-    const isScheduled = scheduled === true;
+    // The 10% book-ahead discount must be tied to a GENUINE future booking, not
+    // the raw client `scheduled` flag. Cross-check against scheduledAt (which is
+    // independently validated to be 20min–21d in the future): a caller posting
+    // {scheduled:true, when_label:"Now"} with no valid scheduled_at would
+    // otherwise get an ASAP job dispatched immediately AND 10% off — the
+    // platform funding a discount for a future slot it never actually gave up.
+    const isScheduled = scheduled === true && scheduledAt !== null;
 
     // ── Safety screen for free-text requests ─────────────────────────────
     // Helpers are ID-verified students, NOT Garda-vetted and not tradespeople.
@@ -575,10 +581,22 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle() as { data: { id: string; booking_data: Record<string, unknown> | null } | null };
-      // Same size too — a customer who books a 2-hour clean and immediately
-      // rebooks a 4-hour one meant a DIFFERENT job, not a double-tap.
-      const recentSize = (recent?.booking_data as Record<string, unknown> | null)?.size_label ?? null;
-      const sameJob = recent?.id && (recentSize ?? null) === (sl || null);
+      // Same size AND same note AND same extra_label — a genuine double-tap
+      // repeats every field; a DIFFERENT job changes one. Without note/extra:
+      //  • custom jobs (category 'custom', note = the actual description) would
+      //    collide — "walk my dog / 1 hour" then "assemble a desk / 1 hour"
+      //    both look identical and the desk booking would be silently dropped;
+      //  • tutoring bookings price on extra_label (the duration), so
+      //    "Leaving Cert / 1 hour" vs "/ 3 hours" would collide too.
+      const recentBd = (recent?.booking_data as Record<string, unknown> | null) ?? {};
+      const recentSize  = (recentBd.size_label as string | null) ?? null;
+      const recentNote  = (recentBd.note as string | null) ?? null;
+      const recentExtra = (recentBd.extra_label as string | null) ?? null;
+      const thisNote = typeof note === 'string' ? note.trim() : null;
+      const sameJob = !!recent?.id
+        && (recentSize ?? null) === (sl || null)
+        && (recentExtra ?? null) === (el || null)
+        && (recentNote ?? null) === (thisNote || null);
       if (recent?.id && sameJob) {
         console.log('[create-household-payment-checkout] duplicate submit — returning existing booking', recent.id);
         const origin0 = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
@@ -669,6 +687,43 @@ serve(async (req) => {
           .eq('id', bookingId);
       } catch (e) {
         console.warn('[create-household-payment-checkout] booking_data referral stamp failed', e);
+      }
+    }
+
+    // Reserve the REDEEM credit atomically now that the booking id exists.
+    // The redeem lookup above only READ status='earned' without locking it, so
+    // a referrer with one €5 credit who books twice in the unpaid window would
+    // otherwise get €10 off a single credit (both reads see 'earned'; the
+    // second webhook flip is a no-op but both coupons already minted). CAS the
+    // earned row's redeemed_booking_id to THIS booking (guarded on it still
+    // being null + earned); if we lose the race, drop the discount from this
+    // booking so its pay link stays honest. The stripe-webhook earned→redeemed
+    // flip stays correct — only the winning booking keeps the reservation.
+    if (redeemRow && normalizedPhone && referralDiscountCents > 0) {
+      let reserved = false;
+      try {
+        const { data: claimedCredit } = await supabase
+          .from('household_referrals')
+          .update({ redeemed_booking_id: bookingId })
+          .eq('id', redeemRow.id)
+          .eq('status', 'earned')
+          .is('redeemed_booking_id', null)
+          .select('id')
+          .maybeSingle();
+        reserved = !!claimedCredit;
+      } catch (e) {
+        console.warn('[create-household-payment-checkout] redeem reserve threw', e);
+      }
+      if (!reserved) {
+        referralDiscountCents = 0;
+        delete bookingData.referral_discount_cents;
+        delete bookingData.referral_kind;
+        delete bookingData.redeem_referral_id;
+        try {
+          await supabase.from('household_bookings').update({ booking_data: bookingData }).eq('id', bookingId);
+        } catch (e) {
+          console.warn('[create-household-payment-checkout] redeem discount strip failed', e);
+        }
       }
     }
 

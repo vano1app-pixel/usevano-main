@@ -9,11 +9,23 @@
 type SupabaseClient = any;
 
 export function clientIp(req: Request): string {
+  // Prefer the headers set by the trusted edge/CDN (Cloudflare's
+  // cf-connecting-ip, then x-real-ip) over X-Forwarded-For. The LEFTMOST XFF
+  // entry is client-supplied and spoofable, so an attacker could send a random
+  // XFF on each request to get a fresh rate-limit bucket every time and defeat
+  // the anti-enumeration throttle. Use XFF only as a last resort, and take the
+  // LAST (closest-hop) entry, which the infra appends, not the client-claimed
+  // first one.
+  const cf = req.headers.get('cf-connecting-ip')?.trim();
+  if (cf) return cf;
+  const real = req.headers.get('x-real-ip')?.trim();
+  if (real) return real;
   const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
-  return req.headers.get('cf-connecting-ip')
-    ?? req.headers.get('x-real-ip')
-    ?? 'unknown';
+  if (xff) {
+    const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length) return parts[parts.length - 1];
+  }
+  return 'unknown';
 }
 
 /**
