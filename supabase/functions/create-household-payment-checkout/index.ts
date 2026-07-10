@@ -451,13 +451,20 @@ serve(async (req) => {
     // Validated here, reserved on the booking, applied to the Stripe session
     // by notify-household-accepted. Every step is best-effort: any error
     // zeroes the discount and the booking proceeds at full price. Helper pay
-    // is based on price_estimate_cents, which the discount NEVER touches —
-    // the €5 rides a Stripe coupon, funded by the platform.
+    // is based on the FULL price (helper_pay_base_cents), which the discount
+    // NEVER touches — the €5 rides a Stripe coupon, funded by the platform.
+    //
+    // NOT stacked with the loyalty 50%. Both are platform-funded (the helper is
+    // paid 85% of the FULL price either way), so combining them made the
+    // platform pay out well more than it collected on that booking. The loyalty
+    // 50% always beats the €5 referral on any real job, so we simply skip the
+    // referral on a loyalty booking — the customer keeps their €5 credit for a
+    // future (non-loyalty) booking, which is the better deal for them anyway.
     const normalizedPhone = normalizeE164(customer_phone);
     let referralWelcome: { code: string; referrerPhone: string } | null = null;
     let redeemRow: { id: string; credit_cents: number } | null = null;
 
-    if (!isMonthlyPlan && normalizedPhone) {
+    if (!isMonthlyPlan && !isLoyalty && normalizedPhone) {
       try {
         const rawRef = typeof referral_code === 'string' ? referral_code.trim().toUpperCase() : '';
         if (rawRef && /^[A-Z0-9]{4,12}$/.test(rawRef)) {

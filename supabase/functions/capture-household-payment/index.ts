@@ -80,7 +80,7 @@ serve(async (req) => {
 
     const { data: booking, error: fetchError } = await supabase
       .from('household_bookings')
-      .select('id, student_id, status, price_estimate_cents, booking_data, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id, disputed_at, refunded_at')
+      .select('id, student_id, status, price_estimate_cents, booking_data, customer_name, customer_email, category, city, paid_at, stripe_payment_intent_id, disputed_at, refunded_at, rating_token')
       .eq('id', bookingId).maybeSingle();
 
     if (fetchError || !booking) return bad(404, 'Booking not found');
@@ -113,7 +113,8 @@ serve(async (req) => {
       // the completion sweeps re-select it and re-send "you've been paid"
       // forever. Re-attempt the flip (guarded) before returning.
       if (booking.status !== 'completed') {
-        await supabase.from('household_bookings').update({ status: 'completed' })
+        await supabase.from('household_bookings')
+          .update({ status: 'completed', ...(booking.rating_token ? {} : { rating_token: crypto.randomUUID() }) })
           .eq('id', bookingId)
           .in('status', ['accepted','on_way','arrived','in_progress']);
       }
@@ -159,8 +160,13 @@ serve(async (req) => {
     }
 
     // Payout row is durable — now safe to mark completed (atomic status guard).
+    // Mint the per-booking rating token here (the completion choke-point): it's
+    // delivered to the CUSTOMER via the tracking page and required by
+    // rate-household-booking, so a helper can't rate their own job. Preserve an
+    // existing token if somehow already set.
     const { error: updateError } = await supabase
-      .from('household_bookings').update({ status: 'completed' })
+      .from('household_bookings')
+      .update({ status: 'completed', ...(booking.rating_token ? {} : { rating_token: crypto.randomUUID() }) })
       .eq('id', bookingId).eq('student_id', callerId)
       .in('status', ['accepted','on_way','arrived','in_progress']);
 

@@ -441,6 +441,13 @@ async function handleHouseholdPlanSubscribed(
   const planLabel = PLAN_LABELS[planSlug] ?? planSlug;
 
   try {
+    // A one-off away-cover checkout has NO subscription, so keying the upsert
+    // on stripe_subscription_id (null) never dedupes — a Stripe redelivery of
+    // the same checkout.session.completed would insert a SECOND row (duplicate
+    // welcome email + admin page). Fall back to the stable checkout-session id
+    // as the conflict key so redelivery is idempotent. Session ids ('cs_…') and
+    // subscription ids ('sub_…') never collide, so the UNIQUE index still holds.
+    const idempKey = session.subscription ?? session.id ?? null;
     const { error: insErr } = await supabase
       .from('household_plan_subscriptions')
       .upsert({
@@ -449,7 +456,7 @@ async function handleHouseholdPlanSubscribed(
         customer_phone: phone,
         customer_email: email,
         city,
-        stripe_subscription_id: session.subscription ?? null,
+        stripe_subscription_id: idempKey,
         stripe_customer_id: session.customer ?? null,
         config: session.metadata?.autopilot_config ?? null,
         status: 'active',

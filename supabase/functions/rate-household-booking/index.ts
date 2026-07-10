@@ -38,7 +38,7 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { booking_id, rating, comment } = body;
+    const { booking_id, rating, comment, rating_token } = body;
 
     if (!booking_id) return bad(400, 'booking_id required');
     if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -47,13 +47,27 @@ serve(async (req) => {
 
     const { data: booking, error: fetchErr } = await supabase
       .from('household_bookings')
-      .select('id, status, student_id, customer_name, city')
+      .select('id, status, student_id, customer_name, city, rating_token')
       .eq('id', booking_id)
       .maybeSingle();
 
     if (fetchErr || !booking) return bad(404, 'Booking not found');
     if ((booking as Record<string, unknown>).status !== 'completed') {
       return bad(409, 'Can only rate completed bookings');
+    }
+
+    // Capability check: a booking completed under the new flow carries a
+    // rating_token that is delivered ONLY to the customer (the tracking page /
+    // completion message) and withheld from the assigned helper. Require it so
+    // a helper can't rate their own job. Legacy bookings completed before this
+    // rolled out have no token — allow those unchanged (backward-compat) so
+    // in-flight ratings never break.
+    const storedToken = (booking as Record<string, unknown>).rating_token as string | null;
+    if (storedToken) {
+      const provided = typeof rating_token === 'string' ? rating_token : '';
+      if (provided !== storedToken) {
+        return bad(403, 'This rating link is invalid or has expired.');
+      }
     }
 
     const studentId = (booking as Record<string, unknown>).student_id as string | null;
