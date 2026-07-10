@@ -438,8 +438,14 @@ const VerifyHelper: React.FC = () => {
                 ) : (
                   <div className="space-y-2.5">
                     <p className="text-sm text-muted-foreground leading-relaxed">A 2-minute photo of your ID plus a quick selfie, secured by Stripe. Free — we never see your documents.</p>
+                    {/* Server requires step 1 first (the email check proves the
+                        caller owns this account before an ID can be attached to
+                        it) — mirror that here so the button isn't a dead end. */}
+                    {emailState !== 'verified' && (
+                      <p className="text-xs text-muted-foreground">Confirm your student email above first — it unlocks this step.</p>
+                    )}
                     {idError && <p className="text-xs text-destructive">{idError}</p>}
-                    <Button onClick={() => void startIdCheck()} disabled={idState === 'starting'} className="w-full rounded-full font-semibold gap-2">
+                    <Button onClick={() => void startIdCheck()} disabled={idState === 'starting' || emailState !== 'verified'} className="w-full rounded-full font-semibold gap-2">
                       {idState === 'starting' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : <>Start ID check <ArrowRight className="w-4 h-4" /></>}
                     </Button>
                   </div>

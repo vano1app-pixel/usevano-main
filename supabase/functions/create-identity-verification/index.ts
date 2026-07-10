@@ -32,14 +32,26 @@ serve(async (req) => {
 
     const { data: helper } = await supabase
       .from('household_helpers')
-      .select('id, name, id_verified, identity_session_id')
+      .select('id, name, id_verified, identity_session_id, student_email_verified')
       .eq('id', helper_id).maybeSingle() as {
-        data: { id: string; name: string | null; id_verified: boolean | null; identity_session_id: string | null } | null;
+        data: { id: string; name: string | null; id_verified: boolean | null; identity_session_id: string | null; student_email_verified: boolean | null } | null;
       };
     if (!helper) return json(404, { error: 'Application not found.' });
 
     // Already verified — never start (or pay Stripe for) another session.
     if (helper.id_verified) return json(200, { success: true, already_verified: true });
+
+    // Possession gate: helper_id is NOT a secret (it's in every public
+    // /helpers/:id profile URL), so on its own it must not be able to start an
+    // ID session for someone else's row — a stranger could complete Stripe
+    // Identity with THEIR OWN documents and flip this helper's id_verified
+    // while overwriting their verified name/DOB. Step 1 (college-email OTP,
+    // which only ever sends codes to the address already on the row) proves
+    // the caller owns the account; require it before step 2. Also stops
+    // strangers minting ~€1 Stripe sessions against public helper ids.
+    if (!helper.student_email_verified) {
+      return json(403, { error: 'Confirm your student email first (step 1), then do the ID check.' });
+    }
 
     // Reuse an in-flight session instead of minting a new (paid ~€1) one on
     // every retry / page reload — this is also the rate-limit. Stripe returns a

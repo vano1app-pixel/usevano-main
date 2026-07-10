@@ -1033,18 +1033,28 @@ export const CategoryGrid: React.FC = () => {
     const prevOverflowY = document.body.style.overflowY;
     document.body.style.overflowY = 'hidden';
     document.body.classList.add('vano-modal-open');
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTakeover(false); };
-    window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflowY = prevOverflowY;
       document.body.classList.remove('vano-modal-open');
-      window.removeEventListener('keydown', onKey);
       // Belt-and-braces: if iOS did leave any horizontal offset while the
       // keyboard was up, snap it back to 0 on close.
       document.documentElement.scrollLeft = 0;
       document.body.scrollLeft = 0;
     };
   }, [takeover]);
+
+  // Takeover Escape — its own effect so it can depend on `selected` without
+  // re-running the body-lock above. Escape closes the takeover ONLY when the
+  // booking sheet isn't open over it: both handlers live on window, so one
+  // keypress would otherwise fire both and drop the customer to the cold hero
+  // instead of back on their price card. The sheet owns the top layer while
+  // `selected` is set — let its own Escape handler win.
+  useEffect(() => {
+    if (!takeover || selected) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTakeover(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [takeover, selected]);
 
   const openSheet = useCallback(
     (cat: Category, opts?: { size?: string; note?: string; extraLabel?: string }) =>

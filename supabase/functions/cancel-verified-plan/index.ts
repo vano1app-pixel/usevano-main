@@ -40,15 +40,42 @@ serve(async (req) => {
     if (!phonesMatch(helper.phone, phone)) return json(403, { error: 'Phone number does not match.' });
     if (!helper.verified_plan_active) return json(200, { cancelled: true, already_inactive: true });
 
-    // No Stripe sub on file (grandfathered one-off €2 payers) — switch the
-    // plan flag off directly; there is nothing recurring to cancel.
+    // No Stripe sub on file. That's EITHER a grandfathered/manually-comped
+    // tick (nothing recurring to cancel) OR a real subscriber whose sub id we
+    // failed to record — flipping the flag off for the latter would leave
+    // Stripe billing them €2/month forever with the tick gone. Search Stripe
+    // for a live subscription stamped with this helper_id before deciding.
     if (!helper.verified_plan_sub_id) {
-      const { error } = await supabase
-        .from('household_helpers')
-        .update({ verified_plan_active: false })
+      let foundSubId: string | null = null;
+      if (STRIPE_SECRET_KEY) {
+        try {
+          const q = encodeURIComponent(`metadata['helper_id']:'${helper_id}' AND status:'active'`);
+          const searchRes = await fetch(`https://api.stripe.com/v1/subscriptions/search?query=${q}&limit=1`, {
+            headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+          });
+          if (searchRes.ok) {
+            const found = await searchRes.json() as { data?: Array<{ id: string }> };
+            foundSubId = found.data?.[0]?.id ?? null;
+          }
+        } catch (e) {
+          console.warn('[cancel-verified-plan] sub search failed — treating as comped', e);
+        }
+      }
+      if (!foundSubId) {
+        // Genuinely nothing recurring — the comped-tick safety net.
+        const { error } = await supabase
+          .from('household_helpers')
+          .update({ verified_plan_active: false })
+          .eq('id', helper_id);
+        if (error) return json(500, { error: 'Could not cancel.' });
+        return json(200, { cancelled: true, immediate: true });
+      }
+      // Found the unrecorded live subscription — store it and fall through to
+      // the normal cancel-at-period-end path below.
+      helper.verified_plan_sub_id = foundSubId;
+      await supabase.from('household_helpers')
+        .update({ verified_plan_sub_id: foundSubId })
         .eq('id', helper_id);
-      if (error) return json(500, { error: 'Could not cancel.' });
-      return json(200, { cancelled: true, immediate: true });
     }
 
     if (!STRIPE_SECRET_KEY) return json(503, { error: 'Payments not configured.' });
