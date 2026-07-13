@@ -79,9 +79,19 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const site = (Deno.env.get('SITE_URL')?.trim() || 'https://vanojobs.com').replace(/\/$/, '');
-  const action = new URL(req.url).searchParams.get('action') || 'quote';
+  const reqUrl = new URL(req.url);
+  const action = reqUrl.searchParams.get('action') || 'quote';
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  // ElevenLabs webhook tools can send the LLM-collected parameters as either
+  // the JSON body OR the URL query string, depending on how each tool is set
+  // up in the dashboard. Merge both (body wins) so the tool works whichever
+  // way it's configured. `action` stays read from the query only, above.
+  const jsonBody = await req.json().catch(() => ({})) as Record<string, unknown>;
+  const queryParams: Record<string, unknown> = {};
+  for (const [k, v] of reqUrl.searchParams.entries()) {
+    if (k !== 'action') queryParams[k] = v;
+  }
+  const body: Record<string, unknown> = { ...queryParams, ...jsonBody };
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
