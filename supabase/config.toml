@@ -64,6 +64,12 @@ project_id = "puomfwjtpvqedwxjxogh"
   # create-household-payment-checkout; never flip this to true.
   [functions.whatsapp-inbound]
     verify_jwt = false
+  # Ring Vano — server tools the ElevenLabs voice agent calls (quote/book/
+  # status + the personalization webhook). ElevenLabs can't send a Supabase
+  # JWT, so auth is the X-Vano-Secret shared-secret header verified inside the
+  # function. Books through create-household-payment-checkout; keep pinned.
+  [functions.voice-agent-tools]
+    verify_jwt = false
   # Helper signup — no auth account needed, service-role handles photo upload + DB insert.
   [functions.create-helper-application]
     verify_jwt = false
