@@ -43,6 +43,35 @@ There is exactly ONE customer booking flow:
 > A second multi-step `/book/:category` flow used to exist; it was deleted.
 > The quick sheet is the only path.
 
+## The WhatsApp door + home memory (a second DOOR, not a second flow)
+Customers can also book by texting the Vano WhatsApp number —
+`functions/whatsapp-inbound`, the Twilio inbound-message webhook. It is a
+front door into the SAME pipeline above: the confirmed draft is POSTed to
+`create-household-payment-checkout` exactly as the web sheet does, so server
+pricing, the free-text safety screen, loyalty/referral discounts, the
+double-submit dedupe and dispatch are all inherited — and the existing
+pipeline then carries the conversation on (pay link on accept, progress
+messages) in the same thread. Setup + testing guide: `WHATSAPP_VANO.md`.
+- **Intake**: Gemini classifies the FIRST message (fail-soft onto the offline
+  keyword matcher — same philosophy as `parse-custom-job`); every follow-up
+  is parsed deterministically by the pure helpers in `_shared/waIntake.ts`
+  through a tiny step machine (size → address → name → confirm) whose draft
+  lives in `wa_threads` (30-min TTL). The AI never sets a price — quotes come
+  from the shared server price table and any discount is applied by checkout
+  (it can only make the real charge lower than the quote).
+- **Home memory**: `household_homes` (one row per E.164 phone, service-role
+  only) is written FAIL-SOFT by checkout via the `record_home_booking` RPC on
+  every booking — web and WhatsApp alike. It powers "welcome back" greetings,
+  one-tap saved-address reuse and the "same again" fast path, and it holds
+  the WhatsApp opt-out (`wa_opted_out`; STOP/START honoured, opted-out phones
+  get silence). Customers still have NO accounts — the phone is the key.
+- **Auth**: `verify_jwt=false` (pinned in config.toml); the X-Twilio-Signature
+  HMAC is verified inside the function (same trust model as stripe-webhook).
+  Commands: STATUS · CANCEL · HELP · STOP · START. Env: `TWILIO_AUTH_TOKEN`
+  (required), `GEMINI_API_KEY` (optional — keyword fallback), optional
+  `TWILIO_INBOUND_URL` when the signed webhook URL differs from
+  `SUPABASE_URL/functions/v1/whatsapp-inbound`.
+
 ## The booking lifecycle in detail (status machine + who moves it)
 `household_bookings.status`: **pending → accepted → on_way → arrived →
 in_progress → completed**, plus `cancelled`. Bookings are born `pending`,
@@ -113,9 +142,14 @@ rounds or the `custom` catch-all.
 ## Pricing — single source of truth + the wage rule
 - **Frontend canonical prices:** `src/lib/householdPricing.ts`. `CategoryGrid`
   and `PricingTable` both read it — change a price in ONE place.
-- **Server-authoritative re-pricing:** `create-household-payment-checkout` →
-  `computePriceCents`. Browser can't import the Deno function, so
-  `src/lib/__tests__/householdPayMath.test.ts` asserts the two agree.
+- **Server-authoritative re-pricing:** `computePriceCents` lives in
+  `functions/_shared/householdPricing.ts` (extracted from
+  `create-household-payment-checkout`, which imports it — as does
+  `whatsapp-inbound`, so the WhatsApp door quotes exactly what checkout
+  charges). The module is pure TS, so
+  `src/lib/__tests__/homeMemoryWhatsapp.test.ts` imports it DIRECTLY and
+  cross-checks it against the frontend table; `householdPayMath.test.ts`
+  keeps the hardcoded wage-floor contract.
 - **INVARIANT:** every *time-based* rate must net a student ≥ Ireland's minimum
   wage (€14.15/hr, 2026) after the 15% platform cut. That's why cleaning,
   tutoring, garden and moving are all €18/hr (net €15.30/hr). The test fails if
@@ -408,6 +442,9 @@ tick-eyebrows, floating cards.
 | Arrival codes | `functions/household-arrival` |
 | Customer bookings | `src/pages/MyBookings.tsx` + `functions/find-booking-by-phone` |
 | Custom jobs | `src/lib/customJobs.ts` + `functions/parse-custom-job` |
+| WhatsApp door | `functions/whatsapp-inbound` + `functions/_shared/waIntake.ts` |
+| Server price table | `functions/_shared/householdPricing.ts` (checkout + WhatsApp import it) |
+| Home memory | `household_homes` + `record_home_booking` RPC (migration `20260713000000`) |
 | Central webhook | `functions/stripe-webhook` |
 | Content (SEO) | `src/content/*.ts` + `scripts/prerender-content.ts` |
 | Ops health | `functions/admin-health` |

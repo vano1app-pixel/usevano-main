@@ -1,5 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Server price table + category catalogue — shared with whatsapp-inbound so
+// the WhatsApp door quotes exactly what this function charges.
+import {
+  VALID_CATEGORIES,
+  type Category,
+  computePriceCents,
+  CATEGORY_LABELS,
+  SERVICE_FEE_PCT,
+} from "../_shared/householdPricing.ts";
 
 // ── Inlined CORS ──────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -82,232 +91,8 @@ function normalizeE164(raw: string | null | undefined): string | null {
   return null;
 }
 
-const VALID_CATEGORIES = [
-  // CategoryGrid originals
-  'shopping', 'dog-walk', 'garden', 'moving', 'cleaning', 'tutoring',
-  // TaskShowcase own slugs (each bookable independently)
-  'grocery-shopping', 'dog-walking', 'lawn-mowing', 'moving-help', 'outdoor-cleaning', 'tutoring-grinds',
-  // Misc / errand slugs
-  'post-office', 'pharmacy-run', 'furniture-assembly', 'tech-help', 'wait-delivery',
-  // Extra home services
-  'handyman', 'plumbing',
-  // Midnight lift
-  'midnight-lift',
-  // Airbnb Host monthly plans
-  'airbnb-essential', 'airbnb-popular', 'airbnb-premium',
-  // "Name any job" — priced by the hour at the standard €18/hr labour rate
-  'custom',
-] as const;
-type Category = typeof VALID_CATEGORIES[number];
-
-function computePriceCents(category: Category, sizeLabel: string, extraLabel: string): number | null {
-  // Flat-rate errand services
-  const flat: Partial<Record<Category, number>> = {
-    'shopping':      1500,
-    'post-office':   1000,
-    'pharmacy-run':  1200, // €12 — covers student travel + time
-  };
-  if (category in flat) return flat[category]!;
-
-  // Grocery shopping — list size
-  if (category === 'grocery-shopping') {
-    const map: Record<string, number> = {
-      'Quick errand':      1200,
-      'Weekly shop':       1800,
-      'Big monthly shop':  2800,
-    };
-    return map[sizeLabel] ?? null;
-  }
-
-  // Dog walking — pre-combined duration + dog count option
-  if (category === 'dog-walk' || category === 'dog-walking') {
-    const combined: Record<string, number> = {
-      '30 min · 1 dog':  1200,
-      '1 hr · 1 dog':    1600,
-      '1 hr · 2 dogs':   2000,
-      '2 hrs · 1 dog':   2200,
-      '2 hrs · 2+ dogs': 2800,
-      // CategoryGrid quick-book — must match the prices shown in the sheet
-      '30 min': 1500, '1 hour': 2000,
-    };
-    return combined[sizeLabel] ?? null;
-  }
-
-  // Garden / lawn mowing — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
-  if (category === 'garden' || category === 'lawn-mowing') {
-    const map: Record<string, number> = {
-      // time-based (CategoryGrid)
-      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
-      'Half day': 7200,
-      // size-based (TaskShowcase)
-      'Small (terrace / apartment)': 2200,
-      'Medium (semi-detached)':      3800,
-      'Large (detached)':            6000,
-      'Extra large':                 9000,
-    };
-    return map[sizeLabel] ?? null;
-  }
-
-  // Moving — hour labels must match the CategoryGrid sheet (€18/hr, '4+ hours' priced as 4h)
-  if (category === 'moving' || category === 'moving-help') {
-    const map: Record<string, number> = {
-      // time-based (CategoryGrid)
-      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200, '4+ hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
-      // job-size (TaskShowcase)
-      'A few boxes / items': 2500,
-      'One room':            4000,
-      '2–3 rooms':           7000,
-      'Full home':           10000,
-    };
-    return map[sizeLabel] ?? null;
-  }
-
-  // Cleaning — hour labels must match the CategoryGrid sheet (€18/hr × 1–8h)
-  if (category === 'cleaning' || category === 'outdoor-cleaning') {
-    const map: Record<string, number> = {
-      // time-based (CategoryGrid)
-      '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
-      // area-based (TaskShowcase)
-      'Small area':  2200,
-      'Medium area': 3800,
-      'Large area':  5500,
-    };
-    return map[sizeLabel] ?? null;
-  }
-
-  // Furniture assembly — item count
-  if (category === 'furniture-assembly') {
-    const map: Record<string, number> = {
-      // legacy time-based
-      '1 hour': 2000, '2 hours': 4000, '3 hours': 6000,
-      // new item count
-      '1 item':    2200,
-      '2–3 items': 3800,
-      '4–6 items': 5800,
-      '7+ items':  8000,
-    };
-    return map[sizeLabel] ?? null;
-  }
-
-  // Tech help — device type
-  if (category === 'tech-help') {
-    const map: Record<string, number> = {
-      // legacy time-based
-      '1 hour': 2500, '2 hours': 5000,
-      // new device-based
-      'Phone / tablet':    2000,
-      'Laptop / PC':       2800,
-      'TV / streaming':    2200,
-      'Wi-Fi / router':    3000,
-      'Smart home setup':  4000,
-    };
-    return map[sizeLabel] ?? null;
-  }
-
-  // Handyman — hourly
-  if (category === 'handyman') {
-    return ({ '1 hour': 2500, '2 hours': 4500, '3 hours': 6500 })[sizeLabel] ?? null;
-  }
-
-  // Plumbing help — hourly
-  if (category === 'plumbing') {
-    return ({ '1 hour': 3000, '2 hours': 5500 })[sizeLabel] ?? null;
-  }
-
-  // Wait for delivery — duration tier
-  if (category === 'wait-delivery') {
-    const extra: Record<string, number> = { 'Up to 2 hours': 1000, 'Up to 4 hours': 1800 };
-    if (extra[sizeLabel]) return extra[sizeLabel];
-    return 1000; // legacy flat
-  }
-
-  // Airbnb Host monthly plans — flat rate per tier
-  if (category === 'airbnb-essential') return 12900;
-  if (category === 'airbnb-popular')   return 19900;
-  if (category === 'airbnb-premium')   return 29900;
-
-  // Midnight lift — distance tier
-  if (category === 'midnight-lift') {
-    const map: Record<string, number> = {
-      'Nearby (under 3 km)': 1000,
-      'Mid-range (3–10 km)': 1500,
-      'Far (10 km+)':        2800,
-    };
-    return map[sizeLabel] ?? null;
-  }
-
-  // Custom "name any job" — priced purely by booked time at the €18/hr labour
-  // rate (the same hour labels the CategoryGrid sheet uses). Short visits
-  // (30/45 min) are offered for quick jobs and floored to the €12 booking
-  // minimum. Time-based by design: whatever the job, the floor keeps it above
-  // minimum wage. MUST mirror getHouseholdPriceCents in src/lib/householdPricing.ts.
-  if (category === 'custom') {
-    const hourMap: Record<string, number> = {
-      '30 min': 1200, '45 min': 1350, // €18/hr × 0.5/0.75, floored at €12
-      '1 hour': 1800,  '2 hours': 3600,  '3 hours': 5400,  '4 hours': 7200,
-      '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
-      // Alias: old clients (and any cached bundle) sent "1 hours" for every
-      // typicalHours-1 catalogue job — an exact-lookup miss here 400'd the
-      // whole booking. Keep the alias so stale clients still price.
-      '1 hours': 1800,
-    };
-    return hourMap[sizeLabel] ?? null;
-  }
-
-  // Tutoring — level (sizeLabel) × duration (extraLabel)
-  if (category === 'tutoring' || category === 'tutoring-grinds') {
-    const rate: Record<string, number> = {
-      'Primary school': 2200,
-      'Junior Cert':    2800,
-      'Leaving Cert':   3200,
-      'College / Uni':  3800,
-    };
-    const hrs: Record<string, number> = { '1 hour': 1, '2 hours': 2, '3 hours': 3 };
-    // CategoryGrid quick-book sends plain hour labels — €18/hr × 1–8h, must match the sheet
-    if (!rate[sizeLabel]) {
-      const hourMap: Record<string, number> = {
-        '1 hour': 1800,  '2 hours': 3600, '3 hours': 5400,  '4 hours': 7200,
-        '5 hours': 9000, '6 hours': 10800, '7 hours': 12600, '8 hours': 14400,
-      };
-      return hourMap[sizeLabel] ?? null;
-    }
-    const h = hrs[extraLabel];
-    if (h === undefined) return null;
-    return rate[sizeLabel] * h;
-  }
-
-  return null;
-}
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  shopping:             'Laundry',
-  'grocery-shopping':   'Grocery shopping',
-  'dog-walk':           'Dog walk',
-  'dog-walking':        'Dog walking',
-  garden:               'Garden help',
-  'lawn-mowing':        'Lawn mowing',
-  moving:               'Moving help',
-  'moving-help':        'Moving help',
-  cleaning:             'Cleaning',
-  'outdoor-cleaning':   'Outdoor cleaning',
-  tutoring:             'Tutoring',
-  'tutoring-grinds':    'Tutoring & grinds',
-  'post-office':        'Post office run',
-  'pharmacy-run':       'Pharmacy run',
-  'furniture-assembly': 'Furniture assembly',
-  'tech-help':          'Tech help',
-  'wait-delivery':      'Wait for delivery',
-  'midnight-lift':      'Midnight Lift',
-  handyman:             'Handyman',
-  plumbing:             'Plumbing help',
-  'airbnb-essential':   'Airbnb Host Essential',
-  'airbnb-popular':     'Airbnb Host Popular',
-  'airbnb-premium':     'Airbnb Host Full Management',
-  custom:               'Custom job',
-};
+// (Category catalogue, computePriceCents and CATEGORY_LABELS now live in
+// _shared/householdPricing.ts — imported above.)
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -441,7 +226,6 @@ serve(async (req) => {
     // The fee is 7.5% of the price the customer actually pays (post-discount)
     // — it used to be computed before the loyalty halving, which made the
     // promised "50% off" quietly smaller than 50%.
-    const SERVICE_FEE_PCT  = 0.075;
     const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 
     // ── Referral programme (give €5, get €5) ──────────────────────────────
@@ -656,6 +440,28 @@ serve(async (req) => {
       'https://vanojobs.com';
     const trackUrl = `${origin}/track/${bookingId}`;
     const cityVal = typeof city === 'string' && city.trim() ? city.trim() : null;
+
+    // Home memory: refresh this phone's household_homes row — the server-side
+    // "the home is the account" record whatsapp-inbound reads for welcome-back
+    // greetings, saved-address reuse and "same again?". Strictly fail-soft:
+    // memory must never break a booking (e.g. before the migration is applied).
+    try {
+      const { error: homeErr } = await supabase.rpc('record_home_booking', {
+        p_phone: normalizedPhone ?? customer_phone.trim(),
+        p_name: customer_name.trim(),
+        p_address: resolvedAddress !== 'Not provided' ? resolvedAddress : '',
+        p_lat: custLat,
+        p_lng: custLng,
+        p_city: cityVal ?? '',
+        p_email: typeof customer_email === 'string' ? customer_email.trim().toLowerCase() : '',
+        p_category: cat,
+        p_size_label: sl || '',
+        p_booking_id: bookingId,
+      });
+      if (homeErr) console.warn('[create-household-payment-checkout] home memory stamp failed', homeErr);
+    } catch (e) {
+      console.warn('[create-household-payment-checkout] home memory stamp threw', e);
+    }
 
     // Reserve the welcome referral now that the booking id exists. If this
     // fails the discount is dropped from booking_data so the pay link stays

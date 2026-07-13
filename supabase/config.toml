@@ -58,6 +58,12 @@ project_id = "puomfwjtpvqedwxjxogh"
   # fail-soft (never blocks). Uses GEMINI_API_KEY like the other ai-* functions.
   [functions.parse-custom-job]
     verify_jwt = false
+  # The WhatsApp door: Twilio inbound-message webhook — Twilio can't send a
+  # JWT, so auth is the X-Twilio-Signature HMAC verified inside the function
+  # (same trust model as stripe-webhook). Books through
+  # create-household-payment-checkout; never flip this to true.
+  [functions.whatsapp-inbound]
+    verify_jwt = false
   # Helper signup — no auth account needed, service-role handles photo upload + DB insert.
   [functions.create-helper-application]
     verify_jwt = false
