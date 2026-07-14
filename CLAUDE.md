@@ -342,12 +342,13 @@ extend it.
   `report-household-problem` (only while helper unpaid),
   `no-helper-fallback`, and `stripe-webhook`'s orphan-charge guard (payment
   landing on an already-cancelled booking auto-refunds).
-- **"Vano Pay" (`vano_payments`) is the LEGACY freelancer escrow — different
-  money, different tables.** 4%/4% fee split, 14-day auto-release
-  (`auto-release-held-payments` + `remind-held-payments` crons),
-  `VANO_PAY_ESCROW.md` + `_shared/vanoPayConfig.ts` (source of truth — the
-  "3%" comment in `release-vano-payment` is stale). Don't conflate it with
-  household payouts when editing crons or the webhook.
+- **"Vano Pay" (`vano_payments`) was the LEGACY freelancer escrow — DELETED
+  July 2026.** The table was empty, so the whole function fleet
+  (checkout/release/refund/auto-release/reminders/config/connect-link) was
+  removed from repo + remote and its two crons unscheduled. What remains:
+  the empty `vano_payments` table, `stripe-webhook`'s legacy branch (which
+  imports `_shared/vanoPayConfig.ts` — kept for that reason), and
+  `VANO_PAY_ESCROW.md` for history. Don't rebuild on any of it.
 - `stripe-webhook` is the central webhook (booking payments, `account.
   updated` → `stripe_payouts_enabled`, refunds, €2 signup, legacy subs).
   Stripe surface is raw REST everywhere — no SDK; keep it that way.
@@ -359,9 +360,9 @@ scheduler, NOT in the repo). The fleet, roughly by frequency:
 `remind-unpaid-bookings` (*/5) · `send-household-progress-emails` (*/10) ·
 `redispatch-stale-jobs`, `sweep-stalled-jobs`, `release-household-payouts`,
 `remind-confirm-completion` (*/15–30) · `no-helper-fallback` (*/30) ·
-`nudge-helper-onboarding`, `remind-household-rating`,
-`auto-release-held-payments` (hourly) · `remind-held-payments`,
-`household-winback` (daily) · `weekly-digest` (weekly, legacy audience).
+`nudge-helper-onboarding`, `remind-household-rating` (hourly) ·
+`household-winback` (daily). (The legacy Vano Pay crons and `weekly-digest`
+were deleted + unscheduled in the July 2026 cleanup.)
 All are idempotent via per-row stamps/counters — keep that property when
 touching them.
 
@@ -391,31 +392,34 @@ effectively retired. Leave the code as-is (don't rip it out mid-focus), but
 don't extend it, cross-sell it, or route to it. All product energy goes to
 the one quick-book flow above.
 
-## Legacy freelancer marketplace (PARKED — a whole old product)
+## Legacy freelancer marketplace (DELETED backend, dead frontend residue)
 Vano used to be a Galway gig/freelancer marketplace (businesses hire
 students: AI Find for €1, community listings, direct hire, gig matching,
-messaging). **Its frontend is deleted** — no pages, no routes — but the
-residue is everywhere and will mislead you:
+messaging). **Its frontend is deleted** — no pages, no routes — and in the
+**July 2026 cleanup its ~25 orphaned edge functions were deleted too**
+(repo + remote: the AI Find cluster, hire cluster, community listings,
+gig matching, the `ai-*` freelancer tools, `vano-assistant`,
+`weekly-digest`, marketplace messaging — plus the Vano Pay escrow fleet
+and the retired pay-to-join/monthly-plan checkouts). The remote deletion
+lives in the **RETIRED prune list in `.github/workflows/
+supabase-deploy.yml`** — to retire a function: delete its dir AND add its
+slug there (the workflow deletes it from Supabase before deploying; the
+function cap that once blocked deploys is why). What still remains:
 - **Dead src/lib code**: `authSession.ts` legacy branches (`/choose-account-
   type`, `/complete-profile`, `/business-dashboard`, `/list-on-community`,
   `/profile`, `/students`, `/hire`, `/claim/:token`, `/ai-find-return` — all
   404), `communityCategories.ts`, `googleOAuth.ts`'s profile seeding,
   `useAuthContext`'s `hasListing`.
-- **~25 orphaned edge functions** nothing invokes: the AI Find cluster
-  (`create-ai-find-checkout`, `ai-find-freelancer`, `ai-find-retry`,
-  `notify-scouted-freelancer`), hire cluster (`notify-hire-request`,
-  `notify-direct-hire`, `expire-hire-requests`), community listings
-  (`notify-community-listing-request`, `send-listing-decision-email`,
-  `welcome-freelancer-published`, `improve-community-bio`), gig matching
-  (`smart-match-jobs`, `notify-matched-students`, `check-achievements`),
-  the `ai-*` freelancer tools, `vano-assistant` (its system prompt still
-  describes the old marketplace), `weekly-digest`.
-- **Legacy tables**: `community_posts`, `student_profiles`, `jobs`,
-  `job_applications`, `hire_requests`, `scouted_freelancers`,
-  `vano_payments` (the Vano Pay escrow above), `reviews`, achievements.
+- **Legacy tables** (data kept — never drop without the owner): 
+  `community_posts`, `student_profiles`, `jobs`, `job_applications`,
+  `hire_requests`, `scouted_freelancers`, `vano_payments` (empty), 
+  `reviews`, achievements.
+- `stripe-webhook`'s legacy branches (AI-find / Vano Pay / signup-fee
+  events) — harmless, only fire on events that can no longer be created.
+- `confirm-signup-payment` stays deployed: VerifyHelper still resolves old
+  €2 pay-to-join return links through it.
 
-Same rule as Autopilot: don't build on any of it, don't rip it out
-mid-focus. **NOT legacy** despite living near it: `partner-program`,
+**NOT legacy** despite living near it: `partner-program`,
 `get-referral-code`, `attach-referral-code` (live household
 referral/partner features on `/account` and `/join`), and `check-loyalty`
 (household loyalty — currently computed inline at checkout instead).
@@ -512,17 +516,15 @@ tick-eyebrows, floating cards.
 - Stripe is raw REST (no SDK) in every function — match that style.
 - `design-references/` (30MB) and `.claude/skills/` are **not app code** — design
   reference material, fenced off from the build/tests. Ignore them when reading.
-- Two root lockfiles: `package-lock.json` is authoritative (npm);
-  `bun.lock`/`bun.lockb` are stale.
+- One lockfile: `package-lock.json` (npm). The stale bun locks were deleted
+  in the July 2026 cleanup — don't reintroduce them.
 
 ## What needs improving (known — not yet done)
 - **Legacy 404 routing**: `authSession.ts` can still route old
   student/business accounts to unmounted routes via Auth.tsx's "Continue
   as" button. Harmless for helpers/customers; tidy when touching auth.
-- **Dashboard cleanup** — two orphaned edge functions are still deployed and
-  should be deleted in the Supabase dashboard: `create-household-booking` (long
-  gone from the repo) and `create-plan-checkout` (now retired to a 410 stub —
-  see below; safe to delete once no client points at it).
+- ~~Dashboard cleanup~~ — done July 2026: all orphaned/legacy functions are
+  deleted remotely by the RETIRED prune list in the deploy workflow.
 - **Lint debt** — mostly cleared: `npm run lint` is down from 22 errors to 3,
   all in `auth-email-hook` (`any`s left untouched for now). Worth a final pass.
 - **Perf** — already healthy (routes lazy-loaded, analytics deferred). No action
