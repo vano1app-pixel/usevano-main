@@ -285,10 +285,34 @@ function buildWhatsAppMsg(cat: Category, when: string, size: string, address?: s
 // Spring for the sliding selection pill — quick, lively, settles fast.
 const PILL_SPRING = { type: 'spring', stiffness: 520, damping: 34, mass: 0.7 } as const;
 
-// Staggered entrance: the sheet's fields cascade in one-by-one as it lands.
-const listContainer: Variants = {
-  hidden: {},
-  show:   { transition: { staggerChildren: 0.05, delayChildren: 0.08 } },
+// The one easing for the sheet — a strong ease-out, so every move starts
+// instantly and settles gently. Nothing lurches, nothing pops.
+const SHEET_EASE = [0.16, 1, 0.3, 1] as const;
+
+// Wizard pages hand off like iOS navigation: the leaving page slips out the
+// way it came, the arriving one slides in from the direction of travel.
+// `custom` is the direction: +1 forward, -1 back, 0 = the sheet's first paint
+// (pure fade — the sheet itself is already sliding up, one motion is enough).
+const pageHidden = (dir: number) => ({ opacity: 0, x: dir === 0 ? 0 : dir * 26 });
+const pageExit   = (dir: number) => ({
+  opacity: 0,
+  x: dir * -20,
+  transition: { duration: 0.15, ease: 'easeOut' as const },
+});
+const pickPage: Variants = {
+  hidden: pageHidden,
+  show:   { opacity: 1, x: 0, transition: { duration: 0.3, ease: SHEET_EASE } },
+  exit:   pageExit,
+};
+// The form page also orchestrates its children: fields cascade in one-by-one
+// as the page lands.
+const formPage: Variants = {
+  hidden: pageHidden,
+  show:   {
+    opacity: 1, x: 0,
+    transition: { duration: 0.3, ease: SHEET_EASE, staggerChildren: 0.05, delayChildren: 0.08 },
+  },
+  exit:   pageExit,
 };
 const listItem: Variants = {
   hidden: { opacity: 0, y: 14 },
@@ -424,6 +448,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   // Drag-to-dismiss: only the handle starts the drag, so the body still scrolls
   const dragControls = useDragControls();
   const sheetRef = useRef<HTMLDivElement>(null);
+  // Which way the wizard is travelling (+1 forward, -1 back, 0 = first paint)
+  // — read by the page variants so each page slides in from where it "lives".
+  const navDir = useRef(0);
+  // The scrollable middle — reset to the top on every page change so a new
+  // page never lands mid-scroll.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
   // Synchronous submit lock — `loading` state only disables the button after a
   // re-render, so a fast double-tap can fire handleBook twice before then. This
   // ref flips instantly, closing that window (server-side dedupe is the backstop).
@@ -470,6 +501,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       });
       setSize(short ? '30 min' : h === 1 ? '1 hour' : `${h} hours`);
     }
+    navDir.current = 1;
     setStep('form');
   }
 
@@ -495,12 +527,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     if (!cents) return '€18/hr';
     return s.size || !entryCat.sizes ? fmt(cents) : `from ${fmt(cents)}`;
   };
-  const renderSubRow = (key: string, emoji: string, label: string, hint: string | null, price: string, onPick: () => void) => (
+  // cascadeIndex staggers the row's entrance (.cascade-in, pure CSS) so a
+  // fresh list rises up one row at a time instead of appearing as a block.
+  // Pass undefined for lists that churn (typing in describe-it) — animating
+  // every keystroke would read as noise, not flow.
+  const renderSubRow = (key: string, emoji: string, label: string, hint: string | null, price: string, onPick: () => void, cascadeIndex?: number) => (
     <button
       key={key}
       type="button"
       onClick={onPick}
-      className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-white px-3.5 py-3.5 text-left hover:border-sage/60 hover:bg-sage-light/30 active:scale-[0.99] transition-[border-color,background-color,transform] duration-150"
+      className={cn(
+        'flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-white px-3.5 py-3.5 text-left hover:border-sage/60 hover:bg-sage-light/30 active:scale-[0.98] transition-[border-color,background-color,transform] duration-150',
+        cascadeIndex != null && 'cascade-in',
+      )}
+      style={cascadeIndex != null ? ({ '--cascade-i': Math.min(cascadeIndex, 8) } as React.CSSProperties) : undefined}
     >
       <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-2xl leading-none" aria-hidden="true">{emoji}</span>
       <span className="flex-1 min-w-0">
@@ -545,6 +585,24 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
+
+  // Every wizard page starts from the top — landing mid-scroll reads as a glitch.
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [step]);
+
+  // Focus the phone field only AFTER the sheet (or page) has finished sliding —
+  // the keyboard rising mid-slide shoves the whole sheet around, which is
+  // exactly the "jump" this flow shouldn't have. Sequenced, it reads as one
+  // motion: sheet lands, then the keyboard comes up. (Best-effort: some mobile
+  // browsers only open the keyboard on a direct tap — the field is right there
+  // then, same as before.)
+  useEffect(() => {
+    if (step !== 'form' || prefilled) return;
+    const t = setTimeout(() => {
+      const el = phoneInputRef.current;
+      if (el && !el.value.trim()) el.focus({ preventScroll: true });
+    }, 430);
+    return () => clearTimeout(t);
+  }, [step, prefilled]);
 
   // Keep Tab focus inside the sheet while it's open (wrap at both ends)
   useEffect(() => {
@@ -609,6 +667,85 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
     const url = `${teamWhatsAppHref}?text=${encodeURIComponent(buildWhatsAppMsg(cat, when, size, withDetails))}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
+
+  // True once the "Edit details" unfold has finished — the wrapper needs
+  // overflow-hidden only WHILE the height animates; left on, it would clip
+  // the address suggestions dropdown.
+  const [fieldsUnfolded, setFieldsUnfolded] = useState(false);
+
+  // The two identity fields (phone + address). Rendered two ways below: fresh
+  // visitors get them as a normal cascade item; returning customers see them
+  // unfold in place when "Edit" (or a validation error) reveals them.
+  const detailFields = (
+    <>
+      {/* Phone first — the sheet slides up straight onto this field.
+          Time + duration below are pre-picked, so number + address is
+          all a new visitor has to type. */}
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+          Your phone
+          <AnimatePresence>
+            {phoneValid && (
+              <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
+                <Check className="w-3.5 h-3.5" strokeWidth={3} />
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </p>
+        <input
+          ref={phoneInputRef}
+          type="tel"
+          value={phone}
+          onChange={e => { setPhone(e.target.value); if (phoneError) setPhoneError(false); if (error) setError(null); }}
+          placeholder="08x xxx xxxx"
+          autoComplete="tel"
+          inputMode="tel"
+          enterKeyHint="go"
+          autoCapitalize="off"
+          autoCorrect="off"
+          required
+          className={cn(
+            'w-full rounded-xl border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
+            phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
+          )}
+        />
+        <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
+      </div>
+
+      {/* Address — Eircode search or current location */}
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+          Where?
+          <AnimatePresence>
+            {addressValid && (
+              <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
+                <Check className="w-3.5 h-3.5" strokeWidth={3} />
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </p>
+        <AddressPicker
+          value={address}
+          coords={coords}
+          error={addressError}
+          onAddress={(addr, lat, lng, locality) => {
+            setAddress(addr);
+            setCoords({ lat, lng });
+            if (addressError) setAddressError(false);
+            if (error) setError(null);
+            // Eircode/address already knows the area — don't make them pick
+            const area = deriveArea(locality, { lat, lng });
+            if (area) { setCity(area); setCityAuto(true); }
+          }}
+          onTextChange={(t) => { setAddress(t); setCoords(null); if (addressError) setAddressError(false); if (error) setError(null); }}
+          onBlur={() => {}}
+          placeholder="Address or Eircode…"
+          showMapPreview={false}
+        />
+        <p className="text-xs text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
+      </div>
+    </>
+  );
 
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
@@ -751,40 +888,69 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         {/* Scrollable middle — header + fields. The action bar below is docked
             outside this scroll area, Uber-style, so price + Book never leave
             the screen (and stay put while the keyboard is up). */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2" style={{ overscrollBehavior: 'contain' }}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2" style={{ overscrollBehavior: 'contain' }}>
           {/* Header — step-aware: page 1 asks the question, page 2 names the
-              picked job and (when the wizard ran) offers a way back. */}
+              picked job and (when the wizard ran) offers a way back. The emoji
+              and titles are keyed on their content, so a page change replays a
+              gentle pop/crossfade instead of hard-swapping the text. */}
           <div className="flex items-start justify-between mb-5">
             <div className="flex items-start gap-1 min-w-0">
-              {startOnPick && step === 'form' && (
-                <button
-                  type="button"
-                  onClick={() => setStep('pick')}
-                  aria-label="Back to job types"
-                  className="w-9 h-9 -ml-2 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-foreground/8 active:scale-90 transition-[background-color,transform] duration-150"
-                >
-                  <ArrowLeft className="w-5 h-5 text-foreground/60" />
-                </button>
-              )}
+              {/* Back — grows in from zero width so the title glides right
+                  instead of being shoved when the button appears. */}
+              <AnimatePresence initial={false}>
+                {startOnPick && step === 'form' && (
+                  <motion.button
+                    key="wizard-back"
+                    type="button"
+                    onClick={() => { navDir.current = -1; setStep('pick'); }}
+                    aria-label="Back to job types"
+                    initial={{ width: 0, marginLeft: 0, opacity: 0, scale: 0.6 }}
+                    animate={{ width: 36, marginLeft: -8, opacity: 1, scale: 1 }}
+                    exit={{ width: 0, marginLeft: 0, opacity: 0, scale: 0.6 }}
+                    transition={{ duration: 0.28, ease: SHEET_EASE }}
+                    whileTap={{ scale: 0.85 }}
+                    className="h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden hover:bg-foreground/8 transition-[background-color] duration-150"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-foreground/60 flex-shrink-0" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5 mb-0.5">
                   <motion.span
-                    className="text-2xl leading-none"
+                    key={step === 'pick' ? entryCat.emoji : cat.emoji}
+                    className="text-2xl leading-none inline-block"
                     aria-hidden="true"
-                    initial={{ scale: 0, rotate: -25 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: 'spring', stiffness: 480, damping: 12, delay: 0.18 }}
+                    initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
+                    animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 480, damping: 20, delay: 0.1 }}
                   >
                     {step === 'pick' ? entryCat.emoji : cat.emoji}
                   </motion.span>
                   <h2 className="font-display text-xl font-bold text-foreground" style={{ fontFamily: 'Bricolage Grotesque, Plus Jakarta Sans, system-ui, sans-serif' }}>
-                    {step === 'pick' ? pickTitle : cat.label}
+                    <motion.span
+                      key={step === 'pick' ? pickTitle : cat.label}
+                      className="inline-block"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, ease: SHEET_EASE }}
+                    >
+                      {step === 'pick' ? pickTitle : cat.label}
+                    </motion.span>
                   </h2>
                 </div>
                 <p className="text-sm text-muted-foreground ml-9">
-                  {step === 'pick'
-                    ? (isDescribe ? 'Tap a popular job, or type your own' : 'Tap one — it takes a second')
-                    : cat.hint}
+                  <motion.span
+                    key={step === 'pick' ? 'pick-sub' : cat.hint}
+                    className="inline-block"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.25, delay: 0.05 }}
+                  >
+                    {step === 'pick'
+                      ? (isDescribe ? 'Tap a popular job, or type your own' : 'Tap one — it takes a second')
+                      : cat.hint}
+                  </motion.span>
                 </p>
                 {step === 'form' && note && note.trim() && note.trim() !== cat.label && (
                   <p className="text-xs text-foreground/70 ml-9 mt-1">“{note.trim()}”</p>
@@ -804,29 +970,45 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
 
           {/* Trust at the decision moment — one glanceable row, absorbed
               without reading (the Airbnb trick): who's coming, what covers
-              you. The details live in /terms + /cover; this is the signal. */}
-          {step === 'form' && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5">
-              {[
-                'ID-verified student',
-                'Optional €250 cover',
-                'Money-back guarantee',
-              ].map((t) => (
-                <span key={t} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-sage-dark">
-                  <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
+              you. The details live in /terms + /cover; this is the signal.
+              Rises in with the form page (initial={false} keeps it static when
+              the sheet opens directly on the form — it rides the sheet slide). */}
+          <AnimatePresence initial={false}>
+            {step === 'form' && (
+              <motion.div
+                key="trust-row"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: SHEET_EASE, delay: 0.15 } }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.18, ease: 'easeOut' } }}
+                className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5 overflow-hidden"
+              >
+                {[
+                  'ID-verified student',
+                  'Optional €250 cover',
+                  'Money-back guarantee',
+                ].map((t) => (
+                  <span key={t} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-sage-dark whitespace-nowrap">
+                    <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
+                    {t}
+                  </span>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
+          {/* The two wizard pages hand off with a directional slide (iOS
+              push/pop) instead of a hard cut — mode="wait" lets the old page
+              slip away before the new one arrives, so heights never fight. */}
+          <AnimatePresence mode="wait" custom={navDir.current}>
           {step === 'pick' ? (
             /* ── Wizard page 1: sub-service picker / describe-it ─────────── */
             <motion.div
               key="pick-page"
-              initial={{ opacity: 0, x: -18 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              custom={navDir.current}
+              variants={pickPage}
+              initial="hidden"
+              animate="show"
+              exit="exit"
             >
               {isDescribe && (
                 <input
@@ -848,7 +1030,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               )}
               <div className="space-y-2" role="list" aria-label={pickTitle}>
                 {isDescribe
-                  ? describeRows.map((row) =>
+                  ? describeRows.map((row, i) =>
                       renderSubRow(
                         row.key,
                         row.emoji,
@@ -856,9 +1038,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         row.key === 'other' ? 'Tell us exactly what you need' : row.group,
                         isShortVisit(row.key) ? 'from €12' : '€18/hr',
                         () => applyPick({ kind: 'custom', jobKey: row.key }),
+                        // Cascade only the opening "popular jobs" list — live
+                        // search results should update instantly, not animate.
+                        describeQuery.trim().length >= 2 ? undefined : i,
                       ))
-                  : visibleSubs.map((s) => {
+                  : visibleSubs.map((s, i) => {
                       const job = s.kind === 'custom' ? customJobByKey(s.jobKey) : null;
+                      const featuredLen = subServices?.featured.length ?? 0;
                       return renderSubRow(
                         s.kind === 'custom' ? s.jobKey : s.label,
                         job ? job.emoji : (s as { emoji: string }).emoji,
@@ -866,6 +1052,10 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         s.kind === 'core' && !s.size ? entryCat.hint : null,
                         subPriceLabel(s),
                         () => applyPick(s),
+                        // "More options" rows restart the cascade from zero, so
+                        // the reveal flows immediately instead of waiting out
+                        // the featured rows' delays.
+                        i < featuredLen ? i : i - featuredLen,
                       );
                     })}
               </div>
@@ -884,12 +1074,15 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </motion.div>
           ) : (
           <motion.form
+            key="form-page"
+            custom={navDir.current}
             id="quick-book-form"
             onSubmit={handleBook}
             className="space-y-5"
-            variants={listContainer}
+            variants={formPage}
             initial="hidden"
             animate="show"
+            exit="exit"
           >
             {/* Welcome back — details remembered from the last booking */}
             {prefilled && (
@@ -909,99 +1102,60 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
 
             {/* Returning customer → one-tap confirm: show the remembered phone +
                 address as a compact summary instead of the full form. "Edit"
-                reveals the fields. New visitors always get the fields. */}
-            {prefilled && !editDetails && (
-              <motion.div variants={listItem} className="rounded-xl border border-border bg-white px-4 py-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1.5">
-                    <p className="flex items-center gap-2 text-sm text-foreground">
-                      <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
-                      <span className="font-semibold truncate">{phone || 'Add your number'}</span>
-                    </p>
-                    <p className="flex items-center gap-2 text-sm text-foreground/80">
-                      <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
-                      <span className="truncate">{address || 'Add your address'}</span>
-                    </p>
+                reveals the fields. New visitors always get the fields. The
+                summary folds away as the fields unfold beneath it — one
+                continuous push, not a swap. */}
+            <AnimatePresence>
+              {prefilled && !editDetails && (
+                <motion.div
+                  key="detail-summary"
+                  variants={listItem}
+                  exit={{ height: 0, opacity: 0, paddingTop: 0, paddingBottom: 0, marginTop: 0, transition: { duration: 0.22, ease: 'easeOut' } }}
+                  className="rounded-xl border border-border bg-white px-4 py-3.5 overflow-hidden"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1.5">
+                      <p className="flex items-center gap-2 text-sm text-foreground">
+                        <Phone className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                        <span className="font-semibold truncate">{phone || 'Add your number'}</span>
+                      </p>
+                      <p className="flex items-center gap-2 text-sm text-foreground/80">
+                        <MapPin className="w-4 h-4 flex-shrink-0 text-foreground/45" aria-hidden="true" />
+                        <span className="truncate">{address || 'Add your address'}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditDetails(true)}
+                      className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
+                    >
+                      Edit
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditDetails(true)}
-                    className="text-[11px] font-semibold text-sage-dark flex-shrink-0 px-3 py-3 -mx-3 -my-3"
-                  >
-                    Edit
-                  </button>
-                </div>
-              </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {(!prefilled || editDetails) && (
+              prefilled ? (
+                /* Revealed by "Edit" (or a validation error pointing here) —
+                   unfolds in place so nothing below jumps. */
+                <motion.div
+                  key="detail-fields"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  transition={{ duration: 0.3, ease: SHEET_EASE }}
+                  onAnimationComplete={() => setFieldsUnfolded(true)}
+                  className={fieldsUnfolded ? undefined : 'overflow-hidden'}
+                >
+                  <div className="space-y-5">{detailFields}</div>
+                </motion.div>
+              ) : (
+                <motion.div key="detail-fields" variants={listItem} className="space-y-5">
+                  {detailFields}
+                </motion.div>
+              )
             )}
-
-            {(!prefilled || editDetails) && (<>
-            {/* Phone first — the sheet slides up straight onto this field.
-                Time + duration below are pre-picked, so number + address is
-                all a new visitor has to type. */}
-            <motion.div variants={listItem}>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
-                Your phone
-                <AnimatePresence>
-                  {phoneValid && (
-                    <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
-                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </p>
-              <input
-                type="tel"
-                value={phone}
-                onChange={e => { setPhone(e.target.value); if (phoneError) setPhoneError(false); if (error) setError(null); }}
-                placeholder="08x xxx xxxx"
-                autoComplete="tel"
-                inputMode="tel"
-                enterKeyHint="go"
-                autoCapitalize="off"
-                autoCorrect="off"
-                autoFocus={!prefilled}
-                required
-                className={cn(
-                  'w-full rounded-xl border bg-white px-4 py-3 text-base placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:border-transparent transition-[border-color,box-shadow] duration-150',
-                  phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
-                )}
-              />
-              <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
-            </motion.div>
-
-            {/* Address — Eircode search or current location */}
-            <motion.div variants={listItem}>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
-                Where?
-                <AnimatePresence>
-                  {addressValid && (
-                    <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-emerald-500" aria-hidden="true">
-                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </p>
-              <AddressPicker
-                value={address}
-                coords={coords}
-                error={addressError}
-                onAddress={(addr, lat, lng, locality) => {
-                  setAddress(addr);
-                  setCoords({ lat, lng });
-                  if (addressError) setAddressError(false);
-                  if (error) setError(null);
-                  // Eircode/address already knows the area — don't make them pick
-                  const area = deriveArea(locality, { lat, lng });
-                  if (area) { setCity(area); setCityAuto(true); }
-                }}
-                onTextChange={(t) => { setAddress(t); setCoords(null); if (addressError) setAddressError(false); if (error) setError(null); }}
-                onBlur={() => {}}
-                placeholder="Address or Eircode…"
-                showMapPreview={false}
-              />
-              <p className="text-xs text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
-            </motion.div>
-            </>)}
 
             {/* When + duration — one quiet line by default (ASAP), because that's
                 what almost everyone wants. Tap "Change" to reveal the time and
@@ -1226,14 +1380,23 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </motion.p>
           </motion.form>
           )}
+          </AnimatePresence>
         </div>
 
         {/* Docked action bar — Uber-style: risk-reversal + Book never scroll
             away, always thumb-reachable, and stay on screen while the keyboard
             is up. The button submits the form above via its form= attribute.
-            Hidden on wizard page 1 — there's nothing to book yet. */}
+            Hidden on wizard page 1 — there's nothing to book yet. Rises in
+            with the form page (initial={false}: when the sheet opens directly
+            on the form it rides the sheet's own slide instead). */}
+        <AnimatePresence initial={false}>
         {step === 'form' && (
-        <div className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
+        <motion.div
+          key="docked-bar"
+          initial={{ y: 18, opacity: 0 }}
+          animate={{ y: 0, opacity: 1, transition: { duration: 0.32, ease: SHEET_EASE, delay: 0.12 } }}
+          exit={{ y: 14, opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
+          className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
           {/* Risk-reversal at the decision point — the single most reassuring
               fact (you don't pay until a helper accepts) rides with the CTA. */}
           <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-sage-dark">
@@ -1259,18 +1422,28 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               disabled={loading || !phone.trim()}
               className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
             >
-              {loading
-                ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
-                : <>
-                    <motion.span
-                      className="inline-flex"
-                      animate={{ scale: [1, 1.18, 1] }}
-                      transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
-                    >
-                      <Zap className="w-4 h-4" />
-                    </motion.span>
-                    {ctaLabel}
-                  </>}
+              {/* Keyed on the state so ready ↔ booking crossfades instead of
+                  the label snapping at the highest-anxiety moment. */}
+              <motion.span
+                key={loading ? 'cta-loading' : 'cta-ready'}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="inline-flex items-center gap-2"
+              >
+                {loading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
+                  : <>
+                      <motion.span
+                        className="inline-flex"
+                        animate={{ scale: [1, 1.18, 1] }}
+                        transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
+                      >
+                        <Zap className="w-4 h-4" />
+                      </motion.span>
+                      {ctaLabel}
+                    </>}
+              </motion.span>
             </Button>
             {/* Occasional light sweep so the primary action feels alive —
                 only once the form is actually ready to submit */}
@@ -1285,30 +1458,53 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             )}
           </motion.div>
 
-          {error && <p className="text-center text-xs text-destructive">{error}</p>}
+          {/* Error + recovery unfold gently — the bar growing in a snap is a
+              jolt at exactly the moment the customer needs calm. */}
+          <AnimatePresence initial={false}>
+            {error && (
+              <motion.p
+                key="submit-error"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="text-center text-xs text-destructive overflow-hidden"
+              >
+                {error}
+              </motion.p>
+            )}
 
-          {/* A failed checkout call must never be a dead end — flip the
-              WhatsApp fallback into the primary recovery action, right here in
-              the docked bar, with the typed details riding along. */}
-          {submitFailed && (
-            <>
-              <p className="text-center text-xs leading-relaxed text-muted-foreground">
-                Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
-              </p>
-              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                <Button
-                  type="button"
-                  onClick={sendWhatsApp}
-                  className="w-full rounded-full gap-2 h-12 font-semibold text-base bg-[#25D366] text-white hover:bg-[#1fb457]"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Book via WhatsApp instead
-                </Button>
+            {/* A failed checkout call must never be a dead end — flip the
+                WhatsApp fallback into the primary recovery action, right here in
+                the docked bar, with the typed details riding along. */}
+            {submitFailed && (
+              <motion.div
+                key="submit-recover"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.26, ease: SHEET_EASE }}
+                className="space-y-2 overflow-hidden"
+              >
+                <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                  Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
+                </p>
+                <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <Button
+                    type="button"
+                    onClick={sendWhatsApp}
+                    className="w-full rounded-full gap-2 h-12 font-semibold text-base bg-[#25D366] text-white hover:bg-[#1fb457]"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Book via WhatsApp instead
+                  </Button>
+                </motion.div>
               </motion.div>
-            </>
-          )}
-        </div>
+            )}
+          </AnimatePresence>
+        </motion.div>
         )}
+        </AnimatePresence>
       </motion.div>
     </>
   );

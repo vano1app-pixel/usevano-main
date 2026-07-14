@@ -845,9 +845,9 @@ const TrackBooking = () => {
               className="mt-6 bg-sage-light border border-sage/30 rounded-2xl px-5 py-4 flex items-start gap-3"
             >
               <motion.span
-                initial={{ scale: 0, rotate: -25 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', stiffness: 320, damping: 13, delay: 0.12 }}
+                initial={{ scale: 0.4, opacity: 0, rotate: -12 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 15, delay: 0.12 }}
                 className="mt-0.5 flex-shrink-0"
               >
                 <CheckCircle2 className="w-6 h-6 text-sage" />
