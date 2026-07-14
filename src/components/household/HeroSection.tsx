@@ -137,7 +137,7 @@ export const HeroSection: React.FC = () => {
         >
           You see them first
           <span className="text-white/35 px-1.5">·</span>
-          pay after they accept
+          pay when it's done
           <span className="text-white/35 px-1.5">·</span>
           money-back guarantee
         </motion.p>

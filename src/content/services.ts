@@ -49,7 +49,7 @@ export interface ServiceLandingContent {
 // Platform answers shared across pages, phrased once so they never drift.
 const PAY_AFTER_ACCEPT: ServiceFaq = {
   q: 'Do I pay upfront?',
-  a: 'No. Booking is free — you only pay once a named helper accepts your job. You’ll see who they are (name, photo, rating) before any money moves, and there’s a money-back guarantee if it’s not right.',
+  a: 'No. Booking is free — when a named helper accepts, a small VANO booking fee by card confirms it, and you pay your helper the job price directly (Revolut or cash) once the work is done. You’ll see who they are (name, photo, rating) before any money moves, and the fee has a money-back guarantee.',
 };
 const WHO_ARE_HELPERS: ServiceFaq = {
   q: 'Who are the helpers?',
@@ -57,7 +57,7 @@ const WHO_ARE_HELPERS: ServiceFaq = {
 };
 const HOW_FAST: ServiceFaq = {
   q: 'How fast can someone come?',
-  a: 'Most Galway bookings are same-day — a nearby helper usually replies within minutes. You can also book ahead for tomorrow and get 10% off.',
+  a: 'Most Galway bookings are same-day — a nearby helper usually replies within minutes. You can also book ahead for tomorrow at the same price.',
 };
 
 export const SERVICE_LANDINGS: ServiceLandingContent[] = [
@@ -68,7 +68,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     shortLabel: 'Cleaning',
     title: 'House Cleaning in Galway — Same-Day, from €18/hr',
     description:
-      'Book an ID-verified student cleaner in Galway today. Kitchen, bathroom, floors & surfaces from €18/hr — pay only after a helper accepts. Money-back guarantee.',
+      'Book an ID-verified student cleaner in Galway today. Kitchen, bathroom, floors & surfaces from €18/hr — free to book, pay when it’s done. Money-back guarantee.',
     h1: 'House cleaning in Galway, booked in 30 seconds',
     intro:
       'Hoovering, mopping, kitchen, bathroom and surfaces — done same-day by an ID-verified local student. You see exactly who’s coming before you pay a cent, and you can watch them arrive on a live map.',
@@ -79,11 +79,11 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
       },
       {
         heading: 'Why students, and why it works',
-        text: 'Galway is a university city full of reliable students who want flexible work that pays properly — every hour you book pays your cleaner above the Irish minimum wage after fees. Each one is ID-verified before their first job, rated after every visit, and you see their name, photo and rating the moment they accept. From Salthill to Renmore, Knocknacarra to the city centre, there’s usually someone nearby today.',
+        text: 'Galway is a university city full of reliable students who want flexible work that pays properly — your cleaner keeps 100% of the hourly rate, paid directly by you, well above the Irish minimum wage. Each one is ID-verified before their first job, rated after every visit, and you see their name, photo and rating the moment they accept. From Salthill to Renmore, Knocknacarra to the city centre, there’s usually someone nearby today.',
       },
     ],
     priceLabel: '€18/hour',
-    priceDetail: 'Most homes book 2 hours (€36). Book ahead for tomorrow and get 10% off.',
+    priceDetail: 'Most homes book 2 hours (€36). Same-day or book ahead for tomorrow.',
     fromPriceEuro: 18,
     included: [
       'Floors — hoovered & mopped',
@@ -127,7 +127,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
       },
     ],
     priceLabel: '€15 / 30 min · €20 / hour',
-    priceDetail: 'Collected, walked on-lead and returned safely. Book ahead for tomorrow — 10% off.',
+    priceDetail: 'Collected, walked on-lead and returned safely. Same-day or book ahead.',
     fromPriceEuro: 15,
     included: [
       'Collected & returned at your door',
@@ -156,7 +156,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     shortLabel: 'Garden',
     title: 'Garden Help in Galway — Mowing & Tidy-Ups from €18/hr',
     description:
-      'Same-day garden help in Galway: mowing, weeding, edging and tidy-ups by ID-verified students from €18/hr, waste bagged. Pay only after a helper accepts.',
+      'Same-day garden help in Galway: mowing, weeding, edging and tidy-ups by ID-verified students from €18/hr, waste bagged. Free to book, pay when it’s done.',
     h1: 'Garden help in Galway, without the wait',
     intro:
       'Grass gone wild, beds full of weeds, or a patio that needs clearing before the weekend? Book an ID-verified local student for mowing, weeding, edging and general tidy-ups — same-day, with all waste bagged.',
@@ -167,7 +167,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
       },
       {
         heading: 'A fair deal on both sides',
-        text: 'Garden contractors in Galway often won’t travel for a small job, and when they do it’s €50 before anyone lifts a rake. Vano fills exactly that gap: a strong, reliable student nearby who’s happy with an hour or two of honest outdoor work — and who earns above minimum wage on every one of those hours after fees.',
+        text: 'Garden contractors in Galway often won’t travel for a small job, and when they do it’s €50 before anyone lifts a rake. Vano fills exactly that gap: a strong, reliable student nearby who’s happy with an hour or two of honest outdoor work — and who keeps 100% of the hourly rate, well above minimum wage.',
       },
     ],
     priceLabel: '€18/hour',
@@ -200,7 +200,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
     shortLabel: 'Laundry',
     title: 'Laundry Service in Galway — Collected & Returned, €15 Flat',
     description:
-      'Laundry collected from your door in Galway, washed, dried, folded and returned — €15 flat by an ID-verified student. Book in 30 seconds, pay after a helper accepts.',
+      'Laundry collected from your door in Galway, washed, dried, folded and returned — €15 flat by an ID-verified student. Book in 30 seconds, pay when it’s back.',
     h1: 'Laundry collected, washed & returned — €15 flat',
     intro:
       'The basket’s overflowing and the week got away from you. An ID-verified local student collects your laundry from your door, washes, dries and folds it, and brings it back fresh — one flat €15, no weighing, no meters.',
@@ -255,7 +255,7 @@ export const SERVICE_LANDINGS: ServiceLandingContent[] = [
       },
       {
         heading: 'Perfect for Galway’s moving days',
-        text: 'End-of-month lease changeovers, September student move-ins, last-minute Daft viewings that turned into a deposit — Galway moves on short notice, and man-with-van outfits book out days ahead. A student helper can usually be at your door the same day, and you only pay once someone has actually accepted the job.',
+        text: 'End-of-month lease changeovers, September student move-ins, last-minute Daft viewings that turned into a deposit — Galway moves on short notice, and man-with-van outfits book out days ahead. A student helper can usually be at your door the same day, booking is free, and you pay your helper directly once the job’s done.',
       },
     ],
     priceLabel: '€18/hour',

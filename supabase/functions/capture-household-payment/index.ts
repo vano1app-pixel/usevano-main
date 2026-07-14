@@ -93,6 +93,13 @@ serve(async (req) => {
     }
     // The helper to be paid is whoever the booking is assigned to.
     if (!booking.student_id) return bad(409, 'No helper assigned to this job');
+    // Direct-pay (July 2026): the customer pays the helper directly — this
+    // function no longer moves money for those bookings, it's purely the
+    // completion choke-point (status flip + rating token + notifications).
+    const directPay = ((booking.booking_data as Record<string, unknown> | null)?.direct_pay) === true;
+    if (booking.status === 'completed') {
+      return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     if (!['accepted','on_way','arrived','in_progress'].includes(booking.status)) return bad(409, `Cannot complete in status: ${booking.status}`);
     // Pay-before-payout guard: helpers accept jobs before the customer pays
     // (pay-after-accept), so never complete + auto-release a payout for a job
@@ -102,64 +109,59 @@ serve(async (req) => {
     }
 
     const callerId = booking.student_id as string;
+    const priceCents = (booking.price_estimate_cents as number | null) ?? 0; // the job money
+    let payoutRow: { id: string } | null = null;
+    let holdUntil: string | null = null;
+    let studentCents = priceCents; // direct-pay: the helper keeps 100%, paid directly
 
-    // Idempotency: if payout already exists this job was already completed.
-    const { count: existingPayout } = await supabase
-      .from('household_payouts').select('id', { count:'exact', head:true }).eq('booking_id', bookingId);
-    if (existingPayout && existingPayout > 0) {
-      // Self-heal: if a prior run recorded the payout but its status flip then
-      // errored (a DB blip), the booking is stuck 'in_progress' WITH a payout —
-      // and every later call short-circuits here without ever advancing it, so
-      // the completion sweeps re-select it and re-send "you've been paid"
-      // forever. Re-attempt the flip (guarded) before returning.
-      if (booking.status !== 'completed') {
-        await supabase.from('household_bookings')
-          .update({ status: 'completed', ...(booking.rating_token ? {} : { rating_token: crypto.randomUUID() }) })
-          .eq('id', bookingId)
-          .in('status', ['accepted','on_way','arrived','in_progress']);
-      }
-      return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    const PLATFORM_FEE_BPS = 1500;
-    const priceCents = (booking.price_estimate_cents as number | null) ?? 0; // what the customer paid (job line)
-    // Helper pay base: the FULL job price. When a schedule/loyalty discount
-    // shrank the customer price, create-household-payment-checkout stamps the
-    // undiscounted price in booking_data.helper_pay_base_cents — the discount
-    // is platform-funded and must never dock the helper below minimum wage.
-    const payBaseCents = Math.max(
-      priceCents,
-      Number((booking.booking_data as Record<string, unknown> | null)?.helper_pay_base_cents) || 0,
-    );
-    const studentCents = Math.floor(payBaseCents * (10000 - PLATFORM_FEE_BPS) / 10000);
-
-    // Record the payout FIRST, and only flip the booking to 'completed' once
-    // the helper's pay is durably on the books. The old order (complete → then
-    // insert payout, unchecked) meant a transient insert failure marked the job
-    // done while the payout silently vanished, with no path back — the worst
-    // failure for a platform whose promise is that students always get paid.
-    // household_payouts has a UNIQUE(booking_id) constraint, so a concurrent
-    // second completion loses the insert race (23505) and is treated as
-    // already-complete rather than double-paying.
-    const holdUntil = holdHours > 0 ? new Date(Date.now() + holdHours * 60 * 60 * 1000).toISOString() : null;
-    const { data: payoutRow, error: payoutErr } = await supabase
-      .from('household_payouts')
-      .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending', hold_until: holdUntil })
-      .select('id')
-      .single();
-
-    if (payoutErr) {
-      if ((payoutErr as { code?: string }).code === '23505') {
-        // A concurrent completion already wrote the payout — idempotent success.
+    if (!directPay) {
+      // ── LEGACY escrow bookings (created before the direct-pay deploy) ────
+      // Idempotency: if payout already exists this job was already completed.
+      const { count: existingPayout } = await supabase
+        .from('household_payouts').select('id', { count:'exact', head:true }).eq('booking_id', bookingId);
+      if (existingPayout && existingPayout > 0) {
+        // Self-heal: if a prior run recorded the payout but its status flip then
+        // errored (a DB blip), re-attempt the flip (guarded) before returning.
+        if (booking.status !== 'completed') {
+          await supabase.from('household_bookings')
+            .update({ status: 'completed', ...(booking.rating_token ? {} : { rating_token: crypto.randomUUID() }) })
+            .eq('id', bookingId)
+            .in('status', ['accepted','on_way','arrived','in_progress']);
+        }
         return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      // Any other error: do NOT complete the booking, so the caller / cron
-      // retries against a still-completable status instead of stranding the pay.
-      console.error('[capture] payout insert failed — not completing so it can retry', payoutErr);
-      return bad(500, 'Could not record payout. Please try again.');
+
+      const PLATFORM_FEE_BPS = 1500;
+      // Helper pay base: the FULL job price (legacy discounts were
+      // platform-funded and never docked the helper below minimum wage).
+      const payBaseCents = Math.max(
+        priceCents,
+        Number((booking.booking_data as Record<string, unknown> | null)?.helper_pay_base_cents) || 0,
+      );
+      studentCents = Math.floor(payBaseCents * (10000 - PLATFORM_FEE_BPS) / 10000);
+
+      // Record the payout FIRST, and only flip the booking to 'completed' once
+      // the helper's pay is durably on the books. UNIQUE(booking_id) makes a
+      // concurrent second completion lose the race (23505) → already-complete.
+      holdUntil = holdHours > 0 ? new Date(Date.now() + holdHours * 60 * 60 * 1000).toISOString() : null;
+      const { data: insertedPayout, error: payoutErr } = await supabase
+        .from('household_payouts')
+        .insert({ booking_id: bookingId, student_id: callerId, amount_cents: studentCents, status: 'pending', hold_until: holdUntil })
+        .select('id')
+        .single();
+
+      if (payoutErr) {
+        if ((payoutErr as { code?: string }).code === '23505') {
+          return new Response(JSON.stringify({ success: true, already_complete: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        console.error('[capture] payout insert failed — not completing so it can retry', payoutErr);
+        return bad(500, 'Could not record payout. Please try again.');
+      }
+      payoutRow = insertedPayout as { id: string };
     }
 
-    // Payout row is durable — now safe to mark completed (atomic status guard).
+    // Money side settled (legacy: payout row durable; direct-pay: nothing to
+    // move) — now safe to mark completed (atomic status guard).
     // Mint the per-booking rating token here (the completion choke-point): it's
     // delivered to the CUSTOMER via the tracking page and required by
     // rate-household-booking, so a helper can't rate their own job. Preserve an
@@ -269,7 +271,9 @@ serve(async (req) => {
   <div style="padding:28px 32px;">
     <p style="margin:0 0 16px;color:#111827;font-size:15px;">Hi ${custName},</p>
     <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-      <strong>${helperFirst}</strong> has completed your <strong>${catLabel}</strong>. Payment was handled upfront — nothing more to do.
+      <strong>${helperFirst}</strong> has completed your <strong>${catLabel}</strong>. ${directPay
+        ? `If you haven't already, settle up with ${helperFirst} directly — <strong>€${(priceCents / 100).toFixed(2)}</strong>${(booking.booking_data as Record<string, unknown> | null)?.helper_payment_handle ? ` (Revolut <strong>${(booking.booking_data as Record<string, unknown>).helper_payment_handle}</strong> or cash)` : ' (Revolut or cash)'} — they keep 100%.`
+        : 'Payment was handled upfront — nothing more to do.'}
     </p>
     <div style="background:#eef3ef;border:1px solid #d5e2d8;border-radius:14px;padding:20px;text-align:center;margin:0 0 24px;">
       <p style="margin:0 0 10px;color:#111827;font-size:15px;font-weight:700;">How was ${helperFirst}?</p>
@@ -292,13 +296,13 @@ serve(async (req) => {
           to:[custEmail],
           subject:`Your ${catLabel} is complete — how was ${helperFirst}?`,
           html,
-          text:`Hi ${custName}, ${helperFirst} has completed your ${catLabel}. Payment was handled upfront. How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
+          text:`Hi ${custName}, ${helperFirst} has completed your ${catLabel}. ${directPay ? `If you haven't already, settle up with ${helperFirst} directly — €${(priceCents / 100).toFixed(2)} (Revolut or cash).` : 'Payment was handled upfront.'} How was ${helperFirst}? Rate them here (takes 10 seconds): ${trackUrl}?rate=5 — Questions? WhatsApp +353 89 981 7111. Ref: ${ref}`,
         }),
       }).catch(()=>{});
     }
 
     const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
-    if (resendKey && adminEmail) fetch('https://api.resend.com/emails', { method:'POST', headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'}, body: JSON.stringify({ from, to:[adminEmail], subject:`✅ Job done — ${helperFirst} completed ${catLabel}`, text:`${helperFirst} completed a job.\nJob: ${catLabel}\nCustomer: ${custName}\nPaid: €${(priceCents/100).toFixed(2)} (student earns €${(studentCents/100).toFixed(2)})\nRef: ${ref}\nTrack: ${trackUrl}` }) }).catch(()=>{});
+    if (resendKey && adminEmail) fetch('https://api.resend.com/emails', { method:'POST', headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'}, body: JSON.stringify({ from, to:[adminEmail], subject:`✅ Job done — ${helperFirst} completed ${catLabel}`, text:`${helperFirst} completed a job.\nJob: ${catLabel}\nCustomer: ${custName}\n${directPay ? `Job money: €${(priceCents/100).toFixed(2)} paid to the student directly (100%)` : `Paid: €${(priceCents/100).toFixed(2)} (student earns €${(studentCents/100).toFixed(2)})`}\nRef: ${ref}\nTrack: ${trackUrl}` }) }).catch(()=>{});
 
     fetch(`${supabaseUrl}/functions/v1/notify-admin-whatsapp`, { method:'POST', headers:{Authorization:`Bearer ${serviceKey}`,'Content-Type':'application/json'}, body: JSON.stringify({ type:'job_complete', helper_name:helperFirst, customer_name:custName, category:(booking as Record<string,unknown>).category, city:(booking as Record<string,unknown>).city, price_euros:(priceCents/100).toFixed(2), student_earns_euros:(studentCents/100).toFixed(2), booking_id:bookingId }) }).catch(()=>{});
 

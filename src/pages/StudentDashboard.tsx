@@ -52,17 +52,18 @@ interface Booking {
   customer_name: string;
   customer_address: string;
   price_estimate_cents: number | null;
-  /** Payout base when a schedule/loyalty discount shrank the customer price —
-   *  the helper is still paid 85% of the FULL price (platform-funded). */
-  booking_data?: { helper_pay_base_cents?: number } | null;
+  /** direct_pay (July 2026): the customer pays the helper the full price
+   *  directly — 100%. helper_pay_base_cents is the legacy escrow payout base. */
+  booking_data?: { helper_pay_base_cents?: number; direct_pay?: boolean } | null;
   student_id: string | null;
   created_at: string;
 }
 
-/** 85% of the payout base — must match capture-household-payment. */
+/** What the helper actually keeps: 100% on direct-pay bookings (customer pays
+ *  them directly), 85% on legacy escrow bookings (matches the old payout). */
 function earnCentsFor(job: Booking): number {
   const base = Math.max(job.price_estimate_cents ?? 0, Number(job.booking_data?.helper_pay_base_cents) || 0);
-  return Math.floor(base * 0.85);
+  return job.booking_data?.direct_pay === true ? base : Math.floor(base * 0.85);
 }
 
 interface Payout {
@@ -143,6 +144,8 @@ const StudentDashboard = () => {
   const [helperName, setHelperName] = useState<string | null>(null);
   const [helperPhoto, setHelperPhoto] = useState<string | null>(null);
   const [helperBio,   setHelperBio]   = useState<string | null>(null);
+  // How customers pay this helper directly (Revolut tag) — direct-pay model.
+  const [helperHandle, setHelperHandle] = useState<string | null>(null);
   const [helperAvailability, setHelperAvailability] = useState<string[]>([]);
   // ✓ Verified badge state — null until the row loads, so no nudge flashes
   // at someone who's already verified.
@@ -206,7 +209,7 @@ const StudentDashboard = () => {
       setUserId(uid);
 
       // Load helper profile first so we can filter jobs by city + categories
-      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, average_rating, rating_count, autopilot_opt_in, student_email_verified, id_verified, verified_plan_active';
+      const HELPER_SELECT = 'id, name, phone, photo_url, is_available, city, categories, availability, bio, payment_handle, average_rating, rating_count, autopilot_opt_in, student_email_verified, id_verified, verified_plan_active';
       let { data: helperRow } = await hdb
         .from('household_helpers')
         .select(HELPER_SELECT)
@@ -236,6 +239,7 @@ const StudentDashboard = () => {
         setHelperName((helperRow.name as string | null) ?? null);
         setHelperPhoto((helperRow.photo_url as string | null) ?? null);
         setHelperBio((helperRow.bio as string | null) ?? null);
+        setHelperHandle((helperRow.payment_handle as string | null) ?? null);
         setHelperAvailability((helperRow.availability as string[] | null) ?? []);
         setHelperEmailVerified(!!helperRow.student_email_verified);
         setHelperIdVerified(!!helperRow.id_verified);
@@ -368,6 +372,7 @@ const StudentDashboard = () => {
   // ── Profile sheet state ─────────────────────────────────────────────────────
   const [showProfile,    setShowProfile]    = useState(false);
   const [profileBio,     setProfileBio]     = useState('');
+  const [profileHandle,  setProfileHandle]  = useState('');
   const [profileCats,    setProfileCats]    = useState<string[]>([]);
   const [profileAvail,   setProfileAvail]   = useState<string[]>([]);
   const [profileSaving,  setProfileSaving]  = useState(false);
@@ -398,6 +403,7 @@ const StudentDashboard = () => {
 
   const openProfile = () => {
     setProfileBio(helperBio ?? '');
+    setProfileHandle(helperHandle ?? '');
     setProfileCats(helperCategories);
     setProfileAvail(helperAvailability);
     setPhotoPreview(helperPhoto);
@@ -505,6 +511,7 @@ const StudentDashboard = () => {
         fd.append('phone', helperPhone);
         fd.append('photo', photoFile);
         fd.append('bio', profileBio.trim());
+        fd.append('payment_handle', profileHandle.trim());
         fd.append('availability', JSON.stringify(profileAvail));
         const res = await fetch(`${supabaseUrl}/functions/v1/update-helper-profile`, {
           method: 'POST',
@@ -521,12 +528,13 @@ const StudentDashboard = () => {
 
       const { error } = await hdb
         .from('household_helpers')
-        .update({ bio: profileBio.trim() || null, categories: profileCats, availability: profileAvail, ...(newPhotoUrl !== helperPhoto ? { photo_url: newPhotoUrl } : {}) })
+        .update({ bio: profileBio.trim() || null, payment_handle: profileHandle.trim() || null, categories: profileCats, availability: profileAvail, ...(newPhotoUrl !== helperPhoto ? { photo_url: newPhotoUrl } : {}) })
         .eq('user_id', userId);
       if (error) throw error;
 
       setHelperCategories(profileCats);
       setHelperBio(profileBio.trim() || null);
+      setHelperHandle(profileHandle.trim() || null);
       setHelperAvailability(profileAvail);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
@@ -1123,6 +1131,23 @@ const StudentDashboard = () => {
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                     />
                     <p className="text-right text-xs text-muted-foreground mt-1">{profileBio.length}/120</p>
+                  </section>
+
+                  {/* How customers pay you — direct-pay: customers settle the job
+                      with the helper directly (Revolut or cash), helper keeps 100%. */}
+                  <section>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">How customers pay you</p>
+                    <input
+                      type="text"
+                      value={profileHandle}
+                      onChange={e => setProfileHandle(e.target.value)}
+                      placeholder="Revolut tag, e.g. @seanog1"
+                      maxLength={60}
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Customers pay you directly when the job's done — you keep 100%. Your Revolut tag makes it one tap (cash works too).
+                    </p>
                   </section>
 
                   {/* Categories — shared groups + sub-skills (see helperSkills) */}

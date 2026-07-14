@@ -20,11 +20,12 @@ import { PhotoCropper } from '@/components/PhotoCropper';
 const CATEGORY_OPTIONS = SKILL_GROUPS.filter(g => g.id !== 'other');
 
 const STATS = [
-  { value: '€12–€65', label: 'per job' },
+  { value: '€15–€65', label: 'per job' },
   { value: 'Flexible', label: 'your hours' },
-  // Hourly anchor — the clearest student value prop, and a direct counter to
-  // "is €12 even worth my time?". Backed by the ≥min-wage floor (CLAUDE.md).
-  { value: '~€15/hr', label: 'typical rate' },
+  // Hourly anchor — the clearest student value prop. Direct-pay: customers
+  // pay helpers the full job price (€18/hr on hourly jobs), Vano's fee is
+  // charged to the customer — so 100% is honest, not marketing.
+  { value: '€18/hr', label: 'you keep 100%' },
 ];
 
 const REQUIREMENTS = [
@@ -481,7 +482,7 @@ export const JoinAsHelper: React.FC = () => {
     <>
       <SEOHead
         title="Earn money as a student helper in Ireland — VANO"
-        description="Pick up same-day home help jobs near you. Earn €12–€65 per job — laundry, dog walks, cleaning, gardening, tutoring & more. Flexible hours, paid after each job. Apply in minutes."
+        description="Pick up same-day home help jobs near you. Earn €15–€65 per job and keep 100% — laundry, dog walks, cleaning, gardening, tutoring & more. Flexible hours, paid directly after each job. Apply in minutes."
         keywords="student jobs Ireland, earn money as a student Galway, part time student jobs Cork Dublin Limerick, flexible student work Ireland, student helper jobs, VANO helper, home help jobs Ireland"
         url="https://vanojobs.com/join"
       />
@@ -949,7 +950,7 @@ export const JoinAsHelper: React.FC = () => {
               'You choose every job — see the customer and the task before you accept.',
               'Your live location is only shared while a job is on, never before or after.',
               'An arrival code confirms you’re at the right door before you start.',
-              'Guaranteed pay — your earnings are held and released to you automatically.',
+              'You keep 100% — customers pay you directly after each job (Revolut or cash), and unpaid jobs get their number blocked.',
               'One tap to reach us if anything ever feels off.',
             ].map((t) => (
               <li key={t} className="flex items-start gap-3">
@@ -968,7 +969,7 @@ export const JoinAsHelper: React.FC = () => {
             {[
               { n: '1', title: 'Join free & verify your ID', body: "Your details, a photo, and a free 2-minute ID check — then jobs can reach you. Confirming your college email unlocks the ✓ tick (€2/month, cancel anytime)." },
               { n: '2', title: 'Get matched to jobs', body: "When a job near you comes in, we'll text you first. Accept or pass — totally your call." },
-              { n: '3', title: 'Do the job, get paid', body: 'Show up, do great work, and get paid straight to your account after each job.' },
+              { n: '3', title: 'Do the job, get paid', body: 'Show up, do great work, and the customer pays you directly — Revolut or cash. You keep 100% of the job price.' },
             ].map(({ n, title, body }) => (
               <li key={n} className="flex gap-4">
                 <div className="w-8 h-8 rounded-full bg-sage text-white font-bold text-sm flex items-center justify-center flex-shrink-0 mt-0.5">{n}</div>

@@ -62,6 +62,7 @@ serve(async (req) => {
     const catsRaw      = (formData.get('categories')   as string | null);
     const newPhoneRaw  = (formData.get('new_phone')    as string | null)?.trim();
     const newEmailRaw  = (formData.get('new_email')    as string | null)?.trim().toLowerCase();
+    const handleRaw    = (formData.get('payment_handle') as string | null);
     const photo        = formData.get('photo') as File | null;
 
     if (!phone) return bad('phone is required');
@@ -142,6 +143,14 @@ serve(async (req) => {
       // one keeps it. We report which happened so the client doesn't blank the
       // blue tick on a no-op re-save (it can't see the stored email itself).
       if (newEmailRaw !== current) { updates.student_email_verified = false; emailUnverified = true; }
+    }
+
+    // Payment handle — how customers pay the helper directly (direct-pay
+    // model: helpers keep 100%, Vano only charges its booking fee). Usually
+    // a Revolut tag like "@seanog1". Empty string clears it.
+    if (handleRaw !== null) {
+      const cleaned = handleRaw.trim().replace(/\s+/g, ' ').slice(0, 60);
+      updates.payment_handle = cleaned || null;
     }
 
     // Photo upload

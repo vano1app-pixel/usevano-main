@@ -7,11 +7,13 @@ import {
   type Category,
   computePriceCents,
   CATEGORY_LABELS,
-  SERVICE_FEE_PCT,
 } from "../_shared/householdPricing.ts";
 // Free-text safety screen — shared pure module so the blocked lines are
 // pinned by vitest (src/lib/__tests__/safetyScreen.test.ts).
 import { screenRequestText } from "../_shared/safetyScreen.ts";
+// Direct-pay fee maths (July 2026): Vano charges ONLY its booking fee (+ the
+// optional €2 Vano Cover); the customer pays the student directly.
+import { computeVanoFeeCents, VANO_COVER_CENTS, UNPAID_STRIKE_BLOCK_THRESHOLD } from "../_shared/vanoFees.ts";
 
 // ── Inlined CORS ──────────────────────────────────────────────────────
 const FALLBACK_ORIGINS = [
@@ -114,7 +116,9 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     const body = await req.json().catch(() => ({}));
-    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw } = body;
+    const { category, when_label, size_label, extra_label, scheduled, note, customer_name, customer_phone, customer_email, customer_address, customer_lat, customer_lng, city, referral_code, scheduled_at: scheduledAtRaw, cover } = body;
+    // Optional Vano Cover add-on — customer-elected at booking, flat €2.
+    const coverOpted = cover === true;
 
     // Book-ahead: the client computes the target time from the chosen slot (it
     // knows the local timezone). Validate it here — must be a real future time
@@ -140,12 +144,11 @@ serve(async (req) => {
     const cat = category as Category;
     const sl  = typeof size_label  === 'string' ? size_label  : '';
     const el  = typeof extra_label === 'string' ? extra_label : '';
-    // The 10% book-ahead discount must be tied to a GENUINE future booking, not
-    // the raw client `scheduled` flag. Cross-check against scheduledAt (which is
-    // independently validated to be 20min–21d in the future): a caller posting
-    // {scheduled:true, when_label:"Now"} with no valid scheduled_at would
-    // otherwise get an ASAP job dispatched immediately AND 10% off — the
-    // platform funding a discount for a future slot it never actually gave up.
+    // "Scheduled" only counts when tied to a GENUINE future booking, not the
+    // raw client `scheduled` flag — cross-check against scheduledAt (which is
+    // independently validated to be 20min–21d in the future). No money rides
+    // on this any more (the old 10% book-ahead price cut retired with
+    // direct-pay); it's kept for dispatch timing + booking_data honesty.
     const isScheduled = scheduled === true && scheduledAt !== null;
 
     // ── Safety screen for free-text requests ─────────────────────────────
@@ -165,28 +168,33 @@ serve(async (req) => {
       }
     }
 
-    let priceCents = computePriceCents(cat, sl, el);
+    const priceCents = computePriceCents(cat, sl, el);
     if (!priceCents) {
       return bad(400, `No price available for ${category} / ${sl}${el ? ' / ' + el : ''}`);
     }
     const isMonthlyPlan = cat.startsWith('airbnb-');
 
-    // The FULL (undiscounted) price is the helper's pay base. Schedule and
-    // loyalty discounts are customer-side deals funded by the platform — they
-    // must never shrink what the helper is paid, or a €18/hr job drops under
-    // Ireland's €14.15/hr minimum wage after the 15% cut (the pricing
-    // invariant). Same principle the referral discount already follows.
-    const fullPriceCents = priceCents;
-
-    // Schedule and loyalty discounts don't apply to monthly Airbnb plans
-    if (!isMonthlyPlan && isScheduled) priceCents = Math.round(priceCents * 0.9);
+    // ── DIRECT-PAY MODEL (July 2026) ─────────────────────────────────────
+    // The job price is the STUDENT'S money, paid to them directly by the
+    // customer (Revolut / cash) — Vano never holds it, never discounts it,
+    // and the student keeps 100% (trivially above the €14.15/hr wage floor).
+    // Vano's card charge at accept is ONLY:
+    //   vano_fee_cents  — 15% of the job price, min €4 (_shared/vanoFees.ts)
+    //   cover_cents     — the optional €2 Vano Cover add-on
+    // All discounts (loyalty / referral) now apply to VANO'S FEE, never the
+    // student's money. The old book-ahead 10% price cut is gone for the same
+    // reason — Vano can't discount money it doesn't collect.
+    // (Airbnb monthly plans are parked with no UI door; they ride the same
+    // fee-only path — decide their billing if they're ever relaunched.)
+    const vanoFeeCents = computeVanoFeeCents(priceCents);
+    const coverCents = coverOpted ? VANO_COVER_CENTS : 0;
 
     const supabase = createClient(supabaseUrl, serviceKey);
     let isLoyalty = false;
     if (!isMonthlyPlan) {
-      // Only PAID bookings count toward loyalty — bookings are now created
-      // before payment, so counting all non-cancelled rows would let spam
-      // bookings farm the every-3rd-booking discount.
+      // Every 3rd booking: the VANO FEE is on us (the student's money is
+      // untouched — it was never ours to discount). Only PAID bookings count,
+      // so spam bookings can't farm the freebie.
       const { count: loyaltyCount } = await supabase
         .from('household_bookings')
         .select('id', { count: 'exact', head: true })
@@ -195,39 +203,49 @@ serve(async (req) => {
         .neq('status', 'cancelled');
       const confirmedCount = loyaltyCount ?? 0;
       isLoyalty = (confirmedCount + 1) % 3 === 0;
-      if (isLoyalty) priceCents = Math.round(priceCents * 0.5);
     }
-
-    // Vano's take has two parts: a 7.5% service fee added on top of the
-    // quoted price here, plus a 15% student-side cut taken off the price at
-    // completion (PLATFORM_FEE_BPS in capture-household-payment). Combined
-    // that's ~22.5% of the quoted price (~21% of what the customer pays) —
-    // NOT the 12.5% an older comment claimed. Every time-based labour rate
-    // is now €18/hr (cleaning, tutoring, garden, moving), so the 15% cut
-    // still nets the student €15.30/hr — clear of the €14.15/hr 2026
-    // minimum wage.
-    // The fee is 7.5% of the price the customer actually pays (post-discount)
-    // — it used to be computed before the loyalty halving, which made the
-    // promised "50% off" quietly smaller than 50%.
-    const serviceFeeCents  = isMonthlyPlan ? 0 : Math.round(priceCents * SERVICE_FEE_PCT);
 
     // ── Referral programme (give €5, get €5) ──────────────────────────────
     // Two mutually exclusive discounts, at most one per booking:
     //   welcome — first-ever booking arriving through a friend's ?ref link
     //   redeem  — referrer spending a credit a friend earned them
-    // Validated here, reserved on the booking, applied to the Stripe session
-    // by notify-household-accepted. Every step is best-effort: any error
-    // zeroes the discount and the booking proceeds at full price. Helper pay
-    // is based on the FULL price (helper_pay_base_cents), which the discount
-    // NEVER touches — the €5 rides a Stripe coupon, funded by the platform.
-    //
-    // NOT stacked with the loyalty 50%. Both are platform-funded (the helper is
-    // paid 85% of the FULL price either way), so combining them made the
-    // platform pay out well more than it collected on that booking. The loyalty
-    // 50% always beats the €5 referral on any real job, so we simply skip the
-    // referral on a loyalty booking — the customer keeps their €5 credit for a
-    // future (non-loyalty) booking, which is the better deal for them anyway.
+    // Direct-pay: the credit now comes off VANO'S FEE (usually making it
+    // free), never the student's money. Validated here, reserved on the
+    // booking, applied by notify-household-accepted. Best-effort: any error
+    // zeroes the discount and the booking proceeds at the normal fee.
+    // NOT stacked with the loyalty fee-waiver — on a loyalty booking the fee
+    // is already free, so the customer keeps their €5 credit for next time.
     const normalizedPhone = normalizeE164(customer_phone);
+
+    // ── Unpaid-strike guard (two-way reviews) ─────────────────────────────
+    // Direct-pay means a customer *could* stiff a student — so helpers report
+    // "didn't pay me" (household_customer_ratings.paid = false) and a phone
+    // with UNPAID_STRIKE_BLOCK_THRESHOLD strikes can't book online until the
+    // owner clears it. Checked against both stored phone forms.
+    const phoneFormsForRep = [...new Set([customer_phone.trim(), normalizedPhone].filter(Boolean))] as string[];
+    let unpaidStrikes = 0;
+    let repPaidJobs = 0;
+    let repStars: number | null = null;
+    try {
+      const { data: repRows } = await supabase
+        .from('household_customer_ratings')
+        .select('paid, rating')
+        .in('customer_phone', phoneFormsForRep);
+      for (const r of (repRows ?? []) as Array<{ paid: boolean; rating: number | null }>) {
+        if (r.paid === false) unpaidStrikes += 1;
+        else repPaidJobs += 1;
+      }
+      const stars = ((repRows ?? []) as Array<{ rating: number | null }>).map(r => r.rating).filter((n): n is number => typeof n === 'number');
+      if (stars.length > 0) repStars = Math.round((stars.reduce((a, b) => a + b, 0) / stars.length) * 10) / 10;
+    } catch (e) {
+      console.warn('[create-household-payment-checkout] customer-rep lookup skipped', e);
+    }
+    if (unpaidStrikes >= UNPAID_STRIKE_BLOCK_THRESHOLD) {
+      console.warn(`[checkout] blocked booking from ${normalizedPhone ?? customer_phone} — ${unpaidStrikes} unpaid strikes`);
+      return bad(422,
+        'We can\'t take this booking online — helpers have reported unpaid jobs on this number. ' +
+        'Message us on WhatsApp (+353 89 981 7111) and a person will sort it out.');
+    }
     let referralWelcome: { code: string; referrerPhone: string } | null = null;
     let redeemRow: { id: string; credit_cents: number } | null = null;
 
@@ -275,16 +293,20 @@ serve(async (req) => {
       }
     }
 
-    const baseTotalCents = priceCents + serviceFeeCents;
+    // Referral credit comes off the FEE only (the cover €2 funds the damage
+    // pot — never discounted). Loyalty already waives the whole fee.
+    const feeAfterLoyalty = isLoyalty ? 0 : vanoFeeCents;
     let referralDiscountCents = referralWelcome ? 500 : redeemRow ? Math.min(redeemRow.credit_cents, 500) : 0;
-    // Keep the eventual charge at least €1 so we never trip Stripe's minimum,
-    // and don't bother with sub-€1 discounts.
-    referralDiscountCents = Math.min(referralDiscountCents, Math.max(0, baseTotalCents - 100));
-    if (referralDiscountCents < 100) {
+    referralDiscountCents = Math.min(referralDiscountCents, feeAfterLoyalty);
+    if (referralDiscountCents <= 0) {
       referralDiscountCents = 0;
       referralWelcome = null;
       redeemRow = null;
     }
+    // What the customer's card is actually charged at accept. Can be €0
+    // (loyalty / referral covers the fee, no cover) — notify-household-
+    // accepted then skips Stripe entirely and marks the booking confirmed.
+    const feeDueCents = Math.max(0, feeAfterLoyalty - referralDiscountCents) + coverCents;
 
     // booking_data is built once and (only for welcome referrals) updated in
     // place after the referral row insert supplies its id.
@@ -296,12 +318,18 @@ serve(async (req) => {
       loyalty:       isLoyalty,
       note:          typeof note === 'string' ? note.trim() : null,
       source:        'task_showcase',
-      service_fee_cents: serviceFeeCents,
-      total_cents:       baseTotalCents,
-      // Helper pay base when a schedule/loyalty discount shrank the customer
-      // price: capture-household-payment and dispatch offers pay/quote 85% of
-      // THIS, so the discount is platform-funded, never docked from the helper.
-      ...(fullPriceCents > priceCents ? { helper_pay_base_cents: fullPriceCents } : {}),
+      // ── Direct-pay money picture ──
+      direct_pay:        true,
+      job_price_cents:   priceCents,     // the student's money, paid directly
+      vano_fee_cents:    vanoFeeCents,   // 15% min €4 — before discounts
+      fee_due_cents:     feeDueCents,    // what the card is charged at accept
+      cover_opted:       coverOpted,
+      cover_cents:       coverCents,
+      ...(isLoyalty ? { fee_waived_loyalty: true } : {}),
+      // Customer reputation snapshot for the helper's accept decision
+      // ("pays promptly ✓ · 3 jobs" / "New customer") — no PII beyond what
+      // the assigned helper sees anyway.
+      customer_rep: { paid_jobs: repPaidJobs, unpaid_reports: unpaidStrikes, ...(repStars != null ? { stars: repStars } : {}) },
       ...(referralDiscountCents > 0 ? {
         referral_discount_cents: referralDiscountCents,
         referral_kind: referralWelcome ? 'welcome' : 'redeem',
@@ -376,12 +404,12 @@ serve(async (req) => {
         const origin0 = req.headers.get('origin') || Deno.env.get('SITE_URL') || 'https://vanojobs.com';
         const trackUrl0 = `${origin0}/track/${recent.id}`;
         const bd0 = recent.booking_data as Record<string, unknown> | null;
-        const feeCents0 = Number(bd0?.service_fee_cents) || 0;
         // Quote the EXISTING booking's numbers, not this request's re-priced
-        // ones — they're the amounts that booking will actually charge.
-        const totalCents0 = Number(bd0?.total_cents) || priceCents + feeCents0;
+        // ones — they're the amounts that booking will actually use.
+        const jobCents0 = Number(bd0?.job_price_cents) || priceCents;
+        const feeDue0 = Number(bd0?.fee_due_cents ?? feeDueCents) || 0;
         return new Response(
-          JSON.stringify({ booking_id: recent.id, track_url: trackUrl0, checkout_url: trackUrl0, price_cents: totalCents0 - feeCents0, total_cents: totalCents0, pay_later: true, deduped: true }),
+          JSON.stringify({ booking_id: recent.id, track_url: trackUrl0, checkout_url: trackUrl0, price_cents: jobCents0, fee_due_cents: feeDue0, total_cents: jobCents0 + feeDue0, pay_later: true, deduped: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
@@ -556,7 +584,7 @@ serve(async (req) => {
     // Admin ping (WhatsApp + email) — used to fire from stripe-webhook on
     // payment, but payment now happens after acceptance, so notify here.
     const adminNotifyPromise = (async () => {
-      const priceStr = `€${((priceCents + serviceFeeCents) / 100).toFixed(2)}`;
+      const priceStr = `€${(priceCents / 100).toFixed(2)} to helper + €${(feeDueCents / 100).toFixed(2)} fee`;
       const ref = bookingId.slice(-8).toUpperCase();
       const catLabel = CATEGORY_LABELS[cat];
       try {
@@ -571,7 +599,7 @@ serve(async (req) => {
             category: cat,
             scheduled_date: when_label || 'flexible',
             city: cityVal,
-            price_euros: ((priceCents + serviceFeeCents) / 100).toFixed(2),
+            price_euros: (priceCents / 100).toFixed(2),
             booking_id: bookingId,
           }),
         });
@@ -589,17 +617,19 @@ serve(async (req) => {
           body: JSON.stringify({
             from: resendFrom,
             to: [adminEmail],
-            subject: `🆕 New booking — ${catLabel} in ${cityVal ?? '?'} (${priceStr}, pay on accept)`,
+            subject: `🆕 New booking — ${catLabel} in ${cityVal ?? '?'} (${priceStr})`,
             text: [
-              'New booking (unpaid — customer pays once a helper accepts).',
+              'New booking (direct-pay: Vano charges its fee on accept; the customer pays the helper directly).',
               `Job: ${catLabel}`,
               ...(typeof note === 'string' && note.trim() ? [`Details: ${note.trim()}`] : []),
               `Customer: ${customer_name.trim()}`,
               `Phone: ${customer_phone.trim()}`,
               `City: ${cityVal ?? '—'}`,
               `When: ${when_label || 'Flexible'}`,
-              `Total on accept: ${priceStr}`,
-              ...(referralDiscountCents > 0 ? [`Referral discount reserved: -€${(referralDiscountCents / 100).toFixed(2)}`] : []),
+              `Helper gets (paid directly): €${(priceCents / 100).toFixed(2)}`,
+              `Vano fee on accept: €${(feeDueCents / 100).toFixed(2)}${coverOpted ? ' (incl. €2 Vano Cover)' : ''}${isLoyalty ? ' (loyalty: fee waived)' : ''}`,
+              ...(unpaidStrikes > 0 ? [`⚠ Customer has ${unpaidStrikes} unpaid strike(s)`] : []),
+              ...(referralDiscountCents > 0 ? [`Referral credit applied to fee: -€${(referralDiscountCents / 100).toFixed(2)}`] : []),
               `Ref: ${ref}`,
               `Track: ${trackUrl}`,
             ].join('\n'),
@@ -625,7 +655,8 @@ serve(async (req) => {
         track_url: trackUrl,
         checkout_url: trackUrl,
         price_cents: priceCents,
-        total_cents: priceCents + serviceFeeCents,
+        fee_due_cents: feeDueCents,
+        total_cents: priceCents + feeDueCents,
         ...(referralDiscountCents > 0 ? { referral_discount_cents: referralDiscountCents } : {}),
         pay_later: true,
       }),

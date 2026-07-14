@@ -110,7 +110,8 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body?.booking_id === 'string' ? body.booking_id : null;
-    const action = (body?.action === 'verify' || body?.action === 'finished' || body?.action === 'start_without_code')
+    const action = (body?.action === 'verify' || body?.action === 'finished' || body?.action === 'start_without_code'
+      || body?.action === 'confirm_paid' || body?.action === 'report_unpaid')
       ? body.action : 'request';
     const code = typeof body?.code === 'string' ? body.code.trim() : '';
     if (!bookingId) return bad(400, 'booking_id required');
@@ -197,6 +198,86 @@ serve(async (req) => {
         body: JSON.stringify({ booking_id: bookingId }),
       }).catch(() => {});
       return json(200, { ok: true, status: 'in_progress', helper_finished: true });
+    }
+
+    if (action === 'confirm_paid' || action === 'report_unpaid') {
+      // ── Direct-pay two-way review ─────────────────────────────────────────
+      // The customer pays the helper directly, so the helper closes the loop:
+      // "I was paid" (optional star rating for the customer) or "they didn't
+      // pay me" — a STRIKE. Strikes alert the owner immediately and, at
+      // UNPAID_STRIKE_BLOCK_THRESHOLD (see _shared/vanoFees.ts), checkout
+      // blocks the customer's phone until the owner clears it.
+      // Upsert on booking_id so "not yet → paid" corrections just overwrite.
+      if (!['in_progress', 'completed'].includes(booking.status)) {
+        return bad(409, `Payment can be confirmed once the job is underway (status: ${booking.status})`);
+      }
+      const paid = action === 'confirm_paid';
+      const stars = Number.isInteger(body?.rating) && body.rating >= 1 && body.rating <= 5 ? body.rating as number : null;
+      const comment = typeof body?.comment === 'string' && body.comment.trim() ? body.comment.trim().slice(0, 400) : null;
+
+      // The ratings row keys on the HELPER ROW id (public profile id), falling
+      // back to the auth uid if the row lookup fails.
+      let helperRowId = callerId;
+      let helperFirst = 'A helper';
+      const { data: helperRow } = await supabase
+        .from('household_helpers').select('id, name').eq('user_id', callerId).maybeSingle() as { data: { id?: string; name?: string } | null };
+      if (helperRow?.id) helperRowId = helperRow.id;
+      if (helperRow?.name) helperFirst = helperRow.name.split(' ')[0];
+
+      const { error: rateErr } = await supabase
+        .from('household_customer_ratings')
+        .upsert({
+          booking_id: bookingId,
+          helper_id: helperRowId,
+          customer_phone: (booking.customer_phone ?? '').trim(),
+          paid,
+          rating: stars,
+          comment,
+        }, { onConflict: 'booking_id' });
+      if (rateErr) {
+        console.error('[household-arrival] customer rating upsert failed', rateErr);
+        return bad(500, 'Could not save — try again');
+      }
+
+      // Reflect on the booking so the customer's tracking page can switch the
+      // "Pay {name}" card to a paid tick (atomic top-level merge).
+      try {
+        await supabase.rpc('merge_booking_data', { p_id: bookingId, p_patch: { paid_to_helper: paid } });
+      } catch { /* display-only — never blocks */ }
+
+      if (!paid) {
+        // A strike — page the owner NOW (WhatsApp best-effort, email always).
+        const catLabel = booking.category ?? 'job';
+        const jobEuros = ((booking.price_estimate_cents ?? 0) / 100).toFixed(2);
+        const alertText = [
+          `🚨 UNPAID JOB reported by ${helperFirst}`,
+          `Booking: ${bookingId.slice(-8).toUpperCase()} (${catLabel})`,
+          `Customer: ${booking.customer_name ?? '—'} · ${booking.customer_phone ?? '—'}`,
+          `Owed to helper: €${jobEuros}`,
+          comment ? `Note: ${comment}` : null,
+          `A second strike blocks this number from booking.`,
+        ].filter(Boolean).join('\n');
+        const adminPhone = Deno.env.get('ADMIN_WHATSAPP_TO')?.trim() || Deno.env.get('ADMIN_PHONE')?.trim() || null;
+        if (adminPhone) void sendPocketMessage(adminPhone, alertText);
+        try {
+          const resendKey = Deno.env.get('RESEND_API_KEY')?.trim();
+          const adminEmail = Deno.env.get('ADMIN_EMAIL')?.trim();
+          if (resendKey && adminEmail) {
+            await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from: Deno.env.get('RESEND_FROM')?.trim() || 'VANO <onboarding@resend.dev>',
+                to: [adminEmail],
+                subject: `🚨 Helper reports UNPAID job — ${booking.customer_phone ?? 'unknown phone'}`,
+                text: alertText,
+              }),
+            });
+          }
+        } catch (e) { console.warn('[household-arrival] unpaid-alert email failed', e); }
+      }
+
+      return json(200, { ok: true, paid });
     }
 
     if (action === 'start_without_code') {

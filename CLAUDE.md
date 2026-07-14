@@ -28,17 +28,31 @@ more trusted? If not, it waits.
 Run `typecheck` + `test` before pushing.
 
 ## The one booking path (important — don't add a second)
-There is exactly ONE customer booking flow:
+There is exactly ONE customer booking flow — **DIRECT-PAY since July 2026**
+(`booking_data.direct_pay === true`; bookings without the flag are legacy
+escrow and complete under the old rules everywhere):
 
 1. Homepage hero → **`CategoryGrid`** quick-book bottom sheet
-   (`src/components/household/CategoryGrid.tsx`).
+   (`src/components/household/CategoryGrid.tsx`). Shows the job price ("paid
+   to your helper directly — they keep 100%"), the VANO booking fee, and the
+   optional €2 Vano Cover checkbox.
 2. → **`create-household-payment-checkout`** edge function: prices the job
-   server-side, inserts the booking, dispatches to helpers. **Pay-after-accept**
-   — the customer pays only once a helper accepts (no upfront payment).
-3. → `dispatch-household-job` → helpers get SMS/push → `accept-job`.
-4. → `notify-household-accepted` emails the Stripe Checkout pay link.
-5. → helper completes via **`capture-household-payment`**: marks done, writes
-   the payout row, fires the Stripe transfer to the helper.
+   server-side, computes the fee (`_shared/vanoFees.ts` — 15% min €4 + €2
+   cover if opted), blocks customers with ≥2 unpaid-job strikes, stamps a
+   `customer_rep` snapshot, inserts the booking, dispatches. **Pay-after-
+   accept** still holds — but what's charged at accept is ONLY Vano's fee.
+3. → `dispatch-household-job` → helpers get SMS/push (offers show 100%
+   earnings) → `accept-job`.
+4. → `notify-household-accepted` sends the Stripe Checkout link for the
+   **fee only** (fee-free loyalty/referral bookings skip Stripe — `paid_at`
+   set directly). The job price is NEVER charged to the card: the customer
+   pays the helper directly (Revolut tag / cash) when the job's done.
+5. → helper finishes; **`capture-household-payment`** still flips status to
+   completed (three doors: customer confirm, admin, 48h auto-confirm) but
+   for direct-pay writes NO payout row and fires NO transfer. The helper
+   confirms they were paid (or reports unpaid) via `household-arrival`'s
+   `confirm_paid`/`report_unpaid` actions → `household_customer_ratings`
+   (the two-way review; 2 unpaid strikes = phone blocked at checkout).
 
 > A second multi-step `/book/:category` flow used to exist; it was deleted.
 > The quick sheet is the only path.
@@ -84,11 +98,13 @@ sweep, and the unpaid-release sweep.
   status='pending'`) via the signed one-tap link (`accept-job`) or in-app
   (`StudentJobDetail.tsx` `claimJob`).
 - **Pay** happens AFTER accept: `notify-household-accepted` creates the
-  Stripe Checkout session (job + 7.5% service-fee line, card saved for
-  future off-session use), stores the link on the booking and sends it by
-  WhatsApp/SMS/email. TrackBooking shows a pay card too — the reliable path
-  when messages don't land. `remind-unpaid-bookings` chases, then releases
-  the helper (2h) and cancels (6h timeout / 24h sweep).
+  Stripe Checkout session — **direct-pay: fee_due_cents only** (booking-fee
+  line + optional Vano Cover line; fee-free loyalty/referral bookings skip
+  Stripe and set `paid_at` directly). Legacy escrow bookings still get the
+  old job + 7.5% service-fee session. The link is stored on the booking and
+  sent by WhatsApp/SMS/email; TrackBooking shows a pay card too — the
+  reliable path when messages don't land. `remind-unpaid-bookings` chases,
+  then releases the helper (2h) and cancels (6h timeout / 24h sweep).
 - **The helper cannot start until `paid_at` is set** (gate in
   StudentJobDetail). On "on my way" the helper's GPS streams to
   `worker_lat/lng` every 15s; TrackBooking renders a live Leaflet map + ETA.
@@ -97,14 +113,24 @@ sweep, and the unpaid-release sweep.
   (5-attempt lockout; `start_without_code` fallback notifies customer +
   admin). Never put the code in a push/SMS.
 - **Helpers never complete a job.** "I've finished" only sets
-  `helper_finished_at`. Completion + payout is the single choke-point
+  `helper_finished_at`. Completion is the single choke-point
   **`capture-household-payment`** (internal-only, refuses helper JWTs),
   reached three ways: the customer's "mark done" (`complete-household-job`),
   admin (`admin-complete-household-job`), or the 48h auto-confirm in
-  `remind-confirm-completion`. It writes the `household_payouts` row FIRST,
-  then flips status; customer-confirmed → immediate Stripe transfer,
-  auto-confirmed → payout held with `hold_until` (cooling-off) and released
-  by the `release-household-payouts` cron.
+  `remind-confirm-completion`. **Direct-pay: it only flips status** (no
+  payout row, no transfer — the customer pays the helper directly; the
+  completion email nudges them to settle up). Legacy escrow: writes the
+  `household_payouts` row FIRST, then flips; customer-confirmed → immediate
+  Stripe transfer, auto-confirmed → payout held with `hold_until` and
+  released by the `release-household-payouts` cron.
+- **Did-you-get-paid (direct-pay only):** after finishing, StudentJobDetail
+  shows the gold "Did {customer} pay you €X?" card → `household-arrival`
+  `confirm_paid` (optional 1–5 stars) or `report_unpaid` (two-tap; alerts
+  admin). Upserts `household_customer_ratings` (unique per booking,
+  service-role only); `paid=false` rows are strikes — **≥2 strikes blocks
+  the phone at checkout** (owner can clear rows to unblock). Checkout stamps
+  a `customer_rep` snapshot into booking_data so dispatch offers show "Pays
+  promptly · N jobs · ★X" / "⚠ N unpaid reports" before a helper accepts.
 - **Anonymous customers poll** — TrackBooking refreshes by 5s polling via
   SECURITY-DEFINER RPCs (`get_household_booking`); the realtime
   subscriptions only work for signed-in users. Don't "fix" the polling.
@@ -150,13 +176,24 @@ rounds or the `custom` catch-all.
   `src/lib/__tests__/homeMemoryWhatsapp.test.ts` imports it DIRECTLY and
   cross-checks it against the frontend table; `householdPayMath.test.ts`
   keeps the hardcoded wage-floor contract.
+- **Fee maths (direct-pay):** `functions/_shared/vanoFees.ts` is the single
+  source — `VANO_FEE_BPS=1500` (15% of job price), `VANO_FEE_MIN_CENTS=400`
+  (€4 floor), `VANO_COVER_CENTS=200` (€2 opt-in),
+  `UNPAID_STRIKE_BLOCK_THRESHOLD=2`. Mirrored in `src/lib/householdPricing.ts`
+  for sheet display; `householdPayMath.test.ts` locks the two in step.
 - **INVARIANT:** every *time-based* rate must net a student ≥ Ireland's minimum
-  wage (€14.15/hr, 2026) after the 15% platform cut. That's why cleaning,
-  tutoring, garden and moving are all €18/hr (net €15.30/hr). The test fails if
-  a rate drops below the floor. *Job-based* flat prices (laundry, bins,
-  errands) price the task, not the hour.
-- **Vano's take:** 7.5% customer fee + 15% student-side cut ≈ 22.5% of the
-  quoted price (`PLATFORM_FEE_BPS = 1500` in `capture-household-payment`).
+  wage (€14.15/hr, 2026). Direct-pay makes this trivial — helpers keep 100%
+  (€18/hr on cleaning, tutoring, garden, moving) — but the test still fails
+  if a rate ever drops below the floor. *Job-based* flat prices (laundry,
+  bins, errands) price the task, not the hour.
+- **Vano's take (direct-pay):** ONLY the booking fee — 15% of the job price,
+  min €4, charged to the customer's card at accept (+ €2 Cover if opted).
+  Nothing is taken from the helper. Discounts (loyalty every-3rd = fee
+  waived; referral €5) apply to the FEE only — never the job price, which
+  isn't Vano's money. The old 10% book-ahead price cut is gone.
+- **Legacy escrow take** (bookings without `direct_pay`): 7.5% customer fee
+  + 15% student-side cut (`PLATFORM_FEE_BPS = 1500` in
+  `capture-household-payment`) — kept only so in-flight bookings complete.
 
 ## The helper funnel (supply side — how sign-up, verification & the blue tick work)
 The booking flow only converts if there are trusted helpers to dispatch to,
@@ -283,19 +320,28 @@ extend it.
   StudentDashboard/Auth.tsx.
 
 ## Money movement & escrow
-- **Household fees**: customer pays job price + 7.5% service fee at
-  checkout; helper is paid job price − 15% platform cut
-  (`PLATFORM_FEE_BPS = 1500` in `capture-household-payment`) → helper nets
-  **85%**. ⚠️ Known inconsistency: dispatch offers and the dashboard's
-  "you keep" figure still show **95%** — see "needs improving".
-- **Household payout ledger**: `household_payouts`, unique per booking,
-  written before the status flip. Transfers are Stripe Connect (Separate
-  Charges & Transfers). Held payouts (`pending` / `hold_until`) are swept by
-  `release-household-payouts` (retries 6× then `failed` + pages owner; also
-  runs a 14-day reconciliation backfill for missing payout rows).
-- **Refund paths**: customer cancel, `report-household-problem` (only while
-  helper unpaid), `no-helper-fallback`, and `stripe-webhook`'s orphan-charge
-  guard (payment landing on an already-cancelled booking auto-refunds).
+- **DIRECT-PAY (all new bookings, `booking_data.direct_pay`)**: Vano's card
+  charge = booking fee (15% min €4) + optional €2 Cover, nothing else. The
+  job price moves customer→helper directly (Revolut tag on the helper row —
+  `payment_handle`, editable via `update-helper-profile` + both profile
+  editors; TrackBooking deep-links `revolut.me/<tag>`). Helper keeps 100%.
+  NO payout row, NO transfer, NO Stripe Connect requirement for new helpers.
+  `household_customer_ratings` is the two-way review + unpaid-strike ledger.
+- **Legacy escrow (bookings without the flag)**: customer paid job price +
+  7.5% service fee; helper is paid job price − 15% platform cut
+  (`PLATFORM_FEE_BPS = 1500` in `capture-household-payment`) → nets 85%.
+- **Household payout ledger (legacy only)**: `household_payouts`, unique per
+  booking, written before the status flip. Transfers are Stripe Connect
+  (Separate Charges & Transfers). Held payouts (`pending` / `hold_until`)
+  swept by `release-household-payouts` (retries 6× then `failed` + pages
+  owner; also runs a 14-day reconciliation backfill). Direct-pay bookings
+  never create rows, so these crons go naturally idle. The dashboard's
+  `HouseholdHelperVanoPayCard` hides itself unless legacy traces exist.
+- **Refund paths** (refunds always refund whatever WAS charged — under
+  direct-pay that's just the fee): customer cancel,
+  `report-household-problem` (only while helper unpaid),
+  `no-helper-fallback`, and `stripe-webhook`'s orphan-charge guard (payment
+  landing on an already-cancelled booking auto-refunds).
 - **"Vano Pay" (`vano_payments`) is the LEGACY freelancer escrow — different
   money, different tables.** 4%/4% fee split, 14-day auto-release
   (`auto-release-held-payments` + `remind-held-payments` crons),
@@ -532,3 +578,20 @@ return (migration `20260708020000` grants them) — plus VerifyHelper now
 caches completed stages per helper in localStorage (upgrade-only, instant
 ticks even on a failed fetch) and persists the mid-OTP "code sent" state
 (10-min TTL matching the code) so a reload keeps the code box open.
+
+**The DIRECT-PAY pivot (July 2026, the big one — see "The one booking path"
+and "Money movement" above):** Vano stopped holding job money entirely to
+stay clear of payment-intermediary exposure. Card charge at accept =
+booking fee (15% min €4, `_shared/vanoFees.ts`) + optional €2 Vano Cover
+(now an opt-in checkbox in the sheet, no longer bundled); customers pay
+helpers directly (Revolut `payment_handle` / cash) and helpers keep 100%
+(dispatch offers, dashboard earnings, JoinAsHelper, blog/glossary/service
+content all updated); two-way reviews via `household_customer_ratings`
+(helper confirms paid / reports unpaid on the job screen, optional stars;
+≥2 unpaid strikes auto-block the phone at checkout, `customer_rep` snapshot
+shown on offers); loyalty (every 3rd fee free) + referral (€5 off the fee)
+now discount ONLY the fee, and the 10% book-ahead price cut is gone;
+migration `20260715000000` (payment_handle + household_customer_ratings);
+everything branches on `booking_data.direct_pay` so in-flight escrow
+bookings finish under the old rules, and the payout card/crons go
+naturally idle rather than being ripped out.

@@ -15,8 +15,8 @@ import { motion, type Variants } from 'framer-motion';
 
 const STEPS = [
   { n: '1', title: 'Tap what you need', lines: ['Pick a job — no typing', 'See a fair price'] },
-  { n: '2', title: 'Book in seconds',      lines: ['Drop your number', 'Pay only when a helper accepts'] },
-  { n: '3', title: 'An ID-verified student does it', lines: ['Shows up & does the job', "Paid only when you're happy"] },
+  { n: '2', title: 'Book in seconds',      lines: ['Drop your number', 'Small fee only when a helper accepts'] },
+  { n: '3', title: 'An ID-verified student does it', lines: ['Shows up & does the job', 'Pay them directly when it’s done'] },
 ];
 
 const container: Variants = {
