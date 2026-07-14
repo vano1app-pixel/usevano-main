@@ -12,7 +12,7 @@ import { BeforeAfterCard } from '@/components/household/BeforeAfterCard';
 import { BookingEmailCapture } from '@/components/household/BookingEmailCapture';
 import { IosInstallTip } from '@/components/IosInstallTip';
 import { isTimedCategory, formatCountdown, pendingWaitTier } from '@/lib/householdJob';
-import { categoryLabel } from '@/lib/bookingLabels';
+import { categoryLabel, categoryEmoji } from '@/lib/bookingLabels';
 import { celebrateBooking, microCelebrate } from '@/lib/celebrate';
 import logo from '@/assets/logo.png';
 import 'leaflet/dist/leaflet.css';
@@ -220,6 +220,7 @@ function formatTimeSlot(slot: string | null): string | null {
 function formatDate(d: string | null): string {
   if (!d) return 'As soon as possible';
   const lower = d.toLowerCase();
+  if (lower === 'now' || lower === 'asap') return 'As soon as possible';
   if (lower === 'today') return 'Today';
   if (lower === 'tomorrow') return 'Tomorrow';
   if (lower === 'flexible' || lower === 'this weekend' || lower === 'next week') return d;
@@ -749,7 +750,7 @@ const TrackBooking = () => {
     // Skeleton in the shape of the page (header line, status card, steps) —
     // the customer lands here at their most anxious, so no bare spinner.
     return (
-      <div className="min-h-dvh bg-background">
+      <div className="min-h-dvh bg-cream">
         <main className="max-w-lg mx-auto px-4 pt-8 space-y-6" aria-busy="true" aria-label="Loading your booking">
           <div className="space-y-2">
             <div className="h-4 w-28 rounded bg-secondary animate-pulse" />
@@ -773,7 +774,7 @@ const TrackBooking = () => {
 
   if (!booking) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-4 text-center">
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-4 text-center bg-cream">
         <span className="text-3xl" aria-hidden="true">🔍</span>
         <div>
           <p className="text-lg font-semibold text-foreground">We couldn't find that booking</p>
@@ -814,10 +815,12 @@ const TrackBooking = () => {
   const mapLng = (helperLoc ? booking.worker_lng : booking.customer_lng) as number;
 
   return (
-    <div className="min-h-dvh bg-background">
+    // Cream base + floating white cards — the same warm design language as the
+    // booking flow, so the sheet → tracking handoff reads as one product.
+    <div className="min-h-dvh bg-cream">
       <SEOHead title="Track your booking" description="Track your VANO booking status in real time." noindex />
 
-      <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-background/95 backdrop-blur-xl border-b border-border/50">
+      <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-4 bg-cream/95 backdrop-blur-xl border-b border-border/50">
         <button
           onClick={() => navigate('/home')}
           className="flex items-center justify-center w-11 h-11 -ml-2.5 rounded-full hover:bg-secondary active:scale-90 transition-[transform,background-color]"
@@ -867,19 +870,35 @@ const TrackBooking = () => {
           )}
         </AnimatePresence>
 
-        {/* Booking summary card */}
-        <div className="mt-6 rounded-2xl border border-border/60 bg-secondary/30 p-5">
+        {/* Booking summary card — the anchor of the page. Job first (the same
+            emoji tile the customer tapped to book), when underneath, price on
+            the right. A floating white card on the cream base, rising in as
+            the first beat of the page's entrance cascade. */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
+          className="mt-6 rounded-2xl surface-float border border-black/5 bg-white p-5"
+        >
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">
-                {formatCategory(booking.category)}
-              </p>
-              <p className="text-base font-semibold text-foreground leading-snug">
-                {formatDate(booking.scheduled_date)}
-              </p>
-              {formatTimeSlot(booking.time_slot) && (
-                <p className="text-sm text-muted-foreground mt-0.5">{formatTimeSlot(booking.time_slot)}</p>
-              )}
+            <div className="flex items-start gap-3 min-w-0">
+              <span
+                className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary/60 text-2xl leading-none flex-shrink-0"
+                aria-hidden="true"
+              >
+                {categoryEmoji(booking.category)}
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-foreground leading-snug">
+                  {formatCategory(booking.category)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {formatDate(booking.scheduled_date)}
+                </p>
+                {formatTimeSlot(booking.time_slot) && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{formatTimeSlot(booking.time_slot)}</p>
+                )}
+              </div>
             </div>
             {booking.price_estimate_cents && (
               <div className="flex flex-col items-end flex-shrink-0">
@@ -895,12 +914,12 @@ const TrackBooking = () => {
             )}
           </div>
           {booking.customer_address && booking.customer_address !== 'Not provided' && (
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border/40 text-xs text-muted-foreground">
               <MapPin size={12} className="flex-shrink-0" />
               <span className="truncate">{booking.customer_address}</span>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* iOS add-to-home-screen nudge — only shows on iOS Safari when not yet
             installed; makes web-push live updates reliable. Purely additive. */}
@@ -918,7 +937,7 @@ const TrackBooking = () => {
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }}
             className="mt-4 rounded-2xl overflow-hidden border border-border/60 shadow-lg"
           >
-            <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border/40">
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-border/40">
               <div className="flex items-center gap-2 min-w-0">
                 <Navigation size={15} className="text-sage flex-shrink-0" />
                 <div className="min-w-0">
@@ -996,7 +1015,7 @@ const TrackBooking = () => {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
-            className="mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-secondary/30 px-4 py-3"
+            className="mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-white px-4 py-3"
           >
             <div className="w-9 h-9 rounded-full bg-sage/15 flex items-center justify-center flex-shrink-0">
               <Bell size={16} className="text-sage" />
@@ -1286,7 +1305,7 @@ const TrackBooking = () => {
             // mid-job — reassure them there's nothing to do right now.
             if (booking.stripe_checkout_url) return null;
             return (
-              <div className="mt-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 text-center">
+              <div className="mt-4 rounded-2xl border border-border/60 bg-white p-5 text-center">
                 <p className="text-sm font-semibold text-foreground">
                   {helperName ? `${helperName} is on the job` : 'Your helper is on the job'}
                 </p>
@@ -1347,7 +1366,11 @@ const TrackBooking = () => {
         {/* Status area */}
         <div className="mt-6">
           {isPending && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] as const, delay: 0.1 }}
+            >
               {/* Uber-style live search: a radar sweep over the job location
                   (or a generic pulse when we have no coordinates), a real count
                   of helpers notified, and a calm reassurance line. Transitions
@@ -1494,7 +1517,12 @@ const TrackBooking = () => {
           )}
 
           {!isPending && !isCancelled && (
-            <div className="space-y-0">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] as const, delay: 0.08 }}
+              className="space-y-0"
+            >
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Progress</p>
               {STATUS_STEPS.map((step, i) => {
                 const done   = i <= currentStepIndex;
@@ -1557,7 +1585,7 @@ const TrackBooking = () => {
                   </div>
                 );
               })}
-            </div>
+            </motion.div>
           )}
         </div>
 
@@ -1804,7 +1832,7 @@ const TrackBooking = () => {
                         'max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed',
                         isMe
                           ? 'bg-primary text-primary-foreground rounded-br-sm'
-                          : 'bg-secondary text-foreground rounded-bl-sm border border-border/40',
+                          : 'bg-white text-foreground rounded-bl-sm border border-border/40',
                       )}>
                         {msg.body}
                       </div>
@@ -1847,7 +1875,7 @@ const TrackBooking = () => {
             initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="w-full max-w-sm md:max-w-lg bg-background border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
+            className="w-full max-w-sm md:max-w-lg bg-white border border-border/60 rounded-2xl overflow-hidden shadow-2xl"
           >
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
               <div className="flex items-center gap-2">
@@ -1908,7 +1936,7 @@ const TrackBooking = () => {
 
       {/* Chat input */}
       {booking.student_id && !isCompleted && !isCancelled && userId && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-cream/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom px-4 py-3">
           <div className="max-w-sm md:max-w-lg mx-auto flex items-center gap-2">
             <input
               type="text"
@@ -1916,7 +1944,7 @@ const TrackBooking = () => {
               onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
               placeholder="Message your helper…"
-              className="flex-1 h-11 rounded-full bg-secondary border border-border/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex-1 h-11 rounded-full bg-white border border-border/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <button
               onClick={() => void sendMessage()}

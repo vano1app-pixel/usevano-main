@@ -437,6 +437,9 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
   const [cityAuto, setCityAuto] = useState(false);
   const [prefilled, setPrefilled] = useState(!!remembered);
   const [loading,  setLoading] = useState(false);
+  // Success beat: the booking landed — the button confirms it for a moment
+  // before the tracking page takes over, so the handoff reads as one flow.
+  const [bookedOk, setBookedOk] = useState(false);
   const [error,    setError]   = useState<string | null>(null);
   // True only after the checkout call itself failed (not field validation) —
   // flips the WhatsApp fallback into the primary recovery action.
@@ -820,14 +823,20 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         lastCategory: cat.slug,
         lastSize:     size,
       });
-      // Same-origin handoff (the /track page) rides the SPA router — instant
-      // slide, no white-flash full reload at the peak-momentum moment.
-      // Anything external (a real Stripe URL) still hard-navigates.
+      // Same-origin handoff (the /track page) rides the SPA router — no
+      // white-flash full reload at the peak-momentum moment. A short
+      // "Booked ✓" beat on the button acknowledges the moment first, then
+      // the tracking page fades in and its radar + celebration take the
+      // baton — teleporting mid-spinner read as a glitch. Anything external
+      // (a real Stripe URL) still hard-navigates immediately.
       const dest = data.checkout_url as string;
       try {
         const u = new URL(dest, window.location.origin);
         if (u.origin === window.location.origin) {
-          navigate(u.pathname + u.search);
+          setLoading(false);
+          setBookedOk(true);
+          haptic(20);
+          window.setTimeout(() => navigate(u.pathname + u.search), 700);
           return;
         }
       } catch { /* malformed URL — fall through to the hard redirect */ }
@@ -1398,10 +1407,21 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
           exit={{ y: 14, opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } }}
           className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
           {/* Risk-reversal at the decision point — the single most reassuring
-              fact (you don't pay until a helper accepts) rides with the CTA. */}
+              fact (you don't pay until a helper accepts) rides with the CTA.
+              Swaps to the success line during the booked beat. */}
           <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-sage-dark">
-            <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            No payment until a helper accepts · money-back guarantee
+            <motion.span
+              key={bookedOk ? 'assure-booked' : 'assure-ready'}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              {bookedOk
+                ? 'Booked — taking you to live tracking…'
+                : 'No payment until a helper accepts · money-back guarantee'}
+            </motion.span>
           </p>
 
           <motion.div
@@ -1419,19 +1439,31 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             <Button
               type="submit"
               form="quick-book-form"
-              disabled={loading || !phone.trim()}
-              className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary"
+              disabled={loading || bookedOk || !phone.trim()}
+              className="w-full rounded-full gap-2 font-semibold text-base h-[52px] tabular-nums bg-primary hover:bg-primary disabled:opacity-100"
             >
-              {/* Keyed on the state so ready ↔ booking crossfades instead of
-                  the label snapping at the highest-anxiety moment. */}
+              {/* Keyed on the state so ready → booking → booked crossfades
+                  instead of the label snapping at the highest-anxiety moment. */}
               <motion.span
-                key={loading ? 'cta-loading' : 'cta-ready'}
+                key={bookedOk ? 'cta-booked' : loading ? 'cta-loading' : 'cta-ready'}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
                 className="inline-flex items-center gap-2"
               >
-                {loading
+                {bookedOk
+                  ? <>
+                      <motion.span
+                        className="inline-flex"
+                        initial={{ scale: 0.4, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                      >
+                        <Check className="w-5 h-5" strokeWidth={3} />
+                      </motion.span>
+                      Booked
+                    </>
+                  : loading
                   ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</>
                   : <>
                       <motion.span

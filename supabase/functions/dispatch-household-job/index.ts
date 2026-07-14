@@ -53,6 +53,29 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'General help',
 };
 
+// "€54" not "€54.00" — drop the cents when they're zero, everywhere the offer
+// shows money (subject, push, WhatsApp/SMS, email). Cleaner and easier to scan.
+function fmtEuro(cents: number): string {
+  const eur = cents / 100;
+  return Number.isInteger(eur) ? `€${eur}` : `€${eur.toFixed(2)}`;
+}
+
+// scheduled_date stores the human "when" label from the quick sheet — 'Now',
+// '1pm', 'Tomorrow 9am', 'flexible' (or null). Make it read like a person
+// wrote it: helpers decide fast when the when is unambiguous.
+function friendlyWhen(sd: string | null): string {
+  const s = (sd ?? '').trim();
+  if (!s || /^(now|asap|flexible)$/i.test(s)) return 'ASAP — as soon as you accept';
+  if (/^\d{1,2}(:\d{2})?\s*(am|pm)$/i.test(s)) return `Today at ${s}`;
+  return s;
+}
+
+// The customer's own words (booking_data.note) ride into the offer — escape
+// them before they touch HTML.
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ── Web push (raw VAPID + aes128gcm, same implementation as notify-new-message) ──
 function base64UrlToArrayBuffer(base64url: string): ArrayBuffer {
   const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
@@ -651,6 +674,22 @@ serve(async (req) => {
     const catLabel = CATEGORY_LABELS[category] ?? 'Household help';
     const jobUrl = `${siteUrl}/student-job/${bookingId}`;
 
+    // What the offer actually says — the "better info" principle: a custom
+    // booking's real job name (extra_label) beats the generic category, the
+    // customer's own words (note) ride along, and the booked duration +
+    // friendly "when" answer the two questions a helper asks before tapping.
+    const jobLabel = (typeof bookingDataForPay?.extra_label === 'string' && bookingDataForPay.extra_label.trim())
+      ? (bookingDataForPay.extra_label as string).trim()
+      : catLabel;
+    const noteRaw = typeof bookingDataForPay?.note === 'string' ? (bookingDataForPay.note as string).trim() : '';
+    const jobNote = noteRaw && noteRaw.toLowerCase() !== jobLabel.toLowerCase()
+      ? (noteRaw.length > 140 ? `${noteRaw.slice(0, 139)}…` : noteRaw)
+      : '';
+    const duration = typeof bookingDataForPay?.size_label === 'string' && (bookingDataForPay.size_label as string).trim()
+      ? (bookingDataForPay.size_label as string).trim()
+      : '';
+    const whenText = friendlyWhen(scheduled_date);
+
     // One-tap accept links — a signed, expiring, per-helper link that claims the
     // job in a single tap with no login (see accept-job + _shared/acceptToken).
     // Removes the #1 reason offers get missed: friction. Falls back to jobUrl if
@@ -683,8 +722,8 @@ serve(async (req) => {
           .in('user_id', userIds);
         if (subs && subs.length > 0) {
           const pushPayload = JSON.stringify({
-            title: earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ${catLabel}` : `New job — ${catLabel}`,
-            body: `${city ?? 'Ireland'} · first to accept gets it`,
+            title: earnCents ? `Earn ${fmtEuro(earnCents)} — ${jobLabel}` : `New job — ${jobLabel}`,
+            body: `${city ?? 'Ireland'}${duration ? ` · ${duration}` : ''} · first to accept gets it`,
             tag: `vano-job-${bookingId}`,
             url: `/student-job/${bookingId}`,
           });
@@ -706,7 +745,8 @@ serve(async (req) => {
     // brand-new job. Only the repeat *email* is suppressed on quiet rounds.
     {
       const reminderPrefix = quiet ? 'Still open ⏰ ' : '';
-      const lead = `VANO: ${reminderPrefix}${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}.`;
+      const whenShort = /^ASAP/.test(whenText) ? 'ASAP' : whenText;
+      const lead = `VANO: ${reminderPrefix}${earnCents ? `Earn ${fmtEuro(earnCents)} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${city ?? 'your area'}, ${whenShort}.`;
       const phoneHelpers = (helpers as Array<{ id: string; phone?: string }>).filter((h) => h.phone);
       const phoneResults = await Promise.allSettled(
         // Per-helper one-tap link: tapping claims the job, no login.
@@ -717,10 +757,12 @@ serve(async (req) => {
       console.log(`[dispatch] pocket channels${quiet ? ' (reminder)' : ''} — WhatsApp ${waOk}/${phoneHelpers.length}, SMS ${smsOk}/${phoneHelpers.length}`);
     }
 
-    // Email each helper with a direct link to the specific job.
+    // Email each helper — designed to be decided in one glance: how much
+    // (header), what/where/when (one details card), then ONE big button that
+    // claims the job in a single tap (the signed per-helper accept link, no
+    // login). The customer's own words ride along so the helper knows exactly
+    // what they're saying yes to.
     if (!quiet && resendKey) {
-      const when = scheduled_date ?? 'flexible';
-
       const emailResults = await Promise.allSettled(
         (helpers as Array<{ id: string; name: string; phone: string; email?: string }>)
           .filter((h) => h.email)
@@ -729,15 +771,25 @@ serve(async (req) => {
             const acceptUrl = acceptUrlFor(h.id);
             const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
-  <div style="background:#4a7c59;padding:32px 32px 24px;">
-    <p style="margin:0;color:#fff;font-size:22px;font-weight:700;">New job available 🏠</p>
+  <div style="background:#4a7c59;padding:26px 28px 20px;">
+    <p style="margin:0 0 6px;color:#dcebe0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">New job near you</p>
+    <p style="margin:0;color:#fff;font-size:28px;font-weight:800;line-height:1.15;">${earnCents ? `Earn ${fmtEuro(earnCents)}` : escapeHtml(jobLabel)}</p>
+    ${earnCents && isDirectPay ? `<p style="margin:6px 0 0;color:#dcebe0;font-size:13px;font-weight:600;">Paid straight to you — you keep 100%</p>` : ''}
   </div>
-  <div style="padding:28px 32px;">
-    <p style="margin:0 0 8px;color:#111827;font-size:15px;">Hi ${firstName}!</p>
-    ${earnCents ? `<p style="margin:0 0 4px;color:#111827;font-size:26px;font-weight:800;">Earn €${(earnCents / 100).toFixed(2)}</p>` : ''}
-    <p style="margin:0 0 4px;color:#374151;font-size:15px;"><strong>${catLabel}</strong> · ${city ?? 'Ireland'}</p>
-    <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">When: ${when} · First to accept gets it · expires in ${OFFER_TTL_MINUTES} min</p>
-    <a href="${acceptUrl}" style="display:inline-block;background:#4a7c59;color:#fff;font-size:14px;font-weight:600;padding:13px 24px;border-radius:100px;text-decoration:none;">Accept in one tap →</a>
+  <div style="padding:22px 28px 26px;">
+    <p style="margin:0 0 14px;color:#374151;font-size:15px;">Hi ${escapeHtml(firstName)} — first to accept gets it:</p>
+    <table cellpadding="0" cellspacing="0" style="width:100%;background:#f6f8f6;border:1px solid #d5e2d8;border-radius:14px;margin:0 0 18px;">
+      <tr><td style="padding:14px 18px 2px;color:#111827;font-size:16px;font-weight:700;">${escapeHtml(jobLabel)}${duration ? ` · ${escapeHtml(duration)}` : ''}</td></tr>
+      ${jobNote ? `<tr><td style="padding:2px 18px 0;color:#374151;font-size:14px;font-style:italic;line-height:1.5;">&ldquo;${escapeHtml(jobNote)}&rdquo;</td></tr>` : ''}
+      <tr><td style="padding:8px 18px 2px;color:#374151;font-size:14px;">📍 ${escapeHtml(city ?? 'Ireland')}</td></tr>
+      <tr><td style="padding:2px 18px 14px;color:#374151;font-size:14px;">🕐 ${escapeHtml(whenText)}</td></tr>
+    </table>
+    <a href="${acceptUrl}" style="display:block;background:#4a7c59;color:#fff;font-size:17px;font-weight:700;padding:16px 24px;border-radius:100px;text-decoration:none;text-align:center;">Accept this job →</a>
+    <p style="margin:10px 0 0;color:#6b7280;font-size:13px;text-align:center;">One tap claims it — no login needed. This link is just for you.</p>
+    <p style="margin:16px 0 0;color:#9ca3af;font-size:12px;text-align:center;">Offer expires in ${OFFER_TTL_MINUTES} minutes · <a href="${jobUrl}" style="color:#4a7c59;font-weight:600;">see full details first</a></p>
+  </div>
+  <div style="border-top:1px solid #f3f4f6;background:#fafafa;padding:12px 28px;">
+    <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.5;">You get job offers as an approved VANO helper. Pause them anytime — flip &ldquo;Available&rdquo; off in <a href="${siteUrl}/student-dashboard" style="color:#6b7280;">your dashboard</a>.</p>
   </div>
 </div>
 </body></html>`;
@@ -748,10 +800,10 @@ serve(async (req) => {
                 from: resendFrom,
                 to: [h.email!],
                 subject: earnCents
-                  ? `Earn €${(earnCents / 100).toFixed(2)} — ${catLabel} in ${city ?? 'your area'}`
-                  : `New VANO job — ${catLabel} in ${city ?? 'your area'}`,
+                  ? `Earn ${fmtEuro(earnCents)} — ${jobLabel} in ${city ?? 'your area'} (1 tap to accept)`
+                  : `New VANO job — ${jobLabel} in ${city ?? 'your area'}`,
                 html,
-                text: `Hi ${firstName}! ${earnCents ? `Earn €${(earnCents / 100).toFixed(2)} — ` : ''}${catLabel} in ${city ?? 'your area'}, when: ${when}. Tap to accept (first gets it): ${acceptUrl} (expires in ${OFFER_TTL_MINUTES} min)`,
+                text: `Hi ${firstName}! ${earnCents ? `Earn ${fmtEuro(earnCents)}${isDirectPay ? ' (you keep 100%)' : ''} — ` : ''}${jobLabel}${duration ? ` (${duration})` : ''} in ${city ?? 'your area'}. When: ${whenText}.${jobNote ? ` "${jobNote}".` : ''} Accept in one tap (first gets it): ${acceptUrl} — expires in ${OFFER_TTL_MINUTES} min. Full details: ${jobUrl}`,
               }),
             });
             if (!res.ok) {
