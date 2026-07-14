@@ -65,7 +65,7 @@ export const FAQSection: React.FC = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.22, ease: 'easeOut', delay: 0.06 }}
-                        className="px-5 pb-4 text-sm text-muted-foreground leading-relaxed"
+                        className="px-5 pb-4 text-[15px] text-muted-foreground leading-relaxed"
                       >
                         {f.a}
                       </motion.p>

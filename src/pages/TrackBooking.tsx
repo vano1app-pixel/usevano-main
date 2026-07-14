@@ -1031,7 +1031,7 @@ const TrackBooking = () => {
             <p className="font-bold text-foreground text-sm">
               {helperName ? `${helperName} is confirmed — secure your booking` : 'Helper confirmed — secure your booking'}
             </p>
-            <p className="text-foreground/65 text-xs mt-1 leading-relaxed">
+            <p className="text-foreground/70 text-[13px] mt-1 leading-relaxed">
               Pay now to lock in your helper — your payment's protected until the job's confirmed done, money back if it's not right. No cash needed on the day.
             </p>
             {(() => {
@@ -1056,12 +1056,12 @@ const TrackBooking = () => {
                 </>
               );
             })()}
-            <p className="text-center text-[11px] text-muted-foreground mt-2">
+            <p className="text-center text-xs text-muted-foreground mt-2">
               Card, Apple Pay or Google Pay · secured by Stripe · money back guarantee
             </p>
             {/* Contract moment #2 — payment is where the deal is struck, so the
                 independent-provider terms ride with the pay button too. */}
-            <p className="text-center text-[10.5px] text-muted-foreground/80 mt-1.5">
+            <p className="text-center text-xs leading-relaxed text-muted-foreground mt-1.5">
               By paying you agree to VANO's{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
               {' '}— the work is carried out by {helperName ? helperName : 'your helper'}, an independent provider, with{' '}
@@ -1646,7 +1646,7 @@ const TrackBooking = () => {
                 </button>
               ) : (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
-                  <p className="text-[11px] text-muted-foreground mb-2">
+                  <p className="text-xs leading-relaxed text-muted-foreground mb-2">
                     Tell us what went wrong — you’re covered by our money-back guarantee, and accidental damage is covered up to €250 by{' '}
                     <a href="/cover" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Vano Cover</a>
                     {' '}(photos help).

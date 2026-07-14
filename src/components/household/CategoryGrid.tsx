@@ -503,14 +503,14 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
       key={key}
       type="button"
       onClick={onPick}
-      className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-white px-3.5 py-3 text-left hover:border-sage/60 hover:bg-sage-light/30 active:scale-[0.99] transition-[border-color,background-color,transform] duration-150"
+      className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-white px-3.5 py-3.5 text-left hover:border-sage/60 hover:bg-sage-light/30 active:scale-[0.99] transition-[border-color,background-color,transform] duration-150"
     >
-      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-xl leading-none" aria-hidden="true">{emoji}</span>
+      <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-2xl leading-none" aria-hidden="true">{emoji}</span>
       <span className="flex-1 min-w-0">
-        <span className="block text-sm font-semibold text-foreground truncate">{label}</span>
-        {hint && <span className="block text-[11px] text-muted-foreground truncate">{hint}</span>}
+        <span className="block text-[15px] font-semibold text-foreground truncate">{label}</span>
+        {hint && <span className="block text-xs text-muted-foreground truncate">{hint}</span>}
       </span>
-      <span className="text-xs font-bold text-sage-dark tabular-nums flex-shrink-0">{price}</span>
+      <span className="text-[13px] font-bold text-sage-dark tabular-nums flex-shrink-0">{price}</span>
       <span className="text-muted-foreground/40 text-lg leading-none flex-shrink-0" aria-hidden="true">›</span>
     </button>
   );
@@ -803,6 +803,24 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             </button>
           </div>
 
+          {/* Trust at the decision moment — one glanceable row, absorbed
+              without reading (the Airbnb trick): who's coming, what covers
+              you. The details live in /terms + /cover; this is the signal. */}
+          {step === 'form' && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl bg-sage-light/60 border border-sage/20 px-4 py-2.5 mb-5">
+              {[
+                'ID-verified student',
+                '€250 damage cover',
+                'Money-back guarantee',
+              ].map((t) => (
+                <span key={t} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-sage-dark">
+                  <Check className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={3} aria-hidden="true" />
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+
           {step === 'pick' ? (
             /* ── Wizard page 1: sub-service picker / describe-it ─────────── */
             <motion.div
@@ -861,7 +879,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   More options ↓
                 </button>
               )}
-              <p className="text-center text-[11px] text-muted-foreground mt-4 leading-relaxed">
+              <p className="text-center text-[13px] text-muted-foreground mt-4 leading-relaxed">
                 Fair prices, always — your helper earns above minimum wage on every job.
               </p>
             </motion.div>
@@ -922,7 +940,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 Time + duration below are pre-picked, so number + address is
                 all a new visitor has to type. */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
                 Your phone
                 <AnimatePresence>
                   {phoneValid && (
@@ -949,12 +967,12 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                   phoneError ? 'border-destructive focus:ring-destructive/30' : 'border-border focus:ring-foreground/20',
                 )}
               />
-              <p className="text-[11px] text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
+              <p className="text-xs leading-relaxed text-muted-foreground mt-1.5">We'll text you when someone accepts · non-Irish number? Start with your country code (+44…)</p>
             </motion.div>
 
             {/* Address — Eircode search or current location */}
             <motion.div variants={listItem}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5 flex items-center gap-1.5">
                 Where?
                 <AnimatePresence>
                   {addressValid && (
@@ -982,7 +1000,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 placeholder="Address or Eircode…"
                 showMapPreview={false}
               />
-              <p className="text-[11px] text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
+              <p className="text-xs text-muted-foreground mt-1.5">So your helper knows exactly where to go</p>
             </motion.div>
             </>)}
 
@@ -1014,7 +1032,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                     className="overflow-hidden"
                   >
                     <div className="pt-3">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">When?</p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {timeSlots.map(opt => (
                           <Chip key={opt} group="when" active={when === opt} accent={opt === 'Now'} onClick={() => setWhen(opt)}>
@@ -1023,7 +1041,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                         ))}
                       </div>
                       {/* Book ahead — server grants 10% off scheduled bookings */}
-                      <p className="text-[10px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
+                      <p className="text-[11px] font-semibold text-sage-dark mt-2 mb-1.5">Or book ahead — 10% off</p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                         {TOMORROW_SLOTS.map(opt => (
                           <Chip key={opt} group="when-ahead" active={when === opt} onClick={() => setWhen(opt)}>
@@ -1035,7 +1053,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                       {/* How long? — sensible default pre-selected */}
                       {cat.sizes && (
                         <div className="mt-4">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40 mb-2.5">
                             {cat.sizeLabel ?? 'How long?'}
                           </p>
                           <div className="flex flex-wrap gap-2">
@@ -1084,7 +1102,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
             ) : (
               <motion.div variants={listItem}>
                 <div className="flex items-center justify-between mb-2.5">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-foreground/40">Your area</p>
                   <button type="button" onClick={() => setShowArea(false)} className="text-[11px] font-semibold text-sage-dark px-3 py-3 -mx-3 -my-3">Done</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1158,7 +1176,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
                 </p>
               )}
 
-              <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
                 A nearby helper usually replies in minutes
               </p>
@@ -1180,13 +1198,13 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               )}
             </motion.div>
 
-            <motion.p variants={listItem} className="text-center text-[11px] text-muted-foreground">
+            <motion.p variants={listItem} className="text-center text-[13px] leading-relaxed text-muted-foreground">
               No payment now — you're charged only when a helper accepts, and they're paid only once you confirm it's done. Card, Apple Pay or Google Pay · money-back guarantee
             </motion.p>
             {/* Contract moment: the Terms (incl. "your helper is an independent
                 provider, VANO is the platform") must be incorporated at the
                 point of sale, not just linked in the footer. */}
-            <motion.p variants={listItem} className="text-center text-[10.5px] text-muted-foreground/80">
+            <motion.p variants={listItem} className="text-center text-xs leading-relaxed text-muted-foreground">
               By booking you agree to VANO's{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
               {' '}— your helper is an independent provider, and accidental damage is covered by{' '}
@@ -1204,8 +1222,8 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
         <div className="flex-shrink-0 border-t border-border/50 bg-cream px-5 pt-3 pb-4 space-y-2 shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.22)]">
           {/* Risk-reversal at the decision point — the single most reassuring
               fact (you don't pay until a helper accepts) rides with the CTA. */}
-          <p className="flex items-center justify-center gap-1.5 text-[11.5px] font-semibold text-sage-dark">
-            <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+          <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-sage-dark">
+            <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             No payment until a helper accepts · money-back guarantee
           </p>
 
@@ -1260,7 +1278,7 @@ const Sheet: React.FC<SheetProps> = ({ cat: entryCat, onClose, initialSize, note
               the docked bar, with the typed details riding along. */}
           {submitFailed && (
             <>
-              <p className="text-center text-[11px] text-muted-foreground">
+              <p className="text-center text-xs leading-relaxed text-muted-foreground">
                 Our team can book it for you on WhatsApp in a couple of minutes — your details are ready to send.
               </p>
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
@@ -1381,11 +1399,11 @@ export const CategoryGrid: React.FC = () => {
                   </span>
                 )}
                 <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
-                <span className="mt-1.5 text-[12px] sm:text-sm font-bold text-foreground leading-tight">{c.label}</span>
+                <span className="mt-1.5 text-[13px] sm:text-base font-bold text-foreground leading-tight">{c.label}</span>
                 {fromCents != null && (
-                  <span className="text-[10px] sm:text-xs font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
+                  <span className="text-[11px] sm:text-[13px] font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
                 )}
-                <span className="hidden sm:block text-[10px] text-muted-foreground leading-tight text-center mt-0.5 px-1">{c.hint}</span>
+                <span className="hidden sm:block text-[11px] text-muted-foreground leading-tight text-center mt-0.5 px-1">{c.hint}</span>
               </motion.button>
             );
           })}
@@ -1402,9 +1420,9 @@ export const CategoryGrid: React.FC = () => {
             className="relative flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1.5 py-4 sm:py-5 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <span className="text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">✨</span>
-            <span className="mt-1.5 text-[12px] sm:text-sm font-bold text-white leading-tight">Anything else</span>
-            <span className="text-[10px] sm:text-xs font-medium text-white/60 leading-none">just ask</span>
-            <span className="hidden sm:block text-[10px] text-white/50 leading-tight text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
+            <span className="mt-1.5 text-[13px] sm:text-base font-bold text-white leading-tight">Anything else</span>
+            <span className="text-[11px] sm:text-[13px] font-medium text-white/70 leading-none">just ask</span>
+            <span className="hidden sm:block text-[11px] text-white/55 leading-tight text-center mt-0.5 px-1">Flat-pack, painting, tech, errands…</span>
           </motion.button>
         </motion.div>
       </div>
