@@ -36,6 +36,7 @@ export type TrackEvent =
   // tiles + WhatsApp brought the first bookings; the search bar brought none,
   // which is why the tiles are back as the primary).
   | 'hero_tile_tap'
+  | 'hero_sub_pick'
   | 'hero_usual_tap'
   | 'hero_search_open'
   | 'hero_whatsapp_tap';

@@ -14,10 +14,11 @@ import { track } from '@/lib/track';
 /**
  * Hero = one job: get a tile tapped. Minimal + warm build — one calm
  * social-proof row (Trustpilot + live presence as matching glass chips), a warm
- * heading, the six tap tiles + demoted search bar glowing at centre under an
- * amber halo (CategoryGrid renders both), one gentle reassurance line, and the
- * WhatsApp door beneath. Tap-first because the first real bookings came from
- * the tiles + WhatsApp — the search bar alone brought none.
+ * heading, the six tap tiles glowing at centre under an amber halo
+ * (CategoryGrid renders them + the wizard booking sheet), one gentle
+ * reassurance line, and the WhatsApp door beneath. Tap-ONLY because the first
+ * real bookings came from tiles + WhatsApp — the search bar brought none, so
+ * it's gone; "Anything else" opens the sheet's describe-it page instead.
  */
 
 export const HeroSection: React.FC = () => {
