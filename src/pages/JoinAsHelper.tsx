@@ -829,10 +829,9 @@ export const JoinAsHelper: React.FC = () => {
                         <p className="text-sm font-bold text-foreground">Submit this, verify your ID, and you're earning — free</p>
                       </div>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        One quick step after you submit: a free 2-minute ID check — customers are told
-                        every VANO helper is ID-verified, so jobs only go to verified helpers. Then the
-                        ✓ Verified blue tick: confirm your college email (free) and €2/month keeps the
-                        tick on your name — verified helpers are offered jobs first. Cancel anytime.
+                        One quick step after you submit: a free 2-minute ID check. That's all you need to
+                        start getting jobs — every VANO helper verifies before their first job. The ✓ Verified
+                        blue tick is a separate, optional €2/month badge; you never pay to get work.
                       </p>
                     </div>
 

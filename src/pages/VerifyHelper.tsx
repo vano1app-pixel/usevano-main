@@ -121,6 +121,10 @@ const VerifyHelper: React.FC = () => {
   // everyone landing here from /join. Read from the DB rather than assumed,
   // so an admin-suspended helper doesn't see a false "you're live".
   const [isLive, setIsLive] = useState(false);
+  // "Skip for now" is a two-tap confirm: the first tap reveals the honest
+  // warning (no jobs until you verify), the second leaves the page — so a
+  // helper can't skip without being told the consequence.
+  const [skipWarn, setSkipWarn] = useState(false);
 
   // Does this browser have a real auth session? Phone-gated helpers (the
   // free-to-join default) don't — and the /student-dashboard is auth-only,
@@ -311,7 +315,7 @@ const VerifyHelper: React.FC = () => {
 
   return (
     <>
-      <SEOHead title="Get VANO Verified — earn your blue tick" description="Verify your ID (free, 2 minutes) to take your first VANO job — jobs only go to ID-verified helpers. Then €2/month keeps the ✓ Verified tick on your name." noindex />
+      <SEOHead title="Verify your ID — free, unlocks VANO jobs" description="Verify your ID free in 2 minutes to start getting VANO jobs — every helper must verify before their first job. The €2/month blue tick is optional and cosmetic; you never pay to get work." noindex />
       <HouseholdNav />
 
       <main className="pt-28 pb-20 px-4">
@@ -326,18 +330,23 @@ const VerifyHelper: React.FC = () => {
             </h1>
             <p className="text-muted-foreground leading-relaxed mb-8">
               {idState === 'verified' ? (
-                <>Your ID is verified — jobs near you can reach you. Now earn the{' '}</>
+                <><span className="font-semibold text-foreground">Your ID is verified — you'll start getting jobs.</span>{' '}
+                That's the only thing you need. Want the{' '}
+                <span className="font-semibold text-foreground inline-flex items-center gap-1">
+                  <BadgeCheck className="w-4 h-4 fill-sky-500 text-white inline" aria-hidden="true" />
+                  blue tick
+                </span>{' '}
+                on your profile too? That's the optional €2/month below.</>
               ) : (
-                <>One free step before your first job: <span className="font-semibold text-foreground">verify your ID below</span> —
-                customers are promised every VANO helper is ID-verified, so jobs only go to verified helpers.
-                It also counts toward the{' '}</>
+                <>Every VANO helper verifies their ID before their first job — it's{' '}
+                <span className="font-semibold text-foreground">free, takes about 2 minutes, and it's all you need to start getting jobs</span>.
+                The{' '}
+                <span className="font-semibold text-foreground inline-flex items-center gap-1">
+                  <BadgeCheck className="w-4 h-4 fill-sky-500 text-white inline" aria-hidden="true" />
+                  blue tick
+                </span>{' '}
+                is a separate, <span className="font-semibold text-foreground">optional</span> €2/month badge — nice to have, but you never pay to get work.</>
               )}
-              <span className="font-semibold text-foreground inline-flex items-center gap-1">
-                <BadgeCheck className="w-4 h-4 fill-sky-500 text-white inline" aria-hidden="true" />
-                Verified blue tick
-              </span>{' '}
-              — customers look for it, and verified helpers are <span className="font-semibold text-foreground">offered jobs first</span>.
-              Two free checks, then €2/month keeps the tick on your name. Cancel anytime.
             </p>
           </motion.div>
 
@@ -357,14 +366,14 @@ const VerifyHelper: React.FC = () => {
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
                   <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
                   <p className="text-base font-bold text-foreground">
-                    {hasTick ? "You're live and Verified ✓ 🎉" : idState === 'verified' ? "You're live on VANO" : 'Approved — one step to go live'}
+                    {hasTick ? "You're verified — blue tick on ✓ 🎉" : idState === 'verified' ? "You're verified — you'll get jobs 🎉" : 'Approved — one free step to go live'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 mb-4">
                     {hasTick
-                      ? 'The blue tick is on your name. Set yourself Available and jobs near you reach you first.'
+                      ? 'Set yourself Available and jobs near you reach you first. The blue tick is on your name.'
                       : idState === 'verified'
-                        ? 'Jobs can now come through. Finish the steps below to earn your ✓ Verified tick — verified helpers are offered jobs first.'
-                        : 'Verify your ID below (free, about 2 minutes) and jobs near you can start reaching you — offers only go to ID-verified helpers.'}
+                        ? 'Set yourself Available and job offers will start coming through. The blue tick below is an optional €2/month extra — you don\'t need it to get work.'
+                        : 'Verify your ID below (free, about 2 minutes) and job offers start coming through — every helper verifies before their first job.'}
                   </p>
                   {(hasTick || idState === 'verified') && (
                     <a href={homeHref} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">{homeLabel} <ArrowRight className="w-4 h-4" /></a>
@@ -372,10 +381,11 @@ const VerifyHelper: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* The three steps that earn the tick */}
+              {/* The two FREE checks that verify you and unlock jobs. The €2
+                  blue tick is a separate optional step below its own divider. */}
               <div className="flex items-center gap-2 pt-2" aria-hidden="true">
                 <span className="h-px flex-1 bg-border" />
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Earn your ✓ Verified tick</span>
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-sage-dark">Get verified — free, unlocks jobs</span>
                 <span className="h-px flex-1 bg-border" />
               </div>
 
@@ -467,14 +477,23 @@ const VerifyHelper: React.FC = () => {
                 )}
               </VerifyCard>
 
-              {/* Step 3 — the €2/month plan that switches the tick on. Only
-                  unlockable once both free checks pass, so nobody ever pays
-                  for a tick that can't render. */}
-              <VerifyCard icon={<BadgeCheck className="w-5 h-5" />} step="3" title="Turn on your blue tick — €2/month" done={planState === 'active'}>
+              {/* Optional extra — clearly fenced off from the free verification
+                  above, so nobody thinks the €2 is needed to get jobs. */}
+              <div className="flex items-center gap-2 pt-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-border" />
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Optional — the blue tick</span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* The €2/month plan that switches the tick on. Purely the
+                  cosmetic badge — it does NOT gate jobs (the free ID check
+                  does). Only unlockable once both free checks pass, so nobody
+                  ever pays for a tick that can't render. */}
+              <VerifyCard icon={<BadgeCheck className="w-5 h-5" />} step="3" title="Add the blue tick — optional, €2/month" done={planState === 'active'}>
                 {planState === 'active' ? (
                   <p className="text-sm text-muted-foreground">
                     {checksDone
-                      ? 'Your ✓ Verified tick is live. 💙 Manage or cancel anytime from your account page.'
+                      ? 'Your ✓ Verified blue tick is live. 💙 Manage or cancel anytime from your account page.'
                       : 'Plan active — your tick appears the moment the two checks above pass.'}
                   </p>
                 ) : planState === 'confirming' ? (
@@ -482,22 +501,60 @@ const VerifyHelper: React.FC = () => {
                 ) : (
                   <div className="space-y-2.5">
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      The blue tick shows on your name everywhere customers see you — and verified helpers are offered jobs first.
-                      €2/month, cancel anytime. Card, Apple Pay or Google Pay.
+                      <span className="font-semibold text-foreground">You already get jobs without this.</span> The blue tick is just the
+                      VANO Verified badge customers see on your name — and it bumps you up the list when jobs go out. €2/month, cancel anytime.
                     </p>
                     {!checksDone && (
                       <p className="text-xs font-medium text-foreground/60 flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                        Unlocks once steps 1 and 2 are done
+                        Unlocks once you're verified (steps 1 and 2)
                       </p>
                     )}
                     {planError && <p className="text-xs text-destructive">{planError}</p>}
                     <Button onClick={() => void startPlan()} disabled={planState === 'paying' || !checksDone} className="w-full rounded-full font-semibold gap-2">
-                      {planState === 'paying' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : <>Activate my tick — €2/month <BadgeCheck className="w-4 h-4" /></>}
+                      {planState === 'paying' ? <><Loader2 className="w-4 h-4 animate-spin" />Opening…</> : <>Add my blue tick — €2/month <BadgeCheck className="w-4 h-4" /></>}
                     </Button>
                   </div>
                 )}
               </VerifyCard>
+
+              {/* Skip for now — verification is part of joining, but a helper
+                  can leave and come back. The two-tap confirm makes sure they
+                  leave KNOWING they get no jobs until their ID is verified. */}
+              {idState !== 'verified' && (
+                <div className="text-center pt-1">
+                  {skipWarn ? (
+                    <div className="rounded-2xl border border-amber-300/70 bg-amber-50 p-4">
+                      <p className="text-sm text-amber-900 leading-relaxed mb-3">
+                        Heads up — until your ID is verified you <span className="font-semibold">won't get any job offers</span>. You can come back and finish anytime (it takes 2 minutes).
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSkipWarn(false)}
+                          className="flex-1 h-10 rounded-full bg-sage text-white text-sm font-semibold"
+                        >
+                          Verify now
+                        </button>
+                        <a
+                          href={homeHref}
+                          className="flex-1 h-10 rounded-full border border-border text-foreground/70 text-sm font-semibold flex items-center justify-center"
+                        >
+                          Skip anyway
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { haptic(6); setSkipWarn(true); }}
+                      className="text-sm font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors py-2"
+                    >
+                      Skip for now
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Payout nudge — phone-gated friendly (the account page hosts
                   payout setup now, no sign-in needed). */}
