@@ -288,8 +288,16 @@ const StudentDashboard = () => {
       setHelperAvailable(next);
       // Going on-duty is the helper's most important action — confirm it with
       // a haptic tap (firmer when going live) and a short reassurance toast.
+      // Honest version for unverified helpers: available ≠ receiving jobs
+      // until the free ID check is done (the first-job gate in dispatch).
       haptic(next ? 16 : 8);
-      if (next) toast({ title: "You're live", description: 'New jobs near you will reach you first.' });
+      if (next) {
+        if (helperIdVerified === false) {
+          toast({ title: "You're available — one step left", description: 'Verify your ID (free, 2 minutes) so jobs can reach you — offers only go to ID-verified helpers.' });
+        } else {
+          toast({ title: "You're live", description: 'New jobs near you will reach you first.' });
+        }
+      }
     } else {
       // Availability gates ALL job dispatch — a silent failure here means the
       // helper thinks they're on duty and receives nothing, with no signal why.

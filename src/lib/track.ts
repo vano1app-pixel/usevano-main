@@ -31,7 +31,14 @@ export type TrackEvent =
   | 'auth_magic_link_sent'
   | 'auth_magic_link_resent'
   | 'publish_failed'
-  | 'ai_find_checkout_started';
+  | 'ai_find_checkout_started'
+  // Hero front-door instrumentation — which door actually converts (the tap
+  // tiles + WhatsApp brought the first bookings; the search bar brought none,
+  // which is why the tiles are back as the primary).
+  | 'hero_tile_tap'
+  | 'hero_usual_tap'
+  | 'hero_search_open'
+  | 'hero_whatsapp_tap';
 
 export function track(event: TrackEvent, props: Record<string, unknown> = {}): void {
   // PostHog mirror — dynamic import keeps posthog-js out of the entry

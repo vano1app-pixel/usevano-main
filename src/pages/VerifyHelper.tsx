@@ -311,7 +311,7 @@ const VerifyHelper: React.FC = () => {
 
   return (
     <>
-      <SEOHead title="Get VANO Verified — earn your blue tick" description="You're live on VANO the moment you join. Confirm your student email and ID, then €2/month keeps the ✓ Verified tick on your name." noindex />
+      <SEOHead title="Get VANO Verified — earn your blue tick" description="Verify your ID (free, 2 minutes) to take your first VANO job — jobs only go to ID-verified helpers. Then €2/month keeps the ✓ Verified tick on your name." noindex />
       <HouseholdNav />
 
       <main className="pt-28 pb-20 px-4">
@@ -325,7 +325,13 @@ const VerifyHelper: React.FC = () => {
               {name ? `You're in, ${name.split(' ')[0]} 🎉` : "You're in 🎉"}
             </h1>
             <p className="text-muted-foreground leading-relaxed mb-8">
-              You're live on VANO — jobs near you can already reach you. Now earn the{' '}
+              {idState === 'verified' ? (
+                <>Your ID is verified — jobs near you can reach you. Now earn the{' '}</>
+              ) : (
+                <>One free step before your first job: <span className="font-semibold text-foreground">verify your ID below</span> —
+                customers are promised every VANO helper is ID-verified, so jobs only go to verified helpers.
+                It also counts toward the{' '}</>
+              )}
               <span className="font-semibold text-foreground inline-flex items-center gap-1">
                 <BadgeCheck className="w-4 h-4 fill-sky-500 text-white inline" aria-hidden="true" />
                 Verified blue tick
@@ -343,17 +349,26 @@ const VerifyHelper: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Live banner — free-to-join means they're already in. */}
+              {/* Status banner. "Live" is only claimed once the ID check has
+                  passed — since the first-job gate, an approved-but-unverified
+                  helper receives NO offers, so telling them "jobs can come
+                  through" would be false. */}
               {isLive && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-sage-light border border-sage/30 p-5 text-center">
                   <CheckCircle2 className="w-9 h-9 text-sage mx-auto mb-1.5" />
-                  <p className="text-base font-bold text-foreground">{hasTick ? "You're live and Verified ✓ 🎉" : "You're live on VANO"}</p>
+                  <p className="text-base font-bold text-foreground">
+                    {hasTick ? "You're live and Verified ✓ 🎉" : idState === 'verified' ? "You're live on VANO" : 'Approved — one step to go live'}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1 mb-4">
                     {hasTick
                       ? 'The blue tick is on your name. Set yourself Available and jobs near you reach you first.'
-                      : 'Jobs can now come through. Finish the steps below to earn your ✓ Verified tick — verified helpers are offered jobs first.'}
+                      : idState === 'verified'
+                        ? 'Jobs can now come through. Finish the steps below to earn your ✓ Verified tick — verified helpers are offered jobs first.'
+                        : 'Verify your ID below (free, about 2 minutes) and jobs near you can start reaching you — offers only go to ID-verified helpers.'}
                   </p>
-                  <a href={homeHref} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">{homeLabel} <ArrowRight className="w-4 h-4" /></a>
+                  {(hasTick || idState === 'verified') && (
+                    <a href={homeHref} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-white px-6 py-2.5 text-sm font-semibold">{homeLabel} <ArrowRight className="w-4 h-4" /></a>
+                  )}
                 </motion.div>
               )}
 

@@ -16,6 +16,7 @@ import { deriveArea } from '@/lib/areaFromAddress';
 import { getHouseholdPriceCents } from '@/lib/householdPricing';
 import { searchCustomJobs, isShortVisit, VANO_HOURLY_CENTS, STARTER_CUSTOM_JOBS, type CustomJob } from '@/lib/customJobs';
 import { isValidPhone, normalizePhoneE164 } from '@/lib/validation';
+import { track } from '@/lib/track';
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
@@ -70,11 +71,14 @@ const CATEGORIES: Category[] = [
   // catalogue (src/lib/customJobs.ts), not as a quick-book tile.
 ];
 
-// The front door is now ONE centered search bar: type → matching jobs drop down
-// → pick one → see the VANO-vs-market price. The CATEGORIES above still power
-// the booking sheet for returning customers ("book your usual"), deep links and
-// the vano:select-category event — they're just no longer the way IN. Everything
-// prices through the canonical custom rate (€18/hr, src/lib/customJobs.ts).
+// The front door is TAP-FIRST again (July 2026): the first real bookings came
+// through the tap tiles + WhatsApp, and the search bar alone brought none —
+// typing is work, tapping isn't. So the CATEGORIES above render as a 6-tile
+// grid (5 services + "Anything else") that opens the booking sheet in one tap,
+// and the search bar sits beneath as the door for custom "name any job"
+// requests. Every entry is tracked (hero_tile_tap / hero_search_open /
+// hero_usual_tap) so the tiles-vs-search question is answered with data next
+// time. Custom requests still price through the canonical €18/hr rate.
 
 // How long the job takes — drives the custom hourly price + the comparison.
 const DURATIONS = ['1 hour', '2 hours', '3 hours', '4 hours', '5 hours', '6 hours', '7 hours', '8 hours'];
@@ -1025,9 +1029,10 @@ export const CategoryGrid: React.FC = () => {
     setTakeover(true);
     setOpen(true);
     setActiveIndex(0);
+    track('hero_search_open'); // tiles-vs-search: count every search entry
   }, []);
   // Closing also resets `open` so the hero bar returns to its idle state
-  // (gold pulse ring) rather than a half-engaged one.
+  // rather than a half-engaged one.
   const closeTakeover = useCallback(() => { setTakeover(false); setOpen(false); }, []);
 
   // Lock the page + tuck the bottom nav away while the takeover is up (same
@@ -1382,28 +1387,95 @@ export const CategoryGrid: React.FC = () => {
   return (
     <>
       <div id="category-grid" aria-label="What do you need help with?" className="relative mx-auto w-full max-w-xl scroll-mt-24">
-        {/* Big centered search bar — type, pick a job from the dropdown, see the price */}
+        {/* ── The tap tiles — the primary front door ─────────────────────────
+            One tap opens the booking sheet at that service (sizes → price →
+            phone → WhatsApp option → pay-after-accept). This is the flow that
+            produced the first real bookings; the search bar below is the door
+            for everything else. */}
+        {usual && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { haptic(10); track('hero_usual_tap', { category: usual.cat.slug }); openSheet(usual.cat, { size: usual.size }); }}
+            className="tile-float mb-2.5 flex w-full items-center gap-3 rounded-2xl border border-gold/50 bg-white px-4 py-3 text-left ring-1 ring-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          >
+            <span className="text-2xl leading-none flex-shrink-0" aria-hidden="true">{usual.cat.emoji}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-bold text-foreground truncate">
+                Book your usual{usual.price ? ` · ${usual.price}` : ''}
+              </span>
+              <span className="block text-[11px] text-muted-foreground truncate">
+                {usual.cat.label}{usual.size ? ` · ${usual.size}` : ''} · details saved — one tap
+              </span>
+            </span>
+            <span className="text-gold text-lg font-bold leading-none flex-shrink-0" aria-hidden="true">↻</span>
+          </motion.button>
+        )}
+        <motion.div
+          role="group"
+          aria-label="Book a service in one tap"
+          className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-2.5"
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+        >
+          {CATEGORIES.map((c) => {
+            const fromCents = getPriceCents(c.slug, c.sizes?.[0] ?? DEFAULT_SIZE[c.slug] ?? '');
+            return (
+              <motion.button
+                key={c.slug}
+                type="button"
+                variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+                onClick={() => { haptic(10); track('hero_tile_tap', { category: c.slug }); openSheet(c); }}
+                aria-label={`Book ${c.label}${fromCents ? ` — from ${fmt(fromCents)}` : ''}`}
+                className="tile-float flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-black/5 bg-white px-1 py-3 sm:py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                <span className="text-2xl sm:text-3xl leading-none select-none" aria-hidden="true">{c.emoji}</span>
+                <span className="mt-1 text-[11px] sm:text-sm font-bold text-foreground leading-tight">{c.label}</span>
+                {fromCents != null && (
+                  <span className="text-[10px] sm:text-xs font-semibold text-sage-dark tabular-nums leading-none">from {fmt(fromCents)}</span>
+                )}
+              </motion.button>
+            );
+          })}
+          {/* The 6th tile — glassy on the navy, the door into search for the
+              ~100-job custom catalogue ("name any job"). */}
+          <motion.button
+            type="button"
+            variants={{ hidden: { opacity: 0, y: 12, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1 } }}
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+            onClick={() => {
+              haptic(10);
+              if (isMobile) openTakeover();
+              else { track('hero_search_open'); inputRef.current?.focus(); }
+            }}
+            aria-label="Something else — search any job"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/20 bg-white/[0.08] px-1 py-3 sm:py-4 backdrop-blur-sm shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          >
+            <span className="text-2xl sm:text-3xl leading-none select-none" aria-hidden="true">✨</span>
+            <span className="mt-1 text-[11px] sm:text-sm font-bold text-white leading-tight">Anything else</span>
+            <span className="text-[10px] sm:text-xs font-medium text-white/60 leading-none">just ask</span>
+          </motion.button>
+        </motion.div>
+
+        {/* The search bar — demoted to the custom-job door ("name any job"),
+            still the same dropdown / full-screen takeover underneath. */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="relative"
         >
-          {/* Idle "tap me" pulse — a soft gold halo breathes around the bar
-              until the visitor focuses it, so it reads as the thing to act on.
-              Stops the moment they engage (focus/type/pick); reduced-motion
-              users never see it move. */}
-          {!open && !job && !query.trim() && (
-            <motion.span
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-1 rounded-[1.4rem] ring-2 ring-gold/50"
-              initial={{ opacity: 0, scale: 1 }}
-              animate={{ opacity: [0, 0.6, 0], scale: [1, 1.035, 1] }}
-              transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 1.4, ease: 'easeInOut' }}
-            />
-          )}
           <div
-            className="search-shell flex cursor-text items-center gap-3 overflow-hidden rounded-2xl bg-white px-5 h-16 sm:h-[72px] transition-shadow duration-200 hover:shadow-[0_16px_44px_-14px_rgba(0,0,0,0.3)]"
+            className="search-shell flex cursor-text items-center gap-2.5 overflow-hidden rounded-2xl bg-white px-4 h-12 sm:h-14 transition-shadow duration-200 hover:shadow-[0_16px_44px_-14px_rgba(0,0,0,0.3)]"
             onClick={() => { if (isMobile) openTakeover(); else inputRef.current?.focus(); }}
             onMouseMove={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
@@ -1412,7 +1484,7 @@ export const CategoryGrid: React.FC = () => {
             }}
           >
             <span aria-hidden="true" className="search-spotlight pointer-events-none absolute inset-0" />
-            <Search className="relative z-10 w-6 h-6 text-foreground/70 flex-shrink-0" aria-hidden="true" />
+            <Search className="relative z-10 w-5 h-5 text-foreground/70 flex-shrink-0" aria-hidden="true" />
             <input
               ref={inputRef}
               id="custom-job-input"
@@ -1454,7 +1526,7 @@ export const CategoryGrid: React.FC = () => {
               aria-controls="job-suggestions"
               aria-activedescendant={open && !job && displayJobs[activeIndex] ? `job-opt-${displayJobs[activeIndex].key}` : undefined}
               aria-autocomplete="list"
-              className="relative z-10 flex-1 min-w-0 bg-transparent text-lg sm:text-xl text-foreground placeholder:text-foreground/55 focus:outline-none"
+              className="relative z-10 flex-1 min-w-0 bg-transparent text-[15px] sm:text-base text-foreground placeholder:text-foreground/55 focus:outline-none"
             />
             {query && (
               <button
@@ -1481,9 +1553,9 @@ export const CategoryGrid: React.FC = () => {
                 inputRef.current?.focus();
               }}
               aria-label={job ? 'Book this job' : 'Search'}
-              className="btn-gold relative z-10 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
+              className="btn-gold relative z-10 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-navy transition-transform duration-150 hover:scale-105 active:scale-90"
             >
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 
