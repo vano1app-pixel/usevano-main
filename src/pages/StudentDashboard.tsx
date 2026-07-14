@@ -697,13 +697,13 @@ const StudentDashboard = () => {
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
-                Get VANO Verified
+                {!helperIdVerified ? 'Verify your ID to get jobs' : 'Add your blue tick'}
                 <BadgeCheck size={16} className="fill-sky-500 text-white flex-shrink-0" aria-hidden="true" />
               </span>
               <span className="block text-xs text-muted-foreground mt-0.5">
-                {!helperEmailVerified || !helperIdVerified
-                  ? 'Verify your ID (free, and required before your first job) and confirm your student email, then €2/month keeps the blue tick on your name — verified helpers get offered jobs first.'
-                  : 'Checks done ✓ — activate the €2/month plan to switch your blue tick on. Cancel anytime.'}
+                {!helperIdVerified
+                  ? "Free 2-minute ID check — every helper verifies before their first job, and you won't get offers until it's done. Tap to verify now."
+                  : 'You\'re verified and getting jobs. The blue tick is an optional €2/month badge (customers see it, and it bumps you up the list). Cancel anytime.'}
               </span>
             </span>
             <ChevronRight size={16} className="text-muted-foreground/50 flex-shrink-0" />
